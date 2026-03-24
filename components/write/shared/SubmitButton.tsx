@@ -1,0 +1,36 @@
+"use client";
+
+interface SubmitButtonProps {
+  label?: string;
+  submitting?: boolean;
+  onCancel?: () => void;
+  disabled?: boolean;
+}
+
+export function SubmitButton({
+  label = "등록하기",
+  submitting = false,
+  onCancel,
+  disabled = false,
+}: SubmitButtonProps) {
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-30 flex gap-2 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] safe-area-pb">
+      {onCancel && (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-gray-300 px-4 py-2.5 text-[15px] text-gray-600"
+        >
+          취소
+        </button>
+      )}
+      <button
+        type="submit"
+        disabled={disabled || submitting}
+        className="flex-1 rounded-lg bg-signature py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
+      >
+        {submitting ? "등록 중…" : label}
+      </button>
+    </div>
+  );
+}

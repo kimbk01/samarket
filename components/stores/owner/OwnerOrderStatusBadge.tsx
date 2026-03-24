@@ -1,0 +1,42 @@
+"use client";
+
+import type { OwnerOrderStatus } from "@/lib/store-owner/types";
+
+/** 배달K형 카드 뱃지 — 매장 주문 기준(`store-order-process-criteria`)과 톤 맞춤 */
+const LABEL: Record<OwnerOrderStatus, string> = {
+  pending: "신규",
+  accepted: "주문확인",
+  preparing: "상품준비",
+  ready_for_pickup: "픽업준비",
+  delivering: "배송중",
+  arrived: "배송지도착",
+  completed: "주문완료",
+  cancel_requested: "취소요청",
+  cancelled: "취소",
+  refund_requested: "환불요청",
+  refunded: "환불완료",
+};
+
+const CLS: Record<OwnerOrderStatus, string> = {
+  pending: "bg-amber-100 text-amber-950 ring-amber-200",
+  accepted: "bg-sky-100 text-sky-950 ring-sky-200",
+  preparing: "bg-orange-100 text-orange-950 ring-orange-200",
+  ready_for_pickup: "bg-indigo-100 text-indigo-950 ring-indigo-200",
+  delivering: "bg-violet-100 text-violet-950 ring-violet-200",
+  arrived: "bg-fuchsia-100 text-fuchsia-950 ring-fuchsia-200",
+  completed: "bg-emerald-100 text-emerald-900 ring-emerald-200",
+  cancel_requested: "bg-amber-200 text-amber-950 ring-amber-300",
+  cancelled: "bg-gray-200 text-gray-800 ring-gray-300",
+  refund_requested: "bg-red-100 text-red-900 ring-red-200",
+  refunded: "bg-gray-100 text-gray-700 ring-gray-200",
+};
+
+export function OwnerOrderStatusBadge({ status }: { status: OwnerOrderStatus }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1 ring-inset ${CLS[status]}`}
+    >
+      {LABEL[status]}
+    </span>
+  );
+}

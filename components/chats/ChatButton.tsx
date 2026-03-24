@@ -1,0 +1,58 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
+
+interface ChatButtonProps {
+  productId: string;
+  /** 당근형: 있으면 "대화중인 채팅" 표시, 클릭 시 해당 방으로 이동 */
+  existingRoomId?: string | null;
+  disabled?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+/**
+ * 당근형: 채팅하기 / 대화중인 채팅
+ * - existingRoomId 없음 → "채팅하기", createOrGetChatRoom 후 이동
+ * - existingRoomId 있음 → "대화중인 채팅", 해당 방으로 이동
+ */
+export function ChatButton({ productId, existingRoomId, disabled, className, children }: ChatButtonProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const hasExisting = !!existingRoomId;
+  const label = hasExisting ? "대화중인 채팅" : (children ?? "채팅하기");
+
+  const handleClick = async () => {
+    setError("");
+    if (hasExisting) {
+      router.push(`/chats/${existingRoomId}`);
+      return;
+    }
+    setLoading(true);
+    const res = await createOrGetChatRoom(productId);
+    setLoading(false);
+    if (res.ok) {
+      router.push(`/chats/${res.roomId}`);
+    } else {
+      setError(res.error);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-stretch">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={disabled || loading}
+        className={className ?? "rounded-none bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
+      >
+        {loading ? "이동 중..." : label}
+      </button>
+      {error && <p className="mt-1 text-[12px] text-red-600">{error}</p>}
+    </div>
+  );
+}

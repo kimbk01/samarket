@@ -1,0 +1,281 @@
+import {
+  BOTTOM_NAV_BUILTIN_IDS,
+  BOTTOM_NAV_ITEMS,
+  type BottomNavBuiltinTabId,
+  type BottomNavIconKey,
+  type BottomNavItemConfig,
+} from "@/lib/main-menu/bottom-nav-config";
+import type { MainBottomNavAdminRow, MainBottomNavStoredItem, MainBottomNavStoredPayload } from "@/lib/main-menu/main-bottom-nav-types";
+
+const BUILTIN_SET = new Set<string>(BOTTOM_NAV_BUILTIN_IDS);
+
+const ICON_SET = new Set<string>(BOTTOM_NAV_BUILTIN_IDS);
+
+const MAX_ITEMS = 10;
+
+const CUSTOM_TAB_ID_RE = /^custom_[a-zA-Z0-9_-]{1,40}$/;
+
+export function isBuiltinBottomNavTabId(id: string): id is BottomNavBuiltinTabId {
+  return BUILTIN_SET.has(id);
+}
+
+export function isCustomBottomNavTabId(id: string): boolean {
+  return CUSTOM_TAB_ID_RE.test(id);
+}
+
+export function generateCustomBottomNavTabId(): string {
+  return `custom_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function isIconKey(v: unknown): v is BottomNavIconKey {
+  return typeof v === "string" && ICON_SET.has(v);
+}
+
+/** 내부 경로만 허용 (오픈 리다이렉트 방지) */
+export function isSafeMainBottomNavHref(v: unknown): v is string {
+  if (typeof v !== "string") return false;
+  const t = v.trim();
+  if (t.length === 0 || t.length > 160) return false;
+  if (!t.startsWith("/")) return false;
+  if (t.includes("//") || t.includes("..")) return false;
+  return /^\/[A-Za-z0-9/_-]*$/.test(t);
+}
+
+function trimLabel(v: unknown, fallback: string): string {
+  if (typeof v !== "string") return fallback;
+  const t = v.trim().slice(0, 24);
+  return t.length > 0 ? t : fallback;
+}
+
+function cloneDefaults(): BottomNavItemConfig[] {
+  return BOTTOM_NAV_ITEMS.map((row) => ({ ...row }));
+}
+
+function defaultById(): Map<BottomNavBuiltinTabId, BottomNavItemConfig> {
+  const m = new Map<BottomNavBuiltinTabId, BottomNavItemConfig>();
+  for (const row of BOTTOM_NAV_ITEMS) m.set(row.id as BottomNavBuiltinTabId, { ...row });
+  return m;
+}
+
+function optTwClass(v: unknown, base: string | undefined): string | undefined {
+  if (typeof v !== "string") return base;
+  const t = v.trim();
+  if (t.length === 0 || t.length > 120) return base;
+  return t;
+}
+
+function isValidTabId(id: string): boolean {
+  return isBuiltinBottomNavTabId(id) || isCustomBottomNavTabId(id);
+}
+
+function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): MainBottomNavAdminRow {
+  const href = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
+  const icon = isIconKey(raw.icon) ? raw.icon : base.icon;
+  return {
+    id: base.id,
+    href,
+    label: trimLabel(raw.label, base.label),
+    icon,
+    iconSizeClass: optTwClass(raw.iconSizeClass, base.iconSizeClass),
+    labelInactiveExtraClass: optTwClass(raw.labelInactiveExtraClass, base.labelInactiveExtraClass),
+    labelActiveExtraClass: optTwClass(raw.labelActiveExtraClass, base.labelActiveExtraClass),
+    iconInactiveClass: optTwClass(raw.iconInactiveClass, base.iconInactiveClass),
+    iconActiveClass: optTwClass(raw.iconActiveClass, base.iconActiveClass),
+    labelInactiveClass: optTwClass(raw.labelInactiveClass, base.labelInactiveClass),
+    labelActiveClass: optTwClass(raw.labelActiveClass, base.labelActiveClass),
+    labelSizeClass: optTwClass(raw.labelSizeClass, base.labelSizeClass),
+    labelFontFamilyClass: optTwClass(raw.labelFontFamilyClass, base.labelFontFamilyClass),
+    visible: raw.visible !== false,
+  };
+}
+
+/** `orders` 탭 추가 이전에 저장된 기본 5내장(집합 일치)일 때만 보강 — 커스텀-only·부분 메뉴는 건드리지 않음 */
+const LEGACY_BUILTIN_FIVE_IDS = new Set<string>([
+  "home",
+  "community",
+  "stores",
+  "chat",
+  "my",
+]);
+
+function isLegacyFiveBuiltinNav(ordered: MainBottomNavAdminRow[]): boolean {
+  const ids = new Set(
+    ordered.filter((r) => isBuiltinBottomNavTabId(r.id)).map((r) => r.id)
+  );
+  if (ids.size !== LEGACY_BUILTIN_FIVE_IDS.size) return false;
+  for (const id of LEGACY_BUILTIN_FIVE_IDS) {
+    if (!ids.has(id)) return false;
+  }
+  return true;
+}
+
+/** `orders` 한 칸만 끼움 — 레거시 5탭 저장본 + 클라이언트 6탭 기본값 불일치로 인한 깜빡임 방지 */
+function backfillOrdersTabIfLegacyFive(ordered: MainBottomNavAdminRow[]): MainBottomNavAdminRow[] {
+  if (!isLegacyFiveBuiltinNav(ordered)) return ordered;
+  if (ordered.some((r) => r.id === "orders")) return ordered;
+
+  const fallback = getDefaultMainBottomNavAdminRows().find((r) => r.id === "orders");
+  if (!fallback) return ordered;
+
+  const result = [...ordered];
+  const insertAt = insertIndexBeforeSuccessorBuiltin(result, "orders");
+  result.splice(insertAt, 0, { ...fallback });
+  return result;
+}
+
+function insertIndexBeforeSuccessorBuiltin(
+  result: MainBottomNavAdminRow[],
+  missingId: BottomNavBuiltinTabId
+): number {
+  const orderIdx = BOTTOM_NAV_BUILTIN_IDS.indexOf(missingId);
+  const immediateNext = BOTTOM_NAV_BUILTIN_IDS[orderIdx + 1];
+  if (immediateNext) {
+    const idx = result.findIndex((r) => r.id === immediateNext);
+    if (idx >= 0) return idx;
+  }
+  let bestI = result.length;
+  let bestBi = Infinity;
+  for (let i = 0; i < result.length; i++) {
+    const rid = result[i].id;
+    if (!isBuiltinBottomNavTabId(rid)) continue;
+    const bi = BOTTOM_NAV_BUILTIN_IDS.indexOf(rid as BottomNavBuiltinTabId);
+    if (bi > orderIdx && bi < bestBi) {
+      bestBi = bi;
+      bestI = i;
+    }
+  }
+  return bestBi < Infinity ? bestI : result.length;
+}
+
+function mergeCustomRow(raw: MainBottomNavStoredItem): MainBottomNavAdminRow | null {
+  const id = typeof raw.id === "string" ? raw.id.trim() : "";
+  if (!isCustomBottomNavTabId(id)) return null;
+  const href = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : "/home";
+  const icon = isIconKey(raw.icon) ? raw.icon : "home";
+  return {
+    id,
+    href,
+    label: trimLabel(raw.label, "새 메뉴"),
+    icon,
+    iconSizeClass: optTwClass(raw.iconSizeClass, undefined),
+    labelInactiveExtraClass: optTwClass(raw.labelInactiveExtraClass, undefined),
+    labelActiveExtraClass: optTwClass(raw.labelActiveExtraClass, undefined),
+    iconInactiveClass: optTwClass(raw.iconInactiveClass, undefined),
+    iconActiveClass: optTwClass(raw.iconActiveClass, undefined),
+    labelInactiveClass: optTwClass(raw.labelInactiveClass, undefined),
+    labelActiveClass: optTwClass(raw.labelActiveClass, undefined),
+    labelSizeClass: optTwClass(raw.labelSizeClass, undefined),
+    labelFontFamilyClass: optTwClass(raw.labelFontFamilyClass, undefined),
+    visible: raw.visible !== false,
+  };
+}
+
+/** 관리자·공통: DB JSON → 전체 행(숨김 포함, 순서 유지) */
+export function resolveMainBottomNavAdminRows(valueJson: unknown): MainBottomNavAdminRow[] {
+  const fallback = getDefaultMainBottomNavAdminRows();
+  if (valueJson == null || typeof valueJson !== "object") {
+    return fallback;
+  }
+
+  const items = (valueJson as MainBottomNavStoredPayload).items;
+  if (!Array.isArray(items) || items.length === 0) {
+    return fallback;
+  }
+
+  const defaults = defaultById();
+  const ordered: MainBottomNavAdminRow[] = [];
+
+  for (const raw of items) {
+    if (raw == null || typeof raw !== "object") continue;
+    const id = String((raw as MainBottomNavStoredItem).id ?? "").trim();
+    if (!isValidTabId(id)) continue;
+
+    if (isBuiltinBottomNavTabId(id)) {
+      const base = defaults.get(id);
+      if (base) ordered.push(mergeRow(base, raw as MainBottomNavStoredItem));
+    } else {
+      const row = mergeCustomRow({ ...(raw as MainBottomNavStoredItem), id });
+      if (row) ordered.push(row);
+    }
+  }
+
+  if (ordered.length === 0) return fallback;
+  return backfillOrdersTabIfLegacyFive(ordered);
+}
+
+/** 앱 하단 탭: 노출 항목만, 순서 유지 */
+export function resolveMainBottomNavDisplayItems(valueJson: unknown): BottomNavItemConfig[] {
+  return resolveMainBottomNavAdminRows(valueJson)
+    .filter((r) => r.visible)
+    .map(({ visible: _v, ...rest }) => rest);
+}
+
+function toStoredItem(merged: MainBottomNavAdminRow): MainBottomNavStoredItem {
+  return {
+    id: merged.id,
+    visible: merged.visible,
+    label: merged.label,
+    href: merged.href,
+    icon: merged.icon,
+    iconSizeClass: merged.iconSizeClass,
+    labelInactiveExtraClass: merged.labelInactiveExtraClass,
+    labelActiveExtraClass: merged.labelActiveExtraClass,
+    iconInactiveClass: merged.iconInactiveClass,
+    iconActiveClass: merged.iconActiveClass,
+    labelInactiveClass: merged.labelInactiveClass,
+    labelActiveClass: merged.labelActiveClass,
+    labelSizeClass: merged.labelSizeClass,
+    labelFontFamilyClass: merged.labelFontFamilyClass,
+  };
+}
+
+/** 저장 전 검증 — 1~10개, id 고유, 내장·custom_* 만, 최소 1개 노출 */
+export function validateMainBottomNavPayload(body: unknown): { ok: true; payload: MainBottomNavStoredPayload } | { ok: false; error: string } {
+  if (body == null || typeof body !== "object") return { ok: false, error: "invalid_body" };
+  const items = (body as MainBottomNavStoredPayload).items;
+  if (!Array.isArray(items)) return { ok: false, error: "items_required" };
+  if (items.length < 1 || items.length > MAX_ITEMS) return { ok: false, error: "items_count" };
+
+  const seen = new Set<string>();
+  let visibleCount = 0;
+
+  for (const raw of items) {
+    if (raw == null || typeof raw !== "object") return { ok: false, error: "item_shape" };
+    const id = String((raw as MainBottomNavStoredItem).id ?? "").trim();
+    if (!isValidTabId(id)) return { ok: false, error: "invalid_id" };
+    if (seen.has(id)) return { ok: false, error: "duplicate_id" };
+    seen.add(id);
+
+    const href = (raw as MainBottomNavStoredItem).href;
+    if (href === undefined || href === null || !isSafeMainBottomNavHref(href)) return { ok: false, error: "invalid_href" };
+
+    const icon = (raw as MainBottomNavStoredItem).icon;
+    if (icon === undefined || icon === null || !isIconKey(icon)) return { ok: false, error: "invalid_icon" };
+
+    const label = (raw as MainBottomNavStoredItem).label;
+    if (typeof label !== "string" || label.trim().length === 0) return { ok: false, error: "invalid_label" };
+
+    if ((raw as MainBottomNavStoredItem).visible !== false) visibleCount += 1;
+  }
+
+  if (visibleCount < 1) return { ok: false, error: "min_one_visible" };
+
+  const defaults = defaultById();
+  const normalized: MainBottomNavStoredItem[] = items.map((raw) => {
+    const r = raw as MainBottomNavStoredItem;
+    const id = String(r.id).trim();
+    if (isBuiltinBottomNavTabId(id)) {
+      const base = defaults.get(id)!;
+      return toStoredItem(mergeRow(base, r));
+    }
+    const custom = mergeCustomRow(r);
+    if (!custom) return { id, visible: true, label: "메뉴", href: "/home", icon: "home" as BottomNavIconKey };
+    return toStoredItem(custom);
+  });
+
+  return { ok: true, payload: { items: normalized } };
+}
+
+export function getDefaultMainBottomNavAdminRows(): MainBottomNavAdminRow[] {
+  return cloneDefaults().map((row) => ({ ...row, visible: true }));
+}

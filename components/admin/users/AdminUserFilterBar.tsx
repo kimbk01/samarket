@@ -1,0 +1,91 @@
+"use client";
+
+import type { AdminUser } from "@/lib/types/admin-user";
+import {
+  MODERATION_STATUS_OPTIONS,
+  MEMBER_TYPE_OPTIONS,
+  SORT_OPTIONS,
+  type AdminUserFilters,
+  type AdminUserSortKey,
+} from "@/lib/admin-users/admin-user-utils";
+
+interface AdminUserFilterBarProps {
+  filters: AdminUserFilters;
+  searchQuery: string;
+  onFiltersChange: (f: AdminUserFilters) => void;
+  onSearchChange: (q: string) => void;
+}
+
+export function AdminUserFilterBar({
+  filters,
+  searchQuery,
+  onFiltersChange,
+  onSearchChange,
+}: AdminUserFilterBarProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        type="text"
+        placeholder="닉네임·로그인 아이디·UUID 검색"
+        value={searchQuery}
+        onChange={(e) => onSearchChange(e.target.value)}
+        className="min-w-[180px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+      />
+      <select
+        value={filters.moderationStatus}
+        onChange={(e) =>
+          onFiltersChange({
+            ...filters,
+            moderationStatus: e.target.value as AdminUserFilters["moderationStatus"],
+          })
+        }
+        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+      >
+        {MODERATION_STATUS_OPTIONS.map((o) => (
+          <option key={o.value || "all"} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={filters.memberType}
+        onChange={(e) =>
+          onFiltersChange({
+            ...filters,
+            memberType: e.target.value as AdminUser["memberType"] | "",
+          })
+        }
+        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+      >
+        {MEMBER_TYPE_OPTIONS.map((o) => (
+          <option key={o.value || "all"} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <input
+        type="text"
+        placeholder="지역"
+        value={filters.location}
+        onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
+        className="min-w-[100px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+      />
+      <select
+        value={filters.sortKey}
+        onChange={(e) =>
+          onFiltersChange({
+            ...filters,
+            sortKey: e.target.value as AdminUserSortKey,
+          })
+        }
+        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+      >
+        {SORT_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}

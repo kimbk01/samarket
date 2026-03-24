@@ -1,0 +1,60 @@
+"use client";
+
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { WriteLauncher } from "@/components/write-launcher/WriteLauncher";
+import { useWriteCategory } from "@/contexts/WriteCategoryContext";
+import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
+
+const CATEGORY_PREFIXES = ["/market/", "/community/", "/services/", "/features/"];
+
+function getCategorySlugFromPath(pathname: string): string | null {
+  for (const prefix of CATEGORY_PREFIXES) {
+    if (pathname.startsWith(prefix)) {
+      const slug = pathname.slice(prefix.length).replace(/\/.*$/, "").trim();
+      return slug || null;
+    }
+  }
+  return null;
+}
+
+export function FloatingAddButton() {
+  const [launcherOpen, setLauncherOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const { writeCategorySlug } = useWriteCategory() ?? { writeCategorySlug: null };
+  const pathSlug = getCategorySlugFromPath(pathname ?? "");
+  const categorySlug = writeCategorySlug ?? pathSlug;
+
+  const handleClick = () => {
+    if (categorySlug) {
+      router.push(`/write/${encodeURIComponent(categorySlug)}`);
+      return;
+    }
+    setLauncherOpen(true);
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.rightOffsetClass} z-10 flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-lg`}
+        aria-label="글쓰기"
+      >
+        <PlusIcon />
+      </button>
+      {launcherOpen && (
+        <WriteLauncher onClose={() => setLauncherOpen(false)} />
+      )}
+    </>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+  );
+}

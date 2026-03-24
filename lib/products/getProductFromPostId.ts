@@ -1,0 +1,145 @@
+/**
+ * 채팅 등에서 사용하는 상품 id가 posts 테이블 id일 때,
+ * 서버에서 post 1건 조회 후 Product 형태로 변환 (상품 상세 페이지용)
+ */
+import type { Product } from "@/lib/types/product";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
+
+function imageUrlFromItem(x: unknown): string | null {
+  if (typeof x === "string" && x.trim()) return x.trim();
+  if (x && typeof x === "object" && !Array.isArray(x)) {
+    const o = x as Record<string, unknown>;
+    const u = o.url ?? o.image_url ?? o.src;
+    if (typeof u === "string" && u.trim()) return u.trim();
+    const sp = o.storage_path;
+    if (typeof sp === "string" && /^https?:\/\//i.test(sp)) return sp.trim();
+  }
+  return null;
+}
+
+function toImages(raw: unknown): string[] | null {
+  if (raw == null) return null;
+  if (Array.isArray(raw)) {
+    const urls: string[] = [];
+    for (const x of raw) {
+      const u = imageUrlFromItem(x);
+      if (u) urls.push(u);
+    }
+    if (urls.length > 0) return urls;
+    const arr = raw.filter((x): x is string => typeof x === "string");
+    return arr.length > 0 ? arr : null;
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        const urls: string[] = [];
+        for (const x of parsed) {
+          const u = imageUrlFromItem(x);
+          if (u) urls.push(u);
+        }
+        if (urls.length > 0) return urls;
+        const arr = parsed.filter((x): x is string => typeof x === "string");
+        return arr.length > 0 ? arr : null;
+      }
+    } catch {
+      /* ignore */
+    }
+    const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts.length > 0 ? parts : null;
+  }
+  return null;
+}
+
+function toPrice(raw: unknown): number {
+  if (raw == null || raw === "") return 0;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+export async function getProductFromPostId(postId: string): Promise<Product | null> {
+  if (!postId?.trim()) return null;
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return null;
+  }
+  try {
+    const sbAny = sb as ReturnType<typeof getSupabaseServer>;
+
+    const { data: row, error } = await sbAny
+      .from("posts")
+      .select("*")
+      .eq("id", postId.trim())
+      .maybeSingle();
+
+    if (error || !row) return null;
+
+    const r = row as Record<string, unknown>;
+    const images = toImages(r.images);
+    const thumbnail =
+      (typeof r.thumbnail_url === "string" && r.thumbnail_url.trim()
+        ? r.thumbnail_url.trim()
+        : images?.[0] ?? "") || "";
+    const price = toPrice(r.price);
+    const authorId = (r.author_id as string) ?? (r.user_id as string) ?? "";
+    const status = (r.status as string) ?? "active";
+    const region = (r.region as string) ?? "";
+    const city = (r.city as string) ?? "";
+    const barangay = (r.barangay as string) ?? "";
+    const location = [region, city, barangay].filter(Boolean).join(" · ") || "—";
+
+    let nickname = authorId.slice(0, 8);
+    if (authorId) {
+      const { data: profile } = await sbAny
+        .from("profiles")
+        .select("nickname, username")
+        .eq("id", authorId)
+        .maybeSingle();
+      if (profile) {
+        const p = profile as Record<string, unknown>;
+        nickname = (p.nickname ?? p.username ?? nickname) as string;
+      } else {
+        const { data: testUser } = await sbAny
+          .from("test_users")
+          .select("display_name, username")
+          .eq("id", authorId)
+          .maybeSingle();
+        if (testUser) {
+          const t = testUser as Record<string, unknown>;
+          nickname = (t.display_name ?? t.username ?? nickname) as string;
+        }
+      }
+    }
+
+    const product: Product = {
+      id: (r.id as string) ?? postId,
+      title: (r.title as string) ?? "",
+      price,
+      location: typeof location === "string" ? location : "—",
+      createdAt: (r.created_at as string) ?? new Date().toISOString(),
+      status: status as Product["status"],
+      thumbnail,
+      likesCount:
+        typeof r.favorite_count === "number" && Number.isFinite(r.favorite_count)
+          ? r.favorite_count
+          : 0,
+      chatCount: 0,
+      isBoosted: false,
+      images: images ?? undefined,
+      description: (r.content as string) ?? undefined,
+      viewCount: typeof r.view_count === "number" ? r.view_count : undefined,
+      seller: {
+        id: authorId,
+        nickname: String(nickname).trim() || authorId.slice(0, 8),
+        avatar: "",
+        location,
+      },
+      sellerId: authorId,
+    };
+    return product;
+  } catch {
+    return null;
+  }
+}

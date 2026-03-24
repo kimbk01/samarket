@@ -1,0 +1,204 @@
+"use client";
+
+import { useCallback, useState, useEffect } from "react";
+import type { Report } from "@/lib/types/report";
+import { getReportByIdFromDb } from "@/lib/admin-reports/getReportsFromDb";
+import {
+  getReportActionsFromDb,
+  labelReportActionType,
+} from "@/lib/admin-reports/getReportActionsFromDb";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminCard } from "@/components/admin/AdminCard";
+import Link from "next/link";
+import { AdminSanctionPanel } from "./AdminSanctionPanel";
+import { MODERATION_ACTION_LABELS } from "@/lib/admin-reports/report-admin-utils";
+
+const STATUS_DISPLAY: Record<string, string> = {
+  pending: "대기",
+  reviewing: "검토중",
+  reviewed: "검토완료",
+  resolved: "처리완료",
+  rejected: "반려",
+  sanctioned: "제재완료",
+};
+
+interface AdminReportDetailPageProps {
+  reportId: string;
+}
+
+export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) {
+  const [report, setReport] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLogs, setActionLogs] = useState<
+    Awaited<ReturnType<typeof getReportActionsFromDb>>
+  >([]);
+
+  const refreshDetail = useCallback(async () => {
+    setLoading(true);
+    const [data, logs] = await Promise.all([
+      getReportByIdFromDb(reportId),
+      getReportActionsFromDb(reportId),
+    ]);
+    setReport(data ?? null);
+    setActionLogs(logs);
+    setLoading(false);
+  }, [reportId]);
+
+  useEffect(() => {
+    refreshDetail();
+  }, [refreshDetail]);
+
+  if (loading && !report) {
+    return (
+      <div className="py-8 text-center text-[14px] text-gray-500">
+        불러오는 중…
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div className="py-8 text-center text-[14px] text-gray-500">
+        신고를 찾을 수 없습니다.
+      </div>
+    );
+  }
+
+
+  return (
+    <div className="space-y-4">
+      <AdminPageHeader title="신고 상세" backHref="/admin/reports" />
+
+      <AdminCard title="신고 정보">
+        <dl className="grid gap-2 text-[14px]">
+          <div>
+            <dt className="text-gray-500">ID</dt>
+            <dd className="font-medium text-gray-900">{report.id}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">유형</dt>
+            <dd>
+              {report.targetType === "product"
+                ? "상품·게시글"
+                : report.targetType === "chat"
+                  ? "채팅"
+                  : report.targetType === "community"
+                    ? "동네생활 피드"
+                    : "사용자"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">대상</dt>
+            <dd className="truncate">{report.targetTitle ?? report.targetId}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">사유</dt>
+            <dd>
+              {report.reasonLabel}
+              {report.detail ? (
+                <span className="mt-1 block whitespace-pre-wrap text-[13px] text-gray-600">{report.detail}</span>
+              ) : null}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">상태</dt>
+            <dd>
+              <span
+                className={`inline-block rounded px-2 py-0.5 text-[12px] ${
+                  report.status === "pending" || report.status === "reviewing"
+                    ? "bg-amber-100 text-amber-800"
+                    : report.status === "rejected" || report.status === "sanctioned"
+                      ? "bg-red-50 text-red-700"
+                      : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {STATUS_DISPLAY[report.status] ?? report.status}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">신고일</dt>
+            <dd>
+              {new Date(report.createdAt).toLocaleString("ko-KR")}
+            </dd>
+          </div>
+        </dl>
+      </AdminCard>
+
+      <AdminCard title="신고자 / 대상자">
+        <dl className="grid gap-2 text-[14px]">
+          <div>
+            <dt className="text-gray-500">신고자</dt>
+            <dd>
+              {report.reporterNickname ?? report.reporterId} ({report.reporterId})
+            </dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">피신고자(게시글 작성자) ID</dt>
+            <dd className="font-mono text-[13px]">{report.targetUserId || "—"}</dd>
+          </div>
+          {report.targetType === "product" && report.targetId && (
+            <div>
+              <dt className="text-gray-500">게시글</dt>
+              <dd className="flex flex-wrap gap-3">
+                <Link href={`/post/${report.targetId}`} className="text-signature hover:underline" target="_blank" rel="noreferrer">
+                  웹에서 글 보기
+                </Link>
+                <Link href="/admin/posts" className="text-[13px] text-gray-600 hover:underline">
+                  게시글 관리 목록
+                </Link>
+              </dd>
+            </div>
+          )}
+        </dl>
+      </AdminCard>
+
+      <AdminCard title="처리 · 제재 (DB 연동)">
+        <p className="mb-3 text-[13px] text-gray-600">
+          반려·경고·채팅 제한·<strong>게시글 숨김</strong>(posts.status → hidden)·계정 정지 등은{" "}
+          <code className="text-[11px]">report_actions</code>에 기록되고, 해당 시{" "}
+          <code className="text-[11px]">sanctions</code>에 제재가 쌓입니다.
+        </p>
+        <AdminSanctionPanel
+          reportId={report.id}
+          targetUserId={report.targetUserId}
+          targetLabel={report.targetTitle ?? report.targetId}
+          onActionSuccess={refreshDetail}
+        />
+      </AdminCard>
+      <AdminCard title="처리 이력 (report_actions)">
+        {actionLogs.length === 0 ? (
+          <p className="text-[13px] text-gray-500">처리 이력이 없습니다.</p>
+        ) : (
+          <ul className="space-y-2">
+            {actionLogs.map((a) => (
+              <li
+                key={a.id}
+                className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 text-[13px]"
+              >
+                <span className="font-medium text-gray-800">
+                  {MODERATION_ACTION_LABELS[a.actionType] ?? labelReportActionType(a.actionType)}
+                </span>
+                <span className="text-gray-500">{new Date(a.createdAt).toLocaleString("ko-KR")}</span>
+                <span className="text-gray-500">· {a.adminNickname}</span>
+                {a.actionNote ? (
+                  <span className="w-full text-gray-600">메모: {a.actionNote}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      {report.targetType === "chat" && report.targetId && (
+        <AdminCard title="관련 채팅">
+          <Link
+            href={`/admin/chats/${report.targetId}`}
+            className="text-[14px] font-medium text-signature hover:underline"
+          >
+            채팅방 상세 보기
+          </Link>
+        </AdminCard>
+      )}
+    </div>
+  );
+}

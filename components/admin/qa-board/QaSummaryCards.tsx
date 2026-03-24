@@ -1,0 +1,103 @@
+"use client";
+
+import { useMemo } from "react";
+import { getQaSummary } from "@/lib/qa-board/mock-qa-summary";
+import { getGoLiveQaLabel } from "@/lib/qa-board/qa-board-utils";
+import Link from "next/link";
+
+export function QaSummaryCards() {
+  const summary = useMemo(() => getQaSummary(), []);
+
+  const passRate =
+    summary.totalCases > 0
+      ? Math.round((summary.passedCases / summary.totalCases) * 100)
+      : 0;
+
+  const goClass =
+    summary.goLiveQaDecision === "go"
+      ? "text-emerald-700"
+      : summary.goLiveQaDecision === "conditional_go"
+        ? "text-amber-700"
+        : "text-red-700";
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-[12px] text-gray-500">Pass Rate</p>
+          <p className="text-[24px] font-semibold text-gray-900">
+            {passRate}%
+          </p>
+          <p className="mt-1 text-[13px] text-gray-600">
+            {summary.passedCases} / {summary.totalCases}
+          </p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-[12px] text-gray-500">실패 / 차단</p>
+          <p className="text-[20px] font-semibold text-gray-900">
+            {summary.failedCases} / {summary.blockedCases}
+          </p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-[12px] text-gray-500">Must-Pass</p>
+          <p className="text-[20px] font-semibold text-gray-900">
+            {summary.mustPassPassed} / {summary.mustPassTotal}
+          </p>
+          {summary.mustPassPassed < summary.mustPassTotal && (
+            <p className="mt-1 text-[12px] text-amber-600">미통과 있음</p>
+          )}
+        </div>
+        <div
+          className={`rounded-lg border p-4 ${
+            summary.goLiveQaDecision === "no_go"
+              ? "border-red-200 bg-red-50/50"
+              : summary.goLiveQaDecision === "conditional_go"
+                ? "border-amber-200 bg-amber-50/50"
+                : "border-emerald-200 bg-emerald-50/30"
+          }`}
+        >
+          <p className="text-[12px] text-gray-500">Go-Live QA 판정</p>
+          <p className={`text-[20px] font-semibold ${goClass}`}>
+            {getGoLiveQaLabel(summary.goLiveQaDecision)}
+          </p>
+          {summary.criticalOpenIssues > 0 && (
+            <p className="mt-1 text-[12px] text-red-600">
+              Critical 이슈 {summary.criticalOpenIssues}건
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-[12px] text-gray-500">파일럿 운영</p>
+          <p className="text-[20px] font-semibold text-gray-900">
+            {summary.pilotDoneCount} / {summary.pilotTotalCount} 완료
+          </p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-[12px] text-gray-500">연결</p>
+          <p className="text-[14px] text-gray-700">
+            <Link href="/admin/launch-readiness" className="text-signature hover:underline">
+              런칭 준비
+            </Link>
+            {" · "}
+            <Link href="/admin/production-migration" className="text-signature hover:underline">
+              프로덕션 전환
+            </Link>
+            {" · "}
+            <Link href="/admin/ops-board" className="text-signature hover:underline">
+              운영 보드
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      {summary.latestUpdatedAt && (
+        <p className="text-[12px] text-gray-500">
+          최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
+        </p>
+      )}
+    </div>
+  );
+}

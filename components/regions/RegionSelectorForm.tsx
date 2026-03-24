@@ -1,0 +1,118 @@
+"use client";
+
+import { useState } from "react";
+import { REGIONS } from "@/lib/products/form-options";
+
+export interface RegionSelection {
+  regionId: string;
+  cityId: string;
+  barangay: string;
+}
+
+interface RegionSelectorFormProps {
+  initialRegionId?: string;
+  initialCityId?: string;
+  onSubmit: (regionId: string, cityId: string, barangay: string, setAsPrimary: boolean) => void;
+  onCancel: () => void;
+}
+
+export function RegionSelectorForm({
+  initialRegionId = "",
+  initialCityId = "",
+  onSubmit,
+  onCancel,
+}: RegionSelectorFormProps) {
+  const [regionId, setRegionId] = useState(initialRegionId);
+  const [cityId, setCityId] = useState(initialCityId);
+  const [barangay, setBarangay] = useState("");
+  const [setAsPrimary, setSetAsPrimary] = useState(true);
+
+  const region = REGIONS.find((r) => r.id === regionId);
+  const cities = region?.cities ?? [];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regionId || !cityId) return;
+    onSubmit(regionId, cityId, barangay.trim(), setAsPrimary);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="mb-1 block text-[13px] font-medium text-gray-700">
+          지역
+        </label>
+        <select
+          value={regionId}
+          onChange={(e) => {
+            setRegionId(e.target.value);
+            setCityId("");
+          }}
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+        >
+          <option value="">Select region</option>
+          {REGIONS.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-[13px] font-medium text-gray-700">
+          Area
+        </label>
+        <select
+          value={cityId}
+          onChange={(e) => setCityId(e.target.value)}
+          disabled={!regionId}
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+        >
+          <option value="">Select area</option>
+          {cities.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-[13px] font-medium text-gray-700">
+          바랑가이 (선택)
+        </label>
+        <input
+          type="text"
+          value={barangay}
+          onChange={(e) => setBarangay(e.target.value)}
+          placeholder=""
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+        />
+      </div>
+      <label className="flex items-center gap-2 text-[14px] text-gray-700">
+        <input
+          type="checkbox"
+          checked={setAsPrimary}
+          onChange={(e) => setSetAsPrimary(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        대표 동네로 설정
+      </label>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600"
+        >
+          취소
+        </button>
+        <button
+          type="submit"
+          disabled={!regionId || !cityId}
+          className="flex-1 rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+        >
+          추가
+        </button>
+      </div>
+    </form>
+  );
+}

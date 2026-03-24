@@ -1,0 +1,233 @@
+"use client";
+
+import { useMemo, useState, useCallback, useEffect } from "react";
+import {
+  filterAndSortUsers,
+  type AdminUserFilters,
+  type AdminUserSortKey,
+} from "@/lib/admin-users/admin-user-utils";
+import { getAdminStaffList } from "@/lib/admin-users/mock-admin-staff";
+import { getAdminRole } from "@/lib/admin-permission";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminUserFilterBar } from "./AdminUserFilterBar";
+import { AdminUserTable } from "./AdminUserTable";
+import { AdminStaffTable } from "./AdminStaffTable";
+import { CreateAdminForm } from "./CreateAdminForm";
+import { EditAdminForm } from "./EditAdminForm";
+import { CreateMemberForm } from "./CreateMemberForm";
+import type { AdminUser } from "@/lib/types/admin-user";
+
+const DEFAULT_FILTERS: AdminUserFilters = {
+  moderationStatus: "",
+  memberType: "",
+  location: "",
+  sortKey: "joined" as AdminUserSortKey,
+};
+
+type Tab = "members" | "staff";
+
+export function AdminUserListPage() {
+  const [tab, setTab] = useState<Tab>("members");
+  const [filters, setFilters] = useState<AdminUserFilters>(DEFAULT_FILTERS);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+  const [showCreateMember, setShowCreateMember] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [staffKey, setStaffKey] = useState(0);
+  const [membersKey, setMembersKey] = useState(0);
+  const [membersFromApi, setMembersFromApi] = useState<AdminUser[] | null>(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+
+  const currentUser = getCurrentUser();
+  const adminUserId = currentUser?.id ?? "";
+
+  const fetchMembers = useCallback(async () => {
+    if (!adminUserId) {
+      setMembersFromApi(null);
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/users", { credentials: "include" });
+      if (!res.ok) {
+        setMembersFromApi(null);
+        return;
+      }
+      const data = await res.json();
+      const list = data.users ?? [];
+      setMembersFromApi(list);
+    } catch {
+      setMembersFromApi(null);
+    }
+  }, [adminUserId]);
+
+  useEffect(() => {
+    if (tab === "members" && adminUserId) {
+      fetchMembers();
+    }
+  }, [tab, adminUserId, membersKey, fetchMembers]);
+
+  const users = useMemo(() => membersFromApi ?? [], [membersFromApi]);
+  const filtered = useMemo(
+    () => filterAndSortUsers(users, filters, searchQuery),
+    [users, filters, searchQuery]
+  );
+
+  const staffList = useMemo(() => getAdminStaffList(), [staffKey]);
+  const isMaster = getAdminRole() === "master";
+
+  const refreshStaff = useCallback(() => setStaffKey((k) => k + 1), []);
+  const refreshMembers = useCallback(() => setMembersKey((k) => k + 1), []);
+
+  const handleCleanup = useCallback(async () => {
+    if (!adminUserId || !confirm("관리자(role=admin) 계정만 남기고 나머지 테스트 회원을 삭제합니다. 계속할까요?")) return;
+    setCleanupLoading(true);
+    try {
+      const res = await fetch("/api/admin/users/cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        refreshMembers();
+      } else {
+        alert(data.error || "정리 실패");
+      }
+    } catch {
+      alert("요청 실패");
+    } finally {
+      setCleanupLoading(false);
+    }
+  }, [adminUserId, refreshMembers]);
+
+  return (
+    <div className="space-y-4">
+      <AdminPageHeader title="회원 관리" />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
+          <button
+            type="button"
+            onClick={() => setTab("members")}
+            className={`rounded-md px-4 py-2 text-[14px] font-medium transition ${tab === "members" ? "bg-signature text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          >
+            회원
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("staff")}
+            className={`rounded-md px-4 py-2 text-[14px] font-medium transition ${tab === "staff" ? "bg-signature text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          >
+            관리자
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          {tab === "members" && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowCreateMember(true)}
+                className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+              >
+                수동 입력
+              </button>
+              {isMaster && (
+                <button
+                  type="button"
+                  onClick={handleCleanup}
+                  disabled={cleanupLoading}
+                  className="rounded-lg border border-amber-600 bg-amber-50 px-4 py-2 text-[14px] font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  {cleanupLoading ? "처리 중…" : "테스트 회원 정리 (aaaa만 유지)"}
+                </button>
+              )}
+            </>
+          )}
+          {tab === "staff" && isMaster && (
+            <button
+              type="button"
+              onClick={() => setShowCreateAdmin(true)}
+              className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+            >
+              관리자 수동 생성
+            </button>
+          )}
+        </div>
+      </div>
+
+      {tab === "members" && (
+        <>
+          <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-[13px] leading-relaxed text-gray-800">
+            <p className="font-medium text-amber-950">수동 입력 회원 (DB: test_users)</p>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[12px] text-gray-700">
+              <li>
+                목록의 <strong>로그인 아이디</strong>로 로그인 페이지 또는 내 정보「아이디 로그인」에 접속하면,
+                <strong> 회원 UUID</strong>와 동일한 사용자로 API·매장·주문이 연결됩니다.
+              </li>
+              <li>
+                로그인 세션은 브라우저 <strong>쿠키</strong>를 씁니다. <strong>같은 브라우저·같은 프로필</strong>
+                에서 탭만 여러 개 열면 마지막 로그인이 덮어써서 한 사람처럼 보일 수 있습니다.
+              </li>
+              <li>
+                <strong>서로 다른 브라우저</strong>(Chrome, Edge 등), <strong>Chrome 프로필을 나누기</strong>, 또는{" "}
+                <strong>일반 창 + 시크릿(인코그니토)</strong>을 쓰면 동시에 서로 다른 계정으로 테스트할 수
+                있습니다.
+              </li>
+            </ul>
+          </div>
+          <AdminUserFilterBar
+            filters={filters}
+            searchQuery={searchQuery}
+            onFiltersChange={setFilters}
+            onSearchChange={setSearchQuery}
+          />
+          {filtered.length === 0 ? (
+            <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+              조건에 맞는 회원이 없습니다. 수동 입력으로 회원을 추가해 보세요.
+            </div>
+          ) : (
+            <AdminUserTable users={filtered} />
+          )}
+        </>
+      )}
+
+      {tab === "staff" && (
+        <>
+          {staffList.length === 0 ? (
+            <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+              등록된 관리자가 없습니다.
+              {isMaster && " 상단의 ‘관리자 수동 생성’으로 추가하세요."}
+            </div>
+          ) : (
+            <AdminStaffTable
+              staffList={staffList}
+              isMaster={isMaster}
+              onEdit={setEditingStaffId}
+            />
+          )}
+        </>
+      )}
+
+      {showCreateMember && adminUserId && (
+        <CreateMemberForm
+          onClose={() => setShowCreateMember(false)}
+          onSuccess={refreshMembers}
+        />
+      )}
+      {showCreateAdmin && (
+        <CreateAdminForm
+          onClose={() => setShowCreateAdmin(false)}
+          onSuccess={refreshStaff}
+        />
+      )}
+      {editingStaffId && (
+        <EditAdminForm
+          staffId={editingStaffId}
+          onClose={() => setEditingStaffId(null)}
+          onSuccess={refreshStaff}
+        />
+      )}
+    </div>
+  );
+}

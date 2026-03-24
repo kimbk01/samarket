@@ -1,0 +1,15 @@
+/**
+ * 매장 오너(사업자)에게만 가는 인앱 알림 — `meta.kind` 기준.
+ * 구매자용 매장 주문 알림과 구분해 `/my` 알림·배지에서 제외한다.
+ */
+export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS = new Set([
+  "store_order_created",
+  "store_order_payment_completed",
+  "store_order_buyer_cancelled",
+  "store_order_refund_requested",
+]);
+
+export function isOwnerStoreCommerceNotificationRow(row: { meta?: unknown }): boolean {
+  const k = (row.meta as { kind?: string } | null | undefined)?.kind;
+  return typeof k === "string" && OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(k);
+}

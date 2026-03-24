@@ -1,0 +1,172 @@
+"use client";
+
+import { useState } from "react";
+import type { PersonalizedFeedPolicy } from "@/lib/types/personalized-feed";
+import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/mock-personalized-feed-policies";
+
+interface PersonalizedPolicyFormProps {
+  initial: PersonalizedFeedPolicy;
+  onSubmit: (values: Partial<PersonalizedFeedPolicy>) => void;
+  onCancel?: () => void;
+}
+
+const WEIGHT_KEYS = [
+  "categoryAffinityWeight",
+  "recentViewWeight",
+  "recentFavoriteWeight",
+  "recentChatWeight",
+  "premiumBoostWeight",
+  "businessBoostWeight",
+  "nearbyWeight",
+  "recencyWeight",
+] as const;
+
+const WEIGHT_LABELS: Record<(typeof WEIGHT_KEYS)[number], string> = {
+  categoryAffinityWeight: "카테고리 친화도",
+  recentViewWeight: "최근 본",
+  recentFavoriteWeight: "찜",
+  recentChatWeight: "채팅",
+  premiumBoostWeight: "프리미엄 부스트",
+  businessBoostWeight: "상점 부스트",
+  nearbyWeight: "가까운순",
+  recencyWeight: "최신성",
+};
+
+export function PersonalizedPolicyForm({
+  initial,
+  onSubmit,
+  onCancel,
+}: PersonalizedPolicyFormProps) {
+  const [sectionLabel, setSectionLabel] = useState(initial.sectionLabel);
+  const [isActive, setIsActive] = useState(initial.isActive);
+  const [maxItems, setMaxItems] = useState(initial.maxItems);
+  const [dedupeEnabled, setDedupeEnabled] = useState(initial.dedupeEnabled);
+  const [weights, setWeights] = useState({
+    categoryAffinityWeight: initial.categoryAffinityWeight,
+    recentViewWeight: initial.recentViewWeight,
+    recentFavoriteWeight: initial.recentFavoriteWeight,
+    recentChatWeight: initial.recentChatWeight,
+    premiumBoostWeight: initial.premiumBoostWeight,
+    businessBoostWeight: initial.businessBoostWeight,
+    nearbyWeight: initial.nearbyWeight,
+    recencyWeight: initial.recencyWeight,
+  });
+  const [adminMemo, setAdminMemo] = useState(initial.adminMemo ?? "");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      id: initial.id,
+      sectionKey: initial.sectionKey,
+      sectionLabel,
+      isActive,
+      maxItems,
+      dedupeEnabled,
+      ...weights,
+      adminMemo: adminMemo || undefined,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <p className="text-[13px] text-gray-600">
+        섹션: {PERSONALIZED_SECTION_LABELS[initial.sectionKey]}
+      </p>
+      <div>
+        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          섹션 라벨
+        </label>
+        <input
+          type="text"
+          value={sectionLabel}
+          onChange={(e) => setSectionLabel(e.target.value)}
+          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="pfpActive"
+          checked={isActive}
+          onChange={(e) => setIsActive(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        <label htmlFor="pfpActive" className="text-[14px] text-gray-700">
+          활성
+        </label>
+      </div>
+      <div>
+        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          최대 노출 수
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={maxItems}
+          onChange={(e) => setMaxItems(Number(e.target.value) || 1)}
+          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="pfpDedupe"
+          checked={dedupeEnabled}
+          onChange={(e) => setDedupeEnabled(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        <label htmlFor="pfpDedupe" className="text-[14px] text-gray-700">
+          중복 제거
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {WEIGHT_KEYS.map((key) => (
+          <div key={key}>
+            <label className="mb-0.5 block text-[12px] text-gray-600">
+              {WEIGHT_LABELS[key]}
+            </label>
+            <input
+              type="number"
+              step={0.1}
+              min={0}
+              value={weights[key]}
+              onChange={(e) =>
+                setWeights((w) => ({ ...w, [key]: parseFloat(e.target.value) || 0 }))
+              }
+              className="w-full rounded border border-gray-200 px-2 py-1.5 text-[14px]"
+            />
+          </div>
+        ))}
+      </div>
+      <div>
+        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          관리자 메모
+        </label>
+        <textarea
+          value={adminMemo}
+          onChange={(e) => setAdminMemo(e.target.value)}
+          rows={2}
+          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+        />
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          className="rounded border border-signature bg-signature px-4 py-2 text-[14px] font-medium text-white"
+        >
+          저장
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700"
+          >
+            취소
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}

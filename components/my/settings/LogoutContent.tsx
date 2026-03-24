@@ -1,0 +1,36 @@
+"use client";
+
+import Link from "next/link";
+import { getSupabaseClient } from "@/lib/supabase/client";
+
+/** Supabase auth signOut. 미연동 시 홈으로 이동 */
+export function LogoutContent() {
+  const handleLogout = async () => {
+    const supabase = getSupabaseClient();
+    if (supabase && typeof (supabase as { auth?: { signOut?: () => Promise<unknown> } }).auth?.signOut === "function") {
+      await (supabase as { auth: { signOut: () => Promise<unknown> } }).auth.signOut();
+    }
+    window.location.href = "/home";
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[14px] text-gray-700">로그아웃 하시겠습니까?</p>
+      <div className="flex gap-3">
+        <Link
+          href="/my/settings"
+          className="flex-1 rounded-lg border border-gray-300 py-2.5 text-center text-[14px] font-medium text-gray-700"
+        >
+          취소
+        </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex-1 rounded-lg bg-gray-900 py-2.5 text-[14px] font-medium text-white"
+        >
+          로그아웃
+        </button>
+      </div>
+    </div>
+  );
+}

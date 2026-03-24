@@ -1,0 +1,81 @@
+"use client";
+
+import type { DashboardTrendItem } from "@/lib/types/admin-dashboard";
+
+interface AdminTrendChartProps {
+  data: DashboardTrendItem[];
+  title?: string;
+}
+
+function formatDate(s: string) {
+  return s.slice(5).replace("-", "/");
+}
+
+export function AdminTrendChart({ data, title = "일별 추이" }: AdminTrendChartProps) {
+  const maxVal = Math.max(
+    1,
+    ...data.flatMap((d) => [
+      d.newUsers,
+      d.newProducts,
+      d.reports,
+      d.completedTransactions,
+    ])
+  );
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      {title && (
+        <h2 className="mb-3 text-[15px] font-medium text-gray-900">{title}</h2>
+      )}
+      <div className="space-y-2">
+        {data.map((d) => (
+          <div key={d.date} className="flex items-center gap-2 text-[13px]">
+            <span className="w-16 shrink-0 text-gray-500">
+              {formatDate(d.date)}
+            </span>
+            <div className="flex flex-1 gap-1">
+              <div
+                className="h-6 rounded bg-signature/20"
+                style={{
+                  width: `${(d.newProducts / maxVal) * 100}%`,
+                  minWidth: d.newProducts > 0 ? "4px" : "0",
+                }}
+                title={`상품 ${d.newProducts}`}
+              />
+              <div
+                className="h-6 rounded bg-emerald-500/30"
+                style={{
+                  width: `${(d.newUsers / maxVal) * 100}%`,
+                  minWidth: d.newUsers > 0 ? "4px" : "0",
+                }}
+                title={`회원 ${d.newUsers}`}
+              />
+              <div
+                className="h-6 rounded bg-amber-500/30"
+                style={{
+                  width: `${(d.reports / maxVal) * 100}%`,
+                  minWidth: d.reports > 0 ? "4px" : "0",
+                }}
+                title={`신고 ${d.reports}`}
+              />
+              <div
+                className="h-6 rounded bg-gray-400/30"
+                style={{
+                  width: `${(d.completedTransactions / maxVal) * 100}%`,
+                  minWidth: d.completedTransactions > 0 ? "4px" : "0",
+                }}
+                title={`거래 ${d.completedTransactions}`}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
+        <span>■ 상품</span>
+        <span>■ 회원</span>
+        <span>■ 신고</span>
+        <span>■ 거래</span>
+      </div>
+    </div>
+  );
+}

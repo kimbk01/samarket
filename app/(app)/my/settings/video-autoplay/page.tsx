@@ -1,0 +1,13 @@
+import { SettingsHeader } from "@/components/my/settings/SettingsHeader";
+import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
+
+export default function VideoAutoplayPage() {
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <SettingsHeader title="동영상 자동 재생" backHref="/my/settings" />
+      <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
+        <VideoAutoplayContent />
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,369 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { getAppSettings } from "@/lib/app-settings";
+import { IG_DM_BODY_TEXT } from "@/lib/chats/instagram-dm-tokens";
+
+interface ChatInputBarProps {
+  onSend: (message: string) => void;
+  disabled?: boolean;
+  /** 있으면 좌측 1번 버튼을 "나가기"로 표시 */
+  onLeave?: () => void;
+  /** 채팅방 id 등 — 있으면 입력 초안을 sessionStorage에 보존(상세 갔다가 뒤로와도 유지) */
+  draftStorageKey?: string;
+  placeholder?: string;
+  /** false면 이모지 버튼·패널 숨김 */
+  showEmojiButton?: boolean;
+  /** 인스타 DM 스타일: 흰 필·얇은 보더·블루 전송 */
+  variant?: "default" | "instagram";
+  /** 카메라·앨범에서 고른 이미지 한 장 전달 (업로드·전송은 부모) */
+  onImageFileSelected?: (file: File) => void;
+  /** 이미지 업로드·전송 중 입력 비활성화 */
+  imageSending?: boolean;
+}
+
+const DEFAULT_MAX_MESSAGE_LENGTH = 1000;
+
+/** 이모지 패널용 — 다양한 이모지 (스마일·감정·손동작·기타) */
+const EMOJI_GRID: string[][] = [
+  ["😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛"],
+  ["😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😌", "😔", "😪"],
+  ["🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳", "😎", "🤓", "🧐", "😕", "😟"],
+  ["🙁", "😮", "😯", "😲", "😳", "🥺", "😦", "😧", "😨", "😰", "😥", "😢", "😭", "😱", "😖", "😣", "😞", "😓", "😩", "😫"],
+  ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "✋", "🤚", "🖐️", "🖖", "👋", "🤝", "🙏"],
+  ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"],
+];
+
+function draftKey(k: string) {
+  return `kasama-chat-draft:${k}`;
+}
+
+export function ChatInputBar({
+  onSend,
+  disabled,
+  onLeave,
+  draftStorageKey,
+  placeholder = "메시지를 입력하세요",
+  showEmojiButton = true,
+  variant = "default",
+  onImageFileSelected,
+  imageSending = false,
+}: ChatInputBarProps) {
+  const ig = variant === "instagram";
+  const [text, setText] = useState("");
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPanelRef = useRef<HTMLDivElement>(null);
+  const attachWrapRef = useRef<HTMLDivElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const maxLength = Math.max(1, getAppSettings().maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH);
+  const hasText = !!text.trim();
+  const inputLocked = !!disabled || imageSending;
+
+  const persistDraft = (value: string) => {
+    if (!draftStorageKey || typeof window === "undefined") return;
+    try {
+      if (value.trim()) sessionStorage.setItem(draftKey(draftStorageKey), value);
+      else sessionStorage.removeItem(draftKey(draftStorageKey));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleSubmit = () => {
+    const trimmed = text.trim().slice(0, maxLength);
+    if (!trimmed || inputLocked) return;
+    onSend(trimmed);
+    setText("");
+    setEmojiOpen(false);
+    persistDraft("");
+  };
+
+  const insertEmoji = (emoji: string) => {
+    const el = inputRef.current;
+    if (!el) {
+      const next = (text + emoji).slice(0, maxLength);
+      setText(next);
+      persistDraft(next);
+      return;
+    }
+    const start = el.selectionStart ?? text.length;
+    const end = el.selectionEnd ?? text.length;
+    const next = (text.slice(0, start) + emoji + text.slice(end)).slice(0, maxLength);
+    setText(next);
+    persistDraft(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const newPos = start + emoji.length;
+      el.setSelectionRange(newPos, newPos);
+    });
+  };
+
+  useEffect(() => {
+    if (!draftStorageKey || typeof window === "undefined") return;
+    try {
+      const saved = sessionStorage.getItem(draftKey(draftStorageKey));
+      if (saved) setText(saved.slice(0, maxLength));
+    } catch {
+      /* ignore */
+    }
+  }, [draftStorageKey, maxLength]);
+
+  useEffect(() => {
+    if (!inputRef.current) return;
+    const el = inputRef.current;
+    if (el.scrollHeight <= 80) el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 80)}px`;
+  }, [text]);
+
+  useEffect(() => {
+    if (!emojiOpen) return;
+    const close = (e: MouseEvent) => {
+      if (emojiPanelRef.current?.contains(e.target as Node)) return;
+      setEmojiOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [emojiOpen]);
+
+  useEffect(() => {
+    if (!attachOpen) return;
+    const close = (e: MouseEvent) => {
+      if (attachWrapRef.current?.contains(e.target as Node)) return;
+      setAttachOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [attachOpen]);
+
+  const onImageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    setAttachOpen(false);
+    if (file && onImageFileSelected) onImageFileSelected(file);
+  };
+
+  const attachBtnClass = `flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${ig ? "text-[#262626] hover:bg-black/[0.05]" : "text-gray-600 hover:bg-gray-100"}`;
+
+  return (
+    <div
+      className={`relative flex min-h-[50px] max-h-[64px] items-center safe-area-pb ${ig ? "gap-1.5 px-3" : "gap-2 px-2"}`}
+      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
+    >
+      {/* 이모지 패널: 입력창 위, 다양한 이모지 그리드 */}
+      {showEmojiButton && emojiOpen && (
+        <div
+          ref={emojiPanelRef}
+          className={`absolute bottom-full left-0 right-0 z-20 mb-1 max-h-[220px] overflow-y-auto rounded-2xl border bg-white p-2 shadow-lg ${ig ? "border-[#EFEFEF]" : "border-gray-200"}`}
+        >
+          <div className="grid grid-cols-10 gap-0.5">
+            {EMOJI_GRID.flat().map((emoji, i) => (
+              <button
+                key={i}
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-[22px] hover:bg-gray-100"
+                onClick={() => insertEmoji(emoji)}
+                aria-label={`이모지 ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {onLeave ? (
+        <button
+          type="button"
+          onClick={onLeave}
+          className={attachBtnClass}
+          aria-label="나가기"
+          disabled={disabled}
+        >
+          <LeaveIcon className="h-5 w-5" />
+        </button>
+      ) : onImageFileSelected ? (
+        <div className="relative shrink-0" ref={attachWrapRef}>
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            disabled={inputLocked}
+            onChange={onImageInputChange}
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            disabled={inputLocked}
+            onChange={onImageInputChange}
+          />
+          <button
+            type="button"
+            className={attachBtnClass}
+            aria-label="사진 보내기"
+            aria-expanded={attachOpen}
+            aria-haspopup="menu"
+            disabled={inputLocked}
+            onClick={() => setAttachOpen((o) => !o)}
+          >
+            <AttachIcon className="h-5 w-5" />
+          </button>
+          {attachOpen ? (
+            <div
+              role="menu"
+              className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-xl py-1 shadow-lg ring-1 ring-black/10 ${ig ? "border border-[#EFEFEF] bg-white" : "border border-gray-200 bg-white"}`}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium ${ig ? "text-[#262626] hover:bg-black/[0.04]" : "text-gray-800 hover:bg-gray-50"}`}
+                onClick={() => {
+                  setAttachOpen(false);
+                  cameraInputRef.current?.click();
+                }}
+              >
+                <CameraIcon className="h-5 w-5 shrink-0 opacity-80" />
+                사진 촬영
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium ${ig ? "text-[#262626] hover:bg-black/[0.04]" : "text-gray-800 hover:bg-gray-50"}`}
+                onClick={() => {
+                  setAttachOpen(false);
+                  galleryInputRef.current?.click();
+                }}
+              >
+                <GalleryIcon className="h-5 w-5 shrink-0 opacity-80" />
+                앨범에서 선택
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <button type="button" className={attachBtnClass} aria-label="첨부" disabled={disabled}>
+          <AttachIcon className="h-5 w-5" />
+        </button>
+      )}
+      <div
+        className={`flex min-h-[40px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-[#DBDBDB] bg-white px-2 py-1.5" : "rounded-[20px] bg-[#F5F5F5] px-3 py-2"}`}
+      >
+        <textarea
+          ref={inputRef}
+          value={text}
+          onChange={(e) => {
+            const v = e.target.value.slice(0, maxLength);
+            setText(v);
+            persistDraft(v);
+          }}
+          maxLength={maxLength}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
+          placeholder={placeholder}
+          rows={1}
+          className={`max-h-[120px] w-full resize-none bg-transparent focus:outline-none ${ig ? `min-h-[38px] rounded-full px-2 py-1.5 ${IG_DM_BODY_TEXT} text-[#262626] placeholder:text-[#A8A8A8]` : "min-h-[36px] rounded-[20px] px-3 py-2 text-[15px] leading-[20px] text-[#111111] placeholder:text-[#999999]"}`}
+          disabled={inputLocked}
+        />
+        {showEmojiButton ? (
+          <button
+            type="button"
+            onClick={() => setEmojiOpen((v) => !v)}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${emojiOpen ? (ig ? "bg-black/[0.08] text-[#262626]" : "bg-gray-200 text-gray-700") : ig ? "text-[#262626] hover:bg-black/[0.05]" : "text-gray-600 hover:bg-gray-200"}`}
+            aria-label="이모지"
+            aria-expanded={emojiOpen}
+            disabled={inputLocked}
+          >
+            <EmojiIcon className="h-5 w-5" />
+          </button>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={inputLocked || !hasText}
+        className={`flex h-11 w-11 min-w-[44px] shrink-0 items-center justify-center rounded-full text-[14px] font-semibold text-white hover:opacity-90 disabled:opacity-50 ${ig ? "bg-[#0095F6]" : "bg-signature"}`}
+        aria-label="전송"
+      >
+        <SendIcon className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
+function LeaveIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ transform: "scaleX(-1)" }}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+function AttachIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+      />
+    </svg>
+  );
+}
+
+function CameraIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function GalleryIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
+    </svg>
+  );
+}
+
+function EmojiIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9c.83 0 1.5-.67 1.5-1.5S7.83 8 7 8s-1.5.67-1.5 1.5S6.17 11 7 11zm10 0c.83 0 1.5-.67 1.5-1.5S17.83 8 17 8s-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-5 6c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+    </svg>
+  );
+}
+
+function SendIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+    </svg>
+  );
+}
+

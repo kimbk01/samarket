@@ -1,0 +1,47 @@
+"use client";
+
+import { useState } from "react";
+
+/** localStorage/sessionStorage 기반 임시 캐시 삭제, 삭제 완료 토스트 */
+export function CacheSettingsContent() {
+  const [toast, setToast] = useState(false);
+
+  const clear = () => {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith("cache_") || key.startsWith("temp_"))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
+    setToast(true);
+    const t = setTimeout(() => setToast(false), 2000);
+    return () => clearTimeout(t);
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[14px] text-gray-600">
+        임시 캐시를 삭제하여 저장 공간을 확보합니다.
+      </p>
+      <button
+        type="button"
+        onClick={clear}
+        className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+      >
+        캐시 삭제
+      </button>
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-2 text-[14px] text-white shadow-lg">
+          삭제되었습니다.
+        </div>
+      )}
+    </div>
+  );
+}
