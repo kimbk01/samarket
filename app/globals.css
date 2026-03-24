@@ -1,15 +1,22 @@
-@import "tailwindcss";
+/* 상대 경로로 web/node_modules 기준 해석되도록 함 (루트 해석 에러 회피) */
+@import "../node_modules/tailwindcss";
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111111;
+  --signature: #8C35FF;
+  --sub-bg: #f7f7f7;
+  --text-muted: #666666;
+  --text-meta: #999999;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-signature: var(--signature);
+  /* SF(Apple) → Roboto(웹) → 한글 Noto Sans KR */
+  --font-sans: -apple-system, BlinkMacSystemFont, var(--font-roboto), var(--font-noto-sans-kr), sans-serif;
+  --font-mono: var(--font-roboto-mono), ui-monospace, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +29,59 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, var(--font-roboto), var(--font-noto-sans-kr), sans-serif;
+}
+
+/* 앱(비어드민): 버튼·제출 입력·rounded-full 링크(버튼형) 직각. 우하단 글쓰기 FAB(퀵메뉴 +)만 원형 */
+:not([data-admin]) button:not(.kasama-quick-add),
+:not([data-admin]) input[type="submit"],
+:not([data-admin]) input[type="button"],
+:not([data-admin]) input[type="reset"] {
+  border-radius: 0 !important;
+}
+
+/* rounded-full / rounded-[12px] / rounded-lg 등 링크 CTA */
+:not([data-admin]) a[class*="rounded"] {
+  border-radius: 0 !important;
+}
+
+button.kasama-quick-add {
+  border-radius: 9999px !important;
+}
+
+/* AdminShell 루트(`data-admin`) 내부: rounded-* 유틸 포함 모든 모서리 0 */
+[data-admin],
+[data-admin] * {
+  border-radius: 0 !important;
+}
+
+/* 매장 주문 진행 단계: 현재 스텝 원형 깜빡임 (overflow에 잘리지 않도록 원에만 적용, rgba는 키프레임 호환용) */
+@keyframes store-order-step-blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(140, 53, 255, 0.45);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.08);
+    box-shadow: 0 0 0 10px rgba(140, 53, 255, 0.12);
+  }
+}
+
+.store-order-stepper-current-circle {
+  animation: store-order-step-blink 1.1s ease-in-out infinite;
+  transform-origin: center;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-order-stepper-current-circle {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    box-shadow: 0 0 0 2px rgba(140, 53, 255, 0.45);
+    will-change: auto;
+  }
 }
