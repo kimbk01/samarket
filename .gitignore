@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+.eslint-errors.json
 
 # next.js
 /.next/

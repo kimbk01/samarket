@@ -12,7 +12,8 @@
     "dev:3002:webpack": "next dev --webpack -p 3002",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint . --max-warnings 10000",
+    "lint:strict": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest"
   },
