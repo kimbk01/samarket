@@ -1,0 +1,8 @@
+# Supabase — Secret key(sb_secret_) 또는 Legacy service_role(JWT) 중 하나
+# 키는 대시보드 API Keys에서 복사. 유출 시 새 Secret 발급 후 교체.
+NEXT_PUBLIC_SUPABASE_URL=https://ckdosyydvgzqwpbwuhon.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrZG9zeXlkdmd6cXdwYnd1aG9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NzY0ODcsImV4cCI6MjA4OTM1MjQ4N30.0JIj3O9KWeRn3U2LpElBUJ_nGOTztSAQYj54LrFGEgQ
+# 게시물 관리(서버)는 supabase-js createClient에 Legacy service_role JWT(eyJ…)를 쓰는 것이 안정적입니다.
+# sb_secret_ 키는 같은 조합에서 "Invalid API key"가 날 수 있습니다.
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrZG9zeXlkdmd6cXdwYnd1aG9uIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Mzc3NjQ4NywiZXhwIjoyMDg5MzUyNDg3fQ.9ZwORRtzFr0jBCUfjujipEbzAl2TfT7oSzZ0F2dn53I
+
