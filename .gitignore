@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local dev junk (curl dumps, pid files)
+/_curl_body.txt
+/_dev*.pid
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
