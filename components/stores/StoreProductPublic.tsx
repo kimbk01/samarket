@@ -8,9 +8,10 @@ import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContex
 import { sanitizeProductHtml } from "@/lib/html/sanitize-product-html";
 import { itemTypeShortLabel } from "@/lib/stores/group-store-products-by-menu";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
+import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import {
   parseProductOptionsJson,
-  validateLineOptionSelections,
+  validateModifierSelection,
 } from "@/lib/stores/product-line-options";
 import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -20,14 +21,16 @@ import {
   parsePhMobileInput,
   telHrefFromLoosePhPhone,
 } from "@/lib/utils/ph-mobile";
+import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { StoreDetailBottomStrip } from "@/components/stores/StoreDetailBottomStrip";
-import { StoreProductOptionPicker } from "@/components/stores/StoreProductOptionPicker";
+import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
 import { STORE_DETAIL_SUBHEADER_STICKY } from "@/lib/stores/store-detail-ui";
 import {
   parseCommerceExtrasFromHoursJson,
   resolveChargedDeliveryFeePhp,
 } from "@/lib/stores/store-commerce-extras";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
+import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 
 type PublicStore = {
@@ -127,7 +130,8 @@ export function StoreProductPublic({
   const [orderOk, setOrderOk] = useState<string | null>(null);
   const [lastPlacedOrderId, setLastPlacedOrderId] = useState<string | null>(null);
   const [galleryIdx, setGalleryIdx] = useState(0);
-  const [optionSelections, setOptionSelections] = useState<Record<string, string[]>>({});
+  const [modifierWire, setModifierWire] = useState<ModifierSelectionsWire>({ pick: {}, qty: {} });
+  const [lineMemo, setLineMemo] = useState("");
   const [hoursTick, setHoursTick] = useState(0);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -159,7 +163,8 @@ export function StoreProductPublic({
   }, [product?.id]);
 
   useEffect(() => {
-    setOptionSelections({});
+    setModifierWire({ pick: {}, qty: {} });
+    setLineMemo("");
   }, [product?.id]);
 
   const optionGroups = useMemo(
@@ -167,9 +172,31 @@ export function StoreProductPublic({
     [product]
   );
 
+  useEffect(() => {
+    if (!product?.id || optionGroups.length === 0) return;
+    setModifierWire((prev) => {
+      if (Object.keys(prev.pick).length > 0 || Object.keys(prev.qty).length > 0) return prev;
+      const nextPick: Record<string, string[]> = {};
+      for (const gr of optionGroups) {
+        if (gr.inputType === "quantity") continue;
+        const def = gr.options.find((o) => o.defaultSelected && !o.soldOut);
+        if (def && gr.maxSelect <= 1) nextPick[gr.key] = [def.name];
+      }
+      if (Object.keys(nextPick).length === 0) return prev;
+      return { pick: nextPick, qty: {} };
+    });
+  }, [product?.id, optionGroups]);
+
+  const baseUnitPhp = useMemo(() => {
+    if (!product) return 0;
+    const disc = product.discount_price;
+    const price = product.price;
+    return disc != null && Number.isFinite(disc) && disc >= 0 && disc < price ? disc : price;
+  }, [product]);
+
   const optionValidation = useMemo(
-    () => validateLineOptionSelections(optionGroups, optionSelections),
-    [optionGroups, optionSelections]
+    () => validateModifierSelection(optionGroups, modifierWire, baseUnitPhp),
+    [optionGroups, modifierWire, baseUnitPhp]
   );
 
   const storeExtras = useMemo(
@@ -339,14 +366,7 @@ export function StoreProductPublic({
       setOrderErr("연락처 형식을 확인해 주세요. (09 xx xxx xxxx)");
       return;
     }
-    const bu =
-      pr.discount_price != null &&
-      Number.isFinite(pr.discount_price) &&
-      pr.discount_price >= 0 &&
-      pr.discount_price < pr.price
-        ? pr.discount_price
-        : pr.price;
-    const uwo = bu + (optionValidation.ok ? optionValidation.unitDelta : 0);
+    const uwo = baseUnitPhp + (optionValidation.ok ? optionValidation.unitDelta : 0);
     const minStorePhp =
       parseCommerceExtrasFromHoursJson(st.business_hours_json).minOrderPhp ?? 0;
     if (minStorePhp > 0 && uwo * qty < minStorePhp) {
@@ -369,8 +389,11 @@ export function StoreProductPublic({
             {
               product_id: pr.id,
               qty,
-              option_selections:
-                Object.keys(optionSelections).length > 0 ? optionSelections : undefined,
+              modifier_selections:
+                Object.keys(modifierWire.pick).length > 0 || Object.keys(modifierWire.qty).length > 0
+                  ? modifierWire
+                  : undefined,
+              line_note: lineMemo.trim() || undefined,
             },
           ],
           fulfillment_type: fulfillment,
@@ -416,7 +439,8 @@ export function StoreProductPublic({
       }
       const placedId = typeof json.order?.id === "string" ? json.order.id : null;
       if (placedId) {
-        router.push("/mypage/store-orders");
+        window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
+        router.replace("/my/store-orders");
         return;
       }
       setOrderOk(`주문이 접수되었습니다. 주문번호 ${json.order?.order_no ?? ""}`);
@@ -429,14 +453,7 @@ export function StoreProductPublic({
     }
   }
 
-  const baseUnit =
-    product.discount_price != null &&
-    Number.isFinite(product.discount_price) &&
-    product.discount_price >= 0 &&
-    product.discount_price < product.price
-      ? product.discount_price
-      : product.price;
-  const unitWithOptions = baseUnit + (optionValidation.ok ? optionValidation.unitDelta : 0);
+  const unitWithOptions = baseUnitPhp + (optionValidation.ok ? optionValidation.unitDelta : 0);
 
   const minOrderStorePhp = storeExtras.minOrderPhp ?? 0;
   const lineSubtotalPhp = unitWithOptions * qty;
@@ -512,8 +529,10 @@ export function StoreProductPublic({
       unitPricePhp: unitWithOptions,
       listUnitPricePhp: hasLineDiscount ? listWithOptions : null,
       discountPercent: hasLineDiscount && lineDiscountPct > 0 ? lineDiscountPct : null,
-      optionSelections: { ...optionSelections },
-      optionsSummary: optionValidation.snapshot.summary,
+      optionSelections: { ...modifierWire.pick },
+      modifierWire: { ...modifierWire },
+      optionsSummary: optionValidation.ok ? optionValidation.snapshot.summary : "",
+      lineNote: lineMemo.trim() || null,
       pickupAvailable: !!pr.pickup_available,
       localDeliveryAvailable:
         !!pr.local_delivery_available || st.delivery_available === true,
@@ -607,7 +626,7 @@ export function StoreProductPublic({
           ) : null}
         </div>
         {galleryUrls.length > 1 ? (
-          <div
+          <HorizontalDragScroll
             className="flex gap-2 overflow-x-auto border-b border-gray-100 px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             aria-label="상품 이미지"
           >
@@ -624,7 +643,7 @@ export function StoreProductPublic({
                 <img src={u} alt="" className="h-full w-full object-cover" />
               </button>
             ))}
-          </div>
+          </HorizontalDragScroll>
         ) : null}
         <div className="border-b border-gray-100 px-4 py-4">
           <p className="text-lg font-semibold text-gray-900">{product.title}</p>
@@ -677,7 +696,7 @@ export function StoreProductPublic({
 
       <div className="mx-4 mt-4 space-y-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         {commerce.breakConfigured ? (
-          <p className="text-[12px] font-medium text-violet-900">
+          <p className="text-[12px] font-medium text-gray-900">
             Break time: {commerce.breakRangeLabel}
           </p>
         ) : null}
@@ -728,17 +747,39 @@ export function StoreProductPublic({
           <>
             {optionGroups.length > 0 ? (
               <div>
-                <StoreProductOptionPicker
+                <StoreModifierPicker
                   groups={optionGroups}
-                  value={optionSelections}
-                  onChange={setOptionSelections}
+                  value={modifierWire}
+                  onChange={setModifierWire}
                   disabled={orderBusy || orderBlocked}
                 />
+                {optionValidation.ok && optionValidation.snapshot.summary ? (
+                  <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-[12px] text-gray-700">
+                    <p className="font-semibold text-gray-800">선택한 옵션</p>
+                    <p className="mt-1 leading-relaxed">{optionValidation.snapshot.summary}</p>
+                  </div>
+                ) : null}
                 {!optionValidation.ok ? (
-                  <p className="mt-2 text-xs text-amber-800">옵션을 올바르게 선택해 주세요.</p>
+                  <p className="mt-2 text-xs text-amber-800">필수 옵션을 확인해 주세요.</p>
                 ) : null}
               </div>
             ) : null}
+
+            <div>
+              <label htmlFor="store-product-line-memo" className="text-xs font-medium text-gray-600">
+                상품 요청 (선택 · 가격에 반영되지 않음)
+              </label>
+              <textarea
+                id="store-product-line-memo"
+                rows={2}
+                value={lineMemo}
+                disabled={orderBusy || orderBlocked}
+                onChange={(e) => setLineMemo(e.target.value)}
+                className="mt-2 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
+                placeholder="예) 국물 많이 주세요"
+                maxLength={300}
+              />
+            </div>
 
             <div>
               <p className="text-xs font-medium text-gray-600">수량</p>
@@ -872,7 +913,7 @@ export function StoreProductPublic({
                 <p className="text-sm text-green-800">{orderOk}</p>
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium">
-                    <Link href="/mypage/store-orders" className="font-semibold text-signature underline">
+                    <Link href="/my/store-orders" className="font-semibold text-signature underline">
                       주문 내역 확인
                     </Link>
                     {lastPlacedOrderId ? (
@@ -880,7 +921,7 @@ export function StoreProductPublic({
                         href={`/my/store-orders/${encodeURIComponent(lastPlacedOrderId)}`}
                         className="text-signature underline"
                       >
-                        이 주문 상세
+                        이 주문 진행 보기
                       </Link>
                     ) : null}
                     {lastPlacedOrderId ? (
@@ -888,7 +929,7 @@ export function StoreProductPublic({
                         href={`/my/store-orders/${encodeURIComponent(lastPlacedOrderId)}/chat`}
                         className="text-signature underline"
                       >
-                        매장과 채팅
+                        매장 문의 남기기
                       </Link>
                     ) : null}
                   </div>
@@ -921,7 +962,8 @@ export function StoreProductPublic({
               </button>
             </div>
             <p className="text-center text-[11px] text-gray-400">
-              주문 후 주문 채팅에서 매장과 진행을 이어가면 됩니다. 금액 정산은 매장과 직접 하시면 됩니다.
+              주문 접수와 상태 확인은 주문 상세에서 이어지고, 매장과 조율이 필요할 때만 배달채팅을 이용하면
+              됩니다. 금액 정산은 매장과 직접 하시면 됩니다.
             </p>
           </>
         )}
@@ -931,7 +973,10 @@ export function StoreProductPublic({
         slug={store.slug}
         isOpen={commerce.isOpenForCommerce}
         deliveryAvailable={store.delivery_available === true}
+        fulfillmentMode={fulfillment === "pickup" ? "pickup" : "local_delivery"}
         cartTotalPhp={commerceCart?.hydrated ? commerceCart.getSubtotalForStoreId(store.id) : 0}
+        cartQtyTotal={commerceCart?.hydrated ? commerceCart.getTotalQtyForStoreId(store.id) : 0}
+        minOrderPhp={storeExtras.minOrderPhp}
         closedDetail={
           commerce.inBreak && commerce.breakConfigured ? `Break time: ${commerce.breakRangeLabel}` : null
         }

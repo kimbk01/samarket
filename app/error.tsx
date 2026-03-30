@@ -14,7 +14,7 @@ export default function RootError({ error, reset }: ErrorProps) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 antialiased">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 antialiased">
       <div className="flex flex-col items-center justify-center text-center">
         <p className="text-[15px] font-medium text-gray-900">
           일시적인 오류가 발생했어요

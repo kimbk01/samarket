@@ -8,18 +8,22 @@ import { getReleaseRegressionIssues } from "@/lib/release-archive/mock-release-r
 import Link from "next/link";
 
 export function ReleaseArchiveSummaryCards() {
-  const summary = useMemo(() => getReleaseArchiveSummary(), []);
-  const latestImpact = useMemo(() => {
+  const { summary, latestImpact } = useMemo(() => {
+    const summaryInner = getReleaseArchiveSummary();
     const archives = getReleaseArchives();
-    const latest = archives.sort(
+    const latest = [...archives].sort(
       (a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime()
     )[0];
-    if (!latest) return null;
-    const changeCount = getReleaseArchiveItems(latest.id).length;
-    const regressionCount = getReleaseRegressionIssues({
-      releaseArchiveId: latest.id,
-    }).length;
-    return { version: latest.releaseVersion, changeCount, regressionCount };
+    let latestImpactInner: { version: string; changeCount: number; regressionCount: number } | null =
+      null;
+    if (latest) {
+      const changeCount = getReleaseArchiveItems(latest.id).length;
+      const regressionCount = getReleaseRegressionIssues({
+        releaseArchiveId: latest.id,
+      }).length;
+      latestImpactInner = { version: latest.releaseVersion, changeCount, regressionCount };
+    }
+    return { summary: summaryInner, latestImpact: latestImpactInner };
   }, []);
 
   return (

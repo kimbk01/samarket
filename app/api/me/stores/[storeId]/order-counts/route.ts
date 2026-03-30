@@ -7,6 +7,7 @@ import {
 import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-count";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { getCachedStoreOrderCounts } from "@/lib/stores/store-order-counts-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -36,16 +37,19 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  const [refund_requested_count, pending_accept_count, pending_delivery_count] = await Promise.all([
-    countRefundRequestedForStore(sb, id),
-    countPendingAcceptForStore(sb, id),
-    countPendingDeliveryAcceptForStore(sb, id),
-  ]);
-
-  return NextResponse.json({
-    ok: true,
-    refund_requested_count,
-    pending_accept_count,
-    pending_delivery_count,
+  const payload = await getCachedStoreOrderCounts(id, async () => {
+    const [refund_requested_count, pending_accept_count, pending_delivery_count] = await Promise.all([
+      countRefundRequestedForStore(sb, id),
+      countPendingAcceptForStore(sb, id),
+      countPendingDeliveryAcceptForStore(sb, id),
+    ]);
+    return {
+      ok: true as const,
+      refund_requested_count,
+      pending_accept_count,
+      pending_delivery_count,
+    };
   });
+
+  return NextResponse.json(payload);
 }

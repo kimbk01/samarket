@@ -6,7 +6,7 @@ import { getDemoBuyerUserId, getMemberOrder } from "@/lib/member-orders/member-o
 import { useMemberOrdersVersion } from "@/lib/member-orders/use-member-orders-store";
 import { MemberOrderDetail } from "./MemberOrderDetail";
 
-const BASE = "/mypage/store-orders";
+const BASE = "/my/store-orders";
 
 export function MemberOrderDetailPageClient({ orderId }: { orderId: string }) {
   const v = useMemberOrdersVersion();
@@ -23,7 +23,7 @@ export function MemberOrderDetailPageClient({ orderId }: { orderId: string }) {
         <p className="text-sm text-gray-600">
           회원 역할로 전환한 뒤 다시 열어 주세요.
         </p>
-        <Link href={BASE} className="mt-4 inline-block text-sm font-semibold text-violet-700 underline">
+        <Link href={BASE} className="mt-4 inline-block text-sm font-semibold text-signature underline">
           목록으로
         </Link>
       </div>
@@ -34,7 +34,7 @@ export function MemberOrderDetailPageClient({ orderId }: { orderId: string }) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-16 text-center">
         <p className="text-sm text-gray-600">주문을 찾을 수 없어요.</p>
-        <Link href={BASE} className="mt-4 inline-block text-sm font-semibold text-violet-700 underline">
+        <Link href={BASE} className="mt-4 inline-block text-sm font-semibold text-signature underline">
           목록으로
         </Link>
       </div>

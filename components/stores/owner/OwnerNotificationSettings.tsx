@@ -29,7 +29,7 @@ function Row({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-          checked ? "bg-violet-600" : "bg-gray-200"
+          checked ? "bg-signature" : "bg-gray-200"
         }`}
       >
         <span

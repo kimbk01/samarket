@@ -88,6 +88,7 @@ export function mapStoreOrderToAdminDelivery(p: {
     storeOwnerUserId: p.storeOwnerUserId,
     storeOwnerName: p.storeOwnerName || "—",
     orderType: fulfillmentToOrderType(o.fulfillment_type),
+    /** 고객 배달·배송지. 매장 영업 주소와 별도(픽업은 비어 있을 수 있음). */
     addressSummary: o.delivery_address_summary ?? undefined,
     addressDetail: o.delivery_address_detail ?? undefined,
     requestNote: o.buyer_note ?? undefined,

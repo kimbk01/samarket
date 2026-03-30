@@ -1,6 +1,7 @@
 import type { BusinessProfile, BusinessProfileStatus } from "@/lib/types/business";
 import type { BusinessProduct } from "@/lib/types/business";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
+import { formatStoreDetailAddressLine } from "@/lib/stores/store-location-label";
 
 type RelEmbed = { name: string; slug: string } | { name: string; slug: string }[] | null;
 
@@ -13,6 +14,8 @@ function embedName(v: RelEmbed): string | null {
 export type StoreRow = {
   id: string;
   owner_user_id: string;
+  /** 매장 신청 폼에서 제출한 표시명(프로필 닉네임과 다를 수 있음) */
+  applicant_nickname?: string | null;
   store_name: string;
   slug: string;
   business_type: string | null;
@@ -38,8 +41,6 @@ export type StoreRow = {
   lat?: number | null;
   lng?: number | null;
   profile_image_url: string | null;
-  /** Storage 공개 URL — 동네배달 신규 주문 알림음 (비우면 전역 설정·비프) */
-  order_alert_sound_url?: string | null;
   business_hours_json?: unknown;
   gallery_images_json?: unknown;
   approval_status: string;
@@ -81,7 +82,13 @@ export function dbStoreToBusinessProfile(row: StoreRow): BusinessProfile {
     region: row.region ?? "",
     city: row.city ?? "",
     barangay: row.district ?? "",
-    addressLabel: row.address_line1 ?? "",
+    addressStreetLine: row.address_line1 ?? "",
+    addressDetail: row.address_line2 ?? "",
+    addressLabel: formatStoreDetailAddressLine({
+      district: row.district,
+      address_line1: row.address_line1,
+      address_line2: row.address_line2,
+    }),
     category: categoryLine || row.business_type || "",
     storeCategoryName: catName,
     storeTopicName: topicName,

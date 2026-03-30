@@ -71,3 +71,38 @@ export function formatStoreDetailAddressLine(parts: {
   if (chunks.length === 0 && d) chunks.push(d);
   return chunks.join(", ");
 }
+
+/**
+ * 매장 창 표시: 주소 한 줄 — `address_line1` 우선, 구형 `district`만 있을 때는 그대로.
+ * (신규 저장은 district ≈ line1 동기)
+ */
+export function formatStoreAddressStreetDisplay(parts: {
+  district?: string | null;
+  address_line1?: string | null;
+}): string {
+  const a1 = typeof parts.address_line1 === "string" ? parts.address_line1.trim() : "";
+  const d = typeof parts.district === "string" ? parts.district.trim() : "";
+  if (d && a1 && d === a1) return a1;
+  if (d && a1) return `${d}, ${a1}`;
+  return a1 || d || "";
+}
+
+export function formatStoreAddressDetailOnly(address_line2?: string | null): string {
+  return typeof address_line2 === "string" ? address_line2.trim() : "";
+}
+
+/** 픽업·매장 안내용 — 등록된 매장 영업 주소(지역 한 줄 + 상세 지번 등) */
+export function formatStorePickupAddressLines(parts: {
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+}): string[] {
+  const lines: string[] = [];
+  const loc = formatStoreLocationLine(parts);
+  if (loc) lines.push(loc);
+  const rest = formatStoreDetailAddressLine(parts);
+  if (rest) lines.push(rest);
+  return lines;
+}

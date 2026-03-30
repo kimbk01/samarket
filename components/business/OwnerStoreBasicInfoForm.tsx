@@ -9,7 +9,7 @@ import {
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
 import { REGIONS } from "@/lib/products/form-options";
-import { LocationSelector } from "@/components/write/shared/LocationSelector";
+import { StoreAddressLocationSection } from "@/components/stores/StoreAddressLocationSection";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import {
   OWNER_STORE_CONTROL_CLASS,
@@ -23,6 +23,7 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC } from "@/lib/stores/store-address-form-ui";
 
 function resolveRegionCityIds(regionRaw: string, cityRaw: string): { rid: string; cid: string } {
   const rn = regionRaw.trim();
@@ -41,7 +42,8 @@ type BasicValues = {
   email: string;
   websiteUrl: string;
   profileImageUrl: string;
-  addressLabel: string;
+  addressStreetLine: string;
+  addressDetail: string;
   /** DB 분류 미사용 시 임시 업종(표시용) */
   category: string;
 };
@@ -56,7 +58,10 @@ function storeEmbedName(rel: StoreRelEmbed): string {
 
 function rowToBasicValues(row: StoreRow): BasicValues {
   const { intro, kakao } = splitStoreDescriptionAndKakao(row.description, row.kakao_id ?? null);
-  const addr = (row.district ?? "").trim() || (row.address_line1 ?? "").trim();
+  const a1 = (row.address_line1 ?? "").trim();
+  const d = (row.district ?? "").trim();
+  const street = a1 || d;
+  const detail = (row.address_line2 ?? "").trim();
   return {
     shopName: row.store_name ?? "",
     description: intro ?? "",
@@ -65,7 +70,8 @@ function rowToBasicValues(row: StoreRow): BasicValues {
     email: parsePhMobileInput(row.email ?? ""),
     websiteUrl: row.website_url ?? "",
     profileImageUrl: row.profile_image_url ?? "",
-    addressLabel: addr,
+    addressStreetLine: street,
+    addressDetail: detail,
     category: row.business_type ?? "",
   };
 }
@@ -310,9 +316,9 @@ export function OwnerStoreBasicInfoForm({
         kakao_id: values.kakaoId.trim() || null,
         region: regionId.trim() || null,
         city: cityId.trim() || null,
-        district: values.addressLabel.trim() || null,
-        address_line1: values.addressLabel.trim() || null,
-        address_line2: null,
+        district: values.addressStreetLine.trim() || null,
+        address_line1: values.addressStreetLine.trim() || null,
+        address_line2: values.addressDetail.trim() || null,
         email: gcashDb,
         website_url: values.websiteUrl.trim() || null,
         profile_image_url: values.profileImageUrl.trim() || null,
@@ -538,35 +544,25 @@ export function OwnerStoreBasicInfoForm({
           </div>
         </div>
 
-        <div>
-          <p className="mb-1 block text-[14px] font-medium text-gray-700">위치</p>
-          <p className="mb-2 text-[12px] text-gray-500">공개 페이지 상단 위치·주소에 반영됩니다.</p>
-          <LocationSelector
-            embedded
-            region={regionId}
-            city={cityId}
-            onRegionChange={(id) => {
-              setRegionId(id);
-              setCityId("");
-            }}
-            onCityChange={(id) => {
-              setCityId(id);
-            }}
-            label="지역 · 동네"
-            showRequired={false}
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">상세 주소 (선택)</label>
-          <input
-            type="text"
-            value={values.addressLabel}
-            onChange={(e) => setValues((v) => ({ ...v, addressLabel: e.target.value }))}
-            className={OWNER_STORE_CONTROL_CLASS}
-            placeholder="건물명, 층수, 도로명 등"
-          />
-        </div>
+        <StoreAddressLocationSection
+          sectionHint={STORE_LOCATION_SECTION_HINT_STORE_PUBLIC}
+          regionId={regionId}
+          cityId={cityId}
+          onRegionChange={(id) => {
+            setRegionId(id);
+            setCityId("");
+          }}
+          onCityChange={(id) => {
+            setCityId(id);
+          }}
+          addressStreetLine={values.addressStreetLine}
+          addressDetail={values.addressDetail}
+          onAddressStreetLineChange={(v) =>
+            setValues((x) => ({ ...x, addressStreetLine: v }))
+          }
+          onAddressDetailChange={(v) => setValues((x) => ({ ...x, addressDetail: v }))}
+          showRequired={false}
+        />
 
         <div className="space-y-2">
           <h3 className="text-[14px] font-semibold text-gray-900">업종 · 세부 주제</h3>

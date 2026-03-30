@@ -8,13 +8,36 @@ import {
   notifyStoreOwnerRefundRequested,
 } from "@/lib/notifications/notify-store-commerce";
 import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transitions";
+import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   appendStoreOrderChatStatusTransition,
   ensureStoreOrderChatRoom,
 } from "@/lib/chat/store-order-chat-db";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 
 export const dynamic = "force-dynamic";
+
+async function isBuyerHiddenStoreOrder(
+  sb: import("@supabase/supabase-js").SupabaseClient<any>,
+  buyerUserId: string,
+  orderId: string
+): Promise<boolean> {
+  const { data, error } = await sb
+    .from("store_order_buyer_hides")
+    .select("order_id")
+    .eq("buyer_user_id", buyerUserId)
+    .eq("order_id", orderId)
+    .maybeSingle();
+  if (error) {
+    if (error.message?.includes("store_order_buyer_hides") && error.message.includes("does not exist")) {
+      return false;
+    }
+    throw error;
+  }
+  return !!data;
+}
 
 /** 구매자: 주문 단건 + 라인 */
 export async function GET(
@@ -50,6 +73,16 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
+  try {
+    const hidden = await isBuyerHiddenStoreOrder(sb, buyerId, oid);
+    if (hidden) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+  } catch (hideErr) {
+    console.error("[GET store-order hidden check]", hideErr);
+    return NextResponse.json({ ok: false, error: "hidden_check_failed" }, { status: 500 });
+  }
+
   const { data: items, error: iErr } = await sb
     .from("store_order_items")
     .select("id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
@@ -63,15 +96,39 @@ export async function GET(
 
   const { data: store } = await sb
     .from("stores")
-    .select("store_name, slug, owner_user_id")
+    .select(
+      "store_name, slug, owner_user_id, region, city, district, address_line1, address_line2"
+    )
     .eq("id", order.store_id as string)
     .maybeSingle();
 
-  const { data: reviewRow, error: revErr } = await sb
-    .from("store_reviews")
-    .select("id")
-    .eq("order_id", oid)
-    .maybeSingle();
+  const store_pickup_address_lines =
+    store ?
+      formatStorePickupAddressLines({
+        region: store.region as string | null | undefined,
+        city: store.city as string | null | undefined,
+        district: store.district as string | null | undefined,
+        address_line1: store.address_line1 as string | null | undefined,
+        address_line2: store.address_line2 as string | null | undefined,
+      })
+    : [];
+
+  let reviewRow: { id?: string; visible_to_public?: boolean } | null = null;
+  let revErr = null as { message?: string } | null;
+  {
+    const sel = await sb
+      .from("store_reviews")
+      .select("id, visible_to_public")
+      .eq("order_id", oid)
+      .maybeSingle();
+    reviewRow = sel.data as typeof reviewRow;
+    revErr = sel.error;
+    if (revErr && /visible_to_public|column/i.test(String(revErr.message)) && /does not exist/i.test(String(revErr.message))) {
+      const fb = await sb.from("store_reviews").select("id").eq("order_id", oid).maybeSingle();
+      reviewRow = fb.data ? { id: fb.data.id as string, visible_to_public: true } : null;
+      revErr = fb.error;
+    }
+  }
 
   const completed = order.order_status === "completed";
   const reviewsUnavailable = !!(
@@ -79,6 +136,7 @@ export async function GET(
   );
   const reviewId =
     !revErr && reviewRow?.id ? (reviewRow.id as string) : undefined;
+  const reviewVisibleToPublic = reviewRow?.visible_to_public !== false;
   const canSubmitReview = completed && !reviewId && !reviewsUnavailable;
 
   let chat_room_id: string | null = null;
@@ -96,9 +154,10 @@ export async function GET(
       store_name: (store?.store_name as string) ?? "",
       store_slug: (store?.slug as string) ?? "",
       owner_user_id: (store?.owner_user_id as string) ?? "",
+      store_pickup_address_lines,
     },
     items: items ?? [],
-    review: reviewId ? { id: reviewId } : null,
+    review: reviewId ? { id: reviewId, visible_to_public: reviewVisibleToPublic } : null,
     can_submit_review: canSubmitReview,
     chat_room_id,
   });
@@ -298,6 +357,7 @@ export async function PATCH(
     orderNo: String(order.order_no ?? ""),
   });
 
+  let cancelOwnerId: string | null = null;
   try {
     const { data: stRow2 } = await sb
       .from("stores")
@@ -305,6 +365,7 @@ export async function PATCH(
       .eq("id", order.store_id as string)
       .maybeSingle();
     const ownerId2 = (stRow2 as { owner_user_id?: string } | null)?.owner_user_id;
+    cancelOwnerId = ownerId2 ? String(ownerId2) : null;
     await appendStoreOrderChatStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid,
@@ -316,5 +377,72 @@ export async function PATCH(
     /* ignore */
   }
 
+  invalidateStoreOrderCountsCache(order.store_id as string);
+  if (cancelOwnerId) invalidateOwnerHubBadgeCache(cancelOwnerId);
+
   return NextResponse.json({ ok: true, order_status: "cancelled", payment_status: "cancelled" });
+}
+
+/**
+ * 구매자: 주문 내역 숨김(본인 목록에서만 삭제)
+ */
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ orderId: string }> }
+) {
+  const buyerId = await getRouteUserId();
+  if (!buyerId) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const { orderId } = await context.params;
+  const oid = typeof orderId === "string" ? orderId.trim() : "";
+  if (!oid) {
+    return NextResponse.json({ ok: false, error: "missing_order_id" }, { status: 400 });
+  }
+
+  const sb = tryGetSupabaseForStores();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+
+  const { data: order, error: oErr } = await sb
+    .from("store_orders")
+    .select("id")
+    .eq("id", oid)
+    .eq("buyer_user_id", buyerId)
+    .maybeSingle();
+  if (oErr || !order) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  const { error: hideErr } = await sb.from("store_order_buyer_hides").upsert(
+    {
+      order_id: oid,
+      buyer_user_id: buyerId,
+      hidden_at: new Date().toISOString(),
+    },
+    { onConflict: "order_id,buyer_user_id" }
+  );
+  if (hideErr) {
+    if (hideErr.message?.includes("store_order_buyer_hides") && hideErr.message.includes("does not exist")) {
+      return NextResponse.json({ ok: false, error: "buyer_hide_schema_missing" }, { status: 503 });
+    }
+    console.error("[DELETE store-order hide]", hideErr);
+    return NextResponse.json({ ok: false, error: hideErr.message }, { status: 500 });
+  }
+
+  const rm = getAuditRequestMeta(req);
+  void appendAuditLog(sb, {
+    actor_type: "user",
+    actor_id: buyerId,
+    target_type: "store_order",
+    target_id: oid,
+    action: "store_order.buyer_hide",
+    after_json: { hidden: true },
+    ip: rm.ip,
+    user_agent: rm.userAgent,
+  });
+
+  return NextResponse.json({ ok: true, hidden: true });
 }

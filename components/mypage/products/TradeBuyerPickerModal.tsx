@@ -49,10 +49,10 @@ export function TradeBuyerPickerModal({
               <button
                 type="button"
                 onClick={() => onSelect(c)}
-                className="flex w-full items-center justify-between px-4 py-3 text-left text-[15px] text-gray-900 hover:bg-violet-50 active:bg-violet-100"
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-[15px] text-gray-900 hover:bg-signature/5 active:bg-signature/10"
               >
                 <span className="truncate font-medium">{c.buyerNickname}</span>
-                <span className="ml-2 shrink-0 text-[12px] text-violet-700">선택</span>
+                <span className="ml-2 shrink-0 text-[12px] text-signature">선택</span>
               </button>
             </li>
           ))}

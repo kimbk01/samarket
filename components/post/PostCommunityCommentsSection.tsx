@@ -177,7 +177,7 @@ export function PostCommunityCommentsSection({
                 type="button"
                 disabled={chatBusyId === c.id}
                 onClick={() => openInquiry(uid, c.id)}
-                className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
+                className="rounded-md bg-signature px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
               >
                 {chatBusyId === c.id ? "…" : "문의"}
               </button>
@@ -187,7 +187,7 @@ export function PostCommunityCommentsSection({
                 type="button"
                 disabled={chatBusyId === c.id}
                 onClick={() => openInquiry(authorId, c.id)}
-                className="rounded-md border border-violet-200 bg-white px-2 py-1 text-[11px] font-medium text-violet-800 disabled:opacity-50"
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-800 disabled:opacity-50"
               >
                 {chatBusyId === c.id ? "…" : "작성자에게"}
               </button>

@@ -3,8 +3,6 @@
 import Link from "next/link";
 import type { ChatRoom } from "@/lib/types/chat";
 import { formatChatTime } from "@/lib/utils/format";
-import { trimPreviewForChatRoomRow } from "@/lib/chats/chat-list-preview-trim";
-import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
 import { ChatRoomListMenu } from "@/components/chats/ChatRoomListMenu";
 import { COMMUNITY_CHAT_SURFACE } from "@/lib/chats/surfaces/community-chat-surface";
@@ -12,9 +10,10 @@ import { COMMUNITY_CHAT_SURFACE } from "@/lib/chats/surfaces/community-chat-surf
 const KIND_LABEL: Record<NonNullable<ChatRoom["generalChat"]>["kind"], string> = {
   community: COMMUNITY_CHAT_SURFACE.tradeListRoomBadgeLabel,
   group: "모임",
+  open_chat: "오픈채팅",
   business: "비즈",
   legacy_general: "일반",
-  store_order: "매장 주문",
+  store_order: "배달 주문",
 };
 
 interface Props {
@@ -22,19 +21,89 @@ interface Props {
   onRoomMutated?: () => void;
   /** 미지정 시 `/chats/[id]` */
   getRoomHref?: (roomId: string) => string;
+  onSelectRoom?: (roomId: string) => void;
 }
 
-export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref }: Props) {
+export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelectRoom }: Props) {
   const kind = room.generalChat?.kind ?? "legacy_general";
   const label = KIND_LABEL[kind];
   const detailHref = getRoomHref ? getRoomHref(room.id) : `/chats/${room.id}`;
   const product = room.product;
-  const rowPreview = product?.listPreview ? trimPreviewForChatRoomRow(product.listPreview) : null;
-  const listingPost = {
-    seller_listing_state: product?.sellerListingState,
-    status: product?.status,
-    type: "trade" as const,
-  };
+  const title = room.roomTitle?.trim() || room.partnerNickname;
+  const subtitle = room.roomSubtitle?.trim() || product?.regionLabel || "";
+  const isStoreOrder = kind === "store_order";
+  const statusSummary = isStoreOrder
+    ? subtitle.replace(/^주문 상태\s*·\s*/, "").trim() || "확인 필요"
+    : "";
+
+  const rowClass = "flex flex-col gap-2 p-3 pr-11";
+
+  const rowInner = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="min-w-0 truncate text-[15px] font-semibold text-gray-900">
+            <span className="mr-1.5 rounded bg-signature/10 px-1.5 py-0.5 text-[11px] font-medium text-gray-800">
+              {label}
+            </span>
+            {title}
+          </p>
+          {isStoreOrder ? (
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
+                주문 상태
+              </span>
+              <span className="text-[12px] font-medium text-gray-700">{statusSummary}</span>
+            </div>
+          ) : null}
+        </div>
+        <time className="shrink-0 text-[12px] text-gray-400">{formatChatTime(room.lastMessageAt)}</time>
+      </div>
+      {isStoreOrder ? (
+        <div className="rounded-xl border border-amber-100 bg-amber-50/80 px-3 py-2.5">
+          <p className="text-[12px] font-medium text-gray-900">주문 상태 확인 후 필요한 문의만 채팅으로 이어가세요.</p>
+          <p className="mt-1 line-clamp-2 text-[12px] text-gray-600">{room.lastMessage || "대화를 시작해 보세요"}</p>
+        </div>
+      ) : (
+        <p className="line-clamp-2 text-[14px] text-gray-600">{room.lastMessage || "대화를 시작해 보세요"}</p>
+      )}
+      {product?.thumbnail || product?.title ? (
+        <div className="flex gap-3 border-t border-gray-100 pt-2">
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-[#EFEFEF]">
+            {product?.thumbnail ? (
+              <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">
+                이미지
+              </div>
+            )}
+          </div>
+          <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
+            <p className="line-clamp-2 text-[14px] font-medium text-gray-900">
+              {product?.title || title}
+            </p>
+            {subtitle ? (
+              <p className="mt-1 text-[12px] text-[#8E8E8E]">{subtitle}</p>
+            ) : null}
+            {isStoreOrder ? (
+              <p className="mt-2 text-[12px] font-medium text-signature">주문 상세와 채팅을 같은 맥락에서 이어보기</p>
+            ) : null}
+            {(kind === "group" || kind === "open_chat") && typeof room.memberCount === "number" ? (
+              <p className="mt-2 text-[12px] font-medium text-signature">
+                {kind === "open_chat" ? "참여 인원" : "참여 멤버"} {room.memberCount}명
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {!product?.thumbnail && !product?.title && subtitle ? (
+        <p className="truncate text-[12px] text-[#8E8E8E]">{subtitle}</p>
+      ) : null}
+      {!product?.thumbnail && !subtitle && product?.title ? (
+        <p className="truncate text-[12px] text-[#8E8E8E]">{product.title}</p>
+      ) : null}
+    </>
+  );
 
   return (
     <div
@@ -48,42 +117,15 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref }: Props)
       <div className="absolute right-1 top-1 z-[20]">
         <ChatRoomListMenu roomId={room.id} onAfterAction={onRoomMutated} />
       </div>
-      <Link href={detailHref} replace={!!getRoomHref} scroll={false} className="flex flex-col gap-2 p-3 pr-11">
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 truncate text-[15px] font-semibold text-gray-900">
-          <span className="mr-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-medium text-violet-800">
-            {label}
-          </span>
-          {room.partnerNickname}
-        </p>
-        <time className="shrink-0 text-[12px] text-gray-400">{formatChatTime(room.lastMessageAt)}</time>
-      </div>
-      <p className="line-clamp-2 text-[14px] text-gray-600">{room.lastMessage || "대화를 시작해 보세요"}</p>
-      {rowPreview ? (
-        <div className="flex gap-3 border-t border-gray-100 pt-2">
-          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-none bg-gray-100">
-            {product?.thumbnail ? (
-              <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">
-                이미지
-              </div>
-            )}
-          </div>
-          <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
-            <PostListPreviewColumn
-              omitListingBadge
-              listingPost={listingPost}
-              preview={rowPreview}
-              matchThumbnailHeight
-            />
-          </div>
-        </div>
-      ) : null}
-      {!rowPreview && product?.title ? (
-        <p className="truncate text-[12px] text-gray-500">{product.title}</p>
-      ) : null}
-      </Link>
+      {onSelectRoom ? (
+        <button type="button" className={`${rowClass} text-left`} onClick={() => onSelectRoom(room.id)}>
+          {rowInner}
+        </button>
+      ) : (
+        <Link href={detailHref} replace={!!getRoomHref} scroll={false} className={rowClass}>
+          {rowInner}
+        </Link>
+      )}
     </div>
   );
 }

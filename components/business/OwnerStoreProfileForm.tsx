@@ -32,8 +32,6 @@ import { TumblerTimePickerDialog } from "@/components/ui/TumblerTimePickerDialog
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { formatHHmm12hLabel } from "@/lib/utils/tumbler-time";
-import { StoreOrderAlertSoundSettings } from "@/components/business/StoreOrderAlertSoundSettings";
-
 const GALLERY_MAX = 16;
 
 function intStrFromJson(o: Record<string, unknown>, snake: string, camel: string): string {
@@ -71,7 +69,8 @@ export type OwnerStoreProfileFormValues = {
   kakaoId: string;
   region: string;
   city: string;
-  addressLabel: string;
+  addressStreetLine: string;
+  addressDetail: string;
   category: string;
   email: string;
   websiteUrl: string;
@@ -135,7 +134,10 @@ function hasPersistedPublicCommerceDetail(v: OwnerStoreProfileFormValues): boole
 
 function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
   const { intro, kakao } = splitStoreDescriptionAndKakao(row.description, row.kakao_id ?? null);
-  const addr = (row.district ?? "").trim() || (row.address_line1 ?? "").trim();
+  const a1 = (row.address_line1 ?? "").trim();
+  const d = (row.district ?? "").trim();
+  const street = a1 || d;
+  const detail = (row.address_line2 ?? "").trim();
   const lat = row.lat != null && Number.isFinite(Number(row.lat)) ? String(row.lat) : "";
   const lng = row.lng != null && Number.isFinite(Number(row.lng)) ? String(row.lng) : "";
   const br = readBreakHoursFormFields(row.business_hours_json);
@@ -149,7 +151,8 @@ function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
     kakaoId: kakao ?? "",
     region: row.region ?? "",
     city: row.city ?? "",
-    addressLabel: addr,
+    addressStreetLine: street,
+    addressDetail: detail,
     category: row.business_type ?? "",
     email: parsePhMobileInput(row.email ?? ""),
     websiteUrl: row.website_url ?? "",
@@ -573,7 +576,14 @@ export function OwnerStoreProfileForm({
         </div>
       </div>
 
-      <StoreOrderAlertSoundSettings storeId={storeId} initialUrl={row.order_alert_sound_url} />
+      <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-3">
+        <h3 className="text-[14px] font-semibold text-gray-900">신규 주문 알림음 (배달)</h3>
+        <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
+          모든 매장에 동일하게 적용됩니다. 소리 파일은 관리자{" "}
+          <span className="font-medium text-gray-800">매장 신청 설정</span>(<code className="rounded bg-white px-1 text-[11px]">/admin/stores/application-settings</code>
+          )의「매장 알림음 (배달 신규 주문)」에서 설정합니다. 미설정 시 짧은 비프음이 재생됩니다.
+        </p>
+      </div>
 
       <div className="rounded-lg border border-gray-100 bg-white px-3 py-3">
         <h3 className="text-[14px] font-semibold text-gray-900">매장 창 영업시간 (현지 시각)</h3>
@@ -724,7 +734,7 @@ export function OwnerStoreProfileForm({
           <div className="mt-3 space-y-3 border-t border-amber-200/60 pt-3">
             <div>
               <span className="mb-2 block text-[13px] font-medium text-gray-800">결제 방법 안내</span>
-              <div className="rounded-none border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900">
+              <div className="rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900">
                 <div className="flex flex-nowrap items-center gap-x-3 gap-y-0 overflow-x-auto py-0.5 [scrollbar-width:thin] sm:gap-x-5">
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
                     <input
@@ -771,7 +781,7 @@ export function OwnerStoreProfileForm({
                     onChange={(e) => setValues((v) => ({ ...v, payMethodOtherText: e.target.value }))}
                     disabled={!values.payMethodOtherEnabled}
                     placeholder="기타 입력"
-                    className={`min-w-[8rem] max-w-[14rem] flex-1 rounded-none border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] text-gray-900 disabled:bg-gray-50 disabled:text-gray-400 sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem]`}
+                    className={`min-w-[8rem] max-w-[14rem] flex-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] text-gray-900 disabled:bg-gray-50 disabled:text-gray-400 sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem]`}
                   />
                 </div>
               </div>
@@ -862,7 +872,7 @@ export function OwnerStoreProfileForm({
                             publicNotices: v.publicNotices.filter((_, j) => j !== i),
                           }))
                         }
-                        className="shrink-0 rounded-none border border-gray-200 bg-white px-2.5 py-2 text-[12px] font-medium text-gray-700 active:bg-gray-50"
+                        className="shrink-0 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-[12px] font-medium text-gray-700 active:bg-gray-50"
                       >
                         삭제
                       </button>
@@ -873,7 +883,7 @@ export function OwnerStoreProfileForm({
               <button
                 type="button"
                 onClick={() => setValues((v) => ({ ...v, publicNotices: [...v.publicNotices, ""] }))}
-                className="rounded-none border border-dashed border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 active:bg-gray-50"
+                className="rounded-md border border-dashed border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 active:bg-gray-50"
               >
                 공지 추가
               </button>
@@ -929,7 +939,7 @@ export function OwnerStoreProfileForm({
           사진은 파일 업로드로만 추가합니다(최대 {GALLERY_MAX}장). Storage에 올라간 뒤 저장 시 함께 반영됩니다.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-none border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-50">
+          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-50">
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 
 interface SettingsAdminEntryProps {
   /** 플랫폼 관리자 — `/admin` */
@@ -10,10 +11,17 @@ interface SettingsAdminEntryProps {
 }
 
 export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminEntryProps) {
+  const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
   if (!showAdmin && !showStoreOwner) return null;
   return (
-    <section className="border-t border-gray-100 bg-white pt-4">
-      <div className="divide-y divide-gray-100">
+    <section className="mt-6 rounded-xl bg-white px-4 py-4 shadow-sm">
+      <div className="mb-3">
+        <h2 className="text-[13px] font-medium text-gray-500">보조 바로가기</h2>
+        <p className="mt-1 text-[12px] leading-relaxed text-gray-500">
+          운영 기능이 필요할 때만 여는 보조 진입입니다. 주문과 매장 운영 흐름은 매장 메뉴에서 이어집니다.
+        </p>
+      </div>
+      <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
         {showAdmin ? (
           <Link
             href="/admin"
@@ -24,15 +32,17 @@ export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminE
           </Link>
         ) : null}
         {showStoreOwner ? (
-          <Link
-            href="/my/business"
-            className="flex items-center justify-between px-4 py-3 text-[15px] font-medium text-gray-900"
+          <button
+            type="button"
+            onClick={() => goBusinessHubOrModal("/my/business")}
+            className="flex w-full items-center justify-between px-4 py-3 text-left text-[15px] font-medium text-gray-900"
           >
             <span>매장 관리자 접속</span>
             <ChevronRight className="text-gray-400" />
-          </Link>
+          </button>
         ) : null}
       </div>
+      {hubBlockedModal}
     </section>
   );
 }

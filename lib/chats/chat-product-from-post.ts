@@ -128,6 +128,7 @@ export function chatProductSummaryFromPostRow(
 ): ChatProductSummary {
   const meta = parsePostMetaField(post?.meta);
   const isEx = hasExchangeMeta(meta);
+  const isJobTradeChat = str(meta.trade_chat_kind).toLowerCase() === "job";
   const priceRaw = post?.price as number | string | null | undefined;
   const priceNum =
     priceRaw != null && priceRaw !== ""
@@ -165,5 +166,6 @@ export function chatProductSummaryFromPostRow(
     exchangePhpAmount: isEx ? phpAmount : undefined,
     exchangeRateSubLine: isEx ? rateLine : undefined,
     listPreview,
+    isJobTradeChat: !isEx && isJobTradeChat ? true : undefined,
   };
 }

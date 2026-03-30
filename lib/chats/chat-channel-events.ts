@@ -4,8 +4,11 @@
  * - 주문 채팅: `shared-order-chat/shared-chat-store` + `subscribeOrderChat` / `useOrderChatVersion` 만 사용 (이 이벤트와 무관)
  */
 
-/** 거래·일반 채팅방 미읽음 변경 시 — 하단 탭 배지·목록 갱신 전용 */
+/** 통합 채팅 미읽음 변경(거래·커뮤니티·매장 주문) — 하단 탭 배지·목록 즉시 갱신 */
 export const KASAMA_TRADE_CHAT_UNREAD_UPDATED = "kasama:trade-chat-unread-updated";
 
 /** 매장 접수·환불 카운트 등 오너 허브 배지 즉시 갱신 */
 export const KASAMA_OWNER_HUB_BADGE_REFRESH = "kasama:owner-hub-badge-refresh";
+
+/** 주문 제출 후 매장 탭「내 주문」배지 — `StoresHub` 가 주문 목록 재조회 */
+export const KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH = "kasama:buyer-store-orders-hub-refresh";

@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { philifeAppPaths } from "@domain/philife/paths";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 export function CommunityComposeSheet({
   open,
   onClose,
-  sectionSlug,
 }: {
   open: boolean;
   onClose: () => void;
-  sectionSlug: string;
+  /** @deprecated 글쓰기는 /philife/write 고정 */
+  sectionSlug?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -23,7 +25,8 @@ export function CommunityComposeSheet({
 
   if (!open) return null;
 
-  const writeHref = `/community/write?section=${encodeURIComponent(sectionSlug)}`;
+  const writeHref = philifeAppPaths.write;
+  const writeMeetingHref = philifeAppPaths.writeMeeting;
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end" role="dialog" aria-modal="true">
@@ -34,7 +37,7 @@ export function CommunityComposeSheet({
         <ul className="space-y-2">
           <li>
             <Link
-              href="/chats"
+              href={TRADE_CHAT_SURFACE.hubPath}
               onClick={onClose}
               className="flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50 py-3.5 text-[15px] font-medium text-gray-900"
             >
@@ -45,9 +48,18 @@ export function CommunityComposeSheet({
             <Link
               href={writeHref}
               onClick={onClose}
-              className="flex items-center justify-center rounded-xl bg-gray-900 py-3.5 text-[15px] font-medium text-white"
+              className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-3.5 text-[15px] font-medium text-gray-900"
             >
-              동네생활 글쓰기
+              커뮤니티 글쓰기
+            </Link>
+          </li>
+          <li>
+            <Link
+              href={writeMeetingHref}
+              onClick={onClose}
+              className="flex items-center justify-center rounded-xl bg-emerald-600 py-3.5 text-[15px] font-medium text-white"
+            >
+              오픈채팅 만들기
             </Link>
           </li>
         </ul>

@@ -12,13 +12,13 @@ interface ProfileCardProps {
 export function ProfileCard({ profile }: ProfileCardProps) {
   if (!profile) {
     return (
-      <Link href="/mypage/profile" className="block">
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+      <Link href="/my/account" className="block">
+        <div className="rounded-xl border border-[#DBDBDB] bg-white p-4">
           <div className="flex items-center gap-3">
-            <div className="h-14 w-14 shrink-0 rounded-full bg-gray-200" />
+            <div className="h-14 w-14 shrink-0 rounded-full bg-[#EFEFEF]" />
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-medium text-gray-500">로그인해 주세요</p>
-              <p className="text-[12px] text-gray-400">프로필 보기</p>
+              <p className="text-[15px] font-medium text-[#8E8E8E]">로그인해 주세요</p>
+              <p className="text-[12px] text-[#8E8E8E]">프로필 보기</p>
             </div>
             <ChevronRight />
           </div>
@@ -28,10 +28,10 @@ export function ProfileCard({ profile }: ProfileCardProps) {
   }
 
   return (
-    <Link href="/mypage/profile" className="block">
-      <div className="rounded-xl bg-white p-4 shadow-sm">
+    <Link href="/my/account" className="block">
+      <div className="rounded-xl border border-[#DBDBDB] bg-white p-4">
         <div className="flex items-center gap-3">
-          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-200">
+          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#EFEFEF]">
             {profile.avatar_url ? (
               <Image
                 src={profile.avatar_url}
@@ -41,14 +41,14 @@ export function ProfileCard({ profile }: ProfileCardProps) {
                 sizes="56px"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl text-gray-400">
-                ?
+              <div className="flex h-full w-full items-center justify-center text-[#8E8E8E]">
+                <UserPlaceholderIcon />
               </div>
             )}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[15px] font-medium text-gray-900">{profile.nickname}</p>
+              <p className="text-[15px] font-medium text-[#262626]">{profile.nickname}</p>
             </div>
             <div className="mt-1">
               <MannerBatteryInline raw={profile.temperature} size="sm" />
@@ -61,9 +61,18 @@ export function ProfileCard({ profile }: ProfileCardProps) {
   );
 }
 
+function UserPlaceholderIcon() {
+  return (
+    <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
 function ChevronRight() {
   return (
-    <svg className="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 shrink-0 text-[#8E8E8E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );

@@ -3,6 +3,7 @@
 import { AdminSidebarItem } from "./AdminSidebarItem";
 import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
+import { collectMenuPaths } from "./admin-sidebar-active-path";
 
 /** 그룹(children 있는 메뉴): 제목 + 하위 항목. 하위 active 시 AdminSidebarItem에서 자동 open. */
 export function AdminSidebarGroup({
@@ -14,6 +15,8 @@ export function AdminSidebarGroup({
 }) {
   const status = getMenuStatus(item);
   const displayTitle = getMenuDisplayTitle(item.title, status);
+  const pathsScope = collectMenuPaths(item.children);
+
   return (
     <div className="mb-4">
       <div className="mb-2 rounded-md bg-gray-100 px-3 py-2.5">
@@ -28,6 +31,7 @@ export function AdminSidebarGroup({
             item={child}
             currentPath={currentPath}
             depth={0}
+            pathsScope={pathsScope}
           />
         ))}
       </div>

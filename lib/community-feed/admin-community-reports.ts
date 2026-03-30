@@ -65,7 +65,9 @@ export async function listCommunityReportsForAdmin(limit = 200): Promise<Communi
       .order("created_at", { ascending: false })
       .limit(Math.min(Math.max(limit, 1), 500));
 
-    if (error || !data?.length) return [];
+    if (error || !data?.length) {
+      return [];
+    }
 
     const rows = data as Record<string, unknown>[];
     const postIds = [

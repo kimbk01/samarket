@@ -5,6 +5,7 @@ import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
 import { applyTrustScoreDeltaToMany } from "@/lib/trust/trust-score-apply";
 import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
 /** 구매자 거래완료 확인(buyer-confirm) — 평가·후기 작성 가능 상태로 */
 export async function POST(
@@ -22,6 +23,10 @@ export async function POST(
   const userId = auth.userId;
   if (!roomId?.trim()) {
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+  }
+  const access = await assertVerifiedMemberForAction(sb as any, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
 
   const resolved = await resolveProductChat(sb, roomId.trim());

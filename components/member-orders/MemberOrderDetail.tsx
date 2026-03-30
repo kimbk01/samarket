@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
 import { useMemo, useState } from "react";
 import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
 import { useOrderChatVersion } from "@/components/order-chat/use-order-chat-version";
@@ -49,9 +50,13 @@ export function MemberOrderDetail({
     <div className="min-h-screen bg-gray-50 pb-36">
       <header className="sticky top-0 z-20 border-b border-gray-100 bg-white px-3 py-3">
         <div className="mx-auto flex max-w-lg items-center gap-2">
-          <Link href={listHref} className="text-sm font-semibold text-gray-600">
+          <HistoryBackTextLink
+            fallbackHref={listHref}
+            className="text-sm font-semibold text-gray-600"
+            aria-label="목록으로"
+          >
             ← 목록
-          </Link>
+          </HistoryBackTextLink>
           <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold">주문 상세</h1>
           <span className="w-10" />
         </div>
@@ -68,7 +73,7 @@ export function MemberOrderDetail({
               <p className="text-lg font-bold text-gray-900">{order.store_name}</p>
               <Link
                 href={`/stores/${encodeURIComponent(order.store_slug)}`}
-                className="text-xs font-medium text-violet-700 underline"
+                className="text-xs font-medium text-signature underline"
               >
                 매장 보기
               </Link>
@@ -77,7 +82,7 @@ export function MemberOrderDetail({
               <MemberOrderStatusBadge status={order.order_status} />
               <Link
                 href={`${listHref}/${encodeURIComponent(order.id)}/chat`}
-                className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-800 ring-1 ring-violet-200"
+                className="inline-flex items-center gap-1 rounded-full bg-signature/5 px-3 py-1.5 text-xs font-bold text-gray-800 ring-1 ring-gray-300"
               >
                 채팅하기
                 <UnreadBadge count={chatUnread} />
@@ -91,7 +96,7 @@ export function MemberOrderDetail({
           <div className="mt-3 flex flex-wrap gap-2">
             <span
               className={`rounded-md px-2 py-0.5 text-xs font-bold ${
-                order.order_type === "delivery" ? "bg-violet-50 text-violet-900" : "bg-teal-50 text-teal-900"
+                order.order_type === "delivery" ? "bg-signature/5 text-gray-900" : "bg-teal-50 text-teal-900"
               }`}
             >
               {order.order_type === "delivery" ? "배달 주문" : "포장 주문"}
@@ -181,6 +186,15 @@ export function MemberOrderDetail({
 
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-100 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur">
         <div className="mx-auto flex max-w-lg flex-col gap-2">
+          {!issueState ? (
+            <Link
+              href={`${listHref}/${encodeURIComponent(order.id)}/chat`}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-signature/5 py-3 text-sm font-bold text-gray-900"
+            >
+              매장과 대화 이어가기
+              <UnreadBadge count={chatUnread} />
+            </Link>
+          ) : null}
           {canCancelRequest ? (
             <button
               type="button"
@@ -227,15 +241,6 @@ export function MemberOrderDetail({
             <p className="py-2 text-center text-xs text-gray-500">
               취소·환불 관련 문의는 고객센터로 연락해 주세요. (샘플)
             </p>
-          ) : null}
-          {!completed && !canCancelRequest && !preparingPlus && !issueState ? (
-            <Link
-              href={`${listHref}/${encodeURIComponent(order.id)}/chat`}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 py-3 text-sm font-bold text-violet-900"
-            >
-              채팅으로 문의하기
-              <UnreadBadge count={chatUnread} />
-            </Link>
           ) : null}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { getFavoriteAuditLog, type FavoriteAuditRow } from "@/lib/admin-favorites/getFavoriteAuditLog";
 import Link from "next/link";
+import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 
 export default function AdminFavoritesPage() {
   const [logs, setLogs] = useState<FavoriteAuditRow[]>([]);
@@ -24,7 +25,12 @@ export default function AdminFavoritesPage() {
     <div className="space-y-4">
       <AdminPageHeader title="찜/관심 관리" />
       <p className="text-[13px] text-gray-600">
-        찜 많은순 정렬은 상품 목록에서 정렬 옵션 &quot;찜 많은순&quot;을 선택하세요. 아래는 비정상 찜 감지를 위한 최근 찜 추가/삭제 로그입니다.
+        사용자 화면 「찜 목록」(
+        <code className="rounded bg-gray-100 px-1">{MYPAGE_TRADE_FAVORITES_HREF}</code>)은{" "}
+        <code className="rounded bg-gray-100 px-1">GET /api/favorites/list</code> → <code className="rounded bg-gray-100 px-1">favorites</code> 테이블과
+        동일합니다. 아래 로그는 <code className="rounded bg-gray-100 px-1">POST /api/favorites/toggle</code> 성공 시
+        <code className="rounded bg-gray-100 px-1">favorite_audit_log</code>에 쌓인 감사 기록입니다 (
+        <code className="rounded bg-gray-100 px-1">GET /api/admin/favorite-audit</code>).
       </p>
       {loading ? (
         <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">

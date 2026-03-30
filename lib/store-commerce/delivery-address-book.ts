@@ -18,6 +18,19 @@ const STORAGE_KEY = "kasama_checkout_delivery_address_book_v1";
 /** entries에 넣지 않는 마이페이지 주소를 라디오 선택값으로 쓸 때의 selectedId */
 export const PROFILE_DELIVERY_SELECTION_ID = "__kasama_profile_delivery__";
 
+/** 서버 `user_addresses` 기본 배달지 — 카트 라디오 값 `ua:<uuid>` */
+export const USER_ADDRESS_DELIVERY_PREFIX = "ua:";
+
+export function userAddressDeliverySelectionId(userAddressId: string): string {
+  return `${USER_ADDRESS_DELIVERY_PREFIX}${userAddressId}`;
+}
+
+export function parseUserAddressIdFromDeliverySelection(selectedId: string | null): string | null {
+  if (!selectedId?.startsWith(USER_ADDRESS_DELIVERY_PREFIX)) return null;
+  const id = selectedId.slice(USER_ADDRESS_DELIVERY_PREFIX.length).trim();
+  return id || null;
+}
+
 type StoredShape = {
   entries: DeliveryAddressBookEntry[];
   selectedId: string | null;

@@ -1,12 +1,19 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { REGIONS } from "@/lib/products/form-options";
-import { lookupLocationByPhilippinesZip, normalizePhilippinesZipInput } from "@/lib/products/zip-to-location";
 import {
-  OWNER_STORE_AUX_BUTTON_CLASS,
+  finalizePhilippinesZipCode,
+  getPhilippinesZipCodesForLocation,
+  isPhilippinesZipInputComplete,
+  lookupLocationByPhilippinesZip,
+  normalizePhilippinesZipInput,
+} from "@/lib/products/zip-to-location";
+import {
+  OWNER_STORE_AUX_BUTTON_INLINE_COMPACT_CLASS,
   OWNER_STORE_CONTROL_CLASS,
   OWNER_STORE_FORM_GRID_2_CLASS,
+  OWNER_STORE_FORM_LEAD_CLASS,
   OWNER_STORE_SELECT_CLASS,
 } from "@/lib/business/owner-store-stack";
 
@@ -25,8 +32,18 @@ interface LocationSelectorProps {
   className?: string;
   /** false면 라벨 옆 필수 `*` 숨김 (주소 텍스트와 택일인 경우 등) */
   showRequired?: boolean;
-  /** 필리핀 4자리 ZIP으로 지역·동네 자동 선택 (등록된 번호만) */
+  /** PhilPost 4자리 ZIP으로 지역·동네 자동 선택 (표+권역 보조) */
   showZipLookup?: boolean;
+  /**
+   * 저장된 우편번호(4자리) — 편집 시 동네별 ZIP 후보와 맞으면 입력칸에 우선 반영.
+   * (부모 `postalCode` state를 넘기면 됨. 지역·동네가 바뀔 때만 이 값으로 시드합니다.)
+   */
+  philippinesZipSeed?: string;
+  /**
+   * PhilPost 4자리가 확정될 때 — 지역·동네 선택으로 자동 채움, 또는 「적용」·ZIP역검색 성공 시.
+   * 주소 시트 등에서는 이 콜백만으로 DB `postal_code`와 맞추면 됩니다.
+   */
+  onPhilippinesZipCommitted?: (fourDigitZip: string) => void;
 }
 
 function isValidRegionCity(regionId: string, cityId: string): boolean {
@@ -45,30 +62,92 @@ export function LocationSelector({
   className = "",
   showRequired = true,
   showZipLookup = true,
+  philippinesZipSeed,
+  onPhilippinesZipCommitted,
 }: LocationSelectorProps) {
   const selectedRegion = REGIONS.find((r) => r.id === region);
   const cities = selectedRegion?.cities ?? [];
   const [zipDraft, setZipDraft] = useState("");
   const [zipMessage, setZipMessage] = useState<string | null>(null);
+  const prevRegionCityRef = useRef<{ r: string; c: string } | null>(null);
 
-  const applyZip = useCallback(() => {
-    const hit = lookupLocationByPhilippinesZip(zipDraft);
-    if (!hit) {
-      setZipMessage(
-        normalizePhilippinesZipInput(zipDraft).length < 4
-          ? "숫자 4자리를 입력한 뒤 적용해 주세요."
-          : "등록된 우편번호가 아닙니다. 아래에서 지역·동네를 직접 선택해 주세요."
-      );
+  const zipCodesForLocation = useMemo(
+    () => getPhilippinesZipCodesForLocation(region, city),
+    [region, city]
+  );
+
+  /** 지역·동네가 바뀔 때만 ZIP 입력칸을 동네 후보(또는 저장분 seed)로 맞춤 — 별도 ZIP `<select>` 없음 */
+  useEffect(() => {
+    const codes = zipCodesForLocation;
+    const prev = prevRegionCityRef.current;
+    const locChanged = !prev || prev.r !== region || prev.c !== city;
+    prevRegionCityRef.current = { r: region, c: city };
+
+    if (!city || codes.length === 0) {
+      setZipDraft("");
       return;
     }
-    if (!isValidRegionCity(hit.regionId, hit.cityId)) {
-      setZipMessage("내부 목록과 맞지 않습니다. 직접 선택해 주세요.");
+    if (!locChanged) {
       return;
     }
-    onRegionChange(hit.regionId);
-    onCityChange(hit.cityId);
+
+    setZipDraft(() => {
+      const raw = philippinesZipSeed?.trim() ?? "";
+      const seed = raw ? finalizePhilippinesZipCode(raw) : null;
+      if (seed && codes.includes(seed)) return seed;
+      return codes[0]!;
+    });
+  }, [region, city, zipCodesForLocation, philippinesZipSeed]);
+
+  /** 현재 동네에 맞는 4자리가 되면 부모 postal 등과 동기 */
+  useEffect(() => {
+    if (!onPhilippinesZipCommitted) return;
+    if (!city || zipCodesForLocation.length === 0) return;
+    const fin = finalizePhilippinesZipCode(zipDraft);
+    if (!fin || !zipCodesForLocation.includes(fin)) return;
+    onPhilippinesZipCommitted(fin);
+  }, [zipDraft, region, city, zipCodesForLocation, onPhilippinesZipCommitted]);
+
+  /** 4자리 ZIP이면 ZIP→지역·동네, 아니면 현재 동네 기준 확정 ZIP 반영 */
+  const applyZipOrNeighborhood = useCallback(() => {
+    if (isPhilippinesZipInputComplete(zipDraft)) {
+      const hit = lookupLocationByPhilippinesZip(zipDraft);
+      if (!hit) {
+        setZipMessage("매칭되는 지역이 없습니다.");
+        return;
+      }
+      if (!isValidRegionCity(hit.regionId, hit.cityId)) {
+        setZipMessage("목록에 없는 조합입니다.");
+        return;
+      }
+      onRegionChange(hit.regionId);
+      onCityChange(hit.cityId);
+      setZipMessage(null);
+      const finalized = finalizePhilippinesZipCode(zipDraft);
+      if (finalized) onPhilippinesZipCommitted?.(finalized);
+      return;
+    }
+
+    if (!city || zipCodesForLocation.length === 0) {
+      setZipMessage("4자리 ZIP을 입력하거나 지역·동네를 선택해 주세요.");
+      return;
+    }
+    const fin = finalizePhilippinesZipCode(zipDraft);
+    const pick =
+      fin && zipCodesForLocation.includes(fin) ? fin : zipCodesForLocation[0]!;
+    setZipDraft(pick);
     setZipMessage(null);
-  }, [zipDraft, onRegionChange, onCityChange]);
+    onPhilippinesZipCommitted?.(pick);
+  }, [
+    zipDraft,
+    city,
+    zipCodesForLocation,
+    onRegionChange,
+    onCityChange,
+    onPhilippinesZipCommitted,
+    setZipDraft,
+    setZipMessage,
+  ]);
 
   const inner = (
     <>
@@ -120,43 +199,36 @@ export function LocationSelector({
         </div>
       </div>
       {showZipLookup ? (
-        <>
-          <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS} items-end`}>
-            <div className="min-w-0">
-              <label className="mb-1 block text-[14px] font-medium text-gray-700">
-                ZIP 코드 (필리핀 4자리)
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="postal-code"
-                value={zipDraft}
-                onChange={(e) => {
-                  setZipDraft(normalizePhilippinesZipInput(e.target.value));
-                  setZipMessage(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    applyZip();
-                  }
-                }}
-                placeholder="예: 1226"
-                maxLength={4}
-                className={OWNER_STORE_CONTROL_CLASS}
-                aria-label="ZIP or postal code"
-              />
-            </div>
-            <div className="min-w-0">
-              <button type="button" onClick={applyZip} className={OWNER_STORE_AUX_BUTTON_CLASS}>
-                적용
-              </button>
-            </div>
+        <div className="mt-3">
+          <p className={OWNER_STORE_FORM_LEAD_CLASS}>ZIP 코드 (PhilPost 4자리)</p>
+          <div className="grid min-w-0 grid-cols-[1fr_auto] items-stretch gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="postal-code"
+              value={zipDraft}
+              onChange={(e) => {
+                setZipDraft(normalizePhilippinesZipInput(e.target.value));
+                setZipMessage(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyZipOrNeighborhood();
+                }
+              }}
+              maxLength={4}
+              className={`min-w-0 ${OWNER_STORE_CONTROL_CLASS}`}
+              aria-label="PhilPost ZIP 4자리"
+            />
+            <button type="button" onClick={applyZipOrNeighborhood} className={OWNER_STORE_AUX_BUTTON_INLINE_COMPACT_CLASS}>
+              적용
+            </button>
           </div>
           {zipMessage ? (
             <p className="mt-2 text-[12px] text-amber-800">{zipMessage}</p>
           ) : null}
-        </>
+        </div>
       ) : null}
       {error && <p className="mt-2 text-[13px] text-red-500">{error}</p>}
     </>

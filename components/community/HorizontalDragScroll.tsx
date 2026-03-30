@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
 
 type Props = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   children: ReactNode;
@@ -17,7 +17,7 @@ function isInteractivePointerTarget(target: EventTarget | null): boolean {
  * - 링크 위에서 포인터 캡처를 걸지 않음
  * - 이전 드래그의 moved 플래그가 링크 클릭을 막지 않음
  */
-export function HorizontalDragScroll({ children, className = "", ...rest }: Props) {
+export function HorizontalDragScroll({ children, className = "", style, ...rest }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef({
     active: false,
@@ -98,10 +98,16 @@ export function HorizontalDragScroll({ children, className = "", ...rest }: Prop
     };
   }, []);
 
+  const mergedStyle: CSSProperties = {
+    WebkitOverflowScrolling: "touch",
+    ...style,
+  };
+
   return (
     <div
       ref={ref}
-      className={`cursor-grab active:cursor-grabbing select-none [&_a]:select-none ${className}`}
+      style={mergedStyle}
+      className={`cursor-grab touch-pan-x overscroll-x-contain active:cursor-grabbing select-none [&_a]:select-none ${className}`}
       {...rest}
     >
       {children}

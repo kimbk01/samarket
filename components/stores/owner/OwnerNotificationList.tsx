@@ -12,6 +12,7 @@ import {
 } from "@/lib/shared-notifications/shared-notification-store";
 import type { SharedNotificationType } from "@/lib/shared-notifications/types";
 import { useSharedNotificationsVersion } from "@/lib/shared-notifications/use-shared-notifications-version";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 
 const GROUPS: { label: string; types: SharedNotificationType[] }[] = [
   { label: "신규 주문", types: ["new_order"] },
@@ -93,7 +94,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
                   ? "border-amber-300 bg-amber-50"
                   : r.is_read
                     ? "border-gray-100 bg-white"
-                    : "border-violet-200 bg-violet-50/60"
+                    : "border-gray-200 bg-signature/5"
               }`}
             >
               <div className="flex flex-wrap justify-between gap-1 text-[11px] text-gray-400">
@@ -104,8 +105,11 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
               <p className="mt-0.5 text-[13px] text-gray-700">{r.message}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Link
-                  href={`/my/business/store-orders?order_id=${encodeURIComponent(r.linked_order_id)}`}
-                  className="text-xs font-medium text-violet-700 underline"
+                  href={buildStoreOrdersHref({
+                    storeId,
+                    orderId: r.linked_order_id,
+                  })}
+                  className="text-xs font-medium text-signature underline"
                   onClick={() => {
                     if (!r.is_read) markNotificationRead(r.id);
                   }}
@@ -127,7 +131,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
         </ul>
       )}
       <p className="text-xs text-gray-500">
-        <Link href={`/stores/${encodeURIComponent(slug)}/owner/notification-settings`} className="text-violet-700 underline">
+        <Link href={`/stores/${encodeURIComponent(slug)}/owner/notification-settings`} className="text-signature underline">
           알림 설정
         </Link>
       </p>

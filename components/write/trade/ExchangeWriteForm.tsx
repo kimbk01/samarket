@@ -1,10 +1,15 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import {
+  ensureClientAccessOrRedirect,
+  redirectForBlockedAction,
+} from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
 import { formatPriceInput } from "@/lib/utils/format";
 import {
@@ -43,6 +48,8 @@ function buildExchangeTitle(direction: string): string {
 }
 
 export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWriteFormProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const appSettings = useMemo(() => getAppSettings(), []);
   /** 환전 전용 폼은 거래 지역 필수. exchange 카테고리 DB 설정에 has_location=false가 있어도 항상 표시 */
   const hasLocation = true;
@@ -167,9 +174,7 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
       setSubmitting(true);
       try {
         const user = getCurrentUser();
-        if (!user?.id) {
-          setErrors({ submit: "로그인이 필요합니다." });
-          setSubmitting(false);
+        if (!ensureClientAccessOrRedirect(router, user, pathname || `/write/${category.slug}`)) {
           return;
         }
         const title = buildExchangeTitle(direction);
@@ -199,12 +204,34 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
           meta,
         });
         if (res.ok) onSuccess(res.id);
-        else setErrors({ submit: res.error });
+        else {
+          if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
+          setErrors({ submit: res.error });
+        }
       } finally {
         setSubmitting(false);
       }
     },
-    [direction, rateValue, baseRateValue, ratePlusValue, ratesFetchedAt, amountValue, converted, sellerPrep, buyerPrep, memo, category, tradeTopicChildId, region, city, validate, onSuccess]
+    [
+      direction,
+      rateValue,
+      baseRateValue,
+      ratePlusValue,
+      ratesFetchedAt,
+      amountValue,
+      converted,
+      sellerPrep,
+      buyerPrep,
+      memo,
+      category,
+      tradeTopicChildId,
+      region,
+      city,
+      validate,
+      onSuccess,
+      router,
+      pathname,
+    ]
   );
 
   const backHref = getCategoryHref(category);

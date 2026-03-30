@@ -12,6 +12,28 @@ import {
   NOTIFICATION_SYNC_POLL_MS,
 } from "@/lib/notifications/notification-events";
 import { fetchMeNotificationsListDeduped } from "@/lib/me/fetch-me-notifications-deduped";
+import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
+import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+
+/** 구매자 매장 주문 알림: 저장된 링크가 상세/채팅이어도 목록으로 통일 */
+function resolveNotificationShortcutHref(r: Row): string | null {
+  const u = r.link_url?.trim();
+  if (!u) return null;
+  if (r.notification_type !== "commerce") return u;
+  if (isOwnerStoreCommerceNotificationRow(r)) return u;
+  let path = u;
+  if (u.startsWith("http://") || u.startsWith("https://")) {
+    try {
+      path = new URL(u).pathname;
+    } catch {
+      return u;
+    }
+  }
+  if (path === "/my/store-orders" || path.startsWith("/my/store-orders/")) {
+    return "/my/store-orders";
+  }
+  return u;
+}
 
 type Row = {
   id: string;
@@ -25,18 +47,21 @@ type Row = {
 };
 
 export function MyNotificationsView() {
+  const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async (silent = false) => {
+  const load = useCallback(async (silent = false, forceFetch = false) => {
     if (!silent) {
       setLoading(true);
       setError(null);
     }
     try {
-      const { status, json: raw } = await fetchMeNotificationsListDeduped();
+      const { status, json: raw } = await fetchMeNotificationsListDeduped({
+        force: forceFetch,
+      });
       const j = raw as { ok?: boolean; error?: string; notifications?: Row[] };
       if (status === 401) {
         setError("로그인이 필요합니다.");
@@ -73,7 +98,7 @@ export function MyNotificationsView() {
   }, []);
 
   useEffect(() => {
-    const onUpdated = () => void load(true);
+    const onUpdated = () => void load(true, true);
     if (typeof window !== "undefined") {
       window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
     }
@@ -116,7 +141,7 @@ export function MyNotificationsView() {
     };
   }, [load]);
 
-  useRefetchOnPageShowRestore(() => void load(true), { enableVisibilityRefetch: false });
+  useRefetchOnPageShowRestore(() => void load(true, true), { enableVisibilityRefetch: false });
 
   async function markIdsRead(ids: string[]) {
     if (ids.length === 0) return;
@@ -149,7 +174,7 @@ export function MyNotificationsView() {
         return;
       }
       broadcastNotificationsUpdated();
-      await load(true);
+      await load(true, true);
     } catch {
       setError("network_error");
     } finally {
@@ -167,16 +192,25 @@ export function MyNotificationsView() {
 
   return (
     <div className="space-y-4">
+      {hubBlockedModal}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12px] text-gray-500">
-          채팅·거래·구매 매장 주문 알림 등입니다. <strong>매장 사장님용 새 주문 알림</strong>은{" "}
-          <Link href="/my/business" className="font-medium text-signature underline">
+          채팅·거래·배달 주문 알림 등입니다. <strong>배달 입점 사장님용 새 주문 알림</strong>은{" "}
+          <button
+            type="button"
+            onClick={() => goBusinessHubOrModal("/my/business")}
+            className="font-medium text-signature underline"
+          >
             내 매장 관리
-          </Link>
+          </button>
           헤더 종 아이콘과{" "}
-          <Link href="/my/business/store-orders" className="font-medium text-signature underline">
+          <button
+            type="button"
+            onClick={() => goBusinessHubOrModal("/my/business")}
+            className="font-medium text-signature underline"
+          >
             주문 관리
-          </Link>
+          </button>
           에서만 뱃지로 안내됩니다. 바로가기를 누르면 읽음 처리됩니다.
         </p>
         {rows.some((r) => !r.is_read) ? (
@@ -219,7 +253,7 @@ export function MyNotificationsView() {
                 {r.body ? <p className="mt-1 text-[13px] text-gray-700">{r.body}</p> : null}
                 {r.link_url ? (
                   <Link
-                    href={r.link_url}
+                    href={resolveNotificationShortcutHref(r) ?? r.link_url}
                     className="mt-2 inline-block text-[13px] text-signature underline"
                     onClick={() => {
                       if (!r.is_read) void markIdsRead([r.id]);

@@ -21,6 +21,11 @@ export interface BusinessProfile {
   region: string;
   city: string;
   barangay: string;
+  /** 주소 한 줄 — DB address_line1 */
+  addressStreetLine: string;
+  /** 상세 — DB address_line2 */
+  addressDetail: string;
+  /** 한 줄 표기(목록·카드) — line1·line2·district 병합 */
   addressLabel: string;
   category: string;
   /** DB 업종·주제(있을 때) — 피드 탭과 동일 마스터 */

@@ -17,6 +17,7 @@ export function AdminCommunityReportsPage({
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [patchErr, setPatchErr] = useState("");
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export function AdminCommunityReportsPage({
 
   const patch = async (id: string, status: string) => {
     setBusyId(id);
+    setPatchErr("");
     try {
       const res = await fetch(`/api/admin/community-reports/${id}`, {
         method: "PATCH",
@@ -40,11 +42,15 @@ export function AdminCommunityReportsPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      const j = (await res.json()) as { ok?: boolean };
-      if (j.ok) {
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (res.ok && j.ok) {
         setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
         router.refresh();
+      } else {
+        setPatchErr(j.error ?? `상태 변경 실패 (${res.status})`);
       }
+    } catch {
+      setPatchErr("네트워크 오류가 발생했습니다.");
     } finally {
       setBusyId(null);
     }
@@ -52,11 +58,14 @@ export function AdminCommunityReportsPage({
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="동네생활 피드 신고" backHref="/admin/community/topics" />
+      <AdminPageHeader title="커뮤니티 피드 신고" backHref="/admin/philife/topics" />
       <AdminCard title="community_reports">
         <p className="mb-3 text-[13px] text-gray-500">
           사용자가 피드 글에서 접수한 신고입니다. 글 제목을 누르면 앱 상세로 이동합니다.
         </p>
+        {patchErr ? (
+          <p className="mb-2 rounded bg-red-50 px-3 py-2 text-[12px] text-red-700">{patchErr}</p>
+        ) : null}
         {rows.length === 0 ? (
           <p className="text-[13px] text-gray-500">접수된 신고가 없습니다.</p>
         ) : (
@@ -92,7 +101,7 @@ export function AdminCommunityReportsPage({
                     <td className="py-2 pr-2 max-w-[200px]">
                       {r.target_type === "post" && r.post_title ? (
                         <Link
-                          href={`/community/post/${r.target_id}`}
+                          href={`/philife/${r.target_id}`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-blue-600 hover:underline"

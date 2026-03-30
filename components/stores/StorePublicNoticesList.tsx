@@ -17,7 +17,7 @@ export function StorePublicNoticesList({ lines, className = "" }: Props) {
       {lines.map((text, i) => (
         <div
           key={i}
-          className="flex gap-2.5 rounded-none border border-stone-200 bg-stone-50/90 px-3 py-3 text-[13px] leading-relaxed text-stone-800"
+          className="flex gap-2.5 rounded-md border border-stone-200 bg-stone-50/90 px-3 py-3 text-[13px] leading-relaxed text-stone-800"
         >
           <span className="shrink-0 text-[12px] font-bold tracking-tight text-stone-600">공지</span>
           <p className="min-w-0 flex-1 whitespace-pre-wrap">{text}</p>

@@ -16,10 +16,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div data-admin className="flex min-h-screen w-full min-w-0 bg-gray-100">
+    <div data-admin className="flex min-h-screen w-full min-w-0 max-w-full overflow-x-hidden bg-gray-100">
       {sidebarExpanded && <AdminSidebar />}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-3 py-2 md:px-4">
+      <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
+        <header className="sticky top-0 z-20 flex min-w-0 max-w-full shrink-0 items-center gap-3 overflow-x-hidden border-b border-gray-200 bg-white px-3 py-2 md:px-4">
           <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold text-gray-900">
             samarket 관리자
           </h1>

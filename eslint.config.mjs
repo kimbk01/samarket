@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import reactHooks from "eslint-plugin-react-hooks";
 
 /**
  * Lint policy (점진적 품질): 레거시 대량 수정 없이 CI를 녹이고, 경고는 로그로 남김.
@@ -33,6 +34,36 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    plugins: {
+      "react-hooks": reactHooks,
+    },
+    rules: {
+      /**
+       * 마운트 시 데이터 로딩(setState)은 널리 쓰이는 패턴이다.
+       * React Compiler/Suspense로 단계적 이전할 때까지 과도한 오탑로를 줄인다.
+       */
+      "react-hooks/set-state-in-effect": "off",
+      /** 점진적 타이핑: any는 경고로 두고 신규 코드부터 좁힌다. */
+      "@typescript-eslint/no-explicit-any": "warn",
+      /** 의존성 배열은 팀 리뷰로 다루고, 빌드 게이트는 오류만 막는다. */
+      "react-hooks/exhaustive-deps": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  {
+    files: ["next.config.js", "**/*.config.js", "**/*.config.cjs", "scripts/**/*.cjs"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

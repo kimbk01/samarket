@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 
 type Section = {
   id: string;
@@ -33,7 +33,9 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   const [saving, setSaving] = useState(false);
 
   const base = `/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`;
-  const menuHref = `/my/business/menu?storeId=${encodeURIComponent(storeId)}`;
+  const productsHubHref = `/my/business/products?storeId=${encodeURIComponent(storeId)}`;
+  const ordersHref = buildStoreOrdersHref({ storeId });
+  const inquiriesHref = `/my/business/inquiries?storeId=${encodeURIComponent(storeId)}`;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -206,24 +208,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
       <div
         className={`flex min-h-screen flex-col bg-gray-50 ${MENU_CATEGORY_EDIT_SCROLL_BOTTOM_CLASS}`}
       >
-        <header className="sticky top-0 z-10 flex items-center border-b border-gray-100 bg-white px-1 py-2">
-          <button
-            type="button"
-            onClick={() => backToList()}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-700"
-            aria-label="목록으로"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="flex-1 text-center text-[16px] font-semibold text-gray-900">
-            {editingId === "new" ? "카테고리 추가" : "카테고리 수정"}
-          </h1>
-          <span className="w-11 shrink-0" />
-        </header>
-
-        <nav className="sticky top-[52px] z-10 flex border-b border-gray-200 bg-white px-2">
+        <nav className="sticky top-0 z-10 flex border-b border-gray-200 bg-white px-2">
           {tabBtn("basic", "기본정보")}
           {tabBtn("language", "언어")}
         </nav>
@@ -321,28 +306,42 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   }
 
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden bg-gray-50 pb-8">
-      <header className="sticky top-0 z-10 flex items-center border-b border-gray-100 bg-white px-2 py-2">
-        <AppBackButton backHref="/my/business" />
-        <h1 className="flex-1 text-center text-[16px] font-semibold text-gray-900">카테고리</h1>
-        <button
-          type="button"
-          onClick={() => openNew()}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-signature"
-          aria-label="카테고리 추가"
+    <div className="max-w-full overflow-x-hidden bg-gray-50 pb-8">
+      <div className="flex flex-wrap gap-2 border-b border-gray-100 bg-white px-3 py-2">
+        <Link
+          href={productsHubHref}
+          className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900"
         >
-          <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
-      </header>
-
-      <div className="space-y-3 px-4 py-4">
-        <Link href={menuHref} className="inline-block text-[13px] font-medium text-signature underline">
-          메뉴 관리로 이동
+          상품 등록
         </Link>
+        <Link href={ordersHref} className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900">
+          주문 관리
+        </Link>
+        <Link href={inquiriesHref} className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900">
+          문의
+        </Link>
+      </div>
+      <div className="space-y-3 px-3 py-2">
+        <div className="flex min-w-0 items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => openNew()}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-signature shadow-sm"
+            aria-label="카테고리 추가"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <Link
+            href={productsHubHref}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-signature/40 bg-white px-3 py-2 text-[13px] font-semibold leading-tight text-signature shadow-sm transition hover:bg-signature/5 active:bg-signature/10"
+          >
+            상품 목록으로
+          </Link>
+        </div>
         <p className="text-[13px] leading-relaxed text-gray-600">
-          배달K처럼 카테고리를 먼저 만든 뒤, 메뉴 관리에서 탭으로 나누어 등록하세요.
+          카테고리를 만든 뒤 상품 등록 화면에서 탭으로 나누어 등록하세요.
         </p>
 
         {error ? <p className="text-[13px] text-red-600">{error}</p> : null}

@@ -1,4 +1,6 @@
-/** 클라이언트 장바구니(localStorage) — 서버 주문 시 product_id·qty·option_selections로 재검증 */
+import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
+
+/** 클라이언트 장바구니(localStorage) — 서버 주문 시 product_id·qty·modifier로 재검증 */
 export type StoreCommerceCartLine = {
   lineId: string;
   productId: string;
@@ -10,8 +12,12 @@ export type StoreCommerceCartLine = {
   listUnitPricePhp?: number | null;
   /** 표시용 할인율(0이면 미표시) */
   discountPercent?: number | null;
+  /** 확장 옵션 와이어(pick + 수량형). 없으면 optionSelections 만 사용 */
+  modifierWire?: ModifierSelectionsWire | null;
   optionSelections: Record<string, string[]>;
   optionsSummary: string;
+  /** 라인 메모(가격 미반영) */
+  lineNote?: string | null;
   pickupAvailable: boolean;
   localDeliveryAvailable: boolean;
   shippingAvailable: boolean;

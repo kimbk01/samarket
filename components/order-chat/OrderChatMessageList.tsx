@@ -34,7 +34,7 @@ function Bubble({
           adminStyle
             ? "bg-amber-100 text-amber-950 ring-1 ring-amber-200"
             : mine
-              ? "bg-violet-600 text-white"
+              ? "bg-signature text-white"
               : "bg-white text-gray-900 ring-1 ring-gray-200"
         }`}
       >

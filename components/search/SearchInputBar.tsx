@@ -31,7 +31,7 @@ export function SearchInputBar({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-1 gap-2">
-      <div className="flex h-10 flex-1 items-center gap-2 rounded-[20px] bg-[#F7F7F7] px-4">
+      <div className="flex h-10 flex-1 items-stretch gap-2 rounded-[20px] bg-[#F7F7F7] px-4">
         <SearchIcon />
         <input
           ref={inputRef}
@@ -39,7 +39,7 @@ export function SearchInputBar({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-gray-900 placeholder:text-[#999999] focus:outline-none"
+          className="min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent py-0 text-[15px] font-normal leading-[1.35] text-foreground placeholder:text-[#A8A8A8] focus:outline-none focus:ring-0"
           aria-label="검색어 입력"
         />
       </div>
@@ -56,7 +56,7 @@ export function SearchInputBar({
 function SearchIcon() {
   return (
     <svg
-      className="h-4 w-4 shrink-0 text-gray-500"
+      className="h-4 w-4 shrink-0 self-center text-gray-500"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

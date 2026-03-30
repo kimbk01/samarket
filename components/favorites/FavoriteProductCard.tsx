@@ -25,7 +25,7 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
 
   return (
     <div
-      className={`relative flex gap-3 rounded-none bg-white p-3 ${isSold ? "opacity-70" : ""}`}
+      className={`relative flex gap-3 rounded-md bg-white p-3 ${isSold ? "opacity-70" : ""}`}
     >
       <div
         className="absolute right-2 top-2 z-[1]"
@@ -35,7 +35,7 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
         <FavoriteToggleButton productId={product.id} iconClassName="h-5 w-5" />
       </div>
       <Link href={`/products/${product.id}`} className="flex min-w-0 flex-1 gap-3">
-        <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-none bg-gray-100">
+        <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-gray-100">
           {product.thumbnail ? (
             <img
               src={product.thumbnail}

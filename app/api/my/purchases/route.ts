@@ -9,19 +9,13 @@ import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import { fetchFirstThumbnailByPostIds } from "@/lib/mypage/fetch-first-post-thumbnails";
 import { applyBuyerAutoConfirmAllDue } from "@/lib/trade/apply-buyer-auto-confirm";
-import {
-  reconcileProductChatsFromItemTradeRoomsForUser,
-  reconcileProductChatsFromItemTradeByPostIds,
-} from "@/lib/trade/touch-product-chat-from-item-trade-room";
-import {
-  includeProductChatInPurchaseHistory,
-  type ItemTradeRoomPair,
-} from "@/lib/mypage/sales-history-scope";
+import { loadPurchaseHistoryRows } from "@/lib/mypage/trade-history-load-server";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+  const countOnly = req.nextUrl.searchParams.get("count_only") === "1";
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
@@ -33,87 +27,48 @@ export async function GET(_req: NextRequest) {
 
   await applyBuyerAutoConfirmAllDue(sbAny);
 
-  const { data: crBuyRows } = await sbAny
-    .from("chat_rooms")
-    .select("item_id, seller_id, buyer_id")
-    .eq("room_type", "item_trade")
-    .eq("buyer_id", userId);
-
-  const roomsAsBuyer = (crBuyRows ?? []).map((r: Record<string, unknown>) => ({
-    item_id: String(r.item_id ?? ""),
-    seller_id: String(r.seller_id ?? ""),
-    buyer_id: String(r.buyer_id ?? ""),
-  })) as ItemTradeRoomPair[];
-
-  const postIdsFromRooms = [...new Set(roomsAsBuyer.map((r) => r.item_id).filter(Boolean))];
-
-  await reconcileProductChatsFromItemTradeByPostIds(sbAny, postIdsFromRooms);
-  await reconcileProductChatsFromItemTradeRoomsForUser(sbAny, userId, "buyer");
-
-  const sel =
-    "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, trade_flow_status, chat_mode, seller_completed_at, buyer_confirmed_at, review_deadline_at, buyer_confirm_source";
-
-  const { data: byBuyerId, error: e1 } = await sbAny
-    .from("product_chats")
-    .select(sel)
-    .eq("buyer_id", userId);
-
-  if (e1) {
-    return NextResponse.json({ error: e1.message }, { status: 500 });
+  let rows: Record<string, unknown>[];
+  try {
+    const loaded = await loadPurchaseHistoryRows(sbAny, userId);
+    rows = loaded.rows;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "load failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 
-  let byPost: typeof byBuyerId = [];
-  if (postIdsFromRooms.length > 0) {
-    const { data: bp, error: e2 } = await sbAny.from("product_chats").select(sel).in("post_id", postIdsFromRooms);
-    if (e2) {
-      return NextResponse.json({ error: e2.message }, { status: 500 });
-    }
-    byPost = bp ?? [];
+  if (countOnly) {
+    return NextResponse.json({ ok: true, count: rows.length });
   }
-
-  const byId = new Map<string, Record<string, unknown>>();
-  for (const r of [...(byBuyerId ?? []), ...byPost]) {
-    byId.set(String((r as { id: string }).id), r as Record<string, unknown>);
-  }
-
-  const rows = [...byId.values()].filter((r) =>
-    includeProductChatInPurchaseHistory(
-      userId,
-      {
-        post_id: String(r.post_id ?? ""),
-        seller_id: String(r.seller_id ?? ""),
-        buyer_id: String(r.buyer_id ?? ""),
-      },
-      roomsAsBuyer
-    )
-  );
-
-  rows.sort((a, b) => {
-    const ta = new Date(String(a.last_message_at ?? a.created_at ?? 0)).getTime();
-    const tb = new Date(String(b.last_message_at ?? b.created_at ?? 0)).getTime();
-    return tb - ta;
-  });
 
   if (rows.length === 0) {
     return NextResponse.json({ items: [] });
   }
 
   const roomIds = rows.map((r) => String(r.id));
-  const { data: revRows } = await sbAny
-    .from("transaction_reviews")
-    .select("room_id")
-    .eq("reviewer_id", userId)
-    .eq("role_type", "buyer_to_seller")
-    .in("room_id", roomIds);
-  const reviewedRooms = new Set(
-    (revRows ?? []).map((x: { room_id: string }) => x.room_id).filter(Boolean)
-  );
-
   const postIds = [...new Set(rows.map((r) => String(r.post_id)).filter(Boolean))];
-  const { data: posts } = await sbAny.from("posts").select("*").in("id", postIds);
+  const [revRows, posts] = await Promise.all([
+    sbAny
+      .from("transaction_reviews")
+      .select("room_id")
+      .eq("reviewer_id", userId)
+      .eq("role_type", "buyer_to_seller")
+      .in("room_id", roomIds)
+      .then(
+        ({ data }: { data: { room_id: string }[] | null }) => data ?? []
+      ),
+    sbAny
+      .from("posts")
+      .select("*")
+      .in("id", postIds)
+      .then(
+        ({ data }: { data: Record<string, unknown>[] | null }) => data ?? []
+      ),
+  ]);
+
+  const reviewedRooms = new Set(revRows.map((x) => x.room_id).filter(Boolean));
 
   const postMap = new Map(
-    (posts ?? []).map((p: Record<string, unknown>) => [String(p.id), p])
+    posts.map((p: Record<string, unknown>) => [String(p.id), p])
   );
   const missingPostIds = postIds.filter((id) => id && !postMap.has(String(id)));
   for (const mid of missingPostIds.slice(0, 20)) {

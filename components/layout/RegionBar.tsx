@@ -1,110 +1,229 @@
 "use client";
 
 import Link from "next/link";
-import { useRegion } from "@/contexts/RegionContext";
+import { useMemo } from "react";
+import { usePathname } from "next/navigation";
+import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  getMobileTopTier1RuleSet,
+  isTradeFloatingMenuSurface,
+} from "@/lib/layout/mobile-top-tier1-rules";
+import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
+import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
+import { PhilifeTitleWithRegionRow } from "@/components/philife/PhilifeTitleWithRegionRow";
+import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
+import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
+import { BOTTOM_NAV_TRADE_TAB_LABEL } from "@/lib/main-menu/bottom-nav-config";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
-import { useCommerceCartHeaderLink } from "@/components/layout/use-commerce-cart-header-link";
-import { playAlarmSound } from "@/lib/alarm/playAlarmSound";
-import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
-import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
+import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
+import type { ReactNode } from "react";
 
-/** @param embedded true면 하단 테두리 없음 — 상위 스택에서 한 덩어리로 묶을 때 */
+function StoresRootTier1Right() {
+  const commerceCart = useStoreCommerceCartOptional();
+  const cartLineKindCount = commerceCart?.hydrated ? commerceCart.totalItemCountAllStores : 0;
+  const cartHref = useMemo(() => {
+    if (!commerceCart?.hydrated) return "/stores";
+    return commerceCartHrefFromBuckets(commerceCart.listCartBuckets());
+  }, [commerceCart]);
+
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <Link
+        href="/search"
+        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        aria-label="검색"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
+        </svg>
+      </Link>
+      <Link
+        href={cartHref}
+        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        aria-label={cartLineKindCount > 0 ? "장바구니" : "배달"}
+      >
+        <StoreCommerceCartStrokeIcon className="h-5 w-5" />
+        {cartLineKindCount > 0 ? (
+          <span className={`absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`}>
+            {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
+          </span>
+        ) : null}
+      </Link>
+    </div>
+  );
+}
+
+function UnifiedTier1Shell({
+  embedded,
+  children,
+}: {
+  embedded?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <header
+      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-[var(--sub-bg)] ${embedded ? "" : "border-b border-ig-border"}`}
+    >
+      {children}
+    </header>
+  );
+}
+
+/** 메인 1단 UI — 단일 구현체. `Tier1ExplorationTitleRow`·서브페이지·매장 루트를 한 스타일(h-12)로 맞춘다. */
 export function RegionBar({ embedded }: { embedded?: boolean }) {
-  const { currentRegion } = useRegion();
-  const { cartHref, cartCount } = useCommerceCartHeaderLink();
+  const pathname = usePathname();
+  const pathNoQuery = pathname.split("?")[0] ?? pathname;
+  const ruleSet = getMobileTopTier1RuleSet(pathname);
+  const extrasOpt = useMainTier1ExtrasOptional();
+  const extras = extrasOpt?.extras ?? null;
+  const notificationUnreadCount = useMyNotificationUnreadCount();
 
-  return (
-    <TradePrimaryAppBarShell embedded={embedded}>
-      <div className={`flex h-14 items-center justify-between ${APP_MAIN_HEADER_INNER_CLASS}`}>
-        <Link
-          href="/my/regions"
-          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 text-[18px] font-bold text-gray-900"
-        >
-          <LocationPinIcon />
-          <span className="truncate">{currentRegion?.label ?? "동네 설정"}</span>
-          <ChevronDownIcon />
-        </Link>
-        <div className="flex shrink-0 items-center gap-1">
-          <Link
-            href={cartHref}
-            className="relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
-            aria-label={cartCount > 0 ? "장바구니" : "매장 목록"}
-          >
-            <StoreCommerceCartStrokeIcon className="h-5 w-5" />
-            {cartCount > 0 ? (
-              <span className={`absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`}>
-                {cartCount > 99 ? "99+" : cartCount}
-              </span>
-            ) : null}
-          </Link>
-          <Link
-            href="/search"
-            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
-            aria-label="검색"
-          >
-            <SearchIcon />
-          </Link>
-          <button
-            type="button"
-            onClick={() => playAlarmSound()}
-            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
-            aria-label="알람"
-          >
-            <BellIcon />
-          </button>
-          <Link
-            href="/services"
-            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
-            aria-label="전체 서비스"
-          >
-            <HamburgerIcon />
-          </Link>
+  if (!ruleSet.showRegionBar) {
+    return null;
+  }
+
+  const useTradeExplorationPhilifeTier1 =
+    isTradeFloatingMenuSurface(pathNoQuery) &&
+    ruleSet.showRegionPicker &&
+    !ruleSet.showTradeHubLeading;
+
+  if (useTradeExplorationPhilifeTier1) {
+    return (
+      <UnifiedTier1Shell embedded={embedded}>
+        <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+          <div className="flex w-[44px] shrink-0 justify-start" aria-hidden>
+            <div className="h-9 w-9" />
+          </div>
+          <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
+            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
+              <Tier1ExplorationTitleRow segmentTitle={BOTTOM_NAV_TRADE_TAB_LABEL} />
+            </h1>
+          </div>
+          <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
         </div>
+      </UnifiedTier1Shell>
+    );
+  }
+
+  if (pathNoQuery === "/philife") {
+    return (
+      <UnifiedTier1Shell embedded={embedded}>
+        <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+          <div className="flex w-[44px] shrink-0 justify-start">
+            <AppBackButton preferHistoryBack backHref="/home" ariaLabel="이전 화면" />
+          </div>
+          <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
+            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
+              <PhilifeTitleWithRegionRow />
+            </h1>
+          </div>
+          <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
+        </div>
+      </UnifiedTier1Shell>
+    );
+  }
+
+  if (pathNoQuery === "/stores") {
+    return (
+      <UnifiedTier1Shell embedded={embedded}>
+        <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+          <div className="flex w-[44px] shrink-0 justify-start">
+            <AppBackButton preferHistoryBack backHref="/home" ariaLabel="이전 화면" />
+          </div>
+          <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
+            <h1 className="overflow-hidden text-foreground">
+              <span className="block truncate text-[17px] font-semibold">배달</span>
+            </h1>
+          </div>
+          <StoresRootTier1Right />
+        </div>
+      </UnifiedTier1Shell>
+    );
+  }
+
+  const base = resolveMainTier1Subpage(pathNoQuery);
+  if (base == null) {
+    return null;
+  }
+
+  const o = extras?.tier1;
+  const hideBack = o?.hideBack ?? base.hideBack ?? false;
+  const backHref = o?.backHref ?? base.backHref;
+  const preferHistoryBack = o?.preferHistoryBack ?? base.preferHistoryBack;
+  const ariaLabel = o?.ariaLabel ?? base.ariaLabel;
+  const subtitle = o?.subtitle ?? base.subtitle;
+  const subtitleHref = o?.subtitleHref ?? base.subtitleHref;
+  const showHub = o?.showHubQuickActions ?? base.showHubQuickActions;
+  const hubUnread = o?.notificationUnreadCount ?? notificationUnreadCount;
+
+  const centerFromExtras = o?.title != null ? o.title : null;
+  const titleTextFromExtras = o?.titleText;
+  const stringTitle =
+    (typeof centerFromExtras === "string" ? centerFromExtras : null) ??
+    titleTextFromExtras ??
+    base.titleText;
+
+  const centerNode: ReactNode =
+    centerFromExtras != null && typeof centerFromExtras !== "string" ? (
+      centerFromExtras
+    ) : stringTitle ? (
+      <span className="truncate text-[17px] font-semibold">{stringTitle}</span>
+    ) : (
+      <span className="truncate text-[17px] font-semibold">SAMarket</span>
+    );
+
+  const right =
+    o?.rightSlot != null ? (
+      <div className="flex min-w-[44px] shrink-0 items-center justify-end">{o.rightSlot}</div>
+    ) : showHub ? (
+      <MyHubHeaderActions notificationUnreadCount={hubUnread} />
+    ) : (
+      <div className="h-9 w-9 shrink-0" aria-hidden />
+    );
+
+  return (
+    <UnifiedTier1Shell embedded={embedded}>
+      <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+        <div className="flex w-[44px] shrink-0 justify-start">
+          {hideBack ? (
+            <div className="h-9 w-9 shrink-0" aria-hidden />
+          ) : (
+            <AppBackButton
+              preferHistoryBack={preferHistoryBack}
+              backHref={backHref}
+              ariaLabel={ariaLabel}
+            />
+          )}
+        </div>
+        <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
+          <h1 className="flex min-w-0 w-full flex-col items-center justify-center overflow-hidden text-foreground">
+            {centerNode}
+            {subtitle ? (
+              subtitleHref ? (
+                <Link
+                  href={subtitleHref}
+                  className="mt-0.5 block truncate text-[11px] leading-tight text-[var(--text-muted)] hover:text-foreground hover:underline"
+                >
+                  {subtitle}
+                </Link>
+              ) : (
+                <p className="truncate text-[11px] leading-tight text-[var(--text-muted)]">{subtitle}</p>
+              )
+            ) : null}
+          </h1>
+        </div>
+        {right}
       </div>
-    </TradePrimaryAppBarShell>
-  );
-}
-
-function LocationPinIcon() {
-  return (
-    <svg className="h-4 w-4 shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg className="h-4 w-4 shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-    </svg>
-  );
-}
-
-function BellIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-    </svg>
-  );
-}
-
-function HamburgerIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
+    </UnifiedTier1Shell>
   );
 }

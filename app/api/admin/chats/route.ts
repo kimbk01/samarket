@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import type { AdminChatRoom, RoomStatus } from "@/lib/types/admin-chat";
+import { ADMIN_LEGACY_PRODUCT_CHAT_LIST_LIMIT, CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 
 const DB_ROOM_STATUS: Record<string, RoomStatus> = {
   active: "active",
@@ -9,6 +10,8 @@ const DB_ROOM_STATUS: Record<string, RoomStatus> = {
   report_hold: "reported",
   closed: "archived",
 };
+
+const MESSAGE_COUNT_BATCH = 25;
 
 /**
  * 관리자 채팅 목록 (서비스 롤) — 관리자 세션
@@ -38,7 +41,8 @@ export async function POST(_req: NextRequest) {
       last_message_preview,
       created_at
     `)
-    .order("last_message_at", { ascending: false, nullsFirst: false });
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(ADMIN_LEGACY_PRODUCT_CHAT_LIST_LIMIT);
 
   if (roomErr) {
     return NextResponse.json(
@@ -57,26 +61,31 @@ export async function POST(_req: NextRequest) {
     (posts ?? []).map((p: { id: string; title: string }) => [p.id, p])
   );
 
-  const { data: msgCounts } = await sb.from("product_chat_messages").select("product_chat_id");
-  const countByRoom = (msgCounts ?? []).reduce(
-    (acc: Record<string, number>, m: { product_chat_id: string }) => {
-      acc[m.product_chat_id] = (acc[m.product_chat_id] ?? 0) + 1;
-      return acc;
-    },
-    {}
-  );
+  const roomIds = rooms.map((r: { id: string }) => r.id);
+  const countByRoom: Record<string, number> = {};
+  for (const batch of chunkIds(roomIds, MESSAGE_COUNT_BATCH)) {
+    await Promise.all(
+      batch.map(async (rid) => {
+        const { count } = await sb
+          .from("product_chat_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("product_chat_id", rid);
+        countByRoom[rid] = count ?? 0;
+      })
+    );
+  }
 
-  const { data: reportRows } = await sb
-    .from("reports")
-    .select("room_id")
-    .eq("target_type", "chat_room");
-  const reportCountByRoom = (reportRows ?? []).reduce(
-    (acc: Record<string, number>, r: { room_id: string | null }) => {
-      if (r.room_id) acc[r.room_id] = (acc[r.room_id] ?? 0) + 1;
-      return acc;
-    },
-    {}
-  );
+  const reportCountByRoom: Record<string, number> = {};
+  for (const idChunk of chunkIds(roomIds, CHAT_ROOM_ID_IN_CHUNK_SIZE)) {
+    const { data: reportRows } = await sb
+      .from("reports")
+      .select("room_id")
+      .eq("target_type", "chat_room")
+      .in("room_id", idChunk);
+    (reportRows ?? []).forEach((r: { room_id: string | null }) => {
+      if (r.room_id) reportCountByRoom[r.room_id] = (reportCountByRoom[r.room_id] ?? 0) + 1;
+    });
+  }
 
   const list: AdminChatRoom[] = rooms.map(
     (r: {

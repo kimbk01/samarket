@@ -6,7 +6,10 @@ import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-
 import { ownerAcceptRequiresRecordedPayment } from "@/lib/stores/owner-order-payment-policy";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { isValidOrderStatus } from "@/lib/stores/order-status-transitions";
+import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +42,20 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  const { data: storeRow } = await sb.from("stores").select("store_name, slug").eq("id", sid).maybeSingle();
+  const { data: storeRow } = await sb
+    .from("stores")
+    .select("store_name, slug, region, city, district, address_line1, address_line2")
+    .eq("id", sid)
+    .maybeSingle();
+  const store_pickup_address_lines = storeRow
+    ? formatStorePickupAddressLines({
+        region: storeRow.region as string | null | undefined,
+        city: storeRow.city as string | null | undefined,
+        district: storeRow.district as string | null | undefined,
+        address_line1: storeRow.address_line1 as string | null | undefined,
+        address_line2: storeRow.address_line2 as string | null | undefined,
+      })
+    : [];
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
@@ -80,6 +96,7 @@ export async function GET(
       store_name: (storeRow?.store_name as string) ?? "",
       store_slug: (storeRow?.slug as string) ?? "",
       chat_room_id,
+      store_pickup_address_lines,
     },
     order: { ...order, items: items ?? [] },
   });
@@ -157,6 +174,9 @@ export async function PATCH(
           : applied.httpStatus;
     return NextResponse.json({ ok: false, error: applied.error }, { status: st });
   }
+
+  invalidateStoreOrderCountsCache(sid);
+  invalidateOwnerHubBadgeCache(userId);
 
   return NextResponse.json({ ok: true, order_status: applied.order_status });
 }

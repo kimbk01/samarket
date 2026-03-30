@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { getWriteForm } from "@/lib/community-board/form-registry";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { submitCommunityPost } from "@/lib/community-board/submit-community-post";
 import type { Board, PostCreatePayload } from "@/lib/community-board/types";
 
@@ -29,7 +30,7 @@ export function CommunityWritePage({
   communityTopics = [],
 }: CommunityWritePageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const cancelHref = `/community/${boardSlug}`;
+  const cancelHref = SAMARKET_ROUTES.community.home;
 
   const handleSubmit = async (payload: PostCreatePayload) => {
     setIsSubmitting(true);

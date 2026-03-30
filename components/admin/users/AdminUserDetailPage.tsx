@@ -13,6 +13,8 @@ import {
   AdminTestUserDetail,
   type ApiTestUserRow,
 } from "@/components/admin/users/AdminTestUserDetail";
+import { AdminUserPointsSection } from "./AdminUserPointsSection";
+import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 
 const MEMBER_TYPE_LABELS: Record<string, string> = {
   normal: "일반회원",
@@ -25,6 +27,7 @@ interface AdminUserDetailPageProps {
 }
 
 export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
+  const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const [refresh, setRefresh] = useState(0);
   const [memoInput, setMemoInput] = useState("");
   const [apiUser, setApiUser] = useState<ApiTestUserRow | "loading" | "absent">("loading");
@@ -94,7 +97,29 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-200" />
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-semibold text-gray-900">{user.nickname}</p>
-            <p className="text-[13px] text-gray-500">ID: {user.id}</p>
+            {showMemberUuid ? (
+              <p className="text-[13px] text-gray-500">
+                ID: {user.id}
+                <button
+                  type="button"
+                  className="ml-2 text-[12px] font-medium text-signature hover:underline"
+                  onClick={() => setShowMemberUuid(false)}
+                >
+                  숨기기
+                </button>
+              </p>
+            ) : (
+              <p className="text-[13px] text-gray-500">
+                ID 숨김
+                <button
+                  type="button"
+                  className="ml-2 text-[12px] font-medium text-signature hover:underline"
+                  onClick={() => setShowMemberUuid(true)}
+                >
+                  표시
+                </button>
+              </p>
+            )}
             {user.email && (
               <p className="mt-1 text-[13px] text-gray-600">{user.email}</p>
             )}
@@ -161,6 +186,8 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
           </button>
         </div>
       </AdminCard>
+
+      <AdminUserPointsSection userId={userId} />
 
       <AdminCard title="관리자 액션">
         <AdminUserActionPanel user={user} onActionSuccess={refreshDetail} />

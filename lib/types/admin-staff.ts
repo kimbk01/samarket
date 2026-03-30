@@ -8,6 +8,7 @@ import type { AdminRole } from "@/lib/admin-menu-config";
 /** 당근형 운영 메뉴 기준 권한 키 (실질운영·광고·포인트·설정·관리/보고·개발) */
 export type AdminPermissionKey =
   | "users"        // 회원관리
+  | "users_edit_membership" // 회원 구분·전화인증 수정 (DB 반영)
   | "regions"      // 지역관리
   | "products"    // 중고거래(상품/카테고리/가격제안/찜/거래상태)
   | "boards"      // 커뮤니티(게시판/카테고리/인기글/공지)

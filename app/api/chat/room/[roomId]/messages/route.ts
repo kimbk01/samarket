@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createClient } from "@supabase/supabase-js";
+import { parseProductChatImageContent } from "@/lib/chats/chat-image-bundle";
 
 export async function GET(
   _req: NextRequest,
@@ -48,17 +49,32 @@ export async function GET(
 
   const messages = (rows ?? [])
     .filter((m: Record<string, unknown>) => !(m.is_hidden === true))
-    .map((m: Record<string, unknown>) => ({
-      id: m.id,
-      roomId: m.product_chat_id,
-      senderId: m.sender_id,
-      message: (m.content as string) ?? "",
-      messageType: ((m.message_type as string) || "text") as "text" | "image" | "system",
-      imageUrl: (m.image_url as string | null | undefined) ?? null,
-      readAt: m.read_at ?? null,
-      createdAt: (m.created_at as string) ?? "",
-      isRead: !!m.read_at,
-    }));
+    .map((m: Record<string, unknown>) => {
+      const mt = ((m.message_type as string) || "text") as "text" | "image" | "system";
+      const rawContent = (m.content as string) ?? "";
+      const rawUrl = (m.image_url as string | null | undefined) ?? null;
+      let messageText = rawContent;
+      let imageUrl: string | null = rawUrl;
+      let imageUrls: string[] | undefined;
+      if (mt === "image") {
+        const parsed = parseProductChatImageContent(rawContent, rawUrl);
+        messageText = parsed.caption;
+        imageUrl = parsed.urls[0] ?? null;
+        imageUrls = parsed.urls.length > 1 ? parsed.urls : undefined;
+      }
+      return {
+        id: m.id,
+        roomId: m.product_chat_id,
+        senderId: m.sender_id,
+        message: messageText,
+        messageType: mt,
+        imageUrl,
+        imageUrls,
+        readAt: m.read_at ?? null,
+        createdAt: (m.created_at as string) ?? "",
+        isRead: !!m.read_at,
+      };
+    });
 
   return NextResponse.json(messages);
 }

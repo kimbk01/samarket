@@ -5,13 +5,16 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { notifyStoreOwnerNewOrder } from "@/lib/notifications/notify-store-commerce";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { canOwnerSellProducts } from "@/lib/stores/owner-product-gate";
+import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import {
   orderLineIdentityKey,
+  parseModifierWireFromBody,
   parseProductOptionsJson,
-  type OrderLineOptionsSnapshotV1,
-  validateLineOptionSelections,
+  validateLineModifiers,
+  type OrderLineOptionsSnapshotV2,
 } from "@/lib/stores/product-line-options";
 import { normalizePhMobileDb } from "@/lib/utils/ph-mobile";
 import {
@@ -25,8 +28,22 @@ import {
   parseCommerceExtrasFromHoursJson,
   resolveChargedDeliveryFeePhp,
 } from "@/lib/stores/store-commerce-extras";
+import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-order-status";
+import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { ensureStoreOrderChatRoom } from "@/lib/chat/store-order-chat-db";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
+import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
+
+function isStoreOrderStatusCheckViolation(message: string | undefined): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return (
+    m.includes("order_status_check") ||
+    (m.includes("violates check constraint") && m.includes("order_status"))
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -57,37 +74,21 @@ function makeOrderNo() {
   return `SO${Date.now()}${randomBytes(2).toString("hex")}`;
 }
 
-type LineInput = {
-  product_id: string;
-  qty: number;
-  /** 그룹 key(보통 "0","1",…) → 선택한 옵션명 배열 */
-  option_selections?: Record<string, string[]>;
-};
-
-function normalizeOrderLineItem(raw: unknown): { product_id: string; qty: number; option_selections: Record<string, string[]> } | null {
+function normalizeOrderLineItem(
+  raw: unknown
+): { product_id: string; qty: number; wire: ModifierSelectionsWire; line_note: string | null } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const product_id = String(r.product_id ?? "").trim();
   const qty = Math.floor(Number(r.qty));
   if (!product_id || !Number.isFinite(qty) || qty < 1) return null;
-  const option_selections: Record<string, string[]> = {};
-  const os = r.option_selections;
-  if (os != null && typeof os === "object" && !Array.isArray(os)) {
-    for (const [k, v] of Object.entries(os as Record<string, unknown>)) {
-      const key = String(k).trim();
-      if (!key) continue;
-      if (Array.isArray(v)) {
-        option_selections[key] = v.map((x) => String(x).trim()).filter(Boolean);
-      } else if (typeof v === "string" && v.trim()) {
-        option_selections[key] = [v.trim()];
-      }
-    }
-  }
-  return { product_id, qty, option_selections };
+  const wire = parseModifierWireFromBody(r);
+  const line_note = String(r.line_note ?? "").trim() || null;
+  return { product_id, qty, wire, line_note };
 }
 
-/** 구매자: 매장 주문 목록 */
-export async function GET() {
+/** 구매자: 매장 주문 목록 — `?limit=` (1~100, 기본 100) 로 홈 미리보기 등 부분 로드 */
+export async function GET(req: NextRequest) {
   const buyerId = await getRouteUserId();
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -97,6 +98,15 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
+  const rawLimit = req.nextUrl.searchParams.get("limit");
+  let rowLimit = 100;
+  if (rawLimit != null && rawLimit !== "") {
+    const n = Math.floor(Number(rawLimit));
+    if (Number.isFinite(n) && n >= 1) {
+      rowLimit = Math.min(n, 100);
+    }
+  }
+
   const { data: orders, error } = await sb
     .from("store_orders")
     .select(
@@ -104,19 +114,57 @@ export async function GET() {
     )
     .eq("buyer_user_id", buyerId)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(rowLimit);
 
   if (error) {
     console.error("[GET store-orders]", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  const list = orders ?? [];
+  const rawList = orders ?? [];
+  let list = rawList;
+  if (rawList.length) {
+    const rawOrderIds = rawList.map((o) => String(o.id ?? "").trim()).filter(Boolean);
+    if (rawOrderIds.length) {
+      const { data: hiddenRows, error: hiddenErr } = await sb
+        .from("store_order_buyer_hides")
+        .select("order_id")
+        .eq("buyer_user_id", buyerId)
+        .in("order_id", rawOrderIds);
+      if (hiddenErr) {
+        if (!(hiddenErr.message?.includes("store_order_buyer_hides") && hiddenErr.message.includes("does not exist"))) {
+          console.error("[GET store-orders hidden]", hiddenErr);
+          return NextResponse.json({ ok: false, error: hiddenErr.message }, { status: 500 });
+        }
+      } else {
+        const hidden = new Set(
+          (hiddenRows ?? [])
+            .map((r) => String((r as { order_id?: string }).order_id ?? "").trim())
+            .filter(Boolean)
+        );
+        if (hidden.size > 0) {
+          list = rawList.filter((o) => !hidden.has(String(o.id ?? "").trim()));
+        }
+      }
+    }
+  }
   const storeIds = [...new Set(list.map((o) => o.store_id as string))];
   const names: Record<string, string> = {};
+  const profileImages: Record<string, string | null> = {};
+  const slugs: Record<string, string> = {};
   if (storeIds.length) {
-    const { data: stores } = await sb.from("stores").select("id, store_name").in("id", storeIds);
-    for (const s of stores ?? []) names[s.id as string] = (s.store_name as string) ?? "";
+    const { data: stores } = await sb
+      .from("stores")
+      .select("id, store_name, profile_image_url, slug")
+      .in("id", storeIds);
+    for (const s of stores ?? []) {
+      const sid = s.id as string;
+      names[sid] = (s.store_name as string) ?? "";
+      const u = s.profile_image_url;
+      profileImages[sid] = typeof u === "string" && u.trim() ? u.trim() : null;
+      const slugRaw = (s as { slug?: string | null }).slug;
+      slugs[sid] = typeof slugRaw === "string" && slugRaw.trim() ? slugRaw.trim() : "";
+    }
   }
 
   const orderIds = list.map((o) => o.id as string);
@@ -137,14 +185,45 @@ export async function GET() {
     }
   }
 
+  const reviewedOrderIds = new Set<string>();
+  let reviewsUnavailable = false;
+  if (orderIds.length) {
+    const { data: revRows, error: revErr } = await sb
+      .from("store_reviews")
+      .select("order_id")
+      .in("order_id", orderIds);
+    if (revErr) {
+      if (revErr.message?.includes("store_reviews") && revErr.message.includes("does not exist")) {
+        reviewsUnavailable = true;
+      }
+    } else if (revRows) {
+      for (const r of revRows) {
+        const oid = String((r as { order_id?: string }).order_id ?? "").trim();
+        if (oid) reviewedOrderIds.add(oid);
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     orders: list.map((o) => {
       const id = o.id as string;
+      const norm = normalizeStoreOrderStatusForBuyer(o.order_status);
+      const status = norm || String(o.order_status ?? "").trim() || "pending";
+      const hasReview = reviewedOrderIds.has(id);
+      const completed = status === "completed";
+      /** 상세 GET /api/me/store-orders/[id] 의 can_submit_review 와 동일 조건 */
+      const canSubmitReview = completed && !hasReview && !reviewsUnavailable;
+      const sid = o.store_id as string;
       return {
         ...o,
-        store_name: names[o.store_id as string] ?? "",
+        order_status: status,
+        store_name: names[sid] ?? "",
+        store_slug: slugs[sid] ?? "",
+        store_profile_image_url: profileImages[sid] ?? null,
         items: itemsByOrder[id] ?? [],
+        has_review: hasReview,
+        can_submit_review: canSubmitReview,
       };
     }),
   });
@@ -152,7 +231,7 @@ export async function GET() {
 
 type PostBody = {
   store_id?: string;
-  items?: LineInput[];
+  items?: unknown[];
   fulfillment_type?: string;
   buyer_note?: string;
   buyer_phone?: string;
@@ -176,6 +255,11 @@ export async function POST(req: NextRequest) {
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+
+  const access = await assertVerifiedMemberForAction(sb as any, buyerId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
 
   let body: PostBody;
@@ -231,7 +315,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "store_delivery_disabled" }, { status: 400 });
   }
 
-  const normalized: { product_id: string; qty: number; option_selections: Record<string, string[]> }[] = [];
+  const normalized: {
+    product_id: string;
+    qty: number;
+    wire: ModifierSelectionsWire;
+    line_note: string | null;
+  }[] = [];
   for (const raw of items) {
     const row = normalizeOrderLineItem(raw);
     if (!row) {
@@ -240,7 +329,7 @@ export async function POST(req: NextRequest) {
     normalized.push(row);
   }
 
-  const lineKeys = normalized.map((x) => orderLineIdentityKey(x.product_id, x.option_selections));
+  const lineKeys = normalized.map((x) => orderLineIdentityKey(x.product_id, x.wire));
   if (new Set(lineKeys).size !== lineKeys.length) {
     return NextResponse.json({ ok: false, error: "duplicate_line_in_order" }, { status: 400 });
   }
@@ -265,7 +354,9 @@ export async function POST(req: NextRequest) {
     unit: number;
     qty: number;
     subtotal: number;
-    options_snapshot: OrderLineOptionsSnapshotV1;
+    options_snapshot: OrderLineOptionsSnapshotV2;
+    base_unit_after_discount: number;
+    unit_options_delta: number;
   }[] = [];
 
   for (const line of normalized) {
@@ -296,28 +387,34 @@ export async function POST(req: NextRequest) {
     if (fulfillment === "shipping" && !p.shipping_available) {
       return NextResponse.json({ ok: false, error: "shipping_not_available" }, { status: 400 });
     }
-    const groups = parseProductOptionsJson(p.options_json);
-    const optVal = validateLineOptionSelections(groups, line.option_selections);
-    if (!optVal.ok) {
-      return NextResponse.json({ ok: false, error: optVal.error }, { status: 400 });
-    }
     const price = Number(p.price);
     const disc = p.discount_price != null ? Number(p.discount_price) : null;
     const baseUnit =
       disc != null && Number.isFinite(disc) && disc >= 0 && disc < price ? disc : price;
+    const groups = parseProductOptionsJson(p.options_json);
+    const optVal = validateLineModifiers(groups, line.wire, baseUnit);
+    if (!optVal.ok) {
+      return NextResponse.json({ ok: false, error: optVal.error }, { status: 400 });
+    }
     const unit = baseUnit + optVal.unitDelta;
     if (!Number.isFinite(unit) || unit < 0) {
       return NextResponse.json({ ok: false, error: "invalid_unit_price" }, { status: 400 });
     }
     const subtotal = unit * line.qty;
     paymentTotal += subtotal;
+    const options_snapshot: OrderLineOptionsSnapshotV2 =
+      line.line_note != null && line.line_note.length > 0
+        ? { ...optVal.snapshot, line_note: line.line_note }
+        : optVal.snapshot;
     lines.push({
       product_id: line.product_id,
       title: String(p.title),
       unit,
       qty: line.qty,
       subtotal,
-      options_snapshot: optVal.snapshot,
+      options_snapshot,
+      base_unit_after_discount: options_snapshot.base_unit_after_discount,
+      unit_options_delta: options_snapshot.unit_options_delta,
     });
   }
 
@@ -397,6 +494,7 @@ export async function POST(req: NextRequest) {
 
   const phoneRaw = String(body.buyer_phone ?? "").trim();
   const buyer_phone_norm = phoneRaw ? normalizePhMobileDb(phoneRaw) : null;
+  /** 주문자 배달·배송지(매장 주소와 별도). 픽업이면 비워도 됨 — 픽업 장소는 `stores` 주소로 안내 */
   const addrSummaryRaw = String(body.delivery_address_summary ?? "").trim();
   const addrDetailRaw = String(body.delivery_address_detail ?? "").trim();
   const delivery_address_summary = addrSummaryRaw || null;
@@ -452,27 +550,51 @@ export async function POST(req: NextRequest) {
   if (oErr || !orderRow) {
     await restoreDecrementedStock(sb, stockRollback);
     console.error("[POST store-orders]", oErr);
-    return NextResponse.json({ ok: false, error: oErr?.message ?? "order_insert_failed" }, { status: 500 });
+    const raw = oErr?.message ?? "order_insert_failed";
+    if (isStoreOrderStatusCheckViolation(raw)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "order_status_schema_mismatch",
+          message:
+            "DB의 store_orders.order_status 허용 값이 앱과 다릅니다. Supabase SQL에 마이그레이션 supabase/migrations/20260430220000_store_orders_order_status_check.sql 을 적용해 주세요.",
+          allowed_order_status: [...STORE_ORDER_STATUS_LIST],
+          detail: raw,
+        },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: raw }, { status: 500 });
   }
 
   const orderId = orderRow.id as string;
 
   for (const line of lines) {
-    const { error: iErr } = await sb.from("store_order_items").insert({
-      order_id: orderId,
-      product_id: line.product_id,
-      product_title_snapshot: line.title,
-      price_snapshot: Math.round(line.unit),
-      qty: line.qty,
-      subtotal: Math.round(line.subtotal),
-      options_snapshot_json: line.options_snapshot,
-    });
-    if (iErr) {
+    const { data: itemRow, error: iErr } = await sb
+      .from("store_order_items")
+      .insert({
+        order_id: orderId,
+        product_id: line.product_id,
+        product_title_snapshot: line.title,
+        price_snapshot: Math.round(line.unit),
+        qty: line.qty,
+        subtotal: Math.round(line.subtotal),
+        options_snapshot_json: line.options_snapshot,
+        base_price_snapshot: Math.round(line.base_unit_after_discount),
+        options_unit_delta_snapshot: Math.round(line.unit_options_delta),
+      })
+      .select("id")
+      .maybeSingle();
+    if (iErr || !itemRow?.id) {
       await sb.from("store_orders").delete().eq("id", orderId);
       await restoreDecrementedStock(sb, stockRollback);
       console.error("[POST store-orders items]", iErr);
-      return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: iErr?.message ?? "order_item_insert_failed" },
+        { status: 500 }
+      );
     }
+    await persistStoreOrderItemOptions(sb, itemRow.id as string, line.options_snapshot);
   }
 
   const rm = getAuditRequestMeta(req);
@@ -520,6 +642,10 @@ export async function POST(req: NextRequest) {
   if (Object.keys(profilePatch).length) {
     void sb.from("test_users").update(profilePatch as never).eq("id", buyerId);
   }
+
+  invalidateStoreOrderCountsCache(storeId);
+  const ownerUid = String((store as { owner_user_id?: string }).owner_user_id ?? "").trim();
+  if (ownerUid) invalidateOwnerHubBadgeCache(ownerUid);
 
   return NextResponse.json({
     ok: true,

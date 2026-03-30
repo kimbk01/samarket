@@ -56,7 +56,7 @@ export function MemberOrdersPageClient() {
         <div className="mx-auto flex max-w-lg items-center gap-2">
           <AppBackButton backHref="/my" />
           <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold text-gray-900">
-            식당·배달 주문
+            배달 주문
           </h1>
           <div className="flex shrink-0 items-center gap-1">
             <MemberNotificationBell />

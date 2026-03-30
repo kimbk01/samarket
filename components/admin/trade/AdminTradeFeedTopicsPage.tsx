@@ -7,7 +7,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { TradeSubtopicsPanel } from "@/components/admin/menus/TradeSubtopicsPanel";
 
 /**
- * 커뮤니티 「피드 주제」와 대응 — 중고 거래 메뉴별 홈·마켓 2행 주제 일괄 관리
+ * 커뮤니티 「피드 주제」와 대응 — 거래 메뉴별 홈·마켓 2행 주제 일괄 관리
  */
 export function AdminTradeFeedTopicsPage() {
   const { list, loading, supabaseAvailable, load, handleDelete } = useCategoryAdmin();
@@ -37,14 +37,14 @@ export function AdminTradeFeedTopicsPage() {
     <div className="space-y-4">
       <AdminPageHeader title="거래 피드 주제" backHref="/admin/menus/trade" />
       <p className="text-[14px] text-gray-600">
-        동네생활의{" "}
-        <Link href="/admin/community/topics" className="font-medium text-signature hover:underline">
+        커뮤니티의{" "}
+        <Link href="/admin/philife/topics" className="font-medium text-signature hover:underline">
           피드 주제
         </Link>
         와 같이, <strong className="font-medium text-gray-800">홈·마켓 2행 칩·글쓰기 주제</strong>를 메뉴별로
-        관리합니다. 상위 메뉴(중고 거래·중고차 등)는{" "}
+        관리합니다. 상위 메뉴(거래·중고차 등)는{" "}
         <Link href="/admin/menus/trade" className="font-medium text-signature hover:underline">
-          메뉴 (중고·거래)
+          메뉴 (거래)
         </Link>
         에서 다룹니다.
       </p>
@@ -64,7 +64,7 @@ export function AdminTradeFeedTopicsPage() {
         <div className="rounded-lg border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">
           거래 메뉴가 없습니다.{" "}
           <Link href="/admin/menus/trade" className="text-signature hover:underline">
-            메뉴 (중고·거래)
+            메뉴 (거래)
           </Link>
           에서 항목을 추가하세요.
         </div>

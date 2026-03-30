@@ -23,7 +23,6 @@ export const BUILTIN_TAB_TO_SURFACE: Record<BottomNavBuiltinTabId, SamarketSurfa
   home: "trade",
   community: "community",
   stores: "stores",
-  orders: "orders",
   chat: "chat",
   my: "account",
 };
@@ -37,8 +36,9 @@ export function surfaceEntryPath(surface: SamarketSurface): string {
   const entry = (
     Object.entries(BUILTIN_TAB_TO_SURFACE) as [BottomNavBuiltinTabId, SamarketSurface][]
   ).find(([, s]) => s === surface);
-  if (!entry) return "/home";
-  return mainTabHref(entry[0]);
+  if (entry) return mainTabHref(entry[0]);
+  if (surface === "orders") return SAMARKET_ROUTES.orders.hub;
+  return "/home";
 }
 
 /** 하단 탭 밖에서 자주 쓰는 경로 (App Router 기준) */
@@ -53,6 +53,7 @@ export const SAMARKET_ROUTES = {
     market: (slug: string) => `/market/${encodeURIComponent(slug)}`,
   },
   community: {
+    home: "/community",
     write: "/community/write",
     board: (boardSlug: string) => `/community/${encodeURIComponent(boardSlug)}`,
     boardPost: (boardSlug: string, postId: string) =>

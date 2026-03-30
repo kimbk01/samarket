@@ -1,9 +1,11 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { WriteHeader } from "../WriteHeader";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { SubmitButton } from "../shared/SubmitButton";
@@ -15,6 +17,8 @@ interface CommunityWriteFormProps {
 }
 
 export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityWriteFormProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [images, setImages] = useState<ImageUploadItem[]>([]);
@@ -44,13 +48,14 @@ export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityW
         if (res.ok) {
           onSuccess(res.id);
         } else {
+          if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
           setErrors({ submit: res.error });
         }
       } finally {
         setSubmitting(false);
       }
     },
-    [category.id, title, content, validate, onSuccess]
+    [category.id, category.slug, title, content, validate, onSuccess, router, pathname]
   );
 
   const backHref = getCategoryHref(category);

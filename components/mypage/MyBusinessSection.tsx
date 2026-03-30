@@ -10,8 +10,8 @@ const ITEMS: { label: string; href: string; icon: React.ReactNode }[] = [
 
 export function MyBusinessSection() {
   return (
-    <section className="rounded-xl bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-[13px] font-medium text-gray-500">나의 비즈니스</h2>
+    <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+      <h2 className="mb-3 text-[13px] font-semibold text-[#8E8E8E]">나의 비즈니스</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
           <li key={item.label}>
@@ -25,7 +25,7 @@ export function MyBusinessSection() {
               <span className="flex-1">{item.label}</span>
               <ChevronRight />
             </Link>
-            {i < ITEMS.length - 1 && <hr className="border-gray-100" />}
+            {i < ITEMS.length - 1 && <hr className="border-[#EFEFEF]" />}
           </li>
         ))}
       </ul>
@@ -63,7 +63,7 @@ function MegaphoneIcon() {
 
 function ChevronRight() {
   return (
-    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 text-[#8E8E8E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );

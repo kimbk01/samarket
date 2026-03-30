@@ -1,14 +1,18 @@
 /**
  * POST /api/admin/chat/reports/:id/action — 신고 처리
- * Body: { action: string, note?, adminId? }
+ * Body: { action: string, note? }
  */
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
@@ -16,25 +20,19 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
   const { id: reportId } = await params;
-  let body: { action?: string; note?: string; adminId?: string };
+  let body: { action?: string; note?: string };
   try {
     body = await req.json();
   } catch {
     body = {};
   }
-  const adminId = body.adminId?.trim();
+  const adminId = admin.userId;
   const action = body.action?.trim();
-  if (!reportId || !adminId || !action) {
-    return NextResponse.json({ ok: false, error: "reportId, adminId, action 필요" }, { status: 400 });
+  if (!reportId || !action) {
+    return NextResponse.json({ ok: false, error: "reportId, action 필요" }, { status: 400 });
   }
 
   const sbAny = sb;
-  const { data: profile } = await sbAny.from("profiles").select("role").eq("id", adminId).maybeSingle();
-  const role = (profile as { role?: string } | null)?.role;
-  if (role !== "admin" && role !== "master") {
-    return NextResponse.json({ ok: false, error: "관리자만 처리할 수 있습니다." }, { status: 403 });
-  }
-
   const { data: report } = await sbAny.from("chat_reports").select("id, room_id, message_id").eq("id", reportId).maybeSingle();
   if (!report) {
     return NextResponse.json({ ok: false, error: "신고를 찾을 수 없습니다." }, { status: 404 });

@@ -2,14 +2,19 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
+import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
 import {
   canBuyerRequestStoreRefund,
   isStoreOrderChatDisabledForBuyer,
 } from "@/lib/stores/order-status-transitions";
-import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
+import {
+  orderLineOptionsDetailLines,
+  orderLineOptionsSummary,
+} from "@/lib/stores/product-line-options";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   formatPhMobileDisplay,
@@ -19,6 +24,8 @@ import {
 import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrderTimeline";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
+import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
+import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 
 type ItemRow = {
   id: string;
@@ -50,6 +57,8 @@ type OrderDetail = {
   buyer_payment_method_detail?: string | null;
   delivery_address_summary?: string | null;
   delivery_address_detail?: string | null;
+  /** 매장 등록 영업 주소 — 픽업 안내용 */
+  store_pickup_address_lines?: string[];
   created_at: string;
   updated_at: string;
   auto_complete_at?: string | null;
@@ -67,7 +76,7 @@ const ORDER_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
 function paymentMethodLabel(paymentStatus: string): string {
   switch (paymentStatus) {
     case "paid":
-      return "매장 주문 · 결제 완료(현장·직접 정산)";
+      return "배달 주문 · 결제 완료(현장·직접 정산)";
     case "pending":
       return "결제 대기";
     case "failed":
@@ -94,11 +103,14 @@ function lineDiscountDisplay(priceSnapshot: number, qty: number, subtotal: numbe
 export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: boolean }) {
   const params = useParams();
   const router = useRouter();
+  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const orderId = typeof params?.orderId === "string" ? params.orderId : "";
-  const listHref = ordersHub ? "/orders?tab=store" : "/mypage/store-orders";
+  const listHref = ordersHub ? "/orders?tab=store" : "/my/store-orders";
   const orderBase = ordersHub
     ? `/orders/store/${encodeURIComponent(orderId)}`
     : `/my/store-orders/${encodeURIComponent(orderId)}`;
+  const chatHref = `${orderBase}/chat`;
+  const reviewHref = `${orderBase}/review`;
 
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -109,7 +121,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         kind: "ok";
         order: OrderDetail;
         items: ItemRow[];
-        review: { id: string } | null;
+        review: { id: string; visible_to_public?: boolean } | null;
         can_submit_review: boolean;
       }
   >({ kind: "loading" });
@@ -166,6 +178,16 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   }, [load]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
+
+  useLayoutEffect(() => {
+    if (!ordersHub || !setMainTier1Extras) return;
+    setMainTier1Extras({
+      tier1: {
+        rightSlot: <CommerceCartHubHeaderRight />,
+      },
+    });
+    return () => setMainTier1Extras(null);
+  }, [ordersHub, setMainTier1Extras]);
 
   async function requestRefund() {
     if (!orderId || state.kind !== "ok") return;
@@ -264,6 +286,30 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   }
 
   const { order, items, review, can_submit_review } = state;
+  const reorderItems =
+    order.order_status === "completed"
+      ? items
+          .map((it) => ({
+            product_id: String(it.product_id ?? "").trim(),
+            product_title_snapshot: it.product_title_snapshot,
+            price_snapshot: Math.round(Number(it.price_snapshot) || 0),
+            qty: Math.max(1, Math.floor(Number(it.qty) || 1)),
+            options_snapshot_json: it.options_snapshot_json,
+          }))
+          .filter((it) => it.product_id.length > 0)
+      : [];
+  const reorderPayload: CompletedOrderReorderPayload | null =
+    order.order_status === "completed" &&
+    String(order.store_slug ?? "").trim() &&
+    reorderItems.length > 0
+      ? {
+          storeId: order.store_id,
+          storeSlug: String(order.store_slug).trim(),
+          storeName: order.store_name,
+          fulfillmentType: order.fulfillment_type,
+          items: reorderItems,
+        }
+      : null;
   const itemsSumPhp = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
   const deliveryFeePhp = Math.max(0, Math.round(Number(order.delivery_fee_amount) || 0));
   const canBuyerCancel = storeOrderAwaitingFirstPayment(order);
@@ -281,28 +327,72 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           </p>
           <span className="text-xs text-gray-400">{order.order_no}</span>
         </div>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-          {order.store_slug ? (
-            <Link
-              href={`/stores/${encodeURIComponent(order.store_slug)}`}
-              className="inline-block text-sm text-signature"
-            >
-              매장 보기
-            </Link>
-          ) : null}
+        <div className="mt-3 rounded-xl border border-gray-200 bg-signature/5/80 px-3 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-signature">
+            현재 주문 상태
+          </p>
+          <p className="mt-1 text-[18px] font-bold text-gray-900">
+            {ORDER_LABEL[order.order_status] ?? order.order_status}
+          </p>
+          <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
+            결제 {paymentMethodLabel(order.payment_status)} · 주문 채팅은 매장과 소통용이며, 취소·환불 처리 상태는 이
+            화면에서 계속 확인하세요.
+          </p>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {orderChatDisabled ? (
-            <span className="inline-block cursor-not-allowed text-sm font-medium text-gray-400">
-              매장과 채팅
+            <span className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-medium text-gray-400">
+              주문 채팅 불가
             </span>
           ) : (
             <Link
-              href={`${orderBase}/chat`}
-              className="inline-block text-sm font-medium text-signature"
+              href={chatHref}
+              className="inline-flex items-center justify-center rounded-xl border border-signature bg-white px-3 py-3 text-sm font-semibold text-signature shadow-sm"
             >
-              매장과 채팅
+              주문 채팅
+            </Link>
+          )}
+          {order.store_slug ? (
+            <Link
+              href={`/stores/${encodeURIComponent(order.store_slug)}`}
+              className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-800"
+            >
+              매장 보기
+            </Link>
+          ) : (
+            <Link
+              href={listHref}
+              className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-800"
+            >
+              주문 목록 보기
             </Link>
           )}
         </div>
+        {order.order_status === "completed" && reorderPayload ? (
+          <div className="mt-3 flex flex-row gap-2">
+            {!review && can_submit_review ? (
+              <Link
+                href={reviewHref}
+                className="inline-flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-2 py-3 text-sm font-semibold text-amber-900"
+              >
+                리뷰 작성으로 이어가기
+              </Link>
+            ) : null}
+            <StoreOrderReorderAgainButton
+              payload={reorderPayload}
+              className="inline-flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-xl border border-signature/40 bg-white px-2 py-3 text-sm font-semibold text-signature shadow-sm"
+            />
+          </div>
+        ) : order.order_status === "completed" && !review && can_submit_review ? (
+          <div className="mt-3">
+            <Link
+              href={reviewHref}
+              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-900"
+            >
+              리뷰 작성으로 이어가기
+            </Link>
+          </div>
+        ) : null}
         <p className="mt-2 text-xs text-gray-500">
           {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type}
           {" · "}
@@ -338,7 +428,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-900">진행 단계</h2>
         {order.order_status === "pending" ? (
-          <p className="mt-2 rounded-lg bg-violet-50 px-3 py-2 text-[12px] text-violet-900">
+          <p className="mt-2 rounded-lg bg-signature/5 px-3 py-2 text-[12px] text-gray-900">
             매장에서 주문을 확인·접수하면 채팅과 알림으로 다음 단계를 알려드려요.
           </p>
         ) : null}
@@ -351,34 +441,34 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </div>
       </div>
 
-      <div className="rounded-xl border border-signature/20 bg-signature/5 p-4 shadow-sm ring-1 ring-signature/10">
-        <h2 className="text-sm font-semibold text-gray-900">주문 진행·문의 (채팅)</h2>
-        {orderChatDisabled ? (
-          <span
-            className="mt-3 block w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 py-3 text-center text-sm font-bold text-gray-400 shadow-none"
-            aria-disabled
-          >
-            주문 채팅 열기
-          </span>
-        ) : (
-          <Link
-            href={`${orderBase}/chat`}
-            className="mt-3 block w-full rounded-xl border border-signature bg-white py-3 text-center text-sm font-bold text-signature shadow-sm"
-          >
-            주문 채팅 열기
-          </Link>
-        )}
-      </div>
-
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <h2 className="text-[15px] font-bold text-gray-900">주문 상품</h2>
 
         <div className="mt-4">
-          <h3 className="text-[11px] font-semibold text-gray-500">배송지 주소</h3>
+          <h3 className="text-[11px] font-semibold text-gray-500">
+            {order.fulfillment_type === "pickup" ? "픽업 장소 (매장 주소)" : "배달 받을 주소"}
+          </h3>
           {order.fulfillment_type === "pickup" ? (
-            <p className="mt-1.5 text-sm leading-relaxed text-gray-800">
-              포장 픽업 · 이 주문은 매장에서 직접 수령합니다.
-            </p>
+            <div className="mt-1.5 space-y-1 text-sm leading-relaxed text-gray-800">
+              <p className="text-[13px] text-gray-600">포장 픽업 · 아래 매장에서 수령하세요.</p>
+              {order.store_pickup_address_lines && order.store_pickup_address_lines.length > 0 ? (
+                order.store_pickup_address_lines.map((line, i) => (
+                  <p key={i} className={i === 0 ? "font-medium text-gray-900" : "text-[13px] text-gray-700"}>
+                    {line}
+                  </p>
+                ))
+              ) : (
+                <p className="text-amber-800">매장 주소가 아직 등록되지 않았습니다. 채팅으로 매장에 확인해 주세요.</p>
+              )}
+              {order.store_slug ?
+                <Link
+                  href={`/stores/${encodeURIComponent(order.store_slug)}/info`}
+                  className="mt-2 inline-block text-[13px] font-medium text-signature underline"
+                >
+                  매장 정보 보기
+                </Link>
+              : null}
+            </div>
           ) : order.delivery_address_summary?.trim() ? (
             <div className="mt-1.5 space-y-1 text-sm leading-relaxed text-gray-800">
               <p>{order.delivery_address_summary.trim()}</p>
@@ -387,7 +477,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               ) : null}
             </div>
           ) : (
-            <p className="mt-1.5 text-sm text-amber-800">등록된 배송지가 없습니다.</p>
+            <p className="mt-1.5 text-sm text-amber-800">등록된 배달 주소가 없습니다.</p>
           )}
         </div>
 
@@ -420,6 +510,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           <ul className="mt-3 space-y-3 text-sm text-gray-800">
             {items.map((it) => {
               const optSum = orderLineOptionsSummary(it.options_snapshot_json);
+              const optLines = orderLineOptionsDetailLines(it.options_snapshot_json);
               const ps = Number(it.price_snapshot) || 0;
               const q = Number(it.qty) || 0;
               const st = Number(it.subtotal) || 0;
@@ -430,7 +521,20 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                     <p className="min-w-0 flex-1 font-medium text-gray-900">{it.product_title_snapshot}</p>
                     <span className="shrink-0 text-gray-600">× {it.qty}</span>
                   </div>
-                  {optSum ? <p className="mt-1 text-[12px] text-gray-500">{optSum}</p> : null}
+                  {optLines.length > 0 ? (
+                    <ul className="mt-1 space-y-0.5 text-[12px] text-gray-600">
+                      {optLines.map((row, i) => (
+                        <li key={i} className="flex justify-between gap-2">
+                          <span className="min-w-0">{row.title}</span>
+                          {row.amount ? (
+                            <span className="shrink-0 text-gray-500">{row.amount}</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : optSum ? (
+                    <p className="mt-1 text-[12px] text-gray-500">{optSum}</p>
+                  ) : null}
                   <div className="mt-2 grid gap-1 text-[12px] text-gray-600 sm:grid-cols-2">
                     <span>
                       단가 <span className="font-medium text-gray-800">{formatMoneyPhp(ps)}</span>
@@ -492,16 +596,56 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       {order.order_status === "completed" ? (
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           {review ? (
-            <p className="text-sm text-gray-600">
-              리뷰를 등록했습니다. 매장 페이지에서 노출됩니다.
-            </p>
+            <>
+              <p className="text-sm text-gray-600">
+                {review.visible_to_public === false
+                  ? "리뷰를 등록했습니다. 사장님에게만 공유된 글로, 다른 고객이 보는 매장 리뷰 목록에는 나오지 않을 수 있어요."
+                  : "리뷰를 등록했습니다. 매장 페이지 리뷰 목록에 노출될 수 있어요."}
+              </p>
+              {!orderChatDisabled ? (
+                <Link
+                  href={chatHref}
+                  className="mt-3 block w-full rounded-xl border border-gray-200 bg-white py-3 text-center text-sm font-medium text-gray-800"
+                >
+                  주문 채팅 다시 보기
+                </Link>
+              ) : null}
+            </>
           ) : can_submit_review ? (
-            <Link
-              href={`${orderBase}/review`}
-              className="block w-full rounded-xl bg-signature py-3 text-center text-sm font-semibold text-white"
-            >
-              리뷰 작성하기
-            </Link>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                주문이 완료되었습니다. 필요하면 채팅 내용을 다시 확인한 뒤 후기를 남겨 주세요.
+              </p>
+              {!orderChatDisabled ? (
+                <Link
+                  href={chatHref}
+                  className="block w-full rounded-xl border border-gray-200 bg-white py-3 text-center text-sm font-medium text-gray-800"
+                >
+                  주문 채팅 보기
+                </Link>
+              ) : null}
+              {reorderPayload ? (
+                <div className="flex flex-row gap-2">
+                  <Link
+                    href={reviewHref}
+                    className="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-xl bg-signature px-2 py-3 text-center text-sm font-semibold text-white"
+                  >
+                    리뷰 작성하기
+                  </Link>
+                  <StoreOrderReorderAgainButton
+                    payload={reorderPayload}
+                    className="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-xl border border-signature/40 bg-white px-2 py-3 text-sm font-semibold text-signature shadow-sm"
+                  />
+                </div>
+              ) : (
+                <Link
+                  href={reviewHref}
+                  className="block w-full rounded-xl bg-signature py-3 text-center text-sm font-semibold text-white"
+                >
+                  리뷰 작성하기
+                </Link>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-gray-500">
               리뷰를 등록할 수 없습니다. (DB 미적용이거나 일시 오류일 수 있습니다.)
@@ -566,9 +710,16 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </div>
       ) : null}
 
-      <Link href={listHref} className="block text-center text-sm text-signature underline">
-        목록으로 돌아가기
-      </Link>
+      <div className="space-y-2">
+        {!orderChatDisabled ? (
+          <Link href={chatHref} className="block text-center text-sm text-signature underline">
+            주문 채팅으로 이동
+          </Link>
+        ) : null}
+        <Link href={listHref} className="block text-center text-sm text-signature underline">
+          목록으로 돌아가기
+        </Link>
+      </div>
     </div>
   );
 }

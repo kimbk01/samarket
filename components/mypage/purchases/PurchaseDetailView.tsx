@@ -23,7 +23,14 @@ type DetailPayload = PurchaseHistoryRow & {
   reviewDeadlineAt?: string | null;
 };
 
-export function PurchaseDetailView({ chatId }: { chatId: string }) {
+export function PurchaseDetailView({
+  chatId,
+  purchasesListPath = "/mypage/purchases",
+}: {
+  chatId: string;
+  /** 목록으로 링크 (홈 허브: `/home/purchases`) */
+  purchasesListPath?: string;
+}) {
   const router = useRouter();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [row, setRow] = useState<DetailPayload | null>(null);
@@ -74,7 +81,7 @@ export function PurchaseDetailView({ chatId }: { chatId: string }) {
     return (
       <div className="py-16 text-center">
         <p className="text-[14px] text-gray-500">내역을 찾을 수 없어요.</p>
-        <Link href="/mypage/purchases" className="mt-4 inline-block text-[14px] text-violet-700 underline">
+        <Link href={purchasesListPath} className="mt-4 inline-block text-[14px] text-signature underline">
           목록으로
         </Link>
       </div>
@@ -91,6 +98,7 @@ export function PurchaseDetailView({ chatId }: { chatId: string }) {
   const productBadge = purchaseProductStatusBadge(row.sellerListingState, row.status);
   const showReview = canShowPurchaseReviewSend(rowLike);
   const base = `/api/trade/product-chat/${encodeURIComponent(chatId)}`;
+  const chatHref = `/mypage/trade/chat/${encodeURIComponent(row.chatId)}`;
 
   const post = (path: string) => {
     setBusy(path);
@@ -133,15 +141,22 @@ export function PurchaseDetailView({ chatId }: { chatId: string }) {
               <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-800">
                 진행 · {tradeBadge}
               </span>
-              <span className="rounded-md bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-800">
+              <span className="rounded-md bg-signature/5 px-2 py-0.5 text-[11px] font-medium text-gray-800">
                 후기 · {reviewBadge}
               </span>
             </div>
           </div>
         </div>
+        <div className="mt-3 rounded-xl border border-gray-200 bg-signature/5/80 px-3 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-signature">구매 맥락</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-gray-700">
+            거래 진행 상태는 이 내역에서 먼저 확인하고, 가격·약속·거래완료 조율은 관련 채팅으로 다시 돌아가 이어서
+            진행하세요.
+          </p>
+        </div>
         {flow === "seller_marked_done" ? (
           <>
-            <p className="mt-3 rounded-lg bg-violet-50 px-3 py-2.5 text-[12px] leading-snug text-violet-900">
+            <p className="mt-3 rounded-lg bg-signature/5 px-3 py-2.5 text-[12px] leading-snug text-gray-900">
               판매자가 <strong className="font-semibold">거래완료</strong>를 처리했어요. 물품을 받았다면 아래{" "}
               <strong className="font-semibold">거래완료 확인</strong>을 눌러 마무리한 뒤,{" "}
               <strong className="font-semibold">평가·후기</strong> 단계로 넘어가요.
@@ -151,7 +166,7 @@ export function PurchaseDetailView({ chatId }: { chatId: string }) {
                 type="button"
                 disabled={!!busy}
                 onClick={() => post(`${base}/buyer-confirm`)}
-                className="w-full rounded-xl bg-violet-600 py-3 text-center text-[14px] font-medium text-white disabled:opacity-50"
+                className="w-full rounded-xl bg-signature py-3 text-center text-[14px] font-medium text-white disabled:opacity-50"
               >
                 {busy?.endsWith("/buyer-confirm") ? "처리 중…" : "거래완료 확인"}
               </button>
@@ -165,30 +180,30 @@ export function PurchaseDetailView({ chatId }: { chatId: string }) {
               </button>
             </div>
             <Link
-              href={`/chats/${row.chatId}`}
-              className="mt-3 block w-full rounded-xl border border-violet-200 bg-violet-50 py-3 text-center text-[14px] font-medium text-violet-800"
+              href={chatHref}
+              className="mt-3 block w-full rounded-xl border border-gray-200 bg-signature/5 py-3 text-center text-[14px] font-medium text-gray-800"
             >
-              채팅방 바로가기
+              관련 채팅으로 돌아가기
             </Link>
           </>
         ) : (
           <Link
-            href={`/chats/${row.chatId}`}
-            className="mt-4 block w-full rounded-xl bg-violet-600 py-3 text-center text-[14px] font-medium text-white"
+            href={chatHref}
+            className="mt-4 block w-full rounded-xl bg-signature py-3 text-center text-[14px] font-medium text-white"
           >
-            채팅방 바로가기
+            관련 채팅으로 돌아가기
           </Link>
         )}
         {showReview && !row.hasBuyerReview && flow !== "seller_marked_done" ? (
-          <div className="mt-4 rounded-lg border border-violet-100 bg-violet-50/90 p-3">
-            <p className="text-[12px] leading-snug text-violet-900">
-              거래완료 확인이 완료되었어요. 아래에서{" "}
+          <div className="mt-4 rounded-lg border border-gray-200 bg-signature/10 p-3">
+            <p className="text-[12px] leading-snug text-gray-900">
+              거래완료 확인이 완료되었어요. 채팅 내용을 다시 확인할 필요가 없다면 아래에서{" "}
               <strong className="font-semibold">평가·후기</strong>를 작성해 주세요.
             </p>
             <button
               type="button"
               onClick={() => setReviewOpen(true)}
-              className="mt-2 w-full rounded-xl bg-violet-600 py-3 text-center text-[14px] font-medium text-white"
+              className="mt-2 w-full rounded-xl bg-signature py-3 text-center text-[14px] font-medium text-white"
             >
               평가·후기 보내기
             </button>
@@ -198,7 +213,7 @@ export function PurchaseDetailView({ chatId }: { chatId: string }) {
 
       <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <h3 className="text-[14px] font-semibold text-gray-900">거래 상태</h3>
-        <ul className="mt-3 space-y-3 border-l-2 border-violet-200 pl-4">
+        <ul className="mt-3 space-y-3 border-l-2 border-gray-200 pl-4">
           <TimelineItem
             done={!!row.createdAt}
             label="채팅 시작"
@@ -250,8 +265,8 @@ export function PurchaseDetailView({ chatId }: { chatId: string }) {
               내가 남긴 평가·후기 보기
             </ActionBtn>
           ) : null}
-          <ActionBtn outline onClick={() => router.push(`/chats/${row.chatId}`)}>
-            채팅 보기
+          <ActionBtn outline onClick={() => router.push(chatHref)}>
+            관련 채팅 보기
           </ActionBtn>
           <ActionBtn outline onClick={() => setReportOpen(true)}>
             거래 정보 · 신고
@@ -312,7 +327,7 @@ function TimelineItem({
     <li className="relative">
       <span
         className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 ${
-          done ? "border-violet-600 bg-violet-600" : "border-gray-300 bg-white"
+          done ? "border-signature bg-signature" : "border-gray-300 bg-white"
         }`}
       />
       <p className={`text-[13px] font-medium ${done ? "text-gray-900" : "text-gray-400"}`}>{label}</p>
@@ -340,7 +355,7 @@ function ActionBtn({
       className={`rounded-lg px-3 py-2 text-[13px] font-medium ${
         outline
           ? "border border-gray-200 bg-white text-gray-800"
-          : "bg-violet-600 text-white disabled:opacity-50"
+          : "bg-signature text-white disabled:opacity-50"
       }`}
     >
       {children}

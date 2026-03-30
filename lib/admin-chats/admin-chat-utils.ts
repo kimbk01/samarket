@@ -16,7 +16,7 @@ export const ROOM_STATUS_OPTIONS: { value: RoomStatus | ""; label: string }[] = 
 
 export const ROOM_TYPE_OPTIONS: { value: AdminRoomType; label: string }[] = [
   { value: "", label: "전체 타입" },
-  { value: "item_trade", label: "거래 채팅" },
+  { value: "item_trade", label: "TRADE 채팅" },
   { value: "general_chat", label: "일반(레거시)" },
   { value: "community", label: "커뮤니티" },
   { value: "group", label: "모임·게시판" },

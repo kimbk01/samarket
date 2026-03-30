@@ -14,6 +14,10 @@ export interface AdminUser {
   email?: string;
   avatar?: string;
   memberType: MemberType;
+  /** profiles.role 원본 — master 판별·서버 검증용 */
+  profileRole?: string;
+  /** profiles 행 존재 여부(목록만 test_users 인 레거시는 false) */
+  hasProfile?: boolean;
   /** normal = active 표시용 */
   moderationStatus: ModerationStatus;
   region?: string;
@@ -21,6 +25,8 @@ export interface AdminUser {
   barangay?: string;
   location?: string;
   pointBalance?: number;
+  phoneVerified?: boolean;
+  verificationStatus?: string;
   productCount: number;
   soldCount: number;
   reviewCount: number;

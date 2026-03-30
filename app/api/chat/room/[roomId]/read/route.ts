@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createClient } from "@supabase/supabase-js";
+import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
 export async function POST(
   _req: NextRequest,
@@ -79,5 +81,7 @@ export async function POST(
     /* ignore */
   }
 
+  invalidateUserChatUnreadCache(userId);
+  invalidateOwnerHubBadgeCache(userId);
   return NextResponse.json({ ok: true });
 }

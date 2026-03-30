@@ -115,7 +115,7 @@ export function AdminCommunitySectionsPage({ sections: initial }: { sections: Co
               className="rounded border border-gray-200 px-2 py-1.5"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="동네생활"
+              placeholder="커뮤니티"
             />
           </label>
           <label className="flex flex-col gap-0.5">
@@ -244,11 +244,11 @@ export function AdminCommunitySectionsPage({ sections: initial }: { sections: Co
           </div>
         )}
         <p className="mt-4 text-[13px]">
-          <a href="/admin/community/topics" className="font-medium text-blue-600 hover:underline">
+          <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
             주제 관리 →
           </a>{" "}
           ·{" "}
-          <a href="/admin/community/settings" className="font-medium text-blue-600 hover:underline">
+          <a href="/admin/philife/settings" className="font-medium text-blue-600 hover:underline">
             피드 운영 설정 →
           </a>
         </p>

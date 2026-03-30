@@ -70,8 +70,7 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false })
       .limit(150);
 
-    if (region) q = q.ilike("region", `%${region}%`);
-    if (district) q = q.ilike("district", `%${district}%`);
+    // region/district는 정렬에만 사용 (home-feed·browse와 동일 — ilike 필터는 표기 불일치로 승인 매장 누락 유발).
     if (searchQ) {
       const pat = `%${searchQ}%`;
       q = q.or(`store_name.ilike."${pat}",slug.ilike."${pat}"`);

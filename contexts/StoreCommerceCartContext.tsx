@@ -14,7 +14,7 @@ import type {
   StoreCommerceCartSnapshotV1,
   StoreCommerceCartSnapshotV2,
 } from "@/lib/stores/store-commerce-cart-types";
-import { orderLineIdentityKey } from "@/lib/stores/product-line-options";
+import { orderLineIdentityKey, wireFromLegacyPickOnly } from "@/lib/stores/product-line-options";
 
 const STORAGE_KEY = "kasama_store_commerce_cart_v1";
 
@@ -30,6 +30,10 @@ function emptyV2(): StoreCommerceCartSnapshotV2 {
  * 구버전·직렬화 누락 시 undefined → 수령 가능으로 간주(명시적 false만 불가).
  * 그렇지 않으면 장바구니에 수령 방식 버튼이 0개가 되어 주문 불가.
  */
+function effectiveModifierWire(l: StoreCommerceCartLine) {
+  return l.modifierWire ?? wireFromLegacyPickOnly(l.optionSelections);
+}
+
 function normalizeCommerceLineFlags(l: StoreCommerceCartLine): StoreCommerceCartLine {
   return {
     ...l,
@@ -111,7 +115,10 @@ export type AddStoreCartLineInput = {
   listUnitPricePhp?: number | null;
   discountPercent?: number | null;
   optionSelections: Record<string, string[]>;
+  /** 수량형 옵션 등 — 없으면 optionSelections 만 사용 */
+  modifierWire?: import("@/lib/stores/modifiers/types").ModifierSelectionsWire | null;
   optionsSummary: string;
+  lineNote?: string | null;
   pickupAvailable: boolean;
   localDeliveryAvailable: boolean;
   shippingAvailable: boolean;
@@ -135,6 +142,8 @@ type Ctx = {
   getSubtotalForStoreId: (storeId: string) => number;
   /** 이 매장 장바구니의 상품 종류 수(줄 개수), 총 수량 합이 아님 */
   getItemCountForStoreId: (storeId: string) => number;
+  /** 이 매장 장바구니 줄별 수량 합(예: 2종 × 각 수량) */
+  getTotalQtyForStoreId: (storeId: string) => number;
   listCartBuckets: () => StoreCartBucketSummary[];
   /** 전 매장 합산 상품 종류 수(줄 수 합), 총 개수 합이 아님 */
   totalItemCountAllStores: number;
@@ -203,7 +212,10 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       input.minOrderQty,
       Math.min(input.maxOrderQty, Math.floor(Number(input.qty)) || input.minOrderQty)
     );
-    const identity = orderLineIdentityKey(input.productId, input.optionSelections);
+    const wire =
+      input.modifierWire ??
+      wireFromLegacyPickOnly(input.optionSelections);
+    const identity = orderLineIdentityKey(input.productId, wire);
 
     const newLine = (): StoreCommerceCartLine => ({
       lineId: newLineId(),
@@ -214,8 +226,10 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       unitPricePhp: input.unitPricePhp,
       listUnitPricePhp: input.listUnitPricePhp ?? null,
       discountPercent: input.discountPercent ?? null,
-      optionSelections: { ...input.optionSelections },
+      modifierWire: input.modifierWire ?? null,
+      optionSelections: { ...wire.pick },
       optionsSummary: input.optionsSummary,
+      lineNote: input.lineNote?.trim() || null,
       pickupAvailable: input.pickupAvailable,
       localDeliveryAvailable: input.localDeliveryAvailable,
       shippingAvailable: input.shippingAvailable,
@@ -239,7 +253,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       const lines = prevBucket?.lines ?? [];
 
       const idx = lines.findIndex(
-        (l) => orderLineIdentityKey(l.productId, l.optionSelections) === identity
+        (l) => orderLineIdentityKey(l.productId, effectiveModifierWire(l)) === identity
       );
       let nextLines: StoreCommerceCartLine[];
       if (idx >= 0) {
@@ -388,6 +402,12 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     const getItemCountForStoreId = (storeId: string) =>
       bucketsMatchingStoreId(snap, storeId).reduce((n, b) => n + bucketStats(b).itemCount, 0);
 
+    const getTotalQtyForStoreId = (storeId: string) =>
+      bucketsMatchingStoreId(snap, storeId).reduce(
+        (n, b) => n + b.lines.reduce((m, l) => m + lineQtyNumber(l), 0),
+        0
+      );
+
     const allBuckets = listCartBuckets();
     const totalItemCountAllStores = allBuckets.reduce((n, x) => n + x.itemCount, 0);
 
@@ -404,6 +424,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       getLinesForStoreId,
       getSubtotalForStoreId,
       getItemCountForStoreId,
+      getTotalQtyForStoreId,
       listCartBuckets,
       totalItemCountAllStores,
       otherBucketsExcluding,

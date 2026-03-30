@@ -10,6 +10,7 @@ import {
   touchProductChatPreviewFromItemTradeRoom,
   type ItemTradeRoomRowForSync,
 } from "@/lib/trade/touch-product-chat-from-item-trade-room";
+import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -24,6 +25,15 @@ export async function GET(req: NextRequest) {
   const postId = req.nextUrl.searchParams.get("postId")?.trim();
   if (!postId) {
     return NextResponse.json({ error: "postId 필요" }, { status: 400 });
+  }
+
+  if (isOfflineMockPostId(postId)) {
+    return NextResponse.json({
+      items: [],
+      postStatus: "active",
+      sellerListingState: null,
+      reservedBuyerId: null,
+    });
   }
 
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });

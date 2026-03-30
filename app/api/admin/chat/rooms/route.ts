@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -92,11 +93,13 @@ export async function GET(req: NextRequest) {
   ];
   const nickByUserId: Record<string, string> = {};
   if (userIds.length > 0) {
-    const { data: profiles } = await sbAny.from("profiles").select("id, nickname, username").in("id", userIds);
+    const [{ data: profiles }, { data: testUsers }] = await Promise.all([
+      sbAny.from("profiles").select("id, nickname, username").in("id", userIds),
+      sbAny.from("test_users").select("id, display_name, username").in("id", userIds),
+    ]);
     (profiles ?? []).forEach((p: { id: string; nickname?: string; username?: string }) => {
       nickByUserId[p.id] = (p.nickname ?? p.username ?? p.id.slice(0, 8)) as string;
     });
-    const { data: testUsers } = await sbAny.from("test_users").select("id, display_name, username").in("id", userIds);
     (testUsers ?? []).forEach((t: { id: string; display_name?: string; username?: string }) => {
       if (!nickByUserId[t.id]) {
         nickByUserId[t.id] = (t.display_name ?? t.username ?? t.id.slice(0, 8)) as string;
@@ -106,10 +109,12 @@ export async function GET(req: NextRequest) {
 
   const reportCountByRoomId: Record<string, number> = {};
   if (roomIds.length > 0) {
-    const { data: reportRows } = await sbAny.from("chat_reports").select("room_id").in("room_id", roomIds);
-    (reportRows ?? []).forEach((row: { room_id: string | null }) => {
-      if (row.room_id) reportCountByRoomId[row.room_id] = (reportCountByRoomId[row.room_id] ?? 0) + 1;
-    });
+    for (const idChunk of chunkIds(roomIds, CHAT_ROOM_ID_IN_CHUNK_SIZE)) {
+      const { data: reportRows } = await sbAny.from("chat_reports").select("room_id").in("room_id", idChunk);
+      (reportRows ?? []).forEach((row: { room_id: string | null }) => {
+        if (row.room_id) reportCountByRoomId[row.room_id] = (reportCountByRoomId[row.room_id] ?? 0) + 1;
+      });
+    }
   }
 
   let roomsWithMeta = list.map((r) => {

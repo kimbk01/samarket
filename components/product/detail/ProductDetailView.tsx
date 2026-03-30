@@ -11,7 +11,7 @@ import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import { getTrustSummary } from "@/lib/reviews/trust-utils";
 import { ProductImageGallery } from "./ProductImageGallery";
 import { ProductSellerCard } from "./ProductSellerCard";
-import { ProductDetailHeader } from "./ProductDetailHeader";
+import { ProductDetailMainTier1Sync } from "./ProductDetailMainTier1Sync";
 import { ProductActionBar } from "./ProductActionBar";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
@@ -46,7 +46,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
   const isSold = product.status === "sold";
   const sellerTrustSummary = useMemo(
     () => (product.seller ? getTrustSummary(product.seller.id) : null),
-    [product.seller?.id]
+    [product.seller]
   );
   const [reportSheet, setReportSheet] = useState<{
     targetType: "product" | "chat" | "user";
@@ -88,8 +88,8 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
 
   return (
     <div className="relative mx-auto max-w-lg bg-white pb-20">
-      <ProductDetailHeader
-        productId={product.id}
+      <ProductDetailMainTier1Sync
+        product={product}
         onReport={onReportProduct}
         hideFavorite={amISeller}
       />

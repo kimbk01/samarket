@@ -1,14 +1,19 @@
 /**
  * 채팅 메시지 전송 (서비스 롤)
- * POST body: { text?: string, messageType?: "text" | "image" | "system", imageUrl?: string }
+ * POST body: { text?, messageType?, imageUrl?, imageUrls? }
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createClient } from "@supabase/supabase-js";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import {
   ADMIN_CHAT_SUSPENDED_MESSAGE,
   fetchItemTradeAdminSuspended,
 } from "@/lib/chat/chat-room-admin-suspend";
+import {
+  buildProductChatImageContent,
+  normalizeIncomingImageUrlList,
+} from "@/lib/chats/chat-image-bundle";
 
 export async function POST(
   req: NextRequest,
@@ -24,7 +29,7 @@ export async function POST(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
-  let body: { text?: string; messageType?: string; imageUrl?: string | null };
+  let body: { text?: string; messageType?: string; imageUrl?: string | null; imageUrls?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -34,15 +39,15 @@ export async function POST(
   const rawType = String(body.messageType ?? "text").toLowerCase();
   const messageType =
     rawType === "system" ? "system" : rawType === "image" ? "image" : "text";
-  const imageUrl =
-    typeof body.imageUrl === "string" && body.imageUrl.trim().length > 0
-      ? body.imageUrl.trim()
-      : null;
+  const imageList = normalizeIncomingImageUrlList({
+    imageUrl: body.imageUrl,
+    imageUrls: body.imageUrls,
+  });
   if (!roomId) {
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
   }
   if (messageType === "image") {
-    if (!imageUrl) {
+    if (imageList.length === 0) {
       return NextResponse.json({ ok: false, error: "이미지 URL이 필요합니다." }, { status: 400 });
     }
   } else if (!text && messageType === "text") {
@@ -51,6 +56,10 @@ export async function POST(
 
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
+  const access = await assertVerifiedMemberForAction(sbAny, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
 
   const { data: room, error: roomErr } = await sbAny
     .from("product_chats")
@@ -83,7 +92,12 @@ export async function POST(
     );
   }
 
-  const content = messageType === "system" ? text || "(시스템)" : text;
+  const content =
+    messageType === "system"
+      ? text || "(시스템)"
+      : messageType === "image"
+        ? buildProductChatImageContent(imageList, text)
+        : text;
   const { data: msg, error: msgErr } = await sbAny
     .from("product_chat_messages")
     .insert({
@@ -91,7 +105,7 @@ export async function POST(
       sender_id: userId,
       message_type: messageType,
       content,
-      image_url: messageType === "image" ? imageUrl : null,
+      image_url: messageType === "image" ? imageList[0] ?? null : null,
     })
     .select("id, created_at")
     .single();
@@ -104,7 +118,11 @@ export async function POST(
     messageType === "system"
       ? "거래 상태 안내"
       : messageType === "image"
-        ? (text ? text.slice(0, 100) : "사진")
+        ? text
+          ? text.slice(0, 100)
+          : imageList.length > 1
+            ? `사진 ${imageList.length}장`
+            : "사진"
         : text.slice(0, 100);
   const isSeller = room.seller_id === userId;
   const updates: Record<string, unknown> = {
@@ -117,22 +135,25 @@ export async function POST(
   } else {
     updates.unread_count_seller = (room.unread_count_seller ?? 0) + 1;
   }
-  await sbAny.from("product_chats").update(updates).eq("id", roomId);
 
-  // 상대방 알림(notifications) — 실패해도 전송 성공 유지 (테스트 유저 시 FK 실패 가능)
   const otherId = isSeller ? room.buyer_id : room.seller_id;
-  try {
-    await sbAny.from("notifications").insert({
-      user_id: otherId,
-      notification_type: "chat",
-      title: "새 메시지",
-      body: preview,
-      link_url: `/chats/${roomId}`,
-      is_read: false,
-    });
-  } catch {
-    /* ignore: notifications.user_id FK 등으로 실패 가능 */
-  }
+  await Promise.all([
+    sbAny.from("product_chats").update(updates).eq("id", roomId),
+    (async () => {
+      try {
+        await sbAny.from("notifications").insert({
+          user_id: otherId,
+          notification_type: "chat",
+          title: "새 메시지",
+          body: preview,
+          link_url: `/chats/${roomId}`,
+          is_read: false,
+        });
+      } catch {
+        /* ignore: notifications.user_id FK 등으로 실패 가능 */
+      }
+    })(),
+  ]);
 
   return NextResponse.json({
     ok: true,

@@ -2,49 +2,41 @@
 
 import { usePathname } from "next/navigation";
 import { CategoryListSubheader } from "@/components/category/CategoryListSubheader";
-import { useCategoryListStickyConfig } from "@/contexts/CategoryListHeaderContext";
+import {
+  useCategoryListStickyConfig,
+  useTradeSecondaryTabs,
+} from "@/contexts/CategoryListHeaderContext";
+import { TradePrimaryTabs } from "@/components/trade/TradePrimaryTabs";
+import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
+import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { RegionBar } from "./RegionBar";
 
-/** 거래 1단(RegionBar → TradePrimaryAppBarShell) 상단 고정 — 테스트 로그인은 내정보(/my)에서만 */
+/**
+ * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
+ * 메인 1단 단일 출처·용어: `lib/layout/main-tier1.ts`
+ */
 export function AppStickyHeader() {
   const pathname = usePathname();
   const categorySticky = useCategoryListStickyConfig();
-  const isSettings = pathname?.startsWith("/my/settings") ?? false;
-  const isLogout = pathname === "/my/logout";
-  const isMyEdit = pathname === "/my/edit";
-  const isProductDetail = pathname?.match(/^\/products\/[^/]+$/) ?? false;
-  const isChatRoomDetail =
-    (pathname?.match(/^\/chats\/[^/]+$/) &&
-      pathname !== "/chats/new" &&
-      pathname !== "/chats/order") ??
-    false;
-  const isSearch = pathname === "/search";
-  /** 매장 탭/매장 상세는 거래용 상단 동네 바(RegionBar) 미사용 */
-  const isStoresSection = pathname?.startsWith("/stores") ?? false;
-  /** 매장 관리자(내 상점) 구간은 서브 헤더만 — 글로벌 1단(지역·검색·알림) 숨김 */
-  const isMyBusinessSection = pathname?.startsWith("/my/business") ?? false;
-  /** 동네생활 게시글 읽기 — 화면 전용 헤더만, 글로벌 1단 숨김 */
-  const isCommunityPostDetail = pathname?.match(/^\/community\/post\/[^/]+$/) ?? false;
-  /** 채팅 허브 — 전용 앱바(`ChatsHubStickyAppBar`)로 대체, 글로벌 RegionBar 숨김 */
-  const isChatsHub = pathname === "/chats";
-  /** 주문 허브 — 전용 앱바(`TradePrimaryColumnStickyAppBar`), 글로벌 RegionBar 숨김 */
-  const isOrdersHub = pathname === "/orders" || (pathname?.startsWith("/orders/") ?? false);
-  const hideBarAndFloat = isSettings || isLogout || isMyEdit;
-  const hideRegionBar =
-    hideBarAndFloat ||
-    isProductDetail ||
-    isChatRoomDetail ||
-    isSearch ||
-    isStoresSection ||
-    isMyBusinessSection ||
-    isCommunityPostDetail ||
-    isChatsHub ||
-    isOrdersHub;
+  const tradeSecondaryTabs = useTradeSecondaryTabs();
+  const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
+  const extrasOpt = useMainTier1ExtrasOptional();
+  const extras = extrasOpt?.extras ?? null;
+  /** 거래 1·2단 탭(필요 시 2단만) — `/mypage/trade` 는 허브 자체 내비가 있어 TRADE 탭 스택 숨김 */
+  const isTradeMenuSurface =
+    pathname === "/home" || (pathname?.startsWith("/market/") ?? false);
+  const hideRegionBar = !topTier1RuleSet.showRegionBar;
+
+  /** 빈 `sticky z-20` 래퍼는 아래 본문 스티키(채팅 허브 등)와 쌓임이 꼬여 가릴 수 있음 */
+  if (hideRegionBar) return null;
+
+  const ctaLinks = extras?.ctaLinks ?? [];
+  const stickyBelow = extras?.stickyBelow ?? null;
 
   return (
-    <div className="sticky top-0 z-20">
-      {!hideRegionBar &&
-        (categorySticky ? (
+    <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-[var(--sub-bg)]">
+      {categorySticky ? (
           <div className="border-b border-gray-200 bg-white">
             <RegionBar embedded />
             <CategoryListSubheader
@@ -54,8 +46,18 @@ export function AppStickyHeader() {
             />
           </div>
         ) : (
-          <RegionBar />
-        ))}
+          <>
+            <RegionBar />
+            {ctaLinks.length > 0 ? <MyManagedCtaStrip links={ctaLinks} /> : null}
+            {stickyBelow}
+            {isTradeMenuSurface ? (
+              <>
+                <TradePrimaryTabs embed embedInAppHeader />
+                {tradeSecondaryTabs}
+              </>
+            ) : null}
+          </>
+        )}
     </div>
   );
 }

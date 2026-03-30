@@ -1,55 +1,46 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import {
+  SELLER_MANAGE_TABS,
+  countSellerManageTabs,
+  getSellerManageTabId,
+  type SellerManageTabId,
+} from "@/lib/mypage/seller-manage-tabs";
+import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
+import { APP_TOP_MENU_ROW1_BASE_RADIUS_4 } from "@/lib/ui/app-top-menu";
 import { SalesHistoryCard, type SalesHistoryRow } from "./SalesHistoryCard";
+import {
+  fetchTradeHistorySalesBySession,
+  invalidateTradeHistoryCache,
+} from "@/lib/mypage/trade-history-client";
 
-export function SalesHistoryView() {
+export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabId } = {}) {
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [items, setItems] = useState<SalesHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewerId, setViewerId] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [tab, setTab] = useState<SellerManageTabId>(initialTab ?? "selling");
 
-  const load = useCallback((opts?: { silent?: boolean }) => {
+  const load = useCallback((opts?: { silent?: boolean; force?: boolean }) => {
     const silent = !!opts?.silent;
-    const u = getCurrentUser()?.id?.trim();
-    setViewerId(u ?? "");
+    setViewerId(getCurrentUser()?.id?.trim() ?? "");
     if (!silent) setLoadError(null);
-    if (!u) {
-      setItems([]);
-      if (!silent) setLoading(false);
-      return;
-    }
     if (!silent) setLoading(true);
-    fetch("/api/my/sales", { credentials: "same-origin", cache: "no-store" })
-      .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as {
-          items?: SalesHistoryRow[];
-          error?: string;
-        };
-        if (!r.ok) {
-          if (!silent) {
-            setItems([]);
-            setLoadError(
-              d.error ||
-                (r.status === 401
-                  ? "서버에서 로그인을 인식하지 못했어요. 테스트 로그인을 다시 하거나 페이지를 새로고침해 보세요."
-                  : "목록을 불러오지 못했어요.")
-            );
-          }
-          return;
-        }
+    fetchTradeHistorySalesBySession({ force: !!opts?.force })
+      .then((items) => {
         setLoadError(null);
-        setItems(Array.isArray(d.items) ? d.items : []);
+        setItems(items);
       })
       .catch(() => {
         if (!silent) {
           setItems([]);
-          setLoadError("네트워크 오류로 목록을 불러오지 못했어요.");
+          setLoadError("판매 내역을 불러오지 못했어요.");
         }
       })
       .finally(() => {
@@ -57,17 +48,35 @@ export function SalesHistoryView() {
       });
   }, []);
 
+  const reload = useCallback(() => {
+    void load({ force: true });
+  }, [load]);
+
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
-    const onAuth = () => load();
+    const onAuth = () => {
+      invalidateTradeHistoryCache();
+      void load({ force: true });
+    };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
   }, [load]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
+
+  const counts = useMemo(() => countSellerManageTabs(items), [items]);
+
+  const filtered = useMemo(
+    () => items.filter((row) => getSellerManageTabId(row) === tab),
+    [items, tab]
+  );
 
   if (loading) {
     return <p className="py-12 text-center text-[14px] text-gray-500">불러오는 중...</p>;
@@ -85,17 +94,38 @@ export function SalesHistoryView() {
     );
   }
 
+  const emptyTabMsg: Record<SellerManageTabId, string> = {
+    selling: "해당 상태의 판매가 없어요.",
+    reserved: "예약 중인 거래가 없어요.",
+    completed: "판매완료된 내역이 없어요.",
+    cancelled: "취소된 판매가 없어요.",
+    review_wait: "구매자 후기를 기다리는 거래가 없어요.",
+  };
+
   return (
-    <ul className="space-y-2">
-      {items.map((row) => (
-        <SalesHistoryCard
-          key={row.chatId ? row.chatId : `post-${row.postId}`}
-          row={row}
-          currency={currency}
-          viewerId={viewerId}
-          onReload={load}
-        />
-      ))}
-    </ul>
+    <div>
+      <TradeManagementTabBar
+        tabs={SELLER_MANAGE_TABS}
+        active={tab}
+        counts={counts}
+        onChange={setTab}
+        tabBaseClassName={APP_TOP_MENU_ROW1_BASE_RADIUS_4}
+      />
+      {filtered.length === 0 ? (
+        <p className="py-10 text-center text-[14px] text-gray-500">{emptyTabMsg[tab]}</p>
+      ) : (
+        <ul className="space-y-2">
+          {filtered.map((row) => (
+            <SalesHistoryCard
+              key={row.chatId ? row.chatId : `post-${row.postId}`}
+              row={row}
+              currency={currency}
+              viewerId={viewerId}
+              onReload={reload}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

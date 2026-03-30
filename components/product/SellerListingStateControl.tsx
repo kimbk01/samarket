@@ -16,7 +16,7 @@ const LISTING_OPTIONS: SellerListingState[] = [
 
 /** 채팅 상단 카드와 동일 — 직각 박스 + 투명 select 오버레이 + 쉐브론 */
 export const SELLER_LISTING_CONTROL_BOX_LAYOUT =
-  "relative box-border inline-flex h-[31px] min-h-[31px] w-max max-w-none shrink-0 items-center rounded-none px-1.5 text-[11px] font-bold leading-none shadow-sm";
+  "relative box-border inline-flex h-[31px] min-h-[31px] w-max max-w-none shrink-0 items-center rounded-md px-1.5 text-[11px] font-bold leading-none shadow-sm";
 
 function ListingChevron({ className }: { className?: string }) {
   return (

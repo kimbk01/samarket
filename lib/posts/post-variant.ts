@@ -33,7 +33,15 @@ export function hasUsedCarMeta(meta: Record<string, unknown>): boolean {
 
 export function hasJobsMeta(meta: Record<string, unknown>): boolean {
   const key = (k: string) => Object.prototype.hasOwnProperty.call(meta, k);
-  return key("job_type") || key("work_category") || key("work_term") || key("pay_type");
+  return (
+    key("listing_kind") ||
+    key("trade_chat_kind") ||
+    key("job_type") ||
+    key("work_category") ||
+    key("work_category_other") ||
+    key("work_term") ||
+    key("pay_type")
+  );
 }
 
 /** PostCard와 동일: exchange_rate만 있는 글은 일반 거래로 본다 */

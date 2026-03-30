@@ -1,17 +1,30 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CommunitySectionAdminRow } from "@/lib/community-feed/types";
 import type { CommunityTopicAdminRow } from "@/lib/community-topics/server";
-import { normalizeFeedSlug } from "@/lib/community-feed/constants";
+import { DEFAULT_COMMUNITY_SECTION, normalizeFeedSlug, normalizeSectionSlug } from "@/lib/community-feed/constants";
 import {
   COMMUNITY_FEED_LIST_SKIN_LABELS,
   COMMUNITY_FEED_LIST_SKINS,
   type CommunityFeedListSkin,
 } from "@/lib/community-feed/topic-feed-skin";
+import { isPhilifeGeneralOnlyTopicSlug } from "@/lib/neighborhood/philife-topic-slug-rules";
+import {
+  qualifiesForPhilifeGeneralAdminList,
+  qualifiesForPhilifeMeetupAdminList,
+  topicBelongsToPhilifeDefaultSection,
+} from "@/lib/neighborhood/meetup-feed-topics";
+
+/**
+ * 커뮤니티 피드 주제 구조와 동일하게 나눔:
+ * - general: 일반 게시판 글 (`allow_meetup` false) — 피드·댓글만, 작성자 1:1 문의(DM) 허용
+ * - meetup: 모임 (`allow_meetup` true) — 모임방 단체 채팅, 게시글 문의 DM 비허용
+ */
+type TopicsMenuTab = "general" | "meetup";
 
 export function AdminCommunityTopicsPage({
   sections,
@@ -23,7 +36,15 @@ export function AdminCommunityTopicsPage({
   const router = useRouter();
   const [topics, setTopics] = useState(initial);
   const [busy, setBusy] = useState(false);
-  const [sectionId, setSectionId] = useState(sections[0]?.id ?? "");
+  const defaultPhilifeSectionId = useMemo(
+    () =>
+      sections.find((s) => normalizeSectionSlug(s.slug) === DEFAULT_COMMUNITY_SECTION)?.id ?? sections[0]?.id ?? "",
+    [sections]
+  );
+  const [sectionId, setSectionId] = useState("");
+  useEffect(() => {
+    setSectionId((prev) => prev || defaultPhilifeSectionId);
+  }, [defaultPhilifeSectionId]);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
@@ -31,10 +52,25 @@ export function AdminCommunityTopicsPage({
   const [isVisible, setIsVisible] = useState(true);
   const [isFeedSort, setIsFeedSort] = useState(false);
   const [allowQuestion, setAllowQuestion] = useState(true);
-  const [allowMeetup, setAllowMeetup] = useState(false);
   const [color, setColor] = useState("");
   const [feedListSkin, setFeedListSkin] = useState<CommunityFeedListSkin>("compact_media");
   const [edit, setEdit] = useState<CommunityTopicAdminRow | null>(null);
+  const [menuTab, setMenuTab] = useState<TopicsMenuTab>("general");
+
+  const filteredTopics = useMemo(() => {
+    if (menuTab === "meetup") {
+      return topics.filter((t) => qualifiesForPhilifeMeetupAdminList(t.allow_meetup, t.slug, t.section_slug));
+    }
+    return topics.filter((t) => qualifiesForPhilifeGeneralAdminList(t.allow_meetup, t.slug, t.section_slug));
+  }, [topics, menuTab]);
+
+  useEffect(() => {
+    if (!edit) return;
+    const inMeetupTab = qualifiesForPhilifeMeetupAdminList(edit.allow_meetup, edit.slug, edit.section_slug);
+    const inGeneralTab = qualifiesForPhilifeGeneralAdminList(edit.allow_meetup, edit.slug, edit.section_slug);
+    const inTab = menuTab === "meetup" ? inMeetupTab : inGeneralTab;
+    if (!inTab) setEdit(null);
+  }, [menuTab, edit]);
 
   async function refresh() {
     const res = await fetch("/api/admin/community/topics", { credentials: "include", cache: "no-store" });
@@ -51,6 +87,20 @@ export function AdminCommunityTopicsPage({
       alert("섹션을 선택하세요.");
       return;
     }
+    const chosenSectionSlug = sections.find((s) => s.id === sectionId)?.slug;
+    if (!topicBelongsToPhilifeDefaultSection(chosenSectionSlug)) {
+      alert(
+        `커뮤니티 앱과 연동되는 주제는 기본 섹션 「동네」(${DEFAULT_COMMUNITY_SECTION})에만 둘 수 있습니다. 모임 만들기 피드 주제는 이 섹션의 「모임」 탭 목록과 1:1로 맞습니다.`
+      );
+      return;
+    }
+    const finalSlug = slug || normalizeFeedSlug(name);
+    if (menuTab === "meetup" && isPhilifeGeneralOnlyTopicSlug(finalSlug)) {
+      alert(
+        "이 slug는 일반 게시판 전용입니다. 모임 피드에는 연결되지 않습니다. 운동·취미·모임·소모임 등 다른 slug를 쓰거나 「일반 게시판」 탭에서 추가하세요."
+      );
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/admin/community/topics", {
@@ -60,13 +110,13 @@ export function AdminCommunityTopicsPage({
         body: JSON.stringify({
           section_id: sectionId,
           name,
-          slug: slug || normalizeFeedSlug(name),
+          slug: finalSlug,
           sort_order: sortOrder,
           is_active: isActive,
           is_visible: isVisible,
           is_feed_sort: isFeedSort,
           allow_question: allowQuestion,
-          allow_meetup: allowMeetup,
+          allow_meetup: menuTab === "meetup",
           color: color.trim() || null,
           feed_list_skin: feedListSkin,
         }),
@@ -87,7 +137,6 @@ export function AdminCommunityTopicsPage({
       setIsVisible(true);
       setIsFeedSort(false);
       setAllowQuestion(true);
-      setAllowMeetup(false);
       setColor("");
       setFeedListSkin("compact_media");
       await refresh();
@@ -98,6 +147,19 @@ export function AdminCommunityTopicsPage({
 
   async function saveEdit() {
     if (!edit) return;
+    const editSectionSlug = sections.find((s) => s.id === edit.section_id)?.slug;
+    if (!topicBelongsToPhilifeDefaultSection(editSectionSlug)) {
+      alert(
+        `이 화면의 주제는 커뮤니티 기본 섹션 「동네」(${DEFAULT_COMMUNITY_SECTION})에 있어야 앱 피드·모임 만들기와 연동됩니다.`
+      );
+      return;
+    }
+    if (edit.allow_meetup && isPhilifeGeneralOnlyTopicSlug(edit.slug)) {
+      alert(
+        "일반 게시판 전용 slug는 「모임」으로 설정할 수 없습니다. slug를 변경하거나 「일반 게시판」에서만 사용하도록 allow_meetup을 끄세요."
+      );
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/community/topics/${edit.id}`, {
@@ -158,14 +220,47 @@ export function AdminCommunityTopicsPage({
     }
   }
 
+  const headerDescription =
+    menuTab === "meetup"
+      ? `동네(${DEFAULT_COMMUNITY_SECTION}) 섹션만 표시·저장 가능. 목록은 모임 만들기 폼 피드 주제(API)와 동일합니다. 일반 전용 slug·다른 섹션 주제는 제외.`
+      : `동네(${DEFAULT_COMMUNITY_SECTION}) 섹션의 일반 게시판 주제만 표시합니다. 커뮤니티 동네 피드 칩·글쓰기 주제·게시판 주제 필터는 여기서 보이는 주제(노출·비모임·정렬칩 제외)와 동기됩니다.`;
+
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="피드 주제 관리" backHref="/admin/community/sections" />
-      <AdminCard title="주제 추가">
+      <AdminPageHeader title="피드 주제 관리" backHref="/admin/philife/sections" description={headerDescription} />
+
+      <div className="flex flex-wrap gap-2 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setMenuTab("general")}
+          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-lg px-4 py-2 text-[14px] font-semibold transition-colors sm:flex-none sm:px-8 ${
+            menuTab === "general"
+              ? "bg-gray-900 text-white shadow-sm"
+              : "bg-transparent text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          <span>일반 게시판</span>
+          <span className="text-[10px] font-normal opacity-80">문의 DM 가능</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMenuTab("meetup")}
+          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-lg px-4 py-2 text-[14px] font-semibold transition-colors sm:flex-none sm:px-8 ${
+            menuTab === "meetup"
+              ? "bg-emerald-600 text-white shadow-sm"
+              : "bg-transparent text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          <span>모임</span>
+          <span className="text-[10px] font-normal opacity-80">모임방 채팅</span>
+        </button>
+      </div>
+
+      <AdminCard title={menuTab === "meetup" ? "모임 피드 주제 추가" : "일반 게시판 주제 추가"}>
         {sections.length === 0 ? (
           <p className="mb-3 text-[13px] text-amber-800">
             등록된 섹션이 없습니다.{" "}
-            <a href="/admin/community/sections" className="font-medium text-blue-600 hover:underline">
+            <a href="/admin/philife/sections" className="font-medium text-blue-600 hover:underline">
               피드 섹션 관리
             </a>
             에서 먼저 추가하세요.
@@ -228,10 +323,16 @@ export function AdminCommunityTopicsPage({
               <input type="checkbox" checked={allowQuestion} onChange={(e) => setAllowQuestion(e.target.checked)} />
               질문
             </label>
-            <label className="flex items-center gap-1 pb-1.5">
-              <input type="checkbox" checked={allowMeetup} onChange={(e) => setAllowMeetup(e.target.checked)} />
-              모임
-            </label>
+            <div className="flex flex-col justify-end pb-1.5">
+              <span className="text-[11px] font-medium text-gray-600">
+                분류: {menuTab === "meetup" ? "모임 피드" : "일반 게시판"}
+              </span>
+              <span className="max-w-[220px] text-[10px] leading-tight text-gray-400">
+                {menuTab === "meetup"
+                  ? "동네 섹션 + 모임 API와 같은 목록만 여기에 표시됩니다."
+                  : "동네 섹션 일반 주제만 여기에 표시됩니다."}
+              </span>
+            </div>
             <label className="flex flex-col gap-0.5">
               <span className="text-gray-500">색(hex 등)</span>
               <input
@@ -269,7 +370,13 @@ export function AdminCommunityTopicsPage({
           </p>
         </form>
       </AdminCard>
-      <AdminCard title="주제 목록 (community_topics + 섹션)">
+      <AdminCard
+        title={
+          menuTab === "meetup"
+            ? "모임 피드 주제 목록 (community_topics)"
+            : "일반 게시판 주제 목록 (community_topics)"
+        }
+      >
         {topics.length === 0 ? (
           <div className="space-y-2 text-[13px] text-amber-900">
             <p className="font-medium">주제 행이 없습니다.</p>
@@ -293,9 +400,15 @@ export function AdminCommunityTopicsPage({
               </li>
             </ul>
           </div>
+        ) : filteredTopics.length === 0 ? (
+          <p className="text-[13px] text-gray-600">
+            {menuTab === "meetup"
+              ? `동네(${DEFAULT_COMMUNITY_SECTION}) 섹션에 모임 피드 주제가 없습니다. 위에서 섹션을 동네로 두고 추가하거나, 일반 전용이 아닌 slug로 allow_meetup을 켠 주제를 넣어 주세요.`
+              : `동네(${DEFAULT_COMMUNITY_SECTION}) 섹션에 일반 게시판 주제가 없습니다. 위 폼에서 추가하세요.`}
+          </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] border-collapse text-left text-[13px]">
+            <table className="w-full min-w-[1000px] border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-gray-200 text-gray-500">
                   <th className="py-2 pr-2 font-medium">섹션</th>
@@ -306,11 +419,12 @@ export function AdminCommunityTopicsPage({
                   <th className="py-2 pr-2 font-medium">노출</th>
                   <th className="py-2 pr-2 font-medium">정렬칩</th>
                   <th className="py-2 pr-2 font-medium">활성</th>
+                  <th className="py-2 pr-2 font-medium">분류 전환</th>
                   <th className="py-2 font-medium">작업</th>
                 </tr>
               </thead>
               <tbody>
-                {topics.map((t) =>
+                {filteredTopics.map((t) =>
                   edit?.id === t.id ? (
                     <tr key={t.id} className="border-b border-gray-100 bg-amber-50/40 align-top">
                       <td className="py-2 pr-2">
@@ -384,6 +498,17 @@ export function AdminCommunityTopicsPage({
                           onChange={(e) => setEdit({ ...edit, is_active: e.target.checked })}
                         />
                       </td>
+                      <td className="py-2 pr-2">
+                        <label className="flex cursor-pointer items-center gap-1 text-[11px] text-gray-700">
+                          <input
+                            type="checkbox"
+                            title="모임 피드로 전환"
+                            checked={edit.allow_meetup}
+                            onChange={(e) => setEdit({ ...edit, allow_meetup: e.target.checked })}
+                          />
+                          모임
+                        </label>
+                      </td>
                       <td className="py-2">
                         <button
                           type="button"
@@ -416,6 +541,9 @@ export function AdminCommunityTopicsPage({
                       <td className="py-2 pr-2">{t.is_visible ? "Y" : "N"}</td>
                       <td className="py-2 pr-2">{t.is_feed_sort ? "Y" : "N"}</td>
                       <td className="py-2 pr-2">{t.is_active ? "Y" : "N"}</td>
+                      <td className="py-2 pr-2 text-[11px] text-gray-600">
+                        {t.allow_meetup ? "모임" : "일반"}
+                      </td>
                       <td className="py-2">
                         <button
                           type="button"

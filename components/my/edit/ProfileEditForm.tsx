@@ -2,18 +2,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRegion } from "@/contexts/RegionContext";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
 import { ProfileImageField } from "./ProfileImageField";
 import { ProfileBasicFields } from "./ProfileBasicFields";
-import { ProfileRegionField } from "./ProfileRegionField";
+import { StoreAddressLocationSection } from "@/components/stores/StoreAddressLocationSection";
+import { STORE_LOCATION_SECTION_HINT_PROFILE_EDIT } from "@/lib/stores/store-address-form-ui";
 import { ProfileReadonlyFields } from "./ProfileReadonlyFields";
+import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import {
+  buildProfileRegionNameForStorage,
+  decodeProfileAppLocationPair,
+  encodeProfileAppLocationStorage,
+} from "@/lib/profile/profile-location";
+import { finalizePhilippinesZipCode } from "@/lib/products/zip-to-location";
 
-function validate(p: {
-  nickname: string;
-  region_name: string | null;
-}): { nickname?: string } {
+function validate(p: { nickname: string }): { nickname?: string } {
   const errors: { nickname?: string } = {};
   if (!p.nickname?.trim()) errors.nickname = "닉네임을 입력해 주세요.";
   if (p.nickname && p.nickname.length > 20) errors.nickname = "닉네임은 20자 이내로 입력해 주세요.";
@@ -21,20 +27,29 @@ function validate(p: {
 }
 
 export function ProfileEditForm() {
+  const { refreshProfileLocation } = useRegion();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "ok" | "error";
+    text: string;
+    /** 주소 컬럼 미마이그레이션 등 부가 안내 */
+    detail?: string;
+  } | null>(null);
 
   const [nickname, setNickname] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bio, setBio] = useState("");
-  const [regionCode, setRegionCode] = useState("");
-  const [regionName, setRegionName] = useState("");
+  const [appRegionId, setAppRegionId] = useState("");
+  const [appCityId, setAppCityId] = useState("");
+  const [philPostZip, setPhilPostZip] = useState("");
+  const [addressStreetLine, setAddressStreetLine] = useState("");
+  const [addressDetail, setAddressDetail] = useState("");
   const [phone, setPhone] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("ko");
   const [preferredCountry, setPreferredCountry] = useState("PH");
-  const [errors, setErrors] = useState<{ nickname?: string }>({});
+  const [errors, setErrors] = useState<{ nickname?: string; phone?: string }>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,11 +59,21 @@ export function ProfileEditForm() {
       setNickname(data.nickname ?? "");
       setAvatarUrl(data.avatar_url ?? null);
       setBio(data.bio ?? "");
-      setRegionCode(data.region_code ?? "");
-      setRegionName(data.region_name ?? "");
-      setPhone(data.phone ?? "");
+      const loc = decodeProfileAppLocationPair(data.region_code, data.region_name);
+      setAppRegionId(loc.regionId);
+      setAppCityId(loc.cityId);
+      setPhilPostZip((data.postal_code ?? "").trim());
+      setAddressStreetLine((data.address_street_line ?? "").trim());
+      setAddressDetail((data.address_detail ?? "").trim());
+      setPhone(parsePhMobileInput(data.phone ?? ""));
       setPreferredLanguage(data.preferred_language ?? "ko");
       setPreferredCountry(data.preferred_country ?? "PH");
+    } else {
+      setAppRegionId("");
+      setAppCityId("");
+      setPhilPostZip("");
+      setAddressStreetLine("");
+      setAddressDetail("");
     }
     setLoading(false);
   }, []);
@@ -57,29 +82,44 @@ export function ProfileEditForm() {
     load();
   }, [load]);
 
+  const commitPhilippinesZip = useCallback((code: string) => {
+    setPhilPostZip(code);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    const err = validate({ nickname: nickname.trim(), region_name: regionName || null });
-    setErrors(err);
-    if (Object.keys(err).length > 0) return;
+    const err = validate({ nickname: nickname.trim() });
+    const pr = normalizeOptionalPhMobileDb(phone);
+    const nextErr = { ...err, ...(pr.ok ? {} : { phone: pr.error }) };
+    setErrors(nextErr);
+    if (Object.keys(err).length > 0 || !pr.ok) return;
 
     setSaving(true);
+    setMessage(null);
     const payload: ProfileUpdatePayload = {
       nickname: nickname.trim(),
-      avatar_url: avatarUrl || null,
+      avatar_url: avatarUrl ?? null,
       bio: bio.trim() || null,
-      region_code: regionCode.trim() || null,
-      region_name: regionName.trim() || null,
-      phone: phone.trim() || null,
+      region_code: encodeProfileAppLocationStorage(appRegionId, appCityId),
+      region_name: buildProfileRegionNameForStorage(appRegionId, appCityId),
+      postal_code: finalizePhilippinesZipCode(philPostZip) ?? null,
+      address_street_line: addressStreetLine.trim() || null,
+      address_detail: addressDetail.trim() || null,
+      phone: pr.value,
       preferred_language: preferredLanguage,
       preferred_country: preferredCountry,
     };
     const result = await updateMyProfile(payload);
     setSaving(false);
     if (result.ok) {
-      setMessage({ type: "ok", text: "저장되었습니다." });
-      load();
+      const warn = "warning" in result && result.warning ? result.warning : "";
+      setMessage({
+        type: "ok",
+        text: warn ? `저장되었습니다. ${warn}` : "저장되었습니다.",
+      });
+      await load();
+      void refreshProfileLocation();
     } else {
       setMessage({ type: "error", text: result.error });
     }
@@ -119,25 +159,41 @@ export function ProfileEditForm() {
         onPreferredCountryChange={setPreferredCountry}
         errors={errors}
       />
-      <ProfileRegionField
-        regionName={regionName}
-        regionCode={regionCode}
-        onRegionNameChange={setRegionName}
-        onRegionCodeChange={setRegionCode}
+      <StoreAddressLocationSection
+        sectionHint={STORE_LOCATION_SECTION_HINT_PROFILE_EDIT}
+        regionId={appRegionId}
+        cityId={appCityId}
+        onRegionChange={(id) => {
+          setAppRegionId(id);
+          setAppCityId("");
+        }}
+        onCityChange={setAppCityId}
+        addressStreetLine={addressStreetLine}
+        addressDetail={addressDetail}
+        onAddressStreetLineChange={setAddressStreetLine}
+        onAddressDetailChange={setAddressDetail}
+        showRequired={false}
+        philippinesZipSeed={philPostZip}
+        onPhilippinesZipCommitted={commitPhilippinesZip}
       />
       <ProfileReadonlyFields profile={profile} />
 
-      {message && (
-        <p
-          className={
-            message.type === "ok"
-              ? "text-[14px] text-green-600"
-              : "text-[14px] text-red-600"
-          }
-        >
-          {message.text}
-        </p>
-      )}
+      {message ? (
+        <div className="space-y-1.5">
+          <p
+            className={
+              message.type === "ok"
+                ? "text-[14px] text-green-600"
+                : "text-[14px] text-red-600"
+            }
+          >
+            {message.text}
+          </p>
+          {message.type === "ok" && message.detail ? (
+            <p className="text-[13px] leading-relaxed text-amber-900">{message.detail}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="flex gap-3">
         <Link

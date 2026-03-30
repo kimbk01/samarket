@@ -12,7 +12,7 @@
 | 용도 | 메서드 | 경로 |
 |------|--------|------|
 | 채팅 목록 | GET | `/api/chat/rooms?userId=xxx` |
-| 미읽음 합계 (편지 배지) | GET | `/api/chat/unread-total?userId=xxx` |
+| 허브 배지·미읽음 분해 (단일 폴링 권장) | GET | `/api/me/store-owner-hub-badge` |
 
 ## 방·메시지
 
@@ -25,4 +25,4 @@
 
 - 목록: 8초
 - 상세 메시지: 8초
-- unread-total: 15초 + 이벤트 `chat-unread-updated`
+- 허브 배지: `lib/chats/owner-hub-badge-store` — 단일 in-flight + 30초 간격 + 포커스/이벤트 갱신

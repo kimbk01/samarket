@@ -3,8 +3,10 @@
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { isValidLocalTopicId } from "@/lib/community-topics/server";
+import { DEFAULT_COMMUNITY_SECTION } from "@/lib/community-feed/constants";
 import type {
   Board,
   CommunityTopicRef,
@@ -55,7 +57,8 @@ export async function listBoardCategoriesForBoard(boardId: string): Promise<Boar
 
 type ListFilterResolution = {
   boardCategoryId: string | null;
-  communityTopicId: string | null;
+  /** `community_topics.id` — 동일 slug 가 dongnae/philife 에 중복일 수 있어 배열 */
+  communityTopicIds: string[];
   categoryRequested: boolean;
   topicRequested: boolean;
 };
@@ -78,22 +81,36 @@ async function resolvePostListFilters(
     boardCategoryId = cat && (cat as { id?: string }).id ? (cat as { id: string }).id : null;
   }
 
-  let communityTopicId: string | null = null;
+  const communityTopicIds: string[] = [];
   const topicRequested = !!options?.topicSlug?.trim();
   if (topicRequested) {
-    const { data: top } = await sb
-      .from("community_topics")
+    const slug = options!.topicSlug!.trim().toLowerCase();
+    const { data: secRows } = await sb
+      .from("community_sections")
       .select("id")
-      .eq("scope", "local")
-      .eq("slug", options!.topicSlug!.trim().toLowerCase())
-      .eq("is_active", true)
-      .maybeSingle();
-    communityTopicId = top && (top as { id?: string }).id ? (top as { id: string }).id : null;
+      .in("slug", [DEFAULT_COMMUNITY_SECTION, "philife"])
+      .eq("is_active", true);
+    const secIds = (secRows ?? [])
+      .map((r) => String((r as { id?: string }).id ?? "").trim())
+      .filter(Boolean);
+    if (secIds.length > 0) {
+      const { data: tops } = await sb
+        .from("community_topics")
+        .select("id")
+        .in("section_id", secIds)
+        .eq("slug", slug)
+        .eq("is_active", true)
+        .eq("is_visible", true);
+      for (const row of tops ?? []) {
+        const id = String((row as { id?: string }).id ?? "").trim();
+        if (id) communityTopicIds.push(id);
+      }
+    }
   }
 
   return {
     boardCategoryId,
-    communityTopicId,
+    communityTopicIds,
     categoryRequested,
     topicRequested,
   };
@@ -187,7 +204,7 @@ export async function getPostsByBoardId(
 
   const filters = await resolvePostListFilters(sb, boardId, options);
   if (filters.categoryRequested && !filters.boardCategoryId) return [];
-  if (filters.topicRequested && !filters.communityTopicId) return [];
+  if (filters.topicRequested && filters.communityTopicIds.length === 0) return [];
 
   const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
   const offset = Math.max(options?.offset ?? 0, 0);
@@ -205,7 +222,11 @@ export async function getPostsByBoardId(
     .range(offset, offset + limit - 1);
 
   if (filters.boardCategoryId) q = q.eq("board_category_id", filters.boardCategoryId);
-  if (filters.communityTopicId) q = q.eq("community_topic_id", filters.communityTopicId);
+  if (filters.communityTopicIds.length === 1) {
+    q = q.eq("community_topic_id", filters.communityTopicIds[0]!);
+  } else if (filters.communityTopicIds.length > 1) {
+    q = q.in("community_topic_id", filters.communityTopicIds);
+  }
 
   const { data, error } = await q;
   if (error || !data) return [];
@@ -255,7 +276,7 @@ export async function countPostsByBoardId(
 
   const filters = await resolvePostListFilters(sb, boardId, options);
   if (filters.categoryRequested && !filters.boardCategoryId) return 0;
-  if (filters.topicRequested && !filters.communityTopicId) return 0;
+  if (filters.topicRequested && filters.communityTopicIds.length === 0) return 0;
 
   let q = sb
     .from("posts")
@@ -266,7 +287,11 @@ export async function countPostsByBoardId(
     .eq("is_deleted", false);
 
   if (filters.boardCategoryId) q = q.eq("board_category_id", filters.boardCategoryId);
-  if (filters.communityTopicId) q = q.eq("community_topic_id", filters.communityTopicId);
+  if (filters.communityTopicIds.length === 1) {
+    q = q.eq("community_topic_id", filters.communityTopicIds[0]!);
+  } else if (filters.communityTopicIds.length > 1) {
+    q = q.in("community_topic_id", filters.communityTopicIds);
+  }
 
   const { count, error } = await q;
   if (error) return null;
@@ -327,6 +352,8 @@ export async function getPostById(postId: string, boardId?: string): Promise<Pos
  */
 export async function createPost(payload: PostCreatePayload, authorUserId: string): Promise<{ id: string }> {
   const sb = getSupabaseServer();
+  const access = await assertVerifiedMemberForAction(sb as any, authorUserId);
+  if (!access.ok) throw new Error(access.error);
   const commId = await resolveCommunityServiceId(sb);
   if (!commId) throw new Error("동네생활 서비스가 설정되지 않았습니다.");
 

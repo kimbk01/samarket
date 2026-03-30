@@ -10,6 +10,7 @@ import {
   type ChatSummaryItemFields,
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
+import { OwnerStoreOrderDeliveryActionsDrawerSection } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 
 export type StoreOrderSellerOrderPanelPresentation = "drawer" | "modal";
 
@@ -23,9 +24,13 @@ type Props = {
   menuRef: React.RefObject<HTMLDivElement | null>;
   moreMenuPanel: React.ReactNode;
   onMoreMenuClick: () => void;
-  postChatText: (text: string) => Promise<boolean>;
+  postChatText: (text: string) => Promise<{ ok: true } | { ok: false; error?: string }>;
   /** 전송 버튼 비활성 (채팅 쓰기 불가 시) */
   sendSummaryDisabled?: boolean;
+  /** 주문 패치 후 채팅 메타·메시지 갱신 */
+  onRoomReload?: () => void;
+  /** `OwnerStoreOrderChatModal`(z-190) 위에 드로어·딤 표시 */
+  stackAboveOwnerChatModal?: boolean;
 };
 
 export function StoreOrderSellerOrderPanel({
@@ -40,6 +45,8 @@ export function StoreOrderSellerOrderPanel({
   onMoreMenuClick,
   postChatText,
   sendSummaryDisabled = false,
+  onRoomReload,
+  stackAboveOwnerChatModal = false,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -70,10 +77,13 @@ export function StoreOrderSellerOrderPanel({
   useEffect(() => {
     if (!open || typeof window === "undefined") return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpenChange(false);
+      if (e.key !== "Escape" || !open) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onOpenChange(false);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [open, onOpenChange]);
 
   const loadOrder = useCallback(async () => {
@@ -109,6 +119,10 @@ export function StoreOrderSellerOrderPanel({
         store_name: sn || undefined,
         order_no: typeof o.order_no === "string" ? o.order_no : undefined,
         order_status: typeof o.order_status === "string" ? o.order_status : undefined,
+        fulfillment_type:
+          typeof o.fulfillment_type === "string" && o.fulfillment_type.trim()
+            ? o.fulfillment_type.trim()
+            : undefined,
         delivery_address_summary: (o.delivery_address_summary as string | null) ?? null,
         delivery_address_detail: (o.delivery_address_detail as string | null) ?? null,
         buyer_phone: (o.buyer_phone as string | null) ?? null,
@@ -162,15 +176,40 @@ export function StoreOrderSellerOrderPanel({
     const body = formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller");
     setSendBusy(true);
     setSendToast(null);
-    const ok = await postChatText(body);
+    const r = await postChatText(body);
     setSendBusy(false);
-    if (ok) {
+    if (r.ok) {
       setSendToast("채팅으로 전송했습니다.");
       onOpenChange(false);
     } else {
-      setSendToast("전송에 실패했습니다. 다시 시도해 주세요.");
+      setSendToast(r.error?.trim() || "전송에 실패했습니다. 다시 시도해 주세요.");
     }
   }, [orderSnap, itemsSnap, postChatText, sendBusy, sendSummaryDisabled, onOpenChange]);
+
+  const onOrderPatched = useCallback(() => {
+    void loadOrder();
+    onRoomReload?.();
+  }, [loadOrder, onRoomReload]);
+
+  const deliverySection =
+    !loading &&
+    !loadErr &&
+    orderSnap?.order_status &&
+    typeof orderId === "string" &&
+    orderId.trim() ? (
+      <OwnerStoreOrderDeliveryActionsDrawerSection
+        storeId={storeId}
+        order={{
+          id: orderId.trim(),
+          order_status: orderSnap.order_status,
+          fulfillment_type: orderSnap.fulfillment_type?.trim() || "pickup",
+        }}
+        onUpdated={onOrderPatched}
+      />
+    ) : null;
+
+  const dimZ = stackAboveOwnerChatModal ? "z-[220]" : "z-[60]";
+  const surfaceZ = stackAboveOwnerChatModal ? "z-[230]" : "z-[70]";
 
   const headerRow = (
     <div className="flex shrink-0 items-center gap-2 border-b border-[#DBDBDB] px-3 py-3">
@@ -282,6 +321,7 @@ export function StoreOrderSellerOrderPanel({
             <p className="px-3 pt-3 text-[11px] font-semibold uppercase tracking-wide text-[#8E8E8E]">
               이 채팅 · 주문
             </p>
+            {!stackAboveOwnerChatModal ? deliverySection : null}
             <div className="border-b border-[#EFEFEF] px-3 py-3">
               <button
                 type="button"
@@ -310,6 +350,7 @@ export function StoreOrderSellerOrderPanel({
   const drawerPanelInner = (
     <>
       {headerRow}
+      {!stackAboveOwnerChatModal ? deliverySection : null}
       {sendBlock}
       {scrollBody}
     </>
@@ -323,7 +364,7 @@ export function StoreOrderSellerOrderPanel({
           <>
             <div
               role="presentation"
-              className={`fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ease-out ${
+              className={`fixed inset-0 ${dimZ} bg-black/40 transition-opacity duration-300 ease-out ${
                 open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
               }`}
               onClick={() => onOpenChange(false)}
@@ -332,7 +373,7 @@ export function StoreOrderSellerOrderPanel({
             {presentation === "drawer" ? (
               <div
                 id={surfaceId}
-                className={`fixed top-0 right-0 z-[70] flex h-[100dvh] w-[min(100vw,22rem)] flex-col bg-white shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+                className={`fixed top-0 right-0 ${surfaceZ} flex h-[100dvh] w-[min(100vw,22rem)] flex-col bg-white shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
                   open ? "translate-x-0" : "translate-x-full"
                 }`}
                 role="dialog"
@@ -343,7 +384,7 @@ export function StoreOrderSellerOrderPanel({
               </div>
             ) : (
               <div
-                className={`fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4 ${
+                className={`fixed inset-0 ${surfaceZ} flex items-end justify-center p-0 sm:items-center sm:p-4 ${
                   open ? "pointer-events-auto" : "pointer-events-none"
                 }`}
                 role="presentation"

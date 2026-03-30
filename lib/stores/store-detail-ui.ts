@@ -24,9 +24,15 @@ export const STORE_DETAIL_METRIC_TILE =
  * 뒤로가기 줄 + 메뉴·정보·리뷰 탭(+칩) — 연한 반투명 흰 배경, 하단 보더 동일.
  */
 export const STORE_DETAIL_STICKY_HEADER =
-  "sticky z-[35] rounded-none border-b border-stone-200 bg-white/80 shadow-sm backdrop-blur-md";
+  "sticky z-[35] rounded-md border-b border-stone-200 bg-white/80 shadow-sm backdrop-blur-md";
 
 export const STORE_DETAIL_STICKY_TOP_SAFE = "top-[env(safe-area-inset-top,0px)]";
+
+/**
+ * Tier1 매장 스티키 바(주문 헤더 2줄: 매장·액션 + 상태·수령·검색) 아래 — 검색·카테고리 탭
+ */
+export const STORE_DETAIL_MENU_STICKY_TOP_CLASS =
+  "top-[calc(env(safe-area-inset-top,0px)+104px)]";
 
 /** 매장 1단 스티키 바로 아래 고정하는 2단 헤더(상품명·장바구니 제목 등) */
 export const STORE_DETAIL_SUBHEADER_STICKY =

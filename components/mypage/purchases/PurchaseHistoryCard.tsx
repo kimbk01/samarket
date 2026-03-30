@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  tradeHubModeFromPathname,
+  tradePurchaseDetailPath,
+} from "@/lib/mypage/trade-hub-paths";
 import { formatPrice } from "@/lib/utils/format";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
@@ -55,6 +60,8 @@ export function PurchaseHistoryCard({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [thumbFailed, setThumbFailed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname() ?? "";
+  const purchaseDetailHref = tradePurchaseDetailPath(tradeHubModeFromPathname(pathname), row.chatId);
 
   const rowLike = {
     tradeFlowStatus: row.tradeFlowStatus,
@@ -120,7 +127,7 @@ export function PurchaseHistoryCard({
       <div
         className={`flex gap-2 p-3 ${needsBuyerTradeConfirm || needsReviewCallToAction ? "pb-2" : ""}`}
       >
-        <Link href={`/mypage/purchases/${row.chatId}`} className="flex min-w-0 flex-1 gap-3">
+        <Link href={purchaseDetailHref} className="flex min-w-0 flex-1 gap-3">
           <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg bg-gray-100">
             {row.thumbnail && !thumbFailed ? (
               <img
@@ -147,7 +154,7 @@ export function PurchaseHistoryCard({
               <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-800">
                 진행 · {tradeBadge}
               </span>
-              <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-800">
+              <span className="rounded-md bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
                 후기 · {reviewBadge}
               </span>
             </div>
@@ -164,7 +171,7 @@ export function PurchaseHistoryCard({
           </button>
           {menuOpen ? (
             <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-              <MenuLink href={`/chats/${row.chatId}`} onNavigate={() => setMenuOpen(false)}>
+              <MenuLink href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}`} onNavigate={() => setMenuOpen(false)}>
                 채팅 보기
               </MenuLink>
               {menuKind === "seller_done" ? (
@@ -188,7 +195,10 @@ export function PurchaseHistoryCard({
                   <MenuButton onClick={() => { setReviewSheet(true); setMenuOpen(false); }}>
                     평가·후기 보내기
                   </MenuButton>
-                  <MenuLink href={`/chats/${row.chatId}?review=1`} onNavigate={() => setMenuOpen(false)}>
+                  <MenuLink
+                    href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}?review=1`}
+                    onNavigate={() => setMenuOpen(false)}
+                  >
                     채팅 상단에서 평가·후기 보내기
                   </MenuLink>
                 </>
@@ -203,7 +213,7 @@ export function PurchaseHistoryCard({
                   내가 남긴 후기 보기
                 </MenuButton>
               ) : null}
-              <MenuLink href={`/mypage/purchases/${row.chatId}`} onNavigate={() => setMenuOpen(false)}>
+              <MenuLink href={purchaseDetailHref} onNavigate={() => setMenuOpen(false)}>
                 거래 상세 보기
               </MenuLink>
               <MenuButton
@@ -225,7 +235,7 @@ export function PurchaseHistoryCard({
             type="button"
             disabled={!!actionLoading}
             onClick={() => postTrade(`${base}/buyer-confirm`)}
-            className="w-full rounded-lg bg-violet-600 py-2.5 text-[13px] font-medium text-white disabled:opacity-50"
+            className="w-full rounded-lg bg-signature py-2.5 text-[13px] font-medium text-white disabled:opacity-50"
           >
             {actionLoading?.endsWith("/buyer-confirm") ? "처리 중…" : "거래완료 확인"}
           </button>
@@ -237,13 +247,13 @@ export function PurchaseHistoryCard({
 
       {needsReviewCallToAction ? (
         <div className="border-t border-gray-100 px-3 py-2.5">
-          <p className="mb-2 text-center text-[11px] text-violet-900">
+          <p className="mb-2 text-center text-[11px] text-gray-900">
             거래완료 확인이 끝났어요. 이제 <strong className="font-semibold">평가·후기</strong>를 남겨 주세요.
           </p>
           <button
             type="button"
             onClick={() => setReviewSheet(true)}
-            className="w-full rounded-lg bg-violet-600 py-2.5 text-[13px] font-medium text-white"
+            className="w-full rounded-lg bg-signature py-2.5 text-[13px] font-medium text-white"
           >
             평가·후기 보내기
           </button>

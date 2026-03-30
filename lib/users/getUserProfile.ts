@@ -1,22 +1,24 @@
 "use client";
 
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
+import { mapProfileRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
 
 export interface UserProfilePublic {
   id: string;
   nickname: string | null;
   avatar_url: string | null;
-  /** 레거시 호환 — 배터리 점수와 동일 숫자(0~100)로 맞춤 */
+  /** 배터리 UI용 0~100 (trust_score → manner_temperature → manner_score) */
+  trustScore: number;
+  /** @deprecated trustScore 와 동일 */
   temperature?: number;
-  /** 신뢰 점수(0~100) — 배터리 UI 입력 */
+  /** @deprecated trustScore 와 동일 */
   speed?: number;
   trust_score?: number | null;
 }
 
 /**
- * 작성자 등 공개 프로필 조회 (profiles만 사용).
- * speed = manner_score ?? temperature → 개인 스피드 연동 (현재 매너온도 표시, 향후 스피드로 전환 가능)
+ * 작성자 등 공개 프로필 조회 (브라우저 Supabase — RLS 정책에 따름).
+ * 상세 화면은 `/api/users/.../public-profile` 우선 권장.
  */
 export async function getUserProfile(userId: string): Promise<UserProfilePublic | null> {
   const supabase = getSupabaseClient();
@@ -31,16 +33,14 @@ export async function getUserProfile(userId: string): Promise<UserProfilePublic 
 
     if (!error && data) {
       const row = data as Record<string, unknown>;
-      const score = resolveProfileTrustScore(row);
+      const base = mapProfileRowToPublicSeller(row);
       const ts = row.trust_score;
       return {
-        id: row.id as string,
-        nickname: (row.nickname ?? row.username ?? null) as string | null,
-        avatar_url: (row.avatar_url ?? null) as string | null,
-        temperature: score,
-        speed: score,
+        ...base,
+        temperature: base.trustScore,
+        speed: base.trustScore,
         trust_score: ts != null && ts !== "" ? Number(ts) : null,
-      } as UserProfilePublic;
+      };
     }
 
     return null;

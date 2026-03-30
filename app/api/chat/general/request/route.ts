@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
 const CONTEXT_TYPES = [
   "neighborhood",
@@ -47,6 +48,10 @@ export async function POST(req: NextRequest) {
   }
 
   const sbAny = sb;
+  const access = await assertVerifiedMemberForAction(sbAny as any, requesterId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
 
   // 차단 확인
   const { data: block1 } = await sbAny

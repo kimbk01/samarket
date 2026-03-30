@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
-import { normalizePhMobileDb } from "@/lib/utils/ph-mobile";
+import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 
 export const dynamic = "force-dynamic";
 
@@ -219,7 +219,7 @@ export async function PATCH(
     } else {
       const norm = normalizePhMobileDb(pt);
       if (!norm) {
-        return NextResponse.json({ ok: false, error: "invalid_ph_phone" }, { status: 400 });
+        return NextResponse.json({ ok: false, error: PH_LOCAL_MOBILE_RULE_MESSAGE_KO }, { status: 400 });
       }
       patch.phone = norm;
     }

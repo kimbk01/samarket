@@ -13,6 +13,7 @@ import {
 } from "@/lib/types/category";
 import { validateSlugFormat } from "@/lib/categories/validateSlug";
 import { checkSlugAvailable } from "@/lib/categories/admin/checkSlugAvailable";
+import { CategoryMenuIconPicker } from "@/components/admin/categories/CategoryMenuIconPicker";
 
 function slugifyForIconKey(s: string): string {
   const v = s
@@ -368,6 +369,18 @@ export function CategoryFormModal({
                 />
               )}
               <p className="mt-1 text-[11px] text-gray-500">일반·중고차·부동산·알바·환전 외 추가 가능. 직거래·나눔은 기능 설정에서 쓰기 선택 항목으로 둡니다.</p>
+              {tradeSubtype !== "__custom__" ? (
+                <div className="mt-3">
+                  <CategoryMenuIconPicker
+                    variant="trade"
+                    value={tradeSubtype}
+                    onChange={(v) => {
+                      setTradeSubtype(v);
+                      setIconKey(v);
+                    }}
+                  />
+                </div>
+              ) : null}
             </div>
           )}
           {isMenuMode && (type === "community" || fixedType === "community") && (
@@ -388,6 +401,16 @@ export function CategoryFormModal({
                   </option>
                 ))}
               </select>
+              <div className="mt-3">
+                <CategoryMenuIconPicker
+                  variant="community"
+                  value={communitySkin}
+                  onChange={(v) => {
+                    setCommunitySkin(v);
+                    setIconKey(v);
+                  }}
+                />
+              </div>
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
@@ -442,7 +465,10 @@ export function CategoryFormModal({
                 </p>
               )}
               <div className="border-t border-gray-100 pt-3 mt-2">
-                <span className="block text-[12px] font-medium text-gray-600 mb-1">퀵메뉴 (글쓰기 런처)</span>
+                <span className="block text-[12px] font-medium text-gray-600 mb-1">홈 글쓰기 플로팅 메뉴 (주제 선택)</span>
+                <p className="mb-2 text-[11px] leading-relaxed text-gray-500">
+                  켜면 홈·거래 화면에서 + 메뉴의 「글쓰기」 목록에 이 항목이 나옵니다. 거래/커뮤니티 타입별로 섹션이 나뉘며, 같은 타입 안에서는 아래 숫자가 작을수록 위에 표시됩니다.
+                </p>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -450,22 +476,23 @@ export function CategoryFormModal({
                     onChange={(e) => setQuickCreateEnabled(e.target.checked)}
                     className="rounded"
                   />
-                  <span className="text-[13px] text-gray-700">런처 노출</span>
+                  <span className="text-[13px] text-gray-700">런처에 표시</span>
                 </label>
                 <div className="mt-2">
-                  <label className="block text-[12px] text-gray-600">그룹</label>
+                  <label className="block text-[12px] text-gray-600">런처 그룹 (선택)</label>
                   <select
                     value={quick_create_group ?? ""}
                     onChange={(e) => setQuickCreateGroup((e.target.value || null) as QuickCreateGroup | null)}
                     className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
                   >
-                    <option value="">—</option>
-                    <option value="content">content</option>
-                    <option value="trade">trade</option>
+                    <option value="">지정 안 함</option>
+                    <option value="content">콘텐츠·커뮤니티류 (content)</option>
+                    <option value="trade">거래·판매류 (trade)</option>
                   </select>
+                  <p className="mt-0.5 text-[10px] text-gray-400">DB·레거시 분류용입니다. 앱 목록은 주로 「타입」으로 묶입니다.</p>
                 </div>
                 <div className="mt-2">
-                  <label className="block text-[12px] text-gray-600">런처 순서</label>
+                  <label className="block text-[12px] text-gray-600">런처 순서 (같은 타입 내)</label>
                   <input
                     type="number"
                     min={0}

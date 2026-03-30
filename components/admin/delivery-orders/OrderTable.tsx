@@ -153,7 +153,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                   </div>
                   {o.requestNote?.trim() ? (
                     <div
-                      className="mt-1 rounded bg-violet-50 px-1.5 py-0.5 text-[11px] text-violet-900"
+                      className="mt-1 rounded bg-signature/5 px-1.5 py-0.5 text-[11px] text-gray-900"
                       title={o.requestNote}
                     >
                       요청: {o.requestNote.length > 80 ? `${o.requestNote.slice(0, 80)}…` : o.requestNote}

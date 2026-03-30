@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { OwnerOrderActionPanel } from "./OwnerOrderActionPanel";
 import { OwnerOrderChatShortcut } from "./OwnerOrderChatShortcut";
@@ -8,11 +9,12 @@ import { OwnerOrderItems } from "./OwnerOrderItems";
 import { OwnerOrderStatusBadge } from "./OwnerOrderStatusBadge";
 import { OwnerOrderTimeline } from "./OwnerOrderTimeline";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 function fulfillmentLabel(t: OwnerOrder["order_type"]) {
   if (t === "delivery" || t === "shipping") {
-    return { cls: "bg-violet-50 text-violet-900", text: "배달" };
+    return { cls: "bg-signature/5 text-gray-900", text: "배달" };
   }
   return { cls: "bg-teal-50 text-teal-900", text: "포장 픽업" };
 }
@@ -28,7 +30,7 @@ export function OwnerOrderDetail({
   order: OwnerOrder;
   onActionDone?: () => void | Promise<void>;
 }) {
-  const listHref = "/my/business/store-orders";
+  const listHref = buildStoreOrdersHref({ storeId });
   const fl = fulfillmentLabel(order.order_type);
 
   const terminal = ["completed", "cancelled", "refunded", "refund_requested"].includes(order.order_status);
@@ -37,9 +39,13 @@ export function OwnerOrderDetail({
     <div className="min-h-screen bg-[#f3f4f6] pb-44">
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white px-3 py-3">
         <div className="mx-auto flex max-w-lg items-center gap-2">
-          <Link href={listHref} className="text-sm font-semibold text-gray-600">
+          <HistoryBackTextLink
+            fallbackHref={listHref}
+            className="text-sm font-semibold text-gray-600"
+            aria-label="목록으로"
+          >
             ← 목록
-          </Link>
+          </HistoryBackTextLink>
           <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold text-gray-900">
             {order.order_no}
           </h1>

@@ -3,29 +3,35 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { hasApprovedOwnerStore } from "@/lib/stores/store-admin-access";
+import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 
 type CommercePhase =
   | { kind: "loading" }
   | { kind: "unauth" }
-  | { kind: "ready"; approved: boolean };
+  | { kind: "ready"; approved: boolean; primaryStoreId: string | null };
 
 async function resolveCommercePhase(): Promise<Exclude<CommercePhase, { kind: "loading" }>> {
   try {
-    const res = await fetch("/api/me/stores", { credentials: "include" });
-    if (res.status === 401) {
+    const { status, json: raw } = await fetchMeStoresListDeduped();
+    if (status === 401) {
       return { kind: "unauth" };
     }
-    const json = (await res.json().catch(() => ({}))) as {
+    const json = raw as {
       ok?: boolean;
-      stores?: { approval_status: string }[];
+      stores?: { id?: string; approval_status: string }[];
     };
     if (!json?.ok) {
-      return { kind: "ready", approved: false };
+      return { kind: "ready", approved: false, primaryStoreId: null };
     }
     const stores = json.stores ?? [];
-    return { kind: "ready", approved: hasApprovedOwnerStore(stores) };
+    const approved = hasApprovedOwnerStore(stores);
+    const approvedRow = stores.find((s) => String(s.approval_status ?? "") === "approved");
+    const primaryStoreId =
+      approved && approvedRow?.id?.trim() ? approvedRow.id.trim() : null;
+    return { kind: "ready", approved, primaryStoreId };
   } catch {
-    return { kind: "ready", approved: false };
+    return { kind: "ready", approved: false, primaryStoreId: null };
   }
 }
 
@@ -44,7 +50,7 @@ export function MyStoreCommerceSection() {
 
   if (phase.kind === "loading") {
     return (
-      <section className="rounded-xl bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">동네 매장</h2>
         <div className="mt-3 h-20 animate-pulse rounded-lg bg-gray-100" />
       </section>
@@ -55,11 +61,11 @@ export function MyStoreCommerceSection() {
     return null;
   }
 
-  const { approved } = phase;
+  const { approved, primaryStoreId } = phase;
 
   if (!approved) {
     return (
-      <section className="rounded-xl bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">동네 매장 (사장님)</h2>
         <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
           승인된 매장이 있으면 주문·문의·정산을 여기서 관리할 수 있습니다. 매장 등록은 누구나 신청할 수 있습니다.
@@ -71,26 +77,33 @@ export function MyStoreCommerceSection() {
           >
             매장 등록 신청
           </Link>
-          <Link href="/mypage/store-orders" className="text-center text-[12px] text-gray-500 underline">
-            내가 주문한 매장 주문 보기
+          <Link href="/my/store-orders" className="text-center text-[12px] text-gray-500 underline">
+            내가 주문한 배달 주문 보기
           </Link>
         </div>
       </section>
     );
   }
 
+  const ordersHref = primaryStoreId
+    ? buildStoreOrdersHref({ storeId: primaryStoreId })
+    : "/my/business/store-orders";
+  const inquiriesHref = primaryStoreId
+    ? `/my/business/inquiries?storeId=${encodeURIComponent(primaryStoreId)}`
+    : "/my/business/inquiries";
+
   return (
-    <section className="rounded-xl bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
       <h2 className="text-[14px] font-semibold text-gray-900">동네 매장 (사장님)</h2>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
-          href="/my/business/store-orders"
+          href={ordersHref}
           className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
         >
           주문 관리
         </Link>
         <Link
-          href="/my/business/inquiries"
+          href={inquiriesHref}
           className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
         >
           받은 문의
@@ -102,8 +115,8 @@ export function MyStoreCommerceSection() {
           정산 내역
         </Link>
       </div>
-      <Link href="/mypage/store-orders" className="mt-3 block text-center text-[12px] text-gray-500 underline">
-        내가 주문한 매장 주문 보기
+      <Link href="/my/store-orders" className="mt-3 block text-center text-[12px] text-gray-500 underline">
+        내가 주문한 배달 주문 보기
       </Link>
     </section>
   );

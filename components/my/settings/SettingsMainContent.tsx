@@ -47,27 +47,22 @@ export function SettingsMainContent() {
     COUNTRY_NAMES[settings.preferred_country ?? "PH"] ?? settings.preferred_country ?? "필리핀";
 
   return (
-    <div className="mx-auto max-w-[480px] bg-gray-100 pb-8">
-      <SettingsSection title="내 계정">
+    <div className="mx-auto max-w-[480px] bg-background pb-8">
+      <SettingsSection title="프로필과 계정">
         <SettingsRow
           href="/my/settings/account"
           icon={SettingsIcons.account}
-          label="내 계정"
-          subtitle="이메일과 연락처, 본인 인증 등"
+          label="프로필과 계정"
+          subtitle="이메일, 연락처, 본인 인증과 기본 정보를 관리해요."
         />
       </SettingsSection>
 
       <SettingsSection title="알림">
         <SettingsRow
-          href="/my/settings/order-notifications"
-          icon={SettingsIcons.bell}
-          label="식당·배달 주문 알림 (시뮬)"
-          subtitle="접수·상태·취소/환불"
-        />
-        <SettingsRow
           href="/my/settings/notifications"
           icon={SettingsIcons.bell}
           label="알림 설정"
+          subtitle="거래, 채팅, 서비스 알림 수신 방식을 조정해요."
         />
         <SettingsToggleRow
           href="/my/settings/notifications"

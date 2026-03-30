@@ -32,7 +32,7 @@ export function AdminChatFilterBar({
           })
         }
         className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
-        title="거래 채팅 = 상품 채팅하기, 일반 채팅 = 프로필/이웃 등"
+        title="거래채팅 = 상품 채팅하기, 일반 채팅 = 프로필/이웃·커뮤니티 등"
       >
         {ROOM_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>

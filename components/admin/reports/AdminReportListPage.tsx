@@ -48,7 +48,7 @@ export function AdminReportListPage() {
     <div className="space-y-4">
       <AdminPageHeader
         title="통합 신고 목록"
-        description="기존 reports와 동네생활 피드 신고(community_reports)를 한 표에 시간순으로 모읍니다. 상세보기에서 유형에 맞게 처리합니다."
+        description="기존 reports와 커뮤니티 피드 신고(community_reports)를 한 표에 시간순으로 모읍니다. 상세보기에서 유형에 맞게 처리합니다."
       />
       <AdminReportFilterBar filters={filters} onChange={setFilters} />
       {loading ? (

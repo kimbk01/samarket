@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
@@ -23,6 +23,8 @@ interface PostCardProps {
   onFavoriteChange?: (postId: string, isFavorite: boolean) => void;
   /** 리스트 점 세개 메뉴 액션 (이 글 숨기기, 신고하기 등) */
   onMenuAction?: (postId: string, action: PostListMenuAction) => void;
+  /** 찜 목록 등 — 카드 하단 보조 액션 */
+  footer?: ReactNode;
 }
 
 export function PostCard({
@@ -31,6 +33,7 @@ export function PostCard({
   isFavorite,
   onFavoriteChange,
   onMenuAction,
+  footer,
 }: PostCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const currency = getAppSettings().defaultCurrency || "KRW";
@@ -44,56 +47,63 @@ export function PostCard({
     (Array.isArray(post.images) && post.images.length > 0 ? post.images[0] : null);
   const isExchangeThumb = listPreview?.thumbnailMode === "exchange";
   return (
-    <div className={`relative flex gap-3 p-3 transition-shadow hover:shadow-[0_3px_8px_rgba(0,0,0,0.12)] ${APP_FEED_LIST_CARD_SHELL}`}>
-      <div
-        className="absolute right-3 top-3 z-[1] flex items-center gap-1"
-        onClick={(e) => e.preventDefault()}
-        role="presentation"
-      >
-        <PostFavoriteButton
-          postId={post.id}
-          authorUserId={post.author_id}
-          favorited={!!isFavorite}
-          onFavoriteChange={
-            onFavoriteChange
-              ? (fav) => onFavoriteChange(post.id, fav)
-              : undefined
-          }
-          iconClassName="h-5 w-5"
-        />
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setMenuOpen(true);
-          }}
-          className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
-          aria-label="메뉴"
+    <div
+      className={`relative flex flex-col transition-colors hover:bg-neutral-50/60 ${APP_FEED_LIST_CARD_SHELL}`}
+    >
+      <div className="relative flex gap-3 p-3">
+        <div
+          className="absolute right-3 top-3 z-[1] flex items-center gap-1"
+          onClick={(e) => e.preventDefault()}
+          role="presentation"
         >
-          <span className="text-[18px] leading-none">⋮</span>
-        </button>
+          <PostFavoriteButton
+            postId={post.id}
+            authorUserId={post.author_id}
+            favorited={!!isFavorite}
+            onFavoriteChange={
+              onFavoriteChange
+                ? (fav) => onFavoriteChange(post.id, fav)
+                : undefined
+            }
+            iconClassName="h-5 w-5"
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setMenuOpen(true);
+            }}
+            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+            aria-label="메뉴"
+          >
+            <span className="text-[18px] leading-none">⋮</span>
+          </button>
+        </div>
+        <Link href={`/post/${post.id}`} className="flex min-w-0 flex-1 gap-3">
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-gray-100">
+            {thumbnailUrl ? (
+              <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+            ) : isExchangeThumb ? (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-gray-700" aria-hidden><span>₱</span><span className="text-[10px] text-gray-500">↔</span><span>₩</span></div>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">이미지</div>
+            )}
+          </div>
+          <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
+            {listPreview ? (
+              <PostListPreviewColumn
+                listingPost={post}
+                preview={listPreview}
+                matchThumbnailHeight
+              />
+            ) : null}
+          </div>
+        </Link>
       </div>
-      <Link href={`/post/${post.id}`} className="flex min-w-0 flex-1 gap-3">
-        <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-none bg-gray-100">
-          {thumbnailUrl ? (
-            <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
-          ) : isExchangeThumb ? (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-gray-700" aria-hidden><span>₱</span><span className="text-[10px] text-gray-500">↔</span><span>₩</span></div>
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">이미지</div>
-          )}
-        </div>
-        <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
-          {listPreview ? (
-            <PostListPreviewColumn
-              listingPost={post}
-              preview={listPreview}
-              matchThumbnailHeight
-            />
-          ) : null}
-        </div>
-      </Link>
+      {footer ? (
+        <div className="border-t border-gray-100 bg-white px-3 py-2.5">{footer}</div>
+      ) : null}
       <PostListMenuBottomSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}

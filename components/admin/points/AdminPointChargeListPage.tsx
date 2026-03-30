@@ -8,7 +8,7 @@ import {
 } from "@/lib/points/point-utils";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminPointChargeFilterBar } from "./AdminPointChargeFilterBar";
-import { AdminPointChargeTable } from "./AdminPointChargeTable";
+import { AdminPointChargeInlineActions } from "./AdminPointChargeInlineActions";
 
 const DEFAULT_FILTERS: AdminPointChargeFilters = {
   requestStatus: "",
@@ -22,17 +22,60 @@ export function AdminPointChargeListPage() {
     [requests, filters]
   );
 
+  const counts = {
+    total: requests.length,
+    waiting: requests.filter((r) => r.requestStatus === "waiting_confirm").length,
+    pending: requests.filter((r) => r.requestStatus === "pending").length,
+    approved: requests.filter((r) => r.requestStatus === "approved").length,
+    rejected: requests.filter((r) => r.requestStatus === "rejected").length,
+  };
+
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="포인트 충전 신청" />
-      <AdminPointChargeFilterBar filters={filters} onChange={setFilters} />
-      {filtered.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
-          조건에 맞는 충전 신청이 없습니다.
+      <AdminPageHeader title="포인트 충전 신청 관리" />
+
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {[
+          { label: "전체", value: counts.total, color: "text-gray-900" },
+          { label: "입금확인대기", value: counts.waiting, color: "text-amber-700" },
+          { label: "대기중", value: counts.pending, color: "text-blue-700" },
+          { label: "승인완료", value: counts.approved, color: "text-emerald-700" },
+          { label: "반려", value: counts.rejected, color: "text-red-600" },
+        ].map(({ label, value, color }) => (
+          <div
+            key={label}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center shadow-sm"
+          >
+            <p className={`text-[22px] font-bold ${color}`}>{value}</p>
+            <p className="text-[11px] text-gray-500">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 입금확인대기 강조 안내 */}
+      {counts.waiting > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          <span className="text-[16px]">⚠️</span>
+          <span>
+            입금 확인이 필요한 신청 <strong>{counts.waiting}건</strong>이 있습니다.
+            아래 목록에서 입금 확인 후 승인해 주세요.
+          </span>
         </div>
-      ) : (
-        <AdminPointChargeTable requests={filtered} />
       )}
+
+      <AdminPointChargeFilterBar filters={filters} onChange={setFilters} />
+
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h2 className="text-[14px] font-semibold text-gray-900">
+            충전 신청 목록 ({filtered.length}건)
+          </h2>
+        </div>
+        <div className="p-4">
+          <AdminPointChargeInlineActions requests={filtered} />
+        </div>
+      </div>
     </div>
   );
 }

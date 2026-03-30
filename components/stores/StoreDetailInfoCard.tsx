@@ -114,7 +114,7 @@ export function StoreDetailInfoCard({
             {isOpen ? "영업 중" : "준비 중"}
           </span>
           {commerce?.breakConfigured ? (
-            <span className="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[12px] font-medium text-violet-900">
+            <span className="inline-flex items-center rounded-lg border border-gray-200 bg-signature/5 px-2.5 py-1 text-[12px] font-medium text-gray-900">
               Break {commerce.breakRangeLabel}
             </span>
           ) : null}

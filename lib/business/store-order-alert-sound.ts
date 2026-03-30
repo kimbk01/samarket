@@ -1,13 +1,13 @@
 /**
  * 매장 주문 알림음 (동네배달 신규 접수 등).
- * admin_settings `store_delivery_alert_sound` URL이 있으면 MP3/오디오 재생, 없으면 짧은 비프.
+ * `/admin/stores/application-settings` 에서 설정한 admin_settings `store_delivery_alert_sound` URL이 있으면 재생, 없으면 비프.
  */
 
 const RESOLVE_TTL_MS = 60_000;
-const APP_SOUND_BASE = "/api/app/store-delivery-alert-sound";
+const APP_SOUND_URL = "/api/app/store-delivery-alert-sound";
 
 let sharedCtx: AudioContext | null = null;
-let resolvedCache: { key: string; url: string | null; at: number } | null = null;
+let resolvedCache: { url: string | null; at: number } | null = null;
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -24,26 +24,19 @@ export function invalidateStoreDeliveryAlertSoundCache(): void {
   resolvedCache = null;
 }
 
-function cacheKeyForStore(storeId?: string | null): string {
-  const s = typeof storeId === "string" ? storeId.trim() : "";
-  return s || "__global__";
-}
-
-async function resolveCustomSoundUrl(storeId?: string | null): Promise<string | null> {
-  const key = cacheKeyForStore(storeId);
+async function resolveGlobalCustomSoundUrl(): Promise<string | null> {
   const n = Date.now();
-  if (resolvedCache && resolvedCache.key === key && n - resolvedCache.at < RESOLVE_TTL_MS) {
+  if (resolvedCache && n - resolvedCache.at < RESOLVE_TTL_MS) {
     return resolvedCache.url;
   }
   try {
-    const q = key === "__global__" ? "" : `?storeId=${encodeURIComponent(key)}`;
-    const res = await fetch(`${APP_SOUND_BASE}${q}`, { credentials: "same-origin", cache: "no-store" });
+    const res = await fetch(APP_SOUND_URL, { credentials: "same-origin", cache: "no-store" });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: unknown };
     const u = typeof j.url === "string" ? j.url.trim() : "";
-    resolvedCache = { key, url: u || null, at: n };
+    resolvedCache = { url: u || null, at: n };
     return resolvedCache.url;
   } catch {
-    resolvedCache = { key, url: null, at: n };
+    resolvedCache = { url: null, at: n };
     return null;
   }
 }
@@ -82,11 +75,11 @@ export function previewStoreDeliveryBuiltinSound(): void {
 }
 
 /** 첫 클릭·탭 시 호출해 두면 이후 알림음 재생 가능성이 높아집니다. */
-export function primeStoreOrderAlertAudio(storeId?: string | null): void {
+export function primeStoreOrderAlertAudio(): void {
   const ctx = getAudioContext();
   if (ctx?.state === "suspended") void ctx.resume();
   void (async () => {
-    const url = await resolveCustomSoundUrl(storeId);
+    const url = await resolveGlobalCustomSoundUrl();
     if (!url) return;
     try {
       const a = new Audio(url);
@@ -98,9 +91,9 @@ export function primeStoreOrderAlertAudio(storeId?: string | null): void {
   })();
 }
 
-/** DB에 설정된 매장 알림음 또는 기본 비프 */
-export async function playStoreOrderDeliveryAlertSound(storeId?: string | null): Promise<void> {
-  const url = await resolveCustomSoundUrl(storeId);
+/** 관리자 전역 알림음 또는 기본 비프 */
+export async function playStoreOrderDeliveryAlertSound(): Promise<void> {
+  const url = await resolveGlobalCustomSoundUrl();
   if (url) {
     try {
       const audio = new Audio(url);

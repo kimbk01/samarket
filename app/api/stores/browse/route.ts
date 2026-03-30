@@ -4,6 +4,8 @@ import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
+import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
 
@@ -216,6 +218,19 @@ export async function GET(req: Request) {
       const openNow = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
       const status: BrowseStoreListItem["status"] = openNow ? "open" : "preparing";
       const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
+      const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
+      const fee = extras.deliveryFeePhp;
+      const deliveryFeeLabel =
+        fee != null && Number.isFinite(fee) && r.delivery_available ? formatMoneyPhp(fee) : null;
+
+      const minPhp = extras.minOrderPhp;
+      const minOrderLabel =
+        minPhp != null && Number.isFinite(minPhp) && minPhp > 0 ? `최소주문 ${formatMoneyPhp(minPhp)}` : null;
+
+      let distanceKm: number | null = null;
+      if (userLat != null && userLng != null) {
+        distanceKm = haversineKm(userLat, userLng, r.lat, r.lng);
+      }
 
       return {
         id: r.id,
@@ -236,6 +251,10 @@ export async function GET(req: Request) {
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,
+        estPrepLabel: extras.estPrepLabel,
+        deliveryFeeLabel,
+        minOrderLabel,
+        distanceKm,
       };
     });
 

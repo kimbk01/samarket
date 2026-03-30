@@ -1,24 +1,52 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { setTestAuth } from "@/lib/auth/test-auth-store";
-import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 
-export default function LoginPage() {
-  const showTestUsers = isTestUsersSurfaceEnabled();
-  const router = useRouter();
+/** 관리자 수동 생성 시 이메일 미입력이면 `{username}@manual.local` — 동일 규칙으로 로그인 */
+const MANUAL_LOCAL_EMAIL_SUFFIX = "@manual.local";
+
+/** 브라우저→Supabase 요청이 끊기거나 극단적으로 느릴 때 UI가 멈추지 않도록 */
+const AUTH_REQUEST_TIMEOUT_MS = 25_000;
+const AUTH_TIMEOUT_MESSAGE =
+  "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.";
+
+function rejectAfter(ms: number, message: string): Promise<never> {
+  return new Promise((_, reject) => {
+    window.setTimeout(() => reject(new Error(message)), ms);
+  });
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([p, rejectAfter(ms, message)]);
+}
+
+/** `next` 쿼리 오픈 리다이렉트 방지 — 앱 내부 경로만 허용 */
+function safeInternalPath(raw: string): string {
+  const t = raw.trim() || "/home";
+  if (!t.startsWith("/") || t.startsWith("//")) return "/home";
+  const noQuery = t.split("?")[0].split("#")[0];
+  if (noQuery.includes(":")) return "/home";
+  return t;
+}
+
+function normalizeEmailForSignIn(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (t.includes("@")) return t.toLowerCase();
+  return `${t.toLowerCase()}${MANUAL_LOCAL_EMAIL_SUFFIX}`;
+}
+
+function LoginPageContent() {
+  const searchParams = useSearchParams();
+  const next = safeInternalPath(searchParams.get("next")?.trim() || "/home");
+  const [oauthBusy, setOauthBusy] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [idLogin, setIdLogin] = useState("");
-  const [idPassword, setIdPassword] = useState("");
-  const [idError, setIdError] = useState("");
-  const [idLoading, setIdLoading] = useState(false);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +58,26 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const signInEmail = normalizeEmailForSignIn(email);
+    if (!signInEmail) {
+      setError("이메일 또는 아이디를 입력하세요.");
+      setLoading(false);
+      return;
+    }
+    let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+    try {
+      signInResult = await withTimeout(
+        supabase.auth.signInWithPassword({ email: signInEmail, password }),
+        AUTH_REQUEST_TIMEOUT_MS,
+        AUTH_TIMEOUT_MESSAGE
+      );
+    } catch (e) {
+      setLoading(false);
+      setError(e instanceof Error ? e.message : AUTH_TIMEOUT_MESSAGE);
+      return;
+    }
     setLoading(false);
+    const err = signInResult.error;
     if (err) {
       setError(err.message || "로그인에 실패했습니다.");
       return;
@@ -41,59 +87,91 @@ export default function LoginPage() {
     } catch {
       /* ignore */
     }
-    router.push("/home");
-    router.refresh();
+    /**
+     * `router.push` 만 쓰면 로그인 직후 RSC/프록시가 쿠키 없이 돌고 `/login` 으로 튕기는 경우가 있음.
+     * 전체 네비게이션으로 `sb-*-auth-token` 이 다음 요청에 반드시 실리게 함.
+     */
+    window.location.assign(next);
   };
 
-  const handleIdSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIdError("");
-    setIdLoading(true);
-    try {
-      const supabase = getSupabaseClient();
-      if (supabase) await supabase.auth.signOut();
-    } catch {
-      /* ignore */
+  const handleOAuthLogin = async (provider: "google" | "kakao" | "apple") => {
+    setError("");
+    setOauthBusy(provider);
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setError("Supabase 설정이 없습니다.");
+      setOauthBusy("");
+      return;
     }
+    const redirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+        : undefined;
     try {
-      const res = await fetch("/api/test-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          username: idLogin.trim().toLowerCase(),
-          password: idPassword,
+      const { error: oauthError } = await withTimeout(
+        supabase.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo },
         }),
-      });
-      const data = await res.json();
-      if (!data?.ok) {
-        setIdError(data?.error || "아이디 또는 비밀번호를 확인해 주세요.");
-        return;
+        AUTH_REQUEST_TIMEOUT_MS,
+        AUTH_TIMEOUT_MESSAGE
+      );
+      if (oauthError) {
+        setError(oauthError.message || "소셜 로그인을 시작하지 못했습니다.");
       }
-      setTestAuth(data.userId, data.username, String(data.role ?? "member"));
-      setIdPassword("");
-      router.push("/home");
-      router.refresh();
-    } catch {
-      setIdError("요청에 실패했습니다.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : AUTH_TIMEOUT_MESSAGE);
     } finally {
-      setIdLoading(false);
+      setOauthBusy("");
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-100 px-4 py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
       <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h1 className="text-center text-lg font-semibold text-gray-900">이메일 로그인</h1>
-        <p className="mt-1 text-center text-[13px] text-gray-500">Supabase 계정</p>
-        <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4">
+        <h1 className="text-center text-lg font-semibold text-gray-900">로그인</h1>
+        <p className="mt-1 text-center text-[13px] text-gray-500">구글, 카카오, 애플 또는 이메일 계정</p>
+        <div className="mt-5 space-y-2">
+          <button
+            type="button"
+            disabled={!!oauthBusy || loading}
+            onClick={() => void handleOAuthLogin("google")}
+            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+          >
+            {oauthBusy === "google" ? "이동 중…" : "구글로 로그인"}
+          </button>
+          <button
+            type="button"
+            disabled={!!oauthBusy || loading}
+            onClick={() => void handleOAuthLogin("kakao")}
+            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+          >
+            {oauthBusy === "kakao" ? "이동 중…" : "카카오로 로그인"}
+          </button>
+          <button
+            type="button"
+            disabled={!!oauthBusy || loading}
+            onClick={() => void handleOAuthLogin("apple")}
+            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+          >
+            {oauthBusy === "apple" ? "이동 중…" : "애플로 로그인"}
+          </button>
+        </div>
+        <div className="my-4 flex items-center gap-3 text-[12px] text-gray-400">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span>또는 이메일</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+        <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4" noValidate>
           <div>
-            <label className="block text-[13px] font-medium text-gray-700">이메일</label>
+            <label className="block text-[13px] font-medium text-gray-700">이메일 또는 아이디</label>
             <input
-              type="email"
+              type="text"
+              inputMode="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="test@example.com"
+              placeholder="이메일 주소 또는 로그인 아이디"
               required
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
             />
@@ -111,67 +189,37 @@ export default function LoginPage() {
           {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !!oauthBusy}
             className="w-full rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
           >
             {loading ? "로그인 중…" : "로그인"}
           </button>
         </form>
-        {showTestUsers ? (
-          <p className="mt-4 text-center text-[12px] text-gray-500">
-            계정이 없으면{" "}
-            <Link href="/test-signup" className="font-medium text-signature underline">
-              테스트 회원가입
-            </Link>
-          </p>
-        ) : null}
-      </div>
-
-      {showTestUsers ? (
-      <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-center text-lg font-semibold text-gray-900">아이디 로그인</h2>
-        <p className="mt-1 text-center text-[13px] leading-relaxed text-gray-500">
-          관리자 «회원 관리 → 수동 입력»으로 만든 <strong>로그인 아이디</strong>입니다. 쿠키로 회원 UUID가
-          고정되며, 여러 계정 동시 테스트는 브라우저(또는 프로필·시크릿)를 나누세요.
+        <p className="mt-4 text-center text-[12px] text-gray-500">
+          계정이 없으면{" "}
+          <Link href={`/signup?next=${encodeURIComponent(next)}`} className="font-medium text-signature underline">
+            회원가입
+          </Link>
         </p>
-        <form onSubmit={handleIdSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-[13px] font-medium text-gray-700">아이디</label>
-            <input
-              type="text"
-              value={idLogin}
-              onChange={(e) => setIdLogin(e.target.value)}
-              autoComplete="username"
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
-            />
-          </div>
-          <div>
-            <label className="block text-[13px] font-medium text-gray-700">비밀번호</label>
-            <input
-              type="password"
-              value={idPassword}
-              onChange={(e) => setIdPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
-            />
-          </div>
-          {idError ? <p className="text-[13px] text-red-600">{idError}</p> : null}
-          <button
-            type="submit"
-            disabled={idLoading}
-            className="w-full rounded-lg border-2 border-signature bg-white py-2.5 text-[14px] font-medium text-signature disabled:opacity-50"
-          >
-            {idLoading ? "로그인 중…" : "아이디로 로그인"}
-          </button>
-        </form>
       </div>
-      ) : null}
 
       <Link href="/home" className="text-[13px] text-gray-500 underline">
         홈으로
       </Link>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-gray-500">
+          불러오는 중…
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }

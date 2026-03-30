@@ -5,6 +5,8 @@ export type ChatSummaryOrderFields = {
   store_name?: string;
   order_no?: string;
   order_status?: string;
+  /** 오너 주문 처리(상태 전이)용 — API `store_orders.fulfillment_type` */
+  fulfillment_type?: string;
   delivery_address_summary?: string | null;
   delivery_address_detail?: string | null;
   buyer_phone?: string | null;

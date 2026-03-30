@@ -53,10 +53,10 @@ export function MemberOrderStatusHistoryContent() {
           <p className="mt-0.5 text-[13px] text-gray-700">{r.message}</p>
           <div className="mt-2">
             <Link
-              href="/mypage/store-orders"
-              className="text-[12px] font-medium text-violet-700 underline"
+              href="/my/store-orders"
+              className="text-[12px] font-medium text-signature underline"
             >
-              실매장 주문 내역 보기
+              실배달 주문 내역 보기
             </Link>
           </div>
         </li>

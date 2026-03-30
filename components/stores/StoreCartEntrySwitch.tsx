@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { RestaurantCartPageClient } from "@/components/stores/delivery/RestaurantCartPageClient";
 import { StoreCommerceCartPageClient } from "@/components/stores/StoreCommerceCartPageClient";
 import { StoreCommerceCartEntryFallback } from "@/components/stores/StoreCommerceCartEntryFallback";
-import { hasRestaurantDeliveryCatalog } from "@/lib/stores/delivery-mock/mock-restaurant-catalog";
 
 type EntryState =
   | { kind: "load" }
   | { kind: "real" }
-  | { kind: "mock" }
   | { kind: "fallback"; hint: "network" | "missing" | "api" };
 
 export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
@@ -34,13 +31,12 @@ export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
         const json: { ok?: boolean; store?: unknown } = await res.json().catch(() => ({}));
         const next = ((): EntryState => {
           if (json?.ok && json?.store) return { kind: "real" };
-          if (hasRestaurantDeliveryCatalog(normalizedSlug)) return { kind: "mock" };
           if (!json?.ok) return { kind: "fallback", hint: "api" };
           return { kind: "fallback", hint: "missing" };
         })();
         if (silent) {
           setState((prev) => {
-            if (next.kind === "fallback" && (prev.kind === "real" || prev.kind === "mock")) {
+            if (next.kind === "fallback" && prev.kind === "real") {
               return prev;
             }
             return next;
@@ -68,9 +64,6 @@ export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
   }
   if (state.kind === "real") {
     return <StoreCommerceCartPageClient storeSlug={normalizedSlug} />;
-  }
-  if (state.kind === "mock") {
-    return <RestaurantCartPageClient storeSlug={normalizedSlug} />;
   }
   return (
     <StoreCommerceCartEntryFallback

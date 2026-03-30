@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 
 type Props =
@@ -10,18 +11,21 @@ type Props =
   | { variant: "owner"; storeId: string; slug: string; orderId: string };
 
 /**
- * 매장 주문 전용 URL → 통합 채팅 `/chats/[chatRoomId]` 로 이동 (DB `chat_rooms.store_order`)
+ * 배달 주문 전용 URL → 통합 채팅 `/chats/[chatRoomId]` 로 이동 (DB `chat_rooms.store_order`)
  */
 export function RedirectStoreOrderToUnifiedChat(props: Props) {
   const router = useRouter();
   const [err, setErr] = useState<string | null>(null);
+  const variant = props.variant;
+  const orderId = props.orderId;
+  const storeId = variant === "owner" ? props.storeId : "";
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        if (props.variant === "buyer") {
-          const res = await fetch(`/api/me/store-orders/${encodeURIComponent(props.orderId)}`, {
+        if (variant === "buyer") {
+          const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
             credentials: "include",
             cache: "no-store",
           });
@@ -48,7 +52,7 @@ export function RedirectStoreOrderToUnifiedChat(props: Props) {
           }
           const st = j?.order?.order_status;
           if (typeof st === "string" && isStoreOrderChatDisabledForBuyer(st)) {
-            setErr("취소된 주문은 주문 채팅을 열 수 없습니다.");
+            setErr("취소된 주문은 배달채팅을 열 수 없습니다.");
             return;
           }
           const rid = typeof j?.chat_room_id === "string" && j.chat_room_id ? j.chat_room_id : null;
@@ -62,7 +66,7 @@ export function RedirectStoreOrderToUnifiedChat(props: Props) {
           return;
         }
         const res = await fetch(
-          `/api/me/stores/${encodeURIComponent(props.storeId)}/orders/${encodeURIComponent(props.orderId)}`,
+          `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}`,
           { credentials: "include", cache: "no-store" }
         );
         const j = await res.json().catch(() => ({}));
@@ -80,21 +84,24 @@ export function RedirectStoreOrderToUnifiedChat(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [props, router]);
+  }, [router, variant, orderId, storeId]);
 
   if (err) {
     const backHref =
       props.variant === "buyer"
         ? `/my/store-orders/${encodeURIComponent(props.orderId)}`
-        : `/my/business/store-orders?order_id=${encodeURIComponent(props.orderId)}`;
+        : buildStoreOrdersHref({ storeId: props.storeId, orderId: props.orderId });
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 px-4 text-center">
         <p className="text-sm text-gray-700">{err}</p>
-        <Link href={backHref} className="text-sm font-medium text-violet-700 underline">
+        <Link href={backHref} className="text-sm font-medium text-signature underline">
           주문 상세로 돌아가기
         </Link>
-        <Link href="/chats" className="text-sm text-gray-600 underline">
-          채팅 목록
+        <Link
+          href={props.variant === "buyer" ? "/orders?tab=chat" : "/mypage/trade/chat"}
+          className="text-sm text-gray-600 underline"
+        >
+          주문 채팅 목록
         </Link>
       </div>
     );
@@ -102,7 +109,7 @@ export function RedirectStoreOrderToUnifiedChat(props: Props) {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-gray-50 px-4">
-      <p className="text-sm text-gray-500">채팅으로 연결하는 중…</p>
+      <p className="text-sm text-[#8E8E8E]">채팅으로 연결하는 중…</p>
     </div>
   );
 }

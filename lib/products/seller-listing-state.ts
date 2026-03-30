@@ -80,9 +80,9 @@ export function listTradeStatusBadge(
   }
 
   const classes: Record<Exclude<SellerListingState, "completed">, string> = {
-    inquiry: `${row1BadgeBase} border-0 bg-[#8C35FF] text-[#FFFFFF]`,
-    negotiating: `${row1BadgeBase} border border-[#8C35FF] bg-white text-[#8C35FF]`,
-    reserved: `${row1BadgeBase} border border-[#8C35FF] bg-white text-[#8C35FF]`,
+    inquiry: `${row1BadgeBase} border-0 bg-signature text-white`,
+    negotiating: `${row1BadgeBase} border border-signature bg-white text-signature`,
+    reserved: `${row1BadgeBase} border border-signature bg-white text-signature`,
   };
   return { label, className: classes[ls] };
 }

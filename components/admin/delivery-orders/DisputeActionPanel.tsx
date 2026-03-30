@@ -57,7 +57,7 @@ export function DisputeActionPanel({ report }: { report: OrderReport | null }) {
         </button>
         <Link
           href={`/admin/delivery-orders/${encodeURIComponent(report.orderId)}`}
-          className="rounded bg-white px-2 py-1 text-xs text-violet-800 ring-1 ring-violet-200"
+          className="rounded bg-white px-2 py-1 text-xs text-gray-800 ring-1 ring-gray-300"
         >
           환불 검토(주문)
         </Link>

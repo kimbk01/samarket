@@ -24,6 +24,7 @@ import {
   TradeBuyerPickerModal,
   type TradeBuyerPickCandidate,
 } from "./TradeBuyerPickerModal";
+import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
 
 type PostBuyerChatsPayload = {
   items?: {
@@ -62,6 +63,9 @@ function dedupeBuyerCandidates(
 }
 
 async function fetchPostBuyerChats(postId: string): Promise<PostBuyerChatsPayload> {
+  if (isOfflineMockPostId(postId)) {
+    return { items: [], postStatus: "active", sellerListingState: null, reservedBuyerId: null };
+  }
   const res = await fetch(`/api/my/post-buyer-chats?postId=${encodeURIComponent(postId)}`);
   const data = (await res.json().catch(() => ({}))) as PostBuyerChatsPayload;
   if (!res.ok || data.error) {

@@ -17,13 +17,21 @@ import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { createReport } from "@/lib/reports/createReport";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { startCommunityInquiry } from "@/lib/chat/startCommunityInquiry";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getAppSettings } from "@/lib/app-settings";
 import { TRADE_SKIN_LABELS } from "@/lib/types/category";
-import { JOB_TYPE_LABELS, WORK_TERM_LABELS, PAY_TYPE_LABELS } from "@/lib/jobs/form-options";
+import {
+  JOB_LISTING_KIND_LABELS,
+  JOB_TYPE_LABELS,
+  WORK_TERM_LABELS,
+  PAY_TYPE_LABELS,
+  EXPERIENCE_LEVEL_LABELS,
+  jobWorkCategoryDisplay,
+} from "@/lib/jobs/form-options";
 import { CURRENCY_SYMBOLS, formatPrepKeysForDisplay } from "@/lib/exchange/form-options";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { PostCard } from "./PostCard";
@@ -38,7 +46,10 @@ import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
 import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
-import { MannerBatteryInline } from "@/components/trust/MannerBatteryDisplay";
+import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
+import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
+import type { UserTrustSummary } from "@/lib/types/review";
+import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import {
@@ -75,8 +86,11 @@ const META_LABELS: Record<string, Record<string, string>> = {
 
 function hasJobsMeta(meta: Record<string, unknown>): boolean {
   return (
+    meta.listing_kind != null ||
+    meta.trade_chat_kind != null ||
     meta.job_type != null ||
     meta.work_category != null ||
+    meta.work_category_other != null ||
     meta.work_term != null ||
     meta.pay_type != null ||
     meta.company_name != null
@@ -92,9 +106,12 @@ function JobsMetaBlock({
   price?: number | null;
   currency: string;
 }) {
+  const listingKind = (meta.listing_kind as string)?.trim();
   const jobType = (meta.job_type as string)?.trim();
-  const workCategory = (meta.work_category as string)?.trim();
+  const workCategory = jobWorkCategoryDisplay(meta);
   const workTerm = (meta.work_term as string)?.trim();
+  const experienceLevel = (meta.experience_level as string)?.trim();
+  const availableTime = (meta.available_time as string)?.trim();
   const workDateStart = (meta.work_date_start as string)?.trim();
   const workDateEnd = (meta.work_date_end as string)?.trim();
   const workTimeStart = (meta.work_time_start as string)?.trim();
@@ -106,8 +123,6 @@ function JobsMetaBlock({
   const noMinors = meta.no_minors === true;
   const companyName = (meta.company_name as string)?.trim();
   const workAddress = (meta.work_address as string)?.trim();
-  const contactPhone = (meta.contact_phone as string)?.trim();
-  const noPhoneCalls = meta.no_phone_calls === true;
 
   const payLabel =
     payAmount != null && !Number.isNaN(payAmount)
@@ -124,22 +139,38 @@ function JobsMetaBlock({
     workTimeStart && workTimeEnd ? `${workTimeStart} ~ ${workTimeEnd}` : workTimeStart ? workTimeStart : null;
 
   const rows: { label: string; value: string }[] = [];
-  if (jobType) rows.push({ label: "구인 유형", value: JOB_TYPE_LABELS[jobType] ?? jobType });
+  if (listingKind && JOB_LISTING_KIND_LABELS[listingKind]) {
+    rows.push({ label: "글 유형", value: JOB_LISTING_KIND_LABELS[listingKind] });
+  } else if (jobType === "hire" || jobType === "seek") {
+    rows.push({
+      label: "글 유형",
+      value: jobType === "seek" ? JOB_LISTING_KIND_LABELS.work : JOB_LISTING_KIND_LABELS.hire,
+    });
+  } else if (jobType) {
+    rows.push({ label: "구인 유형", value: JOB_TYPE_LABELS[jobType] ?? jobType });
+  }
   if (workCategory) rows.push({ label: "업종", value: workCategory });
-  if (workTerm) rows.push({ label: "근무 조건", value: WORK_TERM_LABELS[workTerm] ?? workTerm });
+  if (workTerm) rows.push({ label: "근무 형태", value: WORK_TERM_LABELS[workTerm] ?? workTerm });
   if (dateRange) rows.push({ label: "일하는 날짜", value: dateRange });
   if (timeRange) rows.push({ label: "일하는 시간", value: timeRange + (workNegotiable ? " (협의 가능)" : "") });
+  if (availableTime) rows.push({ label: "가능한 시간", value: availableTime });
+  if (experienceLevel) {
+    rows.push({
+      label: "경력",
+      value: EXPERIENCE_LEVEL_LABELS[experienceLevel] ?? experienceLevel,
+    });
+  }
   if (payLabel) rows.push({ label: "급여", value: payLabel });
   if (noMinors) rows.push({ label: "미성년자", value: "불가" });
   if (companyName) rows.push({ label: "업체명", value: companyName });
   if (workAddress) rows.push({ label: "일하는 장소", value: workAddress });
-  if (contactPhone) rows.push({ label: "연락처", value: noPhoneCalls ? "전화 안 받기" : contactPhone });
 
   if (rows.length === 0) return null;
 
   return (
     <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
-      <h3 className="mb-3 text-[15px] font-semibold text-gray-700">알바 정보</h3>
+      <h3 className="text-[15px] font-semibold text-gray-700">알바 정보</h3>
+      <p className="mb-3 mt-1 text-[12px] text-gray-500">연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
       <dl className="space-y-2.5 text-[14px]">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex justify-between gap-3">
@@ -429,6 +460,57 @@ function postMatchesAuthorSalesTab(
   return st !== "sold" && ls !== "completed";
 }
 
+type PostDetailSellerAuthor = {
+  id: string;
+  nickname: string | null;
+  avatar_url: string | null;
+  trustScore: number;
+};
+
+function PostDetailSellerProfileRow({
+  author,
+  regionLine,
+}: {
+  author: PostDetailSellerAuthor | null;
+  regionLine: React.ReactNode;
+}) {
+  const trustSummary: UserTrustSummary | null = author
+    ? {
+        userId: author.id,
+        reviewCount: 0,
+        averageRating: 0,
+        mannerScore: author.trustScore,
+        positiveCount: 0,
+        negativeCount: 0,
+        summaryTags: [],
+      }
+    : null;
+  const label = author?.nickname?.trim() || "판매자";
+  const initial = label.charAt(0).toUpperCase() || "?";
+  return (
+    <div className="flex items-center justify-between gap-3 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 text-[15px] font-semibold text-gray-500">
+          {author?.avatar_url ? (
+            <img src={author.avatar_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span aria-hidden>{initial}</span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[14px] font-semibold text-gray-900 truncate">{author?.nickname ?? "사용자"}</p>
+          {regionLine}
+        </div>
+      </div>
+      {trustSummary ? (
+        <div className="shrink-0">
+          <TrustSummaryCard summary={trustSummary} variant="compact" />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 interface PostDetailViewProps {
   post: PostWithMeta;
 }
@@ -439,12 +521,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   const [backHref, setBackHref] = useState("/home");
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
-  const [author, setAuthor] = useState<{
-    nickname: string | null;
-    avatar_url: string | null;
-    temperature?: number;
-    speed?: number;
-  } | null>(null);
+  const [author, setAuthor] = useState<PostDetailSellerAuthor | null>(null);
   const [otherPosts, setOtherPosts] = useState<PostWithMeta[]>([]);
   const [authorSalesTab, setAuthorSalesTab] = useState<"all" | "trading" | "done">("all");
   const [similarPosts, setSimilarPosts] = useState<PostWithMeta[]>([]);
@@ -465,7 +542,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const [sellerMoreOpen, setSellerMoreOpen] = useState(false);
   const [cancelSaleBusy, setCancelSaleBusy] = useState(false);
 
-  /** 일반 글 상세: 이미지 히어로가 RegionBar 아래 네비 줄을 지나면 배경·구분선 표시 */
+  /** 일반 글 상세: 이미지 히어로가 메인 1단 아래 네비 줄을 지나면 배경·구분선 표시 */
   const detailHeroRef = useRef<HTMLDivElement>(null);
   const [detailNavSolid, setDetailNavSolid] = useState(false);
   const updateDetailNavSolid = useCallback(() => {
@@ -549,8 +626,52 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   }, [category, writeCtx]);
 
   useEffect(() => {
-    getUserProfile(post.author_id).then(setAuthor);
-  }, [post.author_id]);
+    const sellerUserId = (listingOwnerId ?? post.author_id)?.trim();
+    if (!sellerUserId) {
+      setAuthor(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/users/${encodeURIComponent(sellerUserId)}/public-profile`, {
+          cache: "no-store",
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          profile?: PublicSellerProfileDTO;
+        };
+        if (cancelled) return;
+        if (res.ok && data?.ok && data.profile?.id) {
+          setAuthor({
+            id: data.profile.id,
+            nickname: data.profile.nickname,
+            avatar_url: data.profile.avatar_url,
+            trustScore: data.profile.trustScore,
+          });
+          return;
+        }
+      } catch {
+        /* fallback below */
+      }
+      if (cancelled) return;
+      const p = await getUserProfile(sellerUserId);
+      if (cancelled) return;
+      if (p) {
+        setAuthor({
+          id: p.id,
+          nickname: p.nickname,
+          avatar_url: p.avatar_url,
+          trustScore: p.trustScore ?? p.speed ?? p.temperature ?? 50,
+        });
+      } else {
+        setAuthor(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [listingOwnerId, post.author_id]);
 
   useEffect(() => {
     getPostsByAuthor(post.author_id).then((list) =>
@@ -634,7 +755,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       return;
     }
     if (post.type !== "community" && existingTradeRoomId) {
-      router.push(`/chats/${existingTradeRoomId}`);
+      router.push(`${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(existingTradeRoomId)}`);
       return;
     }
     const authorId = postAuthorUserId(post as unknown as Record<string, unknown>)?.trim();
@@ -651,7 +772,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       const res = await startCommunityInquiry(post.id, authorId, null);
       setChatLoading(false);
       if (res.ok) {
-        router.push(`/chats/${res.roomId}`);
+        router.push(`${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(res.roomId)}`);
       } else {
         setChatError(res.error ?? "채팅방을 열 수 없습니다.");
       }
@@ -670,7 +791,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     const res = await createOrGetChatRoom(post.id);
     setChatLoading(false);
     if (res.ok) {
-      router.push(`/chats/${res.roomId}`);
+      router.push(`${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(res.roomId)}`);
     } else {
       setChatError(res.error ?? "채팅방을 열 수 없습니다.");
     }
@@ -781,7 +902,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           onOpenSellerMore={showSellerCancelBar ? () => setSellerMoreOpen(true) : undefined}
         />
 
-        {/* 1. 이미지 — 1단~이미지 2px(패딩), 스크롤 판별은 갤러리 래퍼 ref */}
+        {/* 1. 이미지 — 메인 1단~이미지 2px(패딩), 스크롤 판별은 갤러리 래퍼 ref */}
         <div className="bg-white">
           <div
             className="relative w-full bg-gray-100"
@@ -799,26 +920,20 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           </div>
         </div>
 
-        {/* 2. 프로필 카드 */}
-        <div className="border-b border-gray-100 bg-white px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 shrink-0 overflow-hidden bg-gray-200">
-              {author?.avatar_url ? <img src={author?.avatar_url} alt="" className="h-full w-full object-cover" /> : null}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold text-gray-900">{author?.nickname ?? "사용자"}</p>
-              {(post.region || post.city) && (
+        {/* 2. 판매자 — profiles 연동 (서버 공개 API + 매너 배터리) */}
+        <div
+          id={POST_DETAIL_SELLER_ANCHOR_ID}
+          className="scroll-mt-14 border-b border-gray-100 bg-white px-4 py-3"
+        >
+          <p className="mb-2 text-[12px] font-medium text-gray-500">판매자</p>
+          <PostDetailSellerProfileRow
+            author={author}
+            regionLine={
+              post.region || post.city ? (
                 <p className="text-[12px] text-gray-500">{getLocationLabel(post.region!, post.city!)}</p>
-              )}
-            </div>
-            <div className="shrink-0 flex justify-end">
-              <MannerBatteryInline
-                raw={author?.speed ?? author?.temperature ?? 50}
-                size="sm"
-                align="end"
-              />
-            </div>
-          </div>
+              ) : null
+            }
+          />
         </div>
 
         {/* 3. 부동산 정보: 제목 → 매물 설명 → 테이블, 좌우 여백 0 (하단 흰색 제거) */}
@@ -1032,7 +1147,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         onOpenSellerMore={showSellerCancelBar ? () => setSellerMoreOpen(true) : undefined}
       />
 
-      {/* 1. 이미지 — 1단~이미지 2px */}
+      {/* 1. 이미지 — 메인 1단~이미지 2px */}
       <div className="bg-white">
         <div
           className="relative w-full bg-gray-100"
@@ -1071,29 +1186,20 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         </div>
       </div>
 
-      {/* 2. 판매자(프로필) 카드 */}
-      <div className="border-b border-gray-100 bg-white px-4 py-3">
+      {/* 2. 판매자(프로필) — `/api/users/.../public-profile` + TrustSummaryCard(매너 배터리) */}
+      <div
+        id={POST_DETAIL_SELLER_ANCHOR_ID}
+        className="scroll-mt-14 border-b border-gray-100 bg-white px-4 py-3"
+      >
         <p className="mb-2 text-[12px] font-medium text-gray-500">판매자</p>
-        <div className="flex items-center justify-between gap-3 min-w-0">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="h-10 w-10 shrink-0 overflow-hidden bg-gray-200">
-              {author?.avatar_url ? <img src={author?.avatar_url} alt="" className="h-full w-full object-cover" /> : null}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[14px] font-semibold text-gray-900 truncate">{author?.nickname ?? "사용자"}</p>
-              {(post.region || post.city) && (
-                <p className="text-[12px] text-gray-500 truncate">{[post.region, post.city].filter(Boolean).join(" ")}</p>
-              )}
-            </div>
-          </div>
-          <div className="shrink-0 flex justify-end">
-            <MannerBatteryInline
-              raw={author?.speed ?? author?.temperature ?? 50}
-              size="md"
-              align="end"
-            />
-          </div>
-        </div>
+        <PostDetailSellerProfileRow
+          author={author}
+          regionLine={
+            post.region || post.city ? (
+              <p className="text-[12px] text-gray-500 truncate">{[post.region, post.city].filter(Boolean).join(" ")}</p>
+            ) : null
+          }
+        />
       </div>
 
       {isOwnPost ? <PostSellerTradeStrip postId={post.id} isSeller={isOwnPost} /> : null}
@@ -1144,7 +1250,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           {showLocation && (
             <li>지역 · {getLocationLabel(post.region!, post.city!)}</li>
           )}
-          {author?.nickname && <li>{author.nickname}</li>}
           <li>등록 · {formatTimeAgo(post.created_at)}</li>
           {(() => {
             const s = [post.view_count != null && `조회 ${post.view_count}`, !isOwnPost && `관심 ${favoriteCount}`].filter(Boolean).join(" · ");

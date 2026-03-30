@@ -74,7 +74,10 @@ export function appendPointLedger(
 ): PointLedgerEntry {
   seedOnce();
   const isDebit =
-    entryType === "spend" || entryType === "expire" || entryType === "reverse";
+    entryType === "spend" ||
+    entryType === "expire" ||
+    entryType === "reverse" ||
+    entryType === "ad_purchase";
   const delta = isDebit ? -Math.abs(amount) : Math.abs(amount);
   const balanceAfter = addUserPointBalance(userId, delta);
   const entry: PointLedgerEntry = {

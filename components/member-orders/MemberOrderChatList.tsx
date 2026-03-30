@@ -9,7 +9,7 @@ import { useMemberOrdersVersion } from "@/lib/member-orders/use-member-orders-st
 import { useOrderChatVersion } from "@/components/order-chat/use-order-chat-version";
 import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
 
-const BASE = "/mypage/store-orders";
+const BASE = "/my/store-orders";
 
 export function MemberOrderChatList() {
   const cv = useOrderChatVersion();
@@ -32,8 +32,20 @@ export function MemberOrderChatList() {
 
   return (
     <div className="space-y-2">
+      <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm ring-1 ring-gray-50">
+        주문 상태 확인과 취소·환불 요청은{" "}
+        <Link href={BASE} className="font-medium text-signature underline">
+          주문 내역
+        </Link>
+        에서 하고, 매장과의 대화만 여기서 이어가세요.
+      </div>
       {rows.length === 0 ? (
-        <p className="rounded-xl bg-white p-6 text-sm text-gray-500 ring-1 ring-gray-100">주문 채팅이 없어요.</p>
+        <div className="rounded-xl bg-white p-6 text-sm text-gray-500 ring-1 ring-gray-100">
+          <p>주문 채팅이 없어요.</p>
+          <Link href={BASE} className="mt-3 inline-block font-medium text-signature underline">
+            주문 내역 보기
+          </Link>
+        </div>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => {
@@ -41,22 +53,32 @@ export function MemberOrderChatList() {
             const chatHref = order
               ? `${BASE}/${encodeURIComponent(r.order_id)}/chat`
               : `/my/store-orders/${encodeURIComponent(r.order_id)}/chat`;
+            const detailHref = order
+              ? `${BASE}/${encodeURIComponent(r.order_id)}`
+              : `/my/store-orders/${encodeURIComponent(r.order_id)}`;
             return (
               <li key={r.id}>
-                <Link
-                  href={chatHref}
-                  className="flex items-start justify-between gap-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm ring-1 ring-gray-50"
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-gray-900">{r.store_name}</p>
-                    <p className="font-mono text-xs text-gray-400">{r.order_no}</p>
-                    <p className="mt-1 line-clamp-2 text-sm text-gray-600">{r.last_message}</p>
-                    {order ? (
-                      <p className="mt-1 text-[11px] text-violet-700">상태 · {order.order_status}</p>
-                    ) : null}
+                <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm ring-1 ring-gray-50">
+                  <Link href={chatHref} className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900">{r.store_name}</p>
+                      <p className="font-mono text-xs text-gray-400">{r.order_no}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{r.last_message}</p>
+                      {order ? (
+                        <p className="mt-1 text-[11px] text-signature">상태 · {order.order_status}</p>
+                      ) : null}
+                    </div>
+                    <UnreadBadge count={r.unread_count_member} />
+                  </Link>
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                    <Link href={detailHref} className="font-medium text-gray-700 underline">
+                      주문 상세
+                    </Link>
+                    <Link href={chatHref} className="font-medium text-signature underline">
+                      채팅 열기
+                    </Link>
                   </div>
-                  <UnreadBadge count={r.unread_count_member} />
-                </Link>
+                </div>
               </li>
             );
           })}

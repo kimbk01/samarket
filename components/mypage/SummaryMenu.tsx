@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 
 const ITEMS: {
   label: string;
@@ -9,10 +10,10 @@ const ITEMS: {
   hasAlert?: boolean;
   showFavoriteBadge?: boolean;
 }[] = [
-  { label: "관심목록", href: "/my/favorites", icon: <HeartIcon />, showFavoriteBadge: true },
+  { label: "관심목록", href: MYPAGE_TRADE_FAVORITES_HREF, icon: <HeartIcon />, showFavoriteBadge: true },
   { label: "최근 본 글", href: "/my/recent-viewed", icon: <ClockIcon /> },
   { label: "혜택", href: "/my/benefits", icon: <GiftIcon />, hasAlert: true },
-  { label: "매장 주문", href: "/mypage/store-orders", icon: <BagIcon /> },
+  { label: "배달 주문", href: "/my/store-orders", icon: <BagIcon /> },
 ];
 
 interface SummaryMenuProps {
@@ -21,15 +22,15 @@ interface SummaryMenuProps {
 
 export function SummaryMenu({ favoriteCount }: SummaryMenuProps) {
   return (
-    <section className="rounded-xl bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ITEMS.map(({ label, href, icon, hasAlert, showFavoriteBadge }) => (
           <Link
             key={label}
             href={href}
-            className="flex flex-col items-center gap-2 py-3 text-[14px] text-gray-800"
+            className="flex flex-col items-center gap-2 py-3 text-[14px] text-[#262626]"
           >
-            <span className="relative flex h-10 w-10 items-center justify-center text-gray-600">
+            <span className="relative flex h-10 w-10 items-center justify-center text-[#262626]">
               {icon}
               {hasAlert && (
                 <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-signature" />

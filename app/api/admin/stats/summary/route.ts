@@ -3,9 +3,13 @@
  * - totalFavorites: favorites 테이블 전체 행 수 (총 찜 건수)
  */
 import { NextResponse } from "next/server";
+import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export async function GET() {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();

@@ -17,7 +17,7 @@ import { AdminChatTable } from "./AdminChatTable";
 type AdminMergeSource = "chat_rooms" | "product_chats";
 type TaggedAdminRoom = AdminChatRoom & { _mergeSource: AdminMergeSource };
 
-/** 거래 채팅: 동일 글·동일 판매자·동일 구매자면 한 건으로 본다 (레거시 product_chats vs 통합 chat_rooms 이중 기록 방지) */
+/** 거래채팅: 동일 글·동일 판매자·동일 구매자면 한 건으로 본다 (레거시 product_chats vs 통합 chat_rooms 이중 기록 방지) */
 function itemTradeTripleKey(r: AdminChatRoom): string | null {
   const pid = (r.productId ?? "").trim();
   const sid = (r.sellerId ?? "").trim();
@@ -106,7 +106,7 @@ function getInitialFilters(mode: ChatListMode): AdminChatFilters {
 }
 
 function getTitle(mode: ChatListMode): string {
-  if (mode === "trade") return "거래 채팅";
+  if (mode === "trade") return "거래채팅";
   if (mode === "reported") return "신고 채팅";
   if (mode === "business") return "업체·비즈 채팅";
   if (mode === "community") return "커뮤니티 채팅";
@@ -316,7 +316,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     if (selectedIds.size === 0 || mode !== "trade") return;
     if (
       !window.confirm(
-        `선택한 ${selectedIds.size}개 거래 채팅방을 운영 조치로 닫습니다.\n구매자·판매자는 이후 새 메시지를 보낼 수 없습니다. 계속할까요?`
+        `선택한 ${selectedIds.size}개 거래채팅방을 운영 조치로 닫습니다.\n구매자·판매자는 이후 새 메시지를 보낼 수 없습니다. 계속할까요?`
       )
     ) {
       return;
@@ -331,7 +331,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         const res = await fetch(`/api/admin/chat/rooms/${encodeURIComponent(id)}/action`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "block_room", note: "거래 채팅 목록 일괄 조치" }),
+          body: JSON.stringify({ action: "block_room", note: "거래채팅 목록 일괄 조치" }),
           credentials: "same-origin",
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -354,13 +354,13 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   const emptyCopy =
     rooms.length === 0
       ? mode === "trade"
-        ? "거래 채팅이 없습니다. 웹에서 상품 채팅하기로 대화를 시작하면 여기에 표시됩니다."
+        ? "거래채팅이 없습니다. 웹에서 상품 채팅하기로 대화를 시작하면 여기에 표시됩니다."
         : mode === "reported"
           ? "신고된 채팅방이 없습니다."
           : mode === "business"
             ? "업체·비즈 채팅이 없습니다."
             : mode === "community"
-              ? "커뮤니티 문의 채팅이 없습니다."
+              ? "커뮤니티 채팅 문의가 없습니다."
               : mode === "group"
                 ? "모임·게시판 문의 채팅이 없습니다."
                 : "실제 채팅방이 없습니다. 웹에서 상품 채팅하기로 대화를 시작하면 여기에 표시됩니다."

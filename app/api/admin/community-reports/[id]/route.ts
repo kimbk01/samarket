@@ -9,7 +9,8 @@ const STATUSES = new Set(["open", "reviewing", "resolved", "dismissed"]);
 
 /** 관리자: 피드 신고 1건 (통합 상세 화면용) */
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  if (!(await isRouteAdmin())) {
+  const admin = await isRouteAdmin();
+  if (!admin) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
   const { id } = await ctx.params;
@@ -30,7 +31,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 /** 관리자: 동네생활 피드 신고(community_reports) 상태·메모 */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  if (!(await isRouteAdmin())) {
+  const admin = await isRouteAdmin();
+  if (!admin) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 

@@ -14,6 +14,8 @@ interface AdminUserFilterBarProps {
   searchQuery: string;
   onFiltersChange: (f: AdminUserFilters) => void;
   onSearchChange: (q: string) => void;
+  /** false면 검색 placeholder에서 UUID 안내 생략 (표시 설정과 맞춤) */
+  showMemberUuid?: boolean;
 }
 
 export function AdminUserFilterBar({
@@ -21,12 +23,17 @@ export function AdminUserFilterBar({
   searchQuery,
   onFiltersChange,
   onSearchChange,
+  showMemberUuid = false,
 }: AdminUserFilterBarProps) {
+  const searchPlaceholder = showMemberUuid
+    ? "닉네임·로그인 아이디·UUID 검색"
+    : "닉네임·로그인 아이디 검색";
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input
         type="text"
-        placeholder="닉네임·로그인 아이디·UUID 검색"
+        placeholder={searchPlaceholder}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
         className="min-w-[180px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"

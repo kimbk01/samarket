@@ -184,11 +184,11 @@ export function AdminStoreApplicationSettingsPage() {
       />
 
       <AdminGlobalAlertSoundSection
-        title="주문 채팅 알림음 (일치 확인)"
+        title="배달채팅 알림음 (일치 확인)"
         description={
           <>
             구매자가 「주문 내용이 일치합니다」를 보낼 때{" "}
-            <strong className="text-gray-700">매장 측</strong> 주문 채팅에서 재생되는 소리입니다. 프리셋·PC
+            <strong className="text-gray-700">입점 측</strong> 배달채팅에서 재생되는 소리입니다. 프리셋·PC
             업로드·미리듣기는 위 배달 알림음과 동일합니다.
           </>
         }
@@ -206,7 +206,10 @@ export function AdminStoreApplicationSettingsPage() {
             <Link href="/my/business/apply" className="text-signature underline">
               /my/business/apply
             </Link>
-            <span className="text-gray-500">— 업종 셀렉트가 아래 병합 목록(기본+추가)과 동일</span>
+            <span className="text-gray-500">
+              — 1차·2차 업종 각각 선택, 슬러그는 아래 병합 목록과 동일. DB에 같은 slug 행이 있으면 신청 시
+              연결되어 승인 후 /stores/browse 에 노출됩니다.
+            </span>
           </li>
           <li className="flex flex-wrap items-center gap-2">
             <span className="text-green-600">✓</span>
@@ -214,7 +217,10 @@ export function AdminStoreApplicationSettingsPage() {
             <Link href="/stores" className="text-signature underline">
               /stores
             </Link>
-            <span className="text-gray-500">— 1·2차 업종·URL 슬러그 동일 소스</span>
+            <span className="text-gray-500">
+              — 1·2차 업종·링크 슬러그 동일 소스(
+              <code className="rounded bg-gray-100 px-1">/stores/browse/[primary]/[sub]</code>)
+            </span>
           </li>
           <li className="flex flex-wrap items-center gap-2">
             <span className="text-amber-600">△</span>

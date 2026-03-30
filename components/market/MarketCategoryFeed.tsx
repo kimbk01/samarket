@@ -1,25 +1,45 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getChildCategories } from "@/lib/categories/getChildCategories";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { HomeCategoryChips } from "@/components/home/HomeCategoryChips";
 import { TradeTopicChipsRow } from "@/components/home/TradeTopicChipsRow";
 import { PostListByCategory } from "@/components/post/PostListByCategory";
 import { sortKeyToHomePostSort } from "@/lib/constants/sort";
 import { encodedTradeMarketSegment } from "@/lib/categories/tradeMarketPath";
-import { APP_MAIN_GUTTER_NEG_X_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  APP_MAIN_HEADER_INNER_CLASS,
+} from "@/lib/ui/app-content-layout";
+import {
+  TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS,
+  TRADE_GAP_MENU_TO_POSTS_CLASS,
+} from "@/lib/trade/ui/post-spacing";
+import {
+  TRADE_SECONDARY_TABS_INNER_Y_CLASS,
+  TRADE_SECONDARY_TABS_SHELL_CLASS,
+} from "@/lib/trade/ui/secondary-tabs-surface";
+import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
+import { TRADE_CONTENT_SHELL_CLASS } from "@/lib/trade/ui/content-shell";
+import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
+import { useRegisterTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
+import { TRADE_MARKET_TOPIC_SCROLL_NAV_CLASS } from "@/lib/trade/ui/market-topic-scroll";
+import { JobListingKindTabs, type JobListingKindTab } from "@/components/market/JobListingKindTabs";
 
-/** 2단 주제: 항상 행 시작(좌) 정렬, 단일 칩도 가운데로 떠 보이지 않게 */
-const TOPIC_SCROLL_NAV =
-  "-mx-1 flex w-full min-w-0 flex-nowrap justify-start gap-1.5 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
+function parseJobListingKindParam(raw: string | null): JobListingKindTab {
+  const t = (raw ?? "").trim().toLowerCase();
+  return t === "work" ? "work" : "hire";
+}
 
 export function MarketCategoryFeed({ category }: { category: CategoryWithSettings }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const topicRaw = (searchParams.get("topic")?.trim() ?? "").normalize("NFC");
+  const jobKindTab = parseJobListingKindParam(searchParams.get("jk"));
   const [children, setChildren] = useState<CategoryWithSettings[]>([]);
+  const { tabs, activeIndex } = useTradeTabs(pathname);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,43 +72,80 @@ export function MarketCategoryFeed({ category }: { category: CategoryWithSetting
   }, [category.id, children, topicChild]);
 
   const marketBase = `/market/${encodedTradeMarketSegment(category)}`;
+  const isJobMarket =
+    category.icon_key === "job" || category.icon_key === "jobs" || category.slug === "job";
   const postSort = sortKeyToHomePostSort("latest");
-
-  return (
-    <>
-      {/* 부모(APP_MAIN_GUTTER_X) 상쇄 → 메뉴 줄이 메인 컬럼 전폭 */}
-      <div
-        className={`sticky top-14 z-10 ${APP_MAIN_GUTTER_NEG_X_CLASS} border-b border-gray-200/80 bg-white/95 backdrop-blur md:rounded-t-xl md:shadow-sm`}
-      >
-        <div className={`w-full ${APP_MAIN_GUTTER_X_CLASS}`}>
-          <div className="border-b border-gray-100 py-2">
-            <HomeCategoryChips embed appearance="community" />
+  const onNavigate = useCallback(
+    (href: string) => {
+      router.push(href, { scroll: false });
+    },
+    [router]
+  );
+  const { onTouchStart, onTouchEnd } = useSwipeTabNavigation(tabs, activeIndex, onNavigate);
+  const secondaryHeaderNode = useMemo(() => {
+    const topicBlock =
+      children.length > 0 ? (
+        <div className={`w-full min-w-0 overflow-x-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+          <div className={TRADE_SECONDARY_TABS_INNER_Y_CLASS}>
+            <HorizontalDragScroll
+              className={TRADE_MARKET_TOPIC_SCROLL_NAV_CLASS}
+              style={{ WebkitOverflowScrolling: "touch" }}
+              aria-label="주제 필터"
+            >
+              <TradeTopicChipsRow
+                marketBasePath={marketBase}
+                topics={children}
+                selectedTopicKey={topicKeyForChips}
+                extraQuery={isJobMarket ? { jk: jobKindTab } : undefined}
+              />
+            </HorizontalDragScroll>
           </div>
-          {children.length > 0 ? (
-            <div className="border-t border-gray-50 py-2">
-              <HorizontalDragScroll
-                className={`${TOPIC_SCROLL_NAV} py-0.5`}
-                style={{ WebkitOverflowScrolling: "touch" }}
-                aria-label="주제 필터"
-              >
-                <TradeTopicChipsRow
-                  marketBasePath={marketBase}
-                  topics={children}
-                  selectedTopicKey={topicKeyForChips}
-                />
-              </HorizontalDragScroll>
-            </div>
-          ) : null}
+        </div>
+      ) : null;
+
+    const jobBlock = isJobMarket ? (
+      <div className={`w-full min-w-0 overflow-x-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+        <div className={TRADE_SECONDARY_TABS_INNER_Y_CLASS}>
+          <JobListingKindTabs
+            category={category}
+            selectedKind={jobKindTab}
+            topicKey={topicKeyForChips}
+          />
         </div>
       </div>
-      <div className={`${APP_MAIN_GUTTER_NEG_X_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pt-3`}>
+    ) : null;
+
+    if (!jobBlock && !topicBlock) return null;
+
+    return (
+      <div className={TRADE_SECONDARY_TABS_SHELL_CLASS}>
+        <div className="flex w-full flex-col gap-2">
+          {jobBlock}
+          {topicBlock}
+        </div>
+      </div>
+    );
+  }, [children, marketBase, topicKeyForChips, isJobMarket, category, jobKindTab]);
+
+  useRegisterTradeSecondaryTabs(isJobMarket || children.length > 0, secondaryHeaderNode);
+
+  return (
+    <div className="touch-pan-y" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div
+        className={`${TRADE_CONTENT_SHELL_CLASS} ${
+          isJobMarket || children.length > 0
+            ? TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS
+            : TRADE_GAP_MENU_TO_POSTS_CLASS
+        }`}
+      >
         <PostListByCategory
           categoryId={category.id}
           filterCategoryIds={filterIds}
           category={category}
           sort={postSort}
+          jobsListingKind={isJobMarket ? jobKindTab : undefined}
         />
       </div>
-    </>
+    </div>
   );
 }

@@ -1,10 +1,33 @@
 /**
  * POST /api/favorites/toggle — 찜 토글
  * Body: { postId: string } — 사용자는 세션에서만 결정
+ * 성공 시 `favorite_audit_log`에 기록(테이블 없으면 무시) — `/admin/favorites` 감사 로그와 동일 소스
  */
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+
+async function appendFavoriteAuditLog(
+  sbAny: SupabaseClient,
+  userId: string,
+  postId: string,
+  action: "add" | "remove"
+) {
+  try {
+    const { error } = await sbAny.from("favorite_audit_log").insert({
+      user_id: userId,
+      post_id: postId,
+      action,
+      created_at: new Date().toISOString(),
+    });
+    if (error && process.env.NODE_ENV === "development") {
+      console.warn("[favorite_audit_log]", error.message);
+    }
+  } catch {
+    /* 스키마 미적용 등 */
+  }
+}
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -74,6 +97,7 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
+      await appendFavoriteAuditLog(sbAny, userId, postId, "remove");
       return NextResponse.json({ ok: true, isFavorite: false });
     }
 
@@ -88,6 +112,7 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+    await appendFavoriteAuditLog(sbAny, userId, postId, "add");
     return NextResponse.json({ ok: true, isFavorite: true });
   } catch (e) {
     return NextResponse.json(

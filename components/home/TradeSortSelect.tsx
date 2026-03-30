@@ -13,7 +13,7 @@ interface TradeSortSelectProps {
 }
 
 const COMMUNITY_SELECT_CLASS =
-  "w-max max-w-full appearance-none rounded-none border border-gray-300 bg-gray-100 py-1 pl-1 pr-5 text-[13px] font-semibold text-gray-900 shadow-none outline-none focus:border-gray-500 focus:ring-0";
+  "w-max max-w-full appearance-none rounded-md border border-gray-300 bg-gray-100 py-1 pl-1 pr-5 text-[13px] font-semibold text-gray-900 shadow-none outline-none focus:border-gray-500 focus:ring-0";
 
 const COMMUNITY_SELECT_STYLE: CSSProperties = {
   backgroundImage:

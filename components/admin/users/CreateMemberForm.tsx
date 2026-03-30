@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { LocationSelector } from "@/components/write/shared/LocationSelector";
+import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
+import { STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER } from "@/lib/stores/store-address-form-ui";
 import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { getLocationLabelIfValid } from "@/lib/products/form-options";
 import {
   formatPhMobileDisplay,
   normalizePhMobileDb,
   parsePhMobileInput,
+  PH_LOCAL_MOBILE_RULE_MESSAGE_KO,
 } from "@/lib/utils/ph-mobile";
 
 const ROLE_OPTIONS: { value: "normal" | "premium"; label: string }[] = [
@@ -24,16 +27,21 @@ interface CreateMemberFormProps {
 export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
   const [contactPhoneDigits, setContactPhoneDigits] = useState("");
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [addressStreetLine, setAddressStreetLine] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
   const [role, setRole] = useState<"normal" | "premium">("normal");
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
   const [createdLoginId, setCreatedLoginId] = useState<string | null>(null);
+  const [createdLoginEmail, setCreatedLoginEmail] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +57,10 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       setError("비밀번호는 4자 이상 입력하세요.");
       return;
     }
+    if (!nickname.trim() || nickname.trim().length > 20) {
+      setError("닉네임은 1~20자로 입력하세요.");
+      return;
+    }
 
     if (region && !city) {
       setLocationError("동네까지 선택해 주세요.");
@@ -59,22 +71,20 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
     if (contactPhoneDigits.trim()) {
       const n = normalizePhMobileDb(contactPhoneDigits);
       if (!n) {
-        setError(`연락처는 ${PH_LOCAL_09_PLACEHOLDER} 형식으로 입력해 주세요.`);
+        setError(PH_LOCAL_MOBILE_RULE_MESSAGE_KO);
         return;
       }
       contactPhoneOut = n;
     }
 
     const locationLabel = getLocationLabelIfValid(region, city);
-    let contactAddressOut: string | undefined;
-    if (locationLabel) {
-      contactAddressOut =
-        addressDetail.trim().length > 0
-          ? `${locationLabel}\n${addressDetail.trim()}`
-          : locationLabel;
-    } else if (addressDetail.trim()) {
-      contactAddressOut = addressDetail.trim();
-    }
+    const lines: string[] = [];
+    if (locationLabel) lines.push(locationLabel);
+    const z = postalCode.trim();
+    if (z) lines.push(`ZIP ${z}`);
+    const sub = [addressStreetLine.trim(), addressDetail.trim()].filter(Boolean).join(" · ");
+    if (sub) lines.push(sub);
+    const contactAddressOut = lines.length > 0 ? lines.join("\n") : undefined;
 
     setSubmitting(true);
     try {
@@ -85,10 +95,12 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         body: JSON.stringify({
           username: id,
           password,
-          displayName: displayName.trim() || id,
+          nickname: nickname.trim(),
+          email: email.trim() || undefined,
           role,
           contactPhone: contactPhoneOut,
           contactAddress: contactAddressOut,
+          phoneVerified,
         }),
       });
       const data = await res.json();
@@ -107,6 +119,11 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       if (data.ok) {
         onSuccess();
         setCreatedLoginId(id);
+        const em =
+          typeof data.user?.email === "string" && data.user.email.trim()
+            ? data.user.email.trim()
+            : `${id}@manual.local`;
+        setCreatedLoginEmail(em);
       } else {
         setError(data.error || "생성에 실패했습니다.");
       }
@@ -117,15 +134,19 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
     }
   };
 
+  const commitPhilippinesZip = useCallback((code: string) => {
+    setPostalCode(code);
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white shadow-xl">
         <div className="border-b border-gray-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-gray-900">회원 수동 입력</h2>
           <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
-            DB <code className="rounded bg-gray-100 px-1">test_users</code>에 저장됩니다. 로그인 페이지 또는 내
-            정보「아이디 로그인」에서 방금 만든 <strong>로그인 아이디</strong>·비밀번호로 들어가면, 부여된{" "}
-            <strong>회원 UUID</strong>로 매장·주문·API가 연결됩니다.
+            <code className="rounded bg-gray-100 px-1">auth.users</code>·
+            <code className="rounded bg-gray-100 px-1">profiles</code>에 생성되며, 동일 UUID로{" "}
+            <code className="rounded bg-gray-100 px-1">test_users</code> 행도 둡니다(도구·일부 API 보강용).
           </p>
         </div>
         {createdLoginId ? (
@@ -133,6 +154,15 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
             <p className="text-[14px] text-gray-800">
               <strong className="text-gray-900">{createdLoginId}</strong> 계정을 만들었습니다.
             </p>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[13px] leading-relaxed text-emerald-950">
+              <p className="font-medium">실제 회원(Supabase Auth)으로 들어갑니다.</p>
+              <p className="mt-1 text-emerald-900/90">
+                로그인 페이지 <strong>이메일 또는 아이디</strong> 칸에{" "}
+                <code className="rounded bg-white/80 px-1 py-0.5">{createdLoginEmail}</code> 전체 또는{" "}
+                <code className="rounded bg-white/80 px-1 py-0.5">{createdLoginId}</code> 만 + 생성 시 비밀번호
+                → 일반 회원과 같은 Supabase 세션입니다.
+              </p>
+            </div>
             <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-gray-600">
               <li>
                 로그인하면 브라우저에 <strong>쿠키</strong>가 저장되어 서버가 이 회원 UUID로 요청을 처리합니다.
@@ -190,14 +220,26 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">이름</label>
+              <label className="mb-1 block text-[13px] font-medium text-gray-700">닉네임</label>
               <input
                 type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                maxLength={64}
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                maxLength={20}
                 className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
-                placeholder="표시 이름 (없으면 아이디 사용)"
+                placeholder="서비스에서 표시할 닉네임"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-medium text-gray-700">
+                이메일 <span className="font-normal text-gray-400">(선택)</span>
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
+                placeholder="비워두면 아이디@manual.local 로 생성"
               />
             </div>
             <div>
@@ -223,6 +265,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 onRegionChange={(id) => {
                   setRegion(id);
                   setCity("");
+                  setPostalCode("");
                   setLocationError(undefined);
                 }}
                 onCityChange={(id) => {
@@ -231,18 +274,19 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 }}
                 error={locationError}
                 label="거래 지역"
+                philippinesZipSeed={postalCode}
+                onPhilippinesZipCommitted={commitPhilippinesZip}
               />
-              <div className="mt-3">
-                <label className="mb-1 block text-[13px] font-medium text-gray-700">
-                  상세 주소 <span className="font-normal text-gray-400">(선택)</span>
-                </label>
-                <textarea
-                  value={addressDetail}
-                  onChange={(e) => setAddressDetail(e.target.value)}
-                  maxLength={2000}
-                  rows={2}
-                  className="w-full resize-y rounded border border-gray-300 bg-white px-3 py-2 text-[14px]"
-                  placeholder="건물·동·호, 바랑가이 등 (거래 글과 비교할 때는 위 지역·동네 선택이 같아야 합니다)"
+              <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
+                {STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER}
+              </p>
+              <div className="mt-2">
+                <StoreAddressStreetDetailGrid
+                  addressStreetLine={addressStreetLine}
+                  addressDetail={addressDetail}
+                  onAddressStreetLineChange={setAddressStreetLine}
+                  onAddressDetailChange={setAddressDetail}
+                  inputClassName="w-full rounded border border-gray-300 bg-white px-3 py-2 text-[14px]"
                 />
               </div>
             </div>
@@ -260,6 +304,14 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 ))}
               </select>
             </div>
+            <label className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[13px] text-gray-800">
+              <input
+                type="checkbox"
+                checked={phoneVerified}
+                onChange={(e) => setPhoneVerified(e.target.checked)}
+              />
+              관리자 확인을 마친 전화번호로 바로 생성
+            </label>
 
             {error && <p className="text-[13px] text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 border-t border-gray-200 pt-4">

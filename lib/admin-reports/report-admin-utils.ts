@@ -7,7 +7,7 @@ import type { Report, ReportStatus, ReportTargetType } from "@/lib/types/report"
 export const TARGET_TYPE_OPTIONS: { value: ReportTargetType | ""; label: string }[] = [
   { value: "", label: "전체" },
   { value: "product", label: "상품·게시글 신고" },
-  { value: "community", label: "동네생활 피드" },
+  { value: "community", label: "커뮤니티 피드" },
   { value: "chat", label: "채팅 신고" },
   { value: "user", label: "사용자 신고" },
 ];

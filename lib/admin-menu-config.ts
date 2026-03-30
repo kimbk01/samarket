@@ -44,13 +44,13 @@ const OPS_ITEMS: AdminMenuItem[] = [
     label: "메뉴 관리",
     href: "/admin/menus",
     children: [
-      { label: "메뉴 (중고·거래)", href: "/admin/menus/trade" },
-      { label: "메뉴 (동네생활)", href: "/admin/menus/community" },
+      { label: "메뉴 (거래)", href: "/admin/menus/trade" },
+      { label: "메뉴 (커뮤니티)", href: "/admin/menus/philife" },
       { label: "메인 하단 탭", href: "/admin/menus/main-bottom-nav" },
     ],
   },
   {
-    label: "중고거래",
+    label: "거래",
     href: "/admin/products",
     children: [
       { label: "상품관리", href: "/admin/products" },
@@ -66,10 +66,10 @@ const OPS_ITEMS: AdminMenuItem[] = [
     href: "/admin/boards",
     children: [
       { label: "게시판관리", href: "/admin/boards" },
-      { label: "피드 섹션 (동네생활)", href: "/admin/community/sections" },
-      { label: "피드 주제", href: "/admin/community/topics" },
-      { label: "피드 운영 설정", href: "/admin/community/settings" },
-      { label: "피드 신고", href: "/admin/community/reports" },
+      { label: "피드 섹션 (커뮤니티)", href: "/admin/philife/sections" },
+      { label: "피드 주제", href: "/admin/philife/topics" },
+      { label: "피드 운영 설정", href: "/admin/philife/settings" },
+      { label: "피드 신고", href: "/admin/philife/reports" },
       { label: "게시글관리", href: "/admin/posts" },
       { label: "댓글관리", href: "/admin/comments" },
       { label: "게시판카테고리", href: "/admin/board-categories" },
@@ -79,7 +79,7 @@ const OPS_ITEMS: AdminMenuItem[] = [
     ],
   },
   {
-    label: "매장 (배달관련)",
+    label: "배달",
     href: "/admin/business",
     children: [
       { label: "업체관리", href: "/admin/business" },
@@ -96,10 +96,10 @@ const OPS_ITEMS: AdminMenuItem[] = [
     href: "/admin/chats",
     children: [
       { label: "전체 채팅", href: "/admin/chats" },
-      { label: "거래 채팅", href: "/admin/chats/trade" },
+      { label: "거래채팅", href: "/admin/chats/trade" },
       { label: "신고 채팅", href: "/admin/chats/reported" },
       { label: "업체·비즈", href: "/admin/chats/business" },
-      { label: "커뮤니티", href: "/admin/chats/community" },
+      { label: "커뮤니티 채팅", href: "/admin/chats/community" },
       { label: "모임·게시판", href: "/admin/chats/group" },
       { label: "거래완료", href: "/admin/chats/trade-complete" },
       { label: "사용 설명서 (채팅)", href: "/admin/docs/chat" },

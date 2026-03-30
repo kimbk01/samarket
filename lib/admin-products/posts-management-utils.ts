@@ -3,6 +3,7 @@
  */
 
 import type { Product, ProductStatus } from "@/lib/types/product";
+import { postMetaMatchesJobListingKind } from "@/lib/jobs/matches-job-listing-kind";
 
 export type PostsManagementTab =
   | "all"
@@ -265,6 +266,8 @@ export interface PostsManagementFilters {
   sortKey: PostsManagementSortKey;
   /** true면 웹 앱에 실제 노출되는 글만 (getPostsByCategory·홈과 동일 기준) */
   webVisibleOnly: boolean;
+  /** 알바 탭 전용: 구인/구직(meta.listing_kind) */
+  jobListingKind: "" | "hire" | "work";
 }
 
 export const DEFAULT_POSTS_MANAGEMENT_FILTERS: PostsManagementFilters = {
@@ -275,6 +278,7 @@ export const DEFAULT_POSTS_MANAGEMENT_FILTERS: PostsManagementFilters = {
   bannedSuspect: false,
   sortKey: "latest",
   webVisibleOnly: false,
+  jobListingKind: "",
 };
 
 /** UUID 검색 시 하이픈 유무 무시 */
@@ -291,6 +295,22 @@ export function filterAndSortPostsManagement(
   productIdSearch: string
 ): Product[] {
   let list = products.filter((p) => matchesTab(p, tab));
+
+  if (tab === "jobs" && filters.jobListingKind === "hire") {
+    list = list.filter((p) =>
+      postMetaMatchesJobListingKind(
+        p.postMeta && typeof p.postMeta === "object" ? (p.postMeta as Record<string, unknown>) : undefined,
+        "hire"
+      )
+    );
+  } else if (tab === "jobs" && filters.jobListingKind === "work") {
+    list = list.filter((p) =>
+      postMetaMatchesJobListingKind(
+        p.postMeta && typeof p.postMeta === "object" ? (p.postMeta as Record<string, unknown>) : undefined,
+        "work"
+      )
+    );
+  }
 
   if (filters.webVisibleOnly) {
     list = list.filter((p) => isWebListedProduct(p));
@@ -383,6 +403,7 @@ export function hasPostsManagementActiveFilters(
     filters.bannedSuspect ||
     filters.status !== "" ||
     filters.dealType !== "all" ||
+    filters.jobListingKind !== "" ||
     sellerSearch.trim() !== "" ||
     categorySearch.trim() !== "" ||
     productIdSearch.trim() !== ""

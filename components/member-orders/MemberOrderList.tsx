@@ -26,6 +26,7 @@ export function MemberOrderList({
           key={o.id}
           order={o}
           detailHref={`${basePath}/${encodeURIComponent(o.id)}`}
+          chatHref={`${basePath}/${encodeURIComponent(o.id)}/chat`}
           onOpenCancel={onOpenCancel}
         />
       ))}

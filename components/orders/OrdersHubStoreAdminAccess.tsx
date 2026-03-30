@@ -165,7 +165,7 @@ export function OrdersHubStoreAdminMenuTrigger() {
     hub.kind === "ok" && storeRow ? (
       <MyBusinessNavList
         groups={groups}
-        className="rounded-none shadow-none ring-1 ring-gray-100"
+        className="rounded-md shadow-none ring-1 ring-gray-100"
         onNavigate={() => setDrawerOpen(false)}
       />
     ) : hub.kind === "loading" ? (
@@ -175,7 +175,7 @@ export function OrdersHubStoreAdminMenuTrigger() {
         <p className="text-sm text-amber-800">매장 DB가 연결되지 않았습니다.</p>
         <button
           type="button"
-          className="text-sm font-medium text-violet-700 underline"
+          className="text-sm font-medium text-signature underline"
           onClick={() => void loadStores()}
         >
           다시 시도
@@ -186,7 +186,7 @@ export function OrdersHubStoreAdminMenuTrigger() {
         <p className="text-sm text-red-700">매장을 불러오지 못했습니다. ({hub.message})</p>
         <button
           type="button"
-          className="text-sm font-medium text-violet-700 underline"
+          className="text-sm font-medium text-signature underline"
           onClick={() => void loadStores()}
         >
           다시 시도

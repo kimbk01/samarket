@@ -14,7 +14,7 @@ import { swapCategorySortOrders } from "@/lib/categories/swapCategorySortOrder";
 export type MenuFormType = "trade" | "community";
 
 /**
- * 메뉴 관리 — `/admin/menus/trade` | `/admin/menus/community` 에서 각각 호출
+ * 메뉴 관리 — `/admin/menus/trade` | `/admin/menus/philife` 에서 각각 호출
  */
 export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
   const {
@@ -34,11 +34,11 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
     [list, menuType]
   );
 
-  const title = menuType === "trade" ? "메뉴 관리 (중고)" : "메뉴 관리 (동네생활)";
+  const title = menuType === "trade" ? "메뉴 관리 (거래)" : "메뉴 관리 (커뮤니티)";
   const subtitle =
     menuType === "trade"
-      ? "거래 종류(일반·중고차·부동산·알바·환전 등)를 관리합니다. 메뉴에 노출을 켜면 홈 상단 1행 칩에 반영됩니다. 각 행의 「주제」에서 2행 주제 칩을 만들 수 있으며, 주제가 없으면 사용자 화면에서 2행은 숨겨집니다."
-      : "동네생활용 메뉴 항목을 관리합니다. 유형이 ‘커뮤니티’인 항목은 게시판형 글쓰기와 연결됩니다.";
+      ? "거래 종류(일반·중고차·부동산·알바·환전 등)를 관리합니다. 「웹 메뉴 노출」은 홈 상단 1행 칩, 「글쓰기 런처」는 홈·거래 화면 + 버튼의 글쓰기 주제 목록에만 반영됩니다(원하는 항목만 켜세요). 「주제」에서 2행 칩을 만들 수 있습니다."
+      : "커뮤니티·동네생활 메뉴를 관리합니다. 커뮤니티 항목은 게시판형 글쓰기와 연결됩니다. 홈 글쓰기 런처에 넣으려면 표의 「글쓰기 런처」와 항목 수정의 「런처에 표시」를 켜 주세요.";
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -70,6 +70,17 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       if (res.ok) load();
     },
     [load]
+  );
+
+  const toggleQuickLauncher = useCallback(
+    async (id: string, current: boolean) => {
+      const res = await updateCategory(id, { quick_create_enabled: !current });
+      if (res.ok) {
+        showSuccess(!current ? "글쓰기 런처에 표시합니다." : "글쓰기 런처에서 뺐습니다.");
+        load();
+      }
+    },
+    [load, showSuccess]
   );
 
   const handleMoveUp = useCallback(
@@ -104,7 +115,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       <p className="text-[14px] text-gray-600">{subtitle}</p>
       {menuType === "community" ? (
         <p className="text-[13px] text-gray-500">
-          동네생활 <strong className="font-medium text-gray-700">게시판 목록</strong>(자유게시판 등)은{" "}
+          커뮤니티 <strong className="font-medium text-gray-700">게시판 목록</strong>(자유게시판 등)은{" "}
           <Link href="/admin/boards" className="font-medium text-signature hover:underline">
             게시판 관리
           </Link>
@@ -114,7 +125,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
 
       <div className="flex items-center justify-between">
         <span className="text-[14px] text-gray-500">
-          {menuType === "trade" ? "거래 종류 항목" : "동네생활 메뉴 항목"}
+          {menuType === "trade" ? "거래 종류 항목" : "커뮤니티 메뉴 항목"}
         </span>
         <button
           type="button"
@@ -154,6 +165,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
           allCategories={menuType === "trade" ? list : undefined}
           tradeSubtopicsEnabled={menuType === "trade"}
           onToggleShowOnMenu={toggleAndRefresh}
+          onToggleQuickLauncher={toggleQuickLauncher}
           onEdit={setEditingId}
           onDelete={handleDelete}
           onMoveUp={handleMoveUp}

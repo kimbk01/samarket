@@ -19,7 +19,9 @@ export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
         </div>
         <div className="flex justify-between">
           <span className="text-gray-500">연락처 인증</span>
-          <span className="text-gray-900">{profile.phone_verified ? "완료" : "미인증"}</span>
+          <span className="text-gray-900">
+            {profile.phone_verified ? "완료" : profile.phone_verification_status === "pending" ? "승인 대기" : "미인증"}
+          </span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-500">회원 등급</span>

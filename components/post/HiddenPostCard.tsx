@@ -54,7 +54,7 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
   };
 
   return (
-    <div className="rounded-none border border-gray-200 bg-gray-100 p-4">
+    <div className="rounded-md border border-gray-200 bg-gray-100 p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[15px] font-semibold text-gray-900">글을 숨겼어요</p>

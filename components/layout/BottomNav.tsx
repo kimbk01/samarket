@@ -12,12 +12,13 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
-import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
-import { fetchChatRoomsAllDeduped } from "@/lib/chats/fetch-chat-rooms-all-deduped";
+import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
+import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-deduped";
 
 const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => React.ReactNode> = {
   home: HomeIcon,
+  trade: TradeTabIcon,
   community: CommunityIcon,
   stores: StoreTabIcon,
   orders: OrdersTabIcon,
@@ -25,67 +26,13 @@ const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => Rea
   my: MyIcon,
 };
 
-type UnreadChatPickRow = {
-  id: string;
-  unreadCount?: number;
-  lastMessageAt?: string;
-  partnerNickname?: string;
-  lastMessage?: string;
-  product?: { title?: string } | null;
-};
-
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { chatUnread, storesTabAttention, storeDeepLink } = useOwnerHubBadgeBreakdown();
-  const myAppNotificationUnread = useMyNotificationUnreadCount();
+  const { chatUnread, philifeChatUnread, storesTabAttention, storeDeepLink } =
+    useOwnerHubBadgeBreakdown();
+  const { ownerStore } = useOwnerLiteStore();
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
-  const [unreadChatPicker, setUnreadChatPicker] = useState<UnreadChatPickRow[] | null>(null);
-
-  const closeUnreadChatPicker = useCallback(() => setUnreadChatPicker(null), []);
-
-  useEffect(() => {
-    if (!unreadChatPicker?.length) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeUnreadChatPicker();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [unreadChatPicker?.length, closeUnreadChatPicker]);
-
-  const openUnreadChatTarget = useCallback(async () => {
-    try {
-      const { status, json: raw } = await fetchChatRoomsAllDeduped();
-      const j =
-        status >= 200 && status < 300 ? (raw as { rooms?: UnreadChatPickRow[] }) : ({} as { rooms?: UnreadChatPickRow[] });
-      const rooms = Array.isArray(j.rooms) ? j.rooms : [];
-      const candidates = rooms.filter(
-        (r) => (r.unreadCount ?? 0) > 0 && typeof r.id === "string" && r.id.trim()
-      ) as UnreadChatPickRow[];
-      candidates.sort(
-        (a, b) => new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime()
-      );
-      if (candidates.length === 0) {
-        router.push("/chats");
-        return;
-      }
-      if (candidates.length === 1) {
-        router.push(`/chats/${encodeURIComponent(candidates[0].id.trim())}`);
-        return;
-      }
-      setUnreadChatPicker(candidates);
-    } catch {
-      router.push("/chats");
-    }
-  }, [router]);
-
-  const goToUnreadRoom = useCallback(
-    (id: string) => {
-      closeUnreadChatPicker();
-      router.push(`/chats/${encodeURIComponent(id.trim())}`);
-    },
-    [router, closeUnreadChatPicker]
-  );
 
   /** 탭 전환은 replace로 쌓지 않음(뒤로가기가 채팅 등으로만 가는 현상 방지). 홈 루트에서만 push로 이전 홈 유지. */
   const onMainTabLinkClick = useCallback(
@@ -111,11 +58,9 @@ export function BottomNav() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/app/main-bottom-nav", { cache: "no-store" });
-        const data = await res.json();
-        if (cancelled || !data?.ok || !Array.isArray(data.items)) return;
-        const next = data.items as BottomNavItemConfig[];
-        if (next.length > 0) setTabs(next);
+        const { ok, items } = await fetchMainBottomNavDeduped();
+        if (cancelled || !ok || !items?.length) return;
+        setTabs(items);
       } catch {
         /* 코드 기본 탭 유지 */
       }
@@ -128,9 +73,9 @@ export function BottomNav() {
   return (
     <>
     <nav
-      className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} justify-center`}
+      className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} min-w-0 max-w-full justify-center overflow-x-hidden`}
     >
-      <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-w-0`}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-w-0 max-w-full`}>
       {tabs.map((tab) => {
         const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/");
         const Icon = TAB_ICONS[tab.icon];
@@ -148,26 +93,39 @@ export function BottomNav() {
             .join(" ");
         const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
-        const isChatTab = tab.icon === "chat";
-        const chatNavWithUnread = isChatTab && chatUnread > 0;
         const isStoresTab = tab.icon === "stores";
+        const storesTabOwnerLite = isStoresTab && !!ownerStore;
         const storesNavWithAttention =
           isStoresTab &&
           storesTabAttention > 0 &&
           typeof storeDeepLink === "string" &&
           storeDeepLink.length > 0;
 
-        const className =
-          "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2";
+        const className = [
+          "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors",
+          storesTabOwnerLite && !isActive
+            ? "rounded-xl bg-white/70 shadow-[0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-gray-300/70"
+            : "",
+          ownerStore && !isStoresTab && !isActive ? "opacity-80" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
         const tabBadgeCount = (() => {
-          if (tab.icon === "chat") return chatUnread;
+          /** 거래채팅 미읽음은 하단 「거래채팅」탭이 아니라 거래 탭·홈 플로팅에서 표시 */
+          if (tab.icon === "chat") return 0;
+          if (tab.icon === "trade") return chatUnread;
+          if (tab.icon === "community") return philifeChatUnread;
           if (tab.icon === "stores") return storesTabAttention;
-          if (tab.icon === "my") return Math.max(0, myAppNotificationUnread ?? 0);
+          if (tab.icon === "my") return 0;
           return 0;
         })();
 
         const ariaLbl =
-          tabBadgeCount > 0 ? `${tab.label}, 확인 필요 ${tabBadgeCount}건` : undefined;
+          tabBadgeCount > 0
+            ? `${tab.label}, 확인 필요 ${tabBadgeCount}건`
+            : storesTabOwnerLite && ownerStore?.store_name
+              ? `${tab.label}, ${ownerStore.store_name}`
+              : undefined;
 
         const inner = (
           <>
@@ -184,23 +142,6 @@ export function BottomNav() {
             <span className={isActive ? labelActive : labelInactive}>{tab.label}</span>
           </>
         );
-
-        if (chatNavWithUnread) {
-          return (
-            <a
-              key={tab.id}
-              href={tab.href}
-              className={className}
-              aria-label={ariaLbl}
-              onClick={(e) => {
-                e.preventDefault();
-                void openUnreadChatTarget();
-              }}
-            >
-              {inner}
-            </a>
-          );
-        }
 
         if (storesNavWithAttention && storeDeepLink) {
           return (
@@ -233,81 +174,6 @@ export function BottomNav() {
       })}
       </div>
     </nav>
-
-    {unreadChatPicker && unreadChatPicker.length > 1 ? (
-      <div
-        className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="unread-chat-picker-title"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) closeUnreadChatPicker();
-        }}
-      >
-        <div
-          className="w-full max-w-md rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="border-b border-gray-100 px-4 py-3">
-            <h2 id="unread-chat-picker-title" className="text-[15px] font-semibold text-gray-900">
-              읽지 않은 채팅
-            </h2>
-            <p className="mt-0.5 text-[12px] text-gray-500">들어갈 채팅방을 선택해 주세요.</p>
-          </div>
-          <ul className="max-h-[min(55vh,380px)] divide-y divide-gray-100 overflow-y-auto">
-            {unreadChatPicker.map((r) => {
-              const title = (r.partnerNickname ?? "채팅").trim() || "채팅";
-              const sub =
-                (r.lastMessage ?? "").trim() ||
-                (r.product?.title ?? "").trim() ||
-                "새 메시지";
-              const n = r.unreadCount ?? 0;
-              return (
-                <li key={r.id}>
-                  <button
-                    type="button"
-                    onClick={() => goToUnreadRoom(r.id)}
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 active:bg-gray-100"
-                  >
-                    <div className="h-10 w-10 shrink-0 rounded-full bg-gray-200" aria-hidden />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-[14px] font-medium text-gray-900">{title}</span>
-                        {n > 0 ? (
-                          <span className="shrink-0 rounded-full bg-[#FF6B00] px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                            {n > 99 ? "99+" : n}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-0.5 truncate text-[12px] text-gray-500">{sub}</p>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="border-t border-gray-100 p-3">
-            <button
-              type="button"
-              onClick={closeUnreadChatPicker}
-              className="w-full rounded-xl border border-gray-200 py-2.5 text-[14px] text-gray-700"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                closeUnreadChatPicker();
-                router.push("/chats");
-              }}
-              className="mt-2 w-full rounded-xl py-2.5 text-[14px] font-medium text-gray-900"
-            >
-              채팅 목록으로
-            </button>
-          </div>
-        </div>
-      </div>
-    ) : null}
     </>
   );
 }
@@ -316,6 +182,20 @@ function HomeIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  );
+}
+
+/** 거래·마켓 피드 탭 — 양방향 화살표(교환·거래 느낌, 집 아이콘과 구분) */
+function TradeTabIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+      />
     </svg>
   );
 }

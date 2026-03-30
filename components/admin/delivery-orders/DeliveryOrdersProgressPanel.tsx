@@ -45,7 +45,7 @@ export function DeliveryOrdersProgressPanel({
       onClick={onClick}
       className={`flex min-w-0 flex-1 flex-col items-center rounded-xl border px-2 py-2 text-center transition-colors sm:flex-row sm:justify-center sm:gap-2 sm:py-2.5 ${
         active
-          ? "border-signature bg-violet-50 text-violet-950 ring-1 ring-signature/30"
+          ? "border-signature bg-signature/5 text-gray-900 ring-1 ring-signature/30"
           : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
       }`}
     >

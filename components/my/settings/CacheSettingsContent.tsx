@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** localStorage/sessionStorage 기반 임시 캐시 삭제, 삭제 완료 토스트 */
 export function CacheSettingsContent() {
   const [toast, setToast] = useState(false);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clear = () => {
     try {
@@ -21,9 +22,22 @@ export function CacheSettingsContent() {
       // ignore
     }
     setToast(true);
-    const t = setTimeout(() => setToast(false), 2000);
-    return () => clearTimeout(t);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setToast(false);
+      toastTimerRef.current = null;
+    }, 2000);
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-4">

@@ -50,6 +50,7 @@ export function AdminSidebar() {
                 item={item}
                 currentPath={currentPath}
                 depth={0}
+                pathsScope={item.path ? [item.path] : undefined}
               />
             )
           )}

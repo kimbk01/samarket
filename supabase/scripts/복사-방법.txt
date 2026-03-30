@@ -1,0 +1,30 @@
+채팅에서 SQL 복사가 안 될 때 — 이 방법을 쓰세요
+================================================
+
+1) 터미널에서 프로젝트 루트(samarket)로 이동한 뒤:
+
+   ▶ 당근 샘플 통합 SQL을 클립보드에 넣기
+     npm run sql:copy:dangnae
+
+   ▶ meetings 테이블 만드는 마이그레이션만 먼저 복사 (오류 42P01 일 때)
+     npm run sql:copy:meetings
+
+   ▶ 커뮤니티 v2 마이그레이션 복사 (그 다음 실행)
+     npm run sql:copy:v2
+
+   ▶ is_sample_data 플래그만
+     npm run sql:copy:flags
+
+   실행 후 Supabase → SQL Editor 열고 Ctrl+V 로 붙여넣기.
+
+
+2) 파일을 직접 연 다음 복사
+
+   - Cursor 왼쪽 파일 목록에서
+     supabase/scripts/paste-dangnae-community-sample.sql
+     을 연 다음 Ctrl+A → Ctrl+C
+
+
+3) 적용 순서가 헷갈리면
+
+   - supabase/scripts/SQL-적용순서.txt 참고

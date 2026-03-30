@@ -1,0 +1,66 @@
+당근형 커뮤니티 샘플 SQL 오류 시 (예: relation "meetings" does not exist)
+================================================================================
+
+이 저장소의 마이그레이션을 Supabase SQL Editor에 "아래 순서대로" 전부 실행해야 합니다.
+(한 파일씩 열어서 내용 전체 복사 → 실행)
+
+필수 순서 (누락 시 샘플/앱이 실패할 수 있음)
+--------------------------------------------------------------------------------
+1) 20260325140000_community_is_hidden_columns.sql
+   - 전제: public.community_posts, community_comments 가 이미 있어야 함
+
+2) 20260325150000_community_counters_atomic.sql
+   - 전제: community_post_likes 등이 스키마에 맞아야 함
+
+3) 20260326120000_neighborhood_community.sql  ← **meetings / locations 여기서 생성**
+   - 전제: public.community_posts, public.chat_rooms, public.community_sections
+
+4) 20260326150000_neighborhood_meeting_chat_rls.sql  (선택이지만 운영·로컬 일관성 권장)
+
+5) 20260327100000_community_engine_v2.sql  ← **meetings에 host_user_id, status 등 추가**
+   - 전제: test_users 테이블이 없으면 is_platform_admin 안의 OR EXISTS (...) 가 실패할 수 있음
+     → 그 경우 해당 줄을 임시로 주석 처리하거나 test_users 마이그레이션 추가
+
+6) 20260328100000_dangnae_community_sample_flags.sql  (또는 paste-dangnae 안의 1번 블록)
+
+7) paste-dangnae-community-sample.sql  전체  (또는 20260328110000_dangnae_karrot_sample_seed.sql)
+
+8) 20260329120000_philife_compat_layer.sql
+   - 사용자/관리자 노출명은 필라이프로 바꾸고, DB 내부 community_* / dongnae 는 호환 유지
+   - philife view / wrapper function / section/topic alias 추가
+
+9) philife-slug-backfill.sql
+   - community_posts 의 section/topic slug 누락 컬럼까지 보강하면서 dongnae -> philife 백필
+
+10) philife-community-schema-consistency.sql
+   - 오래된 운영 DB 를 현재 앱 기준 컬럼/테이블로 맞추는 정합성 보강
+
+11) philife-physical-rename-final.sql  (최종 단계 / maintenance window 권장)
+   - community_* 물리 테이블명을 philife_* 로 전환
+   - 기존 community_* 이름은 하위 호환 view 로 유지
+   - 적용 전 백업 및 스테이징 검증 권장
+
+12) 20260329143000_philife_meeting_room_upgrade.sql
+   - 필라이프 모임방을 당근형 운영 구조로 확장
+   - entry_policy(비번/승인/초대), 공지, 가입요청, 모임단위 차단, 운영로그 추가
+   - meeting_members 상태 변화와 chat_room_participants 최소 동기화
+   - 기존 join_policy / meetings / group_meeting 구조와 호환
+
+13) 20260329150000_meeting_attendance_event_log.sql
+   - meeting_events.event_type 에 member_attendance_updated 추가
+   - meeting_members.attendance_status 변경 시 운영 로그 자동 INSERT (트리거)
+   - ⑫ 번 이후 적용 (meeting_events·meeting_members 스키마가 갖춰진 뒤)
+
+
+간단 확인 쿼리
+--------------------------------------------------------------------------------
+  SELECT to_regclass('public.meetings');
+  -- NULL 이면 아직 ③ 번 미적용
+
+  SELECT * FROM public.philife_physical_rename_status ORDER BY object_name;
+  -- ⑪ 번 이후 최종 rename 상태 확인용
+
+Supabase CLI 사용 시
+--------------------------------------------------------------------------------
+  supabase db push
+  또는 migrations 폴더를 대시보드에서 위 순서로 수동 적용

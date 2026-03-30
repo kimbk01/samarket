@@ -18,6 +18,9 @@ export type StoreOrderBuyerOrderPayload = {
   order_status: string;
   payment_status: string;
   store_name: string;
+  fulfillment_type?: string;
+  /** 픽업 시 매장 등록 주소 */
+  store_pickup_address_lines?: string[];
   delivery_address_summary?: string | null;
   delivery_address_detail?: string | null;
   buyer_phone?: string | null;
@@ -178,22 +181,42 @@ export function StoreOrderBuyerChatTop({
           ) : null}
 
           <ul className="space-y-2.5 text-[14px] font-normal leading-[1.34] tracking-[-0.01em] text-[#262626]">
-            {order.delivery_address_summary ? (
+            {order.fulfillment_type === "pickup" &&
+            order.store_pickup_address_lines &&
+            order.store_pickup_address_lines.length > 0 ?
+              <li className="flex gap-2">
+                <span className="shrink-0" aria-hidden>
+                  🏪
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[12px] font-semibold text-[#8E8E8E]">픽업 (매장 주소)</span>
+                  {order.store_pickup_address_lines.map((line, i) => (
+                    <span key={i} className="mt-0.5 block">
+                      {line}
+                    </span>
+                  ))}
+                </span>
+              </li>
+            : null}
+            {order.fulfillment_type !== "pickup" && order.delivery_address_summary ?
               <li className="flex gap-2">
                 <span className="shrink-0" aria-hidden>
                   🗺️
                 </span>
-                <span className="min-w-0">{order.delivery_address_summary}</span>
+                <span className="min-w-0">
+                  <span className="block text-[12px] font-semibold text-[#8E8E8E]">배달 주소</span>
+                  <span className="mt-0.5 block">{order.delivery_address_summary}</span>
+                </span>
               </li>
-            ) : null}
-            {order.delivery_address_detail ? (
+            : null}
+            {order.fulfillment_type !== "pickup" && order.delivery_address_detail ?
               <li className="flex gap-2">
                 <span className="shrink-0" aria-hidden>
                   ✏️
                 </span>
-                <span className="min-w-0">입력주소 : {order.delivery_address_detail}</span>
+                <span className="min-w-0">상세 : {order.delivery_address_detail}</span>
               </li>
-            ) : null}
+            : null}
             {phoneDisplay ? (
               <li className="flex gap-2">
                 <span className="shrink-0" aria-hidden>
@@ -222,11 +245,13 @@ export function StoreOrderBuyerChatTop({
                 </li>
               );
             })}
-            {order.delivery_fee_amount != null && Number(order.delivery_fee_amount) > 0 ? (
+            {order.fulfillment_type !== "pickup" &&
+            order.delivery_fee_amount != null &&
+            Number(order.delivery_fee_amount) > 0 ?
               <li className="pl-7 text-[13px] text-[#8E8E8E]">
                 배달비 : {formatMoneyPhp(order.delivery_fee_amount)}
               </li>
-            ) : null}
+            : null}
             <li className="pl-7 text-[15px] font-semibold leading-[1.34] tracking-[-0.02em] text-[#262626]">
               주문 금액 합계 : {formatMoneyPhp(order.payment_amount)}
             </li>
@@ -396,34 +421,6 @@ export function StoreOrderBuyerChatTop({
 
       {drawer}
     </>
-  );
-}
-
-export function StoreOrderBuyerResponseStrip({
-  visible,
-  onDismiss,
-}: {
-  visible: boolean;
-  onDismiss: () => void;
-}) {
-  if (!visible) return null;
-  return (
-    <div className="flex items-start gap-2 border-b border-[#EFEFEF] bg-[#FAFAFA] px-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-normal leading-4 tracking-wide text-[#A8A8A8]">평균응답시간 2분 ~ 6분</p>
-        <p className="mt-1 text-[13px] font-medium leading-snug tracking-[-0.01em] text-[#262626]">
-          사장님 마지막접속 🟢 접속중
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="shrink-0 rounded-full p-1.5 text-[15px] leading-none text-[#A8A8A8] hover:bg-black/[0.05]"
-        aria-label="안내 닫기"
-      >
-        ×
-      </button>
-    </div>
   );
 }
 

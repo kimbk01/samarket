@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrderTimeline";
@@ -123,9 +124,13 @@ export function StoreCommerceOrderDetailClient({
   return (
     <div className="min-h-screen bg-[#f3f4f6] px-4 py-4 pb-12">
       <div className="mb-4">
-        <Link href={`/stores/${encodeURIComponent(storeSlug)}`} className="text-sm text-signature">
+        <HistoryBackTextLink
+          fallbackHref={`/stores/${encodeURIComponent(storeSlug)}`}
+          className="text-sm text-signature"
+          aria-label="매장으로"
+        >
           ← 매장
-        </Link>
+        </HistoryBackTextLink>
       </div>
       <h1 className="text-lg font-bold text-gray-900">주문 상세</h1>
       <p className="mt-1 font-mono text-sm text-gray-600">{order.order_no}</p>
@@ -150,21 +155,23 @@ export function StoreCommerceOrderDetailClient({
       </section>
 
       <section className="mt-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-gray-900">매장과 채팅</h2>
-        <p className="mt-1 text-xs text-gray-500">샘플 배달 주문과 같은 형식의 주문 채팅입니다.</p>
+        <h2 className="text-sm font-bold text-gray-900">매장 문의 채팅</h2>
+        <p className="mt-1 text-xs leading-relaxed text-gray-500">
+          주문 상태는 위 진행 상태에서 확인하고, 요청 사항이나 조율이 필요할 때만 채팅을 이용해 주세요.
+        </p>
         {orderChatDisabled ? (
           <span
             className="mt-3 block w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-100 py-3 text-center text-sm font-semibold text-gray-400"
             aria-disabled
           >
-            채팅방 열기
+            매장 문의 열기
           </span>
         ) : (
           <Link
             href={`/my/store-orders/${encodeURIComponent(order.id)}/chat`}
             className="mt-3 block w-full rounded-xl border border-signature bg-signature/5 py-3 text-center text-sm font-semibold text-signature"
           >
-            채팅방 열기
+            매장 문의 열기
           </Link>
         )}
       </section>
@@ -238,7 +245,7 @@ export function StoreCommerceOrderDetailClient({
         href={`/my/store-orders/${encodeURIComponent(order.id)}`}
         className="mt-4 block text-center text-sm text-signature underline"
       >
-        마이페이지 주문 상세
+        내 주문 상세에서 관리하기
       </Link>
     </div>
   );

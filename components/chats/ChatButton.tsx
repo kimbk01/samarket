@@ -3,6 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import {
+  ensureClientAccessOrRedirect,
+  redirectForBlockedAction,
+} from "@/lib/auth/client-access-flow";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+
+const tradeRoomPath = (roomId: string) =>
+  `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(roomId)}`;
 
 interface ChatButtonProps {
   productId: string;
@@ -28,16 +37,19 @@ export function ChatButton({ productId, existingRoomId, disabled, className, chi
 
   const handleClick = async () => {
     setError("");
+    const user = getCurrentUser();
+    if (!ensureClientAccessOrRedirect(router, user)) return;
     if (hasExisting) {
-      router.push(`/chats/${existingRoomId}`);
+      router.push(tradeRoomPath(existingRoomId));
       return;
     }
     setLoading(true);
     const res = await createOrGetChatRoom(productId);
     setLoading(false);
     if (res.ok) {
-      router.push(`/chats/${res.roomId}`);
+      router.push(tradeRoomPath(res.roomId));
     } else {
+      if (redirectForBlockedAction(router, res.error)) return;
       setError(res.error);
     }
   };
@@ -48,7 +60,7 @@ export function ChatButton({ productId, existingRoomId, disabled, className, chi
         type="button"
         onClick={handleClick}
         disabled={disabled || loading}
-        className={className ?? "rounded-none bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
+        className={className ?? "rounded-md bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
       >
         {loading ? "이동 중..." : label}
       </button>

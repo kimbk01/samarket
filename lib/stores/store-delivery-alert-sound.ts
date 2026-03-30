@@ -43,22 +43,3 @@ export async function fetchStoreDeliveryAlertSoundUrl(sb: SupabaseClient): Promi
   return parseStoreDeliverySoundUrl(data?.value_json);
 }
 
-/** 매장 전용 URL 우선, 없으면 admin_settings 전역 URL */
-export async function fetchStoreOrderAlertSoundUrlForStore(
-  sb: SupabaseClient,
-  storeId: string | null | undefined
-): Promise<string | null> {
-  const sid = typeof storeId === "string" ? storeId.trim() : "";
-  if (sid) {
-    const { data, error } = await sb
-      .from("stores")
-      .select("order_alert_sound_url")
-      .eq("id", sid)
-      .maybeSingle();
-    if (!error && data) {
-      const u = (data as { order_alert_sound_url?: string | null }).order_alert_sound_url;
-      if (typeof u === "string" && u.trim()) return u.trim();
-    }
-  }
-  return fetchStoreDeliveryAlertSoundUrl(sb);
-}

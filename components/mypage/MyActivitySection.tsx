@@ -4,16 +4,16 @@ import Link from "next/link";
 
 export function MyActivitySection() {
   return (
-    <section className="rounded-xl bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-[13px] font-medium text-gray-500">나의 활동</h2>
+    <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+      <h2 className="mb-3 text-[13px] font-semibold text-[#8E8E8E]">나의 활동</h2>
       <Link
-        href="/mypage/community-posts"
-        className="flex items-center gap-3 py-3 text-[14px] text-gray-800"
+        href="/my/community-posts"
+        className="flex items-center gap-3 py-3 text-[14px] text-[#262626]"
       >
-        <span className="flex h-8 w-8 items-center justify-center text-gray-500">
+        <span className="flex h-8 w-8 items-center justify-center text-[#262626]">
           <PencilIcon />
         </span>
-        <span className="flex-1">내 동네생활 글</span>
+        <span className="flex-1">내 커뮤니티 글</span>
         <ChevronRight />
       </Link>
     </section>
@@ -30,7 +30,7 @@ function PencilIcon() {
 
 function ChevronRight() {
   return (
-    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 text-[#8E8E8E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );

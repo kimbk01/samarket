@@ -9,6 +9,7 @@ import {
 import { applyTrustScoreDelta } from "@/lib/trust/trust-score-apply";
 import { reviewTrustBaseDelta } from "@/lib/trust/trust-score-core";
 import type { PublicReviewType, ReviewRoleType } from "@/lib/types/daangn";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
 interface Body {
   revieweeId?: string;
@@ -49,6 +50,10 @@ export async function POST(
 
   if (publicType !== "good" && publicType !== "normal" && publicType !== "bad") {
     return NextResponse.json({ ok: false, error: "평가 유형이 올바르지 않습니다." }, { status: 400 });
+  }
+  const access = await assertVerifiedMemberForAction(sb as any, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
 
   const resolved = await resolveProductChat(sb, roomId.trim());
@@ -134,6 +139,10 @@ export async function POST(
   });
 
   if (insErr) {
+    const code = (insErr as { code?: string }).code;
+    if (code === "23505") {
+      return NextResponse.json({ ok: false, error: "이미 후기를 남기셨습니다." }, { status: 409 });
+    }
     return NextResponse.json(
       { ok: false, error: insErr.message ?? "후기 저장 실패" },
       { status: 500 }

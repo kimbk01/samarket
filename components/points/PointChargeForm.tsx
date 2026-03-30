@@ -1,138 +1,165 @@
 "use client";
 
 import { useState } from "react";
-import type { PointPaymentMethod } from "@/lib/types/point";
-import { getPointPlans } from "@/lib/points/mock-point-plans";
-import { POINT_PAYMENT_METHOD_LABELS } from "@/lib/points/point-utils";
-
-export interface PointChargeFormValues {
-  planId: string;
-  paymentMethod: PointPaymentMethod;
-  depositorName: string;
-  userMemo: string;
-}
+import type { PointPlan, PointPaymentMethod } from "@/lib/types/point";
 
 interface PointChargeFormProps {
-  onSubmit: (values: PointChargeFormValues) => void;
-  submitLabel?: string;
+  plans: PointPlan[];
+  onSuccess: () => void;
+  onClose: () => void;
 }
 
-export function PointChargeForm({
-  onSubmit,
-  submitLabel = "충전 신청",
-}: PointChargeFormProps) {
-  const plans = getPointPlans();
-  const [planId, setPlanId] = useState(plans[0]?.id ?? "");
+const METHOD_LABELS: Record<string, string> = {
+  manual_confirm: "계좌 입금 후 확인",
+  bank_transfer: "자동 이체",
+};
+
+export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormProps) {
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[0]?.id ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PointPaymentMethod>("manual_confirm");
   const [depositorName, setDepositorName] = useState("");
   const [userMemo, setUserMemo] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState("");
 
-  const selectedPlan = plans.find((p) => p.id === planId);
+  const selectedPlan = plans.find((p) => p.id === selectedPlanId);
+  const totalPoint = selectedPlan
+    ? selectedPlan.pointAmount + (selectedPlan.bonusPointAmount ?? 0)
+    : 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({
-      planId,
-      paymentMethod,
-      depositorName,
-      userMemo,
-    });
+  const submit = async () => {
+    if (!selectedPlanId || submitting) return;
+    if (paymentMethod === "manual_confirm" && !depositorName.trim()) {
+      setErr("입금자명을 입력해 주세요.");
+      return;
+    }
+    setSubmitting(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/me/points/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: selectedPlanId, paymentMethod, depositorName, userMemo }),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        setErr(j.error ?? "신청 실패");
+        return;
+      }
+      onSuccess();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
-          포인트 상품 선택
-        </label>
-        <select
-          value={planId}
-          onChange={(e) => setPlanId(e.target.value)}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
-        >
-          {plans.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} · ₩{p.paymentAmount.toLocaleString()} →{" "}
-              {(p.pointAmount + (p.bonusPointAmount ?? 0)).toLocaleString()}P
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {selectedPlan && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <p className="text-[13px] text-gray-600">충전 요약</p>
-          <p className="mt-1 text-[18px] font-semibold text-gray-900">
-            ₩{selectedPlan.paymentAmount.toLocaleString()} →{" "}
-            {(
-              selectedPlan.pointAmount +
-              (selectedPlan.bonusPointAmount ?? 0)
-            ).toLocaleString()}
-            P
-          </p>
-          {selectedPlan.bonusPointAmount > 0 && (
-            <p className="mt-0.5 text-[12px] text-signature">
-              보너스 +{selectedPlan.bonusPointAmount}P
-            </p>
-          )}
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-lg rounded-t-3xl bg-white px-5 pb-10 pt-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[17px] font-bold text-gray-900">포인트 충전 신청</h2>
+          <button type="button" onClick={onClose} className="text-[13px] text-gray-500">닫기</button>
         </div>
-      )}
 
-      <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
-          결제 방식 (placeholder)
-        </label>
-        <select
-          value={paymentMethod}
-          onChange={(e) =>
-            setPaymentMethod(e.target.value as PointPaymentMethod)
-          }
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+        {/* 플랜 선택 */}
+        <p className="mb-2 text-[13px] font-semibold text-gray-700">충전 플랜 선택</p>
+        <div className="mb-4 space-y-2">
+          {plans.map((plan) => {
+            const total = plan.pointAmount + (plan.bonusPointAmount ?? 0);
+            const isSelected = selectedPlanId === plan.id;
+            return (
+              <button
+                key={plan.id}
+                type="button"
+                onClick={() => setSelectedPlanId(plan.id)}
+                className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                  isSelected ? "border-sky-400 bg-sky-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[14px] font-semibold text-gray-900">{plan.name}</p>
+                    {plan.description ? (
+                      <p className="mt-0.5 text-[12px] text-gray-500">{plan.description}</p>
+                    ) : null}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[15px] font-bold text-sky-700">{total.toLocaleString()}P</p>
+                    <p className="text-[12px] text-gray-500">₱{plan.paymentAmount.toLocaleString()}</p>
+                    {(plan.bonusPointAmount ?? 0) > 0 && (
+                      <p className="text-[11px] text-emerald-600">+{plan.bonusPointAmount}P 보너스</p>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 결제 방식 */}
+        <p className="mb-2 text-[13px] font-semibold text-gray-700">결제 방식</p>
+        <div className="mb-4 flex gap-2">
+          {(["manual_confirm", "bank_transfer"] as PointPaymentMethod[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setPaymentMethod(m)}
+              className={`flex-1 rounded-xl border py-2.5 text-[13px] font-medium transition-colors ${
+                paymentMethod === m
+                  ? "border-sky-400 bg-sky-50 text-sky-800"
+                  : "border-gray-200 bg-white text-gray-700"
+              }`}
+            >
+              {METHOD_LABELS[m] ?? m}
+            </button>
+          ))}
+        </div>
+
+        {/* 입금자명 (manual_confirm일 때) */}
+        {paymentMethod === "manual_confirm" && (
+          <div className="mb-4 space-y-2">
+            <div className="rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
+              <p className="font-semibold">계좌 입금 안내</p>
+              <p>입금 후 관리자 확인 시 포인트가 지급됩니다.</p>
+              <p className="mt-1 font-mono">BDO 0123-4567-8901 · SAMarket Philippines</p>
+            </div>
+            <input
+              type="text"
+              value={depositorName}
+              onChange={(e) => setDepositorName(e.target.value)}
+              placeholder="입금자명 (필수)"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
+            />
+            <input
+              type="text"
+              value={userMemo}
+              onChange={(e) => setUserMemo(e.target.value)}
+              placeholder="메모 (선택)"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
+            />
+          </div>
+        )}
+
+        {selectedPlan && (
+          <div className="mb-4 flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5 text-[13px]">
+            <span className="text-gray-700">충전 포인트</span>
+            <span className="text-[16px] font-bold text-sky-700">{totalPoint.toLocaleString()}P</span>
+          </div>
+        )}
+
+        {err ? <p className="mb-3 text-[12px] text-red-600">{err}</p> : null}
+
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={submitting || !selectedPlanId}
+          className="w-full rounded-2xl bg-sky-600 py-3.5 text-[15px] font-bold text-white shadow-md disabled:opacity-40"
         >
-          <option value="bank_transfer">
-            {POINT_PAYMENT_METHOD_LABELS.bank_transfer}
-          </option>
-          <option value="gcash">
-            {POINT_PAYMENT_METHOD_LABELS.gcash}
-          </option>
-          <option value="manual_confirm">
-            {POINT_PAYMENT_METHOD_LABELS.manual_confirm}
-          </option>
-        </select>
+          {submitting ? "처리 중…" : "충전 신청하기"}
+        </button>
       </div>
-
-      <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
-          입금자명 (선택)
-        </label>
-        <input
-          type="text"
-          value={depositorName}
-          onChange={(e) => setDepositorName(e.target.value)}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
-          placeholder="계좌이체 시 입금자명"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
-          메모 (선택)
-        </label>
-        <textarea
-          value={userMemo}
-          onChange={(e) => setUserMemo(e.target.value)}
-          rows={2}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
-          placeholder="입금 참고용"
-        />
-      </div>
-
-      <button
-        type="submit"
-        className="w-full rounded-lg bg-signature py-3 text-[15px] font-medium text-white"
-      >
-        {submitLabel}
-      </button>
-    </form>
+    </div>
   );
 }

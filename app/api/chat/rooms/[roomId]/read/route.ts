@@ -2,9 +2,95 @@
  * POST /api/chat/rooms/:roomId/read — 읽음 처리 (세션)
  * Body: { messageId? } — messageId 없으면 마지막 메시지 기준
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { getPhilifeMeetingAccessState } from "@/lib/chats/philife/room-access";
+type ChatRowForRead = {
+  room_type?: string | null;
+  meeting_id?: string | null;
+  related_group_id?: string | null;
+};
+
+/**
+ * 참가자 행이 없으면 group_meeting + 모임장·공동운영자(검열 입장)일 때만 행을 만들고 읽음을 반영합니다.
+ */
+async function ensureParticipantReadState(
+  sbAny: SupabaseClient<any>,
+  roomId: string,
+  userId: string,
+  lastReadId: string | null,
+  now: string,
+  chatRow: ChatRowForRead,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: updated, error: upErr } = await sbAny
+    .from("chat_room_participants")
+    .update({
+      last_read_message_id: lastReadId,
+      last_read_at: now,
+      unread_count: 0,
+      updated_at: now,
+    })
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .select("id");
+
+  if (upErr) return { ok: false, error: upErr.message };
+  if (updated?.length) return { ok: true };
+
+  if (String(chatRow.room_type ?? "") !== "group_meeting") {
+    return { ok: false, error: "채팅 참가자가 아닙니다." };
+  }
+
+  const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
+    meeting_id: chatRow.meeting_id,
+    related_group_id: chatRow.related_group_id,
+  });
+  if (!access.ok) {
+    return { ok: false, error: access.error };
+  }
+  if (!access.isModeratorBypass) {
+    return { ok: false, error: "채팅 참가자가 아닙니다." };
+  }
+
+  const { error: insErr } = await sbAny.from("chat_room_participants").insert({
+    room_id: roomId,
+    user_id: userId,
+    role_in_room: "member",
+    is_active: true,
+    hidden: false,
+    joined_at: now,
+    unread_count: 0,
+    last_read_message_id: lastReadId,
+    last_read_at: now,
+    updated_at: now,
+  });
+
+  if (insErr) {
+    const msg = String(insErr.message ?? "");
+    if (/duplicate|unique|23505/i.test(msg)) {
+      const { data: upd2, error: up2 } = await sbAny
+        .from("chat_room_participants")
+        .update({
+          last_read_message_id: lastReadId,
+          last_read_at: now,
+          unread_count: 0,
+          updated_at: now,
+        })
+        .eq("room_id", roomId)
+        .eq("user_id", userId)
+        .select("id");
+      if (up2) return { ok: false, error: up2.message };
+      if (upd2?.length) return { ok: true };
+    }
+    return { ok: false, error: msg };
+  }
+
+  return { ok: true };
+}
 
 export async function POST(
   req: NextRequest,
@@ -32,27 +118,63 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
   }
 
+  const { data: dbRoomProbeRead } = await sb.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
+  const hasDbChatRoomRead = !!dbRoomProbeRead?.id;
+
+  if (!hasDbChatRoomRead && process.env.NODE_ENV !== "production") {
+    const state = (globalThis as {
+      __samarketNeighborhoodDevSampleState?: {
+        inquiryRooms?: Array<{ id: string; initiator_id: string; peer_id: string }>;
+      };
+    }).__samarketNeighborhoodDevSampleState;
+    const inquiry = state?.inquiryRooms?.find(
+      (room) => room.id === roomId && (room.initiator_id === userId || room.peer_id === userId)
+    );
+    if (inquiry) {
+      return NextResponse.json({ ok: true, fallback: "dev_samples" });
+    }
+  }
+
   const sbAny = sb;
+  const { data: crRow, error: crErr } = await sbAny
+    .from("chat_rooms")
+    .select("id, last_message_id, room_type, meeting_id, related_group_id")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (crErr || !crRow) {
+    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+  }
+  const cr = crRow as {
+    last_message_id?: string | null;
+    room_type?: string | null;
+    meeting_id?: string | null;
+    related_group_id?: string | null;
+  };
   let lastReadId = messageId;
   if (!lastReadId) {
-    const { data: room } = await sbAny.from("chat_rooms").select("last_message_id").eq("id", roomId).maybeSingle();
-    lastReadId = (room as { last_message_id: string | null } | null)?.last_message_id ?? null;
+    lastReadId = typeof cr.last_message_id === "string" ? cr.last_message_id : null;
   }
   const now = new Date().toISOString();
-  const { error: upErr } = await sbAny
-    .from("chat_room_participants")
-    .update({
-      last_read_message_id: lastReadId,
-      last_read_at: now,
-      unread_count: 0,
-      updated_at: now,
-    })
-    .eq("room_id", roomId)
-    .eq("user_id", userId);
 
-  if (upErr) {
-    return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+  const ensured = await ensureParticipantReadState(sbAny, roomId, userId, lastReadId, now, cr);
+  if (!ensured.ok) {
+    return NextResponse.json({ ok: false, error: ensured.error }, { status: 403 });
   }
+
+  /** 상대가 본 시점: 내가 보낸 메시지에 read_at (상대 화면 «읽음») — last_read 기준 시각까지 */
+  let readThrough = now;
+  if (lastReadId) {
+    const { data: curRow } = await sbAny.from("chat_messages").select("created_at").eq("id", lastReadId).maybeSingle();
+    const ct = (curRow as { created_at?: string } | null)?.created_at;
+    if (typeof ct === "string" && ct.length > 0) readThrough = ct;
+  }
+  await sbAny
+    .from("chat_messages")
+    .update({ read_at: now })
+    .eq("room_id", roomId)
+    .neq("sender_id", userId)
+    .lte("created_at", readThrough)
+    .is("read_at", null);
 
   /** 거래 통합방(chat_rooms) 읽음 시 legacy product_chats 미읽음도 같이 0 — 배지 이중 집계 방지 */
   try {
@@ -81,5 +203,7 @@ export async function POST(
     /* ignore */
   }
 
+  invalidateUserChatUnreadCache(userId);
+  invalidateOwnerHubBadgeCache(userId);
   return NextResponse.json({ ok: true });
 }

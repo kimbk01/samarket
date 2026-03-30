@@ -164,6 +164,24 @@ export async function appendStoreOrderChatStatusTransition(
   const next = storeOrderStatusToShared(nextDbStatus);
   if (!next) return;
 
+  /** 배달·픽업 완료 후에도 주문 채팅을 이어가도록 잠금 해제(레거시/오설정 is_locked 정리) */
+  if (nextDbStatus === "completed" && previousDbStatus !== "completed") {
+    try {
+      await sb
+        .from("chat_rooms")
+        .update({
+          is_locked: false,
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("store_order_id", orderId.trim())
+        .eq("room_type", "store_order");
+    } catch {
+      /* ignore */
+    }
+  }
+
   const { data: roomRow } = await sb
     .from("chat_rooms")
     .select("id, buyer_id, seller_id")
@@ -351,4 +369,132 @@ export async function ensureStoreOrderChatRoom(
   await seedRoomMessagesToStatusAfterSummary(sb, roomId, stShared, flow);
 
   return { ok: true, roomId };
+}
+
+/**
+ * 매장 주문 채팅방 접근 보정 — `GET /api/chat/room/[id]` 등에서 403 방지.
+ * - `chat_rooms.buyer_id` / `seller_id` 누락 시 `store_orders`·`stores`로 채움
+ * - `chat_room_participants` 누락·숨김·퇴장·비활성 시 구매자·점주 행 복구
+ */
+export async function ensureStoreOrderChatRoomAccessForUser(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  userId: string
+): Promise<
+  | { ok: true; buyerId: string; sellerId: string; unreadCount: number }
+  | { ok: false; reason: "not_member" | "room_not_found" }
+> {
+  const rid = roomId.trim();
+  const uid = userId.trim();
+  if (!rid || !uid) return { ok: false, reason: "not_member" };
+
+  const { data: cr, error: crErr } = await sb
+    .from("chat_rooms")
+    .select("id, room_type, store_order_id, buyer_id, seller_id")
+    .eq("id", rid)
+    .eq("room_type", "store_order")
+    .maybeSingle();
+  if (crErr || !cr) return { ok: false, reason: "room_not_found" };
+
+  let buyerId = typeof cr.buyer_id === "string" && cr.buyer_id.trim() ? cr.buyer_id.trim() : "";
+  let sellerId = typeof cr.seller_id === "string" && cr.seller_id.trim() ? cr.seller_id.trim() : "";
+  const oid =
+    typeof cr.store_order_id === "string" && cr.store_order_id.trim() ? cr.store_order_id.trim() : "";
+
+  if ((!buyerId || !sellerId) && oid) {
+    const { data: ord } = await sb
+      .from("store_orders")
+      .select("buyer_user_id, store_id")
+      .eq("id", oid)
+      .maybeSingle();
+    const sid = (ord as { store_id?: string } | null)?.store_id;
+    const { data: st } =
+      sid ?
+        await sb.from("stores").select("owner_user_id").eq("id", sid).maybeSingle()
+      : { data: null };
+    const b = String((ord as { buyer_user_id?: string } | null)?.buyer_user_id ?? "").trim();
+    const s = String((st as { owner_user_id?: string } | null)?.owner_user_id ?? "").trim();
+    if (b && s) {
+      buyerId = b;
+      sellerId = s;
+      await sb
+        .from("chat_rooms")
+        .update({
+          buyer_id: b,
+          seller_id: s,
+          initiator_id: b,
+          peer_id: s,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", rid);
+    }
+  }
+
+  if (!buyerId || !sellerId) return { ok: false, reason: "not_member" };
+  if (uid !== buyerId && uid !== sellerId) return { ok: false, reason: "not_member" };
+
+  const now = new Date().toISOString();
+  const tuples: Array<{ u: string; role: "buyer" | "seller" }> = [
+    { u: buyerId, role: "buyer" },
+    { u: sellerId, role: "seller" },
+  ];
+  for (const t of tuples) {
+    const { data: pr } = await sb
+      .from("chat_room_participants")
+      .select("unread_count, hidden, left_at, is_active")
+      .eq("room_id", rid)
+      .eq("user_id", t.u)
+      .maybeSingle();
+    const rec = pr as {
+      unread_count?: number;
+      hidden?: boolean | null;
+      left_at?: string | null;
+      is_active?: boolean | null;
+    } | null;
+    const needs =
+      !rec ||
+      rec.hidden === true ||
+      (rec.left_at != null && String(rec.left_at).trim() !== "") ||
+      rec.is_active === false;
+    if (!needs) continue;
+    const { error: upErr } = await sb.from("chat_room_participants").upsert(
+      {
+        room_id: rid,
+        user_id: t.u,
+        role_in_room: t.role,
+        joined_at: now,
+        is_active: true,
+        hidden: false,
+        left_at: null,
+        unread_count: rec?.unread_count ?? 0,
+      },
+      { onConflict: "room_id,user_id" }
+    );
+    if (upErr) {
+      console.error("[store-order-chat] ensure participant upsert", upErr);
+    }
+  }
+
+  const { data: mePart } = await sb
+    .from("chat_room_participants")
+    .select("unread_count, hidden, left_at, is_active")
+    .eq("room_id", rid)
+    .eq("user_id", uid)
+    .maybeSingle();
+  const me = mePart as {
+    unread_count?: number;
+    hidden?: boolean | null;
+    left_at?: string | null;
+    is_active?: boolean | null;
+  } | null;
+  if (!me || me.hidden === true || me.left_at != null || me.is_active === false) {
+    return { ok: false, reason: "not_member" };
+  }
+
+  return {
+    ok: true,
+    buyerId,
+    sellerId,
+    unreadCount: me.unread_count ?? 0,
+  };
 }

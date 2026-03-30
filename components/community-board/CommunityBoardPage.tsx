@@ -7,6 +7,7 @@ import { BoardSkinRenderer } from "./BoardSkinRenderer";
 import type { Board, PostListItem } from "@/lib/community-board/types";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { startGroupInquiry } from "@/lib/chat/startGroupInquiry";
+import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { isUuidString } from "@/lib/shared/uuid-string";
 
 export interface CommunityBoardPageProps {
@@ -37,7 +38,7 @@ export interface CommunityBoardPageProps {
 export function CommunityBoardPage({
   board,
   posts,
-  boardSlug,
+  boardSlug: _boardSlug,
   categorySlug = null,
   topicSlug = null,
   localTopics = [],
@@ -50,7 +51,7 @@ export function CommunityBoardPage({
   const router = useRouter();
   const [boardInquiryBusy, setBoardInquiryBusy] = useState(false);
   const [boardInquiryError, setBoardInquiryError] = useState("");
-  const baseHref = `/community/${boardSlug}`;
+  const baseHref = SAMARKET_ROUTES.community.home;
   const filterBaseHref = (feedFilterBaseHref?.trim() || baseHref) as string;
   const showCategoryFilter = board.category_mode === "board_category";
 
@@ -102,7 +103,7 @@ export function CommunityBoardPage({
                   type="button"
                   onClick={() => void onBoardInquiry()}
                   disabled={boardInquiryBusy}
-                  className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-900 disabled:opacity-50"
+                  className="rounded-lg border border-gray-200 bg-signature/5 px-3 py-1.5 text-sm font-medium text-gray-900 disabled:opacity-50"
                 >
                   {boardInquiryBusy ? "연결 중…" : "운영진에게 문의"}
                 </button>
@@ -110,8 +111,8 @@ export function CommunityBoardPage({
               <Link
                 href={
                   categorySlug
-                    ? `${baseHref}/write?category=${encodeURIComponent(categorySlug)}`
-                    : `${baseHref}/write`
+                    ? `${SAMARKET_ROUTES.community.write}?category=${encodeURIComponent(categorySlug)}`
+                    : SAMARKET_ROUTES.community.write
                 }
                 className="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
               >

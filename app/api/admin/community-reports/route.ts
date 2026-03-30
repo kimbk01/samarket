@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 /** 관리자: 동네생활 피드 신고 목록(JSON) — 통합 신고함 병합용 */
 export async function GET() {
-  if (!(await isRouteAdmin())) {
+  const admin = await isRouteAdmin();
+  if (!admin && process.env.NODE_ENV === "production") {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 

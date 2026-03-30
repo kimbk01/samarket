@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { OwnerOrderActionPanel } from "./OwnerOrderActionPanel";
 import { OwnerOrderStatusBadge } from "./OwnerOrderStatusBadge";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 function menuSummary(items: OwnerOrder["items"]) {
@@ -23,10 +24,10 @@ export function OwnerOrderCard({
   order: OwnerOrder;
   onActionDone?: () => void | Promise<void>;
 }) {
-  const detailHref = `/my/business/store-orders?order_id=${encodeURIComponent(order.id)}`;
+  const detailHref = buildStoreOrdersHref({ storeId, orderId: order.id });
   const typeBadge =
     order.order_type === "delivery" || order.order_type === "shipping"
-      ? { cls: "bg-violet-50 text-violet-900", text: "배달" }
+      ? { cls: "bg-signature/5 text-gray-900", text: "배달" }
       : { cls: "bg-teal-50 text-teal-900", text: "포장 픽업" };
 
   return (
@@ -64,9 +65,9 @@ export function OwnerOrderCard({
         </Link>
         <Link
           href={`/my/business/store-order-chat/${encodeURIComponent(order.id)}`}
-          className="flex-1 rounded-xl border border-violet-200 bg-violet-50 py-2.5 text-center text-sm font-semibold text-violet-900"
+          className="flex-1 rounded-xl border border-gray-200 bg-signature/5 py-2.5 text-center text-sm font-semibold text-gray-900"
         >
-          주문 채팅
+          고객 문의
         </Link>
       </div>
 

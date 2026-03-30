@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   OWNER_STORE_CONTROL_CLASS,
   OWNER_STORE_CONTROL_COMPACT_CLASS,
@@ -20,16 +20,17 @@ import {
   approximateDiscountPercent,
   discountPriceFromPercent,
 } from "@/lib/stores/store-product-pricing";
-
-/** 폼 전용: 옵션 한 줄 */
-type OptionRowForm = { name: string; priceDelta: string };
-/** 폼 전용: 옵션 그룹 (저장 시 { nameKo, minSelect, maxSelect, options } 로 직렬화) */
-type OptionGroupForm = {
-  nameKo: string;
-  minSelect: string;
-  maxSelect: string;
-  options: OptionRowForm[];
-};
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import {
+  emptyOptionGroup,
+  emptyOptionRow,
+  formGroupsToOptionsJson,
+  newLocalOptionId,
+  optionsJsonToFormGroups,
+  ownerOptionsClampInt,
+  type OptionGroupForm,
+  type OptionRowForm,
+} from "@/lib/stores/owner-product-options-json";
 
 type FormValues = {
   title: string;
@@ -51,80 +52,12 @@ type FormValues = {
   optionGroups: OptionGroupForm[];
 };
 
-function clampInt(n: unknown, lo: number, hi: number, fallback: number): number {
-  const x = Math.floor(Number(n));
-  if (!Number.isFinite(x)) return fallback;
-  return Math.max(lo, Math.min(hi, x));
-}
-
-function emptyOptionRow(): OptionRowForm {
-  return { name: "", priceDelta: "0" };
-}
-
-function emptyOptionGroup(): OptionGroupForm {
-  return {
-    nameKo: "",
-    minSelect: "1",
-    maxSelect: "1",
-    options: [emptyOptionRow()],
-  };
-}
-
-/** DB/API options_json 배열 → 폼 상태 */
-function optionsJsonToFormGroups(raw: unknown): OptionGroupForm[] {
-  if (!Array.isArray(raw)) return [];
-  const out: OptionGroupForm[] = [];
-  for (const g of raw) {
-    if (!g || typeof g !== "object") continue;
-    const rec = g as Record<string, unknown>;
-    const nameKo = String(rec.nameKo ?? rec.name ?? "").trim();
-    const minSelect = String(clampInt(rec.minSelect, 0, 99, 0));
-    let maxSelect = String(clampInt(rec.maxSelect, 0, 99, 1));
-    if (parseInt(maxSelect, 10) < parseInt(minSelect, 10)) maxSelect = minSelect;
-    const optsRaw = Array.isArray(rec.options) ? rec.options : [];
-    const options: OptionRowForm[] = optsRaw.map((o) => {
-      if (!o || typeof o !== "object") return emptyOptionRow();
-      const or = o as Record<string, unknown>;
-      return {
-        name: String(or.name ?? "").trim(),
-        priceDelta: String(Math.max(0, Math.floor(Number(or.priceDelta ?? 0)))),
-      };
-    });
-    out.push({
-      nameKo,
-      minSelect,
-      maxSelect,
-      options: options.length > 0 ? options : [emptyOptionRow()],
-    });
-  }
-  return out;
-}
-
-/** 폼 상태 → API options_json */
-function formGroupsToOptionsJson(groups: OptionGroupForm[]): unknown[] {
-  const out: unknown[] = [];
-  for (const g of groups) {
-    const nameKo = g.nameKo.trim();
-    const minSelect = clampInt(parseInt(g.minSelect, 10), 0, 99, 0);
-    let maxSelect = clampInt(parseInt(g.maxSelect, 10), 0, 99, 1);
-    if (maxSelect < minSelect) maxSelect = minSelect;
-    const options = g.options
-      .map((o) => ({
-        name: o.name.trim(),
-        priceDelta: Math.max(0, Math.floor(parseInt(o.priceDelta, 10) || 0)),
-      }))
-      .filter((o) => o.name.length > 0);
-    if (!nameKo || options.length === 0) continue;
-    out.push({ nameKo, minSelect, maxSelect, options });
-  }
-  return out;
-}
-
 type OptionPresetKey = "1-1" | "0-99" | "1-99" | "0-1" | "custom";
 
 function optionGroupPresetKey(g: OptionGroupForm): OptionPresetKey {
-  const min = clampInt(parseInt(g.minSelect, 10), 0, 99, -1);
-  const max = clampInt(parseInt(g.maxSelect, 10), 0, 99, -1);
+  if (g.quantityMode) return "custom";
+  const min = ownerOptionsClampInt(parseInt(g.minSelect, 10), 0, 99, -1);
+  const max = ownerOptionsClampInt(parseInt(g.maxSelect, 10), 0, 99, -1);
   if (min < 0 || max < 0) return "custom";
   const key = `${min}-${max}`;
   if (key === "1-1" || key === "0-99" || key === "1-99" || key === "0-1") return key;
@@ -211,7 +144,7 @@ function initialValues(defaultDraft: boolean): FormValues {
     discount_percent: "",
     stock_qty: "0",
     track_inventory: false,
-    /** 신규: 매장 노출(고객) 기본 OFF — 메뉴 관리에서 켠 뒤 판매 */
+    /** 신규: 매장 노출(고객) 기본 OFF — 상품 목록에서 켠 뒤 판매 */
     product_status: defaultDraft ? "draft" : "hidden",
     thumbnail_url: "",
     menu_section_id: "",
@@ -233,7 +166,7 @@ export function OwnerProductForm({
   productId?: string;
   /** 판매 미승인 시 초안으로 시작 */
   defaultDraft?: boolean;
-  /** 메뉴 관리에서 탭 선택 후 들어올 때 미리 선택할 매장 카테고리(store_menu_sections id) */
+  /** 상품 목록에서 탭 선택 후 들어올 때 미리 선택할 매장 카테고리(store_menu_sections id) */
   initialMenuSectionId?: string;
 }) {
   const router = useRouter();
@@ -251,6 +184,7 @@ export function OwnerProductForm({
     { id: string; name: string; is_hidden?: boolean }[]
   >([]);
   const [formTab, setFormTab] = useState<"basic" | "options" | "language">("basic");
+  const categoryStripRef = useRef<HTMLDivElement | null>(null);
 
   const previewCurrency = useMemo(() => getAppSettings().defaultCurrency, []);
   const saleAfterDiscount = useMemo(() => {
@@ -287,7 +221,7 @@ export function OwnerProductForm({
     void refreshMenuSections();
   }, [refreshMenuSections]);
 
-  /** 신규 등록: URL로 넘어온 카테고리 id가 목록에 없으면 기타로 정리 */
+  /** 신규 등록: URL로 넘어온 카테고리 id가 목록에 없으면 비움 */
   useEffect(() => {
     if (mode !== "new") return;
     const sid = values.menu_section_id.trim();
@@ -295,6 +229,13 @@ export function OwnerProductForm({
     if (menuSections.some((s) => s.id === sid)) return;
     setValues((v) => ({ ...v, menu_section_id: "" }));
   }, [mode, menuSections, values.menu_section_id]);
+
+  /** 카테고리가 하나뿐이면 신규 등록 시 자동 선택(URL 미지정 시) */
+  useEffect(() => {
+    if (mode !== "new" || menuSections.length !== 1) return;
+    if (initialMenuSectionId.trim()) return;
+    setValues((v) => (v.menu_section_id.trim() ? v : { ...v, menu_section_id: menuSections[0]!.id }));
+  }, [mode, menuSections, initialMenuSectionId]);
 
   const onPickThumbnail = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -346,7 +287,7 @@ export function OwnerProductForm({
         setError(json?.error ?? "삭제 실패");
         return;
       }
-      router.push(`/my/business/menu?storeId=${encodeURIComponent(storeId)}`);
+      router.push(`/my/business/products?storeId=${encodeURIComponent(storeId)}`);
     } catch {
       setError("network_error");
     } finally {
@@ -411,6 +352,21 @@ export function OwnerProductForm({
     if (!values.title.trim() || price < 0) {
       setError("상품명과 가격을 확인해 주세요.");
       setSaving(false);
+      return;
+    }
+    if (mode === "new" && menuSections.length > 0 && !values.menu_section_id.trim()) {
+      const line =
+        "상품이 노출될 카테고리를 화면 상단에서 선택해 주세요.";
+      setError(line);
+      setSaving(false);
+      if (typeof window !== "undefined") {
+        window.alert(
+          `${line}\n\n맨 위「카테고리 (필수)」줄에서 분류 칩을 한 번 눌러 선택한 뒤 다시 저장해 주세요.`
+        );
+        requestAnimationFrame(() => {
+          categoryStripRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
       return;
     }
     const pctRaw = values.discount_percent.replace(/\D/g, "");
@@ -487,7 +443,7 @@ export function OwnerProductForm({
           return;
         }
       }
-      router.push(`/my/business/menu?storeId=${encodeURIComponent(storeId)}`);
+      router.push(`/my/business/products?storeId=${encodeURIComponent(storeId)}`);
     } catch {
       setError("network_error");
     } finally {
@@ -495,8 +451,10 @@ export function OwnerProductForm({
     }
   };
 
-  const menuHubHref = `/my/business/menu?storeId=${encodeURIComponent(storeId)}`;
+  const productsHubHref = `/my/business/products?storeId=${encodeURIComponent(storeId)}`;
   const categoriesHref = `/my/business/menu-categories?storeId=${encodeURIComponent(storeId)}`;
+  const ordersQuickHref = buildStoreOrdersHref({ storeId });
+  const dashboardHref = `/my/business?storeId=${encodeURIComponent(storeId)}`;
   const isHidden = values.product_status === "hidden";
   const isSoldOut = values.product_status === "sold_out";
   const isListed = values.product_status === "active";
@@ -512,44 +470,31 @@ export function OwnerProductForm({
   const idTrim = values.menu_section_id.trim();
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-[calc(8.75rem+env(safe-area-inset-bottom,0px))]">
+    <div className="bg-gray-50 pb-[calc(8.75rem+env(safe-area-inset-bottom,0px))]">
       <div className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
-        <header className="flex items-center px-1 py-2">
-          <Link
-            href={menuHubHref}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-700"
-            aria-label="뒤로"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <h1 className="flex-1 text-center text-[16px] font-semibold text-gray-900">
-            {mode === "new" ? "메뉴 등록" : "메뉴 수정"}
-          </h1>
-          <span className="w-11 shrink-0" />
-        </header>
-
         <div
+          ref={categoryStripRef}
           className="border-t border-gray-100 bg-white px-2 py-2"
           role="tablist"
           aria-label="등록 카테고리"
         >
           <p className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">
-            카테고리 (메뉴 관리 탭과 동일)
+            {menuSections.length > 0 ? "카테고리 (필수 · 상품 목록과 동일)" : "카테고리"}
           </p>
           <div className="-mx-1 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={idTrim === ""}
-              onClick={() => setValues((v) => ({ ...v, menu_section_id: "" }))}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-medium ${
-                idTrim === "" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              기타
-            </button>
+            {menuSections.length === 0 || mode === "edit" ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={idTrim === ""}
+                onClick={() => setValues((v) => ({ ...v, menu_section_id: "" }))}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-medium ${
+                  idTrim === "" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                기타
+              </button>
+            ) : null}
             {menuSections.map((s) => {
               const on = values.menu_section_id === s.id;
               return (
@@ -570,11 +515,23 @@ export function OwnerProductForm({
             })}
           </div>
           <p className="mt-1.5 px-1 text-[11px] text-gray-500">
-            저장 후 메뉴 관리에서 이 카테고리 탭으로 묶여 보입니다. 새 카테고리는{" "}
-            <Link href={categoriesHref} className="font-medium text-signature underline">
-              카테고리
-            </Link>
-            에서 만듭니다.
+            {menuSections.length > 0 ? (
+              <>
+                카테고리를 고르지 않으면 저장할 수 없습니다. 새 카테고리는{" "}
+                <Link href={categoriesHref} className="font-medium text-signature underline">
+                  카테고리 관리
+                </Link>
+                에서 만듭니다.
+              </>
+            ) : (
+              <>
+                카테고리가 없으면 「기타」로 저장됩니다. 탭으로 나누려면{" "}
+                <Link href={categoriesHref} className="font-medium text-signature underline">
+                  카테고리 관리
+                </Link>
+                를 이용하세요.
+              </>
+            )}
           </p>
         </div>
 
@@ -667,7 +624,7 @@ export function OwnerProductForm({
                 </div>
                 <div>
                   <label className="mb-1 block text-[14px] font-medium text-gray-700">
-                    가격 ({priceUnit}) *
+                    기본 가격 ({priceUnit}) *
                   </label>
                   <input
                     required
@@ -797,8 +754,8 @@ export function OwnerProductForm({
               </div>
             </BaeminSectionCard>
 
-            <BaeminSectionCard title="메뉴 이미지">
-              <div className="space-y-2 px-4">
+            <BaeminSectionCard title="상품 이미지">
+              <div className="space-y-3 px-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="cursor-pointer rounded-full border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-gray-800">
                     {uploading ? "업로드 중…" : "이미지 선택"}
@@ -811,26 +768,45 @@ export function OwnerProductForm({
                     />
                   </label>
                   {values.thumbnail_url ? (
-                     
-                    <img
-                      src={values.thumbnail_url}
-                      alt=""
-                      className="h-16 w-16 rounded-lg border border-gray-100 object-cover"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setValues((v) => ({ ...v, thumbnail_url: "" }))}
+                      className="rounded-full border border-gray-200 bg-white px-3 py-2 text-[12px] font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      이미지 제거
+                    </button>
                   ) : null}
                 </div>
-                <input
-                  value={values.thumbnail_url}
-                  onChange={(e) => setValues((v) => ({ ...v, thumbnail_url: e.target.value }))}
-                  className={`${OWNER_STORE_CONTROL_CLASS} text-[13px]`}
-                  placeholder="또는 이미지 URL"
-                />
+                {values.thumbnail_url ? (
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="shrink-0 space-y-1">
+                      <p className="text-[11px] font-medium text-gray-500">목록용</p>
+                      <img
+                        src={values.thumbnail_url}
+                        alt=""
+                        className="h-16 w-16 rounded-lg border border-gray-200 object-cover shadow-sm"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="text-[11px] font-medium text-gray-500">상세용</p>
+                      <img
+                        src={values.thumbnail_url}
+                        alt=""
+                        className="max-h-52 w-full max-w-[280px] rounded-xl border border-gray-200 object-cover shadow-sm"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[12px] leading-relaxed text-gray-500">
+                    사진을 올리면 목록용·상세용 크기로 미리보기가 각각 표시됩니다.
+                  </p>
+                )}
               </div>
             </BaeminSectionCard>
 
-            <BaeminSectionCard title="메뉴 소개">
+            <BaeminSectionCard title="상품 소개">
               <div className="px-4">
-                <label className="sr-only">메뉴 소개</label>
+                <label className="sr-only">상품 소개</label>
                 <textarea
                   rows={4}
                   value={values.description_html}
@@ -841,13 +817,13 @@ export function OwnerProductForm({
               </div>
             </BaeminSectionCard>
 
-            <BaeminSectionCard title="대표 메뉴 (실물 상품)">
+            <BaeminSectionCard title="대표 상품 (실물)">
               <p className="border-b border-gray-100 px-4 pb-2 text-[12px] leading-relaxed text-gray-500">
                 이 화면은 <strong className="font-medium text-gray-700">실물 상품</strong> 기준입니다. 픽업·배달·택배
                 여부는 매장 기본 정보·설정에서 다룹니다.
               </p>
               <StatusToggleRow
-                label="대표 메뉴로 강조 노출"
+                label="대표 상품으로 강조 노출"
                 checked={values.is_featured}
                 onToggle={() => setValues((v) => ({ ...v, is_featured: !v.is_featured }))}
               />
@@ -860,7 +836,7 @@ export function OwnerProductForm({
                 onClick={() => void handleDeleteProduct()}
                 className="w-full rounded-xl border border-red-200 bg-red-50 py-3 text-[15px] font-medium text-red-800 disabled:opacity-50"
               >
-                {deleting ? "처리 중…" : "메뉴 삭제(목록에서 제거)"}
+                {deleting ? "처리 중…" : "상품 삭제(목록에서 제거)"}
               </button>
             ) : null}
           </>
@@ -869,21 +845,23 @@ export function OwnerProductForm({
         {formTab === "options" ? (
           <div className="space-y-4">
             <p className="px-1 text-[12px] leading-relaxed text-gray-500">
-              옵션 그룹마다 이름·선택 방식(타입)을 정한 뒤 항목을 추가합니다. 그룹 순서는 위에서 아래로
-              표시됩니다.
+              이 상품만의 옵션(맵기·토핑 등)을 여기서만 만듭니다. 저장하면 이 상품의{" "}
+              <code className="rounded bg-gray-100 px-0.5 text-[11px]">options_json</code>에만 반영되며,
+              다른 메뉴와 따로 관리됩니다.
             </p>
 
             {values.optionGroups.length === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-200 bg-white py-10 text-center">
-                <p className="text-[14px] text-gray-500">등록된 옵션 그룹이 없습니다.</p>
+                <p className="text-[13px] text-gray-500">옵션이 없습니다</p>
                 <button
                   type="button"
+                  aria-label="옵션 그룹 추가"
                   onClick={() =>
                     setValues((v) => ({ ...v, optionGroups: [...v.optionGroups, emptyOptionGroup()] }))
                   }
-                  className="mt-4 rounded-full border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-semibold text-gray-900"
+                  className="mt-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 bg-white text-[22px] font-light leading-none text-gray-700 hover:bg-gray-50"
                 >
-                  + 옵션그룹추가
+                  +
                 </button>
               </div>
             ) : (
@@ -892,7 +870,7 @@ export function OwnerProductForm({
                   const preset = optionGroupPresetKey(group);
                   return (
                     <li
-                      key={gi}
+                      key={group.groupLocalId}
                       className="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
                     >
                       <button
@@ -927,9 +905,62 @@ export function OwnerProductForm({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-[13px] font-medium text-gray-800">타입</label>
+                          <label className="mb-1 block text-[13px] font-medium text-gray-800">그룹 설명 (선택)</label>
+                          <input
+                            value={group.description}
+                            onChange={(e) =>
+                              setValues((v) => {
+                                const next = [...v.optionGroups];
+                                next[gi] = { ...next[gi]!, description: e.target.value };
+                                return { ...v, optionGroups: next };
+                              })
+                            }
+                            className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                            placeholder="고객에게 보이는 안내"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[13px] font-medium text-gray-800">노출 순서</label>
+                          <input
+                            inputMode="numeric"
+                            value={group.sortOrder}
+                            onChange={(e) =>
+                              setValues((v) => {
+                                const next = [...v.optionGroups];
+                                next[gi] = { ...next[gi]!, sortOrder: e.target.value.replace(/\D/g, "") };
+                                return { ...v, optionGroups: next };
+                              })
+                            }
+                            className={`${OWNER_STORE_CONTROL_COMPACT_CLASS} max-w-[100px]`}
+                          />
+                          <p className="mt-0.5 text-[11px] text-gray-500">숫자가 작을수록 먼저 표시</p>
+                        </div>
+                        <label className="flex cursor-pointer items-center gap-2 text-[13px] text-gray-800">
+                          <input
+                            type="checkbox"
+                            checked={group.quantityMode}
+                            onChange={(e) =>
+                              setValues((v) => {
+                                const next = [...v.optionGroups];
+                                const q = e.target.checked;
+                                next[gi] = {
+                                  ...next[gi]!,
+                                  quantityMode: q,
+                                  minSelect: q ? "0" : next[gi]!.minSelect,
+                                  maxSelect: q ? "3" : next[gi]!.maxSelect,
+                                };
+                                return { ...v, optionGroups: next };
+                              })
+                            }
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          수량형(스테퍼) — 공기밥 추가 등 개수 선택
+                        </label>
+                        <div>
+                          <label className="mb-1 block text-[13px] font-medium text-gray-800">선택 방식</label>
                           <select
                             value={preset}
+                            disabled={group.quantityMode}
                             onChange={(e) => {
                               const v = e.target.value as OptionPresetKey;
                               setValues((prev) => {
@@ -938,7 +969,7 @@ export function OwnerProductForm({
                                   v === "custom"
                                     ? { minSelect: next[gi]!.minSelect, maxSelect: next[gi]!.maxSelect }
                                     : presetMinMax(v);
-                                next[gi] = { ...next[gi]!, ...mm };
+                                next[gi] = { ...next[gi]!, ...mm, quantityMode: false };
                                 return { ...prev, optionGroups: next };
                               });
                             }}
@@ -951,7 +982,7 @@ export function OwnerProductForm({
                             <option value="custom">직접 설정 (최소·최대)</option>
                           </select>
                         </div>
-                        {preset === "custom" ? (
+                        {preset === "custom" || group.quantityMode ? (
                           <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
                             <div>
                               <label className="mb-0.5 block text-[11px] text-gray-600">최소 선택</label>
@@ -985,75 +1016,111 @@ export function OwnerProductForm({
                             </div>
                           </div>
                         ) : null}
-                        <p className="text-[11px] text-gray-500">숫자가 작을수록 위쪽에 붙는 항목부터 보입니다.</p>
-                        <div>
-                          <label className="mb-1 block text-[13px] font-medium text-gray-800">언어</label>
-                          <select disabled className={OWNER_STORE_SELECT_CLASS}>
-                            <option>다국어 · 추후 지원</option>
-                          </select>
-                        </div>
-                        <p className="text-[11px] font-medium text-gray-600">선택지 (이름 · 추가 금액)</p>
+                        <p className="text-[11px] font-medium text-gray-600">선택지 (이름 · 추가 금액 · 품절·기본선택)</p>
                         <ul className="space-y-2">
                           {group.options.map((opt, oi) => (
-                            <li key={oi} className="flex flex-wrap items-end gap-2">
-                              <input
-                                value={opt.name}
-                                onChange={(e) =>
-                                  setValues((v) => {
-                                    const next = [...v.optionGroups];
-                                    const g = { ...next[gi]! };
-                                    const opts = [...g.options];
-                                    opts[oi] = { ...opts[oi]!, name: e.target.value };
-                                    g.options = opts;
-                                    next[gi] = g;
-                                    return { ...v, optionGroups: next };
-                                  })
-                                }
-                                placeholder="예: 순한맛, 보통"
-                                className="min-w-[120px] flex-1 rounded-none border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
-                              />
-                              <div className="flex items-center gap-1">
-                                <span className="text-[12px] text-gray-500">+</span>
+                            <li key={opt.id} className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+                              <div className="flex flex-wrap items-end gap-2">
                                 <input
-                                  inputMode="numeric"
-                                  value={opt.priceDelta}
+                                  value={opt.name}
                                   onChange={(e) =>
                                     setValues((v) => {
                                       const next = [...v.optionGroups];
                                       const g = { ...next[gi]! };
                                       const opts = [...g.options];
-                                      opts[oi] = { ...opts[oi]!, priceDelta: e.target.value };
+                                      opts[oi] = { ...opts[oi]!, name: e.target.value };
                                       g.options = opts;
                                       next[gi] = g;
                                       return { ...v, optionGroups: next };
                                     })
                                   }
-                                  className="w-[4.5rem] rounded-none border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
+                                  placeholder="예: 순한맛, 보통"
+                                  className="min-w-[120px] flex-1 rounded-md border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
                                 />
-                                <span className="text-[12px] text-gray-500">{priceUnit}</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[12px] text-gray-500">+</span>
+                                  <input
+                                    inputMode="numeric"
+                                    value={opt.priceDelta}
+                                    onChange={(e) =>
+                                      setValues((v) => {
+                                        const next = [...v.optionGroups];
+                                        const g = { ...next[gi]! };
+                                        const opts = [...g.options];
+                                        opts[oi] = { ...opts[oi]!, priceDelta: e.target.value };
+                                        g.options = opts;
+                                        next[gi] = g;
+                                        return { ...v, optionGroups: next };
+                                      })
+                                    }
+                                    className="w-[4.5rem] rounded-md border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
+                                  />
+                                  <span className="text-[12px] text-gray-500">{priceUnit}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setValues((v) => {
+                                      const next = [...v.optionGroups];
+                                      const g = { ...next[gi]! };
+                                      g.options = g.options.filter((_, j) => j !== oi);
+                                      if (g.options.length === 0) g.options = [emptyOptionRow()];
+                                      next[gi] = g;
+                                      return { ...v, optionGroups: next };
+                                    })
+                                  }
+                                  className="shrink-0 rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[12px] text-red-700"
+                                >
+                                  삭제
+                                </button>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setValues((v) => {
-                                    const next = [...v.optionGroups];
-                                    const g = { ...next[gi]! };
-                                    g.options = g.options.filter((_, j) => j !== oi);
-                                    if (g.options.length === 0) g.options = [emptyOptionRow()];
-                                    next[gi] = g;
-                                    return { ...v, optionGroups: next };
-                                  })
-                                }
-                                className="shrink-0 rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[12px] text-red-700"
-                              >
-                                삭제
-                              </button>
+                              <div className="flex flex-wrap items-center gap-3 text-[12px] text-gray-700">
+                                <label className="inline-flex items-center gap-1.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={opt.soldOut}
+                                    onChange={(e) =>
+                                      setValues((v) => {
+                                        const next = [...v.optionGroups];
+                                        const g = { ...next[gi]! };
+                                        const opts = [...g.options];
+                                        opts[oi] = { ...opts[oi]!, soldOut: e.target.checked };
+                                        g.options = opts;
+                                        next[gi] = g;
+                                        return { ...v, optionGroups: next };
+                                      })
+                                    }
+                                    className="h-4 w-4 rounded border-gray-300"
+                                  />
+                                  품절
+                                </label>
+                                <label className="inline-flex items-center gap-1.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={opt.defaultSelected}
+                                    onChange={(e) =>
+                                      setValues((v) => {
+                                        const next = [...v.optionGroups];
+                                        const g = { ...next[gi]! };
+                                        const opts = [...g.options];
+                                        opts[oi] = { ...opts[oi]!, defaultSelected: e.target.checked };
+                                        g.options = opts;
+                                        next[gi] = g;
+                                        return { ...v, optionGroups: next };
+                                      })
+                                    }
+                                    className="h-4 w-4 rounded border-gray-300"
+                                  />
+                                  기본 선택
+                                </label>
+                              </div>
                             </li>
                           ))}
                         </ul>
-                        <div className="flex justify-center pt-1">
+                        <div className="flex justify-center pt-2">
                           <button
                             type="button"
+                            aria-label="선택지 추가"
                             onClick={() =>
                               setValues((v) => {
                                 const next = [...v.optionGroups];
@@ -1063,9 +1130,9 @@ export function OwnerProductForm({
                                 return { ...v, optionGroups: next };
                               })
                             }
-                            className="rounded-full border border-gray-300 bg-white px-5 py-2 text-[13px] font-semibold text-gray-900"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-[20px] font-light leading-none text-gray-700 hover:bg-gray-50"
                           >
-                            + 옵션추가
+                            +
                           </button>
                         </div>
                       </div>
@@ -1076,15 +1143,16 @@ export function OwnerProductForm({
             )}
 
             {values.optionGroups.length > 0 ? (
-              <div className="flex justify-center">
+              <div className="flex justify-center pt-1">
                 <button
                   type="button"
+                  aria-label="옵션 그룹 추가"
                   onClick={() =>
                     setValues((v) => ({ ...v, optionGroups: [...v.optionGroups, emptyOptionGroup()] }))
                   }
-                  className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-semibold text-gray-900"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-dashed border-gray-300 bg-white text-[22px] font-light leading-none text-gray-600 hover:border-gray-400 hover:bg-gray-50"
                 >
-                  + 옵션그룹추가
+                  +
                 </button>
               </div>
             ) : null}
@@ -1094,7 +1162,7 @@ export function OwnerProductForm({
         {formTab === "language" ? (
           <BaeminSectionCard title="언어">
             <div className="px-4 py-4 text-center text-[14px] leading-relaxed text-gray-600">
-              메뉴 이름·옵션·소개의 다국어 입력은 추후 지원 예정입니다.
+              상품명·옵션·소개의 다국어 입력은 추후 지원 예정입니다.
             </div>
           </BaeminSectionCard>
         ) : null}
@@ -1102,6 +1170,32 @@ export function OwnerProductForm({
       <div
         className={`fixed left-0 right-0 z-30 border-t border-gray-200 bg-white p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
       >
+        <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Link
+            href={productsHubHref}
+            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+          >
+            메뉴 관리
+          </Link>
+          <Link
+            href={ordersQuickHref}
+            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+          >
+            주문
+          </Link>
+          <Link
+            href={categoriesHref}
+            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+          >
+            카테고리
+          </Link>
+          <Link
+            href={dashboardHref}
+            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+          >
+            대시보드
+          </Link>
+        </div>
         <button
           type="submit"
           form="owner-product-form"

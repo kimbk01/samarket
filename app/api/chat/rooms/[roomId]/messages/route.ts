@@ -5,12 +5,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { touchProductChatAfterItemTradeMessage } from "@/lib/trade/touch-product-chat-from-item-trade-room";
 import { shouldBlockItemTradeMessagingForReservation } from "@/lib/trade/reserved-item-chat";
 import {
   ADMIN_CHAT_SUSPENDED_MESSAGE,
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
+import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
+import { getPhilifeMeetingAccessState } from "@/lib/chats/philife/room-access";
+import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
+import { ensureStoreOrderChatRoomAccessForUser } from "@/lib/chat/store-order-chat-db";
+
+function senderNicknameFromMessageMetadata(meta: unknown): string | null {
+  if (!meta || typeof meta !== "object" || meta === null) return null;
+  const raw = (meta as { senderNickname?: unknown }).senderNickname;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+const OPEN_CHAT_MEMBER_BLIND_REASON_PREFIX = "open_chat_member_blind:";
+
+function canViewHiddenOpenChatMessage(
+  hiddenReason: unknown,
+  roomId: string,
+  senderId: string | null | undefined,
+  viewerCanManage: boolean
+): boolean {
+  if (!viewerCanManage) return false;
+  if (typeof hiddenReason !== "string") return false;
+  if (!senderId?.trim()) return false;
+  return hiddenReason.startsWith(`${OPEN_CHAT_MEMBER_BLIND_REASON_PREFIX}${roomId}:${senderId}`);
+}
 
 export async function GET(
   req: NextRequest,
@@ -33,21 +58,102 @@ export async function GET(
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
 
+  const { data: dbRoomProbe } = await sb.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
+  const hasDbChatRoom = !!dbRoomProbe?.id;
+
+  if (!hasDbChatRoom && process.env.NODE_ENV !== "production") {
+    const state = (globalThis as {
+      __samarketNeighborhoodDevSampleState?: {
+        inquiryRooms?: Array<{ id: string; initiator_id: string; peer_id: string }>;
+        chatMessages?: Map<string, Array<{
+          id: string;
+          roomId: string;
+          senderId: string;
+          messageType?: string;
+          message: string;
+          createdAt: string;
+          readAt: string | null;
+        }>>;
+      };
+    }).__samarketNeighborhoodDevSampleState;
+    const inquiry = state?.inquiryRooms?.find(
+      (room) => room.id === roomId && (room.initiator_id === userId || room.peer_id === userId)
+    );
+    if (inquiry) {
+      const list = (state?.chatMessages?.get(roomId) ?? []).map((message) => ({
+        id: message.id,
+        room_id: roomId,
+        sender_id: message.senderId,
+        message_type: message.messageType ?? "text",
+        body: message.message,
+        created_at: message.createdAt,
+        read_at: message.readAt,
+      }));
+      return NextResponse.json({ messages: list });
+    }
+  }
+
   const sbAny = sb;
-  const { data: part } = await sbAny
-    .from("chat_room_participants")
-    .select("id")
-    .eq("room_id", roomId)
-    .eq("user_id", userId)
-    .eq("hidden", false)
+  const { data: roomForGet } = await sbAny
+    .from("chat_rooms")
+    .select("id, room_type, meeting_id, related_group_id")
+    .eq("id", roomId)
     .maybeSingle();
-  if (!part) {
-    return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
+  const rtGet = (roomForGet as { room_type?: string } | null)?.room_type ?? "";
+  const { data: openChatForGet } = await sbAny
+    .from("open_chat_rooms")
+    .select("id")
+    .eq("linked_chat_room_id", roomId)
+    .maybeSingle();
+  const isOpenChatLinkedGet = !!(openChatForGet as { id?: string } | null)?.id;
+  let openChatViewerCanManage = false;
+  let openChatRoomIdForGet = "";
+  if (isOpenChatLinkedGet && (openChatForGet as { id?: string } | null)?.id) {
+    openChatRoomIdForGet = String((openChatForGet as { id?: string }).id ?? "");
+    const { data: viewerMember } = await sbAny
+      .from("open_chat_members")
+      .select("role, status")
+      .eq("room_id", openChatRoomIdForGet)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const viewerMemberRow = viewerMember as { role?: string | null; status?: string | null } | null;
+    openChatViewerCanManage =
+      viewerMemberRow?.status === "joined" &&
+      (viewerMemberRow.role === "owner" || viewerMemberRow.role === "moderator");
+  }
+
+  /* 모임 채팅: 부가 방은 초대자만, 기본 방은 참가자+멤버 — 모임장/공동운영자는 부가 방 검열 입장 (room-access) */
+  if (rtGet === "group_meeting" && !isOpenChatLinkedGet) {
+    const access = await getPhilifeMeetingAccessState(
+      sbAny,
+      roomId,
+      userId,
+      roomForGet as { meeting_id?: string | null; related_group_id?: string | null },
+    );
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.statusCode });
+    }
+  } else if (rtGet === "store_order") {
+    const accessSo = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId);
+    if (!accessSo.ok) {
+      return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
+    }
+  } else {
+    const { data: part } = await sbAny
+      .from("chat_room_participants")
+      .select("id, hidden, left_at, is_active")
+      .eq("room_id", roomId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const prGet = part as { hidden?: boolean; left_at?: string | null; is_active?: boolean | null } | null;
+    if (!prGet || prGet.hidden || prGet.left_at || prGet.is_active === false) {
+      return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
+    }
   }
 
   let q = sbAny
     .from("chat_messages")
-    .select("id, room_id, sender_id, message_type, body, metadata, deleted_by_sender, is_hidden_by_admin, created_at, read_at")
+    .select("id, room_id, sender_id, message_type, body, metadata, deleted_by_sender, is_hidden_by_admin, hidden_reason, created_at, read_at")
     .eq("room_id", roomId)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -59,7 +165,66 @@ export async function GET(
   }
   const { data: messages, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const list = (messages ?? []).reverse();
+  const list = ((messages ?? []) as Array<Record<string, unknown>>)
+    .reverse()
+    .filter((message) => {
+      if (message.deleted_by_sender === true) return false;
+      if (message.is_hidden_by_admin !== true) return true;
+      return canViewHiddenOpenChatMessage(
+        message.hidden_reason,
+        openChatRoomIdForGet,
+        typeof message.sender_id === "string" ? message.sender_id : null,
+        openChatViewerCanManage
+      );
+    });
+  if (isOpenChatLinkedGet && openChatRoomIdForGet) {
+    const openChatRoomId = openChatRoomIdForGet;
+    const senderIds = Array.from(
+      new Set(
+        list
+          .map((message) =>
+            typeof (message as { sender_id?: unknown }).sender_id === "string"
+              ? String((message as { sender_id?: string }).sender_id)
+              : ""
+          )
+          .filter((id) => id.length > 0)
+      )
+    );
+    const nicknameMap = new Map<string, string>();
+    if (senderIds.length > 0) {
+      const { data: memberRows } = await sbAny
+        .from("open_chat_members")
+        .select("user_id, nickname")
+        .eq("room_id", openChatRoomId)
+        .in("user_id", senderIds);
+      for (const row of memberRows ?? []) {
+        const userIdValue =
+          typeof (row as { user_id?: unknown }).user_id === "string"
+            ? String((row as { user_id?: string }).user_id)
+            : "";
+        const nicknameValue =
+          typeof (row as { nickname?: unknown }).nickname === "string"
+            ? String((row as { nickname?: string }).nickname).trim()
+            : "";
+        if (userIdValue && nicknameValue) nicknameMap.set(userIdValue, nicknameValue);
+      }
+    }
+    return NextResponse.json({
+      messages: list.map((message) => {
+        const row = message as {
+          sender_id?: string | null;
+          metadata?: unknown;
+        } & Record<string, unknown>;
+        return {
+          ...row,
+          hidden_reason: typeof row.hidden_reason === "string" ? row.hidden_reason : null,
+          sender_nickname:
+            (row.sender_id ? nicknameMap.get(row.sender_id) : null) ??
+            senderNicknameFromMessageMetadata(row.metadata),
+        };
+      }),
+    });
+  }
   return NextResponse.json({ messages: list });
 }
 
@@ -78,7 +243,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
   const { roomId } = await params;
-  let body: { body?: string; messageType?: string; imageUrl?: string | null };
+  let body: { body?: string; messageType?: string; imageUrl?: string | null; imageUrls?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -88,26 +253,74 @@ export async function POST(
   const messageType = (["text", "image", "system", "item_card", "appointment", "safety_notice"] as const).includes(body.messageType as never)
     ? body.messageType
     : "text";
-  const imageUrl =
-    typeof body.imageUrl === "string" && body.imageUrl.trim().length > 0
-      ? body.imageUrl.trim()
-      : "";
+  const imageList = normalizeIncomingImageUrlList({
+    imageUrl: body.imageUrl,
+    imageUrls: body.imageUrls,
+  });
   if (!roomId) {
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
   }
   if (messageType === "image") {
-    if (!imageUrl) {
+    if (imageList.length === 0) {
       return NextResponse.json({ ok: false, error: "이미지 주소가 필요합니다." }, { status: 400 });
     }
   } else if (!text && messageType === "text") {
     return NextResponse.json({ ok: false, error: "메시지를 입력하세요" }, { status: 400 });
   }
 
+  const { data: dbRoomProbePost } = await sb.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
+  const hasDbChatRoomPost = !!dbRoomProbePost?.id;
+
+  if (!hasDbChatRoomPost && process.env.NODE_ENV !== "production") {
+    const state = (globalThis as {
+      __samarketNeighborhoodDevSampleState?: {
+        inquiryRooms?: Array<{ id: string; initiator_id: string; peer_id: string }>;
+        chatMessages?: Map<string, Array<{
+          id: string;
+          roomId: string;
+          senderId: string;
+          message: string;
+          messageType?: string;
+          createdAt: string;
+          isRead: boolean;
+          readAt: string | null;
+        }>>;
+      };
+    }).__samarketNeighborhoodDevSampleState;
+    const inquiry = state?.inquiryRooms?.find(
+      (room) => room.id === roomId && (room.initiator_id === userId || room.peer_id === userId)
+    );
+    if (inquiry && state?.chatMessages) {
+      const next = {
+        id: `${roomId}-${Date.now()}`,
+        roomId,
+        senderId: userId,
+        message: messageType === "image" ? text || (imageList.length > 1 ? `사진 ${imageList.length}장` : "사진") : text || "(메시지)",
+        messageType: messageType === "system" ? "system" : messageType === "image" ? "image" : "text",
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        readAt: null,
+      };
+      const current = state.chatMessages.get(roomId) ?? [];
+      current.push(next);
+      state.chatMessages.set(roomId, current);
+      return NextResponse.json({
+        ok: true,
+        message: { id: next.id, createdAt: next.createdAt },
+        fallback: "dev_samples",
+      });
+    }
+  }
+
   const sbAny = sb;
+  const access = await assertVerifiedMemberForAction(sbAny as any, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
   const { data: room } = await sbAny
     .from("chat_rooms")
     .select(
-      "id, room_type, item_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status"
+      "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status"
     )
     .eq("id", roomId)
     .maybeSingle();
@@ -126,8 +339,12 @@ export async function POST(
     initiator_id: string | null;
     peer_id: string | null;
   };
+  const roomTypeSend = String((room as { room_type?: string }).room_type ?? "");
   const adminSuspend = resolveAdminChatSuspension(r);
-  if (adminSuspend.suspended) {
+  /** 매장 주문 채팅은 완료 후에도 연락이 필요해 `is_locked`(보관 플래그)만으로는 전송을 막지 않음 — 읽기 전용은 `is_readonly` */
+  const bypassLockForStoreOrder =
+    roomTypeSend === "store_order" && adminSuspend.reason === "admin_locked";
+  if (adminSuspend.suspended && !bypassLockForStoreOrder) {
     return NextResponse.json({ ok: false, error: ADMIN_CHAT_SUSPENDED_MESSAGE }, { status: 403 });
   }
   if (r.is_readonly === true) {
@@ -147,15 +364,38 @@ export async function POST(
       }
     }
   }
-  const { data: part } = await sbAny
-    .from("chat_room_participants")
-    .select("id, hidden, left_at")
-    .eq("room_id", roomId)
-    .eq("user_id", userId)
+  const roomForGm = room as { room_type?: string; meeting_id?: string | null; related_group_id?: string | null };
+  const { data: openChatForPost } = await sbAny
+    .from("open_chat_rooms")
+    .select("id")
+    .eq("linked_chat_room_id", roomId)
     .maybeSingle();
-  const partRow = part as { hidden?: boolean; left_at?: string | null };
-  if (partRow.hidden || partRow.left_at) {
-    return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
+  const isOpenChatLinkedPost = !!(openChatForPost as { id?: string } | null)?.id;
+
+  if (roomForGm.room_type === "group_meeting" && !isOpenChatLinkedPost) {
+    const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, roomForGm);
+    if (!access.ok) {
+      return NextResponse.json({ ok: false, error: access.error }, { status: access.statusCode });
+    }
+    if (!access.canSend) {
+      return NextResponse.json({ ok: false, error: "종료된 모임 채팅에는 메시지를 보낼 수 없습니다." }, { status: 403 });
+    }
+  } else if (roomForGm.room_type === "store_order") {
+    const accessSoPost = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId);
+    if (!accessSoPost.ok) {
+      return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
+    }
+  } else {
+    const { data: part } = await sbAny
+      .from("chat_room_participants")
+      .select("id, hidden, left_at, is_active")
+      .eq("room_id", roomId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const partRow = part as { hidden?: boolean; left_at?: string | null; is_active?: boolean | null } | null;
+    if (!partRow || partRow.hidden || partRow.left_at || partRow.is_active === false) {
+      return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
+    }
   }
   if (r.request_status === "pending") {
     return NextResponse.json({ ok: false, error: "채팅이 승인된 후에 메시지를 보낼 수 있어요." }, { status: 403 });
@@ -189,9 +429,43 @@ export async function POST(
   }
 
   const bodyText =
-    messageType === "image" ? text || "사진" : text || "(메시지)";
-  const metadata =
-    messageType === "image" ? { imageUrl } : ({} as Record<string, unknown>);
+    messageType === "image"
+      ? text || (imageList.length > 1 ? `사진 ${imageList.length}장` : "사진")
+      : text || "(메시지)";
+  let openChatSenderNickname: string | null = null;
+  let blindReasonForMessage: string | null = null;
+  if (isOpenChatLinkedPost && (openChatForPost as { id?: string } | null)?.id) {
+    const openChatRoomId = String((openChatForPost as { id?: string }).id ?? "");
+    const { data: myOpenChatMember } = await sbAny
+      .from("open_chat_members")
+      .select("nickname, is_message_blinded, message_blind_reason")
+      .eq("room_id", openChatRoomId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const myMemberRow = myOpenChatMember as {
+      nickname?: string | null;
+      is_message_blinded?: boolean | null;
+      message_blind_reason?: string | null;
+    } | null;
+    const nickname = myMemberRow?.nickname;
+    openChatSenderNickname = typeof nickname === "string" && nickname.trim() ? nickname.trim() : null;
+    if (myMemberRow?.is_message_blinded === true) {
+      const note =
+        typeof myMemberRow.message_blind_reason === "string" && myMemberRow.message_blind_reason.trim()
+          ? `:${myMemberRow.message_blind_reason.trim().slice(0, 400)}`
+          : "";
+      blindReasonForMessage = `${OPEN_CHAT_MEMBER_BLIND_REASON_PREFIX}${openChatRoomId}:${userId}${note}`;
+    }
+  }
+  const metadata: Record<string, unknown> =
+    messageType === "image"
+      ? imageList.length > 1
+        ? { imageUrls: imageList, imageUrl: imageList[0] }
+        : { imageUrl: imageList[0] }
+      : {};
+  if (openChatSenderNickname) {
+    metadata.senderNickname = openChatSenderNickname;
+  }
 
   const { data: msg, error: insertErr } = await sbAny
     .from("chat_messages")
@@ -201,25 +475,25 @@ export async function POST(
       message_type: messageType,
       body: bodyText,
       metadata,
+      is_hidden_by_admin: blindReasonForMessage ? true : false,
+      hidden_reason: blindReasonForMessage,
     })
-    .select("id, created_at")
+    .select("id, created_at, is_hidden_by_admin, hidden_reason")
     .single();
 
   if (insertErr) {
     return NextResponse.json({ ok: false, error: insertErr.message ?? "전송 실패" }, { status: 500 });
   }
   const now = (msg as { created_at: string }).created_at ?? new Date().toISOString();
+  const msgId = (msg as { id: string }).id;
   const preview =
-    messageType === "image" ? (text ? text.slice(0, 100) : "사진") : text.slice(0, 100);
-  await sbAny
-    .from("chat_rooms")
-    .update({
-      last_message_id: (msg as { id: string }).id,
-      last_message_at: now,
-      last_message_preview: preview,
-      updated_at: now,
-    })
-    .eq("id", roomId);
+    messageType === "image"
+      ? text
+        ? text.slice(0, 100)
+        : imageList.length > 1
+          ? `사진 ${imageList.length}장`
+          : "사진"
+      : text.slice(0, 100);
 
   const roomAny = room as {
     room_type?: string;
@@ -229,64 +503,45 @@ export async function POST(
     last_message_at?: string | null;
     last_message_preview?: string | null;
   };
-  if (roomAny.room_type === "item_trade" && roomAny.item_id && roomAny.seller_id && roomAny.buyer_id) {
-    try {
-      await touchProductChatAfterItemTradeMessage(
-        sbAny,
-        {
-          item_id: roomAny.item_id,
-          seller_id: roomAny.seller_id,
-          buyer_id: roomAny.buyer_id,
-          last_message_at: now,
-          last_message_preview: preview,
-        },
-        userId
-      );
-    } catch {
-      /* product_chats FK·스키마 이슈 시 채팅 전송은 유지 */
-    }
-  }
+  const updateRoomPromise = sbAny
+    .from("chat_rooms")
+    .update({
+      last_message_id: msgId,
+      last_message_at: now,
+      last_message_preview: preview,
+      updated_at: now,
+    })
+    .eq("id", roomId);
 
-  const roomR = room as { seller_id: string | null; buyer_id: string | null; initiator_id: string; peer_id: string | null };
-  const otherIds = [roomR.seller_id, roomR.buyer_id, roomR.initiator_id, roomR.peer_id].filter(Boolean) as string[];
-  const otherId = otherIds.find((id) => id !== userId);
-  if (otherId) {
-    const { data: otherPart } = await sbAny
-      .from("chat_room_participants")
-      .select("id, unread_count")
-      .eq("room_id", roomId)
-      .eq("user_id", otherId)
-      .maybeSingle();
-    if (otherPart) {
-      const current = (otherPart as { unread_count: number }).unread_count ?? 0;
-      await sbAny
-        .from("chat_room_participants")
-        .update({
-          unread_count: current + 1,
-          hidden: false,
-          left_at: null,
-          updated_at: now,
+  const touchLegacyPromise =
+    roomAny.room_type === "item_trade" && roomAny.item_id && roomAny.seller_id && roomAny.buyer_id
+      ? touchProductChatAfterItemTradeMessage(
+          sbAny,
+          {
+            item_id: roomAny.item_id,
+            seller_id: roomAny.seller_id,
+            buyer_id: roomAny.buyer_id,
+            last_message_at: now,
+            last_message_preview: preview,
+          },
+          userId
+        ).catch(() => {
+          /* product_chats FK·스키마 이슈 시 채팅 전송은 유지 */
         })
-        .eq("room_id", roomId)
-        .eq("user_id", otherId);
-    }
-    try {
-      await sbAny.from("notification_logs").insert({
-        room_id: roomId,
-        user_id: otherId,
-        notification_type: "new_message",
-        delivery_channel: "push",
-        status: "queued",
-        payload_summary: preview,
-        created_at: now,
-      });
-    } catch {
-      /* ignore */
-    }
-  }
+      : Promise.resolve();
+
+  const bumpOtherPromise = bumpUnreadForChatRoomRecipients(sbAny, roomId, userId, now, preview);
+
+  await Promise.all([updateRoomPromise, touchLegacyPromise, bumpOtherPromise]);
 
   return NextResponse.json({
     ok: true,
-    message: { id: (msg as { id: string }).id, createdAt: now },
+    message: {
+      id: (msg as { id: string }).id,
+      createdAt: now,
+      senderNickname: openChatSenderNickname,
+      isHiddenByAdmin: (msg as { is_hidden_by_admin?: boolean }).is_hidden_by_admin === true,
+      hiddenReason: (msg as { hidden_reason?: string | null }).hidden_reason ?? null,
+    },
   });
 }

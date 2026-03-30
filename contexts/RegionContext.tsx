@@ -12,11 +12,11 @@ import type { UserRegion } from "@/lib/regions/types";
 import {
   getCurrentUserId,
   getUserRegions,
-  getPrimaryRegion,
   addUserRegion as addUserRegionMock,
   removeUserRegion as removeUserRegionMock,
   setPrimaryUserRegion as setPrimaryUserRegionMock,
 } from "@/lib/regions/mock-user-regions";
+import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getRegionName } from "@/lib/regions/region-utils";
 
 type RegionContextValue = {
@@ -25,6 +25,8 @@ type RegionContextValue = {
   currentRegion: UserRegion | null;
   /** 홈/검색 필터용 지역명 (currentRegion 기준) */
   currentRegionName: string | null;
+  /** 프로필에 유효한 지역이 있으면 true — 매장 피드·동네 표시의 기준 */
+  profileLocationActive: boolean;
   setCurrentRegion: (id: string) => void;
   setPrimaryRegion: (id: string) => void;
   addRegion: (
@@ -35,6 +37,8 @@ type RegionContextValue = {
   ) => UserRegion;
   removeRegion: (id: string) => boolean;
   refreshUserRegions: () => void;
+  /** 프로필(region_code/region_name) 다시 불러와 primary 에 반영 */
+  refreshProfileLocation: () => Promise<void>;
 };
 
 const RegionContext = createContext<RegionContextValue | null>(null);
@@ -45,31 +49,95 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     getUserRegions(userId)
   );
   const [currentRegionId, setCurrentRegionId] = useState<string | null>(null);
+  const [profileSourcedRegion, setProfileSourcedRegion] = useState<UserRegion | null>(null);
 
   const refreshUserRegions = useCallback(() => {
     setUserRegions(getUserRegions(userId));
   }, [userId]);
 
-  useEffect(() => {
-    refreshUserRegions();
-  }, [refreshUserRegions]);
+  const refreshProfileLocation = useCallback(async () => {
+    try {
+      const res = await fetch("/api/me/profile", { credentials: "include", cache: "no-store" });
+      const json = (await res.json()) as { ok?: boolean; profile?: Record<string, unknown> | null };
+      if (!res.ok || !json?.ok || !json.profile) {
+        setProfileSourcedRegion(null);
+        return;
+      }
+      const p = json.profile;
+      const next = userRegionFromProfileSlice({
+        region_code: typeof p.region_code === "string" ? p.region_code : null,
+        region_name: typeof p.region_name === "string" ? p.region_name : null,
+        address_detail: typeof p.address_detail === "string" ? p.address_detail : null,
+      });
+      setProfileSourcedRegion((prev) => {
+        if (next == null && prev == null) return prev;
+        if (next == null) return null;
+        if (
+          prev &&
+          prev.regionId === next.regionId &&
+          prev.cityId === next.cityId &&
+          prev.barangay === next.barangay &&
+          prev.label === next.label
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    } catch {
+      setProfileSourcedRegion(null);
+    }
+  }, []);
 
-  const primaryRegion = useMemo(
+  useEffect(() => {
+    void refreshProfileLocation();
+  }, [refreshProfileLocation]);
+
+  const mockPrimaryRegion = useMemo(
     () => userRegions.find((r) => r.isPrimary) ?? userRegions[0] ?? null,
     [userRegions]
   );
 
+  /** 내정보 프로필 주소가 채워져 있으면 mock 동네보다 우선 */
+  const primaryRegion = profileSourcedRegion ?? mockPrimaryRegion;
+
   const currentRegion = useMemo(() => {
     if (currentRegionId) {
+      if (profileSourcedRegion && currentRegionId === profileSourcedRegion.id) {
+        return profileSourcedRegion;
+      }
       const r = userRegions.find((r) => r.id === currentRegionId);
       if (r) return r;
     }
     return primaryRegion;
-  }, [userRegions, currentRegionId, primaryRegion]);
+  }, [userRegions, currentRegionId, primaryRegion, profileSourcedRegion]);
 
   useEffect(() => {
     if (primaryRegion && !currentRegionId) setCurrentRegionId(primaryRegion.id);
   }, [primaryRegion?.id, currentRegionId]);
+
+  /** 프로필 지역이 있으면 현재 동네 id 를 프로필 행으로 맞춤 — userRegions 참조 변경만으로는 재실행하지 않음 */
+  useEffect(() => {
+    if (!profileSourcedRegion) return;
+    setCurrentRegionId((prev) =>
+      prev === profileSourcedRegion.id ? prev : profileSourcedRegion.id
+    );
+  }, [
+    profileSourcedRegion?.id,
+    profileSourcedRegion?.regionId,
+    profileSourcedRegion?.cityId,
+    profileSourcedRegion?.barangay,
+    profileSourcedRegion?.label,
+  ]);
+
+  /** 프로필 지역이 비면 profile-location 선택 상태만 mock 으로 복귀 */
+  useEffect(() => {
+    if (profileSourcedRegion) return;
+    setCurrentRegionId((prev) => {
+      if (prev !== "profile-location") return prev;
+      const mockPrimary = userRegions.find((r) => r.isPrimary) ?? userRegions[0];
+      return mockPrimary?.id ?? null;
+    });
+  }, [profileSourcedRegion, userRegions]);
 
   const currentRegionName = currentRegion
     ? getRegionName(currentRegion.regionId)
@@ -112,28 +180,34 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     [userId, refreshUserRegions]
   );
 
+  const profileLocationActive = profileSourcedRegion != null;
+
   const value = useMemo(
     () => ({
       userRegions,
       primaryRegion,
       currentRegion,
       currentRegionName,
+      profileLocationActive,
       setCurrentRegion,
       setPrimaryRegion,
       addRegion,
       removeRegion,
       refreshUserRegions,
+      refreshProfileLocation,
     }),
     [
       userRegions,
       primaryRegion,
       currentRegion,
       currentRegionName,
+      profileLocationActive,
       setCurrentRegion,
       setPrimaryRegion,
       addRegion,
       removeRegion,
       refreshUserRegions,
+      refreshProfileLocation,
     ]
   );
 

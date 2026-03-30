@@ -118,6 +118,8 @@ export async function listCommunityFeedPosts(options: {
   /** 기본 최신순. 드롭다운·URL `sort`와 연동 */
   feedSort?: CommunityFeedSortMode;
   limit?: number;
+  /** 페이지 상단에서 이미 topic slug 유효성 검사를 끝낸 경우 중복 조회 생략 */
+  skipTopicValidation?: boolean;
 }): Promise<CommunityFeedPostDTO[]> {
   let sb: Sb;
   try {
@@ -130,12 +132,15 @@ export async function listCommunityFeedPosts(options: {
   const limit = Math.min(Math.max(options.limit ?? 40, 1), 80);
   const rawTopic = options.topicSlug?.trim().toLowerCase() || null;
   const feedSort: CommunityFeedSortMode = options.feedSort ?? "latest";
+  const skipTopicValidation = options.skipTopicValidation === true;
 
   const sortPopular = feedSort === "popular";
   const sortRecommended = feedSort === "recommended";
   let topicFilter: string | null = null;
 
-  if (rawTopic) {
+  if (rawTopic && skipTopicValidation) {
+    topicFilter = rawTopic;
+  } else if (rawTopic) {
     const { data: sec } = await sb
       .from("community_sections")
       .select("id")
@@ -358,15 +363,27 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
 export async function listCommunityPostComments(postId: string): Promise<CommunityCommentDTO[]> {
   try {
     const sb = getSupabaseServer();
-    const { data, error } = await sb
+    const r1 = await sb
       .from("community_comments")
-      .select("id, post_id, user_id, parent_id, content, created_at")
+      .select("id, post_id, user_id, parent_id, content, created_at, is_deleted")
       .eq("post_id", postId)
       .eq("is_hidden", false)
       .order("created_at", { ascending: true });
+    let data = r1.data;
+    let error = r1.error;
+    if (error && isMissingDbColumnError(error, "is_hidden")) {
+      const r2 = await sb
+        .from("community_comments")
+        .select("id, post_id, user_id, parent_id, content, created_at, is_deleted")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+      data = r2.data;
+      error = r2.error;
+    }
     if (error || !data?.length) return [];
 
-    const rows = data as Record<string, unknown>[];
+    const rows = (data as Record<string, unknown>[]).filter((r) => r.is_deleted !== true);
+    if (rows.length === 0) return [];
     const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
     const nickMap = await fetchNicknamesForUserIds(sb as never, uids);
 

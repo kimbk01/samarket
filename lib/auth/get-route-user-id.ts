@@ -1,14 +1,16 @@
 import { readKasamaDevUserIdFromRequest } from "@/lib/auth/kasama-session-cookies";
-import { isProductionDeploy } from "@/lib/config/deploy-surface";
+import { allowKasamaDevSession, isProductionDeploy } from "@/lib/config/deploy-surface";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
 /**
  * Route Handler에서 현재 사용자 UUID.
- * 아이디 로그인(test_users) 쿠키 우선 → Supabase Auth 세션.
- * production 배포 구간에서는 테스트 쿠키 무시(Supabase Auth 단일화).
+ * 아이디 로그인(test_users) 쿠키(Kasama) 우선 → Supabase Auth 세션.
+ *
+ * Kasama: production 이 아니고 `allowKasamaDevSession()` 일 때만 인정.
+ * 로컬 기본 허용 / `NEXT_PUBLIC_DISABLE_KASAMA_SESSION=1` 로 끄면 `proxy`·`api-session` 과 맞춤.
  */
 export async function getRouteUserId(): Promise<string | null> {
-  if (!isProductionDeploy()) {
+  if (!isProductionDeploy() && allowKasamaDevSession()) {
     const testUid = await readKasamaDevUserIdFromRequest();
     if (testUid) return testUid;
   }

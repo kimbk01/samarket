@@ -36,9 +36,13 @@ const DEFAULT_SECTIONS: MyPageSectionRow[] = [
 export async function getMyPageData(): Promise<MyPageData> {
   const user = getCurrentUser();
   const userId = user?.id ?? null;
-  const profile = await getMyProfile();
   const settings = userId ? getMySettings(userId) : {};
   const bannerHidden = settings.app_banner_hidden === true;
+
+  const [profile, hasOwnerStore] = await Promise.all([
+    getMyProfile(),
+    fetchMeHasOwnerStores(),
+  ]);
 
   let banner: MyPageBannerRow | null = null;
   let services = DEFAULT_SERVICES;
@@ -48,27 +52,44 @@ export async function getMyPageData(): Promise<MyPageData> {
   if (supabase) {
     try {
       if (!bannerHidden) {
-        const { data: bannerData } = await supabase
-          .from("my_page_banners")
-          .select("*")
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (bannerData) banner = bannerData as MyPageBannerRow;
+        const [bannerRes, servicesRes, sectionsRes] = await Promise.all([
+          supabase
+            .from("my_page_banners")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("my_services")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("my_page_sections")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+        ]);
+        if (bannerRes.data) banner = bannerRes.data as MyPageBannerRow;
+        if (servicesRes.data?.length) services = servicesRes.data as MyServiceRow[];
+        if (sectionsRes.data?.length) sections = sectionsRes.data as MyPageSectionRow[];
+      } else {
+        const [servicesRes, sectionsRes] = await Promise.all([
+          supabase
+            .from("my_services")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("my_page_sections")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+        ]);
+        if (servicesRes.data?.length) services = servicesRes.data as MyServiceRow[];
+        if (sectionsRes.data?.length) sections = sectionsRes.data as MyPageSectionRow[];
       }
-      const { data: servicesData } = await supabase
-        .from("my_services")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      if (servicesData?.length) services = servicesData as MyServiceRow[];
-      const { data: sectionsData } = await supabase
-        .from("my_page_sections")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      if (sectionsData?.length) sections = sectionsData as MyPageSectionRow[];
     } catch {
       // keep defaults
     }
@@ -82,7 +103,6 @@ export async function getMyPageData(): Promise<MyPageData> {
   const businessProfile = uid ? getBusinessProfileByOwnerUserId(uid) : null;
   const isBusinessMember = businessProfile?.status === "active";
   const isAdmin = isAdminUser(user);
-  const hasOwnerStore = await fetchMeHasOwnerStores();
 
   return {
     profile,

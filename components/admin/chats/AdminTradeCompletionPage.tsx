@@ -156,7 +156,7 @@ export function AdminTradeCompletionPage() {
                         type="button"
                         disabled={busyId === r.roomId}
                         onClick={() => void confirmBuyer(r.roomId)}
-                        className="rounded border border-violet-300 bg-violet-50 px-2 py-1 text-[11px] font-medium text-violet-900 hover:bg-violet-100 disabled:opacity-50"
+                        className="rounded border border-gray-300 bg-signature/5 px-2 py-1 text-[11px] font-medium text-gray-900 hover:bg-signature/10 disabled:opacity-50"
                       >
                         {busyId === r.roomId ? "처리 중…" : "관리자 확인"}
                       </button>

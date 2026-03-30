@@ -93,8 +93,28 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">지역</dt>
-            <dd>{profile.addressLabel || `${profile.region} ${profile.city}` || "-"}</dd>
+            <dt className="text-gray-500">지역·주소</dt>
+            <dd className="space-y-1 text-gray-700">
+              <div>
+                {[profile.region, profile.city].filter((x) => String(x ?? "").trim()).join(" · ") ||
+                  "—"}
+              </div>
+              {(profile.addressStreetLine ?? "").trim() ||
+              (profile.addressDetail ?? "").trim() ? (
+                <>
+                  {(profile.addressStreetLine ?? "").trim() ? (
+                    <div className="text-[13px]">{(profile.addressStreetLine ?? "").trim()}</div>
+                  ) : null}
+                  {(profile.addressDetail ?? "").trim() ? (
+                    <div className="text-[13px] text-gray-600">
+                      {(profile.addressDetail ?? "").trim()}
+                    </div>
+                  ) : null}
+                </>
+              ) : (profile.addressLabel ?? "").trim() ? (
+                <div className="text-[13px]">{(profile.addressLabel ?? "").trim()}</div>
+              ) : null}
+            </dd>
           </div>
           <div>
             <dt className="text-gray-500">상품 / 후기 / 평점</dt>

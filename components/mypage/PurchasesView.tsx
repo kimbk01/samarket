@@ -6,46 +6,35 @@ import { getAppSettings } from "@/lib/app-settings";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import {
-  countPurchasesByTab,
-  getPurchaseListTabId,
-  type PurchaseListTabId,
-} from "@/lib/mypage/purchase-list-tabs";
+  BUYER_MANAGE_TABS,
+  countBuyerManageTabs,
+  getBuyerManageTabId,
+  type BuyerManageTabId,
+} from "@/lib/mypage/buyer-manage-tabs";
 import {
   PurchaseHistoryCard,
   type PurchaseHistoryRow,
 } from "@/components/mypage/purchases/PurchaseHistoryCard";
-import { PurchaseListTabBar } from "@/components/mypage/purchases/PurchaseListTabBar";
+import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
+import { APP_TOP_MENU_ROW1_BASE_RADIUS_4 } from "@/lib/ui/app-top-menu";
+import {
+  fetchTradeHistoryPurchasesBySession,
+  invalidateTradeHistoryCache,
+} from "@/lib/mypage/trade-history-client";
 
-export function PurchasesView() {
+export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } = {}) {
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [items, setItems] = useState<PurchaseHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<PurchaseListTabId>("all");
+  const [tab, setTab] = useState<BuyerManageTabId>(initialTab ?? "trading");
 
-  const load = useCallback((opts?: { silent?: boolean }) => {
+  const load = useCallback((opts?: { silent?: boolean; force?: boolean }) => {
     const silent = !!opts?.silent;
-    const user = getCurrentUser();
-    const uid = user?.id?.trim();
-    if (!uid) {
-      setItems([]);
-      if (!silent) setLoading(false);
-      return;
-    }
     if (!silent) setLoading(true);
-    fetch("/api/my/purchases", { cache: "no-store" })
-      .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { items?: PurchaseHistoryRow[] };
-        if (!r.ok) {
-          if (!silent) setItems([]);
-          return;
-        }
-        const list = Array.isArray(d.items) ? d.items : [];
-        setItems(
-          list.map((x) => ({
-            ...x,
-            hasBuyerReview: !!x.hasBuyerReview,
-          }))
-        );
+    /** 서버 세션 쿠키 기준 — `getCurrentUser()` 지연으로 첫 페인트가 막히지 않게 */
+    fetchTradeHistoryPurchasesBySession({ force: !!opts?.force })
+      .then((list) => {
+        setItems(list);
       })
       .catch(() => {
         if (!silent) setItems([]);
@@ -55,12 +44,19 @@ export function PurchasesView() {
       });
   }, []);
 
+  const reload = useCallback(() => {
+    void load({ force: true });
+  }, [load]);
+
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
-    const onAuth = () => load();
+    const onAuth = () => {
+      invalidateTradeHistoryCache();
+      void load({ force: true });
+    };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
     return () => {
       window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
@@ -72,14 +68,18 @@ export function PurchasesView() {
   const viewerId = getCurrentUser()?.id?.trim() ?? "";
 
   const counts = useMemo(
-    () => countPurchasesByTab(items, viewerId),
+    () => countBuyerManageTabs(items, viewerId),
     [items, viewerId]
   );
 
   const filtered = useMemo(() => {
-    if (tab === "all") return items;
-    return items.filter((row) => getPurchaseListTabId(row, viewerId) === tab);
+    if (!viewerId) return [];
+    return items.filter((row) => getBuyerManageTabId(row, viewerId) === tab);
   }, [items, tab, viewerId]);
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   if (loading) {
     return <p className="py-12 text-center text-[14px] text-gray-500">불러오는 중...</p>;
@@ -93,19 +93,26 @@ export function PurchasesView() {
     );
   }
 
-  const emptyTabMsg: Record<Exclude<PurchaseListTabId, "all">, string> = {
-    completed: "거래완료된 내역이 없어요.",
-    inquiry: "문의 중인 채팅이 없어요.",
-    trading: "진행 중인 거래가 없어요.",
+  const emptyTabMsg: Record<BuyerManageTabId, string> = {
+    trading: "진행 중인 구매가 없어요.",
+    completed: "구매완료·후기까지 끝난 내역이 없어요.",
+    cancelled: "취소된 구매가 없어요.",
+    review_wait: "후기를 작성할 수 있는 단계인 거래가 없어요.",
   };
 
   return (
     <div>
-      <PurchaseListTabBar active={tab} counts={counts} onChange={setTab} />
+      <div className="mt-2">
+      <TradeManagementTabBar
+        tabs={BUYER_MANAGE_TABS}
+        active={tab}
+        counts={counts}
+        onChange={setTab}
+        tabBaseClassName={APP_TOP_MENU_ROW1_BASE_RADIUS_4}
+      />
+      </div>
       {filtered.length === 0 ? (
-        <p className="py-10 text-center text-[14px] text-gray-500">
-          {tab === "all" ? null : emptyTabMsg[tab]}
-        </p>
+        <p className="py-10 text-center text-[14px] text-gray-500">{emptyTabMsg[tab]}</p>
       ) : (
         <ul className="space-y-2">
           {filtered.map((row) => (
@@ -114,7 +121,7 @@ export function PurchasesView() {
               row={row}
               viewerId={viewerId}
               currency={currency}
-              onReload={load}
+              onReload={reload}
             />
           ))}
         </ul>

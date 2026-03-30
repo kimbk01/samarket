@@ -24,7 +24,7 @@ import {
 import { useMemberOrdersVersion } from "@/lib/member-orders/use-member-orders-store";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 
-const BASE = "/mypage/store-orders";
+const BASE = "/my/store-orders";
 
 export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
   const cv = useOrderChatVersion();
@@ -58,7 +58,7 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-16 text-center">
         <p className="text-sm text-gray-600">회원 역할로 전환한 뒤 채팅을 이용해 주세요.</p>
-        <Link href={BASE} className="mt-4 inline-block text-violet-700 underline">
+        <Link href={BASE} className="mt-4 inline-block text-signature underline">
           주문 목록
         </Link>
       </div>
@@ -69,7 +69,7 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-16 text-center">
         <p className="text-sm text-gray-600">채팅을 열 수 없어요.</p>
-        <Link href={BASE} className="mt-4 inline-block text-violet-700 underline">
+        <Link href={BASE} className="mt-4 inline-block text-signature underline">
           주문 목록
         </Link>
       </div>
@@ -82,7 +82,7 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
         <p className="text-sm text-gray-600">취소된 주문은 주문 채팅을 열 수 없습니다.</p>
         <Link
           href={`${BASE}/${encodeURIComponent(orderId)}`}
-          className="mt-4 inline-block text-violet-700 underline"
+          className="mt-4 inline-block text-signature underline"
         >
           주문 상세로
         </Link>
@@ -101,6 +101,9 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
           <span className="w-10" />
         </div>
         <ChatHubTopTabs active="order" />
+        <p className="border-t border-gray-100 bg-gray-50 px-4 py-2 text-center text-[11px] leading-relaxed text-gray-600">
+          주문 상태 확인, 취소, 환불 요청은 주문 상세에서 진행하고 매장과의 대화만 여기서 이어가세요.
+        </p>
         <OrderChatProgressStrip orderStatus={order.order_status} orderFlow={flow} />
         <OrderChatHeader
           sticky={false}

@@ -25,22 +25,20 @@ export async function GET(
   }
 
   const sbAny = sb;
-  const { data: room, error: roomErr } = await sbAny
-    .from("chat_rooms")
-    .select("*")
-    .eq("id", roomId)
-    .maybeSingle();
+  const [{ data: room, error: roomErr }, { data: allParticipants, error: partListErr }] = await Promise.all([
+    sbAny.from("chat_rooms").select("*").eq("id", roomId).maybeSingle(),
+    sbAny.from("chat_room_participants").select("*").eq("room_id", roomId),
+  ]);
 
   if (roomErr || !room) {
     return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
-  const { data: partData, error: partError } = await sbAny
-    .from("chat_room_participants")
-    .select("*")
-    .eq("room_id", roomId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (partError || !partData) {
+  if (partListErr) {
+    return NextResponse.json({ error: partListErr.message }, { status: 500 });
+  }
+  const rows = (allParticipants ?? []) as { user_id?: string }[];
+  const me = rows.find((p) => p.user_id === userId);
+  if (!me) {
     return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
   }
 
@@ -73,7 +71,7 @@ export async function GET(
       createdAt: (room as { created_at: string }).created_at,
       reopenedAt: (room as { reopened_at: string | null }).reopened_at,
     },
-    participants: (await sbAny.from("chat_room_participants").select("*").eq("room_id", roomId)).data ?? [],
+    participants: rows,
     item,
   });
 }

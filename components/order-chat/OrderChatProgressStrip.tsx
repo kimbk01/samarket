@@ -43,9 +43,9 @@ export function OrderChatProgressStrip({
                   isTerminal
                     ? "bg-gray-100 text-gray-300"
                     : on
-                      ? "bg-violet-600 text-white ring-2 ring-violet-200"
+                      ? "bg-signature text-white ring-2 ring-gray-300"
                       : done
-                        ? "bg-violet-100 text-violet-800"
+                        ? "bg-signature/10 text-gray-800"
                         : "bg-gray-100 text-gray-400"
                 }`}
               >
@@ -53,7 +53,7 @@ export function OrderChatProgressStrip({
               </span>
               <span
                 className={`text-center text-[9px] font-medium leading-tight sm:text-[10px] ${
-                  isTerminal ? "text-gray-300" : on ? "text-violet-800" : done ? "text-gray-700" : "text-gray-400"
+                  isTerminal ? "text-gray-300" : on ? "text-gray-800" : done ? "text-gray-700" : "text-gray-400"
                 }`}
               >
                 {label}

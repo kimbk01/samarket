@@ -7,10 +7,12 @@ import {
   getCategoryOptionsFromProducts,
   type PostsManagementFilters,
   type PostsManagementSortKey,
+  type PostsManagementTab,
 } from "@/lib/admin-products/posts-management-utils";
 import type { Product, ProductStatus } from "@/lib/types/product";
 
 export interface AdminPostsManagementFilterBarProps {
+  tab: PostsManagementTab;
   filters: PostsManagementFilters;
   products: Product[];
   sellerSearch: string;
@@ -25,6 +27,7 @@ export interface AdminPostsManagementFilterBarProps {
 }
 
 export function AdminPostsManagementFilterBar({
+  tab,
   filters,
   products,
   sellerSearch,
@@ -42,6 +45,22 @@ export function AdminPostsManagementFilterBar({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        {tab === "jobs" ? (
+          <select
+            value={filters.jobListingKind}
+            onChange={(e) =>
+              onFiltersChange({
+                ...filters,
+                jobListingKind: e.target.value as "" | "hire" | "work",
+              })
+            }
+            className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+          >
+            <option value="">구인·구직 전체</option>
+            <option value="hire">사람 구해요</option>
+            <option value="work">일 찾고 있어요</option>
+          </select>
+        ) : null}
         <select
           value={filters.dealType}
           onChange={(e) =>

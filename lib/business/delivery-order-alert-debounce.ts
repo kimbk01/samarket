@@ -10,5 +10,5 @@ export function playDeliveryOrderAlertDebounced(storeId: string | null): void {
   const last = lastPlayByStore.get(k) ?? 0;
   if (n - last < GAP_MS) return;
   lastPlayByStore.set(k, n);
-  void playStoreOrderDeliveryAlertSound(storeId?.trim() ? storeId : undefined);
+  void playStoreOrderDeliveryAlertSound();
 }

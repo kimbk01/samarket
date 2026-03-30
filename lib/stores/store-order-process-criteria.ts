@@ -54,7 +54,7 @@ export function labelForOwnerTransition(
   if (next === "arrived") return "배송지도착";
   if (next === "completed") return "주문완료";
   if (next === "cancelled") {
-    return current === "pending" ? "주문 거절" : "주문 취소";
+    return current === "pending" ? "주문 거절" : "주문취소";
   }
   return next;
 }

@@ -2,6 +2,7 @@
 
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { CategoryTypeBadge } from "@/components/admin/categories/CategoryTypeBadge";
+import { CategoryIcon } from "@/components/home/CategoryIcon";
 
 function subtopicsForParent(all: CategoryWithSettings[] | undefined, parentId: string): CategoryWithSettings[] {
   if (!all?.length) return [];
@@ -20,6 +21,8 @@ interface MenuManagementTableProps {
   /** 중고 메뉴에서만 주제(2행 칩) 관리 버튼 표시 */
   tradeSubtopicsEnabled?: boolean;
   onToggleShowOnMenu: (id: string, current: boolean) => void | Promise<void>;
+  /** 홈 FAB 글쓰기 런처(quick_create_enabled) */
+  onToggleQuickLauncher?: (id: string, current: boolean) => void | Promise<void>;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onMoveUp: (id: string) => void | Promise<void>;
@@ -33,6 +36,7 @@ export function MenuManagementTable({
   showTypeColumn = false,
   tradeSubtopicsEnabled = false,
   onToggleShowOnMenu,
+  onToggleQuickLauncher,
   onEdit,
   onDelete,
   onMoveUp,
@@ -60,6 +64,8 @@ export function MenuManagementTable({
             <th className="px-3 py-2 text-left font-medium text-gray-700">slug</th>
             <th className="px-3 py-2 text-left font-medium text-gray-700">기능 선택</th>
             <th className="px-3 py-2 text-left font-medium text-gray-700">메뉴·칩 노출</th>
+            <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-gray-700">글쓰기 런처</th>
+            <th className="px-3 py-2 text-center font-medium text-gray-700">아이콘</th>
             {tradeSubtopicsEnabled ? (
               <th className="min-w-[160px] max-w-[240px] px-3 py-2 text-left font-medium text-gray-700">주제 목록</th>
             ) : null}
@@ -112,6 +118,31 @@ export function MenuManagementTable({
                     {c.show_in_home_chips !== false ? "적용" : "미적용"}
                   </span>
                 </label>
+              </td>
+              <td className="px-3 py-2 text-center">
+                {onToggleQuickLauncher ? (
+                  <label
+                    className="inline-flex cursor-pointer flex-col items-center gap-0.5"
+                    title="홈·거래 화면 + 메뉴의 글쓰기 주제 목록에 넣습니다."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={c.quick_create_enabled === true}
+                      onChange={() => onToggleQuickLauncher(c.id, c.quick_create_enabled === true)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-[10px] text-gray-500">{c.quick_create_enabled ? "ON" : "OFF"}</span>
+                  </label>
+                ) : (
+                  <span className="text-[12px] text-gray-400">—</span>
+                )}
+              </td>
+              <td className="px-3 py-2">
+                <div className="flex justify-center" title={`icon_key: ${c.icon_key}`}>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-200 text-neutral-700">
+                    <CategoryIcon iconKey={c.icon_key} className="size-[18px] text-current" />
+                  </span>
+                </div>
               </td>
               {tradeSubtopicsEnabled ? (
                 <td className="max-w-[240px] align-top px-3 py-2 text-[12px] text-gray-700">

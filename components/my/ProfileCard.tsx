@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ProfileRow } from "@/lib/profile/types";
+import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { ProfileStatRow } from "./ProfileStatRow";
 import { ProfileActionButtons } from "./ProfileActionButtons";
 
@@ -22,7 +23,8 @@ export interface ProfileCardProps {
 
 export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCardProps) {
   const memberLabel = getMemberTypeLabel(profile);
-  const regionDisplay = profile.region_name || profile.region_code || "지역 미설정";
+  const regionLines = resolveProfileLocationAddressLines(profile);
+  const regionDisplay = regionLines.length > 0 ? regionLines.join("\n") : "지역 미설정";
 
   return (
     <div className="mx-auto max-w-[480px] rounded-xl bg-white p-4 shadow-sm">
@@ -56,7 +58,7 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-[13px] text-gray-500">{regionDisplay}</p>
+          <p className="mt-0.5 whitespace-pre-line text-[13px] text-gray-500">{regionDisplay}</p>
           {extraStat && (
             <Link
               href="/my/reviews"

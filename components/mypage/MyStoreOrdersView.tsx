@@ -1,21 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { MemberNotificationBell } from "@/components/member-orders/MemberNotificationBell";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
+import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MemberOrderStatusBadge } from "@/components/member-orders/MemberOrderStatusBadge";
 import { MemberOrderTabs } from "@/components/member-orders/MemberOrderTabs";
 import { MEMBER_STATUS_USER_MESSAGE } from "@/lib/member-orders/member-order-labels";
 import type { MemberOrderStatus, MemberOrderTab } from "@/lib/member-orders/types";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import {
+  APP_MAIN_COLUMN_CLASS,
+  APP_MAIN_GUTTER_NEG_X_CLASS,
+  APP_MAIN_GUTTER_X_CLASS,
+} from "@/lib/ui/app-content-layout";
+import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
+import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
+import type { ChatRoom } from "@/lib/types/chat";
+import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
+import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 
 type ItemRow = {
   id: string;
+  product_id?: string;
   product_title_snapshot: string;
+  price_snapshot?: number;
   qty: number;
+  options_snapshot_json?: unknown;
 };
 
 type OrderRow = {
@@ -23,6 +37,8 @@ type OrderRow = {
   order_no: string;
   store_id: string;
   store_name: string;
+  /** `GET /api/me/store-orders` — 매장 상세·장바구니 경로용 */
+  store_slug?: string;
   total_amount: number;
   payment_amount: number;
   payment_status: string;
@@ -32,6 +48,10 @@ type OrderRow = {
   created_at: string;
   auto_complete_at?: string | null;
   items?: ItemRow[];
+  /** `GET /api/me/store-orders` — 완료·미작성·store_reviews 테이블 있을 때만 true */
+  can_submit_review?: boolean;
+  /** 매장 프로필(채팅 목록 카드와 동일 톤의 썸네일) */
+  store_profile_image_url?: string | null;
 };
 
 const MEMBER_STATUSES = new Set<string>([
@@ -79,15 +99,22 @@ function tabCounts(rows: OrderRow[]): Record<MemberOrderTab, number> {
   return o;
 }
 
-function titleSummary(items: ItemRow[] | undefined) {
-  if (!items?.length) return "—";
-  const first = items[0]!.product_title_snapshot;
-  const rest = items.length - 1;
-  return rest > 0 ? `${first} 외 ${rest}건` : first;
-}
-
 function isDeliveryFulfillment(ft: string) {
   return ft === "local_delivery" || ft === "shipping";
+}
+
+function unreadByStoreOrderIdFromRooms(rooms: ChatRoom[]): Record<string, number> {
+  const m: Record<string, number> = {};
+  for (const r of rooms) {
+    const gc = r.generalChat;
+    if (gc?.kind !== "store_order") continue;
+    const oid = gc.storeOrderId?.trim();
+    if (!oid) continue;
+    const u = Math.max(0, Math.floor(Number(r.unreadCount) || 0));
+    if (u <= 0) continue;
+    m[oid] = (m[oid] ?? 0) + u;
+  }
+  return m;
 }
 
 function statusUserLine(status: string) {
@@ -97,17 +124,89 @@ function statusUserLine(status: string) {
   return BUYER_ORDER_STATUS_LABEL[status] ?? status;
 }
 
+/** 피드형 메타 — 페이스북 스타일 상대 시각 */
+function formatFeedRelativeTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const diff = Date.now() - t;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 45) return "방금 전";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}일 전`;
+  return new Date(iso).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+}
+
+const FB_MUTED = "text-[#65676B] dark:text-[#B0B3B8]";
+const FB_BODY = "text-[#050505] dark:text-[#E4E6EB]";
+const FB_HOVER_ROW = "hover:bg-[#F0F2F5] dark:hover:bg-[#3A3B3C]";
+const FB_DIVIDER = "border-[#CED0D4]/80 dark:border-[#3E4042]";
+
+function FeedActionRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className={`flex min-h-[44px] divide-x divide-[#CED0D4]/70 dark:divide-[#3E4042] border-t ${FB_DIVIDER}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function reorderPayloadFromListOrder(o: OrderRow): CompletedOrderReorderPayload | null {
+  if (o.order_status !== "completed") return null;
+  const slug = String(o.store_slug ?? "").trim();
+  if (!slug) return null;
+  const items = (o.items ?? [])
+    .map((it) => ({
+      product_id: String((it as ItemRow).product_id ?? "").trim(),
+      product_title_snapshot: it.product_title_snapshot,
+      price_snapshot: Math.round(Number((it as ItemRow).price_snapshot) || 0),
+      qty: Math.max(1, Math.floor(Number(it.qty) || 1)),
+      options_snapshot_json: (it as ItemRow).options_snapshot_json,
+    }))
+    .filter((it) => it.product_id.length > 0);
+  if (!items.length) return null;
+  return {
+    storeId: o.store_id,
+    storeSlug: slug,
+    storeName: o.store_name,
+    fulfillmentType: o.fulfillment_type,
+    items,
+  };
+}
+
 function MyStoreOrderCard({
   order: o,
   detailHref,
+  chatHref,
+  reviewHref,
+  canSubmitReview,
+  chatDisabled,
+  orderChatUnread,
   onCancelPending,
   cancelBusy,
+  allowDelete,
+  onDelete,
+  deleteBusy,
 }: {
   order: OrderRow;
   detailHref: string;
+  chatHref: string;
+  reviewHref: string;
+  canSubmitReview: boolean;
+  chatDisabled: boolean;
+  /** 주문 채팅 미읽음 — 배달/포장 뱃지 우측 상단 표시 */
+  orderChatUnread: number;
   onCancelPending?: (id: string) => void;
   cancelBusy?: boolean;
+  allowDelete?: boolean;
+  onDelete?: (id: string) => void;
+  deleteBusy?: boolean;
 }) {
+  const reorderPayload = reorderPayloadFromListOrder(o);
   const activeTab = [
     "pending",
     "accepted",
@@ -119,86 +218,178 @@ function MyStoreOrderCard({
   const canCancelHere = o.order_status === "pending";
   const delivery = isDeliveryFulfillment(o.fulfillment_type);
 
+  const storeImg = o.store_profile_image_url?.trim() || "";
+  const relTime = formatFeedRelativeTime(o.created_at);
+  const actionCell = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[15px] font-semibold transition-colors ${FB_BODY} ${FB_HOVER_ROW}`;
+  const actionCellSignature = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[15px] font-semibold transition-colors text-signature ${FB_HOVER_ROW}`;
+
   return (
     <article
-      className={`rounded-2xl border bg-white p-4 shadow-sm ${
-        activeTab ? "border-violet-200 ring-1 ring-violet-100" : "border-gray-100"
+      className={`relative overflow-hidden rounded-lg bg-white shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08] ${
+        activeTab ? "before:absolute before:bottom-0 before:left-0 before:top-0 before:w-[3px] before:bg-signature" : ""
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[15px] font-bold text-gray-900">{o.store_name || "매장"}</p>
-          <p className="font-mono text-[11px] text-gray-400">{o.order_no}</p>
-          <p className="mt-1 text-xs text-gray-400">
-            {new Date(o.created_at).toLocaleString("ko-KR")}
-          </p>
+      <div className="px-3 pb-2 pt-3 sm:px-4">
+        <div className="flex gap-2.5">
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4E6EB] dark:bg-[#3A3B3C]">
+            {storeImg ? (
+              <img
+                src={storeImg}
+                alt={o.store_name || "매장"}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className={`flex h-full w-full items-center justify-center text-[11px] font-semibold ${FB_MUTED}`}>
+                매장
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className={`truncate text-[15px] font-semibold leading-snug sm:text-[17px] ${FB_BODY}`}>
+                  {o.store_name || "매장"}
+                </p>
+                <p className={`mt-0.5 text-[13px] leading-snug ${FB_MUTED}`}>
+                  <span>{relTime}</span>
+                  <span className="mx-1 text-[#CED0D4] dark:text-[#5F6164]" aria-hidden>
+                    ·
+                  </span>
+                  <span className="font-mono text-[12px]">{o.order_no}</span>
+                </p>
+                {o.buyer_note?.trim() ? (
+                  <p className={`mt-1.5 text-[13px] font-medium text-amber-800 dark:text-amber-200`}>
+                    요청 사항 있음
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5">
+                {isMemberOrderStatus(o.order_status) ? (
+                  <MemberOrderStatusBadge status={o.order_status} />
+                ) : (
+                  <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-[#F0F2F5] px-2 py-0.5 text-[11px] font-bold text-gray-800 dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
+                    {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
+                  </span>
+                )}
+                <span className="relative inline-flex shrink-0 overflow-visible">
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                      delivery
+                        ? "bg-[#E7F3FF] text-[#1877F2] dark:bg-signature/15 dark:text-signature"
+                        : "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/25 dark:text-emerald-200"
+                    }`}
+                  >
+                    {delivery ? "배달" : "포장"}
+                  </span>
+                  {orderChatUnread > 0 ? (
+                    <span
+                      className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F02849] px-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#242526]"
+                      aria-label={`주문 채팅 읽지 않은 메시지 ${orderChatUnread > 99 ? "99+" : orderChatUnread}건`}
+                    >
+                      {orderChatUnread > 99 ? "99+" : orderChatUnread}
+                    </span>
+                  ) : null}
+                </span>
+                {allowDelete && onDelete ? (
+                  <button
+                    type="button"
+                    onClick={() => onDelete(o.id)}
+                    disabled={deleteBusy}
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold leading-none text-[#65676B] transition-colors hover:bg-[#F0F2F5] disabled:opacity-50 dark:text-[#B0B3B8] dark:hover:bg-[#3A3B3C]`}
+                    aria-label="주문 내역 삭제"
+                    title="내역에서 삭제"
+                  >
+                    {deleteBusy ? "…" : "×"}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className={`mt-3 border-t ${FB_DIVIDER} pt-3`}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className={`text-[15px] font-normal ${FB_MUTED}`}>결제 금액</span>
+                <span className={`text-[17px] font-bold tabular-nums sm:text-[20px] ${FB_BODY}`}>
+                  {formatMoneyPhp(o.payment_amount)}
+                </span>
+              </div>
+              <p className={`mt-2 text-[15px] leading-snug ${FB_MUTED}`}>{statusUserLine(o.order_status)}</p>
+              {(o.order_status === "ready_for_pickup" ||
+                o.order_status === "delivering" ||
+                o.order_status === "arrived") &&
+              o.auto_complete_at ? (
+                <p className={`mt-2 text-[13px] leading-snug ${FB_MUTED}`}>
+                  자동 완료 예정{" "}
+                  <span className={`font-semibold ${FB_BODY}`}>
+                    {new Date(o.auto_complete_at).toLocaleString("ko-KR")}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+          </div>
         </div>
-        {isMemberOrderStatus(o.order_status) ? (
-          <MemberOrderStatusBadge status={o.order_status} />
-        ) : (
-          <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-bold text-gray-800">
-            {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
-          </span>
-        )}
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span
-          className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
-            delivery ? "bg-violet-50 text-violet-900" : "bg-teal-50 text-teal-900"
-          }`}
-        >
-          {delivery ? "배달" : "포장"}
-        </span>
-        {o.buyer_note?.trim() ? (
-          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
-            요청있음
-          </span>
-        ) : null}
-      </div>
-
-      <p className="mt-2 text-sm text-gray-700">{titleSummary(o.items)}</p>
-      <p className="mt-2 text-lg font-bold text-gray-900">{formatMoneyPhp(o.payment_amount)}</p>
-      <p className="mt-2 text-sm text-gray-600">{statusUserLine(o.order_status)}</p>
-
-      {(o.order_status === "ready_for_pickup" ||
-        o.order_status === "delivering" ||
-        o.order_status === "arrived") &&
-      o.auto_complete_at ? (
-        <p className="mt-2 text-[11px] leading-snug text-gray-500">
-          자동 완료 예정:{" "}
-          <span className="font-medium text-gray-700">
-            {new Date(o.auto_complete_at).toLocaleString("ko-KR")}
-          </span>
-        </p>
-      ) : null}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link
-          href={detailHref}
-          className="flex-1 rounded-xl bg-gray-900 py-2.5 text-center text-sm font-semibold text-white"
-        >
+      <FeedActionRow>
+        <Link href={detailHref} className={actionCell}>
           상세보기
         </Link>
-        {canCancelHere && onCancelPending ? (
-          <button
-            type="button"
-            disabled={cancelBusy}
-            onClick={() => onCancelPending(o.id)}
-            className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 disabled:opacity-50"
+        {chatDisabled ? (
+          <span
+            className={`flex min-h-[44px] min-w-0 flex-1 cursor-not-allowed items-center justify-center px-1 text-center text-[15px] font-medium text-[#BCC0C4] dark:text-[#6F7175]`}
           >
-            {cancelBusy ? "처리 중…" : "취소 요청"}
-          </button>
-        ) : null}
-      </div>
+            주문 채팅
+          </span>
+        ) : (
+          <Link href={chatHref} className={actionCellSignature}>
+            주문 채팅
+          </Link>
+        )}
+      </FeedActionRow>
+
+      {o.order_status === "completed" && reorderPayload ? (
+        <FeedActionRow>
+          {canSubmitReview ? (
+            <Link
+              href={reviewHref}
+              className={`${actionCell} text-amber-800 dark:text-amber-200`}
+            >
+              리뷰 작성
+            </Link>
+          ) : null}
+          <StoreOrderReorderAgainButton
+            payload={reorderPayload}
+            className={`${actionCellSignature} min-w-0 border-0 bg-transparent`}
+          />
+        </FeedActionRow>
+      ) : canSubmitReview ? (
+        <FeedActionRow>
+          <Link href={reviewHref} className={`${actionCell} text-amber-800 dark:text-amber-200`}>
+            리뷰 작성
+          </Link>
+        </FeedActionRow>
+      ) : null}
+
+      {canCancelHere && onCancelPending ? (
+        <button
+          type="button"
+          disabled={cancelBusy}
+          onClick={() => onCancelPending(o.id)}
+          className={`w-full border-t ${FB_DIVIDER} py-2.5 text-center text-[15px] font-semibold text-[#F02849] transition-colors hover:bg-[#F0F2F5] disabled:opacity-50 dark:hover:bg-[#3A3B3C]`}
+        >
+          {cancelBusy ? "처리 중…" : "주문 취소"}
+        </button>
+      ) : null}
     </article>
   );
 }
 
 export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) {
+  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const [tab, setTab] = useState<MemberOrderTab>("all");
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
+  const [deleteBusyId, setDeleteBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [orderChatUnreadMap, setOrderChatUnreadMap] = useState<Record<string, number>>({});
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "unauth" }
@@ -243,11 +434,62 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
     }
   }, []);
 
+  const loadOrderChatUnreads = useCallback(async () => {
+    try {
+      const { ok, status, rooms } = await fetchChatRoomsBySegment("order");
+      if (status === 401 || !ok) {
+        setOrderChatUnreadMap({});
+        return;
+      }
+      setOrderChatUnreadMap(unreadByStoreOrderIdFromRooms(rooms));
+    } catch {
+      /* 이전 맵 유지 */
+    }
+  }, []);
+
+  /** 읽음/폴링 이벤트가 연타될 때 `/api/chat/rooms?segment=order` 폭주 방지 */
+  const orderUnreadThrottleRef = useRef(0);
+  const loadOrderChatUnreadsThrottled = useCallback(() => {
+    const now = Date.now();
+    if (now - orderUnreadThrottleRef.current < 20_000) return;
+    orderUnreadThrottleRef.current = now;
+    void loadOrderChatUnreads();
+  }, [loadOrderChatUnreads]);
+
   useEffect(() => {
     void load();
   }, [load]);
 
-  useRefetchOnPageShowRestore(() => void load({ silent: true }));
+  useEffect(() => {
+    if (state.kind !== "ok") {
+      setOrderChatUnreadMap({});
+      return;
+    }
+    void loadOrderChatUnreads();
+  }, [state.kind, loadOrderChatUnreads]);
+
+  useEffect(() => {
+    const onUnread = () => loadOrderChatUnreadsThrottled();
+    window.addEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onUnread);
+    return () => window.removeEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onUnread);
+  }, [loadOrderChatUnreadsThrottled]);
+
+  useRefetchOnPageShowRestore(() => {
+    void load({ silent: true });
+    orderUnreadThrottleRef.current = 0;
+    void loadOrderChatUnreads();
+  });
+
+  useLayoutEffect(() => {
+    if (embedded) return;
+    if (!setMainTier1Extras) return;
+    setMainTier1Extras({
+      tier1: {
+        rightSlot: <CommerceCartHubHeaderRight />,
+      },
+    });
+    return () => setMainTier1Extras(null);
+  }, [embedded, setMainTier1Extras]);
 
   const allSorted = useMemo(() => {
     if (state.kind !== "ok") return [];
@@ -294,56 +536,89 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
     [load]
   );
 
-  return (
-    <div className={embedded ? "bg-gray-50 pb-6" : "min-h-screen bg-gray-50 pb-10"}>
-      {!embedded ? (
-        <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-2 py-2">
-          <div className="mx-auto flex max-w-lg items-center gap-2">
-            <AppBackButton preferHistoryBack backHref="/mypage" ariaLabel="이전 화면" />
-            <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold text-gray-900">
-              식당·배달 주문
-            </h1>
-            <div className="flex shrink-0 items-center gap-1">
-              <MemberNotificationBell />
-              <button
-                type="button"
-                className="shrink-0 text-[11px] text-gray-500 underline"
-                onClick={() => void load()}
-              >
-                새로고침
-              </button>
-            </div>
-          </div>
-          <p className="mx-auto max-w-lg px-3 pb-2 text-center text-[11px] text-gray-500">
-            실매장 주문 내역입니다 · 상태는 매장 처리에 따라 여기에 반영돼요
-          </p>
-        </header>
-      ) : null}
+  const requestHideOrder = useCallback(
+    async (orderId: string) => {
+      if (!confirm("이 주문 내역을 내 목록에서 삭제할까요? 매장/관리자 화면에는 유지됩니다.")) return;
+      setDeleteBusyId(orderId);
+      try {
+        const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || json?.ok === false) {
+          const code = typeof json?.error === "string" ? json.error : "hide_failed";
+          const msg =
+            code === "buyer_hide_schema_missing"
+              ? "서버 설정이 아직 적용되지 않아 삭제를 처리할 수 없습니다."
+              : `삭제에 실패했습니다. (${code})`;
+          setToast(msg);
+          setTimeout(() => setToast(null), 3200);
+          return;
+        }
+        setToast("주문 내역을 삭제했어요.");
+        setTimeout(() => setToast(null), 2400);
+        await load({ silent: true });
+      } catch {
+        setToast("네트워크 오류가 발생했습니다.");
+        setTimeout(() => setToast(null), 2800);
+      } finally {
+        setDeleteBusyId(null);
+      }
+    },
+    [load]
+  );
 
-      <div className={`mx-auto max-w-lg space-y-4 px-3 ${embedded ? "pt-2" : "pt-4"}`}>
+  return (
+    <div
+      className={
+        embedded
+          ? "bg-[#F0F2F5] pb-6 dark:bg-[#18191A]"
+          : "min-h-screen bg-[#F0F2F5] pb-10 dark:bg-[#18191A]"
+      }
+    >
+      <div
+        className={`${APP_MAIN_COLUMN_CLASS} min-w-0 ${APP_MAIN_GUTTER_X_CLASS} ${
+          embedded ? "pt-2" : "pt-2 sm:pt-3"
+        }`}
+      >
         {toast ? (
-          <p className="rounded-xl bg-gray-900 px-3 py-2 text-center text-xs text-white">{toast}</p>
+          <p className="mb-3 rounded-lg bg-[#050505] px-3 py-2.5 text-center text-[13px] text-white shadow-md dark:bg-[#E4E6EB] dark:text-[#050505]">
+            {toast}
+          </p>
         ) : null}
 
         {state.kind === "loading" ? (
-          <p className="py-12 text-center text-sm text-gray-500">불러오는 중…</p>
+          <div
+            className={`mb-3 rounded-lg bg-white px-4 py-12 text-center text-[15px] ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
+          >
+            불러오는 중…
+          </div>
         ) : null}
 
         {state.kind === "unauth" ? (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-center text-sm text-amber-950">
+          <div
+            className={`rounded-lg border ${FB_DIVIDER} bg-white px-4 py-4 text-center text-[15px] text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
+          >
             로그인 후 매장 주문 내역을 확인할 수 있습니다.
-          </p>
+          </div>
         ) : null}
 
         {state.kind === "error" ? (
-          <div className="space-y-2">
+          <div
+            className={`space-y-2 rounded-lg border ${FB_DIVIDER} bg-white px-4 py-4 dark:bg-[#242526]`}
+          >
             {state.message === "supabase_unconfigured" ? (
-              <p className="text-sm text-amber-800">
+              <p className={`text-[15px] text-amber-800 dark:text-amber-200`}>
                 서버에 Supabase(매장 주문) 설정이 없어 목록을 불러올 수 없습니다.
               </p>
             ) : null}
-            <p className="text-sm text-red-600">불러오지 못했습니다. ({state.message})</p>
-            <button type="button" onClick={() => void load()} className="text-sm text-signature underline">
+            <p className={`text-[15px] text-[#F02849]`}>불러오지 못했습니다. ({state.message})</p>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="text-[15px] font-semibold text-signature hover:underline"
+            >
               다시 시도
             </button>
           </div>
@@ -351,31 +626,28 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
 
         {state.kind === "ok" ? (
           <>
-            <MemberOrderTabs active={tab} onChange={setTab} counts={counts} />
-
-            {!embedded ? (
-              <p className="text-xs text-gray-500">
-                <Link href="/orders?tab=chat" className="text-violet-700 underline">
-                  주문 채팅 목록
-                </Link>
-                {" · "}
-                실매장 주문(DB)은{" "}
-                <Link href="/mypage/store-orders" className="text-violet-700 underline">
-                  매장 주문
-                </Link>
-                에서 확인해요.
-              </p>
-            ) : null}
+            <div
+              className={`sticky top-0 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-white/92 backdrop-blur-md dark:bg-[#242526]/95`}
+            >
+              <div className={APP_MAIN_GUTTER_X_CLASS}>
+                <MemberOrderTabs variant="feed" active={tab} onChange={setTab} counts={counts} />
+              </div>
+            </div>
 
             {allSorted.length === 0 ? (
-              <div className="rounded-xl bg-white p-6 text-center text-sm text-gray-600 shadow-sm ring-1 ring-gray-100">
-                <p>아직 매장 주문이 없습니다.</p>
-                <Link href="/stores" className="mt-3 inline-block text-signature">
+              <div
+                className={`rounded-lg bg-white px-4 py-8 text-center text-[15px] ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
+              >
+                <p className={FB_BODY}>아직 매장 주문이 없습니다.</p>
+                <Link
+                  href="/stores"
+                  className="mt-4 inline-block rounded-lg bg-signature px-4 py-2.5 text-[15px] font-semibold text-white hover:opacity-95"
+                >
                   매장 둘러보기
                 </Link>
               </div>
             ) : (
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {filtered.map((o) => (
                   <li key={o.id}>
                     <MyStoreOrderCard
@@ -385,8 +657,24 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
                           ? `/orders/store/${encodeURIComponent(o.id)}`
                           : `/my/store-orders/${encodeURIComponent(o.id)}`
                       }
+                      chatHref={
+                        embedded
+                          ? `/orders/store/${encodeURIComponent(o.id)}/chat`
+                          : `/my/store-orders/${encodeURIComponent(o.id)}/chat`
+                      }
+                      chatDisabled={isStoreOrderChatDisabledForBuyer(o.order_status)}
+                      orderChatUnread={orderChatUnreadMap[o.id] ?? 0}
+                      reviewHref={
+                        embedded
+                          ? `/orders/store/${encodeURIComponent(o.id)}/review`
+                          : `/my/store-orders/${encodeURIComponent(o.id)}/review`
+                      }
+                      canSubmitReview={o.can_submit_review === true}
                       onCancelPending={requestCancelPending}
                       cancelBusy={cancelBusyId === o.id}
+                      allowDelete={!embedded}
+                      onDelete={requestHideOrder}
+                      deleteBusy={deleteBusyId === o.id}
                     />
                   </li>
                 ))}

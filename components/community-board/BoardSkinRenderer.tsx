@@ -1,6 +1,6 @@
 "use client";
 
-import { getListSkin, getDetailSkin } from "@/lib/community-board/skin-registry";
+import { DETAIL_SKINS, LIST_SKINS } from "@/lib/community-board/skin-registry";
 import type {
   SkinType,
   BoardListSkinProps,
@@ -12,7 +12,7 @@ import { BoardListCategoryChips } from "./BoardListCategoryChips";
 export function BoardSkinRendererList(props: BoardListSkinProps & { skinType: SkinType }) {
   const { skinType, showCategoryFilter, categorySlug, baseHref, filterBaseHref, boardCategories, ...rest } = props;
   const chipBaseHref = filterBaseHref ?? baseHref;
-  const Skin = getListSkin(skinType);
+  const Skin = LIST_SKINS[skinType] ?? LIST_SKINS.basic;
   const showChips = showCategoryFilter && boardCategories && boardCategories.length > 0;
   return (
     <>
@@ -35,7 +35,7 @@ export function BoardSkinRendererList(props: BoardListSkinProps & { skinType: Sk
 /** 상세 모드: skin_type에 따라 글 상세 스킨 렌더링 */
 export function BoardSkinRendererDetail(props: BoardDetailSkinProps & { skinType: SkinType }) {
   const { skinType, ...rest } = props;
-  const Skin = getDetailSkin(skinType);
+  const Skin = DETAIL_SKINS[skinType] ?? DETAIL_SKINS.basic;
   return <Skin {...rest} />;
 }
 

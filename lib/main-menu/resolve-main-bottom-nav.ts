@@ -1,5 +1,6 @@
 import {
   BOTTOM_NAV_BUILTIN_IDS,
+  BOTTOM_NAV_ICON_KEYS,
   BOTTOM_NAV_ITEMS,
   type BottomNavBuiltinTabId,
   type BottomNavIconKey,
@@ -9,7 +10,7 @@ import type { MainBottomNavAdminRow, MainBottomNavStoredItem, MainBottomNavStore
 
 const BUILTIN_SET = new Set<string>(BOTTOM_NAV_BUILTIN_IDS);
 
-const ICON_SET = new Set<string>(BOTTOM_NAV_BUILTIN_IDS);
+const ICON_SET = new Set<string>(BOTTOM_NAV_ICON_KEYS);
 
 const MAX_ITEMS = 10;
 
@@ -70,11 +71,16 @@ function isValidTabId(id: string): boolean {
 
 function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): MainBottomNavAdminRow {
   const href = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
-  const icon = isIconKey(raw.icon) ? raw.icon : base.icon;
+  const label = trimLabel(raw.label, base.label);
+  let icon: BottomNavIconKey = isIconKey(raw.icon) ? raw.icon : base.icon;
+  /* 예전 TRADE 탭이 라벨만 TRADE이고 icon=home(집)으로 저장된 경우 → trade 아이콘으로 통일 */
+  if (base.id === "home" && icon === "home" && label.trim().toUpperCase() === "TRADE") {
+    icon = "trade";
+  }
   return {
     id: base.id,
     href,
-    label: trimLabel(raw.label, base.label),
+    label,
     icon,
     iconSizeClass: optTwClass(raw.iconSizeClass, base.iconSizeClass),
     labelInactiveExtraClass: optTwClass(raw.labelInactiveExtraClass, base.labelInactiveExtraClass),
@@ -87,64 +93,6 @@ function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): Main
     labelFontFamilyClass: optTwClass(raw.labelFontFamilyClass, base.labelFontFamilyClass),
     visible: raw.visible !== false,
   };
-}
-
-/** `orders` 탭 추가 이전에 저장된 기본 5내장(집합 일치)일 때만 보강 — 커스텀-only·부분 메뉴는 건드리지 않음 */
-const LEGACY_BUILTIN_FIVE_IDS = new Set<string>([
-  "home",
-  "community",
-  "stores",
-  "chat",
-  "my",
-]);
-
-function isLegacyFiveBuiltinNav(ordered: MainBottomNavAdminRow[]): boolean {
-  const ids = new Set(
-    ordered.filter((r) => isBuiltinBottomNavTabId(r.id)).map((r) => r.id)
-  );
-  if (ids.size !== LEGACY_BUILTIN_FIVE_IDS.size) return false;
-  for (const id of LEGACY_BUILTIN_FIVE_IDS) {
-    if (!ids.has(id)) return false;
-  }
-  return true;
-}
-
-/** `orders` 한 칸만 끼움 — 레거시 5탭 저장본 + 클라이언트 6탭 기본값 불일치로 인한 깜빡임 방지 */
-function backfillOrdersTabIfLegacyFive(ordered: MainBottomNavAdminRow[]): MainBottomNavAdminRow[] {
-  if (!isLegacyFiveBuiltinNav(ordered)) return ordered;
-  if (ordered.some((r) => r.id === "orders")) return ordered;
-
-  const fallback = getDefaultMainBottomNavAdminRows().find((r) => r.id === "orders");
-  if (!fallback) return ordered;
-
-  const result = [...ordered];
-  const insertAt = insertIndexBeforeSuccessorBuiltin(result, "orders");
-  result.splice(insertAt, 0, { ...fallback });
-  return result;
-}
-
-function insertIndexBeforeSuccessorBuiltin(
-  result: MainBottomNavAdminRow[],
-  missingId: BottomNavBuiltinTabId
-): number {
-  const orderIdx = BOTTOM_NAV_BUILTIN_IDS.indexOf(missingId);
-  const immediateNext = BOTTOM_NAV_BUILTIN_IDS[orderIdx + 1];
-  if (immediateNext) {
-    const idx = result.findIndex((r) => r.id === immediateNext);
-    if (idx >= 0) return idx;
-  }
-  let bestI = result.length;
-  let bestBi = Infinity;
-  for (let i = 0; i < result.length; i++) {
-    const rid = result[i].id;
-    if (!isBuiltinBottomNavTabId(rid)) continue;
-    const bi = BOTTOM_NAV_BUILTIN_IDS.indexOf(rid as BottomNavBuiltinTabId);
-    if (bi > orderIdx && bi < bestBi) {
-      bestBi = bi;
-      bestI = i;
-    }
-  }
-  return bestBi < Infinity ? bestI : result.length;
 }
 
 function mergeCustomRow(raw: MainBottomNavStoredItem): MainBottomNavAdminRow | null {
@@ -200,7 +148,7 @@ export function resolveMainBottomNavAdminRows(valueJson: unknown): MainBottomNav
   }
 
   if (ordered.length === 0) return fallback;
-  return backfillOrdersTabIfLegacyFive(ordered);
+  return ordered;
 }
 
 /** 앱 하단 탭: 노출 항목만, 순서 유지 */

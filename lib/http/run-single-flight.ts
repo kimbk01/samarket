@@ -4,6 +4,11 @@
  */
 const flights = new Map<string, Promise<unknown>>();
 
+/** 스로틀 구간에서도 진행 중이면 같은 Promise 에 합류할 때 사용 */
+export function getSingleFlightPromise<T>(key: string): Promise<T> | undefined {
+  return flights.get(key) as Promise<T> | undefined;
+}
+
 /** 진행 중 단일 비행을 취소하고 다음 호출이 새로 fetch 하도록 함 (채팅 전송 직후 목록 갱신용) */
 export function forgetSingleFlight(key: string): void {
   flights.delete(key);

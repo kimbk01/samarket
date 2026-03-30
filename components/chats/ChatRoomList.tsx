@@ -11,42 +11,41 @@ import { ChatRoomCard } from "./ChatRoomCard";
 import { GeneralChatRoomCard } from "./GeneralChatRoomCard";
 import { ORDER_CHAT_SURFACE } from "@/lib/chats/surfaces/order-chat-surface";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
-import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
+import { COMMUNITY_CHAT_SURFACE } from "@/lib/chats/surfaces/community-chat-surface";
+import {
+  fetchChatRoomsBySegment,
+  type ChatRoomsListSegment,
+} from "@/lib/chats/fetch-chat-rooms-by-segment";
 
-/** 채팅 상세·주문 미읽음 폴링(12s)과 맞춰 목록 API 부하 완화, 탭 비가시 시 호출 안 함 */
-const POLL_MS = 12_000;
+/** 목록은 Realtime 미구독 구간만 갱신 — Supabase 쿼리·API 한도 완화를 위해 길게 */
+const POLL_MS = 90_000;
 
 export function ChatRoomList({
   segment,
   getRoomHref,
+  onSelectRoom,
 }: {
-  segment: "trade" | "order";
+  segment: ChatRoomsListSegment;
   /** 미지정 시 `/chats/[roomId]` */
   getRoomHref?: (roomId: string) => string;
+  /** 지정 시 링크 이동 대신 콜백(홈 거래 채팅 시트 등) */
+  onSelectRoom?: (roomId: string) => void;
 }) {
-  const [mounted, setMounted] = useState(false);
   const [rooms, setRooms] = useState<ChatRoom[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const user = mounted ? getCurrentUser() : null;
-  const userId = user?.id ?? null;
+  /** 서버 401 — `getCurrentUser()` 지연과 무관하게 판별 */
+  const [sessionDenied, setSessionDenied] = useState(false);
 
   const load = useCallback(async () => {
-    if (!userId) {
-      setRooms([]);
-      return;
-    }
     try {
       const { ok, status, rooms: next } = await fetchChatRoomsBySegment(segment);
       if (status === 401) {
+        setSessionDenied(true);
         setRooms([]);
         setError(null);
         return;
       }
+      setSessionDenied(false);
       if (!ok) {
         setError("목록을 불러오지 못했습니다.");
         setRooms([]);
@@ -58,55 +57,47 @@ export function ChatRoomList({
       setError("네트워크 오류가 발생했습니다.");
       setRooms([]);
     }
-  }, [segment, userId]);
+  }, [segment]);
 
   useEffect(() => {
-    if (!mounted) return;
     void load();
-  }, [mounted, load]);
+  }, [load]);
 
   useEffect(() => {
-    if (!mounted || !userId) return;
+    if (sessionDenied) return;
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") void load();
     }, POLL_MS);
     return () => clearInterval(id);
-  }, [mounted, load, userId]);
+  }, [load, sessionDenied]);
 
   useEffect(() => {
-    if (!mounted) return;
     const onUnread = () => void load();
     window.addEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onUnread);
     return () => window.removeEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onUnread);
-  }, [mounted, load]);
+  }, [load]);
 
   useRefetchOnPageShowRestore(() => {
-    if (mounted) void load();
+    void load();
   });
 
-  if (!mounted) {
+  const userId = getCurrentUser()?.id ?? "";
+
+  if (rooms === null && !sessionDenied) {
     return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-gray-500`}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-[#8E8E8E]`}>
         불러오는 중…
       </div>
     );
   }
 
-  if (!userId) {
+  if (sessionDenied) {
     return (
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-gray-600`}>
         <p>로그인 후 채팅 목록을 볼 수 있어요.</p>
-        <Link href="/login" className="mt-3 inline-block font-medium text-violet-700 underline">
+        <Link href="/login" className="mt-3 inline-block font-medium text-signature underline">
           로그인
         </Link>
-      </div>
-    );
-  }
-
-  if (rooms === null) {
-    return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-gray-500`}>
-        불러오는 중…
       </div>
     );
   }
@@ -118,7 +109,7 @@ export function ChatRoomList({
         <button
           type="button"
           onClick={() => void load()}
-          className="mt-3 block w-full font-medium text-violet-700 underline"
+          className="mt-3 block w-full font-medium text-signature underline"
         >
           다시 시도
         </button>
@@ -126,12 +117,43 @@ export function ChatRoomList({
     );
   }
 
-  if (rooms.length === 0) {
+  if (!rooms || rooms.length === 0) {
+    const isPhilifeInbox = segment === "philife" || segment === "philife_inbox";
+    const isPhilifeOpen = segment === "philife_open";
+    const emptyCopy =
+      segment === "order"
+        ? ORDER_CHAT_SURFACE.listEmptyMessage
+        : isPhilifeOpen
+          ? COMMUNITY_CHAT_SURFACE.openEmptyMessage
+          : isPhilifeInbox
+            ? COMMUNITY_CHAT_SURFACE.inboxEmptyMessage
+            : TRADE_CHAT_SURFACE.listEmptyMessage;
+    const emptyCta =
+      segment === "order"
+        ? {
+            href: ORDER_CHAT_SURFACE.emptyCtaHref,
+            label: ORDER_CHAT_SURFACE.emptyCtaLabel,
+          }
+        : isPhilifeOpen
+          ? {
+              href: COMMUNITY_CHAT_SURFACE.boardFeedPath,
+              label: COMMUNITY_CHAT_SURFACE.openFeedLinkLabel,
+            }
+          : isPhilifeInbox
+            ? {
+                href: COMMUNITY_CHAT_SURFACE.boardFeedPath,
+                label: COMMUNITY_CHAT_SURFACE.boardFeedLinkLabel,
+              }
+            : {
+                href: TRADE_CHAT_SURFACE.emptyCtaHref,
+                label: TRADE_CHAT_SURFACE.emptyCtaLabel,
+              };
     return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-gray-500`}>
-        {segment === "order"
-          ? ORDER_CHAT_SURFACE.listEmptyMessage
-          : TRADE_CHAT_SURFACE.listEmptyMessage}
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-[#8E8E8E]`}>
+        <p>{emptyCopy}</p>
+        <Link href={emptyCta.href} className="mt-4 inline-block font-medium text-signature underline">
+          {emptyCta.label}
+        </Link>
       </div>
     );
   }
@@ -145,6 +167,7 @@ export function ChatRoomList({
               room={room}
               onRoomMutated={() => void load()}
               getRoomHref={getRoomHref}
+              onSelectRoom={onSelectRoom}
             />
           ) : (
             <ChatRoomCard
@@ -152,6 +175,7 @@ export function ChatRoomList({
               currentUserId={userId}
               onRoomMutated={() => void load()}
               getRoomHref={getRoomHref}
+              onSelectRoom={onSelectRoom}
             />
           )}
         </li>

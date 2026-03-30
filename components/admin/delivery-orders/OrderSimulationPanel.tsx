@@ -28,6 +28,7 @@ import {
   subscribeSharedOrders,
 } from "@/lib/shared-orders/shared-order-store";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 
 const FORCE_STATUS_OPTIONS: SharedOrderStatus[] = [
   "pending",
@@ -61,6 +62,9 @@ export function OrderSimulationPanel() {
   const [forceNext, setForceNext] = useState<SharedOrderStatus>("cancelled");
 
   const selected = selectedId ? findSharedOrder(selectedId) : undefined;
+  const ownerOrdersVerifyHref = selected?.store_id?.trim()
+    ? buildStoreOrdersHref({ storeId: selected.store_id.trim() })
+    : "/my/business/store-orders";
 
   const setResult = (label: string, r: { ok: true } | { ok: false; error: string }) => {
     setLastMsg(`${label}: ${pick(r)}`);
@@ -176,7 +180,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="rounded-lg bg-violet-600 py-2 text-xs font-bold text-white disabled:opacity-40"
+              className="rounded-lg bg-signature py-2 text-xs font-bold text-white disabled:opacity-40"
               onClick={() => selected && setResult("수락", sharedOwnerAccept(selected.id))}
             >
               수락
@@ -386,11 +390,11 @@ export function OrderSimulationPanel() {
 
       <p className="text-[11px] text-gray-500">
         검증:{" "}
-        <Link className="underline" href="/mypage/store-orders">
+        <Link className="underline" href="/my/store-orders">
           회원 주문
         </Link>
         {" · "}
-        <Link className="underline" href="/my/business/store-orders">
+        <Link className="underline" href={ownerOrdersVerifyHref}>
           오너 주문
         </Link>
         {" · "}

@@ -18,7 +18,10 @@ export async function getFavoriteStatusForPosts(
     const params = new URLSearchParams({
       postIds: ids.join(","),
     });
-    const res = await fetch(`/api/favorites/status?${params}`);
+    const res = await fetch(`/api/favorites/status?${params}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
     const data = (await res.json().catch(() => ({}))) as Record<string, boolean>;
     return Object.fromEntries(ids.map((id) => [id, data[id] === true]));
   } catch {

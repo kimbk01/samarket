@@ -1,5 +1,5 @@
 /**
- * 홈·거래 피드 리스트 카드 — 직각 모서리, 얕은 드롭 섀도
+ * 홈·거래 피드 리스트 카드 — 커뮤니티(필라이프) 피드 카드와 동일 톤(라운드·테두리·얕은 섀도)
  */
 export const APP_FEED_LIST_CARD_SHELL =
-  "rounded-none bg-white shadow-[0_2px_8px_rgba(0,0,0,0.07)]";
+  "overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm";

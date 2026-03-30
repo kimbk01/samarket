@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 
 const ALLOWED: SellerListingState[] = ["inquiry", "negotiating", "reserved", "completed"];
@@ -101,6 +102,10 @@ export async function POST(
   }
 
   const sbAny = sb;
+  const access = await assertVerifiedMemberForAction(sbAny as any, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
   const { data: post, error: postErr } = await sbAny
     .from("posts")
     .select("id, user_id, status")

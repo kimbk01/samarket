@@ -133,7 +133,7 @@ export function TradeReviewForm({
               onClick={() => toggle(pos, o.key, setPos)}
               className={`rounded-full border px-2.5 py-1 text-[11px] ${
                 pos.has(o.key)
-                  ? "border-violet-500 bg-violet-50 text-violet-900"
+                  ? "border-signature bg-signature/5 text-gray-900"
                   : "border-gray-200 bg-white text-gray-700"
               }`}
             >

@@ -33,6 +33,8 @@ export const POINT_LEDGER_ENTRY_LABELS: Record<PointLedgerEntryType, string> = {
   expire: "만료",
   reward: "커뮤니티지급",
   reverse: "커뮤니티회수",
+  ad_purchase: "광고구매",
+  ad_refund: "광고환불",
 };
 
 export const POINT_PROMOTION_ORDER_STATUS_LABELS: Record<

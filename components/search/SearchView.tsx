@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getProductsForHome } from "@/lib/mock-products";
 import { useRegion } from "@/contexts/RegionContext";
@@ -21,11 +21,12 @@ import { RecentSearches } from "./RecentSearches";
 import { SearchFilterBar, getDefaultSearchFilters, type SearchFilters } from "./SearchFilterBar";
 import { SearchResultList } from "./SearchResultList";
 import { POPULAR_SEARCHES } from "@/lib/search/mock-search-data";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 
 export function SearchView() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const queryFromUrl = searchParams.get("q") ?? "";
   const { currentRegionName } = useRegion();
   const currentUserId = getCurrentUserId();
@@ -86,36 +87,42 @@ export function SearchView() {
   const showResults = keyword.trim().length > 0;
   const showPopular = !showResults;
 
+  useLayoutEffect(() => {
+    if (!setMainTier1Extras) return;
+    setMainTier1Extras({
+      stickyBelow: (
+        <div className="border-b border-ig-border bg-[var(--sub-bg)]">
+          <div className="flex h-12 items-center gap-2 px-4 py-1.5">
+            <div className="min-w-0 flex-1">
+              <SearchInputBar
+                value={keyword}
+                onChange={setKeyword}
+                onSubmit={handleSubmit}
+                placeholder="검색어를 입력하세요"
+                autoFocus
+              />
+            </div>
+            {showResults ? (
+              <span className="shrink-0 text-[13px] font-medium text-[var(--text-muted)]" aria-hidden>
+                필터
+              </span>
+            ) : null}
+          </div>
+          {showResults ? (
+            <SearchFilterBar
+              filters={filters}
+              onChange={setFilters}
+              onReset={() => setFilters(getDefaultSearchFilters())}
+            />
+          ) : null}
+        </div>
+      ),
+    });
+    return () => setMainTier1Extras(null);
+  }, [setMainTier1Extras, keyword, showResults, filters, handleSubmit, setFilters]);
+
   return (
     <div className="mx-auto max-w-lg pb-24">
-      {/* 당근형: 좌측 뒤로가기, 중앙 검색창, 우측 필터 */}
-      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white">
-        <div className="flex h-14 items-center gap-2 px-4 py-2">
-          <AppBackButton preferHistoryBack backHref="/home" />
-          <div className="min-w-0 flex-1">
-            <SearchInputBar
-              value={keyword}
-              onChange={setKeyword}
-              onSubmit={handleSubmit}
-              placeholder="검색어를 입력하세요"
-              autoFocus
-            />
-          </div>
-          {showResults && (
-            <span className="shrink-0 text-[13px] font-medium text-gray-600" aria-hidden>
-              필터
-            </span>
-          )}
-        </div>
-        {showResults && (
-          <SearchFilterBar
-            filters={filters}
-            onChange={setFilters}
-            onReset={() => setFilters(getDefaultSearchFilters())}
-          />
-        )}
-      </div>
-
       {showResults ? (
         <SearchResultList products={filteredAndSorted} />
       ) : (

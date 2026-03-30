@@ -2,6 +2,7 @@
 
 import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
 import { PostCard } from "@/components/post/PostCard";
+import { FavoritePostTradeActions } from "@/components/favorites/FavoritePostTradeActions";
 
 interface FavoritePostCardProps {
   post: FavoritedPost;
@@ -17,6 +18,7 @@ export function FavoritePostCard({ post, onUnfavorite }: FavoritePostCardProps) 
       onFavoriteChange={(_postId, isFavorite) => {
         if (!isFavorite) onUnfavorite?.();
       }}
+      footer={<FavoritePostTradeActions post={post} />}
     />
   );
 }

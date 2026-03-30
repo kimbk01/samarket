@@ -178,7 +178,7 @@ export function SalesHistoryCard({
               {hasChat ? `구매자 ${row.buyerNickname}` : "아직 문의·채팅이 없어요"}
             </p>
             <p className="mt-0.5 text-[11px] text-gray-400">거래 {formatTradeListDatetime(tradeAt)}</p>
-            <p className="mt-0.5 text-[11px] text-violet-800">{tradeLine}</p>
+            <p className="mt-0.5 text-[11px] text-gray-800">{tradeLine}</p>
             <div className="mt-1.5 flex flex-wrap gap-1">
               <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
                 상품 · {productBadge}
@@ -193,6 +193,17 @@ export function SalesHistoryCard({
               >
                 {row.hasBuyerReview ? "구매자 후기 도착" : "구매자 후기 없음"}
               </span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+              {hasChat ? (
+                <span className="rounded-full border border-gray-200 bg-signature/5 px-2.5 py-1 font-medium text-gray-800">
+                  이 거래는 채팅으로 다시 이어서 조율할 수 있어요
+                </span>
+              ) : (
+                <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 font-medium text-gray-500">
+                  아직 연결된 거래 채팅이 없습니다
+                </span>
+              )}
             </div>
           </div>
         </Link>
@@ -211,7 +222,7 @@ export function SalesHistoryCard({
             <div className="absolute right-0 top-9 z-[60] min-w-[200px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
               {hasChat ? (
                 <Link
-                  href={`/chats/${row.chatId}`}
+                  href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}`}
                   onClick={() => setMenuOpen(false)}
                   className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-800 hover:bg-gray-50"
                 >
@@ -305,6 +316,17 @@ export function SalesHistoryCard({
           ) : null}
         </div>
       </div>
+
+      {hasChat ? (
+        <div className="border-t border-gray-100 px-3 pb-3 pt-2">
+          <Link
+            href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}`}
+            className="block w-full rounded-xl border border-gray-200 bg-signature/5 py-2.5 text-center text-[13px] font-semibold text-gray-800"
+          >
+            관련 채팅으로 돌아가기
+          </Link>
+        </div>
+      ) : null}
 
       {readBuyerReview && hasChat ? (
         <BuyerReviewReadSheet

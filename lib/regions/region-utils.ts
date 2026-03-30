@@ -12,6 +12,12 @@ export function getRegionName(regionId: string): string {
   return r?.name ?? regionId;
 }
 
+export function getRegionCityName(regionId: string, cityId: string): string {
+  const region = REGIONS.find((x) => x.id === regionId);
+  const city = region?.cities.find((x) => x.id === cityId);
+  return city?.name ?? cityId;
+}
+
 export function getRegionOptions() {
   return REGIONS;
 }

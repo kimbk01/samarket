@@ -6,6 +6,12 @@ export interface Profile {
   email: string;
   nickname: string;
   avatar_url: string | null;
+  username?: string | null;
+  role?: string;
+  member_type?: string;
+  phone?: string | null;
+  phone_verified?: boolean;
+  phone_verification_status?: string;
   /** 신뢰 점수 0~100 (배터리). 레거시 mock 36.5는 50으로 통일 권장 */
   temperature: number;
   trust_score?: number | null;

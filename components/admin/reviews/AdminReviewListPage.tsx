@@ -54,6 +54,14 @@ export function AdminReviewListPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="거래 후기 목록" />
+      <p className="text-[13px] text-gray-600">
+        마이페이지 「후기」(
+        <code className="rounded bg-gray-100 px-1">/mypage/trade/reviews</code>)와 동일하게{" "}
+        <code className="rounded bg-gray-100 px-1">transaction_reviews</code> 테이블을 사용합니다. (
+        <code className="rounded bg-gray-100 px-1">GET /api/my/received-reviews</code> ·{" "}
+        <code className="rounded bg-gray-100 px-1">/api/my/written-reviews</code> ↔{" "}
+        <code className="rounded bg-gray-100 px-1">POST /api/admin/transaction-reviews</code>)
+      </p>
       {loadError && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
           {loadError}

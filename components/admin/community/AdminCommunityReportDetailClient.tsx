@@ -73,7 +73,7 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
             <dd>
               {row.target_type === "post" && row.post_title ? (
                 <Link
-                  href={`/community/post/${row.target_id}`}
+                  href={`/philife/${row.target_id}`}
                   target="_blank"
                   rel="noreferrer"
                   className="font-medium text-blue-600 hover:underline"
@@ -143,7 +143,7 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
           ))}
         </div>
         <p className="mt-4 text-[13px]">
-          <Link href="/admin/community/reports" className="text-blue-600 hover:underline">
+          <Link href="/admin/philife/reports" className="text-blue-600 hover:underline">
             피드 신고 목록으로
           </Link>
         </p>

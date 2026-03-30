@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import type { BusinessProfile } from "@/lib/types/business";
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { REGIONS } from "@/lib/products/form-options";
-import { LocationSelector } from "@/components/write/shared/LocationSelector";
 import {
   OWNER_STORE_CONTROL_CLASS,
   OWNER_STORE_SELECT_CLASS,
   OWNER_STORE_STACK_Y_CLASS,
 } from "@/lib/business/owner-store-stack";
+import { StoreAddressLocationSection } from "@/components/stores/StoreAddressLocationSection";
+import { STORE_LOCATION_SECTION_HINT_MOCK_EDIT } from "@/lib/stores/store-address-form-ui";
 
 export interface BusinessProfileEditFormValues {
   shopName: string;
@@ -18,7 +19,8 @@ export interface BusinessProfileEditFormValues {
   kakaoId: string;
   region: string;
   city: string;
-  addressLabel: string;
+  addressStreetLine: string;
+  addressDetail: string;
   category: string;
 }
 
@@ -49,7 +51,8 @@ export function BusinessProfileEditForm({
     kakaoId: profile.kakaoId,
     region: profile.region,
     city: profile.city,
-    addressLabel: profile.addressLabel,
+    addressStreetLine: profile.addressStreetLine ?? "",
+    addressDetail: profile.addressDetail ?? "",
     category: profile.category,
   });
   const [regionId, setRegionId] = useState("");
@@ -122,49 +125,37 @@ export function BusinessProfileEditForm({
           className={OWNER_STORE_CONTROL_CLASS}
         />
       </div>
-      <div>
-        <p className="mb-1 block text-[14px] font-medium text-gray-700">위치</p>
-        <LocationSelector
-          embedded
-          region={regionId}
-          city={cityId}
-          onRegionChange={(id) => {
-            setRegionId(id);
-            setCityId("");
-            const r = REGIONS.find((x) => x.id === id);
-            setValues((v) => ({
-              ...v,
-              region: r?.name ?? "",
-              city: "",
-            }));
-          }}
-          onCityChange={(id) => {
-            setCityId(id);
-            const r = REGIONS.find((x) => x.id === regionId);
-            const c = r?.cities.find((x) => x.id === id);
-            setValues((v) => ({
-              ...v,
-              city: c?.name ?? "",
-            }));
-          }}
-          label="지역 · 동네"
-          showRequired={false}
-        />
-      </div>
-      <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
-          상세 주소 (선택)
-        </label>
-        <input
-          type="text"
-          value={values.addressLabel}
-          onChange={(e) =>
-            setValues((v) => ({ ...v, addressLabel: e.target.value }))
-          }
-          placeholder="건물명, 층수, 도로명 등 (지역·동네는 위에서 선택)"
-          className={OWNER_STORE_CONTROL_CLASS}
-        />
-      </div>
+      <StoreAddressLocationSection
+        sectionHint={STORE_LOCATION_SECTION_HINT_MOCK_EDIT}
+        regionId={regionId}
+        cityId={cityId}
+        onRegionChange={(id) => {
+          setRegionId(id);
+          setCityId("");
+          const r = REGIONS.find((x) => x.id === id);
+          setValues((v) => ({
+            ...v,
+            region: r?.name ?? "",
+            city: "",
+          }));
+        }}
+        onCityChange={(id) => {
+          setCityId(id);
+          const r = REGIONS.find((x) => x.id === regionId);
+          const c = r?.cities.find((x) => x.id === id);
+          setValues((v) => ({
+            ...v,
+            city: c?.name ?? "",
+          }));
+        }}
+        addressStreetLine={values.addressStreetLine}
+        addressDetail={values.addressDetail}
+        onAddressStreetLineChange={(v) =>
+          setValues((x) => ({ ...x, addressStreetLine: v }))
+        }
+        onAddressDetailChange={(v) => setValues((x) => ({ ...x, addressDetail: v }))}
+        showRequired={false}
+      />
       <div>
         <label className="mb-1 block text-[14px] font-medium text-gray-700">
           카테고리

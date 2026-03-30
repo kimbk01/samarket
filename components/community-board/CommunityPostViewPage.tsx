@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { BoardSkinRenderer } from "./BoardSkinRenderer";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
+import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import type { Board, PostDetail } from "@/lib/community-board/types";
@@ -22,9 +23,9 @@ export interface CommunityPostViewPageProps {
 export function CommunityPostViewPage({
   board,
   post,
-  boardSlug,
+  boardSlug: _boardSlug,
 }: CommunityPostViewPageProps) {
-  const baseHref = `/community/${boardSlug}`;
+  const baseHref = SAMARKET_ROUTES.community.home;
   const showComments = board.policy?.allow_comment !== false;
   const showLike = board.policy?.allow_like !== false;
   const showReport = board.policy?.allow_report !== false;
@@ -50,7 +51,7 @@ export function CommunityPostViewPage({
           skinType={board.skin_type}
           post={post}
           board={board}
-          boardSlug={boardSlug}
+          boardSlug={_boardSlug}
           baseHref={baseHref}
           showComments={showComments}
           showLike={showLike}

@@ -45,7 +45,10 @@ export async function GET(
     }
 
     if (!store || store.approval_status !== "approved" || !store.is_visible) {
-      return NextResponse.json({ ok: true, store: null, products: [] }, { status: 404 });
+      return NextResponse.json(
+        { ok: true, store: null, products: [], meta: { source: "supabase" as const } },
+        { status: 404 }
+      );
     }
 
     const since90d = new Date();
@@ -105,7 +108,7 @@ export async function GET(
       const { data: prods, error: pErr } = await supabase
         .from("store_products")
         .select(
-          "id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory, product_status, thumbnail_url, pickup_available, local_delivery_available, shipping_available, category_id, menu_section_id, item_type, is_featured, sort_order, options_json, store_menu_sections ( id, name, sort_order, is_hidden ), store_product_categories ( name, slug )"
+          "id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory, min_order_qty, max_order_qty, product_status, thumbnail_url, pickup_available, local_delivery_available, shipping_available, category_id, menu_section_id, item_type, is_featured, sort_order, options_json, store_menu_sections ( id, name, sort_order, is_hidden ), store_product_categories ( name, slug )"
         )
         .eq("store_id", store.id)
         .eq("product_status", "active")

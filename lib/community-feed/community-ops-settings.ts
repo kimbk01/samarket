@@ -76,26 +76,34 @@ export function findBannedWord(text: string, words: string[]): string | null {
 }
 
 export async function countUserCommunityPostsToday(userId: string): Promise<number> {
-  const sb = getSupabaseServer();
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  const { count, error } = await sb
-    .from("community_posts")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("created_at", start.toISOString());
-  if (error) return 0;
-  return count ?? 0;
+  try {
+    const sb = getSupabaseServer();
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const { count, error } = await sb
+      .from("community_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", start.toISOString());
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 export async function getLatestCommentTimeForUser(userId: string): Promise<string | null> {
-  const sb = getSupabaseServer();
-  const { data } = await sb
-    .from("community_comments")
-    .select("created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data as { created_at?: string } | null)?.created_at ?? null;
+  try {
+    const sb = getSupabaseServer();
+    const { data } = await sb
+      .from("community_comments")
+      .select("created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return (data as { created_at?: string } | null)?.created_at ?? null;
+  } catch {
+    return null;
+  }
 }

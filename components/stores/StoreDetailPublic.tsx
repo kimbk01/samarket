@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
-import { MockStoreDetailView } from "@/components/stores/browse/MockStoreDetailView";
-import { RestaurantMockDetailView } from "@/components/stores/delivery/RestaurantMockDetailView";
 import { StoreDetailBottomStrip } from "@/components/stores/StoreDetailBottomStrip";
-import { StoreDetailStorefrontPanel } from "@/components/stores/StoreDetailStorefrontPanel";
+import {
+  StoreDetailStorefrontPanel,
+  type StorePublicFulfillmentMode,
+} from "@/components/stores/StoreDetailStorefrontPanel";
 import { StoreMenuCategoryChips } from "@/components/stores/StoreMenuCategoryChips";
 import { StoreProductAddSheet } from "@/components/stores/StoreProductAddSheet";
 import { StorePublicMenuList } from "@/components/stores/StorePublicMenuList";
-import { getBrowseMockStoreBySlug } from "@/lib/stores/browse-mock/queries";
-import type { BrowseMockStore } from "@/lib/stores/browse-mock/types";
-import { hasRestaurantDeliveryCatalog } from "@/lib/stores/delivery-mock/mock-restaurant-catalog";
+import { StoreReviewsSection } from "@/components/stores/StoreReviewsSection";
 import {
   groupStoreProductsByMenuSection,
   parseStoreDetailProducts,
@@ -24,9 +24,17 @@ import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-ex
 import { STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   STORE_DETAIL_GUTTER,
+  STORE_DETAIL_MENU_STICKY_TOP_CLASS,
   STORE_DETAIL_PAGE,
 } from "@/lib/stores/store-detail-ui";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
+import {
+  readStoreFulfillmentPref,
+  writeStoreFulfillmentPref,
+  STORE_FULFILLMENT_PREF_CHANGED_EVENT,
+  type StoreFulfillmentPrefChangedDetail,
+} from "@/lib/stores/store-fulfillment-pref";
+import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { parseStoreDeliveryMeta, readWeekdaysLineFromJson } from "@/lib/stores/store-detail-meta";
 import { useOwnerManagementHref } from "@/lib/stores/use-owner-management-href";
 
@@ -54,28 +62,37 @@ type StoreDetail = {
 };
 
 export function StoreDetailPublic({ slug }: { slug: string }) {
+  const router = useRouter();
   const commerceCart = useStoreCommerceCartOptional();
   const [store, setStore] = useState<StoreDetail | null>(null);
   const [products, setProducts] = useState<StoreDetailProductCard[]>([]);
   const [canSell, setCanSell] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dbOff, setDbOff] = useState(false);
-  const [browseMock, setBrowseMock] = useState<BrowseMockStore | null>(null);
   const [activeMenuSection, setActiveMenuSection] = useState(0);
   const [openTick, setOpenTick] = useState(0);
   const [addSheetProductId, setAddSheetProductId] = useState<string | null>(null);
+  const [menuQuery, setMenuQuery] = useState("");
+  const [fulfillmentMode, setFulfillmentMode] = useState<StorePublicFulfillmentMode>("pickup");
+  const [activeTab, setActiveTab] = useState<"menu" | "review">("menu");
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = window.setInterval(() => setOpenTick((n) => n + 1), 60_000);
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    if (!toastMsg) return;
+    const id = window.setTimeout(() => setToastMsg(null), 2400);
+    return () => window.clearTimeout(id);
+  }, [toastMsg]);
+
   const loadDetail = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
       if (!silent) {
         setLoading(true);
-        setBrowseMock(null);
       }
       try {
         const res = await fetch(`/api/stores/${encodeURIComponent(slug)}`, { cache: "no-store" });
@@ -94,16 +111,13 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
             setStore(null);
             setProducts([]);
             setCanSell(false);
-            const m = getBrowseMockStoreBySlug(slug);
-            if (m) setBrowseMock(m);
           }
         }
       } catch {
         if (!silent) {
           setStore(null);
           setProducts([]);
-          const m = getBrowseMockStoreBySlug(slug);
-          if (m) setBrowseMock(m);
+          setCanSell(false);
         }
       } finally {
         if (!silent) setLoading(false);
@@ -124,20 +138,56 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
 
   const menuSections = useMemo(() => groupStoreProductsByMenuSection(products), [products]);
 
+  const menuSectionsFiltered = useMemo(() => {
+    const q = menuQuery.trim().toLowerCase();
+    if (!q) return menuSections;
+    return menuSections
+      .map((s) => ({
+        ...s,
+        items: s.items.filter(
+          (p) =>
+            p.title.toLowerCase().includes(q) ||
+            (p.summary && p.summary.toLowerCase().includes(q))
+        ),
+      }))
+      .filter((s) => s.items.length > 0);
+  }, [menuSections, menuQuery]);
+
   useEffect(() => {
     setActiveMenuSection((i) =>
-      menuSections.length === 0 ? 0 : Math.min(i, Math.max(0, menuSections.length - 1))
+      menuSectionsFiltered.length === 0 ? 0 : Math.min(i, Math.max(0, menuSectionsFiltered.length - 1))
     );
-  }, [menuSections.length]);
+  }, [menuSectionsFiltered.length]);
 
-  const menuScrollOffsetPx = useMemo(() => {
-    /* 상단 스티키(뒤로·로고·제목·통계 줄) 대략 높이 + 여백 */
-    return 76 + 8;
-  }, []);
+  /** `STORE_DETAIL_MENU_STICKY_TOP_CLASS` 의 top 오프셋( safe-area 제외 본문 기준 )과 맞춤 */
+  const TIER1_ORDER_HEADER_PX = 104;
+  const [menuStickyHeightPx, setMenuStickyHeightPx] = useState(108);
+  const menuStickyMeasureRef = useRef<HTMLDivElement>(null);
+  const menuScrollOffsetPx = TIER1_ORDER_HEADER_PX + menuStickyHeightPx + 12;
+
+  useEffect(() => {
+    if (!store?.slug || typeof window === "undefined") return;
+    const v = readStoreFulfillmentPref(store.slug);
+    if (v) setFulfillmentMode(v);
+  }, [store?.slug]);
+
+  useEffect(() => {
+    const slug = store?.slug?.trim();
+    if (!slug) return;
+    const h = (e: Event) => {
+      const d = (e as CustomEvent<StoreFulfillmentPrefChangedDetail>).detail;
+      if (!d?.slug) return;
+      if (d.slug.trim() === slug || d.slug.trim().toLowerCase() === slug.toLowerCase()) {
+        setFulfillmentMode(d.mode);
+      }
+    };
+    window.addEventListener(STORE_FULFILLMENT_PREF_CHANGED_EVENT, h);
+    return () => window.removeEventListener(STORE_FULFILLMENT_PREF_CHANGED_EVENT, h);
+  }, [store?.slug]);
 
   const scrollTicking = useRef(false);
   useEffect(() => {
-    if (menuSections.length <= 1) return;
+    if (menuSectionsFiltered.length <= 1) return;
     const offset = menuScrollOffsetPx;
     const onScroll = () => {
       if (scrollTicking.current) return;
@@ -146,7 +196,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
         scrollTicking.current = false;
         const y = window.scrollY + offset;
         let best = 0;
-        menuSections.forEach((_, i) => {
+        menuSectionsFiltered.forEach((_, i) => {
           const el = document.getElementById(`store-sec-${i}`);
           if (!el) return;
           const top = el.getBoundingClientRect().top + window.scrollY;
@@ -158,7 +208,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [menuSections, menuScrollOffsetPx]);
+  }, [menuSectionsFiltered, menuScrollOffsetPx]);
 
   const commerce = useMemo(() => {
     if (!store) return null;
@@ -167,19 +217,112 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
 
   const isOpen = commerce?.isOpenForCommerce ?? true;
 
+  useEffect(() => {
+    if (!store) return;
+    const dA = store.delivery_available === true;
+    const pA = store.pickup_available !== false;
+    const slug = store.slug;
+    if (fulfillmentMode === "local_delivery" && !dA) {
+      setFulfillmentMode("pickup");
+      writeStoreFulfillmentPref(slug, "pickup");
+    } else if (fulfillmentMode === "pickup" && !pA && dA) {
+      setFulfillmentMode("local_delivery");
+      writeStoreFulfillmentPref(slug, "local_delivery");
+    }
+  }, [store, fulfillmentMode]);
+
+  useEffect(() => {
+    if (loading || !store) return;
+    const el = menuStickyMeasureRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      setMenuStickyHeightPx((prev) => {
+        const h = Math.max(48, Math.ceil(el.getBoundingClientRect().height));
+        return prev === h ? prev : h;
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading, store?.id]);
+
+  const quickAddFromCard = useCallback(
+    (p: StoreDetailProductCard): boolean => {
+      if (!commerceCart?.hydrated || !store || p.has_options) return false;
+      if (commerce ? !commerce.isOpenForCommerce : false) return false;
+      const soldOut = p.track_inventory && p.stock_qty <= 0;
+      if (soldOut) return false;
+      const others = commerceCart.otherBucketsExcluding(store.id);
+      if (others.length > 0) {
+        const o = others[0];
+        window.alert(
+          `다른 매장의 상품이 있습니다.\n${o.storeName} 장바구니를 주문하거나 비운 뒤 이 매장에서 담을 수 있어요.`
+        );
+        router.push(`/stores/${encodeURIComponent(o.storeSlug)}/cart`);
+        return true;
+      }
+      const hasDiscount =
+        p.discount_price != null &&
+        Number.isFinite(p.discount_price) &&
+        p.discount_price < p.price &&
+        p.price > 0;
+      const unitPrice = hasDiscount ? Math.floor(p.discount_price!) : Math.floor(p.price);
+      const listBaseUnit = Math.floor(p.price);
+      const hasLineDiscount = listBaseUnit > unitPrice && unitPrice >= 0 && listBaseUnit > 0;
+      let discountPct: number | null = null;
+      if (hasLineDiscount) {
+        if (p.discount_percent && p.discount_percent > 0) {
+          discountPct = p.discount_percent;
+        } else if (hasDiscount && p.discount_price != null) {
+          discountPct = approximateDiscountPercent(listBaseUnit, Math.floor(p.discount_price));
+        } else {
+          discountPct = Math.max(
+            0,
+            Math.min(99, Math.round((1 - unitPrice / listBaseUnit) * 100))
+          );
+        }
+      }
+      const minQ = Math.max(1, Math.floor(Number(p.min_order_qty)) || 1);
+      const maxQ = Math.max(minQ, Math.floor(Number(p.max_order_qty)) || 99);
+      const maxForCart = p.track_inventory ? Math.min(maxQ, p.stock_qty) : maxQ;
+      if (maxForCart < minQ) return false;
+
+      commerceCart.addOrMergeLine({
+        storeId: store.id,
+        storeSlug: store.slug,
+        storeName: store.store_name,
+        productId: p.id,
+        title: p.title,
+        thumbnailUrl: p.thumbnail_url?.trim() || null,
+        qty: minQ,
+        unitPricePhp: unitPrice,
+        listUnitPricePhp: hasLineDiscount ? listBaseUnit : null,
+        discountPercent: hasLineDiscount && discountPct != null && discountPct > 0 ? discountPct : null,
+        optionSelections: {},
+        modifierWire: { pick: {}, qty: {} },
+        optionsSummary: "",
+        lineNote: null,
+        /* `StoreProductAddSheet` addToCart 와 동일 규칙 */
+        pickupAvailable: !!p.pickup_available,
+        localDeliveryAvailable:
+          !!p.local_delivery_available || store.delivery_available === true,
+        shippingAvailable: !!p.shipping_available,
+        minOrderQty: minQ,
+        maxOrderQty: maxForCart,
+      });
+      setToastMsg(`${p.title} 담았어요`);
+      return true;
+    },
+    [commerceCart, store, commerce, router]
+  );
+
   if (loading) {
     return (
       <div className={STORE_DETAIL_PAGE}>
         <p className="py-12 text-center text-sm text-stone-500">불러오는 중…</p>
       </div>
     );
-  }
-
-  if (browseMock) {
-    if (browseMock.primarySlug === "restaurant" && hasRestaurantDeliveryCatalog(browseMock.slug)) {
-      return <RestaurantMockDetailView store={browseMock} />;
-    }
-    return <MockStoreDetailView store={browseMock} />;
   }
 
   if (!store) {
@@ -207,6 +350,8 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
 
   const cartSubtotalThisStore =
     commerceCart?.hydrated ? commerceCart.getSubtotalForStoreId(store.id) : 0;
+  const cartQtyThisStore =
+    commerceCart?.hydrated ? commerceCart.getTotalQtyForStoreId(store.id) : 0;
 
   const menuSelectBlocked = commerce ? !commerce.isOpenForCommerce : false;
   const menuSelectHint =
@@ -240,45 +385,72 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
       />
 
       <div id="store-menu-panel" className="bg-[#f3f4f6] pb-4">
-        <StoreMenuCategoryChips
-          sections={menuSections.map((s) => ({ label: s.heading }))}
-          activeIndex={activeMenuSection}
-          omitTopBorder
-          onSelect={(i) => {
-            setActiveMenuSection(i);
-            document.getElementById(`store-sec-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
-        />
-        <StorePublicMenuList
-          storeSlug={store.slug}
-          sections={menuSections}
-          canSell={canSell}
-          sectionDomId={(i) => `store-sec-${i}`}
-          sectionScrollMarginTopPx={menuScrollOffsetPx}
-          menuSelectBlocked={menuSelectBlocked}
-          menuSelectHint={menuSelectHint}
-          onOpenProduct={(id) => setAddSheetProductId(id)}
-          orderHint={
-            canSell && products.length > 0 ? (
-              <>
-                메뉴를 눌러 옵션·수량을 고른 뒤 장바구니에 담으세요. 하단 장바구니에서 주문하면 매장으로 전달되고, 사장님 주문 관리에서 접수·처리됩니다.{" "}
-                <Link
-                  href={`/stores/${encodeURIComponent(store.slug)}/cart`}
-                  className="font-medium text-signature underline decoration-signature/30"
-                >
-                  장바구니
-                </Link>
-                {" · "}
-                <Link
-                  href="/mypage/store-orders"
-                  className="font-medium text-signature underline decoration-signature/30"
-                >
-                  주문 내역
-                </Link>
-              </>
-            ) : undefined
-          }
-        />
+        <div
+          ref={menuStickyMeasureRef}
+          className={`sticky z-[33] border-b border-stone-200/90 bg-[#f3f4f6]/95 px-3 py-2 backdrop-blur-md ${STORE_DETAIL_MENU_STICKY_TOP_CLASS}`}
+        >
+          <div className="mb-2 grid grid-cols-2 gap-2 rounded-xl bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("menu")}
+              className={`rounded-lg px-3 py-2 text-[14px] font-semibold ${
+                activeTab === "menu" ? "bg-signature text-white" : "text-stone-700"
+              }`}
+            >
+              메뉴
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("review")}
+              className={`rounded-lg px-3 py-2 text-[14px] font-semibold ${
+                activeTab === "review" ? "bg-signature text-white" : "text-stone-700"
+              }`}
+            >
+              리뷰
+            </button>
+          </div>
+          {activeTab === "menu" ? (
+            <>
+              <label className="sr-only" htmlFor="store-menu-search">
+                메뉴 검색
+              </label>
+              <input
+                id="store-menu-search"
+                type="search"
+                enterKeyHint="search"
+                placeholder="메뉴 검색"
+                value={menuQuery}
+                onChange={(e) => setMenuQuery(e.target.value)}
+                className="mb-2 w-full rounded-full border border-stone-200 bg-white px-4 py-2.5 text-[14px] text-stone-900 shadow-sm outline-none ring-signature/20 placeholder:text-stone-400 focus:ring-2"
+              />
+              <StoreMenuCategoryChips
+                sections={menuSectionsFiltered.map((s) => ({ label: s.heading }))}
+                activeIndex={activeMenuSection}
+                omitTopBorder
+                plainBackground
+                onSelect={(i) => {
+                  setActiveMenuSection(i);
+                  document.getElementById(`store-sec-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              />
+            </>
+          ) : null}
+        </div>
+        {activeTab === "menu" ? (
+          <StorePublicMenuList
+            storeSlug={store.slug}
+            sections={menuSectionsFiltered}
+            canSell={canSell}
+            sectionDomId={(i) => `store-sec-${i}`}
+            sectionScrollMarginTopPx={menuScrollOffsetPx}
+            menuSelectBlocked={menuSelectBlocked}
+            menuSelectHint={menuSelectHint}
+            onOpenProduct={(id) => setAddSheetProductId(id)}
+            onQuickAddProduct={quickAddFromCard}
+          />
+        ) : (
+          <StoreReviewsSection storeSlug={store.slug} variant="plain" />
+        )}
       </div>
 
       <div className={`${STORE_DETAIL_GUTTER} mt-6 text-center`}>
@@ -294,7 +466,10 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
         slug={store.slug}
         isOpen={isOpen}
         deliveryAvailable={deliveryAvailable}
+        fulfillmentMode={fulfillmentMode}
         cartTotalPhp={cartSubtotalThisStore}
+        cartQtyTotal={cartQtyThisStore}
+        minOrderPhp={commerceExtras.minOrderPhp}
         closedDetail={
           commerce?.inBreak && commerce.breakConfigured
             ? `Break time: ${commerce.breakRangeLabel}`
@@ -308,7 +483,18 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
         onClose={() => setAddSheetProductId(null)}
         commerceBlocked={menuSelectBlocked}
         commerceBlockedHint={menuSelectHint}
+        onAddedToCart={() => setToastMsg("장바구니에 담았어요")}
       />
+
+      {toastMsg ? (
+        <div
+          className="pointer-events-none fixed left-1/2 z-[32] max-w-[min(92vw,20rem)] -translate-x-1/2 rounded-2xl bg-stone-900/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg"
+          style={{ bottom: "max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px))" }}
+          role="status"
+        >
+          {toastMsg}
+        </div>
+      ) : null}
     </div>
   );
 }

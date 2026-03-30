@@ -163,7 +163,7 @@ export function OrderActionPanel({
         </button>
         <button
           type="button"
-          className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-violet-200 text-violet-800"
+          className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-300 text-gray-800"
           onClick={() => setModal({ kind: "approve_refund" })}
         >
           환불 승인

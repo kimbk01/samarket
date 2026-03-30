@@ -1,26 +1,39 @@
 "use client";
 
-import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { PostWithMeta } from "@/lib/posts/schema";
 
 export interface FavoritedPost extends PostWithMeta {
   favorited_at: string;
 }
 
-/**
- * 현재 로그인 사용자가 찜한 게시글 목록 (찜한 순)
- * — `/api/favorites/list` 사용 (개발 테스트 쿠키·토글·개수 API와 동일 사용자 기준)
- */
-export async function getFavoritedPosts(): Promise<FavoritedPost[]> {
-  const user = getCurrentUser();
-  if (!user?.id) return [];
+export type GetFavoritedPostsResult = {
+  items: FavoritedPost[];
+  /** 서버 세션(쿠키). 클라 `getCurrentUser()`와 달라도 목록은 이 값을 기준으로 표시 */
+  authenticated: boolean;
+};
 
+/**
+ * 찜한 게시글 목록 — 항상 `/api/favorites/list` 호출 (세션은 쿠키로만 판별).
+ * 예전: `getCurrentUser()` 없으면 fetch 생략 → 로그인 상태인데도 빈 목록이 되는 버그가 있었음.
+ */
+export async function getFavoritedPosts(): Promise<GetFavoritedPostsResult> {
   try {
-    const res = await fetch("/api/favorites/list");
-    const d = (await res.json().catch(() => ({}))) as { items?: unknown };
-    if (!res.ok || !Array.isArray(d.items)) return [];
-    return d.items as FavoritedPost[];
+    const res = await fetch("/api/favorites/list", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const d = (await res.json().catch(() => ({}))) as {
+      items?: unknown;
+      authenticated?: unknown;
+    };
+    const items = Array.isArray(d.items) ? (d.items as FavoritedPost[]) : [];
+    if (!res.ok) {
+      return { items: [], authenticated: false };
+    }
+    /** 서버가 `authenticated`를 내려줄 때만 신뢰(구 API는 필드 없음 → 비로그인으로 처리) */
+    const authenticated = d.authenticated === true;
+    return { items, authenticated };
   } catch {
-    return [];
+    return { items: [], authenticated: false };
   }
 }

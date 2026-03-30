@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
 /**
  * 판매자 거래완료 — posts sold + sold_buyer_id, 동일 글 다른 채팅방 archived/readonly
@@ -22,6 +23,10 @@ export async function POST(
   const userId = auth.userId;
   if (!roomId?.trim()) {
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+  }
+  const access = await assertVerifiedMemberForAction(sb as any, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
 
   const resolved = await resolveProductChat(sb, roomId.trim());

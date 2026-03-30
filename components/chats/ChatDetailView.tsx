@@ -20,7 +20,6 @@ import { BlockActionSheet } from "@/components/reports/BlockActionSheet";
 import { TradeFlowBanner } from "@/components/trade/TradeFlowBanner";
 import {
   StoreOrderBuyerChatTop,
-  StoreOrderBuyerResponseStrip,
   type StoreOrderBuyerItemPayload,
   type StoreOrderBuyerOrderPayload,
 } from "@/components/chats/StoreOrderBuyerChatTop";
@@ -63,6 +62,13 @@ interface ChatDetailViewProps {
   onRoomReload?: () => void;
   /** 구매 내역 등에서 ?review=1 로 진입 시 후기 시트 자동 오픈 */
   openReviewOnMount?: boolean;
+  /** `ChatRoomScreen`에서 전달 — 목록 복귀 경로 덮어쓰기 */
+  listHref?: string;
+  onListNavigate?: () => void;
+  embedded?: boolean;
+  embeddedFill?: boolean;
+  tradeHubColumnLayout?: boolean;
+  ownerStoreOrderModalChrome?: boolean;
 }
 
 export function ChatDetailView({
@@ -70,10 +76,24 @@ export function ChatDetailView({
   currentUserId,
   onRoomReload,
   openReviewOnMount = false,
+  listHref: listHrefProp,
+  onListNavigate: _onListNavigate,
+  embedded = false,
+  embeddedFill = false,
+  tradeHubColumnLayout = false,
+  ownerStoreOrderModalChrome: _ownerStoreOrderModalChrome = false,
 }: ChatDetailViewProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const rootHeightClass = VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS;
+  const rootHeightClass = embedded
+    ? embeddedFill
+      ? "min-h-0 flex-1"
+      : "min-h-[560px]"
+    : tradeHubColumnLayout
+      ? "min-h-0 flex min-w-0 flex-1 flex-col"
+      : VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS;
+  void _onListNavigate;
+  void _ownerStoreOrderModalChrome;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
   const partnerId =
@@ -89,7 +109,7 @@ export function ChatDetailView({
   const isStoreOrderChat =
     isGeneralPurposeChat && room.generalChat?.kind === "store_order";
   const chatHubListHref = isStoreOrderChat ? "/orders?tab=chat" : "/chats";
-  const storeOrderChatBackHref = "/orders?tab=chat";
+  const effectiveListHref = listHrefProp?.trim() || chatHubListHref;
   const [partnerBlocked, setPartnerBlocked] = useState(false);
   useEffect(() => {
     if (!partnerId?.trim()) {
@@ -134,7 +154,6 @@ export function ChatDetailView({
   const [storeOrderLoadErr, setStoreOrderLoadErr] = useState<string | null>(null);
   const [storeOrderLoading, setStoreOrderLoading] = useState(false);
   const [storeOrderCancelBusy, setStoreOrderCancelBusy] = useState(false);
-  const [buyerResponseStripVisible, setBuyerResponseStripVisible] = useState(true);
   const [buyerOrderChatSoundOn, setBuyerOrderChatSoundOn] = useState(true);
   const buyerOrderChatSoundOnRef = useRef(true);
   /** 폴링 1회차는 입장 직후 동기화 — 알림·소리 없음(빈 응답이어도 2회차부터만 알림) */
@@ -425,9 +444,11 @@ export function ChatDetailView({
       });
     };
     tick(); // 마운트 직후 1회 실행 (초기 로드 직후 반영)
+    /** 매장 주문 채팅은 메시지 빈도가 낮고 Supabase 부하 완화를 위해 간격을 더 길게 */
+    const pollMs = isStoreOrderChat ? 35_000 : 18_000;
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") void tick();
-    }, 12_000);
+    }, pollMs);
     const onVisible = () => {
       if (document.visibilityState === "visible") void tick();
     };
@@ -543,6 +564,14 @@ export function ChatDetailView({
       return false;
     },
     [room.id, currentUserId, isChatRoom, canWriteTradeMessage]
+  );
+
+  const postChatTextForSellerPanel = useCallback(
+    async (text: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
+      const ok = await postChatText(text);
+      return ok ? { ok: true } : { ok: false, error: "전송에 실패했습니다." };
+    },
+    [postChatText]
   );
 
   const sendBuyerOrderMatchAck = useCallback(async () => {
@@ -712,7 +741,6 @@ export function ChatDetailView({
       setStoreOrderTop(null);
       setStoreOrderItems([]);
       setStoreOrderLoadErr(null);
-      setBuyerResponseStripVisible(true);
     }
   }, [room.id, isStoreOrderBuyer]);
 
@@ -800,12 +828,12 @@ export function ChatDetailView({
       });
       if (res.ok) {
         if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
-        router.push(chatHubListHref);
+        router.push(effectiveListHref);
       }
     } catch {
       /* ignore */
     }
-  }, [room.id, currentUserId, isChatRoom, router, chatHubListHref]);
+  }, [room.id, currentUserId, isChatRoom, router, effectiveListHref]);
 
   const moreMenuPanel = menuOpen ? (
     <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
@@ -889,7 +917,7 @@ export function ChatDetailView({
                   onClick={() => {
                     setMenuOpen(false);
                     if (isChatRoom) handleLeave();
-                    else router.push(chatHubListHref);
+                    else router.push(effectiveListHref);
                   }}
                   className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
                 >
@@ -907,7 +935,7 @@ export function ChatDetailView({
                           body: JSON.stringify({}),
                         });
                         if (res.ok) {
-                          router.push(chatHubListHref);
+                          router.push(effectiveListHref);
                           router.refresh();
                         }
                       } catch {
@@ -960,12 +988,6 @@ export function ChatDetailView({
       {sendError && (
         <p className="bg-red-50 px-4 py-1.5 text-[12px] text-red-600 text-center">{sendError}</p>
       )}
-      {isStoreOrderBuyer ? (
-        <StoreOrderBuyerResponseStrip
-          visible={buyerResponseStripVisible}
-          onDismiss={() => setBuyerResponseStripVisible(false)}
-        />
-      ) : null}
       <ChatInputBar
         draftStorageKey={room.id}
         onSend={handleSend}
@@ -974,12 +996,14 @@ export function ChatDetailView({
             ? undefined
             : isChatRoom
               ? handleLeave
-              : () => router.push(chatHubListHref)
+              : () => router.push(effectiveListHref)
         }
         placeholder={isStoreOrderBuyer ? "메세지를 입력해주세요" : undefined}
         showEmojiButton={!isStoreOrderBuyer}
         variant={isStoreOrderChat ? "instagram" : "default"}
-        onImageFileSelected={handleSendImageFile}
+        onImageFilesSelected={async (files) => {
+          for (const f of files) await handleSendImageFile(f);
+        }}
         imageSending={imageSending}
       />
     </>
@@ -992,7 +1016,7 @@ export function ChatDetailView({
       {isStoreOrderBuyer ? (
         <header className="shrink-0 border-b border-[#DBDBDB] bg-white">
           <StoreOrderBuyerChatTop
-            backHref={storeOrderChatBackHref}
+            backHref={effectiveListHref}
             title={
               storeOrderTop?.store_name
                 ? `${storeOrderTop.store_name} 배달주문`
@@ -1040,7 +1064,7 @@ export function ChatDetailView({
               >
                 <AppBackButton
                   preferHistoryBack={!isStoreOrderChat}
-                  backHref={isStoreOrderChat ? storeOrderChatBackHref : undefined}
+                  backHref={isStoreOrderChat ? effectiveListHref : undefined}
                   ariaLabel="이전 화면"
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1224,7 +1248,7 @@ export function ChatDetailView({
           menuRef={menuRef}
           moreMenuPanel={moreMenuPanel}
           onMoreMenuClick={() => setMenuOpen((v) => !v)}
-          postChatText={postChatText}
+          postChatText={postChatTextForSellerPanel}
           sendSummaryDisabled={!canWriteTradeMessage}
         />
       ) : null}

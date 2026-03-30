@@ -65,7 +65,7 @@ export function ShopHomePage({ slug }: ShopHomePageProps) {
             type="button"
             onClick={() => void onShopInquiry()}
             disabled={inquiryBusy}
-            className="w-full rounded-full bg-violet-600 px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+            className="w-full rounded-full bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
           >
             {inquiryBusy ? "연결 중…" : "문의하기"}
           </button>

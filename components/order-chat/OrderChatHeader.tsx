@@ -34,7 +34,7 @@ export function OrderChatHeader({
     >
       <p className="text-center font-mono text-xs text-gray-400">{orderNo}</p>
       <p className="mt-0.5 text-center text-sm font-bold text-gray-900">{subtitle}</p>
-      <p className="mt-1 text-center text-xs text-violet-700">현재 주문 상태 · {STATUS_KO[orderStatus]}</p>
+      <p className="mt-1 text-center text-xs text-signature">현재 주문 상태 · {STATUS_KO[orderStatus]}</p>
     </header>
   );
 }

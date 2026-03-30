@@ -21,6 +21,7 @@ export async function GET(req: Request) {
     .from("stores")
     .select(
       [
+        /* applicant_nickname 컬럼은 마이그레이션 전 DB에 없을 수 있어 select 제외 → profiles.nickname 으로 보강 */
         "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
         "store_category_id, store_topic_id, owner_can_edit_store_identity",
         "description, kakao_id, phone, email, website_url, region, city, district",
@@ -47,6 +48,47 @@ export async function GET(req: Request) {
     ? (stores as unknown as AdminStoreListRow[])
     : [];
   const ids = list.map((s) => s.id);
+  const ownerIds = [...new Set(list.map((s) => String(s.owner_user_id ?? "").trim()).filter(Boolean))];
+  const nickByOwner = new Map<string, string>();
+  if (ownerIds.length > 0) {
+    const { data: profs, error: profErr } = await sb
+      .from("profiles")
+      .select("id, nickname")
+      .in("id", ownerIds);
+    if (!profErr && profs) {
+      for (const p of profs) {
+        const id = typeof p.id === "string" ? p.id : "";
+        const n = typeof p.nickname === "string" ? p.nickname.trim() : "";
+        if (id && n) nickByOwner.set(id, n);
+      }
+    }
+  }
+
+  const nickFromStoreCol = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: nickRows, error: nickErr } = await sb
+      .from("stores")
+      .select("id, applicant_nickname")
+      .in("id", ids);
+    if (!nickErr && nickRows) {
+      for (const r of nickRows) {
+        const sid = String((r as { id?: string }).id ?? "");
+        const an = String((r as { applicant_nickname?: string | null }).applicant_nickname ?? "").trim();
+        if (sid && an) nickFromStoreCol.set(sid, an);
+      }
+    }
+  }
+
+  const listWithApplicant = list.map((s) => {
+    const oid = String(s.owner_user_id ?? "").trim();
+    const fromProfile = oid ? nickByOwner.get(oid) : undefined;
+    const fromCol = nickFromStoreCol.get(s.id);
+    return {
+      ...s,
+      applicant_nickname: fromCol ?? fromProfile ?? null,
+    };
+  });
+
   const permByStore: Record<string, Record<string, unknown>> = {};
   if (ids.length > 0) {
     const { data: perms } = await sb
@@ -61,7 +103,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    stores: list.map((s) => ({
+    stores: listWithApplicant.map((s) => ({
       ...s,
       sales_permission: permByStore[s.id] ?? null,
     })),

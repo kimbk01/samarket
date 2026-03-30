@@ -3,6 +3,7 @@ import type { AdminReview } from "@/lib/types/admin-review";
 export async function fetchAdminTransactionReviewsList(): Promise<AdminReview[]> {
   const res = await fetch("/api/admin/transaction-reviews", {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
@@ -14,6 +15,7 @@ export async function fetchAdminTransactionReviewsList(): Promise<AdminReview[]>
 export async function fetchAdminTransactionReviewOne(reviewId: string): Promise<AdminReview | null> {
   const res = await fetch("/api/admin/transaction-reviews", {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reviewId }),
   });

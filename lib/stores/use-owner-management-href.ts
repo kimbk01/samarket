@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 
 /**
  * 로그인 사용자가 해당 매장 소유자면 `/my/business?storeId=…` (내 상점 관리).
@@ -19,13 +20,16 @@ export function useOwnerManagementHref(
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/me/stores", { credentials: "include" });
+        const { status, json: raw } = await fetchMeStoresListDeduped();
         if (cancelled) return;
-        if (!res.ok) {
+        if (status < 200 || status >= 300) {
           setHref(null);
           return;
         }
-        const json = (await res.json()) as { ok?: boolean; stores?: { id: string; slug: string }[] };
+        const json = (raw && typeof raw === "object" ? raw : {}) as {
+          ok?: boolean;
+          stores?: { id: string; slug: string }[];
+        };
         if (!json?.ok || !Array.isArray(json.stores)) {
           setHref(null);
           return;

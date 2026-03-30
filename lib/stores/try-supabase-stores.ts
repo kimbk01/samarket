@@ -1,6 +1,9 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
-/** 서버 환경변수 없으면 null (로컬·미설정 시 API가 빈 목록 반환) */
+/**
+ * 어드민·매장 API와 동일한 서비스 롤 클라이언트 (`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`).
+ * 미설정 시 null → 홈 피드·browse·상세는 빈 목록/연결 안내만 반환.
+ */
 export function tryGetSupabaseForStores(): ReturnType<typeof getSupabaseServer> | null {
   try {
     return getSupabaseServer();

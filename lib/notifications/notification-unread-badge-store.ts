@@ -13,15 +13,20 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   const listeners = new Set<() => void>();
 
   const flightKey = `notif-unread:${fetchUrl}`;
+  const MIN_FETCH_GAP_MS = 8_000;
   let subscriberCount = 0;
+  /** Strict Mode 등으로 구독이 잠깐 0이 되었다가 바로 복구될 때 이중 초기 fetch·이벤트 해제 방지 */
+  let pendingStopTimer: ReturnType<typeof setTimeout> | null = null;
   let pollInterval: ReturnType<typeof setInterval> | null = null;
+  let unauthorizedPaused = false;
+  let lastFetchStartedAt = 0;
 
-  const onNotifUpdated = () => void doFetch();
+  const onNotifUpdated = () => void doFetch(true);
 
   const onVisibility = () => {
     if (typeof document === "undefined") return;
     if (document.visibilityState === "visible") {
-      void doFetch();
+      void doFetch(true);
       armPoll();
     } else {
       disarmPoll();
@@ -38,13 +43,30 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     emit();
   }
 
-  function doFetch(): Promise<void> {
+  function doFetch(force = false): Promise<void> {
+    if (!force && unauthorizedPaused) {
+      return Promise.resolve();
+    }
+    const now = Date.now();
+    if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
+      return Promise.resolve();
+    }
+    lastFetchStartedAt = now;
     return runSingleFlight(flightKey, async () => {
       try {
         const res = await fetch(fetchUrl, { credentials: "include" });
         if (res.status === 401) {
           setSnap(null);
+          unauthorizedPaused = true;
+          disarmPoll();
           return;
+        }
+        unauthorizedPaused = false;
+        if (
+          subscriberCount > 0 &&
+          (typeof document === "undefined" || document.visibilityState === "visible")
+        ) {
+          armPoll();
         }
         const j = await res.json();
         if (j?.ok) {
@@ -60,6 +82,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
 
   function armPoll() {
     if (pollInterval != null) return;
+    if (unauthorizedPaused) return;
     pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") void doFetch();
     }, NOTIFICATION_SYNC_POLL_MS);
@@ -73,9 +96,13 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   }
 
   function start() {
+    if (pendingStopTimer != null) {
+      clearTimeout(pendingStopTimer);
+      pendingStopTimer = null;
+    }
     subscriberCount += 1;
     if (subscriberCount > 1) return;
-    void doFetch();
+    void doFetch(snap == null);
     window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
     document.addEventListener("visibilitychange", onVisibility);
     if (typeof document !== "undefined" && document.visibilityState === "visible") {
@@ -86,9 +113,14 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   function stop() {
     subscriberCount -= 1;
     if (subscriberCount > 0) return;
-    window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
-    document.removeEventListener("visibilitychange", onVisibility);
-    disarmPoll();
+    if (pendingStopTimer != null) clearTimeout(pendingStopTimer);
+    pendingStopTimer = setTimeout(() => {
+      pendingStopTimer = null;
+      if (subscriberCount > 0) return;
+      window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
+      document.removeEventListener("visibilitychange", onVisibility);
+      disarmPoll();
+    }, 0);
   }
 
   function subscribe(listener: () => void) {
@@ -107,9 +139,14 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   };
 }
 
-/** 일반 인앱 알림(매장 커머스 알림 제외) — 마이·하단 탭 배지 */
+/** 일반 인앱 알림(오너 전용 매장주문 제외) — 상단 종·마이 허더 등, 구매자 매장주문 포함 */
 export const myGeneralNotificationUnreadStore = createNotificationUnreadBadgeStore(
   "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1"
+);
+
+/** 하단 네비 「내정보」탭 — 구매자 매장주문(배송 중 등) 알림 미읽음은 제외 */
+export const myBottomNavNotificationUnreadStore = createNotificationUnreadBadgeStore(
+  "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1&exclude_buyer_store_commerce=1"
 );
 
 /** 매장 사업자 전용 매장주문 인앱 알림 */

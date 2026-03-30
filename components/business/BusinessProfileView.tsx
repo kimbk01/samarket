@@ -9,6 +9,11 @@ interface BusinessProfileViewProps {
 }
 
 export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewProps) {
+  const street = (profile.addressStreetLine ?? "").trim();
+  const detail = (profile.addressDetail ?? "").trim();
+  const legacyLine =
+    !street && !detail ? (profile.addressLabel ?? "").trim() : "";
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg bg-white p-4">
@@ -23,11 +28,18 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
             <h1 className="text-[18px] font-semibold text-gray-900">
               {profile.shopName}
             </h1>
-            {profile.addressLabel && (
-              <p className="mt-0.5 text-[13px] text-gray-500">
-                {profile.addressLabel}
-              </p>
-            )}
+            {legacyLine ? (
+              <p className="mt-0.5 text-[13px] text-gray-500">{legacyLine}</p>
+            ) : street || detail ? (
+              <>
+                {street ? (
+                  <p className="mt-0.5 text-[13px] text-gray-500">{street}</p>
+                ) : null}
+                {detail ? (
+                  <p className="mt-0.5 text-[13px] text-gray-500">{detail}</p>
+                ) : null}
+              </>
+            ) : null}
             {isOwner && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <span className="inline-block rounded bg-gray-100 px-2 py-0.5 text-[12px] text-gray-600">

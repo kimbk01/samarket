@@ -96,7 +96,7 @@ export function BuyerReviewReadSheet({
                     {(rev.positive_tag_keys ?? []).map((k) => (
                       <li
                         key={k}
-                        className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] text-violet-900"
+                        className="rounded-full bg-signature/5 px-2 py-0.5 text-[11px] text-gray-900"
                       >
                         {LABEL.get(k) ?? k}
                       </li>

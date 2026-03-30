@@ -40,14 +40,14 @@ export function AppCloseIcon({ className }: { className?: string }) {
 }
 
 type AppBackButtonProps = {
-  /** 있으면 Link로 이동 (히스토리 스택과 무관하게 고정 경로). preferHistoryBack이면 폴백 전용 */
+  /** 이전 경로로 돌아간 뒤에도 URL이 같으면 이동할 폴백(예: 목록). */
   backHref?: string;
   /**
-   * true면 먼저 router.back(), 경로가 바뀌지 않으면 backHref로 push.
-   * 매장·상품 등에서 목록 고정 링크 대신 “이전 화면” 동작에 사용.
+   * false이고 backHref가 있으면 항상 해당 경로로 Link 이동(고정).
+   * 그 외(backHref만 주거나 true)는 이전 페이지 우선 후 backHref 폴백.
    */
   preferHistoryBack?: boolean;
-  /** backHref 없을 때 호출. preferHistoryBack일 때는 무시됩니다. */
+  /** backHref가 없을 때만 사용됩니다. */
   onBack?: () => void;
   /** 미지정 시 기본: text-gray-900 hover:bg-gray-100 */
   className?: string;
@@ -57,7 +57,7 @@ type AppBackButtonProps = {
 };
 
 const structuralClass =
-  "flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-none";
+  "flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full";
 const defaultToneClass = "text-gray-900 hover:bg-gray-100";
 
 export function AppBackButton({
@@ -71,7 +71,15 @@ export function AppBackButton({
   const router = useRouter();
   const mergedClass = `${structuralClass} ${className ?? defaultToneClass}`.trim();
 
-  if (preferHistoryBack) {
+  if (preferHistoryBack === false && backHref != null) {
+    return (
+      <Link href={backHref} className={mergedClass} aria-label={ariaLabel}>
+        <AppBackIcon className={iconClassName} />
+      </Link>
+    );
+  }
+
+  if (backHref != null) {
     return (
       <button
         type="button"
@@ -81,14 +89,6 @@ export function AppBackButton({
       >
         <AppBackIcon className={iconClassName} />
       </button>
-    );
-  }
-
-  if (backHref != null) {
-    return (
-      <Link href={backHref} className={mergedClass} aria-label={ariaLabel}>
-        <AppBackIcon className={iconClassName} />
-      </Link>
     );
   }
 

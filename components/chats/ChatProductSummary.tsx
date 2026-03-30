@@ -24,7 +24,8 @@ export function ChatProductSummary({
   sellerUserId,
 }: ChatProductSummaryProps) {
   const currency = getAppSettings().defaultCurrency ?? "KRW";
-  const detailHref = `/post/${product.id}`;
+  const detailHref = product.detailHref?.trim() || `/post/${product.id}`;
+  const isPhilifeCard = detailHref.startsWith("/philife/") || detailHref.startsWith("/community/");
 
   const rel =
     product.updatedAt && !Number.isNaN(Date.parse(product.updatedAt))
@@ -56,7 +57,7 @@ export function ChatProductSummary({
       <div className="flex min-w-0 flex-1 items-stretch gap-3 p-3">
         <Link
           href={detailHref}
-          className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-none bg-gray-100 transition active:opacity-90"
+          className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-[#EFEFEF] transition active:opacity-90"
           aria-label={`${product.title || "상품"} 썸네일 상세 보기`}
         >
           {product.thumbnail ? (
@@ -82,7 +83,7 @@ export function ChatProductSummary({
           )}
         </Link>
         <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
-          {headerPreview ? (
+          {headerPreview && !isPhilifeCard ? (
             <>
               <Link
                 href={detailHref}
@@ -97,7 +98,7 @@ export function ChatProductSummary({
                 />
               </Link>
               {(product.regionLabel || rel) && (
-                <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-gray-500">
+                <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-[#8E8E8E]">
                   {product.regionLabel ? (
                     <>
                       <span className="shrink-0">{product.regionLabel}</span>
@@ -121,30 +122,32 @@ export function ChatProductSummary({
               <p className="line-clamp-2 text-[13px] font-medium leading-snug text-gray-900">
                 {product.title || "상품"}
               </p>
-              <p className="mt-0.5 text-[15px] font-bold text-gray-900">
-                {isExchange ? (
-                  exchangePhp != null ? (
-                    <>
-                      {CURRENCY_SYMBOLS.PHP} {exchangePhp.toLocaleString()}
-                    </>
+              {!isPhilifeCard ? (
+                <p className="mt-0.5 text-[15px] font-bold text-gray-900">
+                  {isExchange ? (
+                    exchangePhp != null ? (
+                      <>
+                        {CURRENCY_SYMBOLS.PHP} {exchangePhp.toLocaleString()}
+                      </>
+                    ) : (
+                      <span className="text-[14px] font-semibold text-gray-600">금액 문의</span>
+                    )
                   ) : (
-                    <span className="text-[14px] font-semibold text-gray-600">금액 문의</span>
-                  )
-                ) : (
-                  formatPrice(product.price, currency)
-                )}
-              </p>
-              {isExchange ? (
+                    formatPrice(product.price, currency)
+                  )}
+                </p>
+              ) : null}
+              {!isPhilifeCard && isExchange ? (
                 <p className="mt-0.5 text-[12px] font-medium text-gray-700">
                   {exchangeRateLine ? (
                     <>환율 {exchangeRateLine}</>
                   ) : (
-                    <span className="text-gray-500">환율 미지정</span>
+                    <span className="text-[#8E8E8E]">환율 미지정</span>
                   )}
                 </p>
               ) : null}
               {(product.regionLabel || rel) && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-gray-500">
+                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-[#8E8E8E]">
                   {product.regionLabel ? (
                     <>
                       <span className="shrink-0">{product.regionLabel}</span>
@@ -162,7 +165,7 @@ export function ChatProductSummary({
           )}
         </div>
       </div>
-      {!hideFavorite && (
+      {!hideFavorite && !isPhilifeCard && (
         <div className="flex shrink-0 items-center border-l border-gray-100 px-2">
           <PostFavoriteButton
             postId={product.id}

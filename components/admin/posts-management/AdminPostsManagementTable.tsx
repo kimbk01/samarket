@@ -341,7 +341,7 @@ export const AdminPostsManagementTable = forwardRef<
                     <button
                       type="button"
                       onClick={() => runTradeOverride("force_complete", p)}
-                      className="block w-full px-3 py-2 text-left text-[13px] text-violet-800 hover:bg-violet-50"
+                      className="block w-full px-3 py-2 text-left text-[13px] text-gray-800 hover:bg-signature/5"
                     >
                       거래완료(강제)
                     </button>

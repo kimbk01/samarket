@@ -1,6 +1,12 @@
-/** 필리핀 연락처 — UI placeholder 공통 */
+/** 필리핀 연락처 — UI placeholder 공통 (저장·검증 규칙은 `@/lib/utils/ph-mobile`) */
 
-export const PH_MOBILE_PLACEHOLDER = "+63 900 000 0000";
+/** 로컬 11자리: 09## ### #### */
+export const PH_MOBILE_PLACEHOLDER = "09## ### ####";
 
-/** 로컬 09 번호 입력 (매장·주문 연락처) */
-export const PH_LOCAL_09_PLACEHOLDER = "09 xx xxx xxxx";
+/** 매장·주문·프로필 등 동일 */
+export const PH_LOCAL_09_PLACEHOLDER = PH_MOBILE_PLACEHOLDER;
+
+export {
+  PH_LOCAL_MOBILE_RULE_MESSAGE_KO,
+  PH_LOCAL_MOBILE_LENGTH,
+} from "@/lib/utils/ph-mobile";

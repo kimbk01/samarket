@@ -155,6 +155,7 @@ export function AdminPostsManagementPage({
     filters.bannedSuspect,
     filters.sortKey,
     filters.webVisibleOnly,
+    filters.jobListingKind,
     productIdSearch,
   ]);
 
@@ -265,6 +266,7 @@ export function AdminPostsManagementPage({
         ))}
       </div>
       <AdminPostsManagementFilterBar
+        tab={tab}
         filters={filters}
         products={products}
         sellerSearch={sellerSearch}

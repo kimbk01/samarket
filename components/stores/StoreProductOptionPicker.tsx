@@ -18,10 +18,19 @@ export function StoreProductOptionPicker({ groups, value, onChange, disabled }: 
     onChange({ ...value, [key]: names });
   };
 
-  const toggleMulti = (key: string, name: string, maxSelect: number, current: string[]) => {
+  const effMin = (g: (typeof groups)[0]) => (g.isRequired ? Math.max(g.minSelect, 1) : g.minSelect);
+
+  const toggleMulti = (
+    key: string,
+    name: string,
+    maxSelect: number,
+    minSelect: number,
+    current: string[]
+  ) => {
     const has = current.includes(name);
     let next: string[];
     if (has) {
+      if (current.length <= minSelect) return;
       next = current.filter((n) => n !== name);
     } else if (current.length >= maxSelect) {
       if (maxSelect <= 1) next = [name];
@@ -89,7 +98,9 @@ export function StoreProductOptionPicker({ groups, value, onChange, disabled }: 
                       type="button"
                       aria-pressed={checked}
                       disabled={disabled}
-                      onClick={() => !disabled && toggleMulti(g.key, opt.name, g.maxSelect, selected)}
+                      onClick={() =>
+                        !disabled && toggleMulti(g.key, opt.name, g.maxSelect, effMin(g), selected)
+                      }
                       className={`${btnBase} ${checked ? btnOn : btnOff} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                     >
                       <span>{opt.name}</span>

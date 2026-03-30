@@ -1,10 +1,17 @@
 /**
- * 채팅 목록 탭(trade | order) — 동시 요청 합류(탭 전환·폴링·이벤트가 겹칠 때).
+ * 채팅 목록 탭(trade | philife_* | order) — 동시 요청 합류(탭 전환·폴링·이벤트가 겹칠 때).
  */
 import type { ChatRoom } from "@/lib/types/chat";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
-export function fetchChatRoomsBySegment(segment: "trade" | "order"): Promise<{
+export type ChatRoomsListSegment =
+  | "trade"
+  | "philife"
+  | "philife_inbox"
+  | "philife_open"
+  | "order";
+
+export function fetchChatRoomsBySegment(segment: ChatRoomsListSegment): Promise<{
   ok: boolean;
   status: number;
   rooms: ChatRoom[];

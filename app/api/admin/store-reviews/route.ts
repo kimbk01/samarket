@@ -18,7 +18,7 @@ export async function GET() {
   const { data: rows, error } = await sb
     .from("store_reviews")
     .select(
-      "id, order_id, store_id, product_id, buyer_user_id, rating, content, status, created_at"
+      "id, order_id, store_id, product_id, buyer_user_id, rating, content, status, created_at, owner_reply_content, owner_reply_created_at"
     )
     .order("created_at", { ascending: false })
     .limit(300);

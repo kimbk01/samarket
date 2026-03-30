@@ -3,19 +3,20 @@
 import Link from "next/link";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 
+/** 메인 1단(`RegionBar`) 예상 높이(px) — 레이아웃과 맞춰 조정 */
 export const POST_DETAIL_REGION_BAR_PX = 56;
-/** RegionBar(1단) 하단 ~ 고정 네비 행 `top` 간격(px) */
+/** 메인 1단 하단 ~ 고정 네비 행 `top` 간격(px) */
 export const POST_DETAIL_NAV_VERTICAL_GAP_PX = 1;
 export const POST_DETAIL_NAV_ROW_PX = 52;
-/** 뷰포트 기준 네비 `top` — 1단 하단 + NAV_VERTICAL_GAP */
+/** 뷰포트 기준 네비 `top` — 메인 1단 하단 + NAV_VERTICAL_GAP */
 export const POST_DETAIL_NAV_TOP_PX = POST_DETAIL_REGION_BAR_PX + POST_DETAIL_NAV_VERTICAL_GAP_PX;
 /** 뷰포트 기준 네비 행 하단 Y — 스크롤 시 실선 전환 판별 */
 export const POST_DETAIL_NAV_STACK_BOTTOM_PX = POST_DETAIL_NAV_TOP_PX + POST_DETAIL_NAV_ROW_PX;
 
-/** main 상단(~1단 하단) → 이미지 시작 패딩(px). 네비는 fixed로 겹침; 1단~네비 간격과 별도 */
+/** 본문 상단(~메인 1단 하단) → 이미지 시작 패딩(px). 네비는 fixed로 겹침 */
 export const POST_DETAIL_IMAGE_INSET_BELOW_MAIN_TOP_PX = 2;
 
-/** 글 상세 공통: RegionBar 아래 고정 — 뒤로·홈·더보기(⋮) */
+/** 글 상세 공통: 메인 1단 아래 고정 네비 — 뒤로·홈·더보기(⋮) */
 export function PostDetailStickyNavBar({
   detailNavSolid,
   backHref,

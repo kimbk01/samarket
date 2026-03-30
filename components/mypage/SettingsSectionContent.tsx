@@ -40,7 +40,7 @@ export function SettingsSectionContent({ section, description }: SettingsSection
     const items = [
       { key: "chatNotification" as const, label: "채팅 알림" },
       { key: "keywordNotification" as const, label: "키워드 알림" },
-      { key: "communityNotification" as const, label: "동네생활 알림" },
+      { key: "communityNotification" as const, label: "커뮤니티 알림" },
       { key: "adNotification" as const, label: "광고·이벤트" },
     ];
     return (
@@ -224,13 +224,13 @@ function LeaveBlock() {
         </p>
         <div className="mt-4 flex gap-2">
           <Link
-            href="/mypage/settings"
+            href="/my/settings"
             className="rounded-lg border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700"
           >
             취소
           </Link>
           <Link
-            href="/mypage/settings"
+            href="/my/settings"
             className="rounded-lg bg-red-500 px-4 py-2 text-[14px] font-medium text-white"
           >
             탈퇴하기

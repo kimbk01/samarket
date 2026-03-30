@@ -146,28 +146,38 @@ const NAV_ICONS: Record<MyBusinessNavIcon, ReactNode> = {
       />
     </svg>
   ),
+  settings: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
 };
 
 export function MyBusinessNavList({ groups, className = "", onNavigate }: Props) {
   return (
     <section
-      className={`rounded-xl bg-white pb-4 shadow-sm ${className}`.trim()}
+      className={`grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3 ${className}`.trim()}
       aria-label="매장 관리 메뉴"
     >
       {groups.map((group, gi) => (
-        <div key={group.title}>
-          <h2
-            className={`px-4 text-[13px] font-medium text-gray-500 ${
-              gi === 0 ? "pt-4" : "mt-2 border-t border-gray-100 pt-4"
-            }`}
-          >
+        <div
+          key={group.title}
+          className="h-full rounded-[28px] border border-[#E5E7EB] bg-white p-2 shadow-[0_6px_24px_rgba(15,23,42,0.05)]"
+        >
+          <h2 className={`px-3 text-[13px] font-medium text-gray-500 ${gi === 0 ? "pt-2" : "pt-2"}`}>
             {group.title}
           </h2>
-          <ul className="mt-2">
+          <ul className="mt-2 space-y-1">
             {group.items.map((item, i) => (
               <li key={`${group.title}-${item.label}`}>
                 <NavRow item={item} isMuted={item.disabled} onNavigate={onNavigate} />
-                {i < group.items.length - 1 ? <hr className="border-gray-100" /> : null}
+                {i < group.items.length - 1 ? <hr className="mx-3 border-gray-100" /> : null}
               </li>
             ))}
           </ul>
@@ -186,20 +196,20 @@ function NavRow({
   isMuted?: boolean;
   onNavigate?: () => void;
 }) {
-  const iconTone = isMuted ? "text-gray-400" : "text-gray-500";
+  const iconTone = isMuted ? "text-gray-400" : "text-gray-700";
   const icon = (
-    <span className={`shrink-0 ${iconTone}`} aria-hidden>
+    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F5F6F8] ${iconTone}`} aria-hidden>
       {NAV_ICONS[item.icon]}
     </span>
   );
 
   const textBlock = (
     <span className="min-w-0 flex-1">
-      <span className={`block text-[14px] ${isMuted ? "text-gray-400" : "text-gray-800"}`}>
+      <span className={`block text-[14px] font-medium ${isMuted ? "text-gray-400" : "text-gray-900"}`}>
         {item.label}
       </span>
       {item.hint ? (
-        <span className="block text-[12px] text-gray-500">{item.hint}</span>
+        <span className="mt-0.5 block text-[12px] leading-relaxed text-gray-500">{item.hint}</span>
       ) : null}
     </span>
   );
@@ -216,7 +226,7 @@ function NavRow({
   );
 
   const rowClass =
-    "flex items-center gap-3 px-4 py-3 text-left active:bg-gray-50 " +
+    "flex items-center gap-3 rounded-2xl px-3 py-3 text-left active:bg-gray-50 " +
     (isMuted ? "" : "text-gray-800");
 
   if (item.disabled) {

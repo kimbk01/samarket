@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { HomeProductList } from "@/app/(app)/home/HomeProductList";
+import { HomeProductList } from "@/components/home/HomeProductList";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
 
 const HomeFeedViewExperimental = dynamic(

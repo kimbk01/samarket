@@ -1,6 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
+import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
+import { useOrderChatVersion } from "@/components/order-chat/use-order-chat-version";
+import { getDemoBuyerUserId } from "@/lib/member-orders/member-order-store";
+import { getOrderChatUnreadForMember } from "@/lib/shared-order-chat/shared-chat-store";
 import type { MemberOrder } from "@/lib/member-orders/types";
 import { MEMBER_STATUS_USER_MESSAGE } from "@/lib/member-orders/member-order-labels";
 import { MemberOrderStatusBadge } from "./MemberOrderStatusBadge";
@@ -16,12 +21,16 @@ function titleSummary(items: MemberOrder["items"]) {
 export function MemberOrderCard({
   order,
   detailHref,
+  chatHref,
   onOpenCancel,
 }: {
   order: MemberOrder;
   detailHref: string;
+  chatHref: string;
   onOpenCancel?: (order: MemberOrder) => void;
 }) {
+  const cv = useOrderChatVersion();
+  const buyerId = getDemoBuyerUserId();
   const activeTab = [
     "pending",
     "accepted",
@@ -31,11 +40,16 @@ export function MemberOrderCard({
     "arrived",
   ].includes(order.order_status);
   const canCancelRequest = order.order_status === "pending" || order.order_status === "accepted";
+  const canOpenChat = !["cancelled", "refunded"].includes(order.order_status);
+  const chatUnread = useMemo(() => {
+    void cv;
+    return getOrderChatUnreadForMember(order.id, buyerId);
+  }, [cv, order.id, buyerId]);
 
   return (
     <article
       className={`rounded-2xl border bg-white p-4 shadow-sm ${
-        activeTab ? "border-violet-200 ring-1 ring-violet-100" : "border-gray-100"
+        activeTab ? "border-gray-200 ring-1 ring-gray-200" : "border-gray-100"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -52,7 +66,7 @@ export function MemberOrderCard({
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span
           className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
-            order.order_type === "delivery" ? "bg-violet-50 text-violet-900" : "bg-teal-50 text-teal-900"
+            order.order_type === "delivery" ? "bg-signature/5 text-gray-900" : "bg-teal-50 text-teal-900"
           }`}
         >
           {order.order_type === "delivery" ? "배달" : "포장"}
@@ -75,6 +89,15 @@ export function MemberOrderCard({
         >
           상세보기
         </Link>
+        {canOpenChat ? (
+          <Link
+            href={chatHref}
+            className="flex items-center justify-center gap-1 rounded-xl border border-gray-200 bg-signature/5 px-4 py-2.5 text-sm font-semibold text-gray-900"
+          >
+            주문 문의
+            <UnreadBadge count={chatUnread} />
+          </Link>
+        ) : null}
         {canCancelRequest && onOpenCancel ? (
           <button
             type="button"

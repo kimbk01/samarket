@@ -6,6 +6,7 @@
  */
 import type { ProfileRow } from "./types";
 import { DEFAULT_PROFILE_ROW } from "./types";
+import { fetchProfileRowSafe } from "./fetch-profile-row-safe";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 
@@ -13,18 +14,32 @@ export async function getMyProfile(): Promise<ProfileRow | null> {
   const userId = getCurrentUser()?.id;
   if (!userId) return null;
 
+  /** 아이디 로그인 등 JWT 가 없을 때는 클라이언트 select 도 RLS 로 막힘 — 서버 API 가 우선 */
+  const hasSupabaseProject = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim());
+  if (typeof window !== "undefined" && hasSupabaseProject) {
+    try {
+      const res = await fetch("/api/me/profile", { credentials: "include", cache: "no-store" });
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; profile?: ProfileRow | null; error?: string }
+        | null;
+      if (res.ok && json?.ok && json.profile != null) {
+        return json.profile as ProfileRow;
+      }
+      if (res.ok && json?.ok && json.profile === null) {
+        return null;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-      if (!error && data) return data as ProfileRow;
-      if (error && (error as { code?: string }).code !== "PGRST116") return null;
+      const fromDb = await fetchProfileRowSafe(supabase, userId);
+      if (fromDb) return fromDb;
     } catch {
-      return null;
+      /* fall through */
     }
   }
 

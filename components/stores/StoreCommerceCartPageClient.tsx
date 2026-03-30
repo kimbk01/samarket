@@ -1,8 +1,9 @@
 "use client";
 
+import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { flushSync } from "react-dom";
 import { useStoreCommerceCart } from "@/contexts/StoreCommerceCartContext";
@@ -37,11 +38,24 @@ import {
   PROFILE_DELIVERY_SELECTION_ID,
   saveDeliveryAddressBook,
 } from "@/lib/store-commerce/delivery-address-book";
+import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-config";
+import {
+  STORE_ADDRESS_DETAIL_LABEL,
+  STORE_ADDRESS_STREET_LABEL,
+  STORE_ADDRESS_STREET_HINT,
+  STORE_ADDRESS_STREET_PLACEHOLDER,
+} from "@/lib/stores/store-address-form-ui";
 import {
   APP_TIER1_BAR_INNER_ALIGNED_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import {
+  readStoreFulfillmentPref,
+  writeStoreFulfillmentPref,
+} from "@/lib/stores/store-fulfillment-pref";
+import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 
 type Fulfillment = "pickup" | "local_delivery" | "shipping";
 
@@ -55,6 +69,11 @@ type StoreHead = {
   pickup_available: boolean | null;
   /** false면 배달 비노출(매장 설정) */
   delivery_available: boolean | null;
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
 };
 
 type ProfileContactSnap = {
@@ -75,6 +94,7 @@ function deliveryEntryMatchesProfile(e: DeliveryAddressBookEntry, p: ProfileCont
 }
 
 export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }) {
+  const pathname = usePathname();
   const router = useRouter();
   const cart = useStoreCommerceCart();
   const { patchBucketMeta } = cart;
@@ -123,14 +143,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           return;
         }
         setStoreLoadFailed(false);
+        const s = json.store as Record<string, unknown>;
         const head: StoreHead = {
-          id: json.store.id as string,
-          store_name: json.store.store_name as string,
-          slug: (json.store.slug as string) ?? storeSlug,
-          business_hours_json: json.store.business_hours_json,
-          is_open: (json.store.is_open as boolean | null | undefined) ?? null,
-          pickup_available: (json.store.pickup_available as boolean | null | undefined) ?? null,
-          delivery_available: (json.store.delivery_available as boolean | null | undefined) ?? null,
+          id: s.id as string,
+          store_name: s.store_name as string,
+          slug: (s.slug as string) ?? storeSlug,
+          business_hours_json: s.business_hours_json,
+          is_open: (s.is_open as boolean | null | undefined) ?? null,
+          pickup_available: (s.pickup_available as boolean | null | undefined) ?? null,
+          delivery_available: (s.delivery_available as boolean | null | undefined) ?? null,
+          region: typeof s.region === "string" ? s.region : null,
+          city: typeof s.city === "string" ? s.city : null,
+          district: typeof s.district === "string" ? s.district : null,
+          address_line1: typeof s.address_line1 === "string" ? s.address_line1 : null,
+          address_line2: typeof s.address_line2 === "string" ? s.address_line2 : null,
         };
         setStore(head);
         patchBucketMeta(head.id, { storeSlug: head.slug, storeName: head.store_name });
@@ -207,6 +233,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const needsAddressAndPhone =
     fulfillment === "local_delivery" || fulfillment === "shipping";
 
+  const storePickupLines = useMemo(
+    () =>
+      store ?
+        formatStorePickupAddressLines({
+          region: store.region,
+          city: store.city,
+          district: store.district,
+          address_line1: store.address_line1,
+          address_line2: store.address_line2,
+        })
+      : [],
+    [store]
+  );
+
   useEffect(() => {
     if (!cart.hydrated || !store) return;
     if (lines.length > 0) {
@@ -282,7 +322,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     [region, city, freeSummaryLine]
   );
 
-  /** 배달 주문 시 주소 한 줄(3자 이상) 또는 등록된 지역·동네 쌍 */
+  /** 배달 주문 시 지번·건물명 등(3자 이상) 또는 등록된 지역·동네 쌍 */
   const deliveryAddressReady = summaryForSubmit.trim().length >= 3;
 
   /** 장바구니 카드: 공백 없이 `09000000000` 형태 */
@@ -301,12 +341,36 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           ok?: boolean;
           contact_phone?: string | null;
           contact_address?: string | null;
+          default_delivery?: {
+            user_address_id: string;
+            phone: string | null;
+            app_region_id: string | null;
+            app_city_id: string | null;
+            summary_line: string;
+            address_detail: string;
+          } | null;
         };
         if (cancelled) return;
         if (!json.ok) {
           setProfileSnap(null);
           return;
         }
+        const dd = json.default_delivery;
+        if (dd?.user_address_id) {
+          const phoneDigits = parsePhMobileInput(dd.phone ?? json.contact_phone ?? "");
+          const snap: ProfileContactSnap = {
+            phone: phoneDigits,
+            region: dd.app_region_id ?? "",
+            city: dd.app_city_id ?? "",
+            freeSummaryLine: (dd.summary_line ?? "").trim(),
+            addressDetail: (dd.address_detail ?? "").trim(),
+          };
+          if (cancelled) return;
+          setProfileSnap(snap);
+          setBuyerPhone(snap.phone);
+          return;
+        }
+
         const phoneDigits = parsePhMobileInput(json.contact_phone ?? "");
         let nextRegion = "";
         let nextCity = "";
@@ -385,6 +449,31 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     });
   }, [store, offerPickup, deliveryFulfillmentMode]);
 
+  const fulfillmentPrefAppliedRef = useRef(false);
+  useEffect(() => {
+    fulfillmentPrefAppliedRef.current = false;
+  }, [storeSlug]);
+
+  /** 매장 메뉴에서 고른 배달/포장 — 자동 보정 effect 뒤에 한 번 적용 */
+  useEffect(() => {
+    if (!cart.hydrated || !store?.slug || lines.length === 0) return;
+    if (fulfillmentPrefAppliedRef.current) return;
+    fulfillmentPrefAppliedRef.current = true;
+    const pref = readStoreFulfillmentPref(store.slug);
+    if (!pref) return;
+    if (pref === "local_delivery" && deliveryFulfillmentMode) {
+      setFulfillment(deliveryFulfillmentMode);
+    } else if (pref === "pickup" && offerPickup) {
+      setFulfillment("pickup");
+    }
+  }, [
+    cart.hydrated,
+    store?.slug,
+    lines.length,
+    deliveryFulfillmentMode,
+    offerPickup,
+  ]);
+
   const minOrderPhp = commerce.minOrderPhp ?? 0;
   const meetsMin = lines.length === 0 || subtotalPhp >= minOrderPhp;
   const minShortage = Math.max(0, minOrderPhp - subtotalPhp);
@@ -459,7 +548,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       getLocationLabelIfValid(modalRegion, modalCity)?.trim() || modalFreeLine.trim();
     if (modalSummary.length < 3) {
       setModalLocationError(
-        "지역·동네를 선택하거나 주소 한 줄(3자 이상)을 입력해 주세요."
+        `지역·동네를 선택하거나 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)을 입력해 주세요.`
       );
       return;
     }
@@ -528,7 +617,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     }
     if (needsAddressAndPhone && !deliveryAddressReady) {
       setErr(
-        "배달: 선택한 배달주소에 지역·동네 또는 주소 한 줄(3자 이상)이 필요합니다. 삭제 후 다시 추가하거나 다른 배달주소를 선택해 주세요."
+        `배달: 선택한 배달주소에 지역·동네 또는 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)이 필요합니다. 삭제 후 다시 추가하거나 다른 배달주소를 선택해 주세요.`
       );
       return;
     }
@@ -569,12 +658,19 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           store_id: store.id,
-          items: lines.map((l) => ({
-            product_id: l.productId,
-            qty: l.qty,
-            option_selections:
-              Object.keys(l.optionSelections).length > 0 ? l.optionSelections : undefined,
-          })),
+          items: lines.map((l) => {
+            const wire: ModifierSelectionsWire =
+              l.modifierWire ?? { pick: { ...l.optionSelections }, qty: {} };
+            const hasPick = Object.keys(wire.pick).some((k) => (wire.pick[k]?.length ?? 0) > 0);
+            const hasQty = Object.keys(wire.qty).length > 0;
+            const row: Record<string, unknown> = {
+              product_id: l.productId,
+              qty: l.qty,
+            };
+            if (hasPick || hasQty) row.modifier_selections = wire;
+            if (l.lineNote?.trim()) row.line_note = l.lineNote.trim();
+            return row;
+          }),
           fulfillment_type: fulfillment,
           buyer_note: buyerNote.trim() || undefined,
           buyer_phone: parsePhMobileInput(buyerPhone) || undefined,
@@ -585,11 +681,17 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       });
       const json = await res.json();
       if (res.status === 401) {
+        if (redirectForBlockedAction(router, "로그인이 필요합니다.", pathname || `/stores/${storeSlug}/cart`)) {
+          return;
+        }
         setErr("로그인이 필요합니다.");
         return;
       }
       if (!json?.ok) {
         const code = typeof json?.error === "string" ? json.error : "order_failed";
+        if (redirectForBlockedAction(router, code, pathname || `/stores/${storeSlug}/cart`)) {
+          return;
+        }
         setErr(
           code === "insufficient_stock"
             ? "재고가 부족합니다. 장바구니를 수정한 뒤 다시 시도해 주세요."
@@ -619,7 +721,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       if (oid) setLastCheckoutOrderId(store.id, oid);
       cart.clearStoreCart(store.id);
       if (oid) {
-        router.replace("/mypage/store-orders");
+        window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
+        router.replace("/my/store-orders");
       }
     } catch {
       setErr("네트워크 오류가 발생했습니다.");
@@ -667,7 +770,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           <p className="text-[16px] font-semibold text-emerald-800">주문이 접수되었습니다.</p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <Link
-              href="/mypage/store-orders"
+              href="/my/store-orders"
               className="text-[15px] font-semibold text-signature underline"
             >
               주문 내역 확인
@@ -676,13 +779,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               href={`/my/store-orders/${encodeURIComponent(lastOrderId)}`}
               className="text-[14px] text-gray-700 underline"
             >
-              이 주문 상세 보기
+              이 주문 진행 보기
             </Link>
             <Link
               href={`/my/store-orders/${encodeURIComponent(lastOrderId)}/chat`}
               className="text-[14px] text-gray-700 underline"
             >
-              매장과 채팅
+              매장 문의 남기기
             </Link>
             <Link
               href={`/stores/${encodeURIComponent(store.slug)}`}
@@ -822,9 +925,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-semibold text-gray-900">{line.title}</p>
                 <p className="mt-0.5 text-[12px] text-gray-500">
-                  <span className="font-medium text-gray-600">세부 사항</span>{" "}
+                  <span className="font-medium text-gray-600">옵션</span>{" "}
                   {line.optionsSummary?.trim() ? line.optionsSummary.trim() : "없음"}
                 </p>
+                {line.lineNote?.trim() ? (
+                  <p className="mt-0.5 text-[12px] text-amber-900/90">
+                    <span className="font-medium">요청</span> {line.lineNote.trim()}
+                  </p>
+                ) : null}
                 <div className="mt-1 flex flex-wrap items-baseline gap-2">
                   <span className="text-sm font-bold text-gray-900">
                     {formatMoneyPhp(line.unitPricePhp)}
@@ -1000,7 +1108,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   key={o.value}
                   type="button"
                   disabled={busy}
-                  onClick={() => setFulfillment(o.value)}
+                  onClick={() => {
+                    setFulfillment(o.value);
+                    if (store?.slug) {
+                      if (o.value === "pickup") writeStoreFulfillmentPref(store.slug, "pickup");
+                      else writeStoreFulfillmentPref(store.slug, "local_delivery");
+                    }
+                  }}
                   className={`rounded-full px-3 py-1.5 text-[13px] ${
                     fulfillment === o.value
                       ? "bg-signature text-white"
@@ -1057,6 +1171,34 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </div>
           </div>
         </div>
+
+        {fulfillment === "pickup" && offerPickup && storePickupLines.length > 0 ? (
+          <div className="rounded-lg border border-sky-100 bg-sky-50/90 px-3 py-2.5">
+            <p className="text-[12px] font-semibold text-sky-950">픽업 장소 (매장 주소)</p>
+            <p className="mt-1 text-[11px] leading-snug text-sky-900/85">
+              이 주소에서 수령합니다. 배달을 고르면 아래에 입력하는 주소가 배달지로 전달됩니다.
+            </p>
+            <ul className="mt-2 list-none space-y-0.5 text-[13px] leading-relaxed text-sky-950">
+              {storePickupLines.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+            {store?.slug ?
+              <Link
+                href={`/stores/${encodeURIComponent(store.slug)}/info`}
+                className="mt-2 inline-block text-[12px] font-medium text-signature underline"
+              >
+                매장 정보
+              </Link>
+            : null}
+          </div>
+        ) : fulfillment === "pickup" && offerPickup ? (
+          <p className="rounded-lg border border-amber-100 bg-amber-50/80 px-3 py-2 text-[12px] text-amber-950">
+            매장 주소가 비어 있어 픽업 장소를 표시할 수 없습니다. 사장님 메뉴에서 매장 기본 정보를
+            등록해 주세요.
+          </p>
+        ) : null}
+
         <div
           className={
             needsAddressAndPhone
@@ -1115,7 +1257,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-bold text-gray-900">배달주소 1</p>
-                      <p className="mt-0.5 text-[11px] font-medium text-gray-500">마이페이지 주소</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-gray-500">
+                        내정보 · 주소 관리 기본 배달
+                      </p>
                       <p className="mt-1 whitespace-pre-wrap text-[12px] font-normal leading-relaxed text-gray-800">
                         {profileAddressBodyText ||
                           "마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 아래 배송지 추가를 이용해 주세요."}
@@ -1184,7 +1328,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </div>
             {!deliveryAddressReady && checkoutContactReady && (profileSnap || addressBook.length > 0) ? (
               <p className="mt-2 text-[11px] leading-snug text-amber-800">
-                선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 주소 한 줄이 필요합니다.
+                선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 {STORE_ADDRESS_STREET_LABEL}이 필요합니다.
               </p>
             ) : null}
             {checkoutContactReady && profileSnap && !profileDeliveryReady && addressBook.length === 0 ? (
@@ -1283,39 +1427,47 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 }}
                 label="거래 지역"
               />
-              <div>
-                <label
-                  htmlFor="cart-modal-addr-line"
-                  className="text-[12px] font-medium text-gray-600"
-                >
-                  주소 한 줄 <span className="font-normal text-gray-400">(목록에 없을 때 · 3자 이상)</span>
-                </label>
-                <input
-                  id="cart-modal-addr-line"
-                  type="text"
-                  autoComplete="street-address"
-                  value={modalFreeLine}
-                  disabled={busy}
-                  onChange={(e) => setModalFreeLine(e.target.value)}
-                  placeholder="예: Barangay · 건물명 · 번지"
-                  className="mt-2 w-full rounded border border-gray-200 px-3 py-2 text-sm text-gray-900"
-                  maxLength={300}
-                />
-              </div>
-              <div>
-                <label htmlFor="cart-modal-addr-detail" className="text-[12px] font-medium text-gray-600">
-                  상세 주소 <span className="font-normal text-gray-400">(선택)</span>
-                </label>
-                <textarea
-                  id="cart-modal-addr-detail"
-                  rows={2}
-                  value={modalDetail}
-                  disabled={busy}
-                  onChange={(e) => setModalDetail(e.target.value)}
-                  placeholder="동·호수, 출입 방법 등"
-                  className="mt-2 w-full resize-none rounded border border-gray-200 px-3 py-2 text-sm text-gray-900"
-                  maxLength={500}
-                />
+              <div className="space-y-2">
+                <p className="text-[12px] leading-snug text-gray-500">{STORE_ADDRESS_STREET_HINT}</p>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="cart-modal-addr-line"
+                      className="block text-[12px] font-medium text-gray-600"
+                    >
+                      {STORE_ADDRESS_STREET_LABEL}
+                    </label>
+                    <input
+                      id="cart-modal-addr-line"
+                      type="text"
+                      autoComplete="street-address"
+                      value={modalFreeLine}
+                      disabled={busy}
+                      onChange={(e) => setModalFreeLine(e.target.value)}
+                      placeholder={STORE_ADDRESS_STREET_PLACEHOLDER}
+                      className="mt-1.5 w-full rounded border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      maxLength={300}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="cart-modal-addr-detail"
+                      className="block text-[12px] font-medium text-gray-600"
+                    >
+                      {STORE_ADDRESS_DETAIL_LABEL}
+                    </label>
+                    <input
+                      id="cart-modal-addr-detail"
+                      type="text"
+                      autoComplete="address-line2"
+                      value={modalDetail}
+                      disabled={busy}
+                      onChange={(e) => setModalDetail(e.target.value)}
+                      className="mt-1.5 w-full rounded border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      maxLength={500}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             {modalLocationError ? (

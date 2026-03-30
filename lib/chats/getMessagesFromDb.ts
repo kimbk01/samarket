@@ -2,6 +2,7 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { ChatMessage } from "@/lib/types/chat";
+import { mapProductChatMessageRow } from "@/lib/chats/map-product-chat-message-row";
 
 /**
  * 웹 채팅방 메시지 목록 — Supabase product_chat_messages
@@ -22,17 +23,7 @@ export async function getMessagesFromDb(
 
   if (error || !rows?.length) return [];
 
-  return rows
-    .filter((m: Record<string, unknown>) => !(m.is_hidden === true))
-    .map((m: Record<string, unknown>) => ({
-      id: m.id as string,
-      roomId: m.product_chat_id as string,
-      senderId: m.sender_id as string,
-      message: (m.content as string) ?? "",
-      messageType: ((m.message_type as string) || "text") as "text" | "image" | "system",
-      imageUrl: (m.image_url as string | null | undefined) ?? null,
-      readAt: m.read_at as string | null,
-      createdAt: (m.created_at as string) ?? "",
-      isRead: !!m.read_at,
-    })) as ChatMessage[];
+  return (rows as Record<string, unknown>[])
+    .map((m) => mapProductChatMessageRow(m))
+    .filter((m): m is ChatMessage => m != null);
 }

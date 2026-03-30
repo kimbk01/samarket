@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getPostsByTradeCategoryIds, type PostSort } from "@/lib/posts/getPostsByCategory";
+import {
+  getPostsByTradeCategoryIds,
+  type PostSort,
+} from "@/lib/posts/getPostsByCategory";
+import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { getFavoriteStatusForPosts } from "@/lib/favorites/getFavoriteStatusForPosts";
+import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { PostCard } from "./PostCard";
@@ -19,6 +24,8 @@ interface PostListByCategoryProps {
   sort?: PostSort;
   /** 상위+주제 OR 조회 시 id 목록. 미지정이면 categoryId만 사용 */
   filterCategoryIds?: string[];
+  /** 알바 마켓: 구인/구직 메타 필터 */
+  jobsListingKind?: JobListingKindFilter;
 }
 
 export function PostListByCategory({
@@ -26,6 +33,7 @@ export function PostListByCategory({
   category,
   sort = "latest",
   filterCategoryIds,
+  jobsListingKind,
 }: PostListByCategoryProps) {
   const [posts, setPosts] = useState<PostWithMeta[]>([]);
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
@@ -47,7 +55,11 @@ export function PostListByCategory({
       if (!categoryId || effectiveIds.length === 0) return;
       setLoading(true);
       try {
-        const res = await getPostsByTradeCategoryIds(effectiveIds, { page: pageNum, sort });
+        const res = await getPostsByTradeCategoryIds(effectiveIds, {
+          page: pageNum,
+          sort,
+          jobsListingKind,
+        });
         if (pageNum === 1) {
           setPosts(res.posts);
           setHiddenPostIds(new Set());
@@ -70,13 +82,29 @@ export function PostListByCategory({
         setLoading(false);
       }
     },
-    [categoryId, sort, effectiveIds]
+    [categoryId, sort, effectiveIds, jobsListingKind]
   );
 
   useEffect(() => {
     setPage(1);
     load(1);
-  }, [categoryId, sort, load]);
+  }, [categoryId, sort, jobsListingKind, load]);
+
+  useEffect(() => {
+    const onFav = (e: Event) => {
+      const d = (e as CustomEvent<{ postId?: string; isFavorite?: boolean }>).detail;
+      if (!d?.postId || typeof d.isFavorite !== "boolean") return;
+      const postId = d.postId;
+      const fav = d.isFavorite;
+      setFavoriteMap((prev) => {
+        const next: Record<string, boolean> = { ...prev };
+        next[postId] = fav;
+        return next;
+      });
+    };
+    window.addEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
+    return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
+  }, []);
 
   const loadMore = useCallback(() => {
     if (loading || !hasMore) return;

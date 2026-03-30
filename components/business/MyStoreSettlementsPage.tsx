@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { BusinessSubPageHeader } from "@/components/business/BusinessSubPageHeader";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 type Row = {
@@ -66,9 +66,7 @@ export function MyStoreSettlementsPage() {
 
   return (
     <div className="pb-8">
-      <BusinessSubPageHeader title="정산 내역" backHref="/my/business" />
-
-      <div className={`mx-4 mt-4 ${OWNER_STORE_STACK_Y_CLASS}`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS}`}>
         {error ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         ) : null}
@@ -105,7 +103,7 @@ export function MyStoreSettlementsPage() {
                   <p className="mt-1 text-xs text-green-700">지급일 {r.paid_at.slice(0, 10)}</p>
                 ) : null}
                 <Link
-                  href={`/my/business/store-orders`}
+                  href={buildStoreOrdersHref({ storeId: r.store_id })}
                   className="mt-2 inline-block text-xs text-signature"
                 >
                   주문 관리로

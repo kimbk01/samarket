@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 
 export type MeStoreRow = {
   id: string;
@@ -32,12 +33,16 @@ export function useMeStoreBySlug(slug: string) {
     }
     setState({ kind: "loading" });
     try {
-      const res = await fetch("/api/me/stores", { credentials: "include", cache: "no-store" });
-      if (res.status === 401) {
+      const { status, json: raw } = await fetchMeStoresListDeduped();
+      if (status === 401) {
         setState({ kind: "unauth" });
         return;
       }
-      const json = await res.json().catch(() => ({}));
+      const json = (raw && typeof raw === "object" ? raw : {}) as {
+        ok?: boolean;
+        stores?: unknown;
+        error?: string;
+      };
       if (!json?.ok || !Array.isArray(json.stores)) {
         setState({ kind: "error", message: typeof json?.error === "string" ? json.error : "load_failed" });
         return;

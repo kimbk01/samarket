@@ -15,7 +15,7 @@ import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detai
 function CommerceMetricVSeparator() {
   return (
     <div className="flex w-[2px] shrink-0 self-stretch py-0" aria-hidden>
-      <div className="min-h-0 flex-1 rounded-none bg-stone-300" />
+      <div className="min-h-0 flex-1 rounded-md bg-stone-300" />
     </div>
   );
 }
@@ -192,10 +192,10 @@ export function StoreDetailPromoBanner({
       : "");
   if (!line) return null;
   const boxClass =
-    "flex items-start gap-2.5 rounded-none border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] font-normal leading-snug text-amber-950 shadow-sm";
+    "flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] font-normal leading-snug text-amber-950 shadow-sm";
   return (
     <div className={embedded ? `mt-3 ${boxClass}` : `${STORE_DETAIL_GUTTER} mt-3 ${boxClass}`}>
-      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-none bg-amber-200/80 text-[11px] font-bold text-amber-900">
+      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-200/80 text-[11px] font-bold text-amber-900">
         i
       </span>
       <p>{line}</p>

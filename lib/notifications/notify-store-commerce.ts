@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatMoneyPhp } from "@/lib/utils/format";
+
+/** 구매자 매장 주문 알림의 바로가기 — 주문 내역 목록으로 통일 */
+const BUYER_STORE_ORDERS_NOTIFICATION_HREF = "/my/store-orders";
 
 async function loadStoreName(sb: SupabaseClient, storeId: string): Promise<string> {
   const { data } = await sb.from("stores").select("store_name").eq("id", storeId.trim()).maybeSingle();
@@ -60,7 +64,11 @@ export async function notifyStoreOwnerNewOrder(
     body: name
       ? `「${name}」 ${orderNo} · ${amt} · 품목 ${lines}종${extraSeg} — 접수·채팅에서 확인해 주세요.`
       : `${orderNo} · ${amt} · 품목 ${lines}종${extraSeg} — 접수·채팅에서 확인해 주세요.`,
-    link_url: `/my/business/store-orders?order_id=${encodeURIComponent(oid)}&ack_owner_notifications=1`,
+    link_url: buildStoreOrdersHref({
+      storeId: sid,
+      orderId: oid,
+      ackOwnerNotifications: true,
+    }),
     meta: {
       kind: "store_order_created",
       store_id: sid,
@@ -97,7 +105,7 @@ export async function notifyBuyerStorePaymentCompleted(
     notification_type: "commerce",
     title: "결제가 완료됐어요",
     body: `「${label}」 ${orderNo} — 매장이 확인·접수하면 채팅과 알림으로 단계가 안내돼요.`,
-    link_url: `/my/store-orders/${encodeURIComponent(oid)}/chat`,
+    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: {
       kind: "store_order_payment_completed_buyer",
       order_id: oid,
@@ -142,7 +150,11 @@ export async function notifyStoreOwnerPaymentCompleted(
     body: name
       ? `「${name}」 ${orderNo} · ${amt} — 결제가 완료되었습니다. 주문을 접수할 수 있어요.`
       : `${orderNo} · ${amt} — 결제가 완료되었습니다. 주문을 접수할 수 있어요.`,
-    link_url: `/my/business/store-orders?order_id=${encodeURIComponent(oid)}&ack_owner_notifications=1`,
+    link_url: buildStoreOrdersHref({
+      storeId: sid,
+      orderId: oid,
+      ackOwnerNotifications: true,
+    }),
     meta: {
       kind: "store_order_payment_completed",
       store_id: sid,
@@ -178,7 +190,11 @@ export async function notifyStoreOwnerBuyerCancelled(
     notification_type: "commerce",
     title: "고객이 주문을 취소했습니다",
     body: name ? `「${name}」 ${orderNo} — 접수 전 취소되었습니다.` : `${orderNo} — 접수 전 취소되었습니다.`,
-    link_url: `/my/business/store-orders?order_id=${encodeURIComponent(oid)}&ack_owner_notifications=1`,
+    link_url: buildStoreOrdersHref({
+      storeId: sid,
+      orderId: oid,
+      ackOwnerNotifications: true,
+    }),
     meta: { kind: "store_order_buyer_cancelled", store_id: sid, order_id: oid, order_no: orderNo },
   });
 }
@@ -211,7 +227,12 @@ export async function notifyStoreOwnerRefundRequested(
     body: name
       ? `「${name}」 주문 ${orderNo} — 고객이 환불을 요청했습니다.`
       : `주문 ${orderNo} — 고객이 환불을 요청했습니다.`,
-    link_url: `/my/business/store-orders?order_id=${encodeURIComponent(oid)}&ack_owner_notifications=1`,
+    link_url: buildStoreOrdersHref({
+      storeId: sid,
+      orderId: oid,
+      tab: "refund",
+      ackOwnerNotifications: true,
+    }),
     meta: {
       kind: "store_order_refund_requested",
       store_id: sid,
@@ -297,7 +318,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     notification_type: "commerce",
     title: copy.title,
     body: copy.body,
-    link_url: `/my/store-orders/${encodeURIComponent(oid)}/chat`,
+    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: {
       kind: "store_order_owner_status",
       order_id: oid,
@@ -326,7 +347,7 @@ export async function notifyBuyerStorePaymentFailed(
     notification_type: "commerce",
     title: "결제에 실패했어요",
     body: `「${label}」 ${orderNo} 주문 — 결제가 완료되지 않았습니다. 다시 시도하거나 주문을 취소할 수 있어요.`,
-    link_url: `/my/store-orders/${encodeURIComponent(oid)}`,
+    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: { kind: "store_order_payment_failed", order_id: oid, order_no: orderNo, store_id: opts.storeId },
   });
 }
@@ -349,7 +370,7 @@ export async function notifyBuyerStoreRefundApproved(
     notification_type: "commerce",
     title: "환불이 처리되었어요",
     body: `「${label}」 ${orderNo} 주문이 환불 처리되었습니다. 실제 금액 반환은 매장과 직접 확인해 주세요.`,
-    link_url: `/my/store-orders/${encodeURIComponent(oid)}`,
+    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: { kind: "store_order_refund_approved", order_id: oid, order_no: orderNo, store_id: opts.storeId },
   });
 }
@@ -372,7 +393,7 @@ export async function notifyBuyerStoreOrderAutoCompleted(
     notification_type: "commerce",
     title: "주문이 자동 완료됐어요",
     body: `「${label}」 ${orderNo} 주문이 기한에 따라 자동으로 완료 처리되었습니다.`,
-    link_url: `/my/store-orders/${encodeURIComponent(oid)}`,
+    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: { kind: "store_order_auto_completed", order_id: oid, order_no: orderNo, store_id: opts.storeId },
   });
 }

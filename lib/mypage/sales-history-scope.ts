@@ -23,7 +23,7 @@ export function isSellingPostForSalesHistory(post: Record<string, unknown> | und
   // posts.type 없음: 커뮤니티 글은 보통 trade_category_id 가 비어 있거나 board_id 가 있음
   const bid = post.board_id;
   if (bid != null && String(bid).trim()) return false;
-  const tc = post.trade_category_id;
+  const tc = post.trade_category_id ?? post.category_id;
   if (tc == null || !String(tc).trim()) return false;
   return true;
 }

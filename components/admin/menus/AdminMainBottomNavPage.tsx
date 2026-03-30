@@ -16,13 +16,14 @@ import {
   generateCustomBottomNavTabId,
   isBuiltinBottomNavTabId,
 } from "@/lib/main-menu/resolve-main-bottom-nav";
+import { invalidateMainBottomNavDedupedCache } from "@/lib/app/fetch-main-bottom-nav-deduped";
 
 const ICON_OPTIONS: { value: BottomNavIconKey; label: string }[] = [
-  { value: "home", label: "home (홈형)" },
-  { value: "community", label: "community (동네생활)" },
-  { value: "stores", label: "stores (매장)" },
-  { value: "orders", label: "orders (주문)" },
-  { value: "chat", label: "chat (채팅)" },
+  { value: "trade", label: "trade (거래 탭)" },
+  { value: "home", label: "home (집)" },
+  { value: "community", label: "community (커뮤니티)" },
+  { value: "stores", label: "stores (배달)" },
+  { value: "chat", label: "chat (거래채팅)" },
   { value: "my", label: "my (내정보)" },
 ];
 
@@ -158,6 +159,7 @@ export function AdminMainBottomNavPage() {
       }
       setRows(data.items as MainBottomNavAdminRow[]);
       setFromDb(true);
+      invalidateMainBottomNavDedupedCache();
       setMessage({ type: "ok", text: "저장되었습니다. 앱 하단 탭에 반영됩니다." });
     } catch {
       setMessage({ type: "err", text: "네트워크 오류" });
@@ -180,6 +182,7 @@ export function AdminMainBottomNavPage() {
       setRows(data.items as MainBottomNavAdminRow[]);
       setFromDb(false);
       setUpdatedAt(null);
+      invalidateMainBottomNavDedupedCache();
       setMessage({ type: "ok", text: "초기화되었습니다." });
     } catch {
       setMessage({ type: "err", text: "네트워크 오류" });
@@ -341,7 +344,7 @@ export function AdminMainBottomNavPage() {
                     {isBuiltinBottomNavTabId(row.id) ? (
                       <span className="ml-1 text-[10px] text-gray-400">(내장)</span>
                     ) : (
-                      <span className="ml-1 text-[10px] text-violet-600">(추가)</span>
+                      <span className="ml-1 text-[10px] text-signature">(추가)</span>
                     )}
                   </td>
                   <td className="px-2 py-2">

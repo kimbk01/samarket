@@ -5,27 +5,18 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryWriteHref } from "@/lib/categories/getCategoryHref";
 import { CategoryIcon } from "@/components/home/CategoryIcon";
 
-/** 참고 이미지와 동일: 타입별 아이콘 배경색 */
-const ICON_BG: Record<string, string> = {
-  trade: "bg-orange-100 text-orange-600",
-  service: "bg-violet-100 text-violet-600",
-  community: "bg-sky-100 text-sky-600",
-  feature: "bg-rose-100 text-rose-600",
-};
-
-function getIconBg(type: string): string {
-  return ICON_BG[type] ?? "bg-gray-100 text-gray-600";
-}
-
 interface WriteLauncherItemProps {
   category: CategoryWithSettings;
   onNavigate?: () => void;
 }
 
+/**
+ * 단색 원 + 라인 아이콘 (메타/인스타 설정·리스트류처럼 심플).
+ * flex 수축으로 타원처럼 보이지 않도록 size 고정 + shrink-0 + aspect-square.
+ */
 export function WriteLauncherItem({ category, onNavigate }: WriteLauncherItemProps) {
   const router = useRouter();
   const href = getCategoryWriteHref(category);
-  const iconBg = getIconBg(category.type);
 
   const handleClick = () => {
     onNavigate?.();
@@ -38,14 +29,15 @@ export function WriteLauncherItem({ category, onNavigate }: WriteLauncherItemPro
     <button
       type="button"
       onClick={handleClick}
-      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-gray-50"
+      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-neutral-100/90"
     >
       <span
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${iconBg}`}
+        className="box-border flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-700 aspect-square"
+        aria-hidden
       >
-        <CategoryIcon iconKey={category.icon_key} />
+        <CategoryIcon iconKey={category.icon_key} className="size-[22px] text-current" />
       </span>
-      <span className="text-[15px] font-medium text-gray-900">{category.name}</span>
+      <span className="min-w-0 flex-1 text-[15px] font-medium text-neutral-900">{category.name}</span>
     </button>
   );
 }

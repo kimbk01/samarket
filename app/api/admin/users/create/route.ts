@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "crypto";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
 /**
- * 관리자 회원 수동 생성 — test_users에 추가 (서비스 롤).
- * 이후 /api/test-login + 로그인 페이지「아이디 로그인」으로 세션 연결 시 전 API가 동일 UUID로 인식.
- * POST body: { username, password, displayName, role, contactPhone?, contactAddress? }
+ * 관리자 회원 수동 생성
+ * - 일반 회원과 동일하게 Supabase `auth.users` + `public.profiles`(동일 PK = auth uid).
+ * - `signInWithPassword`·RLS·`auth.uid()` 는 자가 가입 회원과 같은 경로로 동작.
+ * - 추가: `test_users`(동일 id) — 일부 API·도구 보강용. 로그인은 `signInWithPassword` 경로로 통일.
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -20,10 +21,12 @@ export async function POST(req: NextRequest) {
   let body: {
     username?: string;
     password?: string;
-    displayName?: string;
+    nickname?: string;
+    email?: string;
     role?: string;
     contactPhone?: string;
     contactAddress?: string;
+    phoneVerified?: boolean;
   };
   try {
     body = await req.json();
@@ -33,19 +36,25 @@ export async function POST(req: NextRequest) {
 
   const username = String(body.username ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
-  const displayName = String(body.displayName ?? "").trim();
+  const nickname = String(body.nickname ?? "").trim();
+  const emailRaw = String(body.email ?? "").trim().toLowerCase();
   const roleRaw = String(body.role ?? "normal").toLowerCase();
   const role = roleRaw === "premium" || roleRaw === "special" ? "special" : "member";
   const contactPhoneRaw = String(body.contactPhone ?? "").trim();
   const contactAddressRaw = String(body.contactAddress ?? "").trim();
-  if (contactPhoneRaw.length > 64) {
-    return NextResponse.json({ ok: false, error: "연락처는 64자 이하로 입력하세요." }, { status: 400 });
+  const phoneVerified = body.phoneVerified === true;
+
+  const phNorm = normalizeOptionalPhMobileDb(contactPhoneRaw);
+  if (!phNorm.ok) {
+    return NextResponse.json({ ok: false, error: phNorm.error }, { status: 400 });
   }
   if (contactAddressRaw.length > 2000) {
     return NextResponse.json({ ok: false, error: "주소는 2000자 이하로 입력하세요." }, { status: 400 });
   }
-  const contactPhone = contactPhoneRaw || null;
+
+  const contactPhone = phNorm.value;
   const contactAddress = contactAddressRaw || null;
+  const email = emailRaw || `${username}@manual.local`;
 
   if (!username || username.length < 2 || username.length > 64) {
     return NextResponse.json({ ok: false, error: "아이디는 2~64자로 입력하세요." }, { status: 400 });
@@ -53,25 +62,70 @@ export async function POST(req: NextRequest) {
   if (!password || password.length < 4) {
     return NextResponse.json({ ok: false, error: "비밀번호는 4자 이상 입력하세요." }, { status: 400 });
   }
+  if (!nickname || nickname.length > 20) {
+    return NextResponse.json({ ok: false, error: "닉네임은 1~20자로 입력하세요." }, { status: 400 });
+  }
+  if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+    return NextResponse.json({ ok: false, error: "이메일 형식이 올바르지 않습니다." }, { status: 400 });
+  }
 
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
-  const id = randomUUID();
+  const { data: created, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      nickname,
+      username,
+      login_id: username,
+      auth_provider: "manual_admin",
+    },
+  });
 
-  const row: Record<string, unknown> = {
+  const id = created.user?.id;
+  if (authError || !id) {
+    return NextResponse.json(
+      { ok: false, error: authError?.message || "실제 회원 생성에 실패했습니다." },
+      { status: 500 }
+    );
+  }
+
+  const profileRow: Record<string, unknown> = {
+    id,
+    email,
+    username,
+    nickname,
+    role: role === "special" ? "special" : "user",
+    member_type: role === "special" ? "premium" : "normal",
+    is_special_member: role === "special",
+    phone: contactPhone,
+    phone_verified: phoneVerified,
+    phone_verification_status: phoneVerified ? "verified" : contactPhone ? "pending" : "unverified",
+    phone_verified_at: phoneVerified ? new Date().toISOString() : null,
+    phone_verification_method: phoneVerified ? "admin_manual" : null,
+    status: "active",
+    preferred_country: "PH",
+    auth_provider: "manual_admin",
+  };
+  const { error: profileError } = await (supabase as any).from("profiles").upsert(profileRow);
+  if (profileError) {
+    await supabase.auth.admin.deleteUser(id);
+    return NextResponse.json({ ok: false, error: profileError.message }, { status: 500 });
+  }
+
+  const testUserRow: Record<string, unknown> = {
     id,
     username,
     password,
     role,
-    display_name: displayName || null,
+    display_name: nickname,
     contact_phone: contactPhone,
     contact_address: contactAddress,
   };
-
-  const { error } = await (supabase as any)
-    .from("test_users")
-    .insert(row);
-
+  const { error } = await (supabase as any).from("test_users").upsert(testUserRow);
   if (error) {
+    await (supabase as any).from("profiles").delete().eq("id", id);
+    await supabase.auth.admin.deleteUser(id);
     if (error.code === "23505") {
       return NextResponse.json({ ok: false, error: "이미 사용 중인 아이디입니다." }, { status: 400 });
     }
@@ -83,8 +137,10 @@ export async function POST(req: NextRequest) {
     user: {
       id,
       username,
-      displayName: displayName || username,
+      nickname,
+      email,
       role,
+      phoneVerified,
     },
   });
 }

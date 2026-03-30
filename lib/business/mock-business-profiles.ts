@@ -6,6 +6,13 @@ import type { BusinessProfile, BusinessProfileStatus } from "@/lib/types/busines
 import { slugify } from "./business-utils";
 import { addBusinessLog } from "./mock-business-logs";
 
+function combinedAddressDisplay(street: string, detail: string): string {
+  const s = street.trim();
+  const d = detail.trim();
+  if (s && d) return `${s}, ${d}`;
+  return s || d;
+}
+
 const PROFILES: BusinessProfile[] = [
   {
     id: "bp-1",
@@ -20,7 +27,12 @@ const PROFILES: BusinessProfile[] = [
     region: "마닐라",
     city: "Malate",
     barangay: "",
-    addressLabel: "마닐라 · Malate",
+    addressStreetLine: "Roxas Blvd, Malate, Manila",
+    addressDetail: "2층 유닛 (출입: 경비실 안내)",
+    addressLabel: combinedAddressDisplay(
+      "Roxas Blvd, Malate, Manila",
+      "2층 유닛 (출입: 경비실 안내)"
+    ),
     category: "일반",
     status: "active",
     followerCount: 12,
@@ -44,7 +56,9 @@ const PROFILES: BusinessProfile[] = [
     region: "퀘존시티",
     city: "Diliman",
     barangay: "",
-    addressLabel: "퀘존시티 · Diliman",
+    addressStreetLine: "Katipunan Ave, Diliman, Quezon City",
+    addressDetail: "",
+    addressLabel: "Katipunan Ave, Diliman, Quezon City",
     category: "디지털/가전",
     status: "active",
     followerCount: 8,
@@ -68,6 +82,8 @@ const PROFILES: BusinessProfile[] = [
     region: "마닐라",
     city: "",
     barangay: "",
+    addressStreetLine: "",
+    addressDetail: "",
     addressLabel: "",
     category: "일반",
     status: "pending",
@@ -122,6 +138,9 @@ export function applyBusinessProfile(input: {
   kakaoId?: string;
   region?: string;
   city?: string;
+  addressStreetLine?: string;
+  addressDetail?: string;
+  /** @deprecated 한 줄만 넘길 때 street 으로 취급 */
   addressLabel?: string;
   category?: string;
 }): BusinessProfile {
@@ -135,7 +154,11 @@ export function applyBusinessProfile(input: {
     existing.kakaoId = input.kakaoId ?? "";
     existing.region = input.region ?? "";
     existing.city = input.city ?? "";
-    existing.addressLabel = input.addressLabel ?? "";
+    const st = input.addressStreetLine ?? input.addressLabel ?? "";
+    const det = input.addressDetail ?? "";
+    existing.addressStreetLine = st;
+    existing.addressDetail = det;
+    existing.addressLabel = combinedAddressDisplay(st, det);
     existing.category = input.category ?? "일반";
     existing.updatedAt = new Date().toISOString();
     addBusinessLog(existing.id, "update_profile", "admin-1", "관리자", "프로필 수정");
@@ -148,6 +171,8 @@ export function applyBusinessProfile(input: {
     uniqueSlug = `${slug}-${n}`;
   }
   const now = new Date().toISOString();
+  const stNew = input.addressStreetLine ?? input.addressLabel ?? "";
+  const detNew = input.addressDetail ?? "";
   const profile: BusinessProfile = {
     id: nextId("bp-"),
     ownerUserId: input.ownerUserId,
@@ -161,7 +186,9 @@ export function applyBusinessProfile(input: {
     region: input.region ?? "",
     city: input.city ?? "",
     barangay: "",
-    addressLabel: input.addressLabel ?? "",
+    addressStreetLine: stNew,
+    addressDetail: detNew,
+    addressLabel: combinedAddressDisplay(stNew, detNew),
     category: input.category ?? "일반",
     status: "pending",
     followerCount: 0,
@@ -191,6 +218,8 @@ export function updateBusinessProfile(
       | "region"
       | "city"
       | "barangay"
+      | "addressStreetLine"
+      | "addressDetail"
       | "addressLabel"
       | "category"
     >
@@ -200,7 +229,23 @@ export function updateBusinessProfile(
   if (idx < 0) return undefined;
   const now = new Date().toISOString();
   if (patch.shopName && !patch.slug) patch.slug = slugify(patch.shopName);
-  PROFILES[idx] = { ...PROFILES[idx], ...patch, updatedAt: now };
+  const prev = PROFILES[idx];
+  const nextStreet =
+    patch.addressStreetLine !== undefined ? patch.addressStreetLine : prev.addressStreetLine;
+  const nextDetail =
+    patch.addressDetail !== undefined ? patch.addressDetail : prev.addressDetail;
+  const label =
+    patch.addressStreetLine !== undefined || patch.addressDetail !== undefined
+      ? combinedAddressDisplay(nextStreet, nextDetail)
+      : (patch.addressLabel ?? prev.addressLabel);
+  PROFILES[idx] = {
+    ...prev,
+    ...patch,
+    addressStreetLine: nextStreet,
+    addressDetail: nextDetail,
+    addressLabel: label,
+    updatedAt: now,
+  };
   addBusinessLog(id, "update_profile", "admin-1", "관리자", "프로필 수정");
   return { ...PROFILES[idx] };
 }

@@ -26,31 +26,10 @@ import {
   type StoreProductRow,
   type StoreRow,
 } from "@/lib/stores/db-store-mapper";
-import { buildMyBusinessNavGroups } from "@/lib/business/my-business-nav";
-import { MyBusinessNavList } from "@/components/business/MyBusinessNavList";
-import { MyBusinessHubStickyHeader } from "@/components/business/MyBusinessHubStickyHeader";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
-
-function computeCanSell(row: StoreRow): boolean {
-  return (
-    !!row.sales_permission &&
-    row.sales_permission.allowed_to_sell === true &&
-    row.sales_permission.sales_status === "approved"
-  );
-}
-
-function hubNavGroups(row: StoreRow, orderAlertsBadge: number) {
-  return buildMyBusinessNavGroups({
-    storeId: row.id,
-    slug: row.slug ?? "",
-    approvalStatus: String(row.approval_status),
-    isVisible: !!row.is_visible,
-    canSell: computeCanSell(row),
-    orderAlertsBadge,
-  });
-}
+import { BusinessAdminDashboard } from "@/components/business/admin/dashboard/BusinessAdminDashboard";
 
 type LoadState =
   | { kind: "loading" }
@@ -75,7 +54,7 @@ export function MyBusinessPage() {
   const alertStoreIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const fn = () => primeStoreOrderAlertAudio(alertStoreIdRef.current ?? undefined);
+    const fn = () => primeStoreOrderAlertAudio();
     document.addEventListener("pointerdown", fn, { once: true });
     return () => document.removeEventListener("pointerdown", fn);
   }, []);
@@ -147,7 +126,7 @@ export function MyBusinessPage() {
     state.kind === "remote" &&
     state.row.approval_status === "approved" &&
     state.row.is_visible === true &&
-    computeCanSell(state.row)
+    storeRowCanSell(state.row)
       ? state.row.id
       : null;
 
@@ -201,7 +180,7 @@ export function MyBusinessPage() {
     void tick();
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") void tick();
-    }, 25_000);
+    }, 30_000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -215,14 +194,7 @@ export function MyBusinessPage() {
   if (state.kind === "unauth") {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-amber-50 p-4 text-[14px] text-amber-900`}>
-        <div className="flex items-center gap-2 border-b border-amber-200/80 pb-3">
-          <AppBackButton backHref="/my" ariaLabel="내 정보로" />
-          <span className="text-[15px] font-semibold text-amber-950">매장 관리</span>
-        </div>
         <p>로그인(또는 개발용 테스트 로그인) 후 매장 신청을 이용할 수 있습니다.</p>
-        <p className="text-[13px] text-amber-800">
-          Supabase 계정 또는 로컬에서 테스트 계정으로 로그인한 뒤 다시 열어 주세요.
-        </p>
       </div>
     );
   }
@@ -230,10 +202,6 @@ export function MyBusinessPage() {
   if (state.kind === "config") {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-gray-600`}>
-        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-          <AppBackButton backHref="/my" ariaLabel="내 정보로" />
-          <span className="text-[15px] font-semibold text-gray-900">매장 관리</span>
-        </div>
         <p>서버에 Supabase 환경 변수가 없어 DB 매장을 불러올 수 없습니다.</p>
         <MockBusinessFallback />
       </div>
@@ -243,10 +211,6 @@ export function MyBusinessPage() {
   if (state.kind === "error") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-          <AppBackButton backHref="/my" ariaLabel="내 정보로" />
-          <span className="text-[15px] font-semibold text-gray-900">매장 관리</span>
-        </div>
         <p className="text-[14px] text-red-600">매장 정보를 불러오지 못했습니다. ({state.message})</p>
         <button
           type="button"
@@ -263,35 +227,40 @@ export function MyBusinessPage() {
   if (state.kind === "empty") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-          <AppBackButton backHref="/my" ariaLabel="내 정보로" />
-          <h1 className="text-lg font-semibold text-gray-900">매장 관리</h1>
+        <div className="rounded-[20px] bg-[#111827] px-5 py-5 text-white shadow-lg md:px-6 md:py-6">
+          <p className="text-[12px] font-medium text-white/70">배달 매장 시작</p>
+          <h2 className="mt-1 text-[20px] font-bold leading-tight md:text-[26px]">
+            주문·문의·메뉴를 한곳에서 운영해 보세요.
+          </h2>
+          <p className="mt-2 text-[13px] text-white/75">
+            매장을 등록하면 심사 후 운영 센터에서 바로 관리할 수 있어요.
+          </p>
         </div>
-        <ol className="list-decimal space-y-1 pl-5 text-[13px] text-gray-600">
-          <li>로그인 완료</li>
-          <li className="font-medium text-gray-900">매장(비즈) 신청</li>
-          <li>심사·프로필·메뉴 등록 → 판매 승인 후 운영</li>
-        </ol>
-        <p className="text-[14px] text-gray-600">
-          등록된 매장이 없습니다. 사업자 정보를 제출하면 심사 후 매장이 공개됩니다.
-        </p>
-        <Link
-          href="/my/business/apply"
-          className="block rounded-lg bg-signature py-3 text-center text-[15px] font-medium text-white"
-        >
-          매장(비즈) 신청하기
-        </Link>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Link
+            href="/my/business/apply"
+            className="rounded-2xl border border-signature/30 bg-signature/5 px-4 py-4 text-[15px] font-semibold text-gray-900 shadow-sm"
+          >
+            매장 신청하기
+          </Link>
+          <Link
+            href="/my/store-orders"
+            className="rounded-2xl border border-gray-200 bg-white px-4 py-4 text-[15px] font-semibold text-gray-800 shadow-sm"
+          >
+            내 주문 보기
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const { row, profile } = state;
+  const { row, profile, products } = state;
+  const canSell = storeRowCanSell(row);
+  const managementQuery = `storeId=${encodeURIComponent(row.id)}`;
 
   if (row.approval_status === "revision_requested") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <MyBusinessHubStickyHeader shopName={profile.shopName} publicStoreHref={null} />
-        <MyBusinessNavList groups={hubNavGroups(row, orderAlertsBadge)} />
         <BusinessOperationalChecklistRevision storeId={row.id} />
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
           <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
@@ -300,7 +269,7 @@ export function MyBusinessPage() {
             <p className="mt-2 whitespace-pre-wrap text-[13px] text-gray-800">{profile.adminMemo}</p>
           ) : null}
           <Link
-            href={`/my/business/profile?storeId=${encodeURIComponent(row.id)}`}
+            href={`/my/business/profile?${managementQuery}`}
             className="mt-3 inline-block rounded-lg bg-signature px-4 py-2.5 text-center text-[14px] font-medium text-white"
           >
             매장 프로필 보완하기
@@ -320,20 +289,18 @@ export function MyBusinessPage() {
   if (profile.status === "pending") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <MyBusinessHubStickyHeader shopName={profile.shopName} publicStoreHref={null} />
-        <MyBusinessNavList groups={hubNavGroups(row, orderAlertsBadge)} />
         <BusinessOperationalChecklistPending storeId={row.id} shopName={profile.shopName} />
-        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4`}>
+        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4 shadow-sm`}>
           <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
           <p className="text-[14px] text-gray-600">심사 중입니다. 승인 후 매장이 공개됩니다.</p>
-          <span className="inline-block rounded bg-amber-100 px-2 py-1 text-[13px] text-amber-800">
+          <span className="mt-2 inline-block rounded bg-amber-100 px-2 py-1 text-[13px] text-amber-800">
             {BUSINESS_STATUS_LABELS.pending}
           </span>
           <Link
-            href={`/my/business/profile?storeId=${encodeURIComponent(row.id)}`}
-            className="inline-block rounded-lg border border-gray-200 px-4 py-2 text-[14px] font-medium text-gray-800"
+            href={`/my/business/profile?${managementQuery}`}
+            className="mt-3 inline-block rounded-lg border border-gray-200 px-4 py-2 text-[14px] font-medium text-gray-800"
           >
-            매장 프로필·이미지 입력 (승인 후 공개 페이지에 반영)
+            매장 프로필·이미지 입력
           </Link>
         </div>
       </div>
@@ -342,9 +309,7 @@ export function MyBusinessPage() {
 
   if (profile.status === "rejected") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4`}>
-        <MyBusinessHubStickyHeader shopName={profile.shopName} publicStoreHref={null} />
-        <MyBusinessNavList groups={hubNavGroups(row, orderAlertsBadge)} />
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4 shadow-sm`}>
         <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
         <p className="text-[14px] text-gray-600">신청이 반려되었습니다.</p>
         {profile.adminMemo ? (
@@ -353,16 +318,13 @@ export function MyBusinessPage() {
         <span className="inline-block rounded bg-red-50 px-2 py-1 text-[13px] text-red-700">
           {BUSINESS_STATUS_LABELS.rejected}
         </span>
-        <p className="text-[13px] text-gray-500">반려 후 재신청은 별도 정책에 따라 가능합니다.</p>
       </div>
     );
   }
 
   if (profile.status === "paused") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4`}>
-        <MyBusinessHubStickyHeader shopName={profile.shopName} publicStoreHref={null} />
-        <MyBusinessNavList groups={hubNavGroups(row, orderAlertsBadge)} />
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4 shadow-sm`}>
         <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
         <p className="text-[14px] text-gray-600">운영이 정지된 매장입니다.</p>
         <span className="inline-block rounded bg-gray-200 px-2 py-1 text-[13px] text-gray-700">
@@ -372,30 +334,15 @@ export function MyBusinessPage() {
     );
   }
 
-  const canSell = computeCanSell(row);
-
   return (
-    <div className={OWNER_STORE_STACK_Y_CLASS}>
-      <MyBusinessHubStickyHeader
-        shopName={profile.shopName}
-        publicStoreHref={
-          row.approval_status === "approved" && row.is_visible === true && row.slug
-            ? `/stores/${encodeURIComponent(row.slug)}`
-            : null
-        }
-      />
-      <p className="text-[12px] leading-relaxed text-gray-500">
-        아래 목록에서 주문·문의·정산·상품 등으로 이동합니다.
-      </p>
-      <MyBusinessNavList groups={hubNavGroups(row, orderAlertsBadge)} />
-      {row.approval_status === "approved" && !canSell && (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
-          고객에게 &quot;판매중&quot;으로 보이려면 관리자 <strong>판매 승인</strong>이 필요합니다. 그 전에는{" "}
-          <strong>초안·숨김</strong> 상태로 메뉴를 미리 등록해 두세요. (
-          <code className="rounded bg-amber-100/80 px-1">/admin/stores</code>)
-        </p>
-      )}
-    </div>
+    <BusinessAdminDashboard
+      row={row}
+      profile={profile}
+      products={products}
+      canSell={canSell}
+      orderAlertsBadge={orderAlertsBadge}
+      loadRemote={loadRemote}
+    />
   );
 }
 

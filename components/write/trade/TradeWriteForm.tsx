@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 
@@ -96,6 +97,10 @@ import { createPost } from "@/lib/posts/createPost";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import {
+  ensureClientAccessOrRedirect,
+  redirectForBlockedAction,
+} from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel, formatPriceInput } from "@/lib/utils/format";
 import { REGIONS, getLocationLabel } from "@/lib/products/form-options";
@@ -112,6 +117,8 @@ interface TradeWriteFormProps {
 }
 
 export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteFormProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const appSettings = useMemo(() => getAppSettings(), []);
   const currencyUnit = getCurrencyUnitLabel(appSettings.defaultCurrency);
   const perMonthSuffix = `${currencyUnit}/month`;
@@ -167,6 +174,31 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
   useEffect(() => {
     setTradeTopicChildId("");
   }, [category.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/me/address-defaults", { credentials: "include" });
+        const j = (await res.json()) as {
+          ok?: boolean;
+          defaults?: { trade?: { appRegionId?: string | null; appCityId?: string | null } | null };
+        };
+        if (!res.ok || !j.ok || !j.defaults?.trade || cancelled) return;
+        const t = j.defaults.trade;
+        const rid = t.appRegionId?.trim() ?? "";
+        const cid = t.appCityId?.trim() ?? "";
+        if (!rid || !cid) return;
+        setRegion((prev) => prev || rid);
+        setCity((prev) => prev || cid);
+      } catch {
+        /* 미로그인·미마이그레이션 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
@@ -231,6 +263,9 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
       setSubmitting(true);
       try {
         const user = getCurrentUser();
+        if (!ensureClientAccessOrRedirect(router, user, pathname || `/write/${category.slug}`)) {
+          return;
+        }
         const files = images.map((item) => item.file).filter((f): f is File => !!f);
         const imageUrls =
           files.length > 0 && user?.id
@@ -300,6 +335,7 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
         if (res.ok) {
           onSuccess(res.id);
         } else {
+          if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
           setErrors({ submit: res.error });
         }
       } finally {
@@ -345,6 +381,8 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
       exchangeRate,
       validate,
       onSuccess,
+      router,
+      pathname,
     ]
   );
 

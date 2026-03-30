@@ -56,7 +56,7 @@ export function CategoryListLayout({
     load();
   }, [load]);
 
-  /** 거래(중고) 마켓은 홈과 동일하게 RegionBar만 두고, 뒤로가기·카테고리 제목 서브헤더는 노출하지 않음 */
+  /** 거래(중고) 마켓: 메인 1단만 공통 헤더로 두고, 뒤로가기·카테고리 제목 서브헤더는 노출하지 않음 */
   const registerStickySubheader = expectedType !== "trade";
 
   useRegisterCategoryListStickyHeader(
@@ -90,9 +90,12 @@ export function CategoryListLayout({
 
   if (!category) return null;
 
+  /** 거래(type=trade): 스티키 1·2단 바로 아래 간격은 MarketCategoryFeed 토큰만 쓰고, 여기서 pt 를 두지 않음 */
+  const tradeInnerY = expectedType === "trade" ? "pt-0 pb-4" : "py-4";
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className={`${APP_MAIN_GUTTER_X_CLASS} py-4`}>{children(category)}</div>
+      <div className={`${APP_MAIN_GUTTER_X_CLASS} ${tradeInnerY}`}>{children(category)}</div>
     </div>
   );
 }

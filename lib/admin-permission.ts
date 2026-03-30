@@ -33,7 +33,12 @@ export const getCurrentAdminStaff = getStaff;
 export function canAccessPermission(key: AdminPermissionKey): boolean {
   const staff = getCurrentAdminStaff();
   if (!staff) return true;
-  return staff.permissions.includes(key);
+  if (staff.permissions.includes(key)) return true;
+  /** 예전 스태프 배열에 키가 없을 때 — 회원관리 권한이면 구분·전화인증 수정도 동일 메뉴에서 허용 */
+  if (key === "users_edit_membership" && staff.permissions.includes("users")) {
+    return true;
+  }
+  return false;
 }
 
 export const getCurrentAdminLoginIdForDisplay = getCurrentAdminLoginId;

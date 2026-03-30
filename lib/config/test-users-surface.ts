@@ -7,7 +7,7 @@ import { allowTestUsersSurface } from "@/lib/config/deploy-surface";
  * - `local` → 기본 ON
  * - `staging` → `NEXT_PUBLIC_ENABLE_TEST_USERS_UI=1` 일 때만 ON
  *
- * @see docs/cleanup/INVENTORY.md
+ * @see docs/cleanup-inventory.md
  * @see lib/config/deploy-surface.ts
  */
 export function isTestUsersSurfaceEnabled(): boolean {

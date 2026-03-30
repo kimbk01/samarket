@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { ownerAcceptRequiresRecordedPayment } from "@/lib/stores/owner-order-payment-policy";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
@@ -8,6 +9,10 @@ import {
   countPendingDeliveryAcceptForStore,
 } from "@/lib/stores/owner-store-pending-counts";
 import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-count";
+import {
+  BUYER_PUBLIC_LABEL_FALLBACK,
+  mapBuyerUserIdsToPublicLabels,
+} from "@/lib/stores/buyer-public-label";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +42,21 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
+  const { data: storeAddr } = await sb
+    .from("stores")
+    .select("region, city, district, address_line1, address_line2")
+    .eq("id", id)
+    .maybeSingle();
+  const store_pickup_address_lines = storeAddr
+    ? formatStorePickupAddressLines({
+        region: storeAddr.region as string | null | undefined,
+        city: storeAddr.city as string | null | undefined,
+        district: storeAddr.district as string | null | undefined,
+        address_line1: storeAddr.address_line1 as string | null | undefined,
+        address_line2: storeAddr.address_line2 as string | null | undefined,
+      })
+    : [];
+
   const metaOnly = new URL(req.url).searchParams.get("meta_only") === "1";
   if (metaOnly) {
     const [refund_requested_count, pending_accept_count, pending_delivery_count] = await Promise.all([
@@ -51,6 +71,7 @@ export async function GET(
         refund_requested_count,
         pending_accept_count,
         pending_delivery_count,
+        store_pickup_address_lines,
       },
     });
   }
@@ -76,6 +97,9 @@ export async function GET(
   ]);
 
   const list = orders ?? [];
+  const buyerIds = list.map((o) => String((o as { buyer_user_id?: string }).buyer_user_id ?? "").trim());
+  const buyerPublicById = await mapBuyerUserIdsToPublicLabels(sb, buyerIds);
+
   const orderIds = list.map((o) => o.id as string);
   const itemsByOrder: Record<string, unknown[]> = {};
   if (orderIds.length) {
@@ -101,10 +125,17 @@ export async function GET(
       refund_requested_count,
       pending_accept_count,
       pending_delivery_count,
+      store_pickup_address_lines,
     },
-    orders: list.map((o) => ({
-      ...o,
-      items: itemsByOrder[o.id as string] ?? [],
-    })),
+    orders: list.map((o) => {
+      const bid = String((o as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
+      return {
+        ...o,
+        buyer_public_label: bid
+          ? (buyerPublicById[bid] ?? BUYER_PUBLIC_LABEL_FALLBACK)
+          : BUYER_PUBLIC_LABEL_FALLBACK,
+        items: itemsByOrder[o.id as string] ?? [],
+      };
+    }),
   });
 }

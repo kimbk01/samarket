@@ -67,7 +67,7 @@ export function AdminCommunityFeedSettingsPage() {
   if (loading || !ops) {
     return (
       <div className="space-y-4">
-        <AdminPageHeader title="피드 운영 설정" backHref="/admin/community/sections" />
+        <AdminPageHeader title="피드 운영 설정" backHref="/admin/philife/sections" />
         <p className="text-[13px] text-gray-500">불러오는 중…</p>
       </div>
     );
@@ -75,8 +75,8 @@ export function AdminCommunityFeedSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="피드 운영 설정" backHref="/admin/community/sections" />
-      <AdminCard title="동네생활 피드 (admin_settings · community_feed_ops)">
+      <AdminPageHeader title="피드 운영 설정" backHref="/admin/philife/sections" />
+      <AdminCard title="커뮤니티 피드 (admin_settings · community_feed_ops)">
         <p className="mb-4 text-[13px] text-gray-500">
           금칙어·본문 길이·하루 글 수·댓글 도배 간격을 설정합니다. 사용자 글/댓글 API에 반영됩니다.
         </p>

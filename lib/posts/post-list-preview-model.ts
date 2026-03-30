@@ -5,7 +5,10 @@
 import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { TRADE_SKIN_LABELS } from "@/lib/types/category";
-import { JOB_TYPE_LABELS, PAY_TYPE_LABELS } from "@/lib/jobs/form-options";
+import {
+  JOB_LISTING_KIND_LABELS,
+  PAY_TYPE_LABELS,
+} from "@/lib/jobs/form-options";
 import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
 import {
@@ -328,9 +331,14 @@ export function buildPostListPreviewModel(
   }
 
   if (isJobs) {
-    const jobTypeLabel = str(meta.job_type)
-      ? JOB_TYPE_LABELS[str(meta.job_type)] ?? str(meta.job_type)
-      : "";
+    const kindRaw = str(meta.listing_kind);
+    const legacyJobType = str(meta.job_type);
+    const listingKindLabel =
+      kindRaw && JOB_LISTING_KIND_LABELS[kindRaw]
+        ? JOB_LISTING_KIND_LABELS[kindRaw]
+        : legacyJobType === "seek"
+          ? JOB_LISTING_KIND_LABELS.work
+          : JOB_LISTING_KIND_LABELS.hire;
     const payTypeMeta = str(meta.pay_type);
     const payAmountNum =
       meta.pay_amount != null ? Number(meta.pay_amount) : priceOk != null ? priceOk : null;
@@ -341,8 +349,15 @@ export function buildPostListPreviewModel(
     const workAddressLabel = str(meta.work_address) || locationLabel || "";
 
     const listingChips: ListingChip[] = [];
-    if (jobTypeLabel) {
-      listingChips.push({ text: jobTypeLabel, className: POST_LIST_CHIP_AMBER });
+    if (listingKindLabel) {
+      listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER });
+    }
+    const wt = str(meta.work_term);
+    if (wt === "short" || wt === "one_day") {
+      listingChips.push({ text: "단기", className: POST_LIST_CHIP_GRAY });
+    }
+    if (meta.same_day_pay === true) {
+      listingChips.push({ text: "당일지급", className: POST_LIST_CHIP_BLUE });
     }
 
     const timePart =

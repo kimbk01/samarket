@@ -1,6 +1,8 @@
 "use client";
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { invalidateFavoriteCountClientCache } from "@/lib/favorites/getMyFavoriteCount";
+import { dispatchPostFavoriteChanged } from "@/lib/favorites/post-favorite-events";
 
 export type ToggleFavoriteResult =
   | { ok: true; isFavorite: boolean }
@@ -17,6 +19,8 @@ export async function toggleFavorite(postId: string): Promise<ToggleFavoriteResu
     const res = await fetch("/api/favorites/toggle", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      cache: "no-store",
       body: JSON.stringify({ postId }),
     });
     const data = await res.json().catch(() => ({}));
@@ -30,7 +34,10 @@ export async function toggleFavorite(postId: string): Promise<ToggleFavoriteResu
       };
     }
     if ((data as { ok?: boolean }).ok === true && typeof (data as { isFavorite?: boolean }).isFavorite === "boolean") {
-      return { ok: true, isFavorite: (data as { isFavorite: boolean }).isFavorite };
+      invalidateFavoriteCountClientCache();
+      const isFavorite = (data as { isFavorite: boolean }).isFavorite;
+      dispatchPostFavoriteChanged({ postId, isFavorite });
+      return { ok: true, isFavorite };
     }
     return { ok: false, error: "응답 형식 오류" };
   } catch (e) {

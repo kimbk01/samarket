@@ -1,152 +1,172 @@
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { modifierLineIdentityKey } from "@/lib/stores/modifiers/identity";
+import { parseProductOptionsJson as parseProductOptionsJsonImpl } from "@/lib/stores/modifiers/parse-json";
+import type {
+  ModifierSelectionsWire,
+  OrderLineOptionsSnapshotV1,
+  OrderLineOptionsSnapshotV2,
+  ParsedOptionGroup,
+} from "@/lib/stores/modifiers/types";
+import {
+  emptyModifierWire,
+  parseModifierWireFromBody,
+  validateLineModifiers,
+  wireFromLegacyPickOnly,
+} from "@/lib/stores/modifiers/validate";
 
-export type ParsedOptionGroup = {
-  key: string;
-  label: string;
-  minSelect: number;
-  maxSelect: number;
-  options: { name: string; priceDelta: number }[];
-};
+export type {
+  ModifierInputType,
+  ModifierSelectionsWire,
+  ParsedModifierItem,
+  ParsedOptionGroup,
+  OrderLineOptionsSnapshotV1,
+  OrderLineOptionsSnapshotV2,
+} from "@/lib/stores/modifiers/types";
 
-export type OrderLineOptionsSnapshotV1 = {
-  v: 1;
-  summary: string;
-  unit_options_delta: number;
-  groups: { key: string; label: string; names: string[]; delta: number }[];
-};
+export { emptyModifierWire, parseModifierWireFromBody, validateLineModifiers, wireFromLegacyPickOnly };
 
-function clampInt(n: unknown, lo: number, hi: number, fallback: number): number {
-  const x = Math.floor(Number(n));
-  if (!Number.isFinite(x)) return fallback;
-  return Math.max(lo, Math.min(hi, x));
+export function parseProductOptionsJson(raw: unknown): ParsedOptionGroup[] {
+  return parseProductOptionsJsonImpl(raw);
 }
 
-/** 매장 상품 options_json → 검증·UI용 그룹 (원본 배열 인덱스를 key 로 유지) */
-export function parseProductOptionsJson(raw: unknown): ParsedOptionGroup[] {
-  if (!Array.isArray(raw)) return [];
-  const out: ParsedOptionGroup[] = [];
-  for (let i = 0; i < raw.length; i++) {
-    const g = raw[i];
-    if (!g || typeof g !== "object") continue;
-    const rec = g as Record<string, unknown>;
-    const labelRaw = String(rec.nameKo ?? rec.name ?? "").trim();
-    const label = labelRaw || `옵션 ${i + 1}`;
-    const minSelect = clampInt(rec.minSelect, 0, 99, 0);
-    let maxSelect = clampInt(rec.maxSelect, 0, 99, 1);
-    if (maxSelect < minSelect) maxSelect = minSelect;
-    const optsRaw = Array.isArray(rec.options) ? rec.options : [];
-    const options: { name: string; priceDelta: number }[] = [];
-    for (const o of optsRaw) {
-      if (!o || typeof o !== "object") continue;
-      const or = o as Record<string, unknown>;
-      const name = String(or.name ?? "").trim();
-      if (!name) continue;
-      options.push({
-        name,
-        priceDelta: Math.max(0, Math.floor(Number(or.priceDelta ?? 0))),
-      });
-    }
-    if (options.length === 0) continue;
-    out.push({ key: String(i), label, minSelect, maxSelect, options });
-  }
-  return out;
+function isModifierWire(x: unknown): x is ModifierSelectionsWire {
+  return !!x && typeof x === "object" && "pick" in x && "qty" in x;
+}
+
+/** 장바구니·주문 라인 동일성 (옵션 조합이 다르면 다른 줄) */
+export function orderLineIdentityKey(
+  productId: string,
+  selections: Record<string, string[]> | ModifierSelectionsWire
+): string {
+  const wire: ModifierSelectionsWire = isModifierWire(selections)
+    ? selections
+    : wireFromLegacyPickOnly(selections);
+  return modifierLineIdentityKey(productId, wire);
 }
 
 export function stableOptionSelectionsKey(selections: Record<string, string[]> | undefined): string {
-  if (!selections || Object.keys(selections).length === 0) return "";
-  const keys = Object.keys(selections).sort();
-  const obj: Record<string, string[]> = {};
-  for (const k of keys) {
-    const arr = [...(selections[k] ?? [])].map((x) => String(x).trim()).filter(Boolean).sort();
-    if (arr.length) obj[k] = arr;
-  }
-  return JSON.stringify(obj);
+  return stablePickOnlyKey(selections);
 }
 
-export function orderLineIdentityKey(
-  productId: string,
-  selections: Record<string, string[]> | undefined
-): string {
-  return `${productId}\t${stableOptionSelectionsKey(selections)}`;
+function stablePickOnlyKey(selections: Record<string, string[]> | undefined): string {
+  const wire = wireFromLegacyPickOnly(selections);
+  return `P:${JSON.stringify(wire.pick)}`;
 }
 
+/**
+ * 레거시 호출: pick 만. baseUnitAfterDiscount 필수(옵션 스냅샷 v2).
+ * 수량형까지 쓰려면 validateModifierSelection + modifierWire 사용.
+ */
 export function validateLineOptionSelections(
   groups: ParsedOptionGroup[],
-  selections: Record<string, string[]> | undefined
-): { ok: true; unitDelta: number; snapshot: OrderLineOptionsSnapshotV1 } | { ok: false; error: string } {
-  const sel = selections ?? {};
+  selections: Record<string, string[]> | undefined,
+  baseUnitAfterDiscount: number
+):
+  | { ok: true; unitDelta: number; snapshot: OrderLineOptionsSnapshotV2 }
+  | { ok: false; error: string } {
+  return validateLineModifiers(groups, wireFromLegacyPickOnly(selections), baseUnitAfterDiscount);
+}
 
-  for (const k of Object.keys(sel)) {
-    const vals = (sel[k] ?? []).map((x) => String(x).trim()).filter(Boolean);
-    if (vals.length === 0) continue;
-    if (!groups.some((g) => g.key === k)) {
-      return { ok: false, error: "options_unknown_group" };
-    }
-  }
-
-  if (groups.length === 0) {
-    const anyPicked = Object.values(sel).some((arr) => (arr ?? []).some((x) => String(x).trim()));
-    if (anyPicked) return { ok: false, error: "options_not_configured" };
-    return {
-      ok: true,
-      unitDelta: 0,
-      snapshot: { v: 1, summary: "", unit_options_delta: 0, groups: [] },
-    };
-  }
-
-  const snapGroups: OrderLineOptionsSnapshotV1["groups"] = [];
-  let unitDelta = 0;
-
-  for (const g of groups) {
-    const picked = (sel[g.key] ?? []).map((x) => String(x).trim()).filter(Boolean);
-    if (new Set(picked).size !== picked.length) {
-      return { ok: false, error: "options_duplicate_choice" };
-    }
-    if (picked.length < g.minSelect) {
-      return { ok: false, error: "options_too_few" };
-    }
-    if (picked.length > g.maxSelect) {
-      return { ok: false, error: "options_too_many" };
-    }
-    const byName = new Map(g.options.map((o) => [o.name, o.priceDelta] as const));
-    let gDelta = 0;
-    const names: string[] = [];
-    for (const n of picked) {
-      if (!byName.has(n)) return { ok: false, error: "options_invalid_choice" };
-      gDelta += byName.get(n) ?? 0;
-      names.push(n);
-    }
-    unitDelta += gDelta;
-    if (names.length > 0) {
-      snapGroups.push({
-        key: g.key,
-        label: g.label,
-        names,
-        delta: gDelta,
-      });
-    }
-  }
-
-  const summary = snapGroups
-    .map((x) => {
-      const d = x.delta > 0 ? ` (+${formatMoneyPhp(x.delta)})` : "";
-      return `${x.label}: ${x.names.join(", ")}${d}`;
-    })
-    .join(" · ");
-
-  return {
-    ok: true,
-    unitDelta,
-    snapshot: { v: 1, summary, unit_options_delta: unitDelta, groups: snapGroups },
-  };
+export function validateModifierSelection(
+  groups: ParsedOptionGroup[],
+  wire: ModifierSelectionsWire,
+  baseUnitAfterDiscount: number
+):
+  | { ok: true; unitDelta: number; snapshot: OrderLineOptionsSnapshotV2 }
+  | { ok: false; error: string } {
+  return validateLineModifiers(groups, wire, baseUnitAfterDiscount);
 }
 
 /** UI·목록용 요약 한 줄 */
 export function orderLineOptionsSummary(snapshot: unknown): string {
   if (snapshot == null) return "";
-  if (typeof snapshot === "object" && snapshot !== null && !Array.isArray(snapshot)) {
-    const s = (snapshot as { summary?: unknown }).summary;
-    if (typeof s === "string" && s.trim()) return s.trim();
+  if (typeof snapshot === "object" && snapshot !== null) {
+    const s = snapshot as Record<string, unknown>;
+    const ver = s.v;
+    const ln = typeof s.line_note === "string" ? s.line_note.trim() : "";
+    let base = "";
+    if ((ver === 1 || ver === 2) && typeof s.summary === "string" && s.summary.trim()) {
+      base = s.summary.trim();
+    } else {
+      const sum = s.summary;
+      if (typeof sum === "string" && sum.trim()) base = sum.trim();
+    }
+    if (ln && base) return `${base} · 메모: ${ln}`;
+    if (ln) return `메모: ${ln}`;
+    return base;
   }
   return "";
+}
+
+/** 주방·조리용: 금액 없이 옵션명 나열 */
+export function orderLineOptionsKitchenLines(snapshot: unknown): string[] {
+  if (snapshot == null || typeof snapshot !== "object") return [];
+  const s = snapshot as Record<string, unknown>;
+  if (s.v === 1) {
+    const groups = s.groups;
+    if (!Array.isArray(groups)) return [];
+    const lines: string[] = [];
+    for (const g of groups) {
+      if (!g || typeof g !== "object") continue;
+      const names = (g as { names?: unknown }).names;
+      if (!Array.isArray(names)) continue;
+      for (const n of names) lines.push(String(n));
+    }
+    return lines;
+  }
+  if (s.v !== 2) return [];
+  const groups = s.groups;
+  if (!Array.isArray(groups)) return [];
+  const lines: string[] = [];
+  for (const g of groups) {
+    if (!g || typeof g !== "object") continue;
+    const gr = g as Record<string, unknown>;
+    const label = typeof gr.label === "string" ? gr.label : "";
+    const glines = gr.lines;
+    if (!Array.isArray(glines)) continue;
+    for (const ln of glines) {
+      if (!ln || typeof ln !== "object") continue;
+      const l = ln as Record<string, unknown>;
+      const name = String(l.name ?? "");
+      const qty = Math.floor(Number(l.qty) || 0);
+      if (!name) continue;
+      lines.push(qty > 1 ? `${name} ×${qty}` : name);
+    }
+    if (label && lines.length) {
+      /* 라벨은 첫 줄에만 접두 가능 — 여기서는 플랫 리스트 */
+    }
+  }
+  return lines;
+}
+
+/** 고객·사장님 상세: 옵션별 줄 텍스트 (+금액) */
+export function orderLineOptionsDetailLines(snapshot: unknown): { title: string; amount: string }[] {
+  if (snapshot == null || typeof snapshot !== "object") return [];
+  const s = snapshot as Record<string, unknown>;
+  if (s.v !== 2) {
+    const summary = orderLineOptionsSummary(snapshot);
+    return summary ? [{ title: summary, amount: "" }] : [];
+  }
+  const groups = s.groups;
+  if (!Array.isArray(groups)) return [];
+  const out: { title: string; amount: string }[] = [];
+  for (const g of groups) {
+    if (!g || typeof g !== "object") continue;
+    const gr = g as Record<string, unknown>;
+    const label = String(gr.label ?? "");
+    const glines = gr.lines;
+    if (!Array.isArray(glines)) continue;
+    for (const ln of glines) {
+      if (!ln || typeof ln !== "object") continue;
+      const l = ln as Record<string, unknown>;
+      const name = String(l.name ?? "");
+      const qty = Math.floor(Number(l.qty) || 0);
+      const extra = Math.floor(Number(l.line_extra) || 0);
+      if (!name) continue;
+      const nm = qty > 1 ? `${name} ×${qty}` : name;
+      const amt = extra !== 0 ? `+${formatMoneyPhp(extra)}` : formatMoneyPhp(0);
+      out.push({ title: label ? `${label}: ${nm}` : nm, amount: amt });
+    }
+  }
+  return out;
 }

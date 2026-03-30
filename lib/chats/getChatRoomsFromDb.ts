@@ -1,14 +1,17 @@
 "use client";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getUserProfile } from "@/lib/users/getUserProfile";
 import type { ChatRoom } from "@/lib/types/chat";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
+import { fetchPostRowsForChatIn } from "@/lib/chats/post-select-compat";
 import {
   enrichPostWithAuthorNickname,
   fetchNicknamesForUserIds,
   postAuthorUserId,
 } from "@/lib/chats/resolve-author-nickname";
+import { CHAT_ROOM_LIST_PRODUCT_CHATS_LIMIT } from "@/lib/chats/chat-list-limits";
 
 /**
  * 웹 채팅 목록 — Supabase product_chats (본인 참여 방만, 로그인 사용자)
@@ -32,13 +35,20 @@ export async function getChatRoomsFromDb(currentUserId: string): Promise<ChatRoo
       created_at
     `)
     .or(`seller_id.eq.${currentUserId},buyer_id.eq.${currentUserId}`)
-    .order("last_message_at", { ascending: false, nullsFirst: false });
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(CHAT_ROOM_LIST_PRODUCT_CHATS_LIMIT);
 
   if (error || !rooms?.length) return [];
 
-  const postIds = [...new Set(rooms.map((r: { post_id: string }) => r.post_id))];
-  const { data: posts } = await sb.from("posts").select("*").in("id", postIds);
-  const postMap = new Map((posts ?? []).map((p: Record<string, unknown>) => [p.id as string, p]));
+  const postIds: string[] = [
+    ...new Set(
+      (rooms as { post_id: unknown }[])
+        .map((r) => String(r.post_id ?? "").trim())
+        .filter((id) => id.length > 0)
+    ),
+  ];
+  const posts = await fetchPostRowsForChatIn(sb as SupabaseClient, postIds);
+  const postMap = new Map(posts.map((p: Record<string, unknown>) => [p.id as string, p]));
 
   const partnerIds = [...new Set(rooms.map((r: { seller_id: string; buyer_id: string }) => (r.seller_id === currentUserId ? r.buyer_id : r.seller_id)))];
   const authorIds = [...new Set(
@@ -104,8 +114,8 @@ export async function getRoomByIdFromDb(
   if (error || !r) return null;
   if (r.seller_id !== currentUserId && r.buyer_id !== currentUserId) return null;
 
-  const { data: postRow } = await sb.from("posts").select("*").eq("id", r.post_id).single();
-  const post = postRow as Record<string, unknown> | null;
+  const postRows = await fetchPostRowsForChatIn(sb as SupabaseClient, [String(r.post_id)]);
+  const post = (postRows[0] as Record<string, unknown> | undefined) ?? null;
   const row = r as Record<string, unknown>;
   const amISeller = r.seller_id === currentUserId;
   const partnerId = amISeller ? r.buyer_id : r.seller_id;

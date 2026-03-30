@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest) {
   }
 
   const sbAny: SupabaseClient<any> = createClient<any>(url, serviceKey, { auth: { persistSession: false } });
+  const access = await assertVerifiedMemberForAction(sbAny, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
 
   // 1) 상품 및 판매자
   const { data: postRaw, error: postErr } = await sbAny

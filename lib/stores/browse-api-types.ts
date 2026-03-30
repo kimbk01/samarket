@@ -18,4 +18,10 @@ export type BrowseStoreListItem = {
   featuredItems: { productId: string; name: string; price: number }[];
   profileImageUrl: string | null;
   isFeatured: boolean;
+  /** business_hours_json 확장 — 카드 요약 */
+  estPrepLabel: string;
+  deliveryFeeLabel: string | null;
+  minOrderLabel: string | null;
+  /** 요청에 user_lat/user_lng 있을 때만 */
+  distanceKm?: number | null;
 };

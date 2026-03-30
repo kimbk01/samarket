@@ -12,7 +12,7 @@ import { MagazineDetailSkin } from "@/components/community-board/skins/detail/Ma
 import { QnaDetailSkin } from "@/components/community-board/skins/detail/QnaDetailSkin";
 import { PromoDetailSkin } from "@/components/community-board/skins/detail/PromoDetailSkin";
 
-const LIST_SKINS: Record<SkinType, BoardListSkinComponent> = {
+export const LIST_SKINS: Record<SkinType, BoardListSkinComponent> = {
   basic: BasicListSkin,
   gallery: GalleryListSkin,
   magazine: MagazineListSkin,
@@ -20,7 +20,7 @@ const LIST_SKINS: Record<SkinType, BoardListSkinComponent> = {
   promo: PromoListSkin,
 };
 
-const DETAIL_SKINS: Record<SkinType, BoardDetailSkinComponent> = {
+export const DETAIL_SKINS: Record<SkinType, BoardDetailSkinComponent> = {
   basic: BasicDetailSkin,
   gallery: GalleryDetailSkin,
   magazine: MagazineDetailSkin,

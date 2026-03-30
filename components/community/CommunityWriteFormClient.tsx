@@ -6,6 +6,8 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useRegion } from "@/contexts/RegionContext";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
+import { philifePostsRootUrl, philifeUploadImageUrl } from "@domain/philife/api";
+import { philifeAppPaths } from "@domain/philife/paths";
 
 export function CommunityWriteFormClient({
   sectionSlug,
@@ -58,7 +60,7 @@ export function CommunityWriteFormClient({
         if (next.length >= 10) break;
         const fd = new FormData();
         fd.append("file", f);
-        const res = await fetch("/api/community/upload-image", { method: "POST", body: fd });
+        const res = await fetch(philifeUploadImageUrl(), { method: "POST", body: fd });
         const j = (await res.json()) as { ok?: boolean; url?: string; error?: string };
         if (j.ok && j.url) next.push(j.url);
         else setErr(j.error ?? "이미지 업로드 실패");
@@ -106,14 +108,14 @@ export function CommunityWriteFormClient({
         if (meetupDate.trim()) payload.meetup_date = meetupDate.trim();
       }
 
-      const res = await fetch("/api/community/posts", {
+      const res = await fetch(philifePostsRootUrl(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = (await res.json()) as { ok?: boolean; id?: string; error?: string };
       if (data.ok && data.id) {
-        router.push(`/community/post/${data.id}`);
+        router.push(`/philife/${data.id}`);
         return;
       }
       setErr(data.error ?? "등록에 실패했습니다.");
@@ -125,8 +127,8 @@ export function CommunityWriteFormClient({
   return (
     <div className="min-h-screen bg-white pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-gray-100 bg-white px-2 py-2">
-        <AppBackButton backHref="/community" ariaLabel="닫기" />
-        <h1 className="text-[16px] font-semibold text-gray-900">동네생활 글쓰기</h1>
+        <AppBackButton backHref={philifeAppPaths.home} ariaLabel="닫기" />
+        <h1 className="text-[16px] font-semibold text-gray-900">커뮤니티 글쓰기</h1>
       </header>
 
       <form onSubmit={onSubmit} className="mx-auto max-w-lg space-y-4 px-4 py-4">
@@ -196,7 +198,6 @@ export function CommunityWriteFormClient({
           <div className="mt-2 flex flex-wrap gap-2">
             {imageUrls.map((url, idx) => (
               <div key={`${url}-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-lg bg-gray-100">
-                { }
                 <img src={url} alt="" className="h-full w-full object-cover" />
                 <button
                   type="button"

@@ -7,6 +7,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { deterministicUuid } from "@/lib/server/deterministic-uuid";
 import { isUuidString } from "@/lib/shared/uuid-string";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
 function norm(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -24,6 +25,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
   }
   const sbAny = sb;
+  const access = await assertVerifiedMemberForAction(sbAny as any, requesterId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
 
   let body: { operatorUserId?: string; businessId?: string; businessKey?: string };
   try {

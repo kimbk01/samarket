@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,10 @@ export async function POST(
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+  const access = await assertVerifiedMemberForAction(sb as any, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
 
   const { data: store, error: sErr } = await sb

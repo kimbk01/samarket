@@ -262,7 +262,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             </p>
             <p className="text-[13px] text-gray-500">ID: {room.id}</p>
             {room.roomType ? (
-              <p className="text-[12px] text-violet-700">
+              <p className="text-[12px] text-signature">
                 유형: {room.roomType}
                 {room.contextType ? ` · ${room.contextType}` : ""}
               </p>

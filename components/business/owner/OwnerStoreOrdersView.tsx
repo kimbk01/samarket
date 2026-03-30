@@ -3,24 +3,35 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { BusinessSubPageHeader } from "@/components/business/BusinessSubPageHeader";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
 import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { allowedOrderTransitions } from "@/lib/stores/order-status-transitions";
+import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import {
-  BUYER_ORDER_STATUS_LABEL,
-  labelForOwnerTransition,
-} from "@/lib/stores/store-order-process-criteria";
+  OwnerStoreOrderDeliveryActionsAside,
+  ownerOrderCardNoticeFooter,
+  ownerOrderHasTransitionButtons,
+} from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
+import { OwnerStoreOrderChatModal } from "@/components/business/owner/OwnerStoreOrderChatModal";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
+import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
+
+/** 주문 카드 본문 — 매장 관리 폼과 동일 계열(14px 라벨/본문) */
+const OC_LBL = "text-[14px] font-medium leading-snug text-gray-600";
+const OC_TX =
+  "text-[14px] font-normal leading-normal text-gray-900 [overflow-wrap:anywhere] [word-break:break-word]";
+const OC_TX_MUTED =
+  "text-[14px] font-normal leading-normal text-gray-500 [overflow-wrap:anywhere] [word-break:break-word]";
+const OC_TX_SM = "text-[13px] font-normal leading-snug text-gray-500 [overflow-wrap:anywhere]";
 type ItemRow = {
   id: string;
   product_id: string;
@@ -35,6 +46,9 @@ type OrderRow = {
   id: string;
   order_no: string;
   buyer_user_id: string;
+  /** 프로필 기반 닉네임·사용자명 등 (API `buyer_public_label`) */
+  buyer_public_label?: string | null;
+  buyer_phone?: string | null;
   total_amount: number;
   payment_amount: number;
   payment_status: string;
@@ -50,6 +64,48 @@ type OrderRow = {
   items: ItemRow[];
 };
 
+function formatBuyerPhoneDisplay(raw: string | null | undefined): string | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  return s.length ? s : null;
+}
+
+function OwnerOrderBuyerFields({ order }: { order: OrderRow }) {
+  const phoneRaw = formatBuyerPhoneDisplay(order.buyer_phone);
+  const phoneDigits = phoneRaw ? parsePhMobileInput(phoneRaw) : "";
+  const phoneLabel =
+    phoneRaw && phoneDigits.length === 11 ? formatPhMobileDisplay(phoneDigits) : phoneRaw ?? "";
+  const phoneTelHref = phoneRaw
+    ? telHrefFromLoosePhPhone(phoneRaw) ?? `tel:${phoneRaw.replace(/\s+/g, "")}`
+    : null;
+  const buyerLabel =
+    typeof order.buyer_public_label === "string" && order.buyer_public_label.trim()
+      ? order.buyer_public_label.trim()
+      : BUYER_PUBLIC_LABEL_FALLBACK;
+  return (
+    <dl className="min-w-0 space-y-3 py-0.5">
+      <div className="grid grid-cols-[minmax(3.75rem,auto)_minmax(0,1fr)] items-start gap-x-2 gap-y-1">
+        <dt className={`shrink-0 pt-0.5 ${OC_LBL}`}>구매자</dt>
+        <dd className={`min-w-0 max-w-full ${OC_TX}`}>{buyerLabel}</dd>
+      </div>
+      <div className="grid grid-cols-[minmax(3.75rem,auto)_minmax(0,1fr)] items-start gap-x-2 gap-y-1">
+        <dt className={`shrink-0 pt-0.5 ${OC_LBL}`}>전화번호</dt>
+        <dd className={`min-w-0 max-w-full ${OC_TX}`}>
+          {phoneRaw && phoneTelHref ? (
+            <a
+              href={phoneTelHref}
+              className="font-medium text-signature underline decoration-signature/30 underline-offset-2 hover:decoration-signature"
+            >
+              {phoneLabel}
+            </a>
+          ) : (
+            <span className={OC_TX_MUTED}>주문 시 미기재</span>
+          )}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 const FULFILL_LABEL: Record<string, string> = {
   pickup: "포장 픽업",
   local_delivery: "배달",
@@ -58,91 +114,151 @@ const FULFILL_LABEL: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
 
-function OwnerOrderActions({
+const CHAT_LINK_CLASS =
+  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-lg border border-signature/35 bg-white px-3 py-3 text-center text-[14px] font-semibold leading-snug text-gray-900 shadow-sm transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
+
+function OwnerOrderCard({
   storeId,
   order,
   onUpdated,
+  isHighlight,
+  onOpenChat,
 }: {
   storeId: string;
   order: OrderRow;
   onUpdated: () => void;
+  isHighlight: boolean;
+  onOpenChat: (orderId: string) => void;
 }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
-  if (order.order_status === "refund_requested") {
-    return (
-      <p className="mt-3 border-t border-amber-100 bg-amber-50/80 px-2 py-2 text-[11px] text-amber-950">
-        구매자가 환불을 요청했습니다. 관리자 화면(매장 주문)에서 승인하면 재고·정산이 반영됩니다.
-      </p>
-    );
-  }
-  if (order.order_status === "refunded") {
-    return (
-      <p className="mt-3 border-t border-gray-100 pt-3 text-[11px] text-gray-500">환불 처리된 주문입니다.</p>
-    );
-  }
-  if (next.length === 0) {
-    return (
-      <p className="mt-3 border-t border-gray-100 pt-3 text-[11px] text-gray-400">
-        이 주문은 더 이상 상태를 바꿀 수 없습니다.
-      </p>
-    );
-  }
-
-  async function patch(status: string) {
-    setErr(null);
-    setBusy(status);
-    try {
-      const res = await fetch(
-        `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(order.id)}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ order_status: status }),
-        }
-      );
-      const j = await res.json();
-      if (!j?.ok) {
-        const code = typeof j?.error === "string" ? j.error : "update_failed";
-        setErr(code);
-        return;
-      }
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
-      }
-      onUpdated();
-    } catch {
-      setErr("network_error");
-    } finally {
-      setBusy(null);
-    }
-  }
+  const noticeFooter: ReactNode = ownerOrderCardNoticeFooter({
+    id: order.id,
+    order_status: order.order_status,
+    fulfillment_type: order.fulfillment_type,
+  });
 
   return (
-    <div className="mt-3 border-t border-gray-100 pt-3">
-      {err ? <p className="mb-2 text-xs text-red-600">{err}</p> : null}
-      <div className="flex flex-wrap gap-2">
-        {next.map((s) => (
-          <button
-            key={s}
-            type="button"
-            disabled={busy !== null}
-            onClick={() => void patch(s)}
-            className={
-              s === "cancelled"
-                ? "rounded-lg border border-red-200 bg-white px-3 py-2 text-[13px] font-medium text-red-700 disabled:opacity-50"
-                : "rounded-lg bg-signature px-3 py-2 text-[13px] font-medium text-white disabled:opacity-50"
-            }
-          >
-            {busy === s
-              ? "처리 중…"
-              : labelForOwnerTransition(order.order_status, s, order.fulfillment_type)}
-          </button>
-        ))}
+    <li
+      id={`owner-order-${order.id}`}
+      className={`scroll-mt-[4.75rem] w-full min-w-0 overflow-hidden rounded-xl border p-3 shadow-sm sm:p-4 ${
+        order.order_status === "refund_requested"
+          ? "border-amber-300 bg-amber-50/40"
+          : order.fulfillment_type === "local_delivery" && order.order_status === "pending"
+            ? "border-rose-200 bg-rose-50/30"
+            : "border-gray-100 bg-white"
+      } ${isHighlight ? "ring-2 ring-signature ring-offset-2 ring-offset-gray-50" : ""}`}
+    >
+      <div className="flex min-w-0 flex-nowrap items-start justify-between gap-2">
+        <span className={`min-w-0 flex-1 break-all font-semibold ${OC_TX}`}>{order.order_no}</span>
+        <span className={`max-w-[48%] shrink-0 text-right tabular-nums ${OC_TX_SM}`}>
+          {new Date(order.created_at).toLocaleString("ko-KR")}
+        </span>
       </div>
-    </div>
+
+      <div
+        data-owner-order-gray
+        className="mt-3 w-full min-w-0 rounded-lg border border-gray-100 bg-gray-50/90 px-3 py-3.5 sm:px-4 sm:py-4"
+      >
+        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 sm:gap-x-4">
+          <div className="min-w-0 overflow-hidden">
+            <OwnerOrderBuyerFields order={order} />
+          </div>
+          <div className="flex min-w-0 max-w-[min(100%,13.25rem)] flex-col justify-center justify-self-end sm:max-w-none">
+            <button
+              type="button"
+              className={CHAT_LINK_CLASS}
+              onClick={() => onOpenChat(order.id)}
+            >
+              채팅 연결
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <p className={`mt-3 text-[18px] font-bold leading-tight text-gray-900`}>
+        {formatMoneyPhp(order.payment_amount)}
+      </p>
+      <p className={`mt-1.5 ${OC_TX_SM}`}>
+        {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type} ·{" "}
+        {STATUS_LABEL[order.order_status] ?? order.order_status}
+      </p>
+      <p className={`mt-1 ${OC_TX}`}>
+        결제 {formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {order.order_status === "refund_requested" ? (
+          <span className="rounded bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-950">
+            환불 요청
+          </span>
+        ) : null}
+      </div>
+      {(order.order_status === "ready_for_pickup" ||
+        order.order_status === "delivering" ||
+        order.order_status === "arrived") &&
+      order.auto_complete_at ? (
+        <p className={`mt-2 ${OC_TX_SM}`}>
+          자동 완료 예정:{" "}
+          <span className="font-medium text-gray-700">
+            {new Date(order.auto_complete_at).toLocaleString("ko-KR")}
+          </span>
+        </p>
+      ) : null}
+      {(order.fulfillment_type === "local_delivery" || order.fulfillment_type === "shipping") &&
+      (order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim()) ? (
+        <div className="mt-2 w-full min-w-0 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5">
+          <p className={OC_LBL}>배송지</p>
+          <p className={`mt-1 whitespace-pre-wrap break-words ${OC_TX}`}>
+            {[order.delivery_address_summary?.trim(), order.delivery_address_detail?.trim()]
+              .filter(Boolean)
+              .join("\n")}
+          </p>
+        </div>
+      ) : null}
+      {order.buyer_note?.trim() ? (
+        <div className="mt-2 w-full min-w-0 rounded-lg border border-signature/30 bg-signature/5 px-3 py-2.5">
+          <p className="text-[14px] font-medium text-signature">고객 요청 사항</p>
+          <p className={`mt-1 whitespace-pre-wrap ${OC_TX}`}>{order.buyer_note.trim()}</p>
+        </div>
+      ) : null}
+      <ul className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
+        {order.items.map((it) => {
+          const opt = orderLineOptionsSummary(it.options_snapshot_json);
+          return (
+            <li key={it.id} className="flex justify-between gap-3">
+              <span className="min-w-0 flex-1">
+                <span className={`block truncate ${OC_TX}`}>
+                  {it.product_title_snapshot} × {it.qty}
+                </span>
+                {opt ? <span className={`mt-0.5 block ${OC_TX_SM}`}>{opt}</span> : null}
+              </span>
+              <span className={`shrink-0 tabular-nums ${OC_TX}`}>{formatMoneyPhp(it.subtotal)}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      {noticeFooter ? (
+        <div className="mt-3 border-t border-gray-100 pt-3">{noticeFooter}</div>
+      ) : null}
+
+      {ownerOrderHasTransitionButtons({
+        id: order.id,
+        order_status: order.order_status,
+        fulfillment_type: order.fulfillment_type,
+      }) ? (
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <OwnerStoreOrderDeliveryActionsAside
+            storeId={storeId}
+            order={{
+              id: order.id,
+              order_status: order.order_status,
+              fulfillment_type: order.fulfillment_type,
+            }}
+            onUpdated={onUpdated}
+            variant="rowBelow"
+          />
+        </div>
+      ) : null}
+    </li>
   );
 }
 
@@ -151,6 +267,32 @@ export function OwnerStoreOrdersView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const ownerNotifAckRef = useRef(false);
+  const [chatModal, setChatModal] = useState<{
+    orderId: string;
+    anchorTopPx: number;
+  } | null>(null);
+
+  const openOrderChat = useCallback((orderId: string) => {
+    const id = orderId.trim();
+    if (!id) return;
+
+    const measureAnchor = (): number => {
+      const card = document.getElementById(`owner-order-${id}`);
+      const gray = card?.querySelector<HTMLElement>("[data-owner-order-gray]");
+      const bottom = gray?.getBoundingClientRect().bottom;
+      return typeof bottom === "number" && Number.isFinite(bottom) ? bottom : 120;
+    };
+
+    const el = typeof document !== "undefined" ? document.getElementById(`owner-order-${id}`) : null;
+    if (el) {
+      el.scrollIntoView({ block: "start", behavior: "smooth" });
+      window.setTimeout(() => {
+        setChatModal({ orderId: id, anchorTopPx: measureAnchor() });
+      }, 420);
+    } else {
+      setChatModal({ orderId: id, anchorTopPx: measureAnchor() });
+    }
+  }, []);
 
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -177,7 +319,7 @@ export function OwnerStoreOrdersView() {
   }, [state]);
 
   useEffect(() => {
-    const fn = () => primeStoreOrderAlertAudio(alertStoreIdRef.current ?? undefined);
+    const fn = () => primeStoreOrderAlertAudio();
     document.addEventListener("pointerdown", fn, { once: true });
     return () => document.removeEventListener("pointerdown", fn);
   }, []);
@@ -309,9 +451,6 @@ export function OwnerStoreOrdersView() {
     return () => window.clearInterval(id);
   }, [pollStoreId, load]);
 
-  const headerBadge =
-    state.kind === "ok" ? state.pendingAcceptCount + state.refundRequestedCount : undefined;
-
   let body: ReactNode;
   if (state.kind === "loading") {
     body = <p className="text-sm text-gray-500">불러오는 중…</p>;
@@ -386,97 +525,17 @@ export function OwnerStoreOrdersView() {
       {state.orders.length === 0 ? (
         <p className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm">아직 주문이 없습니다.</p>
       ) : (
-        <ul className={OWNER_STORE_STACK_Y_CLASS}>
-          {state.orders.map((o) => {
-            const isHighlight = highlightOrderId === o.id;
-            return (
-            <li
+        <ul className={`${OWNER_STORE_STACK_Y_CLASS} w-full min-w-0`}>
+          {state.orders.map((o) => (
+            <OwnerOrderCard
               key={o.id}
-              id={`owner-order-${o.id}`}
-              className={`rounded-xl border p-4 shadow-sm ${
-                o.order_status === "refund_requested"
-                  ? "border-amber-300 bg-amber-50/40"
-                  : o.fulfillment_type === "local_delivery" && o.order_status === "pending"
-                    ? "border-rose-200 bg-rose-50/30"
-                    : "border-gray-100 bg-white"
-              } ${isHighlight ? "ring-2 ring-signature ring-offset-2 ring-offset-gray-50" : ""}`}
-            >
-              <div className="flex flex-wrap justify-between gap-2 text-sm">
-                <span className="font-medium text-gray-900">{o.order_no}</span>
-                <span className="text-xs text-gray-400">
-                  {new Date(o.created_at).toLocaleString("ko-KR")}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-gray-500">
-                구매자 ID: <span className="font-mono text-[11px]">{o.buyer_user_id}</span>
-              </p>
-              <p className="mt-2 text-lg font-bold text-gray-900">{formatMoneyPhp(o.payment_amount)}</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {FULFILL_LABEL[o.fulfillment_type] ?? o.fulfillment_type} ·{" "}
-                {STATUS_LABEL[o.order_status] ?? o.order_status}
-              </p>
-              <p className="mt-1 text-xs text-gray-600">
-                결제: {formatBuyerPaymentDisplay(o.buyer_payment_method, o.buyer_payment_method_detail)}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {o.order_status === "refund_requested" ? (
-                  <span className="rounded bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-950">
-                    환불 요청
-                  </span>
-                ) : null}
-              </div>
-              {(o.order_status === "ready_for_pickup" ||
-                o.order_status === "delivering" ||
-                o.order_status === "arrived") &&
-              o.auto_complete_at ? (
-                <p className="mt-2 text-[11px] text-gray-500">
-                  자동 완료 예정:{" "}
-                  <span className="font-medium text-gray-700">
-                    {new Date(o.auto_complete_at).toLocaleString("ko-KR")}
-                  </span>
-                </p>
-              ) : null}
-              {(o.fulfillment_type === "local_delivery" || o.fulfillment_type === "shipping") &&
-              (o.delivery_address_summary?.trim() || o.delivery_address_detail?.trim()) ? (
-                <div className="mt-2 rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">배송지</p>
-                  <p className="mt-1 whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-gray-900">
-                    {[o.delivery_address_summary?.trim(), o.delivery_address_detail?.trim()]
-                      .filter(Boolean)
-                      .join("\n")}
-                  </p>
-                </div>
-              ) : null}
-              {o.buyer_note?.trim() ? (
-                <div className="mt-2 rounded-lg border border-signature/30 bg-signature/5 px-2.5 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-signature">고객 요청 사항</p>
-                  <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-gray-900">
-                    {o.buyer_note.trim()}
-                  </p>
-                </div>
-              ) : null}
-              <ul className="mt-3 space-y-1 border-t border-gray-100 pt-3 text-sm text-gray-700">
-                {o.items.map((it) => {
-                  const opt = orderLineOptionsSummary(it.options_snapshot_json);
-                  return (
-                    <li key={it.id} className="flex justify-between gap-2">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">
-                          {it.product_title_snapshot} × {it.qty}
-                        </span>
-                        {opt ? (
-                          <span className="mt-0.5 block text-[11px] text-gray-500">{opt}</span>
-                        ) : null}
-                      </span>
-                      <span className="shrink-0">{formatMoneyPhp(it.subtotal)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <OwnerOrderActions storeId={state.storeId} order={o} onUpdated={() => void load()} />
-            </li>
-            );
-          })}
+              storeId={state.storeId}
+              order={o}
+              onUpdated={() => void load()}
+              isHighlight={highlightOrderId === o.id}
+              onOpenChat={openOrderChat}
+            />
+          ))}
         </ul>
       )}
       </div>
@@ -484,9 +543,17 @@ export function OwnerStoreOrdersView() {
   }
 
   return (
-    <>
-      <BusinessSubPageHeader title="주문 관리" backHref="/my/business" titleBadge={headerBadge} />
-      <div className="px-4 pt-4">{body}</div>
-    </>
+    <div className="max-w-full min-w-0 overflow-x-hidden">
+      <div className="mx-auto min-w-0 max-w-4xl py-1">{body}</div>
+      {state.kind === "ok" && chatModal ? (
+        <OwnerStoreOrderChatModal
+          open
+          onClose={() => setChatModal(null)}
+          storeId={state.storeId}
+          orderId={chatModal.orderId}
+          anchorTopPx={chatModal.anchorTopPx}
+        />
+      ) : null}
+    </div>
   );
 }

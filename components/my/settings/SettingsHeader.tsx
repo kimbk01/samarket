@@ -1,17 +1,26 @@
 "use client";
 
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
 interface SettingsHeaderProps {
   title: string;
   backHref?: string;
+  /** null이면 부제목·빠른 이동 칩 숨김(로그아웃 등) */
+  subtitle?: string | null;
 }
 
-export function SettingsHeader({ title, backHref = "/my" }: SettingsHeaderProps) {
+export function SettingsHeader({
+  title,
+  backHref = "/mypage",
+  subtitle = "앱·알림·계정",
+}: SettingsHeaderProps) {
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-gray-200 bg-white px-4 py-3">
-      <AppBackButton backHref={backHref} ariaLabel="뒤로" />
-      <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
-    </header>
+    <MySubpageHeader
+      title={title}
+      subtitle={subtitle ?? undefined}
+      backHref={backHref}
+      section={subtitle === null ? undefined : "account"}
+      hideCtaStrip={subtitle === null}
+    />
   );
 }

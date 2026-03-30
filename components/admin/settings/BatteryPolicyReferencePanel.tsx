@@ -73,7 +73,7 @@ export function BatteryPolicyReferencePanel() {
       </section>
 
       <section className="rounded-lg border border-white bg-white p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-violet-900">1) 당근 매너 온도 (참고)</h4>
+        <h4 className="text-[13px] font-semibold text-gray-900">1) 당근 매너 온도 (참고)</h4>
         <p className="mt-2 text-[13px] leading-relaxed text-gray-700">{DAANGN_MANNER_TEMP_REFERENCE.citationNote}</p>
         <ul className="mt-2 list-inside list-disc text-[12px] text-gray-600">
           <li>
@@ -188,8 +188,8 @@ export function BatteryPolicyReferencePanel() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-dashed border-violet-200 bg-violet-50/40 p-4">
-        <h4 className="text-[13px] font-semibold text-violet-900">미리보기</h4>
+      <section className="rounded-lg border border-dashed border-gray-200 bg-signature/5 p-4">
+        <h4 className="text-[13px] font-semibold text-gray-900">미리보기</h4>
         <div className="mt-2 flex flex-wrap items-end gap-3">
           <label className="block text-[12px] text-gray-600">
             입력값

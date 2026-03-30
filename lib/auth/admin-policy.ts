@@ -5,9 +5,12 @@
  */
 
 import { getTestAuth } from "@/lib/auth/test-auth-store";
+import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 
 /** `AdminGuard`·관리자 API(`isRouteAdmin`)와 동일 기준 */
 export function isAdminRequireAuthEnabled(): boolean {
+  const tier = getPublicDeployTier();
+  if (tier === "production" || tier === "staging") return true;
   return (
     typeof process.env.NEXT_PUBLIC_ADMIN_REQUIRE_AUTH === "string" &&
     process.env.NEXT_PUBLIC_ADMIN_REQUIRE_AUTH === "true"
@@ -26,11 +29,21 @@ export function getAllowedAdminEmails(): string[] {
  * 플랫폼 관리자 여부 — 테스트 유저 role=admin|master 또는 `NEXT_PUBLIC_ADMIN_ALLOWED_EMAIL`.
  * 매장 오너(내 `/api/me/stores` 건수)와 무관. 매장 관리자 메뉴는 `fetchMeHasOwnerStores` 등으로 판별.
  */
+/** DB·sessionStorage 등 소스별 표기 차이 대응 (Admin / ADMIN / 공백) */
+export function normalizeAdminRole(role: string | null | undefined): string {
+  return String(role ?? "").trim().toLowerCase();
+}
+
+export function isPrivilegedAdminRole(role: string | null | undefined): boolean {
+  const r = normalizeAdminRole(role);
+  return r === "admin" || r === "master";
+}
+
 export function isAdminUser(
   user: { email?: string | null; id?: string } | null
 ): boolean {
   const test = getTestAuth();
-  if (test && (test.role === "admin" || test.role === "master")) return true;
+  if (test && isPrivilegedAdminRole(test.role)) return true;
   if (!user?.email) return false;
   return getAllowedAdminEmails().includes(user.email);
 }

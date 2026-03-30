@@ -14,7 +14,7 @@ export function isPurposefulGeneralRoomType(rt: string | null | undefined): rt i
 }
 
 export function isGeneralChatRoomType(rt: string | null | undefined): boolean {
-  return rt === "general_chat" || isPurposefulGeneralRoomType(rt);
+  return rt === "general_chat" || rt === "group_meeting" || isPurposefulGeneralRoomType(rt);
 }
 
 /**
@@ -24,6 +24,7 @@ export function generalChatKindFromRoomRow(roomType: string | null | undefined, 
   if (roomType === "store_order") return "store_order";
   if (roomType === "community") return "community";
   if (roomType === "group") return "group";
+  if (roomType === "group_meeting") return "group";
   if (roomType === "business") return "business";
   if (roomType === "general_chat") {
     const c = contextType ?? "";

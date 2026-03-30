@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type {
   ChatStatusSummary,
@@ -109,6 +110,9 @@ async function authUsersCreatedPerUtcDay(sb: any, dayStartsIso: string[]): Promi
 }
 
 export async function GET() {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();

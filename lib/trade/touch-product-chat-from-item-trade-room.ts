@@ -1,5 +1,26 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { ensureProductChatRowForItemTrade } from "./ensure-product-chat-for-item-trade";
+
+/** Supabase 왕복이 N번 직렬이면 목록 API가 수 초까지 늘어남 — 소규모 동시성으로 묶음 */
+const RECONCILE_TOUCH_CONCURRENCY = 8;
+
+async function mapInConcurrencyChunks<T>(
+  items: T[],
+  chunkSize: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const slice = items.slice(i, i + chunkSize);
+    await Promise.all(
+      slice.map((item) =>
+        fn(item).catch(() => {
+          /* item_trade → product_chats 동기화는 베스트에포트; 한 방 실패로 목록·건수 API 전체 500 방지 */
+        })
+      )
+    );
+  }
+}
 
 export type ItemTradeRoomRowForSync = {
   item_id?: string | null;
@@ -92,9 +113,11 @@ export async function reconcileProductChatsFromItemTradeRoomsForUser(
   q = role === "seller" ? q.eq("seller_id", userId) : q.eq("buyer_id", userId);
   const { data: rows, error } = await q;
   if (error || !rows?.length) return;
-  for (const cr of rows as ItemTradeRoomRowForSync[]) {
-    await touchProductChatPreviewFromItemTradeRoom(sb, cr);
-  }
+  await mapInConcurrencyChunks(
+    rows as ItemTradeRoomRowForSync[],
+    RECONCILE_TOUCH_CONCURRENCY,
+    (cr) => touchProductChatPreviewFromItemTradeRoom(sb, cr)
+  );
 }
 
 /** 내가 작성한 판매 글(post id들)에 달린 item_trade 방 → product_chats 보정 (seller_id 컬럼 오류 대비) */
@@ -102,15 +125,19 @@ export async function reconcileProductChatsFromItemTradeByPostIds(
   sb: SupabaseClient<any>,
   postIds: string[]
 ): Promise<void> {
-  const ids = [...new Set(postIds.map((x) => String(x).trim()).filter(Boolean))];
-  if (!ids.length) return;
-  const { data: rows, error } = await sb
-    .from("chat_rooms")
-    .select("item_id, seller_id, buyer_id, last_message_at, last_message_preview")
-    .eq("room_type", "item_trade")
-    .in("item_id", ids);
-  if (error || !rows?.length) return;
-  for (const cr of rows as ItemTradeRoomRowForSync[]) {
-    await touchProductChatPreviewFromItemTradeRoom(sb, cr);
+  const idChunks = chunkIds(postIds, CHAT_ROOM_ID_IN_CHUNK_SIZE);
+  if (!idChunks.length) return;
+  for (const ids of idChunks) {
+    const { data: rows, error } = await sb
+      .from("chat_rooms")
+      .select("item_id, seller_id, buyer_id, last_message_at, last_message_preview")
+      .eq("room_type", "item_trade")
+      .in("item_id", ids);
+    if (error || !rows?.length) continue;
+    await mapInConcurrencyChunks(
+      rows as ItemTradeRoomRowForSync[],
+      RECONCILE_TOUCH_CONCURRENCY,
+      (cr) => touchProductChatPreviewFromItemTradeRoom(sb, cr)
+    );
   }
 }

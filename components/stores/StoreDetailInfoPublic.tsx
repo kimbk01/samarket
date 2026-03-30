@@ -15,11 +15,16 @@ import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { useOwnerManagementHref } from "@/lib/stores/use-owner-management-href";
 import { STORE_DETAIL_SUBHEADER_STICKY } from "@/lib/stores/store-detail-ui";
 import {
-  formatStoreDetailAddressLine,
+  formatStoreAddressDetailOnly,
+  formatStoreAddressStreetDisplay,
   resolveStoreRegionCityLabels,
 } from "@/lib/stores/store-location-label";
+import {
+  STORE_ADDRESS_DETAIL_LABEL,
+  STORE_ADDRESS_STREET_LABEL,
+} from "@/lib/stores/store-address-form-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { formatPhMobileDisplay, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
+import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 
 const STORE_GALLERY_DISPLAY_MAX = 16;
 
@@ -149,17 +154,21 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
     [store]
   );
 
-  const detailAddressLine = useMemo(
-    () => (store ? formatStoreDetailAddressLine(store) : ""),
+  const addressStreetDisplay = useMemo(
+    () => (store ? formatStoreAddressStreetDisplay(store) : ""),
+    [store]
+  );
+  const addressDetailOnly = useMemo(
+    () => (store ? formatStoreAddressDetailOnly(store.address_line2) : ""),
     [store]
   );
 
   const clipboardAddress = useMemo(() => {
-    const parts = [regionLabel, neighborhoodLabel, detailAddressLine]
+    const parts = [regionLabel, neighborhoodLabel, addressStreetDisplay, addressDetailOnly]
       .map((x) => (typeof x === "string" ? x.trim() : ""))
       .filter(Boolean);
     return parts.join(" · ");
-  }, [regionLabel, neighborhoodLabel, detailAddressLine]);
+  }, [regionLabel, neighborhoodLabel, addressStreetDisplay, addressDetailOnly]);
 
   const copyAddress = () => {
     if (!clipboardAddress) return;
@@ -285,7 +294,10 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
               <dt className="w-full text-[13px] text-stone-400 sm:w-[100px] sm:shrink-0">전화번호</dt>
               <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                 <span className="text-[15px] font-medium text-stone-900">
-                  {formatPhMobileDisplay(store.phone)}
+                  {(() => {
+                    const d = parsePhMobileInput(store.phone ?? "");
+                    return d.length === 11 ? formatPhMobileDisplay(d) : (store.phone ?? "");
+                  })()}
                 </span>
                 {telHref ? (
                   <a
@@ -311,8 +323,20 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
                   <span className="min-w-0 font-medium">{neighborhoodLabel ?? "—"}</span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="w-11 shrink-0 text-[13px] text-stone-400">세부</span>
-                  <span className="min-w-0">{detailAddressLine ? detailAddressLine : "—"}</span>
+                  <span className="w-[7rem] shrink-0 pt-0.5 text-[12px] leading-snug text-stone-400">
+                    {STORE_ADDRESS_STREET_LABEL}
+                  </span>
+                  <span className="min-w-0">
+                    {addressStreetDisplay ? addressStreetDisplay : "—"}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="w-[7rem] shrink-0 pt-0.5 text-[12px] leading-snug text-stone-400">
+                    {STORE_ADDRESS_DETAIL_LABEL}
+                  </span>
+                  <span className="min-w-0">
+                    {addressDetailOnly ? addressDetailOnly : "—"}
+                  </span>
                 </div>
               </div>
               {clipboardAddress ? (

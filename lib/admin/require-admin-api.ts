@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { verifyAdminUserId } from "@/lib/admin/verify-admin-user-server";
+import { verifyAdminAccess } from "@/lib/admin/verify-admin-user-server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
 export async function requireAdminApiUser(): Promise<
   { ok: true; userId: string } | { ok: false; response: NextResponse }
@@ -15,7 +16,17 @@ export async function requireAdminApiUser(): Promise<
   }
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth;
-  if (!(await verifyAdminUserId(url, anonKey, auth.userId))) {
+
+  let sessionEmail: string | null = null;
+  const routeSb = await createSupabaseRouteHandlerClient();
+  if (routeSb) {
+    const {
+      data: { user },
+    } = await routeSb.auth.getUser();
+    sessionEmail = user?.email ?? null;
+  }
+
+  if (!(await verifyAdminAccess(url, anonKey, auth.userId, sessionEmail))) {
     return {
       ok: false,
       response: NextResponse.json({ ok: false, error: "관리자만 가능합니다." }, { status: 403 }),

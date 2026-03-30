@@ -35,13 +35,16 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
 
   const refreshDetail = useCallback(async () => {
     setLoading(true);
-    const [data, logs] = await Promise.all([
-      getReportByIdFromDb(reportId),
-      getReportActionsFromDb(reportId),
-    ]);
-    setReport(data ?? null);
-    setActionLogs(logs);
-    setLoading(false);
+    try {
+      const [data, logs] = await Promise.all([
+        getReportByIdFromDb(reportId),
+        getReportActionsFromDb(reportId),
+      ]);
+      setReport(data ?? null);
+      setActionLogs(logs);
+    } finally {
+      setLoading(false);
+    }
   }, [reportId]);
 
   useEffect(() => {
@@ -83,7 +86,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
                 : report.targetType === "chat"
                   ? "채팅"
                   : report.targetType === "community"
-                    ? "동네생활 피드"
+                    ? "커뮤니티 피드"
                     : "사용자"}
             </dd>
           </div>

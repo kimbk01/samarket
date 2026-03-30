@@ -17,8 +17,8 @@ export function CategoryListSubheader({
   showTypeBadge?: boolean;
 }) {
   return (
-    <div className="border-t border-gray-100 bg-white py-2.5">
-      <div className={`flex min-h-[52px] items-center gap-3 ${APP_MAIN_HEADER_INNER_CLASS}`}>
+    <div className="min-w-0 overflow-x-hidden border-t border-gray-100 bg-white py-2.5">
+      <div className={`flex min-h-[52px] min-w-0 items-center gap-3 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
       <AppBackButton backHref={backHref} />
       {category ? (
         <>

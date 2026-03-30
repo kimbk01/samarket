@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types/product";
 import { ChatButton } from "@/components/chats/ChatButton";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import {
   PRODUCT_DETAIL_BOTTOM_BAR,
   PRODUCT_DETAIL_CTA_BUTTON,
@@ -46,7 +47,7 @@ export function ProductActionBar({ product, existingRoomId, amISeller }: Product
         {STATUS_LABEL[product.status]}
       </span>
       {amISeller ? (
-        <Link href="/chats" className={PRODUCT_DETAIL_CTA_BUTTON}>
+        <Link href={TRADE_CHAT_SURFACE.hubPath} className={PRODUCT_DETAIL_CTA_BUTTON}>
           채팅 목록 보기
         </Link>
       ) : (

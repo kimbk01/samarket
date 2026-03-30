@@ -1,9 +1,11 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { WriteHeader } from "../WriteHeader";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { LocationSelector } from "../shared/LocationSelector";
@@ -23,6 +25,8 @@ interface ServiceWriteFormProps {
 }
 
 export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWriteFormProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const settings = category.settings;
   const postType = settings?.post_type ?? "post";
   const isRequest = isRequestType(postType);
@@ -71,6 +75,7 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
         if (res.ok) {
           onSuccess(res.id);
         } else {
+          if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
           setErrors({ submit: res.error });
         }
       } finally {
@@ -87,6 +92,9 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
       city,
       validate,
       onSuccess,
+      router,
+      pathname,
+      category.slug,
     ]
   );
 

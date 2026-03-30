@@ -1,5 +1,5 @@
 /**
- * 채팅 허브 상단 탭 조립 — 거래/커뮤니티/주문 설정은 각 `*-chat-surface.ts`에만 둠.
+ * 채팅 허브 상단 탭 조립 — 거래채팅/커뮤니티/배달채팅 설정은 각 `*-chat-surface.ts`에만 둠.
  */
 
 import type { ChatHubSegment } from "./chat-hub-segment";

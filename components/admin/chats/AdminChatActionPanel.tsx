@@ -12,6 +12,8 @@ type PanelAction =
   | "readonly_on"
   | "readonly_off";
 
+type BulkMsgAction = "bulk_hide" | "bulk_unhide";
+
 interface AdminChatActionPanelProps {
   room: AdminChatRoom;
   onActionSuccess: () => void;
@@ -21,8 +23,53 @@ export function AdminChatActionPanel({
   room,
   onActionSuccess,
 }: AdminChatActionPanelProps) {
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState<PanelAction | BulkMsgAction | null>(null);
   const [note, setNote] = useState("");
+
+  const runBulkMessages = async (kind: BulkMsgAction) => {
+    const isHide = kind === "bulk_hide";
+    if (
+      !confirm(
+        isHide
+          ? "시스템 메시지를 제외한, 아직 숨기지 않은 메시지를 이 방에서 일괄 숨김 처리합니다. 계속할까요?"
+          : "관리자로 숨김 처리된 비시스템 메시지를 이 방에서 일괄 다시 보이게 합니다. 계속할까요?",
+      )
+    ) {
+      return;
+    }
+    setLoading(kind);
+    try {
+      const path = isHide ? "bulk-hide" : "bulk-unhide";
+      const res = await fetch(
+        `/api/admin/chat/rooms/${encodeURIComponent(room.id)}/messages/${path}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reason: isHide ? "관리자 채팅 상세 일괄 숨김" : "관리자 채팅 상세 일괄 숨김 해제",
+          }),
+          credentials: "same-origin",
+        },
+      );
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        hidden_count?: number;
+        unhidden_count?: number;
+      };
+      if (!res.ok || !j.ok) {
+        alert(j.error ?? "처리 실패");
+        return;
+      }
+      const n = isHide ? j.hidden_count : j.unhidden_count;
+      if (typeof n === "number") {
+        alert(isHide ? `숨김 처리: ${n}건` : `숨김 해제: ${n}건`);
+      }
+      onActionSuccess();
+    } finally {
+      setLoading(null);
+    }
+  };
 
   const run = async (action: PanelAction) => {
     setLoading(action);
@@ -125,6 +172,25 @@ export function AdminChatActionPanel({
             {loading === "readonly_off" ? "처리 중..." : "읽기 전용 해제"}
           </button>
         )}
+      </div>
+      <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+        <span className="w-full text-[12px] font-medium text-gray-500">메시지 일괄 조치</span>
+        <button
+          type="button"
+          disabled={loading !== null}
+          onClick={() => runBulkMessages("bulk_hide")}
+          className="rounded border border-orange-100 bg-orange-50 px-3 py-2 text-[13px] font-medium text-orange-900 hover:bg-orange-100 disabled:opacity-50"
+        >
+          {loading === "bulk_hide" ? "처리 중..." : "메시지 일괄 숨김"}
+        </button>
+        <button
+          type="button"
+          disabled={loading !== null}
+          onClick={() => runBulkMessages("bulk_unhide")}
+          className="rounded border border-lime-200 bg-lime-50 px-3 py-2 text-[13px] font-medium text-lime-900 hover:bg-lime-100 disabled:opacity-50"
+        >
+          {loading === "bulk_unhide" ? "처리 중..." : "숨김 일괄 해제"}
+        </button>
       </div>
       <div className="flex flex-wrap gap-2">
         <a

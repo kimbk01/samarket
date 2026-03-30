@@ -1,6 +1,7 @@
 "use client";
 
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
+import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 
 export interface ProfileBasicFieldsProps {
   nickname: string;
@@ -13,7 +14,7 @@ export interface ProfileBasicFieldsProps {
   onPhoneChange: (v: string) => void;
   onPreferredLanguageChange: (v: string) => void;
   onPreferredCountryChange: (v: string) => void;
-  errors?: { nickname?: string };
+  errors?: { nickname?: string; phone?: string };
 }
 
 const LANG_OPTIONS = [
@@ -41,49 +42,54 @@ export function ProfileBasicFields({
   onPreferredCountryChange,
   errors = {},
 }: ProfileBasicFieldsProps) {
+  const controlClass =
+    "mt-1 w-full rounded border border-gray-200 px-2.5 py-1.5 text-[13px] leading-snug";
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <label className="text-[14px] font-medium text-gray-700">닉네임 *</label>
+        <label className="text-[13px] font-medium text-gray-700">닉네임 *</label>
         <input
           type="text"
           value={nickname}
           onChange={(e) => onNicknameChange(e.target.value)}
           placeholder="닉네임"
-          className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className={controlClass}
         />
         {errors.nickname && (
-          <p className="mt-1 text-[12px] text-red-600">{errors.nickname}</p>
+          <p className="mt-0.5 text-[11px] text-red-600">{errors.nickname}</p>
         )}
       </div>
       <div>
-        <label className="text-[14px] font-medium text-gray-700">소개</label>
+        <label className="text-[13px] font-medium text-gray-700">프로필</label>
         <textarea
           value={bio}
           onChange={(e) => onBioChange(e.target.value)}
-          placeholder="소개글"
-          rows={3}
-          className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          placeholder="한 줄 프로필"
+          rows={2}
+          className={`${controlClass} min-h-0 resize-y`}
         />
       </div>
       <div>
-        <label className="text-[14px] font-medium text-gray-700">연락처</label>
+        <label className="text-[13px] font-medium text-gray-700">연락처</label>
         <input
           type="tel"
-          inputMode="tel"
+          inputMode="numeric"
           autoComplete="tel"
-          value={phone}
-          onChange={(e) => onPhoneChange(e.target.value)}
+          maxLength={17}
+          value={formatPhMobileDisplay(phone)}
+          onChange={(e) => onPhoneChange(parsePhMobileInput(e.target.value))}
           placeholder={PH_MOBILE_PLACEHOLDER}
-          className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className={controlClass}
         />
+        {errors.phone ? <p className="mt-0.5 text-[11px] text-red-600">{errors.phone}</p> : null}
       </div>
       <div>
-        <label className="text-[14px] font-medium text-gray-700">선호 언어</label>
+        <label className="text-[13px] font-medium text-gray-700">선호 언어</label>
         <select
           value={preferredLanguage}
           onChange={(e) => onPreferredLanguageChange(e.target.value)}
-          className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className={controlClass}
         >
           {LANG_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -93,11 +99,11 @@ export function ProfileBasicFields({
         </select>
       </div>
       <div>
-        <label className="text-[14px] font-medium text-gray-700">선호 국가</label>
+        <label className="text-[13px] font-medium text-gray-700">선호 국가</label>
         <select
           value={preferredCountry}
           onChange={(e) => onPreferredCountryChange(e.target.value)}
-          className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className={controlClass}
         >
           {COUNTRY_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>

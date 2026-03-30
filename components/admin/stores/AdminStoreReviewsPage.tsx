@@ -13,6 +13,8 @@ type Row = {
   content: string;
   status: string;
   created_at: string;
+  owner_reply_content?: string | null;
+  owner_reply_created_at?: string | null;
 };
 
 export function AdminStoreReviewsPage() {
@@ -94,6 +96,21 @@ export function AdminStoreReviewsPage() {
               </p>
               <p className="mt-2 text-amber-800">{"★".repeat(r.rating)}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">{r.content}</p>
+              {r.owner_reply_content?.trim() ? (
+                <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                  <p className="text-[12px] font-semibold text-gray-700">사장님 댓글</p>
+                  <p className="mt-1 whitespace-pre-wrap text-[13px] text-gray-800">
+                    {r.owner_reply_content}
+                  </p>
+                  {r.owner_reply_created_at ? (
+                    <p className="mt-1 text-right text-[11px] text-gray-500">
+                      {new Date(r.owner_reply_created_at).toLocaleDateString("ko-KR")}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-2 text-[12px] text-gray-400">사장님 댓글 없음</p>
+              )}
               <div className="mt-3 flex gap-2">
                 {r.status === "visible" ? (
                   <button

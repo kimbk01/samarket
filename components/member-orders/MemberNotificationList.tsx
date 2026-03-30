@@ -86,7 +86,7 @@ export function MemberNotificationList() {
             <li
               key={r.id}
               className={`rounded-xl border px-3 py-3 shadow-sm ${
-                r.is_read ? "border-gray-100 bg-white" : "border-violet-200 bg-violet-50/80"
+                r.is_read ? "border-gray-100 bg-white" : "border-gray-200 bg-signature/5/80"
               }`}
             >
               <div className="flex flex-wrap justify-between gap-1 text-[11px] text-gray-400">
@@ -97,13 +97,13 @@ export function MemberNotificationList() {
               <p className="mt-0.5 text-[13px] text-gray-700">{r.message}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Link
-                  href="/mypage/store-orders"
-                  className="text-[12px] font-medium text-violet-700 underline"
+                  href="/my/store-orders"
+                  className="text-[12px] font-medium text-signature underline"
                   onClick={() => {
                     if (!r.is_read) markNotificationRead(r.id);
                   }}
                 >
-                  매장 주문 내역
+                  배달 주문 내역
                 </Link>
                 {!r.is_read ? (
                   <button
@@ -121,7 +121,7 @@ export function MemberNotificationList() {
       )}
       <p className="text-[11px] text-gray-500">
         알림 on/off는{" "}
-        <Link href="/my/settings/order-notifications" className="text-violet-700 underline">
+        <Link href="/my/settings/order-notifications" className="text-signature underline">
           주문 알림 설정
         </Link>
         에서 바꿀 수 있어요.

@@ -44,7 +44,7 @@ export function NotInterestedCard({ onUndo, onReason }: NotInterestedCardProps) 
 
   if (sent) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-none border border-gray-200 bg-gray-100 p-4">
+      <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-100 p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-500 text-white">
             <IconCheck className="h-5 w-5" />
@@ -66,7 +66,7 @@ export function NotInterestedCard({ onUndo, onReason }: NotInterestedCardProps) 
   }
 
   return (
-    <div className="rounded-none border border-gray-200 bg-gray-100 p-4">
+    <div className="rounded-md border border-gray-200 bg-gray-100 p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[15px] font-semibold text-gray-900">
           관심 없는 이유가 있나요?

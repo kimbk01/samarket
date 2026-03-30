@@ -3,6 +3,17 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const dynamic = "force-dynamic";
 
+const RECENT_ORDER_STATUSES = [
+  "pending",
+  "accepted",
+  "preparing",
+  "ready_for_pickup",
+  "delivering",
+  "arrived",
+  "completed",
+  "refund_requested",
+] as const;
+
 /** PostgREST 임베드 포함 시 클라이언트 제네릭이 깨져 `store_id` 등 접근에 캐스트 필요 */
 type StoreProductPublicRow = { store_id: string } & Record<string, unknown>;
 
@@ -47,7 +58,7 @@ export async function GET(
   const { data: store, error: sErr } = await sb
     .from("stores")
     .select(
-      "id, slug, store_name, approval_status, is_visible, phone, region, city, district, is_open, business_hours_json, profile_image_url, delivery_available, pickup_available"
+      "id, slug, store_name, approval_status, is_visible, phone, region, city, district, is_open, business_hours_json, profile_image_url, delivery_available, pickup_available, rating_avg, review_count"
     )
     .eq("id", prod.store_id)
     .maybeSingle();
@@ -66,6 +77,29 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
+  const since90d = new Date();
+  since90d.setUTCDate(since90d.getUTCDate() - 90);
+  let favorite_count = 0;
+  let recent_order_count = 0;
+  try {
+    const [favRes, ordRes] = await Promise.all([
+      sb
+        .from("store_favorites")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", store.id),
+      sb
+        .from("store_orders")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", store.id)
+        .in("order_status", [...RECENT_ORDER_STATUSES])
+        .gte("created_at", since90d.toISOString()),
+    ]);
+    if (!favRes.error && typeof favRes.count === "number") favorite_count = favRes.count;
+    if (!ordRes.error && typeof ordRes.count === "number") recent_order_count = ordRes.count;
+  } catch {
+    /* ignore aggregate errors */
+  }
+
   return NextResponse.json({
     ok: true,
     product: prod,
@@ -82,6 +116,10 @@ export async function GET(
       profile_image_url: store.profile_image_url,
       delivery_available: store.delivery_available,
       pickup_available: store.pickup_available,
+      rating_avg: store.rating_avg ?? null,
+      review_count: store.review_count ?? null,
+      favorite_count,
+      recent_order_count,
     },
   });
 }

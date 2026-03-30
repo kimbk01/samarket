@@ -22,7 +22,7 @@ export const CATEGORY_TYPE_LABELS: Record<import("@/lib/categories/types").Categ
 
 /** 메뉴 관리용: 타입은 거래/커뮤니티만 — 한 화면에서 ‘메인 글 유형’ 선택 */
 export const MENU_TYPE_OPTIONS = [
-  { value: "trade" as const, label: "중고·거래 (홈 상단 칩·가격·채팅)" },
+  { value: "trade" as const, label: "거래 (홈 상단 칩·가격·거래채팅)" },
   { value: "community" as const, label: "동네생활·게시글 (게시판형)" },
 ];
 

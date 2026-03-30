@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { useCallback, useEffect, useState } from "react";
+import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 
 type Row = {
   id: string;
@@ -47,16 +48,16 @@ export function OwnerStoreInquiriesView() {
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const sr = await fetch("/api/me/stores", { credentials: "include" });
-      if (sr.status === 401) {
+      const { status: srStatus, json: rawStores } = await fetchMeStoresListDeduped();
+      if (srStatus === 401) {
         setState({ kind: "unauth" });
         return;
       }
-      if (sr.status === 503) {
+      if (srStatus === 503) {
         setState({ kind: "config" });
         return;
       }
-      const sj = await sr.json();
+      const sj = rawStores as { ok?: boolean; stores?: { id: string; store_name?: string }[] };
       if (!sj?.ok || !Array.isArray(sj.stores) || sj.stores.length === 0) {
         setState({ kind: "no_store" });
         return;

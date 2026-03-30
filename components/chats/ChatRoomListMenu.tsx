@@ -66,7 +66,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#8E8E8E] hover:bg-[#FAFAFA]"
         aria-expanded={open}
         aria-label="채팅 메뉴"
         aria-haspopup="menu"

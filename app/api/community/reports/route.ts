@@ -41,11 +41,12 @@ export async function POST(req: NextRequest) {
 
   const { data: post } = await sb
     .from("community_posts")
-    .select("id, report_count")
+    .select("id, report_count, is_deleted, status")
     .eq("id", postId)
-    .eq("is_hidden", false)
+    .eq("status", "active")
     .maybeSingle();
-  if (!post) {
+  const pr = post as { id?: string; report_count?: number; is_deleted?: boolean; status?: string } | null;
+  if (!pr?.id || pr.is_deleted === true || pr.status === "deleted" || pr.status === "hidden") {
     return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
   }
 
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error?.message ?? "신고 접수 실패" }, { status: 500 });
   }
 
-  const prev = Number((post as { report_count?: number }).report_count ?? 0);
+  const prev = Number(pr.report_count ?? 0);
   await sb.from("community_posts").update({ report_count: prev + 1 }).eq("id", postId);
 
   return NextResponse.json({ ok: true, id: (ins as { id: string }).id });

@@ -2,7 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import { getAppSettings } from "@/lib/app-settings";
-import { IG_DM_BODY_TEXT } from "@/lib/chats/instagram-dm-tokens";
+import { MAX_CHAT_IMAGE_ATTACH } from "@/lib/chats/chat-image-bundle";
+import { usePreferMobileChatImagePicker } from "@/lib/ui/use-prefer-mobile-chat-image-picker";
+import { ChatMobileImagePickerSheet } from "@/components/chats/ChatMobileImagePickerSheet";
+import { ChatMobileAttachSheet } from "@/components/chats/ChatMobileAttachSheet";
+import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 interface ChatInputBarProps {
   onSend: (message: string) => void;
@@ -16,8 +20,8 @@ interface ChatInputBarProps {
   showEmojiButton?: boolean;
   /** 인스타 DM 스타일: 흰 필·얇은 보더·블루 전송 */
   variant?: "default" | "instagram";
-  /** 카메라·앨범에서 고른 이미지 한 장 전달 (업로드·전송은 부모) */
-  onImageFileSelected?: (file: File) => void;
+  /** 카메라·앨범에서 고른 이미지(여러 장 가능, 최대 MAX_CHAT_IMAGE_ATTACH) */
+  onImageFilesSelected?: (files: File[]) => void;
   /** 이미지 업로드·전송 중 입력 비활성화 */
   imageSending?: boolean;
 }
@@ -46,10 +50,13 @@ export function ChatInputBar({
   placeholder = "메시지를 입력하세요",
   showEmojiButton = true,
   variant = "default",
-  onImageFileSelected,
+  onImageFilesSelected,
   imageSending = false,
 }: ChatInputBarProps) {
   const ig = variant === "instagram";
+  const preferMobileImageSheet = usePreferMobileChatImagePicker();
+  const [pickerStagingFiles, setPickerStagingFiles] = useState<File[] | null>(null);
+  const [mobileAttachSheetOpen, setMobileAttachSheetOpen] = useState(false);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
@@ -129,27 +136,35 @@ export function ChatInputBar({
   }, [emojiOpen]);
 
   useEffect(() => {
-    if (!attachOpen) return;
+    if (!attachOpen || preferMobileImageSheet) return;
     const close = (e: MouseEvent) => {
       if (attachWrapRef.current?.contains(e.target as Node)) return;
       setAttachOpen(false);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
-  }, [attachOpen]);
+  }, [attachOpen, preferMobileImageSheet]);
 
   const onImageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const raw = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith("image/"));
     e.target.value = "";
     setAttachOpen(false);
-    if (file && onImageFileSelected) onImageFileSelected(file);
+    setMobileAttachSheetOpen(false);
+    if (!raw.length || !onImageFilesSelected) return;
+    const sliced = raw.slice(0, MAX_CHAT_IMAGE_ATTACH);
+    if (preferMobileImageSheet) {
+      setPickerStagingFiles(sliced);
+      return;
+    }
+    onImageFilesSelected(sliced);
   };
 
   const attachBtnClass = `flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${ig ? "text-[#262626] hover:bg-black/[0.05]" : "text-gray-600 hover:bg-gray-100"}`;
 
   return (
+    <>
     <div
-      className={`relative flex min-h-[50px] max-h-[64px] items-center safe-area-pb ${ig ? "gap-1.5 px-3" : "gap-2 px-2"}`}
+      className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center safe-area-pb ${ig ? `gap-1.5 ${APP_MAIN_GUTTER_X_CLASS}` : "gap-2 px-2"}`}
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
     >
       {/* 이모지 패널: 입력창 위, 다양한 이모지 그리드 */}
@@ -163,7 +178,7 @@ export function ChatInputBar({
               <button
                 key={i}
                 type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-[22px] hover:bg-gray-100"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-[22px] hover:bg-[#FAFAFA]"
                 onClick={() => insertEmoji(emoji)}
                 aria-label={`이모지 ${emoji}`}
               >
@@ -184,7 +199,7 @@ export function ChatInputBar({
         >
           <LeaveIcon className="h-5 w-5" />
         </button>
-      ) : onImageFileSelected ? (
+      ) : onImageFilesSelected ? (
         <div className="relative shrink-0" ref={attachWrapRef}>
           <input
             ref={cameraInputRef}
@@ -201,6 +216,7 @@ export function ChatInputBar({
             ref={galleryInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="sr-only"
             tabIndex={-1}
             aria-hidden
@@ -210,15 +226,19 @@ export function ChatInputBar({
           <button
             type="button"
             className={attachBtnClass}
-            aria-label="사진 보내기"
-            aria-expanded={attachOpen}
-            aria-haspopup="menu"
+            aria-label="사진·첨부"
+            aria-expanded={preferMobileImageSheet ? mobileAttachSheetOpen : attachOpen}
+            aria-haspopup={preferMobileImageSheet ? "dialog" : "menu"}
             disabled={inputLocked}
-            onClick={() => setAttachOpen((o) => !o)}
+            onClick={() =>
+              preferMobileImageSheet
+                ? setMobileAttachSheetOpen((o) => !o)
+                : setAttachOpen((o) => !o)
+            }
           >
-            <AttachIcon className="h-5 w-5" />
+            <PlusIcon className="h-7 w-7" />
           </button>
-          {attachOpen ? (
+          {!preferMobileImageSheet && attachOpen ? (
             <div
               role="menu"
               className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-xl py-1 shadow-lg ring-1 ring-black/10 ${ig ? "border border-[#EFEFEF] bg-white" : "border border-gray-200 bg-white"}`}
@@ -252,11 +272,11 @@ export function ChatInputBar({
         </div>
       ) : (
         <button type="button" className={attachBtnClass} aria-label="첨부" disabled={disabled}>
-          <AttachIcon className="h-5 w-5" />
+          <PlusIcon className="h-7 w-7" />
         </button>
       )}
       <div
-        className={`flex min-h-[40px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-[#DBDBDB] bg-white px-2 py-1.5" : "rounded-[20px] bg-[#F5F5F5] px-3 py-2"}`}
+        className={`flex min-h-[44px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-[#DBDBDB] bg-white px-1.5" : "rounded-[20px] bg-[#F5F5F5] px-1"}`}
       >
         <textarea
           ref={inputRef}
@@ -275,14 +295,14 @@ export function ChatInputBar({
           }}
           placeholder={placeholder}
           rows={1}
-          className={`max-h-[120px] w-full resize-none bg-transparent focus:outline-none ${ig ? `min-h-[38px] rounded-full px-2 py-1.5 ${IG_DM_BODY_TEXT} text-[#262626] placeholder:text-[#A8A8A8]` : "min-h-[36px] rounded-[20px] px-3 py-2 text-[15px] leading-[20px] text-[#111111] placeholder:text-[#999999]"}`}
+          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(15px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-[#262626] placeholder:text-[#A8A8A8]` : "min-h-[40px] rounded-[20px] px-3 py-2.5 text-[15px] font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
           disabled={inputLocked}
         />
         {showEmojiButton ? (
           <button
             type="button"
             onClick={() => setEmojiOpen((v) => !v)}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${emojiOpen ? (ig ? "bg-black/[0.08] text-[#262626]" : "bg-gray-200 text-gray-700") : ig ? "text-[#262626] hover:bg-black/[0.05]" : "text-gray-600 hover:bg-gray-200"}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${emojiOpen ? (ig ? "bg-black/[0.08] text-[#262626]" : "bg-[#EFEFEF] text-[#262626]") : ig ? "text-[#262626] hover:bg-black/[0.05]" : "text-[#262626] hover:bg-[#EFEFEF]"}`}
             aria-label="이모지"
             aria-expanded={emojiOpen}
             disabled={inputLocked}
@@ -301,6 +321,21 @@ export function ChatInputBar({
         <SendIcon className="h-5 w-5" />
       </button>
     </div>
+    <ChatMobileImagePickerSheet
+      open={Boolean(pickerStagingFiles?.length)}
+      files={pickerStagingFiles ?? []}
+      onClose={() => setPickerStagingFiles(null)}
+      onConfirm={(files) => onImageFilesSelected?.(files)}
+    />
+    <ChatMobileAttachSheet
+      open={preferMobileImageSheet && mobileAttachSheetOpen}
+      onClose={() => setMobileAttachSheetOpen(false)}
+      instagram={ig}
+      disabled={inputLocked}
+      onPickCamera={() => cameraInputRef.current?.click()}
+      onPickGallery={() => galleryInputRef.current?.click()}
+    />
+    </>
   );
 }
 
@@ -314,14 +349,20 @@ function LeaveIcon({ className }: { className?: string }) {
   );
 }
 
-function AttachIcon({ className }: { className?: string }) {
+/** 인스타 DM 스타일 — 왼쪽 첨부 트리거는 + 아이콘 (시각적 크게 보이도록 굵은 획) */
+function PlusIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-      />
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      strokeWidth={2.65}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 4.5v15M4.5 12h15" />
     </svg>
   );
 }

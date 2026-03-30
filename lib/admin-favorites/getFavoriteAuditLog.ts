@@ -1,7 +1,5 @@
 "use client";
 
-import { getSupabaseClient } from "@/lib/supabase/client";
-
 export interface FavoriteAuditRow {
   id: string;
   user_id: string;
@@ -12,20 +10,17 @@ export interface FavoriteAuditRow {
 
 /**
  * 비정상 찜 감지용: 최근 찜 추가/삭제 로그 (관리자)
+ * — `/api/admin/favorite-audit` (세션 + 관리자 검증 + service role)로 조회해 RLS와 무관하게 동일 DB를 본다.
  */
 export async function getFavoriteAuditLog(limit = 200): Promise<FavoriteAuditRow[]> {
-  const supabase = getSupabaseClient();
-  if (!supabase) return [];
-
   try {
-    const { data, error } = await (supabase as any)
-      .from("favorite_audit_log")
-      .select("id, user_id, post_id, action, created_at")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (error || !Array.isArray(data)) return [];
-    return data as FavoriteAuditRow[];
+    const res = await fetch(`/api/admin/favorite-audit?limit=${limit}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const d = (await res.json().catch(() => ({}))) as { ok?: boolean; items?: FavoriteAuditRow[] };
+    if (!res.ok || !Array.isArray(d.items)) return [];
+    return d.items;
   } catch {
     return [];
   }

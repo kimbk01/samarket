@@ -8,6 +8,7 @@ import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 
 export const ADMIN_PERMISSION_LABELS: Record<AdminPermissionKey, string> = {
   users: "회원관리",
+  users_edit_membership: "회원 구분·전화인증 수정",
   regions: "지역관리",
   products: "중고거래",
   boards: "커뮤니티(게시판·카테고리)",
@@ -31,7 +32,7 @@ export const ADMIN_PERMISSION_LABELS: Record<AdminPermissionKey, string> = {
 
 /** 그룹별 권한 (당근 메뉴 구조) — 항목별 클릭으로 부여 O/X */
 export const ADMIN_PERMISSION_GROUPS: { groupLabel: string; keys: AdminPermissionKey[] }[] = [
-  { groupLabel: "실질 운영", keys: ["users", "regions", "products", "product_edit", "boards", "post_write", "comment_write", "business", "jobs", "real_estate", "used_car", "chats", "reviews", "reports"] },
+  { groupLabel: "실질 운영", keys: ["users", "users_edit_membership", "regions", "products", "product_edit", "boards", "post_write", "comment_write", "business", "jobs", "real_estate", "used_car", "chats", "reviews", "reports"] },
   { groupLabel: "광고·노출", keys: ["ads"] },
   { groupLabel: "포인트", keys: ["point"] },
   { groupLabel: "운영 설정", keys: ["settings"] },
@@ -41,9 +42,9 @@ export const ADMIN_PERMISSION_GROUPS: { groupLabel: string; keys: AdminPermissio
 
 /** 역할별 기본 권한 (한 번에 적용용) */
 export const DEFAULT_PERMISSIONS_BY_ROLE: Record<AdminRole, AdminPermissionKey[]> = {
-  operator: ["users", "regions", "products", "product_edit", "boards", "post_write", "comment_write", "business", "jobs", "real_estate", "used_car", "chats", "reviews", "reports"],
-  manager: ["users", "regions", "products", "product_edit", "boards", "post_write", "comment_write", "business", "jobs", "real_estate", "used_car", "chats", "reviews", "reports", "ads", "point", "settings", "manage"],
-  master: ["users", "regions", "products", "product_edit", "boards", "post_write", "comment_write", "business", "jobs", "real_estate", "used_car", "chats", "reviews", "reports", "ads", "point", "settings", "manage", "dev", "create_admin"],
+  operator: ["users", "users_edit_membership", "regions", "products", "product_edit", "boards", "post_write", "comment_write", "business", "jobs", "real_estate", "used_car", "chats", "reviews", "reports"],
+  manager: ["users", "users_edit_membership", "regions", "products", "product_edit", "boards", "post_write", "comment_write", "business", "jobs", "real_estate", "used_car", "chats", "reviews", "reports", "ads", "point", "settings", "manage"],
+  master: ["users", "users_edit_membership", "regions", "products", "product_edit", "boards", "post_write", "comment_write", "business", "jobs", "real_estate", "used_car", "chats", "reviews", "reports", "ads", "point", "settings", "manage", "dev", "create_admin"],
 };
 
 export function getPermissionLabel(key: AdminPermissionKey): string {

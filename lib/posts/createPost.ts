@@ -7,11 +7,18 @@
 import type { CreatePostPayload, CreatePostResponse } from "./types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { getMyProfile } from "@/lib/profile/getMyProfile";
+import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
 
 export async function createPost(payload: CreatePostPayload): Promise<CreatePostResponse> {
   const userId = await getCurrentUserIdForDb();
   if (!userId) {
     return { ok: false, error: "로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요." };
+  }
+
+  const profile = await getMyProfile();
+  if (profile && profile.role !== "admin" && profile.role !== "master" && !profile.phone_verified) {
+    return { ok: false, error: PHONE_VERIFICATION_REQUIRED_MESSAGE };
   }
 
   const supabase = getSupabaseClient();

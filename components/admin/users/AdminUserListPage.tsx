@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useCallback, useEffect } from "react";
 import {
   filterAndSortUsers,
@@ -16,7 +17,9 @@ import { AdminStaffTable } from "./AdminStaffTable";
 import { CreateAdminForm } from "./CreateAdminForm";
 import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
+import { EditMemberForm } from "./EditMemberForm";
 import type { AdminUser } from "@/lib/types/admin-user";
+import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 
 const DEFAULT_FILTERS: AdminUserFilters = {
   moderationStatus: "",
@@ -34,10 +37,12 @@ export function AdminUserListPage() {
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [editingMember, setEditingMember] = useState<AdminUser | null>(null);
   const [staffKey, setStaffKey] = useState(0);
   const [membersKey, setMembersKey] = useState(0);
   const [membersFromApi, setMembersFromApi] = useState<AdminUser[] | null>(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+  const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
 
   const currentUser = getCurrentUser();
   const adminUserId = currentUser?.id ?? "";
@@ -159,12 +164,20 @@ export function AdminUserListPage() {
       {tab === "members" && (
         <>
           <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-[13px] leading-relaxed text-gray-800">
-            <p className="font-medium text-amber-950">수동 입력 회원 (DB: test_users)</p>
+            <p className="font-medium text-amber-950">회원 목록 (실회원 + 개발 로그인 연결)</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[12px] text-gray-700">
               <li>
-                목록의 <strong>로그인 아이디</strong>로 로그인 페이지 또는 내 정보「아이디 로그인」에 접속하면,
-                <strong> 회원 UUID</strong>와 동일한 사용자로 API·매장·주문이 연결됩니다.
+                목록의 <strong>로그인 아이디</strong>(또는 <code className="rounded bg-white/80 px-1">아이디@manual.local</code>)와 비밀번호로{" "}
+                <Link href="/login" className="font-medium text-signature underline">
+                  로그인
+                </Link>
+                하면 <strong>회원 UUID</strong>와 동일한 사용자로 API·매장·주문이 연결됩니다. 내 정보에 있는 보조 로그인 폼을 써도 됩니다.
               </li>
+              <li>
+                <strong>수정</strong>: 각 행「작업」열에서 구분·전화 인증을 바꿀 수 있습니다(profiles DB). 관리자
+                승격·강등은 최고 관리자만 가능합니다.
+              </li>
+              <li>일반 회원가입 계정도 이 목록에 함께 보이며, 전화번호 인증 승인 상태를 관리자에서 확인할 수 있습니다.</li>
               <li>
                 로그인 세션은 브라우저 <strong>쿠키</strong>를 씁니다. <strong>같은 브라우저·같은 프로필</strong>
                 에서 탭만 여러 개 열면 마지막 로그인이 덮어써서 한 사람처럼 보일 수 있습니다.
@@ -176,18 +189,34 @@ export function AdminUserListPage() {
               </li>
             </ul>
           </div>
-          <AdminUserFilterBar
-            filters={filters}
-            searchQuery={searchQuery}
-            onFiltersChange={setFilters}
-            onSearchChange={setSearchQuery}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <AdminUserFilterBar
+              filters={filters}
+              searchQuery={searchQuery}
+              onFiltersChange={setFilters}
+              onSearchChange={setSearchQuery}
+              showMemberUuid={showMemberUuid}
+            />
+            <label className="flex cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 shadow-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 text-signature focus:ring-signature"
+                checked={showMemberUuid}
+                onChange={(e) => setShowMemberUuid(e.target.checked)}
+              />
+              회원 UUID 표시
+            </label>
+          </div>
           {filtered.length === 0 ? (
             <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
               조건에 맞는 회원이 없습니다. 수동 입력으로 회원을 추가해 보세요.
             </div>
           ) : (
-            <AdminUserTable users={filtered} />
+            <AdminUserTable
+              users={filtered}
+              showMemberUuid={showMemberUuid}
+              onEditMember={(u) => setEditingMember(u)}
+            />
           )}
         </>
       )}
@@ -226,6 +255,13 @@ export function AdminUserListPage() {
           staffId={editingStaffId}
           onClose={() => setEditingStaffId(null)}
           onSuccess={refreshStaff}
+        />
+      )}
+      {editingMember && (
+        <EditMemberForm
+          user={editingMember}
+          onClose={() => setEditingMember(null)}
+          onSuccess={refreshMembers}
         />
       )}
     </div>

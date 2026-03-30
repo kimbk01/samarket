@@ -50,7 +50,9 @@ export type PointLedgerEntryType =
   | "admin_adjust"
   | "expire"
   | "reward"
-  | "reverse";
+  | "reverse"
+  | "ad_purchase"
+  | "ad_refund";
 
 export type PointLedgerRelatedType =
   | "point_charge"

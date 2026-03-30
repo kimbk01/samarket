@@ -6,11 +6,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
+import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
 
 function normUid(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+/** 필라이프: `meetings.post_id` 가 있으면 모임 글 → 게시글/댓글 문의 DM 비허용 */
+async function isNeighborhoodMeetupPost(sb: ReturnType<typeof getSupabaseServer>, postId: string): Promise<boolean> {
+  const { count, error } = await sb
+    .from("meetings")
+    .select("id", { count: "exact", head: true })
+    .eq("post_id", postId);
+  if (error) return false;
+  return (count ?? 0) > 0;
 }
 
 export async function POST(req: NextRequest) {
@@ -25,6 +37,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
   }
   const sbAny = sb;
+  const access = await assertVerifiedMemberForAction(sbAny as any, requesterId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
 
   let body: { postId?: string; peerUserId?: string; commentId?: string | null };
   try {
@@ -44,6 +60,82 @@ export async function POST(req: NextRequest) {
   }
 
   const feedId = (await resolveCanonicalCommunityPostId(postId)) ?? postId;
+  if (process.env.NODE_ENV !== "production") {
+    const samplePost = getNeighborhoodDevSamplePost(feedId);
+    if (samplePost) {
+      if (peerUserId !== samplePost.author_id) {
+        return NextResponse.json(
+          { ok: false, error: "게시글 작성자에게만 문의할 수 있습니다." },
+          { status: 403 }
+        );
+      }
+      const state = (globalThis as {
+        __samarketNeighborhoodDevSampleState?: {
+          inquiryRooms?: Array<{
+            id: string;
+            post_id: string;
+            initiator_id: string;
+            peer_id: string;
+            context_type: "post" | "comment";
+            related_comment_id: string | null;
+            created_at: string;
+          }>;
+          relations?: Map<string, { follows: Set<string>; blocks: Set<string> }>;
+          chatMessages?: Map<string, Array<{
+            id: string;
+            roomId: string;
+            senderId: string;
+            message: string;
+            messageType?: "text" | "image" | "system";
+            createdAt: string;
+            isRead: boolean;
+            readAt: string | null;
+          }>>;
+        };
+      }).__samarketNeighborhoodDevSampleState;
+      const requesterRel = state?.relations?.get(requesterId);
+      const peerRel = state?.relations?.get(peerUserId);
+      if (requesterRel?.blocks?.has(peerUserId) || peerRel?.blocks?.has(requesterId)) {
+        return NextResponse.json({ ok: false, error: "차단 관계에서는 채팅할 수 없습니다." }, { status: 403 });
+      }
+      if (!state?.inquiryRooms || !state.chatMessages) {
+        return NextResponse.json({ ok: false, error: "샘플 채팅 상태를 준비하지 못했습니다." }, { status: 500 });
+      }
+      const existing = state.inquiryRooms.find(
+        (room) =>
+          room.post_id === feedId &&
+          room.related_comment_id === (commentId || null) &&
+          new Set([room.initiator_id, room.peer_id]).has(requesterId) &&
+          new Set([room.initiator_id, room.peer_id]).has(peerUserId)
+      );
+      if (existing) {
+        return NextResponse.json({ ok: true, roomId: existing.id, created: false, fallback: "dev_samples" });
+      }
+      const roomId = `sample-community-room-${Date.now()}`;
+      state.inquiryRooms.unshift({
+        id: roomId,
+        post_id: feedId,
+        initiator_id: requesterId,
+        peer_id: peerUserId,
+        context_type: commentId ? "comment" : "post",
+        related_comment_id: commentId || null,
+        created_at: new Date().toISOString(),
+      });
+      state.chatMessages.set(roomId, [
+        {
+          id: `${roomId}-system`,
+          roomId,
+          senderId: "",
+          message: "게시글 문의 채팅이 시작되었습니다.",
+          messageType: "system",
+          createdAt: new Date().toISOString(),
+          isRead: true,
+          readAt: new Date().toISOString(),
+        },
+      ]);
+      return NextResponse.json({ ok: true, roomId, created: true, fallback: "dev_samples" });
+    }
+  }
   const { data: feedPost } = await sbAny
     .from("community_posts")
     .select("id, user_id, is_hidden")
@@ -56,6 +148,15 @@ export async function POST(req: NextRequest) {
   let canonicalFeedPostId = postId;
 
   if (feed && feed.id && !feed.is_hidden) {
+    if (await isNeighborhoodMeetupPost(sbAny, feed.id)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "모임 글에서는 게시글·댓글 문의 채팅을 열 수 없습니다. 모임방 채팅을 이용해 주세요.",
+        },
+        { status: 403 }
+      );
+    }
     useFeedRoom = true;
     canonicalFeedPostId = feed.id;
     postAuthor = normUid(feed.user_id);

@@ -33,7 +33,7 @@ function Row({
           aria-checked={checked}
           onClick={() => onChange(!checked)}
           className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-            checked ? "bg-violet-600" : "bg-gray-200"
+            checked ? "bg-signature" : "bg-gray-200"
           }`}
         >
           <span
@@ -78,7 +78,7 @@ export function MemberNotificationSettings() {
   return (
     <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="px-4 py-3">
-        <h2 className="text-sm font-bold text-gray-900">식당·배달 주문 알림 (시뮬)</h2>
+        <h2 className="text-sm font-bold text-gray-900">주문 알림</h2>
         <p className="mt-1 text-[12px] text-gray-500">
           데모 회원 <span className="font-mono">{userId}</span> 기준입니다. 실서비스에서는 로그인 사용자 ID로
           치환됩니다.

@@ -3,19 +3,17 @@
 import type { ReactNode } from "react";
 
 /**
- * 거래 앱 1단(RegionBar·매장 스티키 바 등) 공통 껍데기 — 배경·하단 그림자 토큰을 한곳에서 관리.
- * 컬럼 안 풀폭 배경 + 뒤로·제목·액션 한 줄은 `TradePrimaryColumnStickyAppBar`.
- * 그 외(RegionBar 등)는 이 Shell + `APP_MAIN_HEADER_INNER_CLASS` 조합.
+ * **메인 1단**·거래/매장 상단 바 — 인스타그램 앱바 톤(흰 배경 + 얇은 구분선).
  */
-export const TRADE_PRIMARY_APP_BAR_BG = "#E8D6FF";
+export const TRADE_PRIMARY_APP_BAR_SHELL_CLASS =
+  "border-b border-[#DBDBDB] bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)]";
 
-/** 1단 하단 그림자(모든 `TradePrimaryAppBarShell` 동일) */
-export const TRADE_PRIMARY_APP_BAR_SHADOW_CLASS =
-  "shadow-[0_6px_18px_-10px_rgba(15,23,42,0.18)]";
+/** @deprecated 하위 호환 — tailwind 클래스로 통일 */
+export const TRADE_PRIMARY_APP_BAR_SHADOW_CLASS = TRADE_PRIMARY_APP_BAR_SHELL_CLASS;
 
 type TradePrimaryAppBarShellProps = {
   children: ReactNode;
-  /** true면 AppStickyHeader에서 2행과 한 블록으로 묶을 때(API 유지, 스타일은 비임베드와 동일) */
+  /** true면 `AppStickyHeader`에서 메인 1단 아래 행과 한 블록으로 묶을 때 */
   embedded?: boolean;
   className?: string;
 };
@@ -29,8 +27,7 @@ export function TradePrimaryAppBarShell({
 
   return (
     <header
-      className={`w-full shrink-0 ${TRADE_PRIMARY_APP_BAR_SHADOW_CLASS} ${className ?? ""}`}
-      style={{ backgroundColor: TRADE_PRIMARY_APP_BAR_BG }}
+      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden ${TRADE_PRIMARY_APP_BAR_SHELL_CLASS} ${className ?? ""}`}
     >
       {children}
     </header>

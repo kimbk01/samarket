@@ -1,10 +1,7 @@
 /**
- * 업종 탐색 시뮬레이션 타입.
- * 행 연결: primaryIndustry → subIndustry → browseStore → menuGroup → menuItem
- * Supabase 매핑 예: store_categories(계층) / stores / store_products
+ * 업종 탐색 UI용 타입 (시드 + 어드민/로컬 병합).
+ * 매장 목록은 `/api/stores/browse`·홈 피드 등 DB 연동만 사용.
  */
-
-export type BrowseOpenStatus = "open" | "preparing" | "closed";
 
 /** 1차 업종 (예: store_categories parent_id null) */
 export interface BrowsePrimaryIndustry {
@@ -23,42 +20,4 @@ export interface BrowseSubIndustry {
   nameKo: string;
   primarySlug: string;
   sortOrder: number;
-}
-
-/** 시뮬레이션 비즈 업체 (stores + 노출용 확장 필드) */
-export interface BrowseMockStore {
-  id: string;
-  slug: string;
-  nameKo: string;
-  tagline: string;
-  primarySlug: string;
-  subSlug: string;
-  regionLabel: string;
-  status: BrowseOpenStatus;
-  /** breadcrumb 표시용 */
-  primaryNameKo: string;
-  subNameKo: string;
-  coverTint: string;
-  logoEmoji: string;
-  phone?: string;
-  addressLine?: string;
-  hoursSummary?: string;
-  deliveryAvailable: boolean;
-  pickupAvailable: boolean;
-  visitAvailable: boolean;
-  reviewCount: number;
-  rating: number;
-  /** 카드·요약용 대표 라인 (상품 1~2개) */
-  featuredItems: { name: string; price: number }[];
-}
-
-export interface BrowseMenuItem {
-  name: string;
-  price: number;
-}
-
-export interface BrowseMenuGroup {
-  id: string;
-  nameKo: string;
-  items: BrowseMenuItem[];
 }

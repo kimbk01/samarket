@@ -5,9 +5,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { ensureProductChatRowForItemTrade } from "@/lib/trade/ensure-product-chat-for-item-trade";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
+import { parsePostMetaField } from "@/lib/chats/chat-product-from-post";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -22,6 +24,10 @@ export async function POST(req: NextRequest) {
       { ok: false, error: "서버 설정이 필요합니다." },
       { status: 500 }
     );
+  }
+  const access = await assertVerifiedMemberForAction(sb as any, buyerId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
 
   let body: { itemId?: string };
@@ -136,7 +142,10 @@ export async function POST(req: NextRequest) {
     } catch {
       /* product_chats 실패 시에도 채팅방은 유효 */
     }
-    return NextResponse.json({ ok: true, roomId: existing.id });
+    const metaEx = parsePostMetaField(row.meta);
+    const tradeChatKind =
+      String(metaEx.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
+    return NextResponse.json({ ok: true, roomId: existing.id, tradeChatKind });
   }
 
   // 4) 새 방 생성
@@ -193,5 +202,8 @@ export async function POST(req: NextRequest) {
     /* product_chats 실패 시에도 채팅방은 유효 */
   }
 
-  return NextResponse.json({ ok: true, roomId });
+  const metaNew = parsePostMetaField(row.meta);
+  const tradeChatKind =
+    String(metaNew.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
+  return NextResponse.json({ ok: true, roomId, tradeChatKind });
 }

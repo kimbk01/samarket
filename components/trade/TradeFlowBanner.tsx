@@ -100,7 +100,7 @@ export function TradeFlowBanner({
   const productStatus = room.product?.status ?? "";
   const listingPill = publicListingBadge(displayListing, productStatus);
 
-  const pillClass = "inline-flex items-center rounded-md border border-violet-200 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-violet-950";
+  const pillClass = "inline-flex items-center rounded-md border border-gray-200 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-900";
 
   const base = `/api/trade/product-chat/${encodeURIComponent(effectiveProductChatId)}`;
   const postNotSold = (productStatus ?? "").toLowerCase() !== "sold";
@@ -160,11 +160,11 @@ export function TradeFlowBanner({
 
   const actionBtnBase =
     "rounded-md border px-2 py-1 text-[10px] font-semibold transition disabled:opacity-50";
-  const actionBtnIdle = "border-violet-200 bg-white text-violet-900 hover:bg-violet-100/80";
-  const actionBtnActive = "border-violet-600 bg-violet-600 text-white";
+  const actionBtnIdle = "border-gray-200 bg-white text-gray-900 hover:bg-signature/10";
+  const actionBtnActive = "border-signature bg-signature text-white";
 
   return (
-    <div className="border-b border-gray-100 bg-violet-50/90 px-3 py-2.5">
+    <div className="border-b border-gray-100 bg-signature/10 px-3 py-2.5">
       {room.product ? (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={pillClass} title="상품(노출) 상태">
@@ -202,8 +202,8 @@ export function TradeFlowBanner({
                 onClick={() => post(`${base}/seller-complete`, {})}
                 className={`${actionBtnBase} ${
                   loading === `${base}/seller-complete`
-                    ? "border-violet-500 bg-violet-500 text-white"
-                    : "border-violet-700 bg-violet-700 text-white hover:bg-violet-800"
+                    ? "border-signature bg-signature text-white"
+                    : "border-gray-900 bg-signature text-white hover:bg-signature/90"
                 } disabled:opacity-50`}
               >
                 {loading === `${base}/seller-complete` ? "처리 중…" : "거래완료"}
@@ -214,7 +214,7 @@ export function TradeFlowBanner({
       ) : null}
 
       {showSellerListingActions ? (
-        <p className="mt-1.5 text-[10px] leading-snug text-violet-800/90">
+        <p className="mt-1.5 text-[10px] leading-snug text-gray-800/90">
           판매중·문의중·예약중은 서로 바꿀 수 있어요. 「거래완료」는 이 구매자와 거래를 마무리하며{" "}
           <span className="font-semibold">판매완료 후에는 되돌릴 수 없어요.</span>
         </p>
@@ -222,7 +222,7 @@ export function TradeFlowBanner({
 
       {flow === "seller_marked_done" && amBuyer && !actionsDismissed && (
         <div className="mt-2 space-y-1.5">
-          <p className="text-[12px] text-violet-900">
+          <p className="text-[12px] text-gray-900">
             판매자가 거래완료 처리했어요. 거래가 끝났다면 <strong className="font-semibold">거래완료 확인</strong>으로
             넘어간 뒤 평가·후기를 남겨 주세요.
           </p>
@@ -231,7 +231,7 @@ export function TradeFlowBanner({
               type="button"
               disabled={!!loading}
               onClick={() => post(`${base}/buyer-confirm`, {})}
-              className="rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+              className="rounded-lg bg-signature px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
             >
               {loading === `${base}/buyer-confirm` ? "처리 중…" : "거래완료 확인"}
             </button>
@@ -239,14 +239,14 @@ export function TradeFlowBanner({
               type="button"
               disabled={!!loading}
               onClick={() => post(`${base}/buyer-issue`, {})}
-              className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-[12px] font-medium text-violet-800 disabled:opacity-50"
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-800 disabled:opacity-50"
             >
               문제있어요
             </button>
             <button
               type="button"
               onClick={dismissBuyerActions}
-              className="rounded-lg border border-transparent px-3 py-1.5 text-[12px] font-medium text-violet-700 underline-offset-2 hover:underline"
+              className="rounded-lg border border-transparent px-3 py-1.5 text-[12px] font-medium text-signature underline-offset-2 hover:underline"
             >
               나중에
             </button>
@@ -255,7 +255,7 @@ export function TradeFlowBanner({
       )}
 
       {flow === "seller_marked_done" && amBuyer && actionsDismissed && (
-        <p className="mt-2 text-[11px] text-violet-800">
+        <p className="mt-2 text-[11px] text-gray-800">
           거래완료 확인·평가·후기는 새로고침하거나{" "}
           <span className="font-medium">내 정보 → 구매 내역</span>의 메뉴(⋮)에서 진행할 수 있어요.
         </p>
@@ -265,7 +265,7 @@ export function TradeFlowBanner({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {amBuyer ? (
             <>
-              <p className="text-[11px] text-violet-900">
+              <p className="text-[11px] text-gray-900">
                 {room.buyerReviewSubmitted
                   ? "평가·후기 작성이 완료되었어요."
                   : "거래완료 확인이 끝났어요. 평가·후기를 남겨보세요. 구매 내역 메뉴(⋮)의 「후기 보내기」에서도 할 수 있어요."}
@@ -274,14 +274,14 @@ export function TradeFlowBanner({
                 <button
                   type="button"
                   onClick={() => onOpenReview()}
-                  className="rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-medium text-white"
+                  className="rounded-lg bg-signature px-3 py-1.5 text-[12px] font-medium text-white"
                 >
                   평가·후기 보내기
                 </button>
               ) : null}
             </>
           ) : (
-            <p className="text-[11px] text-violet-900">
+            <p className="text-[11px] text-gray-900">
               평가·후기는 구매자만 작성해요. 구매자가 남기면{" "}
               {room.buyerReviewSubmitted ? "거래 흐름이 모두 끝나요." : "이 단계가 마무리돼요."}
             </p>

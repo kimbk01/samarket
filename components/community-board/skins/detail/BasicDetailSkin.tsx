@@ -75,7 +75,7 @@ export function BasicDetailSkin({
               type="button"
               disabled={inquiryBusy}
               onClick={() => void onInquiry()}
-              className="ml-auto rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[13px] font-medium text-violet-900 disabled:opacity-50"
+              className="ml-auto rounded-lg border border-gray-200 bg-signature/5 px-2.5 py-1 text-[13px] font-medium text-gray-900 disabled:opacity-50"
             >
               {inquiryBusy ? "연결 중…" : "작성자에게 문의"}
             </button>

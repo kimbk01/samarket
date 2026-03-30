@@ -50,9 +50,10 @@ export async function getCurrentUserIdForDb(): Promise<string | null> {
   const supabase = getSupabaseClient();
   if (supabase) {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session?.user?.id) return session.user.id;
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (!error && user?.id) return user.id;
   }
   return null;
 }

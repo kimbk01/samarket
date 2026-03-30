@@ -12,22 +12,32 @@ import {
   KASAMA_OWNER_HUB_BADGE_REFRESH,
   KASAMA_TRADE_CHAT_UNREAD_UPDATED,
 } from "@/lib/chats/chat-channel-events";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 const PATH_FETCH_PREFIXES = [
   "/chats",
+  "/mypage/trade/chat",
+  "/philife",
+  "/orders",
   "/my/business/store-orders",
   "/my/business/store-order-chat",
   "/my/business/inquiries",
 ] as const;
+const MIN_FETCH_GAP_MS = 12_000;
+/** force=true 연타(이벤트·StrictMode) 시에도 짧은 간격은 inFlight 에만 합류 */
+const MIN_FORCE_FETCH_GAP_MS = 3_000;
+const MIN_EVENT_REFRESH_GAP_MS = 5_000;
 
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
 const listeners = new Set<() => void>();
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
-let bootTimeout: ReturnType<typeof setTimeout> | null = null;
+/** React Strict Mode: 리스너가 잠깐 비었다가 곧바로 다시 붙을 때 허브 중복 기동·해제 완화 */
+let hubStopTimer: ReturnType<typeof setTimeout> | null = null;
 let hubStarted = false;
 let globalEventsAttached = false;
+let lastFetchStartedAt = 0;
+let lastEventRefreshAt = 0;
 
 function emit() {
   for (const l of listeners) l();
@@ -40,8 +50,23 @@ function applyFromNetwork(data: unknown) {
   emit();
 }
 
-export function fetchOwnerHubBadgeNow(): Promise<void> {
-  return runSingleFlight("me:store-owner-hub-badge", async () => {
+const HUB_BADGE_FLIGHT_KEY = "me:store-owner-hub-badge";
+
+export function fetchOwnerHubBadgeNow(force = false): Promise<void> {
+  const now = Date.now();
+  if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
+    const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
+    return inFlight ?? Promise.resolve();
+  }
+  if (force && now - lastFetchStartedAt < MIN_FORCE_FETCH_GAP_MS) {
+    const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
+    if (inFlight) return inFlight;
+    return Promise.resolve();
+  }
+
+  lastFetchStartedAt = now;
+
+  return runSingleFlight(HUB_BADGE_FLIGHT_KEY, async () => {
     try {
       const res = await fetch("/api/me/store-owner-hub-badge", {
         credentials: "include",
@@ -55,8 +80,25 @@ export function fetchOwnerHubBadgeNow(): Promise<void> {
   });
 }
 
-function onGlobalRefresh() {
+function onFocusRefresh() {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
   void fetchOwnerHubBadgeNow();
+}
+
+function onTradeUnreadUpdated() {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+  const now = Date.now();
+  if (now - lastEventRefreshAt < MIN_EVENT_REFRESH_GAP_MS) return;
+  lastEventRefreshAt = now;
+  void fetchOwnerHubBadgeNow();
+}
+
+function onOwnerHubRefresh() {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+  const now = Date.now();
+  if (now - lastEventRefreshAt < MIN_EVENT_REFRESH_GAP_MS) return;
+  lastEventRefreshAt = now;
+  void fetchOwnerHubBadgeNow(true);
 }
 
 function onVisibility() {
@@ -68,7 +110,7 @@ function onVisibility() {
         if (typeof document !== "undefined" && document.visibilityState === "visible") {
           void fetchOwnerHubBadgeNow();
         }
-      }, 20_000);
+      }, 30_000);
     }
   } else if (pollInterval) {
     clearInterval(pollInterval);
@@ -79,18 +121,18 @@ function onVisibility() {
 function attachGlobalEventsOnce() {
   if (globalEventsAttached) return;
   globalEventsAttached = true;
-  window.addEventListener("focus", onGlobalRefresh);
-  window.addEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onGlobalRefresh);
-  window.addEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onGlobalRefresh);
+  window.addEventListener("focus", onFocusRefresh);
+  window.addEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onTradeUnreadUpdated);
+  window.addEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onOwnerHubRefresh);
   document.addEventListener("visibilitychange", onVisibility);
 }
 
 function detachGlobalEvents() {
   if (!globalEventsAttached) return;
   globalEventsAttached = false;
-  window.removeEventListener("focus", onGlobalRefresh);
-  window.removeEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onGlobalRefresh);
-  window.removeEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onGlobalRefresh);
+  window.removeEventListener("focus", onFocusRefresh);
+  window.removeEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onTradeUnreadUpdated);
+  window.removeEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onOwnerHubRefresh);
   document.removeEventListener("visibilitychange", onVisibility);
 }
 
@@ -100,10 +142,6 @@ function stopHub() {
     clearInterval(pollInterval);
     pollInterval = null;
   }
-  if (bootTimeout) {
-    clearTimeout(bootTimeout);
-    bootTimeout = null;
-  }
   detachGlobalEvents();
 }
 
@@ -111,26 +149,32 @@ function startHub() {
   if (hubStarted) return;
   hubStarted = true;
   attachGlobalEventsOnce();
-  void fetchOwnerHubBadgeNow();
-  bootTimeout = setTimeout(() => {
-    void fetchOwnerHubBadgeNow();
-    bootTimeout = null;
-  }, 800);
+  void fetchOwnerHubBadgeNow(true);
   if (typeof document === "undefined" || document.visibilityState === "visible") {
     pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         void fetchOwnerHubBadgeNow();
       }
-    }, 20_000);
+    }, 30_000);
   }
 }
 
 export function subscribeOwnerHubBadge(listener: () => void) {
+  if (hubStopTimer != null) {
+    clearTimeout(hubStopTimer);
+    hubStopTimer = null;
+  }
   listeners.add(listener);
   startHub();
   return () => {
     listeners.delete(listener);
-    if (listeners.size === 0) stopHub();
+    if (listeners.size > 0) return;
+    if (hubStopTimer != null) clearTimeout(hubStopTimer);
+    hubStopTimer = setTimeout(() => {
+      hubStopTimer = null;
+      if (listeners.size > 0) return;
+      stopHub();
+    }, 0);
   };
 }
 

@@ -7,7 +7,7 @@ const TARGET_LABEL: Record<Report["targetType"], string> = {
   product: "상품·게시글",
   chat: "채팅",
   user: "사용자",
-  community: "동네생활",
+  community: "커뮤니티",
 };
 
 const STATUS_LABEL: Record<string, string> = {

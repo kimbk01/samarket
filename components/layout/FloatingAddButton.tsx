@@ -6,7 +6,7 @@ import { WriteLauncher } from "@/components/write-launcher/WriteLauncher";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 
-const CATEGORY_PREFIXES = ["/market/", "/community/", "/services/", "/features/"];
+const CATEGORY_PREFIXES = ["/market/", "/community/", "/philife/", "/services/", "/features/"];
 
 function getCategorySlugFromPath(pathname: string): string | null {
   for (const prefix of CATEGORY_PREFIXES) {
@@ -36,17 +36,17 @@ export function FloatingAddButton() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleClick}
-        className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.rightOffsetClass} z-10 flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-lg`}
-        aria-label="글쓰기"
-      >
-        <PlusIcon />
-      </button>
-      {launcherOpen && (
-        <WriteLauncher onClose={() => setLauncherOpen(false)} />
-      )}
+      {!launcherOpen ? (
+        <button
+          type="button"
+          onClick={handleClick}
+          className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-10 flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-lg`}
+          aria-label="글쓰기"
+        >
+          <PlusIcon />
+        </button>
+      ) : null}
+      {launcherOpen ? <WriteLauncher onClose={() => setLauncherOpen(false)} /> : null}
     </>
   );
 }

@@ -15,7 +15,7 @@ export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
     status === "paid"
       ? "bg-emerald-50 text-emerald-800"
       : status === "refunded"
-        ? "bg-violet-50 text-violet-800"
+        ? "bg-signature/5 text-gray-800"
         : status === "failed" || status === "cancelled"
           ? "bg-red-50 text-red-800"
           : "bg-gray-100 text-gray-700";
@@ -52,7 +52,7 @@ export function AdminActionStatusBadge({ status }: { status: AdminActionStatus }
     status === "dispute_reviewing" || status === "manual_hold"
       ? "bg-orange-50 text-orange-900"
       : status === "refund_approved"
-        ? "bg-violet-50 text-violet-800"
+        ? "bg-signature/5 text-gray-800"
         : "bg-gray-100 text-gray-700";
   return <span className={`${base} ${cls}`}>{ADMIN_ACTION_LABEL[status]}</span>;
 }

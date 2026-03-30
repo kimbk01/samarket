@@ -17,6 +17,8 @@ export interface CurrentUser {
 export interface ChatProductSummary {
   id: string;
   title: string;
+  /** 거래 글 `/post/[id]`, 필라이프 글 `/philife/[id]` 등 상세 경로 */
+  detailHref?: string;
   thumbnail: string;
   price: number;
   /** 글 작성자 표시명 (채팅 목록 「작성자」) */
@@ -37,6 +39,8 @@ export interface ChatProductSummary {
   exchangeRateSubLine?: string | null;
   /** 피드 PostCard 본문과 동일(판매 글 전 종류) */
   listPreview?: PostListPreviewModel | null;
+  /** meta.trade_chat_kind === "job" — 채팅방 한정 전화 노출 API 사용 */
+  isJobTradeChat?: boolean;
 }
 
 export type ChatRoomStatus = "active" | "blocked" | "closed" | "report_hold";
@@ -46,7 +50,7 @@ export type ChatRoomSource = "product_chat" | "chat_room";
 
 /** 일반(목적형) 채팅 메타 — 거래 UI·상태 API와 분리 */
 export interface GeneralChatMeta {
-  kind: "community" | "group" | "business" | "legacy_general" | "store_order";
+  kind: "community" | "group" | "open_chat" | "business" | "legacy_general" | "store_order";
   relatedPostId?: string | null;
   relatedCommentId?: string | null;
   relatedGroupId?: string | null;
@@ -56,6 +60,27 @@ export interface GeneralChatMeta {
   /** room_type=store_order 일 때 매장 id (오너 API 경로용) */
   storeId?: string | null;
   contextType?: string | null;
+}
+
+export type ChatDomain = "trade" | "philife" | "store";
+
+export interface PhilifeChatMeta {
+  kind: "meeting" | "direct" | "open_chat";
+  meetingId?: string | null;
+  hostUserId?: string | null;
+  relatedPostId?: string | null;
+  memberCount?: number;
+  joined?: boolean;
+  canSend?: boolean;
+}
+
+export interface ChatRoomActiveNotice {
+  id: string;
+  title: string;
+  body: string;
+  visibility: "members" | "public";
+  isPinned?: boolean;
+  createdAt: string;
 }
 
 export type TradeFlowStatus =
@@ -77,6 +102,8 @@ export interface ChatRoom {
   sellerId: string;
   partnerNickname: string;
   partnerAvatar: string;
+  /** 상대 profiles 기준 신뢰·거래 온도 배터리(0~100). trade/store 방 조회 시 설정 */
+  partnerTrustScore?: number;
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
@@ -103,6 +130,22 @@ export interface ChatRoom {
   buyerConfirmSource?: string | null;
   /** 일반(커뮤니티/모임/비즈) 채팅이면 설정 — 있으면 거래 전용 UI 비활성화 */
   generalChat?: GeneralChatMeta | null;
+  /** trade / 필라이프 / 매장 채팅 도메인 식별 */
+  chatDomain?: ChatDomain;
+  /** 도메인 전용 제목 — 없으면 partnerNickname 사용 */
+  roomTitle?: string;
+  /** 도메인 전용 보조 문구 */
+  roomSubtitle?: string;
+  /** 필라이프 전용 메타 */
+  philifeChat?: PhilifeChatMeta | null;
+  /** 오픈채팅 현재 공지 */
+  activeNotice?: ChatRoomActiveNotice | null;
+  /** 그룹 채팅 등 참여 인원 */
+  memberCount?: number;
+  /** 현재 사용자 기준 전송 가능 여부 */
+  canSend?: boolean;
+  /** 현재 사용자 기준 오픈채팅 운영 권한 */
+  canManage?: boolean;
   /** 관리자 조치(차단·보관 잠금 등)로 거래 채팅 전송 불가 — GET /api/chat/room */
   adminChatSuspended?: boolean;
 }
@@ -126,10 +169,14 @@ export interface ChatMessage {
   id: string;
   roomId: string;
   senderId: string;
+  senderNickname?: string | null;
   message: string;
   messageType?: ChatMessageType;
   imageUrl?: string | null;
+  /** 통합 채팅 metadata·묶음 전송 시 여러 장 */
+  imageUrls?: string[] | null;
   isHidden?: boolean;
+  hiddenReason?: string | null;
   readAt?: string | null;
   createdAt: string;
   isRead: boolean;

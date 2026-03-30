@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,7 +23,54 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ],
+      "@domain/trade/*": [
+        "./lib/trade/*"
+      ],
+      "@domain/trade-posts/*": [
+        "./lib/posts/*"
+      ],
+      "@domain/stores/*": [
+        "./lib/stores/*"
+      ],
+      "@domain/store-commerce/*": [
+        "./lib/store-commerce/*"
+      ],
+      "@domain/orders/*": [
+        "./lib/shared-orders/*"
+      ],
+      "@domain/member-orders/*": [
+        "./lib/member-orders/*"
+      ],
+      "@domain/chat/*": [
+        "./lib/chats/*"
+      ],
+      "@domain/chat-server/*": [
+        "./lib/chat/*"
+      ],
+      "@domain/order-chat/*": [
+        "./lib/shared-order-chat/*"
+      ],
+      "@domain/ph-regions/*": [
+        "./lib/regions/*"
+      ],
+      "@domain/ph-locations": [
+        "./lib/products/zip-to-location.ts"
+      ],
+      "@domain/ph-form-options": [
+        "./lib/products/form-options.ts"
+      ],
+      "@domain/ph-contact-constants": [
+        "./lib/constants/philippines-contact.ts"
+      ],
+      "@domain/philife": [
+        "./lib/philife/index.ts"
+      ],
+      "@domain/philife/*": [
+        "./lib/philife/*"
+      ]
     }
   },
   "include": [
@@ -28,7 +79,11 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    "../Users/im2pa/AppData/Local/samarket-next-dev-dist/types/**/*.ts",
+    "../Users/im2pa/AppData/Local/samarket-next-dev-dist/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

@@ -39,13 +39,13 @@ export function MyProductCard({
   const isHidden = product.status === "hidden";
   return (
     <div
-      className={`overflow-hidden rounded-none bg-white ${
+      className={`overflow-hidden rounded-md bg-white ${
         isSold || isHidden ? "opacity-70" : ""
       }`}
     >
       <div className="flex gap-3 p-3">
         <Link href={`/post/${product.id}`} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-none bg-gray-100">
+          <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-gray-100">
             {product.thumbnail ? (
               <img
                 src={product.thumbnail}
@@ -81,7 +81,7 @@ export function MyProductCard({
                 </p>
               </div>
             </div>
-            <p className="mt-1 text-[11px] leading-snug text-violet-700">
+            <p className="mt-1 text-[11px] leading-snug text-signature">
               아래에서 구매자별 거래완료를 바로 처리할 수 있어요.
             </p>
           </div>
