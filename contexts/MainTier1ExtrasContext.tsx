@@ -23,6 +23,8 @@ export type MainTier1Partial = {
   rightSlot?: ReactNode;
   /** true면 뒤로 칸은 비움(주문 허브 등) */
   hideBack?: boolean;
+  /** 있으면 좌측 뒤로 버튼 대체(글쓰기 취소 확인 등) */
+  leftSlot?: ReactNode;
 };
 
 export type MainTier1ExtrasState = {

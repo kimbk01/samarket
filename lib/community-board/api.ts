@@ -6,7 +6,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { isValidLocalTopicId } from "@/lib/community-topics/server";
-import { DEFAULT_COMMUNITY_SECTION } from "@/lib/community-feed/constants";
+import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import type {
   Board,
   CommunityTopicRef,
@@ -85,10 +85,11 @@ async function resolvePostListFilters(
   const topicRequested = !!options?.topicSlug?.trim();
   if (topicRequested) {
     const slug = options!.topicSlug!.trim().toLowerCase();
+    const philifeSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
     const { data: secRows } = await sb
       .from("community_sections")
       .select("id")
-      .in("slug", [DEFAULT_COMMUNITY_SECTION, "philife"])
+      .in("slug", [philifeSlug, "philife"])
       .eq("is_active", true);
     const secIds = (secRows ?? [])
       .map((r) => String((r as { id?: string }).id ?? "").trim())

@@ -29,7 +29,7 @@ import {
   MIN_WAGE_PHP_HOURLY,
 } from "@/lib/jobs/form-options";
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import { WriteHeader } from "../WriteHeader";
+import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
@@ -285,7 +285,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      <WriteHeader categoryName={`${category.name} · 빠른 등록`} backHref={backHref} />
+      <WriteScreenTier1Sync title={`${category.name} · 빠른 등록 · 글쓰기`} backHref={backHref} />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
         <div className="border-b border-gray-100 bg-white px-4 py-3">
           <p className="text-[13px] text-gray-500">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>

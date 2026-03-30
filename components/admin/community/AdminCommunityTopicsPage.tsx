@@ -6,7 +6,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CommunitySectionAdminRow } from "@/lib/community-feed/types";
 import type { CommunityTopicAdminRow } from "@/lib/community-topics/server";
-import { DEFAULT_COMMUNITY_SECTION, normalizeFeedSlug, normalizeSectionSlug } from "@/lib/community-feed/constants";
+import { normalizeFeedSlug, normalizeSectionSlug } from "@/lib/community-feed/constants";
 import {
   COMMUNITY_FEED_LIST_SKIN_LABELS,
   COMMUNITY_FEED_LIST_SKINS,
@@ -16,7 +16,7 @@ import { isPhilifeGeneralOnlyTopicSlug } from "@/lib/neighborhood/philife-topic-
 import {
   qualifiesForPhilifeGeneralAdminList,
   qualifiesForPhilifeMeetupAdminList,
-  topicBelongsToPhilifeDefaultSection,
+  topicBelongsToPhilifeNeighborhoodSection,
 } from "@/lib/neighborhood/meetup-feed-topics";
 
 /**
@@ -29,17 +29,21 @@ type TopicsMenuTab = "general" | "meetup";
 export function AdminCommunityTopicsPage({
   sections,
   topics: initial,
+  philifeNeighborhoodSectionSlug,
 }: {
   sections: CommunitySectionAdminRow[];
   topics: CommunityTopicAdminRow[];
+  philifeNeighborhoodSectionSlug: string;
 }) {
   const router = useRouter();
   const [topics, setTopics] = useState(initial);
   const [busy, setBusy] = useState(false);
   const defaultPhilifeSectionId = useMemo(
     () =>
-      sections.find((s) => normalizeSectionSlug(s.slug) === DEFAULT_COMMUNITY_SECTION)?.id ?? sections[0]?.id ?? "",
-    [sections]
+      sections.find((s) => normalizeSectionSlug(s.slug) === normalizeSectionSlug(philifeNeighborhoodSectionSlug))?.id ??
+      sections[0]?.id ??
+      "",
+    [sections, philifeNeighborhoodSectionSlug]
   );
   const [sectionId, setSectionId] = useState("");
   useEffect(() => {
@@ -59,18 +63,32 @@ export function AdminCommunityTopicsPage({
 
   const filteredTopics = useMemo(() => {
     if (menuTab === "meetup") {
-      return topics.filter((t) => qualifiesForPhilifeMeetupAdminList(t.allow_meetup, t.slug, t.section_slug));
+      return topics.filter((t) =>
+        qualifiesForPhilifeMeetupAdminList(t.allow_meetup, t.slug, t.section_slug, philifeNeighborhoodSectionSlug)
+      );
     }
-    return topics.filter((t) => qualifiesForPhilifeGeneralAdminList(t.allow_meetup, t.slug, t.section_slug));
-  }, [topics, menuTab]);
+    return topics.filter((t) =>
+      qualifiesForPhilifeGeneralAdminList(t.allow_meetup, t.slug, t.section_slug, philifeNeighborhoodSectionSlug)
+    );
+  }, [topics, menuTab, philifeNeighborhoodSectionSlug]);
 
   useEffect(() => {
     if (!edit) return;
-    const inMeetupTab = qualifiesForPhilifeMeetupAdminList(edit.allow_meetup, edit.slug, edit.section_slug);
-    const inGeneralTab = qualifiesForPhilifeGeneralAdminList(edit.allow_meetup, edit.slug, edit.section_slug);
+    const inMeetupTab = qualifiesForPhilifeMeetupAdminList(
+      edit.allow_meetup,
+      edit.slug,
+      edit.section_slug,
+      philifeNeighborhoodSectionSlug
+    );
+    const inGeneralTab = qualifiesForPhilifeGeneralAdminList(
+      edit.allow_meetup,
+      edit.slug,
+      edit.section_slug,
+      philifeNeighborhoodSectionSlug
+    );
     const inTab = menuTab === "meetup" ? inMeetupTab : inGeneralTab;
     if (!inTab) setEdit(null);
-  }, [menuTab, edit]);
+  }, [menuTab, edit, philifeNeighborhoodSectionSlug]);
 
   async function refresh() {
     const res = await fetch("/api/admin/community/topics", { credentials: "include", cache: "no-store" });
@@ -88,9 +106,9 @@ export function AdminCommunityTopicsPage({
       return;
     }
     const chosenSectionSlug = sections.find((s) => s.id === sectionId)?.slug;
-    if (!topicBelongsToPhilifeDefaultSection(chosenSectionSlug)) {
+    if (!topicBelongsToPhilifeNeighborhoodSection(chosenSectionSlug, philifeNeighborhoodSectionSlug)) {
       alert(
-        `커뮤니티 앱과 연동되는 주제는 기본 섹션 「동네」(${DEFAULT_COMMUNITY_SECTION})에만 둘 수 있습니다. 모임 만들기 피드 주제는 이 섹션의 「모임」 탭 목록과 1:1로 맞습니다.`
+        `커뮤니티 앱과 연동되는 주제는 동네 피드 섹션(${philifeNeighborhoodSectionSlug})에만 둘 수 있습니다. 모임 만들기 피드 주제는 이 섹션의 「모임」 탭 목록과 1:1로 맞습니다. 피드 섹션은 「피드 섹션 관리」에서 바꿀 수 있습니다.`
       );
       return;
     }
@@ -148,9 +166,9 @@ export function AdminCommunityTopicsPage({
   async function saveEdit() {
     if (!edit) return;
     const editSectionSlug = sections.find((s) => s.id === edit.section_id)?.slug;
-    if (!topicBelongsToPhilifeDefaultSection(editSectionSlug)) {
+    if (!topicBelongsToPhilifeNeighborhoodSection(editSectionSlug, philifeNeighborhoodSectionSlug)) {
       alert(
-        `이 화면의 주제는 커뮤니티 기본 섹션 「동네」(${DEFAULT_COMMUNITY_SECTION})에 있어야 앱 피드·모임 만들기와 연동됩니다.`
+        `이 화면의 주제는 동네 피드 섹션(${philifeNeighborhoodSectionSlug})에 있어야 앱 피드·모임 만들기와 연동됩니다.`
       );
       return;
     }
@@ -222,8 +240,8 @@ export function AdminCommunityTopicsPage({
 
   const headerDescription =
     menuTab === "meetup"
-      ? `동네(${DEFAULT_COMMUNITY_SECTION}) 섹션만 표시·저장 가능. 목록은 모임 만들기 폼 피드 주제(API)와 동일합니다. 일반 전용 slug·다른 섹션 주제는 제외.`
-      : `동네(${DEFAULT_COMMUNITY_SECTION}) 섹션의 일반 게시판 주제만 표시합니다. 커뮤니티 동네 피드 칩·글쓰기 주제·게시판 주제 필터는 여기서 보이는 주제(노출·비모임·정렬칩 제외)와 동기됩니다.`;
+      ? `동네 피드 섹션(${philifeNeighborhoodSectionSlug})만 표시·저장 가능. 목록은 모임 만들기 폼 피드 주제(API)와 동일합니다. 일반 전용 slug·다른 섹션 주제는 제외.`
+      : `동네 피드 섹션(${philifeNeighborhoodSectionSlug})의 일반 게시판 주제만 표시합니다. 커뮤니티 동네 피드 칩·글쓰기 주제·게시판 주제 필터는 여기서 보이는 주제(노출·비모임·정렬칩 제외)와 동기됩니다.`;
 
   return (
     <div className="space-y-4">
@@ -403,8 +421,8 @@ export function AdminCommunityTopicsPage({
         ) : filteredTopics.length === 0 ? (
           <p className="text-[13px] text-gray-600">
             {menuTab === "meetup"
-              ? `동네(${DEFAULT_COMMUNITY_SECTION}) 섹션에 모임 피드 주제가 없습니다. 위에서 섹션을 동네로 두고 추가하거나, 일반 전용이 아닌 slug로 allow_meetup을 켠 주제를 넣어 주세요.`
-              : `동네(${DEFAULT_COMMUNITY_SECTION}) 섹션에 일반 게시판 주제가 없습니다. 위 폼에서 추가하세요.`}
+              ? `동네 피드 섹션(${philifeNeighborhoodSectionSlug})에 모임 피드 주제가 없습니다. 위에서 해당 섹션을 고르고 추가하거나, 일반 전용이 아닌 slug로 allow_meetup을 켠 주제를 넣어 주세요.`
+              : `동네 피드 섹션(${philifeNeighborhoodSectionSlug})에 일반 게시판 주제가 없습니다. 위 폼에서 추가하세요.`}
           </p>
         ) : (
           <div className="overflow-x-auto">

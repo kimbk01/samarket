@@ -12,10 +12,9 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
-import { PhilifeTitleWithRegionRow } from "@/components/philife/PhilifeTitleWithRegionRow";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
-import { BOTTOM_NAV_TRADE_TAB_LABEL } from "@/lib/main-menu/bottom-nav-config";
+import { BOTTOM_NAV_PHILIFE_TAB_LABEL, BOTTOM_NAV_TRADE_TAB_LABEL } from "@/lib/main-menu/bottom-nav-config";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,
@@ -92,12 +91,16 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
     return null;
   }
 
-  const useTradeExplorationPhilifeTier1 =
-    isTradeFloatingMenuSurface(pathNoQuery) &&
-    ruleSet.showRegionPicker &&
-    !ruleSet.showTradeHubLeading;
+  /** 거래 홈·마켓 / 필라이프 피드 — 동일 1단(좌 여백 · 탭라벨·동네 · 알림·설정), 하단 탭으로 화면 전환 */
+  const isUnifiedExplorationTier1 =
+    (isTradeFloatingMenuSurface(pathNoQuery) &&
+      ruleSet.showRegionPicker &&
+      !ruleSet.showTradeHubLeading) ||
+    pathNoQuery === "/philife";
 
-  if (useTradeExplorationPhilifeTier1) {
+  if (isUnifiedExplorationTier1) {
+    const segmentTitle =
+      pathNoQuery === "/philife" ? BOTTOM_NAV_PHILIFE_TAB_LABEL : BOTTOM_NAV_TRADE_TAB_LABEL;
     return (
       <UnifiedTier1Shell embedded={embedded}>
         <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
@@ -106,25 +109,7 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
           </div>
           <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
             <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
-              <Tier1ExplorationTitleRow segmentTitle={BOTTOM_NAV_TRADE_TAB_LABEL} />
-            </h1>
-          </div>
-          <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
-        </div>
-      </UnifiedTier1Shell>
-    );
-  }
-
-  if (pathNoQuery === "/philife") {
-    return (
-      <UnifiedTier1Shell embedded={embedded}>
-        <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-          <div className="flex w-[44px] shrink-0 justify-start">
-            <AppBackButton preferHistoryBack backHref="/home" ariaLabel="이전 화면" />
-          </div>
-          <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
-              <PhilifeTitleWithRegionRow />
+              <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
             </h1>
           </div>
           <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
@@ -168,10 +153,11 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
 
   const centerFromExtras = o?.title != null ? o.title : null;
   const titleTextFromExtras = o?.titleText;
-  const stringTitle =
+  const rawStringTitle =
     (typeof centerFromExtras === "string" ? centerFromExtras : null) ??
     titleTextFromExtras ??
     base.titleText;
+  const stringTitle = rawStringTitle?.trim() ? rawStringTitle : undefined;
 
   const centerNode: ReactNode =
     centerFromExtras != null && typeof centerFromExtras !== "string" ? (
@@ -195,7 +181,9 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
     <UnifiedTier1Shell embedded={embedded}>
       <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
         <div className="flex w-[44px] shrink-0 justify-start">
-          {hideBack ? (
+          {o?.leftSlot != null ? (
+            o.leftSlot
+          ) : hideBack ? (
             <div className="h-9 w-9 shrink-0" aria-hidden />
           ) : (
             <AppBackButton

@@ -48,11 +48,9 @@ export function TradePrimaryTabs({
   const [tabsFit, setTabsFit] = useState(false);
   const { tradeCategories, loading, error, tabs, activeIndex } = useTradeTabs(pathname);
 
-  /** `/home` 앱 헤더: 필라이프 피드와 동일한 서브배경 + 둥근 칩 가로 스크롤 (회색 밑줄 탭 아님) */
-  const useHomeFeedTabRow = embedInAppHeader && pathname === "/home";
+  /** `/home`·`/market/*` 동일: 앱 헤더 안에서는 `/market/trade` 와 같은 1단(밑줄·회색 띠) 규칙 */
   const useCommunityRow1 = appearance === "community";
-  const useTradePrimaryRow =
-    (appearance === "orders-tab" || embedInAppHeader) && !useHomeFeedTabRow;
+  const useTradePrimaryRow = appearance === "orders-tab" || embedInAppHeader;
 
   const updateIndicator = useCallback(() => {
     const inner = tabsInnerRef.current;
@@ -128,17 +126,6 @@ export function TradePrimaryTabs({
       </div>
     );
     if (embedInAppHeader) {
-      if (pathname === "/home") {
-        return (
-          <div className="w-full min-w-0 overflow-x-hidden border-b border-ig-border bg-[var(--sub-bg)]">
-            <div className={`${APP_MAIN_HEADER_INNER_CLASS} min-w-0 py-2`}>
-              <span className="inline-flex shrink-0 rounded-full bg-gray-100 px-3 py-1.5 text-[12px] font-semibold text-gray-400">
-                로딩…
-              </span>
-            </div>
-          </div>
-        );
-      }
       return (
         <div className="border-b border-gray-200 bg-gray-100">
           <div className={APP_MAIN_HEADER_INNER_CLASS}>{loadingInner}</div>
@@ -151,13 +138,6 @@ export function TradePrimaryTabs({
   if (error) {
     const errInner = <div className="pb-2 text-[13px] text-red-500">{error}</div>;
     if (embedInAppHeader) {
-      if (pathname === "/home") {
-        return (
-          <div className="w-full min-w-0 overflow-x-hidden border-b border-ig-border bg-[var(--sub-bg)]">
-            <div className={`${APP_MAIN_HEADER_INNER_CLASS} min-w-0 py-2`}>{errInner}</div>
-          </div>
-        );
-      }
       return (
         <div className="border-b border-gray-200 bg-gray-100">
           <div className={APP_MAIN_HEADER_INNER_CLASS}>{errInner}</div>
@@ -232,48 +212,6 @@ export function TradePrimaryTabs({
       >
         {inner}
       </HorizontalDragScroll>
-    );
-  }
-
-  if (useHomeFeedTabRow) {
-    const chipNavClass =
-      "flex w-full max-w-full min-w-0 flex-nowrap justify-start gap-1 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
-    const chipClass = (active: boolean) =>
-      `shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold ${
-        active ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
-      }`;
-
-    const homeInner = (
-      <>
-        <Link href="/home" className={chipClass(pathname === "/home")}>
-          전체
-        </Link>
-        {tradeCategories.length === 0 ? (
-          <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1.5 text-[12px] font-semibold text-gray-400">
-            카테고리가 없습니다
-          </span>
-        ) : (
-          tradeCategories.map((category) => (
-            <HomeCategoryChip key={category.id} category={category} appearance="feed-chip" />
-          ))
-        )}
-      </>
-    );
-
-    return (
-      <div className="w-full min-w-0 overflow-x-hidden border-b border-ig-border bg-[var(--sub-bg)]">
-        <div className={`${APP_MAIN_HEADER_INNER_CLASS} min-w-0 py-2`}>
-          <div className="min-w-0" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-            <HorizontalDragScroll
-              className={chipNavClass}
-              style={{ WebkitOverflowScrolling: "touch" }}
-              aria-label="TRADE 메뉴"
-            >
-              {homeInner}
-            </HorizontalDragScroll>
-          </div>
-        </div>
-      </div>
     );
   }
 

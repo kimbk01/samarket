@@ -104,7 +104,10 @@ export function CategoryFormModal({
   const [has_direct_deal, setHasDirectDeal] = useState(category?.settings?.has_direct_deal ?? true);
   const [has_free_share, setHasFreeShare] = useState(category?.settings?.has_free_share ?? true);
   const [post_type, setPostType] = useState(category?.settings?.post_type ?? "normal");
-  const [quick_create_enabled, setQuickCreateEnabled] = useState(category?.quick_create_enabled ?? false);
+  /** 신규 최상위 메뉴는 기본으로 플로팅 글쓰기 런처에 포함(어드민에서 따로 켤 필요 없음). */
+  const [quick_create_enabled, setQuickCreateEnabled] = useState(
+    category ? (category.quick_create_enabled ?? false) : true
+  );
   const [quick_create_group, setQuickCreateGroup] = useState<QuickCreateGroup | null>(category?.quick_create_group ?? null);
   const [quick_create_order, setQuickCreateOrder] = useState(category?.quick_create_order ?? 0);
   const [show_in_home_chips, setShowInHomeChips] = useState(category?.show_in_home_chips ?? true);
@@ -159,6 +162,10 @@ export function CategoryFormModal({
       setHasChat(def.has_chat);
       setHasLocation(def.has_location);
       setPostType(def.post_type);
+      setQuickCreateEnabled(true);
+      setQuickCreateGroup(null);
+      setQuickCreateOrder(0);
+      setShowInHomeChips(true);
     }
   }, [category, nextSortOrder, isMenuMode, fixedType]);
 
@@ -467,7 +474,7 @@ export function CategoryFormModal({
               <div className="border-t border-gray-100 pt-3 mt-2">
                 <span className="block text-[12px] font-medium text-gray-600 mb-1">홈 글쓰기 플로팅 메뉴 (주제 선택)</span>
                 <p className="mb-2 text-[11px] leading-relaxed text-gray-500">
-                  켜면 홈·거래 화면에서 + 메뉴의 「글쓰기」 목록에 이 항목이 나옵니다. 거래/커뮤니티 타입별로 섹션이 나뉘며, 같은 타입 안에서는 아래 숫자가 작을수록 위에 표시됩니다.
+                  새 메뉴는 기본 켜짐 — 홈·거래 화면 + 플로팅의 「글쓰기」 목록에 자동으로 들어갑니다. 끄면 상단 칩만 쓰고 플로팅 주제에서는 빼고 싶을 때 사용하세요. 거래/커뮤니티 타입별로 섹션이 나뉘며, 같은 타입 안에서는 아래 숫자가 작을수록 위에 표시됩니다.
                 </p>
                 <label className="flex items-center gap-2">
                   <input

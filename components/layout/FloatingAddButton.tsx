@@ -22,9 +22,17 @@ export function FloatingAddButton() {
   const [launcherOpen, setLauncherOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { writeCategorySlug } = useWriteCategory() ?? { writeCategorySlug: null };
+  const writeCtx = useWriteCategory();
+  const writeCategorySlug = writeCtx?.writeCategorySlug ?? null;
+  const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
+  const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
   const pathSlug = getCategorySlugFromPath(pathname ?? "");
   const categorySlug = writeCategorySlug ?? pathSlug;
+
+  /** 어드민에서 런처 항목을 모두 끈 경우 좌측 FAB 숨김(현재 화면 주제로 바로 쓰기 가능할 때만 유지) */
+  if (!launcherCategoriesLoading && !categorySlug && !hasLauncherTopics) {
+    return null;
+  }
 
   const handleClick = () => {
     if (categorySlug) {
@@ -40,7 +48,7 @@ export function FloatingAddButton() {
         <button
           type="button"
           onClick={handleClick}
-          className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-10 flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-lg`}
+          className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-lg`}
           aria-label="글쓰기"
         >
           <PlusIcon />

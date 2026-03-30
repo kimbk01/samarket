@@ -3,7 +3,7 @@
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import Link from "next/link";
-import { WriteHeader } from "./WriteHeader";
+import { WriteScreenTier1Sync } from "./WriteScreenTier1Sync";
 
 interface FeatureWriteBlockProps {
   category: CategoryWithSettings;
@@ -17,7 +17,7 @@ export function FeatureWriteBlock({ category }: FeatureWriteBlockProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <WriteHeader categoryName={category.name} backHref={backHref} />
+      <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
       <div className="mx-auto max-w-[480px] px-4 py-12 text-center">
         <p className="text-[15px] font-medium text-gray-700">
           이 카테고리는 글쓰기를 지원하지 않습니다.

@@ -105,7 +105,10 @@ export function ConditionalAppShell({
     !isStoreProductDetail;
 
   const showRegionBar = !regionBarInLayout && !hideRegionBar;
-  /** 거래(Trade) 탐색·피드는 매장과 무관 — 매장 단축 바는 Stores/주문 등에서만 노출 */
+  /**
+   * 거래(Trade) 탐색·피드는 매장과 무관 — 매장 단축 바는 Stores/주문 등에서만 노출.
+   * 필라이프/커뮤니티 화면에서는 매장 진입 UI를 두지 않음.
+   */
   const showOwnerLiteStoreBar =
     showBottomNav &&
     !hideBarAndFloat &&
@@ -117,7 +120,8 @@ export function ConditionalAppShell({
     !isChatsHubSurface &&
     !isSearch &&
     !isServicesSection &&
-    !isTradeFloatingSurface;
+    !isTradeFloatingSurface &&
+    !isCommunityApp;
   const mountGlobalRealtimeChrome =
     showBottomNav || isMyTab || isStoreSection || isOrdersHub;
 

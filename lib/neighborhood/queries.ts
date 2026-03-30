@@ -36,7 +36,7 @@ export type NeighborhoodFeedPageResult = {
 
 export async function listNeighborhoodFeed(options: {
   locationId: string;
-  /** 피드 주제 slug — `community_topics`(dongnae)와 동기. 미지정이면 전체 */
+  /** 피드 주제 slug — 동네 피드 섹션 `community_topics`와 동기. 미지정이면 전체 */
   category?: string | null;
   authorUserId?: string | null;
   /** 페이지당 개수 (기본 20, 최대 40) */

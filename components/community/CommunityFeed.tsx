@@ -8,27 +8,28 @@ import {
   neighborhoodLocationMetaFromRegion,
   neighborhoodLocationLabelFromRegion,
 } from "@/lib/neighborhood/location-key";
-import {
-  NEIGHBORHOOD_CATEGORY_LABELS,
-  NEIGHBORHOOD_CATEGORY_SLUGS,
-} from "@/lib/neighborhood/categories";
 import { philifeNeighborhoodFeedUrl, philifeNeighborhoodTopicOptionsUrl } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
+import { TRADE_SECONDARY_TABS_INNER_Y_CLASS, TRADE_SECONDARY_TABS_SHELL_CLASS } from "@/lib/trade/ui/secondary-tabs-surface";
+import { TRADE_PRIMARY_TABS_OUTER_SCROLL_CLASS } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import { CommunityCard } from "./CommunityCard";
 import { HorizontalDragScroll } from "./HorizontalDragScroll";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { PhilifeTitleWithRegionRow } from "@/components/philife/PhilifeTitleWithRegionRow";
-import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 
 const PAGE_SIZE = 20;
 
+const PHILIFE_TOPIC_TAB_CLASS = {
+  on: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-semibold text-gray-900",
+  off: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-medium text-gray-500 hover:text-gray-700",
+} as const;
+
 export function CommunityFeed() {
   const { currentRegion } = useRegion();
-  const notificationUnreadCount = useMyNotificationUnreadCount();
   const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
   const locationMeta = neighborhoodLocationMetaFromRegion(currentRegion);
   const locationLabel = neighborhoodLocationLabelFromRegion(currentRegion);
@@ -48,10 +49,7 @@ export function CommunityFeed() {
   /** 지역·필터가 바뀌면 증가. 이전 요청 응답은 무시해 트래픽·경합 시 UI 꼬임 방지 */
   const feedSessionRef = useRef(0);
 
-  const [chips, setChips] = useState<{ slug: string; label: string }[]>(() => [
-    { slug: "", label: "전체" },
-    ...NEIGHBORHOOD_CATEGORY_SLUGS.map((s) => ({ slug: s, label: NEIGHBORHOOD_CATEGORY_LABELS[s] })),
-  ]);
+  const [chips, setChips] = useState<{ slug: string; label: string }[]>(() => [{ slug: "", label: "전체" }]);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,10 +60,14 @@ export function CommunityFeed() {
           ok?: boolean;
           feedChips?: { slug: string; name: string }[];
         };
-        if (cancelled || !j?.ok || !Array.isArray(j.feedChips) || j.feedChips.length === 0) return;
-        setChips([{ slug: "", label: "전체" }, ...j.feedChips.map((x) => ({ slug: x.slug, label: x.name }))]);
+        if (cancelled) return;
+        if (j?.ok && Array.isArray(j.feedChips)) {
+          setChips([{ slug: "", label: "전체" }, ...j.feedChips.map((x) => ({ slug: x.slug, label: x.name }))]);
+          return;
+        }
+        setChips([{ slug: "", label: "전체" }]);
       } catch {
-        /* 초기 상수 칩 유지 */
+        if (!cancelled) setChips([{ slug: "", label: "전체" }]);
       }
     })();
     return () => {
@@ -108,6 +110,7 @@ export function CommunityFeed() {
         if (neighborOnly) p.set("neighborOnly", "1");
         const res = await fetch(philifeNeighborhoodFeedUrl(p.toString()), {
           cache: "no-store",
+          credentials: "include",
           signal: controller.signal,
         });
         const j = (await res.json()) as {
@@ -218,48 +221,41 @@ export function CommunityFeed() {
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore, fetchPage]);
 
-  const scrollNavClass =
-    "flex w-full max-w-full min-w-0 flex-nowrap justify-start gap-1 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
-
   return (
     <div className="min-h-screen min-w-0 max-w-full overflow-x-hidden bg-background pb-28">
       <MySubpageHeader
-        title={<PhilifeTitleWithRegionRow />}
-        backHref="/home"
-        preferHistoryBack
+        registerMainTier1={false}
         hideCtaStrip
-        showHubQuickActions
-        notificationUnreadCount={notificationUnreadCount}
         stickyBelow={
           <>
-            <div className="w-full min-w-0 overflow-x-hidden border-b border-ig-border bg-[var(--sub-bg)]">
-              <div className={`${APP_MAIN_HEADER_INNER_CLASS} min-w-0 py-2`}>
+            <div className="min-w-0 overflow-x-hidden border-t border-black/[0.08] bg-gray-100">
+              <div className={APP_MAIN_HEADER_INNER_CLASS}>
                 <HorizontalDragScroll
-                  className={scrollNavClass}
+                  className={TRADE_PRIMARY_TABS_OUTER_SCROLL_CLASS}
                   style={{ WebkitOverflowScrolling: "touch" }}
                   aria-label="피드 주제"
                 >
-                  {chips.map((c) => {
-                    const on = category === c.slug || (c.slug === "" && category === "");
-                    return (
-                      <button
-                        key={c.slug || "all"}
-                        type="button"
-                        onClick={() => setCategory(c.slug === "" ? "" : c.slug)}
-                        className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold ${
-                          on ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    );
-                  })}
+                  <div className="flex h-[55px] min-w-0 w-max items-stretch gap-4">
+                    {chips.map((c) => {
+                      const on = category === c.slug || (c.slug === "" && category === "");
+                      return (
+                        <button
+                          key={c.slug || "all"}
+                          type="button"
+                          onClick={() => setCategory(c.slug === "" ? "" : c.slug)}
+                          className={on ? PHILIFE_TOPIC_TAB_CLASS.on : PHILIFE_TOPIC_TAB_CLASS.off}
+                        >
+                          {c.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </HorizontalDragScroll>
               </div>
             </div>
-            <div className="w-full min-w-0 overflow-x-hidden border-b border-ig-border bg-[var(--sub-bg)]">
+            <div className={`${TRADE_SECONDARY_TABS_SHELL_CLASS} ${TRADE_SECONDARY_TABS_INNER_Y_CLASS}`}>
               <label
-                className={`flex cursor-pointer items-center gap-2 py-2.5 text-[12px] text-[var(--text-muted)] ${APP_MAIN_HEADER_INNER_CLASS} min-w-0`}
+                className={`flex cursor-pointer items-center gap-2 px-0 text-[12px] text-[var(--text-muted)] ${APP_MAIN_HEADER_INNER_CLASS} min-w-0`}
               >
                 <input
                   type="checkbox"
@@ -288,11 +284,11 @@ export function CommunityFeed() {
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-gray-500`}>
             이 동네에 아직 글이 없어요.
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-              <Link href={philifeAppPaths.write} className="font-semibold text-signature">
-                첫 글 쓰기
-              </Link>
-              <Link href={philifeAppPaths.openChatCreate} className="font-semibold text-gray-700 underline">
-                오픈채팅 만들기
+              <Link
+                href={category === "meetup" ? philifeAppPaths.writeMeeting : philifeAppPaths.write}
+                className="font-semibold text-signature"
+              >
+                {category === "meetup" ? "모임 글 쓰기" : "첫 글 쓰기"}
               </Link>
             </div>
           </div>
@@ -315,9 +311,9 @@ export function CommunityFeed() {
       </div>
 
       <Link
-        href={philifeAppPaths.write}
-        className="kasama-quick-add fixed bottom-24 right-5 z-30 flex h-12 min-w-[5.75rem] items-center justify-center rounded-full bg-signature px-4 text-[15px] font-semibold text-white shadow-lg"
-        aria-label="커뮤니티 글쓰기"
+        href={category === "meetup" ? philifeAppPaths.writeMeeting : philifeAppPaths.write}
+        className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.rightOffsetClass} z-30 flex h-12 min-w-[5.75rem] items-center justify-center rounded-full bg-signature px-4 text-[15px] font-semibold text-white shadow-lg`}
+        aria-label={category === "meetup" ? "모임 글쓰기" : "커뮤니티 글쓰기"}
       >
         글쓰기
       </Link>

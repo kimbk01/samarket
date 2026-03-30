@@ -17,12 +17,17 @@ export async function getWritableRootCategoriesForWriteLauncher(): Promise<Categ
       c.settings?.can_write &&
       c.quick_create_enabled === true
   );
+  const groupKey = (g: CategoryWithSettings["quick_create_group"]) => (g == null ? "\uFFFF" : g);
+
   roots.sort((a, b) => {
     const ia = TYPE_ORDER.indexOf(a.type);
     const ib = TYPE_ORDER.indexOf(b.type);
     const da = ia === -1 ? 99 : ia;
     const db = ib === -1 ? 99 : ib;
     if (da !== db) return da - db;
+    const ga = groupKey(a.quick_create_group);
+    const gb = groupKey(b.quick_create_group);
+    if (ga !== gb) return ga.localeCompare(gb);
     const oa = a.quick_create_order ?? 0;
     const ob = b.quick_create_order ?? 0;
     if (oa !== ob) return oa - ob;

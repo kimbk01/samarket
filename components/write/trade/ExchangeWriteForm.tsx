@@ -21,7 +21,7 @@ import {
   PREP_OPTIONS,
 } from "@/lib/exchange/form-options";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
-import { WriteHeader } from "../WriteHeader";
+import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { LocationSelector } from "../shared/LocationSelector";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
@@ -244,7 +244,7 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <WriteHeader categoryName={category.name} backHref={backHref} />
+      <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
         {/* 환율 상황판 (자동 조회) */}
         <section className="border-b border-gray-100 bg-white px-4 py-4">

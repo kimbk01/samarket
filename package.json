@@ -20,6 +20,7 @@
     "lint:strict": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
+    "sql:copy:community-feed-daangn": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260321120000_community_feed_daangn.sql",
     "sql:copy:dangnae": "node scripts/copy-sql-clipboard.mjs supabase/scripts/paste-dangnae-community-sample.sql",
     "sql:copy:meetings": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260326120000_neighborhood_community.sql",
     "sql:copy:v2": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260327100000_community_engine_v2.sql",

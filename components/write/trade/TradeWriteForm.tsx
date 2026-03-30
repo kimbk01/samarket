@@ -104,7 +104,7 @@ import {
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel, formatPriceInput } from "@/lib/utils/format";
 import { REGIONS, getLocationLabel } from "@/lib/products/form-options";
-import { WriteHeader } from "../WriteHeader";
+import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { LocationSelector } from "../shared/LocationSelector";
 import { SubmitButton } from "../shared/SubmitButton";
@@ -390,7 +390,7 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <WriteHeader categoryName={category.name} backHref={backHref} />
+      <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
         <ImageUploader
           value={images}

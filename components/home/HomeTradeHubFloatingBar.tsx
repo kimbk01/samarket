@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -77,8 +78,13 @@ export function HomeTradeHubFloatingBar() {
   const { chatUnread: tradeChatUnread } = useOwnerHubBadgeBreakdown();
   const writeCtx = useWriteCategory();
   const writeCategorySlug = writeCtx?.writeCategorySlug ?? null;
+  const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
+  const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
   const pathSlug = slugFromPath(pathname);
   const categorySlug = writeCategorySlug ?? pathSlug;
+  /** 어드민 「런처에 표시」 항목이 없고 현재 경로 주제도 없으면 다이얼에서 글쓰기 행 숨김 */
+  const showWriteInDial =
+    Boolean(categorySlug) || hasLauncherTopics || launcherCategoriesLoading;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialEntered, setDialEntered] = useState(false);
@@ -143,11 +149,17 @@ export function HomeTradeHubFloatingBar() {
     if (hubSheet !== "chat") setTradeChatRoomId(null);
   }, [hubSheet]);
 
-  const menuItems: MenuDef[] = [
-    { key: "write", label: "글쓰기", Icon: PlusBoldIcon, onClick: onWriteClick },
-    { key: "trade-chat", label: "거래채팅", Icon: ChatBubbleIcon, onClick: openChatSheet },
-    { key: "trade-history", label: "거래내역", Icon: BagIcon, onClick: openPurchasesSheet },
-  ];
+  const menuItems: MenuDef[] = useMemo(() => {
+    const rows: MenuDef[] = [];
+    if (showWriteInDial) {
+      rows.push({ key: "write", label: "글쓰기", Icon: PlusBoldIcon, onClick: onWriteClick });
+    }
+    rows.push(
+      { key: "trade-chat", label: "거래채팅", Icon: ChatBubbleIcon, onClick: openChatSheet },
+      { key: "trade-history", label: "거래내역", Icon: BagIcon, onClick: openPurchasesSheet },
+    );
+    return rows;
+  }, [showWriteInDial, onWriteClick, openChatSheet, openPurchasesSheet]);
 
   const maxRowIndex = menuItems.length - 1;
 
@@ -313,8 +325,14 @@ export function HomeTradeHubFloatingBar() {
       <div
         className={`pointer-events-none fixed inset-x-0 ${HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS} ${shellZ}`}
       >
-        <div className={`${APP_MAIN_HEADER_INNER_CLASS} pointer-events-none relative`}>
-          <div className="pointer-events-none absolute bottom-0 right-0 flex flex-col items-end gap-3">
+        {/*
+         * 헤더 행과 동일한 읽기 폭만 맞추고 `overflow-x-hidden` 은 쓰지 않음.
+         * 그 안에 absolute+우측 FAB 를 두면 그림자·배지가 잘리거나 높이 0 부모 때문에
+         * 일부 환경에서 플로팅이 보이지 않을 수 있음 → in-flow flex 로 정렬.
+         */}
+        <div
+          className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-none mx-auto box-border flex w-full min-w-0 flex-col items-end gap-3`}
+        >
             {launcherOpen ? (
               <div className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
                 <WriteLauncherPanel onClose={closeAll} subFabClose />
@@ -399,7 +417,6 @@ export function HomeTradeHubFloatingBar() {
                 </span>
               </button>
             ) : null}
-          </div>
         </div>
       </div>
     </>

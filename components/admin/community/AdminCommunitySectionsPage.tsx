@@ -1,16 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CommunitySectionAdminRow } from "@/lib/community-feed/types";
-import { normalizeFeedSlug } from "@/lib/community-feed/constants";
+import { normalizeFeedSlug, normalizeSectionSlug } from "@/lib/community-feed/constants";
 
-export function AdminCommunitySectionsPage({ sections: initial }: { sections: CommunitySectionAdminRow[] }) {
+export function AdminCommunitySectionsPage({
+  sections: initial,
+  philifeNeighborhoodSectionSlug: initialPhilifeSlug,
+}: {
+  sections: CommunitySectionAdminRow[];
+  philifeNeighborhoodSectionSlug: string;
+}) {
   const router = useRouter();
   const [sections, setSections] = useState(initial);
+  const [philifeSectionSlug, setPhilifeSectionSlug] = useState(initialPhilifeSlug);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setPhilifeSectionSlug(initialPhilifeSlug);
+  }, [initialPhilifeSlug]);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
@@ -21,7 +31,38 @@ export function AdminCommunitySectionsPage({ sections: initial }: { sections: Co
     const res = await fetch("/api/admin/community/sections", { credentials: "include", cache: "no-store" });
     const j = await res.json();
     if (j.ok && Array.isArray(j.sections)) setSections(j.sections);
+    const r2 = await fetch("/api/admin/community/philife-neighborhood-section", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const j2 = await r2.json();
+    if (j2.ok && typeof j2.section_slug === "string") setPhilifeSectionSlug(j2.section_slug);
     router.refresh();
+  }
+
+  async function savePhilifeNeighborhoodSection(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/community/philife-neighborhood-section", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section_slug: philifeSectionSlug }),
+      });
+      const j = await res.json();
+      if (!j.ok) {
+        alert(
+          j.error === "unknown_or_inactive_section"
+            ? "활성화된 섹션 목록에 없는 slug입니다. 아래 표에서 slug를 확인하세요."
+            : j.error ?? "저장 실패"
+        );
+        return;
+      }
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onCreate(e: React.FormEvent) {
@@ -107,6 +148,58 @@ export function AdminCommunitySectionsPage({ sections: initial }: { sections: Co
   return (
     <div className="space-y-4">
       <AdminPageHeader title="피드 섹션 관리" backHref="/admin/boards" />
+      <AdminCard title="동네 피드에 쓸 섹션 (필라이프·앱 연동)">
+        <p className="mb-3 text-[13px] text-gray-600">
+          커뮤니티 동네 피드 칩·글쓰기 주제·모임 만들기 주제는 이 slug의{" "}
+          <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
+            피드 주제
+          </a>
+          와 연동됩니다. 미설정 시 기본 <code className="rounded bg-gray-100 px-1">dongnae</code>입니다. 저장 위치:{" "}
+          <code className="rounded bg-gray-100 px-1">admin_settings.philife_neighborhood_section</code>
+        </p>
+        <form onSubmit={savePhilifeNeighborhoodSection} className="flex flex-wrap items-end gap-2 text-[13px]">
+          <label className="flex flex-col gap-0.5">
+            <span className="text-gray-500">섹션 slug</span>
+            <select
+              className="min-w-[200px] rounded border border-gray-200 px-2 py-1.5 font-mono text-[12px]"
+              value={
+                sections.some(
+                  (s) => s.is_active && normalizeSectionSlug(s.slug) === normalizeSectionSlug(philifeSectionSlug)
+                )
+                  ? sections.find(
+                      (s) => s.is_active && normalizeSectionSlug(s.slug) === normalizeSectionSlug(philifeSectionSlug)
+                    )?.slug ?? philifeSectionSlug
+                  : philifeSectionSlug || ""
+              }
+              onChange={(e) => setPhilifeSectionSlug(e.target.value)}
+            >
+              <option value="">— 활성 섹션 선택 —</option>
+              {philifeSectionSlug &&
+                !sections.some(
+                  (s) => s.is_active && normalizeSectionSlug(s.slug) === normalizeSectionSlug(philifeSectionSlug)
+                ) && (
+                  <option value={philifeSectionSlug}>
+                    {philifeSectionSlug} (비활성·다시 지정 필요)
+                  </option>
+                )}
+              {sections
+                .filter((s) => s.is_active)
+                .map((s) => (
+                  <option key={s.id} value={s.slug}>
+                    {s.slug} ({s.name})
+                  </option>
+                ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            disabled={busy || !philifeSectionSlug.trim()}
+            className="rounded bg-gray-900 px-3 py-1.5 text-white disabled:opacity-50"
+          >
+            저장
+          </button>
+        </form>
+      </AdminCard>
       <AdminCard title="섹션 추가">
         <form onSubmit={onCreate} className="flex flex-wrap items-end gap-2 text-[13px]">
           <label className="flex flex-col gap-0.5">

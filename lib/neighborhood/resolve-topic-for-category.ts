@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { DEFAULT_COMMUNITY_SECTION } from "@/lib/community-feed/constants";
+import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 
 /**
  * 동네 일반 글 — `community_topics` 와 동기(어드민 피드 주제).
@@ -17,10 +17,11 @@ export async function resolveTopicForNeighborhoodCategory(
 
   let sid = opts?.sectionId?.trim();
   if (!sid) {
+    const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
     const { data: sec } = await sb
       .from("community_sections")
       .select("id")
-      .eq("slug", DEFAULT_COMMUNITY_SECTION)
+      .eq("slug", sectionSlug)
       .eq("is_active", true)
       .maybeSingle();
     sid = (sec as { id?: string } | null)?.id;

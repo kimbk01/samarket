@@ -6,6 +6,10 @@
 
 필수 순서 (누락 시 샘플/앱이 실패할 수 있음)
 --------------------------------------------------------------------------------
+0) 20260321120000_community_feed_daangn.sql  ← **당근형 피드 기반 테이블·dongnae 시드·admin_settings**
+   - admin_settings, community_sections/topics/posts/comments/likes/reports, 트리거, RLS 켜기
+   - npm run sql:copy:community-feed-daangn  후 Supabase SQL Editor 에 붙여넣어 실행 가능
+
 1) 20260325140000_community_is_hidden_columns.sql
    - 전제: public.community_posts, community_comments 가 이미 있어야 함
 

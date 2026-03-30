@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -7,8 +6,9 @@ import {
   findBannedWord,
   getCommunityFeedOps,
 } from "@/lib/community-feed/community-ops-settings";
-import { DEFAULT_COMMUNITY_SECTION } from "@/lib/community-feed/constants";
+import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { resolveNeighborhoodLocationId } from "@/lib/neighborhood/ensure-location";
+import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
 import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-topics";
 import { ensureMeetingGroupChatRoom } from "@/lib/neighborhood/meeting-chat";
@@ -100,19 +100,17 @@ export async function POST(req: NextRequest) {
   }
 
   const isMeetup = rawCat === "meetup";
-  const keyParts = locationKey.split(":").map((p) => p.trim()).filter(Boolean);
-  const cityFromKey = keyParts.length >= 2 ? keyParts[1]! : "";
-  const cityResolved = city || cityFromKey || keyParts[0] || "";
+  const locInput = coalesceNeighborhoodLocationInput(locationKey, {
+    city,
+    district,
+    name: locationName,
+  });
 
+  const philifeSectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
   const [ops, loc, secRes] = await Promise.all([
     getCommunityFeedOps(),
-    resolveNeighborhoodLocationId(sb, locationKey, {
-      country: "Philippines",
-      city: cityResolved || "unknown",
-      district,
-      name: locationName || cityResolved || "동네",
-    }),
-    sb.from("community_sections").select("id, slug").eq("slug", DEFAULT_COMMUNITY_SECTION).eq("is_active", true).maybeSingle(),
+    resolveNeighborhoodLocationId(sb, locationKey, locInput),
+    sb.from("community_sections").select("id, slug").eq("slug", philifeSectionSlug).eq("is_active", true).maybeSingle(),
   ]);
 
   if (title.length > ops.max_title_length) {
@@ -165,7 +163,10 @@ export async function POST(req: NextRequest) {
 
   const secRow = secRes.data as { id?: string; slug?: string } | null;
   if (secRes.error || !secRow?.id) {
-    return NextResponse.json({ ok: false, error: "community_sections(dongnae) 없음" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: `community_sections(${philifeSectionSlug}) 없음` },
+      { status: 500 }
+    );
   }
 
   let topicMeta: { topicId: string; topicSlug: string } | null = null;
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error:
-            "선택한 주제를 사용할 수 없습니다. 어드민 → 커뮤니티 → 피드 주제에서 동네(dongnae) 섹션 주제를 확인해 주세요.",
+            `선택한 주제를 사용할 수 없습니다. 어드민 → 피드 주제에서 동네 피드 섹션(${philifeSectionSlug}) 주제를 확인해 주세요.`,
         },
         { status: 400 }
       );
@@ -250,7 +251,7 @@ export async function POST(req: NextRequest) {
     .insert({
       user_id: auth.userId,
       section_id: secRow.id,
-      section_slug: secRow.slug ?? DEFAULT_COMMUNITY_SECTION,
+      section_slug: secRow.slug ?? philifeSectionSlug,
       topic_id: topicMeta.topicId,
       topic_slug: topicMeta.topicSlug,
       title,
@@ -320,17 +321,11 @@ export async function POST(req: NextRequest) {
       role: "host",
     });
 
-    const deferredMeetingId = meetingId;
-    const deferredHostId = auth.userId;
-    const deferredTitle = title;
-    after(async () => {
-      try {
-        const sbChat = getSupabaseServer();
-        await ensureMeetingGroupChatRoom(sbChat, deferredMeetingId, deferredHostId, deferredTitle);
-      } catch (e) {
-        console.error("[neighborhood-posts] ensureMeetingGroupChatRoom (after response):", e);
-      }
-    });
+    /** 응답 전에 메인 `chat_rooms`를 만들고 `meetings.chat_room_id`를 채움 (`after()`는 실패·경합 시 미연결로 남음) */
+    const chatEnsured = await ensureMeetingGroupChatRoom(sb, meetingId, auth.userId, title);
+    if (!chatEnsured) {
+      console.error("[neighborhood-posts] ensureMeetingGroupChatRoom failed meetingId=", meetingId);
+    }
   }
 
   if (images.length > 0 && images.some((url) => url.includes("supabase") || url.startsWith("http"))) {

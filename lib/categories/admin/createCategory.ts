@@ -58,7 +58,8 @@ export async function createCategory(
         sort_order: payload.sort_order,
         is_active: payload.is_active,
         description: payload.description ?? null,
-        quick_create_enabled: payload.quick_create_enabled ?? false,
+        /** 명시하지 않으면 true — 최상위 메뉴 생성 시 플로팅 런처에 같이 노출 */
+        quick_create_enabled: payload.quick_create_enabled ?? true,
         quick_create_group: payload.quick_create_group ?? null,
         quick_create_order: payload.quick_create_order ?? 0,
         show_in_home_chips: payload.show_in_home_chips ?? true,

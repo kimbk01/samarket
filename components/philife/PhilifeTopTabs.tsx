@@ -13,7 +13,6 @@ interface PhilifeTopTabsProps {
 export function PhilifeTopTabs({ variant = "pills" }: PhilifeTopTabsProps) {
   const pathname = usePathname();
   const onCommunity = pathname === philifeAppPaths.home;
-  const onOpenChat = pathname?.startsWith(philifeAppPaths.openChat);
   const onChats = pathname === philifeAppPaths.chats;
 
   if (variant === "instagram") {
@@ -32,13 +31,6 @@ export function PhilifeTopTabs({ variant = "pills" }: PhilifeTopTabsProps) {
           className={tab(onCommunity)}
         >
           피드
-        </Link>
-        <Link
-          href={philifeAppPaths.openChat}
-          aria-current={onOpenChat ? "page" : undefined}
-          className={tab(onOpenChat)}
-        >
-          오픈채팅
         </Link>
         <Link
           href={philifeAppPaths.chats}
@@ -61,15 +53,6 @@ export function PhilifeTopTabs({ variant = "pills" }: PhilifeTopTabsProps) {
         }`}
       >
         커뮤니티
-      </Link>
-      <Link
-        href={philifeAppPaths.openChat}
-        aria-current={onOpenChat ? "page" : undefined}
-        className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-semibold ${
-          onOpenChat ? "bg-signature text-white" : "border border-gray-200 bg-white text-signature"
-        }`}
-      >
-        오픈채팅
       </Link>
       <Link
         href={philifeAppPaths.chats}

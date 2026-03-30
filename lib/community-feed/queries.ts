@@ -8,11 +8,8 @@ import type {
   CommunitySectionDTO,
   CommunityTopicDTO,
 } from "./types";
-import {
-  DEFAULT_COMMUNITY_SECTION,
-  normalizeSectionSlug,
-  type CommunityFeedSortMode,
-} from "./constants";
+import { normalizeSectionSlug, type CommunityFeedSortMode } from "./constants";
+import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { rankByRecommended } from "./feed-ranking";
 import { isMissingDbColumnError } from "./supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
@@ -128,7 +125,10 @@ export async function listCommunityFeedPosts(options: {
     return [];
   }
 
-  const sectionSlug = normalizeSectionSlug(options.sectionSlug) || DEFAULT_COMMUNITY_SECTION;
+  let sectionSlug = normalizeSectionSlug(options.sectionSlug);
+  if (!sectionSlug) {
+    sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
+  }
   const limit = Math.min(Math.max(options.limit ?? 40, 1), 80);
   const rawTopic = options.topicSlug?.trim().toLowerCase() || null;
   const feedSort: CommunityFeedSortMode = options.feedSort ?? "latest";

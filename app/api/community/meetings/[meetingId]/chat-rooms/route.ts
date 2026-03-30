@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   createMeetingExtraChatRoom,
+  ensureMeetingGroupChatRoom,
   listMeetingExtraChatRoomsForUser,
 } from "@/lib/neighborhood/meeting-chat";
 import { getNeighborhoodDevSampleMeeting, getNeighborhoodDevSampleMeetingMembers } from "@/lib/neighborhood/dev-sample-data";
@@ -66,21 +67,49 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   try {
     const extraRooms = await listMeetingExtraChatRoomsForUser(sb, id, auth.userId);
-    const { data: meet } = await sb.from("meetings").select("chat_room_id").eq("id", id).maybeSingle();
-    const mainChatRoomId =
+    const { data: meet } = await sb
+      .from("meetings")
+      .select("chat_room_id, title, host_user_id, created_by")
+      .eq("id", id)
+      .maybeSingle();
+    let mainChatRoomId =
       (meet as { chat_room_id?: string | null } | null)?.chat_room_id != null
         ? String((meet as { chat_room_id: string }).chat_room_id)
         : null;
+    if (!mainChatRoomId) {
+      const meetTitle = String((meet as { title?: string | null } | null)?.title ?? "").trim() || "모임";
+      const organizer = String(
+        (meet as { host_user_id?: string | null; created_by?: string | null } | null)?.host_user_id ??
+          (meet as { created_by?: string | null } | null)?.created_by ??
+          auth.userId,
+      ).trim();
+      const ensured = await ensureMeetingGroupChatRoom(sb, id, organizer || auth.userId, meetTitle);
+      if (ensured?.roomId) mainChatRoomId = ensured.roomId;
+    }
     return NextResponse.json({ ok: true, mainChatRoomId, extraRooms, useClientDemoExtras: false });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg === "SCHEMA_MISSING" || msg.includes("meeting_chat_rooms") || msg.includes("42P01")) {
-      /** `meeting_chat_rooms` 미적용 환경: 메인 방(`meetings.chat_room_id`)만 반환 — 오픈채팅 본채팅은 동작 */
-      const { data: meet } = await sb.from("meetings").select("chat_room_id").eq("id", id).maybeSingle();
-      const mainChatRoomId =
+      /** `meeting_chat_rooms` 미적용 환경: 메인 방(`meetings.chat_room_id`)만 반환 */
+      const { data: meet } = await sb
+        .from("meetings")
+        .select("chat_room_id, title, host_user_id, created_by")
+        .eq("id", id)
+        .maybeSingle();
+      let mainChatRoomId =
         (meet as { chat_room_id?: string | null } | null)?.chat_room_id != null
           ? String((meet as { chat_room_id: string }).chat_room_id)
           : null;
+      if (!mainChatRoomId) {
+        const meetTitle = String((meet as { title?: string | null } | null)?.title ?? "").trim() || "모임";
+        const organizer = String(
+          (meet as { host_user_id?: string | null; created_by?: string | null } | null)?.host_user_id ??
+            (meet as { created_by?: string | null } | null)?.created_by ??
+            auth.userId,
+        ).trim();
+        const ensured = await ensureMeetingGroupChatRoom(sb, id, organizer || auth.userId, meetTitle);
+        if (ensured?.roomId) mainChatRoomId = ensured.roomId;
+      }
       return NextResponse.json({
         ok: true,
         mainChatRoomId,

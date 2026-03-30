@@ -4,6 +4,7 @@
 export const philifeAppPaths = {
   home: "/philife",
   openChat: "/philife/open-chat",
+  /** @deprecated 북마크용 — 실제 생성은 `writeMeeting` */
   openChatCreate: "/philife/open-chat/create",
   openChatRoom: (id: string) => `/philife/open-chat/${encodeURIComponent(id)}`,
   openChatInvite: (id: string, inviteCode: string) =>

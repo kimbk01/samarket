@@ -3,6 +3,9 @@
 
 1) 터미널에서 프로젝트 루트(samarket)로 이동한 뒤:
 
+   ▶ 당근형 커뮤니티 피드 기반 스키마(dongnae 시드)
+     npm run sql:copy:community-feed-daangn
+
    ▶ 당근 샘플 통합 SQL을 클립보드에 넣기
      npm run sql:copy:dangnae
 

@@ -535,17 +535,25 @@ export async function listOpenChatRooms(
   const limit = Math.min(Math.max(Number(opts?.limit ?? 20) || 20, 1), 50);
   const mineOnly = opts?.mineOnly === true;
 
-  const { data: membershipRows } = await sb
+  const { data: membershipRows, error: memberListError } = await sb
     .from("open_chat_members")
     .select("id, room_id, user_id, nickname, role, status, requested_at, approved_at, joined_at, left_at, last_read_at, is_muted")
-    .eq("user_id", viewerUserId)
+    .eq("user_id", viewerUserId.trim())
     .in("status", ["joined", "pending"]);
+
+  if (memberListError) {
+    throw new Error(`open_chat_members list: ${memberListError.message}`);
+  }
 
   const membershipMap = new Map<string, OpenChatMemberRow>();
   const myRoomIds: string[] = [];
+  const seenRoom = new Set<string>();
   for (const row of (membershipRows ?? []) as OpenChatMemberRow[]) {
-    membershipMap.set(row.room_id, row);
-    myRoomIds.push(row.room_id);
+    const rid = typeof row.room_id === "string" ? row.room_id.trim() : "";
+    if (!rid || seenRoom.has(rid)) continue;
+    seenRoom.add(rid);
+    membershipMap.set(rid, row);
+    myRoomIds.push(rid);
   }
 
   let roomQuery = sb
@@ -558,10 +566,15 @@ export async function listOpenChatRooms(
     if (!myRoomIds.length) return [];
     roomQuery = roomQuery.in("id", myRoomIds);
   } else {
-    roomQuery = roomQuery.eq("status", "active").eq("visibility", "public").eq("allow_search", true);
+    roomQuery = roomQuery.eq("status", "active").eq("visibility", "public");
+    /** 브라우징(검색어 없음): 공개 활성 방 전부. 검색어 있을 때만 검색 비노출 방 제외. */
+    if (query) {
+      roomQuery = roomQuery.eq("allow_search", true);
+    }
   }
 
-  if (query) {
+  /** 내 방 목록은 검색어와 무관하게 전부 표시. 탐색만 q로 제목·소개 필터. */
+  if (query && !mineOnly) {
     roomQuery = roomQuery.or(`title.ilike.%${query}%,description.ilike.%${query}%`);
   }
 

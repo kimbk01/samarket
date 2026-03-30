@@ -12,7 +12,8 @@ import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 
 export type MySubpageHeaderProps = {
-  title: ReactNode;
+  /** `registerMainTier1={false}` 일 때 생략 가능 */
+  title?: ReactNode;
   /** 헤더 제목 아래 한 줄 설명 */
   subtitle?: string;
   /** 있으면 부제를 탭 가능한 링크로 (예: `/regions`) */
@@ -35,6 +36,11 @@ export type MySubpageHeaderProps = {
   /** 내정보 허브와 동일: 알림·설정 (rightSlot과 동시 사용 시 rightSlot 우선) */
   showHubQuickActions?: boolean;
   notificationUnreadCount?: number | null;
+  /**
+   * false면 `RegionBar` 등이 이미 1단을 그리므로, 여기서는 stickyBelow·ctaLinks만 MainTier1Extras에 넣음.
+   * (필라이프 피드·거래 탐색과 동일 헤더 톤을 맞출 때 사용)
+   */
+  registerMainTier1?: boolean;
 };
 
 export function MySubpageHeader({
@@ -52,6 +58,7 @@ export function MySubpageHeader({
   hideCtaStrip = false,
   showHubQuickActions = false,
   notificationUnreadCount,
+  registerMainTier1 = true,
 }: MySubpageHeaderProps) {
   const router = useRouter();
   const tier1Provider = useMainTier1ExtrasOptional();
@@ -66,24 +73,32 @@ export function MySubpageHeader({
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
-    setMainTier1Extras({
-      tier1: {
-        title,
-        subtitle,
-        subtitleHref,
-        backHref,
-        preferHistoryBack,
-        ariaLabel,
-        rightSlot,
-        showHubQuickActions,
-        notificationUnreadCount,
-      },
-      ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
-      stickyBelow,
-    });
+    if (registerMainTier1) {
+      setMainTier1Extras({
+        tier1: {
+          title,
+          subtitle,
+          subtitleHref,
+          backHref,
+          preferHistoryBack,
+          ariaLabel,
+          rightSlot,
+          showHubQuickActions,
+          notificationUnreadCount,
+        },
+        ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
+        stickyBelow,
+      });
+    } else {
+      setMainTier1Extras({
+        ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
+        stickyBelow,
+      });
+    }
     return () => setMainTier1Extras(null);
   }, [
     setMainTier1Extras,
+    registerMainTier1,
     title,
     subtitle,
     subtitleHref,

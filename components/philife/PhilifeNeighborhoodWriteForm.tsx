@@ -3,15 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useRegion } from "@/contexts/RegionContext";
+import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
   philifeNeighborhoodPostsUrl,
   philifeNeighborhoodTopicOptionsUrl,
   philifeUploadImageUrl,
 } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
-import { NEIGHBORHOOD_CATEGORY_LABELS, NEIGHBORHOOD_CATEGORY_SLUGS } from "@/lib/neighborhood/categories";
 import {
   neighborhoodLocationKeyFromRegion,
   neighborhoodLocationMetaFromRegion,
@@ -57,22 +56,8 @@ export function PhilifeNeighborhoodWriteForm({
   const router = useRouter();
   const { currentRegion } = useRegion();
   const fileRef = useRef<HTMLInputElement>(null);
-  const defaultWriteOptions: WriteTopicOption[] = NEIGHBORHOOD_CATEGORY_SLUGS.filter((s) => s !== "meetup").map(
-    (slug) => ({
-      slug,
-      name: NEIGHBORHOOD_CATEGORY_LABELS[slug],
-    })
-  );
-  const normalizedInitialCategory =
-    initialCategory === "meetup"
-      ? "meetup"
-      : initialCategory &&
-          NEIGHBORHOOD_CATEGORY_SLUGS.includes(initialCategory as (typeof NEIGHBORHOOD_CATEGORY_SLUGS)[number]) &&
-          initialCategory !== "meetup"
-        ? initialCategory
-        : "daily";
-  const [writeTopicOptions, setWriteTopicOptions] = useState<WriteTopicOption[]>(defaultWriteOptions);
-  const [category, setCategory] = useState<string>(normalizedInitialCategory);
+  const [writeTopicOptions, setWriteTopicOptions] = useState<WriteTopicOption[]>([]);
+  const [category, setCategory] = useState<string>(() => (initialCategory === "meetup" ? "meetup" : ""));
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,7 +103,17 @@ export function PhilifeNeighborhoodWriteForm({
           ok?: boolean;
           writeTopics?: { slug: string; name: string }[];
         };
-        if (cancelled || !j?.ok || !Array.isArray(j.writeTopics) || j.writeTopics.length === 0) return;
+        if (cancelled) return;
+        if (!j?.ok || !Array.isArray(j.writeTopics)) {
+          setWriteTopicOptions([]);
+          setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
+          return;
+        }
+        if (j.writeTopics.length === 0) {
+          setWriteTopicOptions([]);
+          setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
+          return;
+        }
         setWriteTopicOptions(j.writeTopics);
         setCategory((prev) => {
           if (prev === "meetup" || initialCategory === "meetup") return "meetup";
@@ -129,7 +124,10 @@ export function PhilifeNeighborhoodWriteForm({
           return j.writeTopics![0]!.slug;
         });
       } catch {
-        /* 상수 목록 유지 */
+        if (!cancelled) {
+          setWriteTopicOptions([]);
+          setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
+        }
       }
     })();
     return () => {
@@ -198,6 +196,10 @@ export function PhilifeNeighborhoodWriteForm({
     const locationName = neighborhoodLocationLabelFromRegion(currentRegion);
     if (!locationKey || !locationMeta) {
       setErr("동네를 먼저 설정해 주세요.");
+      return;
+    }
+    if (category !== "meetup" && writeTopicOptions.length === 0) {
+      setErr("글 주제가 설정되어 있지 않습니다. 어드민 → 피드 주제에서 동네 피드 섹션에 일반 주제를 추가해 주세요.");
       return;
     }
 
@@ -331,28 +333,19 @@ export function PhilifeNeighborhoodWriteForm({
       ? Math.max(0, selectedAdProduct.pointCost - pointBalance)
       : 0;
 
+  const tier1Title = category === "meetup" ? title.trim() || "오픈채팅 만들기" : "커뮤니티 글쓰기";
+  const tier1Subtitle =
+    category === "meetup"
+      ? "시스템 오픈채팅방을 만들면 open chat에서 대화할 수 있어요."
+      : "일상, 정보, 질문 글을 자유롭게 작성할 수 있어요.";
+
   return (
     <div className={`min-h-screen bg-[#f0f2f5] pb-28 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-      <div className="mb-[4pt] flex items-center gap-[4pt]">
-        <AppBackButton backHref={philifeAppPaths.home} />
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">SAMarket</p>
-          <h1 className="line-clamp-2 text-lg font-bold leading-snug text-gray-900">
-            {category === "meetup"
-              ? title.trim()
-                ? title.trim()
-                : "오픈채팅 만들기"
-              : "커뮤니티 글쓰기"}
-          </h1>
-          {category !== "meetup" ? (
-            <p className="text-[12px] text-gray-500">일상, 정보, 질문 글을 자유롭게 작성할 수 있어요.</p>
-          ) : (
-            <p className="text-[12px] text-gray-500">
-              시스템 오픈채팅방을 만들면 open chat에서 대화할 수 있어요.
-            </p>
-          )}
-        </div>
-      </div>
+      <WriteScreenTier1Sync
+        backHref={philifeAppPaths.home}
+        title={tier1Title}
+        subtitle={tier1Subtitle}
+      />
 
       {category !== "meetup" ? (
         <div className="mb-2">
@@ -516,17 +509,24 @@ export function PhilifeNeighborhoodWriteForm({
             <>
               <div>
                 <label className="text-[13px] font-medium text-gray-700">카테고리</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="mt-[4pt] w-full rounded-[4px] border border-gray-200 bg-white px-3 py-2 text-[14px]"
-                >
-                  {writeTopicOptions.map((o) => (
-                    <option key={o.slug} value={o.slug}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
+                {writeTopicOptions.length === 0 ? (
+                  <p className="mt-[4pt] rounded-[4px] border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+                    등록된 일반 주제가 없습니다. 어드민 「피드 섹션 관리」에서 동네 피드 섹션을 확인한 뒤, 「피드 주제
+                    관리」에서 같은 섹션으로 일반 주제를 추가해 주세요.
+                  </p>
+                ) : (
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="mt-[4pt] w-full rounded-[4px] border border-gray-200 bg-white px-3 py-2 text-[14px]"
+                  >
+                    {writeTopicOptions.map((o) => (
+                      <option key={o.slug} value={o.slug}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="text-[13px] font-medium text-gray-700">제목</label>

@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getCategories } from "@/lib/categories/getCategories";
 import { getWriteHref } from "@/lib/categories/getCategoryHref";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
 import type { CategoryWithSettings } from "@/lib/types/category";
 import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
 
@@ -40,11 +39,6 @@ export default function WritePage() {
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4">
-        <AppBackButton />
-        <h1 className="text-[16px] font-bold text-gray-900">글쓰기</h1>
-        <span className="w-11" />
-      </header>
       <div className="mx-auto max-w-[480px] space-y-5 px-4 py-5">
         {(Object.keys(byType) as Array<keyof typeof byType>).map((type) => {
           const list = byType[type];

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { philifeOpenChatRoomsUrl } from "@/lib/philife/api";
@@ -44,30 +44,39 @@ export function OpenChatHubPage() {
     params.set("mine", "1");
     params.set("sort", "latest");
     params.set("limit", "24");
-    if (query.trim()) params.set("q", query.trim());
     return params.toString();
-  }, [query]);
+  }, []);
+
+  const discoverQueryRef = useRef(discoverQuery);
+  const myRoomsQueryRef = useRef(myRoomsQuery);
+  discoverQueryRef.current = discoverQuery;
+  myRoomsQueryRef.current = myRoomsQuery;
 
   useEffect(() => {
+    let cancelled = false;
     const controller = new AbortController();
 
-    async function load() {
+    async function load(opts?: { signal?: AbortSignal }) {
+      const signal = opts?.signal;
+      const dq = discoverQueryRef.current;
+      const mq = myRoomsQueryRef.current;
       setLoading(true);
       setError("");
       try {
+        const fetchOpts: RequestInit = {
+          cache: "no-store",
+          credentials: "include",
+          ...(signal ? { signal } : {}),
+        };
         const [discoverRes, mineRes] = await Promise.all([
-          fetch(philifeOpenChatRoomsUrl(discoverQuery), {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
-          fetch(philifeOpenChatRoomsUrl(myRoomsQuery), {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
+          fetch(philifeOpenChatRoomsUrl(dq), fetchOpts),
+          fetch(philifeOpenChatRoomsUrl(mq), fetchOpts),
         ]);
 
         const discoverJson = (await discoverRes.json()) as { ok?: boolean; rooms?: OpenChatRoomSummary[] };
         const mineJson = (await mineRes.json()) as { ok?: boolean; rooms?: OpenChatRoomSummary[] };
+
+        if (cancelled) return;
 
         if (!discoverRes.ok || !mineRes.ok || !discoverJson.ok || !mineJson.ok) {
           setError("오픈채팅 목록을 불러오지 못했습니다.");
@@ -80,16 +89,28 @@ export function OpenChatHubPage() {
         setMyRooms(mineJson.rooms ?? []);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
+        if (cancelled) return;
         setError("오픈채팅 목록을 불러오지 못했습니다.");
         setDiscoverRooms([]);
         setMyRooms([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
-    void load();
-    return () => controller.abort();
+    void load({ signal: controller.signal });
+
+    /** bfcache 복원(뒤로가기) 시 이전 React 상태 그대로라 목록이 갱신되지 않는 문제 보정 */
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) void load();
+    };
+    window.addEventListener("pageshow", onPageShow);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.removeEventListener("pageshow", onPageShow);
+    };
   }, [discoverQuery, myRoomsQuery]);
 
   return (
@@ -102,10 +123,10 @@ export function OpenChatHubPage() {
         rightSlot={
           <div className="flex min-w-0 max-w-[140px] shrink-0 items-center justify-end gap-0.5 sm:max-w-none">
             <Link
-              href={philifeAppPaths.openChatCreate}
+              href={philifeAppPaths.writeMeeting}
               className="truncate rounded-lg px-2 py-1.5 text-[13px] font-medium text-foreground hover:bg-ig-highlight"
             >
-              만들기
+              모임 글쓰기
             </Link>
             <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
           </div>
@@ -160,10 +181,10 @@ export function OpenChatHubPage() {
           </div>
           <div className="mt-3 flex gap-2">
             <Link
-              href={philifeAppPaths.openChatCreate}
+              href={philifeAppPaths.writeMeeting}
               className="rounded-xl bg-signature px-4 py-2 text-[13px] font-semibold text-white"
             >
-              새 방 만들기
+              모임 글 쓰기
             </Link>
             <Link
               href={philifeAppPaths.chats}

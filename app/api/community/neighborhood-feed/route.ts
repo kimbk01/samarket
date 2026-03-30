@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { ensureLocationId } from "@/lib/neighborhood/ensure-location";
+import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
 import { isPhilifeNeighborhoodFeedFilterSlugAllowed, loadPhilifeDefaultSectionTopics } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
 
@@ -38,12 +39,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  const locationId = await ensureLocationId(sb, locationKey, {
-    country: "Philippines",
-    city: city || locationKey.split(":")[0] || "",
-    district,
-    name: name || city || "동네",
-  });
+  const locationId = await ensureLocationId(
+    sb,
+    locationKey,
+    coalesceNeighborhoodLocationInput(locationKey, { city, district, name })
+  );
 
   if (!locationId) {
     return NextResponse.json({

@@ -1,27 +1,30 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  DEFAULT_COMMUNITY_SECTION,
-  normalizeFeedSlug,
-  normalizeSectionSlug,
-} from "@/lib/community-feed/constants";
+import { normalizeFeedSlug, normalizeSectionSlug } from "@/lib/community-feed/constants";
+import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import {
   isPhilifeGeneralOnlyTopicSlug,
   qualifiesForPhilifeMeetupWriterTopic,
 } from "@/lib/neighborhood/philife-topic-slug-rules";
 
-/** `listMeetupFeedTopicsPublic` / 모임 만들기 폼과 동일 섹션(필라이프 동네 = dongnae) */
-export function topicBelongsToPhilifeDefaultSection(sectionSlug: string | null | undefined): boolean {
-  return normalizeSectionSlug(sectionSlug) === DEFAULT_COMMUNITY_SECTION;
+/** 동네 피드에 연결된 섹션(`admin_settings` 또는 기본 dongnae)과 주제의 섹션이 같은지 */
+export function topicBelongsToPhilifeNeighborhoodSection(
+  sectionSlug: string | null | undefined,
+  philifeNeighborhoodSectionSlug: string
+): boolean {
+  const p = normalizeSectionSlug(philifeNeighborhoodSectionSlug);
+  if (!p) return false;
+  return normalizeSectionSlug(sectionSlug) === p;
 }
 
 /** 어드민 「모임」 탭 목록 = 이 조건과 동일해야 앱 드롭다운과 1:1 */
 export function qualifiesForPhilifeMeetupAdminList(
   allowMeetup: boolean,
   topicSlug: string,
-  sectionSlug: string | null | undefined
+  sectionSlug: string | null | undefined,
+  philifeNeighborhoodSectionSlug: string
 ): boolean {
   return (
-    topicBelongsToPhilifeDefaultSection(sectionSlug) &&
+    topicBelongsToPhilifeNeighborhoodSection(sectionSlug, philifeNeighborhoodSectionSlug) &&
     qualifiesForPhilifeMeetupWriterTopic(allowMeetup, topicSlug)
   );
 }
@@ -30,9 +33,10 @@ export function qualifiesForPhilifeMeetupAdminList(
 export function qualifiesForPhilifeGeneralAdminList(
   allowMeetup: boolean,
   topicSlug: string,
-  sectionSlug: string | null | undefined
+  sectionSlug: string | null | undefined,
+  philifeNeighborhoodSectionSlug: string
 ): boolean {
-  if (!topicBelongsToPhilifeDefaultSection(sectionSlug)) return false;
+  if (!topicBelongsToPhilifeNeighborhoodSection(sectionSlug, philifeNeighborhoodSectionSlug)) return false;
   return !allowMeetup || isPhilifeGeneralOnlyTopicSlug(topicSlug);
 }
 
@@ -43,14 +47,15 @@ export type MeetupFeedTopicRow = {
   sort_order: number;
 };
 
-/** 필라이프 기본 섹션(dongnae)의 모임 전용 피드 주제 — 어드민 「모임」 탭·`/api/philife/meetup-feed-topics`와 동일 집합 */
+/** 필라이프 동네 피드 섹션의 모임 전용 피드 주제 — 어드민 「모임」 탭·`/api/philife/meetup-feed-topics`와 동일 집합 */
 export async function listMeetupFeedTopicsPublic(
   sb: SupabaseClient<any>
 ): Promise<MeetupFeedTopicRow[]> {
+  const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
   const { data: sec } = await sb
     .from("community_sections")
     .select("id")
-    .eq("slug", DEFAULT_COMMUNITY_SECTION)
+    .eq("slug", sectionSlug)
     .eq("is_active", true)
     .maybeSingle();
   const sid = (sec as { id?: string } | null)?.id;
@@ -86,10 +91,11 @@ export async function resolveMeetupFeedTopicBySlug(
 
   let sid = opts?.sectionId?.trim();
   if (!sid) {
+    const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
     const { data: sec } = await sb
       .from("community_sections")
       .select("id")
-      .eq("slug", DEFAULT_COMMUNITY_SECTION)
+      .eq("slug", sectionSlug)
       .eq("is_active", true)
       .maybeSingle();
     sid = (sec as { id?: string } | null)?.id;

@@ -6,7 +6,7 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
-import { WriteHeader } from "../WriteHeader";
+import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { LocationSelector } from "../shared/LocationSelector";
 import { SubmitButton } from "../shared/SubmitButton";
@@ -102,7 +102,7 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <WriteHeader categoryName={category.name} backHref={backHref} />
+      <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
         {!isRequest && (
           <ImageUploader value={images} onChange={setImages} label="사진" />

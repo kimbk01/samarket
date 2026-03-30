@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { getWritableRootCategoriesForWriteLauncher } from "@/lib/categories/getWritableRootCategoriesForWriteLauncher";
-import type { CategoryType, CategoryWithSettings } from "@/lib/categories/types";
+import { useWriteCategory } from "@/contexts/WriteCategoryContext";
+import type { CategoryType } from "@/lib/categories/types";
 import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
 import {
   BOTTOM_NAV_FAB_LAYOUT,
@@ -29,19 +28,9 @@ export function WriteLauncherPanel({
   hideFabClose?: boolean;
   subFabClose?: boolean;
 }) {
-  const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const list = await getWritableRootCategoriesForWriteLauncher();
-    setCategories(list);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const writeCtx = useWriteCategory();
+  const categories = writeCtx?.launcherRootCategories ?? [];
+  const loading = writeCtx?.launcherCategoriesLoading ?? true;
 
   const typeOrder: CategoryType[] = ["trade", "service", "community", "feature"];
   const sections = typeOrder

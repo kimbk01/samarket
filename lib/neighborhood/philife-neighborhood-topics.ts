@@ -1,8 +1,8 @@
 /**
- * 어드민 `community_topics`(기본 섹션 dongnae) ↔ 필라이프 동네 피드·글쓰기 연동
+ * 어드민 `community_topics`(동네 피드 섹션 — 기본 `dongnae`, 운영은 admin_settings) ↔ 필라이프 동네 피드·글쓰기 연동
  */
 
-import { DEFAULT_COMMUNITY_SECTION } from "@/lib/community-feed/constants";
+import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { listTopicsForSectionSlug } from "@/lib/community-feed/queries";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 import {
@@ -23,7 +23,8 @@ export type PhilifeNeighborhoodWriteTopicOption = {
 
 /** 섹션 기준 피드 주제 행 (캐시 없음 — API·서버에서 호출) */
 export async function loadPhilifeDefaultSectionTopics(): Promise<CommunityTopicDTO[]> {
-  return listTopicsForSectionSlug(DEFAULT_COMMUNITY_SECTION);
+  const slug = await getPhilifeNeighborhoodSectionSlugServer();
+  return listTopicsForSectionSlug(slug);
 }
 
 /** 홈 피드 상단 칩: `is_feed_sort` 제외, `allow_meetup` 은 단일 「모임」칩으로 묶음 */
