@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 /** 관리자 수동 생성 시 이메일 미입력이면 `{username}@manual.local` — 동일 규칙으로 로그인 */
@@ -23,12 +24,12 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
   return Promise.race([p, rejectAfter(ms, message)]);
 }
 
-/** `next` 쿼리 오픈 리다이렉트 방지 — 앱 내부 경로만 허용 */
+/** 회원가입 링크 등 — `next` 쿼리 오픈 리다이렉트 방지, 앱 내부 경로만 허용 */
 function safeInternalPath(raw: string): string {
-  const t = raw.trim() || "/home";
-  if (!t.startsWith("/") || t.startsWith("//")) return "/home";
+  const t = raw.trim() || POST_LOGIN_PATH;
+  if (!t.startsWith("/") || t.startsWith("//")) return POST_LOGIN_PATH;
   const noQuery = t.split("?")[0].split("#")[0];
-  if (noQuery.includes(":")) return "/home";
+  if (noQuery.includes(":")) return POST_LOGIN_PATH;
   return t;
 }
 
@@ -41,7 +42,7 @@ function normalizeEmailForSignIn(raw: string): string {
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
-  const next = safeInternalPath(searchParams.get("next")?.trim() || "/home");
+  const nextForSignup = safeInternalPath(searchParams.get("next")?.trim() || POST_LOGIN_PATH);
   const [oauthBusy, setOauthBusy] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -91,7 +92,7 @@ function LoginPageContent() {
      * `router.push` 만 쓰면 로그인 직후 RSC/프록시가 쿠키 없이 돌고 `/login` 으로 튕기는 경우가 있음.
      * 전체 네비게이션으로 `sb-*-auth-token` 이 다음 요청에 반드시 실리게 함.
      */
-    window.location.assign(next);
+    window.location.assign(POST_LOGIN_PATH);
   };
 
   const handleOAuthLogin = async (provider: "google" | "kakao" | "apple") => {
@@ -105,7 +106,7 @@ function LoginPageContent() {
     }
     const redirectTo =
       typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(POST_LOGIN_PATH)}`
         : undefined;
     try {
       const { error: oauthError } = await withTimeout(
@@ -197,7 +198,7 @@ function LoginPageContent() {
         </form>
         <p className="mt-4 text-center text-[12px] text-gray-500">
           계정이 없으면{" "}
-          <Link href={`/signup?next=${encodeURIComponent(next)}`} className="font-medium text-signature underline">
+          <Link href={`/signup?next=${encodeURIComponent(nextForSignup)}`} className="font-medium text-signature underline">
             회원가입
           </Link>
         </p>

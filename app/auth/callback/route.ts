@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -10,8 +11,8 @@ const SIGNUP_NICKNAME_COOKIE = "samarket_signup_nickname";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
-  const next = req.nextUrl.searchParams.get("next")?.trim() || "/home";
-  const redirectUrl = new URL(next.startsWith("/") ? next : "/home", req.url);
+  const next = req.nextUrl.searchParams.get("next")?.trim() || POST_LOGIN_PATH;
+  const redirectUrl = new URL(next.startsWith("/") ? next : POST_LOGIN_PATH, req.url);
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();

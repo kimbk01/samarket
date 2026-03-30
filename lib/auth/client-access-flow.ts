@@ -1,5 +1,6 @@
 "use client";
 
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import type { Profile } from "@/lib/types/profile";
 import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
 
@@ -9,7 +10,7 @@ type RouterLike = {
 };
 
 function currentHrefFallback(): string {
-  if (typeof window === "undefined") return "/home";
+  if (typeof window === "undefined") return POST_LOGIN_PATH;
   return `${window.location.pathname}${window.location.search}`;
 }
 

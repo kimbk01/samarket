@@ -34,6 +34,7 @@ function redirectToLogin(request: NextRequest, pathname: string): NextResponse {
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
   loginUrl.search = "";
+  /** 원 경로(딥링크 복귀용). 로그인 성공 후 이동은 `POST_LOGIN_PATH` 고정 — `lib/auth/post-login-path.ts` */
   loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
   return preventAuthPageCache(NextResponse.redirect(loginUrl));
 }
