@@ -37,7 +37,7 @@ export function OwnerLiteStoreBar() {
   const storeId = encodeURIComponent(ownerStore.id);
   const profileHref = `/my/business/profile?storeId=${storeId}`;
   const basicInfoHref = `/my/business/basic-info?storeId=${storeId}`;
-  const orderHref = buildStoreOrdersHref({ storeId: ownerStore.id });
+  const orderHref = buildStoreOrdersHref({ storeId: ownerStore.id, tab: "new" });
   const inquiryHref = `/my/business/inquiries?storeId=${storeId}`;
   const primaryHref =
     inquiryAttention > 0

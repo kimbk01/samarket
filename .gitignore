@@ -33,6 +33,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# 백업/복사본 이름 (_env.local 등) — .env* 에는 매칭되지 않음
+_env.local
+_env*.local
 
 # vercel
 .vercel

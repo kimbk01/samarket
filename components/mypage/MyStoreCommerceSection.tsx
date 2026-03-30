@@ -86,7 +86,7 @@ export function MyStoreCommerceSection() {
   }
 
   const ordersHref = primaryStoreId
-    ? buildStoreOrdersHref({ storeId: primaryStoreId })
+    ? buildStoreOrdersHref({ storeId: primaryStoreId, tab: "new" })
     : "/my/business/store-orders";
   const inquiriesHref = primaryStoreId
     ? `/my/business/inquiries?storeId=${encodeURIComponent(primaryStoreId)}`
@@ -98,9 +98,9 @@ export function MyStoreCommerceSection() {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           href={ordersHref}
-          className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
+          className="rounded-lg border border-amber-200 bg-amber-50 py-3 text-center text-[13px] font-semibold text-amber-950"
         >
-          주문 관리
+          신규·접수 주문
         </Link>
         <Link
           href={inquiriesHref}

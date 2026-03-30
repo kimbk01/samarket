@@ -29,11 +29,28 @@ const BOARD_CTAS: ManagedMyCtaLink[] = [
 
 function storeSectionCtas(ownerStoreId?: string | null): ManagedMyCtaLink[] {
   const sid = ownerStoreId?.trim();
-  const orderHref = sid ? buildStoreOrdersHref({ storeId: sid }) : "/my/business/store-orders";
+  const enc = sid ? encodeURIComponent(sid) : "";
+  const newOrdersHref = sid
+    ? buildStoreOrdersHref({ storeId: sid, tab: "new" })
+    : "/my/business/store-orders";
+  const hubHref = sid ? `/my/business?storeId=${enc}` : "/my/business";
+  const inquiriesHref = sid ? `/my/business/inquiries?storeId=${enc}` : "/my/business/inquiries";
+  const productsHref = sid ? `/my/business/products?storeId=${enc}` : "/my/business/products";
+
+  if (sid) {
+    return [
+      { href: newOrdersHref, label: "신규 주문" },
+      { href: hubHref, label: "운영 허브" },
+      { href: inquiriesHref, label: "받은 문의" },
+      { href: productsHref, label: "상품 관리" },
+      { href: "/my/store-orders", label: "내 주문(고객)" },
+    ];
+  }
+
   return [
+    { href: newOrdersHref, label: "주문 접수" },
+    { href: hubHref, label: "운영 허브" },
     { href: "/my/store-orders", label: "내 주문" },
-    { href: "/my/business", label: "운영 허브" },
-    { href: orderHref, label: "주문 접수" },
     { href: "/my/business/apply", label: "매장 신청" },
   ];
 }

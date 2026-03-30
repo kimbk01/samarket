@@ -201,11 +201,10 @@ function LoginPageContent() {
             회원가입
           </Link>
         </p>
+        <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
+          피드·매장·채팅 등 서비스는 로그인 후 이용할 수 있습니다.
+        </p>
       </div>
-
-      <Link href="/home" className="text-[13px] text-gray-500 underline">
-        홈으로
-      </Link>
     </div>
   );
 }

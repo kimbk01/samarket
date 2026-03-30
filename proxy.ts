@@ -99,15 +99,20 @@ export async function proxy(request: NextRequest) {
    * 쿠키만 보면 위변조 가능하므로 getSession() 대신 getUser()로 매 요청 검증.
    * (RSC `app/(main)/layout` 도 getUser() — 이중 호출이나 보안·세션 갱신 일관성이 우선.)
    */
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-  if (user?.id) {
+    if (error || !user?.id) {
+      return redirectToLogin(request, pathname);
+    }
     return preventAuthPageCache(response);
+  } catch {
+    /** 네트워크·JWT 파싱 등 실패 시 열어 두지 않고 로그인으로 (fail-closed) */
+    return redirectToLogin(request, pathname);
   }
-
-  return redirectToLogin(request, pathname);
 }
 
 export const config = {
