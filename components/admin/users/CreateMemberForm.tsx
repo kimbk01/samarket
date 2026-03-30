@@ -101,6 +101,11 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
           contactPhone: contactPhoneOut,
           contactAddress: contactAddressOut,
           phoneVerified,
+          regionCode: region.trim() || undefined,
+          cityCode: city.trim() || undefined,
+          postalCode: postalCode.trim() || undefined,
+          addressStreetLine: addressStreetLine.trim() || undefined,
+          addressDetail: addressDetail.trim() || undefined,
         }),
       });
       const data = await res.json();

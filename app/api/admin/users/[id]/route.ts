@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { MemberType } from "@/lib/types/admin-user";
 
 const PHONE_VERIFICATION_STATUSES = ["unverified", "pending", "verified", "rejected"] as const;
@@ -304,7 +305,7 @@ export async function GET(
     supabase
       .from("profiles")
       .select(
-        "id, username, email, role, nickname, phone, phone_verified, phone_verification_status, created_at"
+        "id, username, email, role, nickname, phone, phone_verified, phone_verification_status, created_at, region_code, region_name, postal_code, address_street_line, address_detail"
       )
       .eq("id", rawId)
       .maybeSingle(),
@@ -327,6 +328,27 @@ export async function GET(
 
   const role =
     String(profile?.role ?? testUser?.role ?? "user").trim() || "user";
+
+  const prof = profile as {
+    region_code?: string | null;
+    region_name?: string | null;
+    postal_code?: string | null;
+    address_street_line?: string | null;
+    address_detail?: string | null;
+  } | null;
+  const fromTestAddr = (testUser?.contact_address as string | null | undefined)?.trim() ?? "";
+  const fromProfileLines = resolveProfileLocationAddressLines({
+    region_code: prof?.region_code,
+    region_name: prof?.region_name,
+    postal_code: prof?.postal_code,
+    address_street_line: prof?.address_street_line,
+    address_detail: prof?.address_detail,
+  });
+  const mergedContactAddress =
+    fromTestAddr ||
+    (fromProfileLines.length > 0 ? fromProfileLines.join("\n") : "") ||
+    null;
+
   const user: AdminUserDetailRow = {
     id: rawId,
     username: (testUser?.username ?? profile?.username ?? null) as string | null,
@@ -335,7 +357,7 @@ export async function GET(
     display_name: (testUser?.display_name ?? profile?.nickname ?? null) as string | null,
     nickname: (profile?.nickname ?? testUser?.display_name ?? null) as string | null,
     contact_phone: (profile?.phone ?? testUser?.contact_phone ?? null) as string | null,
-    contact_address: (testUser?.contact_address ?? null) as string | null,
+    contact_address: mergedContactAddress,
     phone_verified: profile?.phone_verified === true,
     phone_verification_status:
       (profile?.phone_verification_status as string | null) ??
