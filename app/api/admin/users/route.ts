@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-location";
 import type { AdminUser } from "@/lib/types/admin-user";
 import type { MemberType } from "@/lib/types/admin-user";
 
@@ -12,7 +13,11 @@ type ProfileRow = {
   role: string | null;
   member_type: string | null;
   status: string | null;
+  region_code: string | null;
   region_name: string | null;
+  postal_code: string | null;
+  address_street_line: string | null;
+  address_detail: string | null;
   points: number | null;
   phone_verified: boolean | null;
   phone_verification_status: string | null;
@@ -24,8 +29,17 @@ type TestUserRow = {
   username: string | null;
   display_name: string | null;
   role: string | null;
+  contact_address: string | null;
   created_at: string | null;
 };
+
+/** 목록 셀용: 수동 입력 멀티라인 중 첫 줄(보통 동네·ZIP) */
+function firstLineOfMultiline(text: string | null | undefined): string {
+  const t = (text ?? "").trim();
+  if (!t) return "";
+  const line = t.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
+  return line ?? "";
+}
 
 export async function GET(_req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -43,7 +57,7 @@ export async function GET(_req: NextRequest) {
   const { data: rows, error } = await (supabase as any)
     .from("profiles")
     .select(
-      "id, email, username, nickname, role, member_type, status, region_name, points, phone_verified, phone_verification_status, created_at"
+      "id, email, username, nickname, role, member_type, status, region_code, region_name, postal_code, address_street_line, address_detail, points, phone_verified, phone_verification_status, created_at"
     )
     .order("created_at", { ascending: false });
 
@@ -54,7 +68,7 @@ export async function GET(_req: NextRequest) {
   const ids = new Set(((rows ?? []) as ProfileRow[]).map((row) => row.id));
   const { data: testRows } = await (supabase as any)
     .from("test_users")
-    .select("id, username, display_name, role, created_at");
+    .select("id, username, display_name, role, contact_address, created_at");
   const testMap = new Map<string, TestUserRow>(
     ((testRows ?? []) as TestUserRow[]).map((row) => [row.id, row])
   );
@@ -67,6 +81,19 @@ export async function GET(_req: NextRequest) {
         : r.member_type === "premium" || r.role === "special"
           ? "premium"
           : "normal";
+    const fromProfile = resolveProfileLocationAddressOneLine({
+      region_code: r.region_code,
+      region_name: r.region_name,
+      postal_code: r.postal_code,
+      address_street_line: r.address_street_line,
+      address_detail: r.address_detail,
+    }).trim();
+    const fromTestLine = firstLineOfMultiline(testUser?.contact_address);
+    const locationLine =
+      fromProfile ||
+      fromTestLine ||
+      (r.region_name ?? "").trim() ||
+      undefined;
     return {
       id: r.id,
       loginUsername: testUser?.username?.trim() || r.username?.trim() || undefined,
@@ -76,7 +103,7 @@ export async function GET(_req: NextRequest) {
       profileRole: r.role ?? undefined,
       hasProfile: true,
       moderationStatus: r.status === "active" ? "normal" : "warned",
-      location: r.region_name ?? undefined,
+      location: locationLine,
       pointBalance: Number(r.points ?? 0),
       phoneVerified: r.phone_verified === true,
       verificationStatus: r.phone_verification_status ?? undefined,
@@ -95,6 +122,7 @@ export async function GET(_req: NextRequest) {
       const role = String(row.role ?? "member").trim().toLowerCase();
       const memberType: MemberType =
         role === "admin" || role === "master" ? "admin" : role === "special" || role === "premium" ? "premium" : "normal";
+      const loc = firstLineOfMultiline(row.contact_address) || undefined;
       return {
         id: row.id,
         loginUsername: row.username?.trim() || undefined,
@@ -103,6 +131,7 @@ export async function GET(_req: NextRequest) {
         profileRole: row.role ?? undefined,
         hasProfile: false,
         moderationStatus: "normal",
+        location: loc,
         phoneVerified: false,
         verificationStatus: "unverified",
         productCount: 0,

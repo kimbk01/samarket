@@ -108,8 +108,11 @@ export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: 
               <td className="px-3 py-2.5">
                 <AdminModerationStatusBadge status={u.moderationStatus} />
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2.5 text-gray-600">
-                {u.location ?? "-"}
+              <td
+                className="max-w-[min(280px,32vw)] truncate px-3 py-2.5 text-gray-600"
+                title={u.location ?? undefined}
+              >
+                {u.location?.trim() ? u.location : "—"}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 text-right">
                 <p className="font-semibold text-sky-700">
