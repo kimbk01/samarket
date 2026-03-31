@@ -8,6 +8,7 @@ import {
 } from "@/lib/community-feed/community-ops-settings";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
 import { resolveTopicMeta } from "@/lib/community-feed/queries";
+import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
 
 function summarize(text: string, max = 160): string {
   const t = text.replace(/\s+/g, " ").trim();
@@ -95,6 +96,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const categoryForDb = is_meetup ? "meetup" : normalizeNeighborhoodCategory(topicSlug) ?? "etc";
+
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
@@ -134,10 +137,14 @@ export async function POST(req: NextRequest) {
       content,
       summary: summarize(content),
       region_label,
+      category: categoryForDb,
+      images: [],
       is_question,
       is_meetup,
       meetup_place,
       meetup_date,
+      status: "active",
+      is_sample_data: false,
     })
     .select("id")
     .single();
