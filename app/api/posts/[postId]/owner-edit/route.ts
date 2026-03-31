@@ -30,8 +30,9 @@ export async function GET(
   }
 
   const sbAny = sb;
+  /** 일부 DB에는 posts.type 컬럼이 없음 — 거래 글은 trade_category_id 로 식별 */
   let sel =
-    "id, user_id, type, trade_category_id, title, content, price, region, city, barangay, images, meta, is_free_share, is_price_offer, status, seller_listing_state, thumbnail_url";
+    "id, user_id, trade_category_id, title, content, price, region, city, barangay, images, meta, is_free_share, is_price_offer, status, seller_listing_state, thumbnail_url";
   let { data: rawPost, error } = await sbAny.from("posts").select(sel).eq("id", id).maybeSingle();
   let postRow: Record<string, unknown> | null =
     rawPost && typeof rawPost === "object" && !("error" in rawPost && (rawPost as { error?: boolean }).error === true)
@@ -44,7 +45,7 @@ export async function GET(
     /does not exist|unknown|schema cache|Could not find/i.test(String(error.message))
   ) {
     sel =
-      "id, user_id, type, trade_category_id, title, content, price, region, city, images, status, seller_listing_state";
+      "id, user_id, trade_category_id, title, content, price, region, city, images, status, seller_listing_state";
     const r2 = await sbAny.from("posts").select(sel).eq("id", id).maybeSingle();
     const d = r2.data;
     postRow =
@@ -76,11 +77,6 @@ export async function GET(
   const owner = typeof row.user_id === "string" ? row.user_id : "";
   if (owner !== userId) {
     return NextResponse.json({ ok: false, error: "본인 글만 수정할 수 있습니다." }, { status: 403 });
-  }
-
-  const ptype = String(row.type ?? "trade").toLowerCase();
-  if (ptype !== "trade") {
-    return NextResponse.json({ ok: false, error: "거래 글만 이 화면에서 수정할 수 있습니다." }, { status: 400 });
   }
 
   const block = ownerCannotEditDeleteReason({

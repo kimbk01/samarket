@@ -25,16 +25,19 @@ const PURCHASE_SEL =
 
 const PURCHASE_COUNT_SEL = "id, post_id, seller_id, buyer_id";
 
-/** 스키마 차이(author_id·board_id 등)로 42703 나도 건수 API는 살리기 */
+/**
+ * 스키마 차이(author_id·board_id 등)로 42703 나도 건수 API는 살리기.
+ * posts.type 컬럼은 레거시 DB에 없을 수 있어 SELECT 에 넣지 않음 — 판별은 trade_category_id·board_id·메타.
+ */
 const POSTS_SALES_COUNT_SELECT_TIERS = [
-  "id, user_id, author_id, title, meta, type, board_id, trade_category_id, category_id",
-  "id, user_id, title, meta, type, board_id, trade_category_id, category_id",
-  "id, user_id, author_id, title, meta, type, board_id, trade_category_id",
-  "id, user_id, title, meta, type, board_id, trade_category_id",
-  "id, user_id, title, meta, type, trade_category_id, category_id",
-  "id, user_id, title, meta, type, trade_category_id",
-  "id, user_id, title, meta, type, category_id",
-  "id, user_id, title, meta, type",
+  "id, user_id, author_id, title, meta, board_id, trade_category_id, category_id",
+  "id, user_id, title, meta, board_id, trade_category_id, category_id",
+  "id, user_id, author_id, title, meta, board_id, trade_category_id",
+  "id, user_id, title, meta, board_id, trade_category_id",
+  "id, user_id, title, meta, trade_category_id, category_id",
+  "id, user_id, title, meta, trade_category_id",
+  "id, user_id, title, meta, category_id",
+  "id, user_id, title, meta",
 ] as const;
 
 function isMissingColumnSupabaseError(msg: string): boolean {

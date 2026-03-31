@@ -70,8 +70,18 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * PAGE_SIZE;
 
   let q = sb.from("posts").select("*").neq("status", "hidden").neq("status", "sold");
-  if (type) {
-    q = q.eq("type", type);
+  /**
+   * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
+   * (trade: trade_category_id, community: board_id, service: service_id)
+   */
+  if (type === "trade") {
+    q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
+  } else if (type === "community") {
+    q = q.not("board_id", "is", null).neq("board_id", "");
+  } else if (type === "service") {
+    q = q.not("service_id", "is", null).neq("service_id", "");
+  } else if (type === "feature") {
+    // type 컬럼 없을 때 구분 불가 → 과필터 방지 위해 추가 제한 없음(호출처 거의 없음)
   }
   if (sort === "latest") {
     q = q.order("created_at", { ascending: false });
