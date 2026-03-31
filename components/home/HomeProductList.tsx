@@ -130,6 +130,14 @@ export function HomeProductList() {
     if (action === "report") {
       setReportPostId(postId);
     }
+    if (action === "delete_own") {
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setFavoriteMap((prev) => {
+        const next = { ...prev };
+        delete next[postId];
+        return next;
+      });
+    }
   }, []);
 
   const handleUndoNotInterested = useCallback((postId: string) => {

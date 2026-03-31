@@ -9,6 +9,7 @@ import {
   resolveProfileLocationAddressLines,
 } from "@/lib/profile/profile-location";
 import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
+import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { serviceDescription } from "@/components/my/mypage/MypageDashboardPrimitives";
@@ -40,6 +41,8 @@ export type MypageInstagramViewProps = {
   ownerStoreGateFirstId?: string | null;
   isAdmin: boolean;
   addressDefaults: AddressDefaultsFlags;
+  /** 주소록 기본 생활지 기준 동네 요약 — 프로필과 불일치 시에도 표시·완료 판정에 사용 */
+  neighborhoodFromLife: LifeDefaultLocationSummary | null;
   overviewCounts: OverviewCounts;
   favoriteBadge: string | null;
   notificationBadge: string | null;
@@ -64,6 +67,7 @@ export function MypageInstagramView({
   ownerStoreGateFirstId = null,
   isAdmin,
   addressDefaults,
+  neighborhoodFromLife,
   overviewCounts,
   favoriteBadge,
   notificationBadge,
@@ -107,10 +111,22 @@ export function MypageInstagramView({
       : profile.email?.split("@")[0]
         ? `@${profile.email.split("@")[0]}`
         : "@samarket";
-  const hasRegion = isProfileLocationComplete(profile);
-  const regionLines = resolveProfileLocationAddressLines(profile);
-  const regionLine =
-    regionLines.length > 0 ? regionLines.join("\n") : "동네 미설정";
+  const profileRegionComplete = isProfileLocationComplete(profile);
+  const lifeNeighborhoodComplete = neighborhoodFromLife?.complete === true;
+  const hasRegion = profileRegionComplete || lifeNeighborhoodComplete;
+  const profileLocationLines = resolveProfileLocationAddressLines(profile);
+  const regionLine = (() => {
+    if (profileRegionComplete && profileLocationLines.length > 0) {
+      return profileLocationLines.join("\n");
+    }
+    if (lifeNeighborhoodComplete && (neighborhoodFromLife?.label?.trim() ?? "")) {
+      return neighborhoodFromLife!.label.trim();
+    }
+    if (profileLocationLines.length > 0) return profileLocationLines.join("\n");
+    const lf = neighborhoodFromLife?.label?.trim() ?? "";
+    if (lf) return `${lf} · 동네를 마저 선택해 주세요`;
+    return "동네 미설정";
+  })();
   const pointsLabel = `${Math.max(0, Math.floor(Number(profile.points) || 0)).toLocaleString()}P`;
 
   const tradeTotal =
@@ -127,13 +143,14 @@ export function MypageInstagramView({
         ? "ON"
         : "–";
 
-  const chips: { key: string; label: string }[] = [];
-  if (!hasRegion) chips.push({ key: "r", label: "동네 미설정" });
+  const chips: { key: string; label: string; href: string }[] = [];
+  if (!hasRegion) chips.push({ key: "r", label: "동네 미설정", href: "/my/edit" });
   if (addressDefaults) {
-    if (!addressDefaults.delivery) chips.push({ key: "d", label: "배달지" });
-    if (!addressDefaults.trade) chips.push({ key: "t", label: "거래 주소" });
+    if (!addressDefaults.life) chips.push({ key: "l", label: "생활 주소", href: "/my/addresses" });
+    if (!addressDefaults.delivery) chips.push({ key: "d", label: "배달지", href: "/my/addresses" });
+    if (!addressDefaults.trade) chips.push({ key: "t", label: "거래 주소", href: "/my/addresses" });
   }
-  if (!profile.phone_verified) chips.push({ key: "p", label: "연락처 인증" });
+  if (!profile.phone_verified) chips.push({ key: "p", label: "연락처 인증", href: "/my/account" });
 
   const tradeRows: MenuRow[] = [
     { href: "/mypage/trade", title: "개인 거래 허브", subtitle: "구매·판매·채팅 한곳에서" },
@@ -316,12 +333,13 @@ export function MypageInstagramView({
         {chips.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {chips.map((c) => (
-              <span
+              <Link
                 key={c.key}
-                className="rounded-full border border-ig-border bg-background px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]"
+                href={c.href}
+                className="rounded-full border border-ig-border bg-background px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-opacity active:opacity-70"
               >
                 {c.label}
-              </span>
+              </Link>
             ))}
           </div>
         ) : null}

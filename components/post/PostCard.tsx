@@ -2,8 +2,10 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { PostFavoriteButton } from "@/components/favorites/PostFavoriteButton";
 import {
   PostListMenuBottomSheet,
@@ -12,6 +14,12 @@ import {
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
+import {
+  isPostListOwnedByViewer,
+  isTradePostForOwnerMenu,
+  canOwnerEditDeleteTradePostFromFeed,
+  ownerCannotEditDeleteReason,
+} from "@/lib/posts/post-list-owner-menu";
 
 interface PostCardProps {
   post: PostWithMeta;
@@ -35,8 +43,14 @@ export function PostCard({
   onMenuAction,
   footer,
 }: PostCardProps) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const currency = getAppSettings().defaultCurrency || "KRW";
+  const viewerId = getCurrentUser()?.id ?? null;
+  const showOwnerTradeActions =
+    isTradePostForOwnerMenu(post.type) && isPostListOwnedByViewer(post, viewerId);
+  const ownerEditUnlocked = canOwnerEditDeleteTradePostFromFeed(post);
+  const ownerLockHint = ownerCannotEditDeleteReason(post) ?? "";
   const listPreview = buildPostListPreviewModel(post as unknown as Record<string, unknown>, {
     currency,
     locale: getAppSettings().defaultLocale || "ko-KR",
@@ -107,7 +121,38 @@ export function PostCard({
       <PostListMenuBottomSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        onAction={(action) => onMenuAction?.(post.id, action)}
+        showOwnerTradeActions={showOwnerTradeActions}
+        ownerEditDeleteLocked={showOwnerTradeActions && !ownerEditUnlocked}
+        ownerEditDeleteLockHint={ownerLockHint}
+        onAction={(action) => {
+          if (action === "edit_own") {
+            router.push(`/products/${encodeURIComponent(post.id)}/edit`);
+            return;
+          }
+          if (action === "delete_own") {
+            void (async () => {
+              try {
+                const res = await fetch(
+                  `/api/posts/${encodeURIComponent(post.id)}/owner-delete`,
+                  { method: "POST", credentials: "include" }
+                );
+                const data = (await res.json().catch(() => ({}))) as {
+                  ok?: boolean;
+                  error?: string;
+                };
+                if (!res.ok || !data.ok) {
+                  window.alert(data.error ?? "삭제하지 못했습니다.");
+                  return;
+                }
+                onMenuAction?.(post.id, "delete_own");
+              } catch {
+                window.alert("네트워크 오류로 삭제하지 못했습니다.");
+              }
+            })();
+            return;
+          }
+          onMenuAction?.(post.id, action);
+        }}
       />
     </div>
   );

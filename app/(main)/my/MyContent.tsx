@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getMyPageData } from "@/lib/my/getMyPageData";
 import type { MyPageData } from "@/lib/my/types";
 import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
+import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyTopBanner } from "@/components/my/MyTopBanner";
 import { MypageInstagramView } from "@/components/my/mypage/MypageInstagramView";
@@ -15,6 +16,7 @@ import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-c
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 type OverviewCounts = {
   purchases: number | null;
@@ -36,6 +38,7 @@ export function MyContent() {
   const [ownerStoreGate, setOwnerStoreGate] = useState<OwnerStoreGateState | null>(null);
   const [ownerStoreGateFirstId, setOwnerStoreGateFirstId] = useState<string | null>(null);
   const [addressDefaults, setAddressDefaults] = useState<AddressDefaultsFlags>(null);
+  const [neighborhoodFromLife, setNeighborhoodFromLife] = useState<LifeDefaultLocationSummary | null>(null);
   const { count: favoriteCount } = useMyFavoriteCount();
   const notificationUnreadCount = useMyNotificationUnreadCount();
 
@@ -46,14 +49,48 @@ export function MyContent() {
     setLoading(false);
   }, []);
 
+  const loadAddressDefaults = useCallback(async () => {
+    try {
+      const res = await fetch("/api/me/address-defaults", { credentials: "include" });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        defaults?: { life?: unknown; trade?: unknown; delivery?: unknown };
+        neighborhoodFromLife?: LifeDefaultLocationSummary;
+      };
+      if (res.ok && json.ok && json.defaults) {
+        setAddressDefaults({
+          life: json.defaults.life != null,
+          trade: json.defaults.trade != null,
+          delivery: json.defaults.delivery != null,
+        });
+        const n = json.neighborhoodFromLife;
+        setNeighborhoodFromLife(
+          n && typeof n === "object" && typeof n.complete === "boolean" && typeof n.label === "string"
+            ? n
+            : null
+        );
+      } else {
+        setAddressDefaults(null);
+        setNeighborhoodFromLife(null);
+      }
+    } catch {
+      setAddressDefaults(null);
+      setNeighborhoodFromLife(null);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadAddressDefaultsRef = useRef(loadAddressDefaults);
+  loadAddressDefaultsRef.current = loadAddressDefaults;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onProfileUpdated = () => {
       void load();
+      void loadAddressDefaultsRef.current();
     };
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
@@ -62,7 +99,10 @@ export function MyContent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) void load();
+      if (e.persisted) {
+        void load();
+        if (getCurrentUser()?.id?.trim()) void loadAddressDefaultsRef.current();
+      }
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
@@ -74,34 +114,11 @@ export function MyContent() {
   useEffect(() => {
     if (!viewerId) {
       setAddressDefaults(null);
+      setNeighborhoodFromLife(null);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/me/address-defaults", { credentials: "include" });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          defaults?: { life?: unknown; trade?: unknown; delivery?: unknown };
-        };
-        if (cancelled) return;
-        if (res.ok && json.ok && json.defaults) {
-          setAddressDefaults({
-            life: json.defaults.life != null,
-            trade: json.defaults.trade != null,
-            delivery: json.defaults.delivery != null,
-          });
-        } else {
-          setAddressDefaults(null);
-        }
-      } catch {
-        if (!cancelled) setAddressDefaults(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [viewerId]);
+    void loadAddressDefaults();
+  }, [viewerId, loadAddressDefaults]);
 
   useEffect(() => {
     if (!viewerId) {
@@ -293,6 +310,7 @@ export function MyContent() {
             ownerStoreGateFirstId={ownerStoreGateFirstId}
             isAdmin={isAdmin}
             addressDefaults={addressDefaults}
+            neighborhoodFromLife={neighborhoodFromLife}
             overviewCounts={overviewCounts}
             favoriteBadge={favoriteBadge}
             notificationBadge={notificationBadge}

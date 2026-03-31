@@ -7,6 +7,10 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import {
+  fetchIntegratedChatRoomMessages,
+  fetchLegacyChatRoomMessages,
+} from "@/lib/chats/fetch-chat-room-messages-api";
 
 function isChatRoomPayload(j: unknown): j is ChatRoom {
   if (!j || typeof j !== "object") return false;
@@ -66,6 +70,9 @@ export function ChatRoomScreen({
     setLoading(true);
     setErr(null);
     try {
+      /** 통합·레거시 메시지 API를 방 메타와 동시에 시작 — `ChatDetailView`의 single-flight와 합류해 첫 페인트 지연 감소 */
+      void fetchIntegratedChatRoomMessages(roomId);
+      void fetchLegacyChatRoomMessages(roomId);
       const res = await fetch(`/api/chat/room/${encodeURIComponent(roomId)}`, {
         credentials: "include",
         cache: "no-store",

@@ -3,6 +3,7 @@
 import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
 import { PostCard } from "@/components/post/PostCard";
 import { FavoritePostTradeActions } from "@/components/favorites/FavoritePostTradeActions";
+import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
 
 interface FavoritePostCardProps {
   post: FavoritedPost;
@@ -17,6 +18,9 @@ export function FavoritePostCard({ post, onUnfavorite }: FavoritePostCardProps) 
       isFavorite={true}
       onFavoriteChange={(_postId, isFavorite) => {
         if (!isFavorite) onUnfavorite?.();
+      }}
+      onMenuAction={(_postId, action: PostListMenuAction) => {
+        if (action === "delete_own") onUnfavorite?.();
       }}
       footer={<FavoritePostTradeActions post={post} />}
     />

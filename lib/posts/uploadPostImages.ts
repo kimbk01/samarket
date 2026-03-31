@@ -16,31 +16,28 @@ export async function uploadPostImages(
   const supabase = getSupabaseClient();
   if (!supabase || !files.length) return [];
 
-  const urls: string[] = [];
   const ts = Date.now();
   const safeUserId = userId?.replace(/[^a-zA-Z0-9_-]/g, "") || "anon";
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const safeExt = /^[a-z0-9]+$/i.test(ext) ? ext : "jpg";
-    const path = `${safeUserId}/${ts}-${i}.${safeExt}`;
+  const uploaded = await Promise.all(
+    files.map(async (file, i) => {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const safeExt = /^[a-z0-9]+$/i.test(ext) ? ext : "jpg";
+      const path = `${safeUserId}/${ts}-${i}.${safeExt}`;
+      try {
+        const { error } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, file, { cacheControl: "3600", upsert: false });
+        if (error) return null;
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        return publicUrl || null;
+      } catch {
+        return null;
+      }
+    })
+  );
 
-    try {
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, { cacheControl: "3600", upsert: false });
-
-      if (error) continue;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      if (publicUrl) urls.push(publicUrl);
-    } catch {
-      // skip
-    }
-  }
-
-  return urls;
+  return uploaded.filter((u): u is string => typeof u === "string" && u.length > 0);
 }

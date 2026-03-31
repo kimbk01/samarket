@@ -7,12 +7,19 @@ export type PostListMenuAction =
   | "not_interest"
   | "hide"
   | "exposure_criteria"
-  | "report";
+  | "report"
+  | "edit_own"
+  | "delete_own";
 
 interface PostListMenuBottomSheetProps {
   open: boolean;
   onClose: () => void;
   onAction?: (action: PostListMenuAction) => void;
+  /** 거래 글 본인일 때만 — 수정·삭제 블록 표시 */
+  showOwnerTradeActions?: boolean;
+  /** 예약중·거래완료 등 — 버튼 비활성 + 안내 */
+  ownerEditDeleteLocked?: boolean;
+  ownerEditDeleteLockHint?: string;
 }
 
 function IconPlusCircle({ className }: { className?: string }) {
@@ -55,10 +62,37 @@ function IconReport({ className }: { className?: string }) {
   );
 }
 
+function IconPencil({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+      />
+    </svg>
+  );
+}
+
+function IconTrash({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
+    </svg>
+  );
+}
+
 export function PostListMenuBottomSheet({
   open,
   onClose,
   onAction,
+  showOwnerTradeActions = false,
+  ownerEditDeleteLocked = false,
+  ownerEditDeleteLockHint = "예약·거래완료된 글은 수정·삭제할 수 없어요.",
 }: PostListMenuBottomSheetProps) {
   useEffect(() => {
     if (!open) return;
@@ -72,6 +106,14 @@ export function PostListMenuBottomSheet({
   const handle = (action: PostListMenuAction) => {
     onAction?.(action);
     onClose();
+  };
+
+  const confirmDeleteOwn = () => {
+    if (ownerEditDeleteLocked) return;
+    if (typeof window !== "undefined" && !window.confirm("이 글을 삭제할까요? 삭제 후에는 피드에서 사라져요.")) {
+      return;
+    }
+    handle("delete_own");
   };
 
   return (
@@ -88,6 +130,32 @@ export function PostListMenuBottomSheet({
         <div className="mb-2 h-1 w-10 shrink-0 self-center rounded-full bg-gray-200" aria-hidden />
 
         <div className="mt-4 space-y-2">
+          {showOwnerTradeActions ? (
+            <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-2">
+              {ownerEditDeleteLocked ? (
+                <p className="px-3 py-2 text-[12px] leading-snug text-amber-800">{ownerEditDeleteLockHint}</p>
+              ) : null}
+              <button
+                type="button"
+                disabled={ownerEditDeleteLocked}
+                onClick={() => !ownerEditDeleteLocked && handle("edit_own")}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] text-gray-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <IconPencil className="h-5 w-5 text-gray-500" />
+                수정
+              </button>
+              <button
+                type="button"
+                disabled={ownerEditDeleteLocked}
+                onClick={confirmDeleteOwn}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <IconTrash className="h-5 w-5 text-red-500" />
+                삭제
+              </button>
+            </div>
+          ) : null}
+
           <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-2">
             <button
               type="button"
