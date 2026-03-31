@@ -6,6 +6,7 @@ import { isMeetingJoinable } from "@/lib/community-engine/visibility";
 import { verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { addMeetingChatParticipant, ensureMeetingGroupChatRoom } from "@/lib/neighborhood/meeting-chat";
+import { ensureAndGetDefaultMeetingOpenChatRoomId } from "@/lib/meeting-open-chat/rooms-service";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 
 interface Ctx {
@@ -79,6 +80,11 @@ export async function POST(req: Request, ctx: Ctx) {
   } catch {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
+
+  const attachOpenChat = async (payload: Record<string, unknown>) => {
+    const oc = await ensureAndGetDefaultMeetingOpenChatRoomId(sb, id);
+    return NextResponse.json({ ...payload, meetingOpenChatRoomId: oc.ok ? oc.roomId : null });
+  };
 
   const { data: m, error: qErr } = await sb
     .from("meetings")
@@ -198,7 +204,7 @@ export async function POST(req: Request, ctx: Ctx) {
     }
     const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
     await addMeetingChatParticipant(sb, id, auth.userId);
-    return NextResponse.json({ ok: true, chatRoomId: room?.roomId ?? null, hostRejoined: true });
+    return await attachOpenChat({ ok: true, chatRoomId: room?.roomId ?? null, hostRejoined: true });
   }
 
   if (ex?.status === "kicked" || ex?.status === "banned") {
@@ -208,7 +214,7 @@ export async function POST(req: Request, ctx: Ctx) {
   if (ex?.status === "joined") {
     const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
     await addMeetingChatParticipant(sb, id, auth.userId);
-    return NextResponse.json({ ok: true, already: true, chatRoomId: room?.roomId ?? null });
+    return await attachOpenChat({ ok: true, already: true, chatRoomId: room?.roomId ?? null });
   }
 
   const canSilentMemberRejoin =
@@ -230,7 +236,7 @@ export async function POST(req: Request, ctx: Ctx) {
     if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
     await addMeetingChatParticipant(sb, id, auth.userId);
-    return NextResponse.json({ ok: true, chatRoomId: room?.roomId ?? null, rejoined: true });
+    return await attachOpenChat({ ok: true, chatRoomId: room?.roomId ?? null, rejoined: true });
   }
 
   if (ex?.status === "pending") {
@@ -255,7 +261,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
       const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
       await addMeetingChatParticipant(sb, id, auth.userId);
-      return NextResponse.json({ ok: true, invited: true, chatRoomId: room?.roomId ?? null });
+      return await attachOpenChat({ ok: true, invited: true, chatRoomId: room?.roomId ?? null });
     }
     return NextResponse.json({ ok: true, pending: true, alreadyPending: true, chatRoomId: null });
   }
@@ -379,5 +385,5 @@ export async function POST(req: Request, ctx: Ctx) {
   const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
   await addMeetingChatParticipant(sb, id, auth.userId);
 
-  return NextResponse.json({ ok: true, chatRoomId: room?.roomId ?? null });
+  return await attachOpenChat({ ok: true, chatRoomId: room?.roomId ?? null });
 }

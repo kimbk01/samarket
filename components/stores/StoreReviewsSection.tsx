@@ -72,34 +72,6 @@ export function StoreReviewsSection({
 
   const wrap = variant === "plain" ? wrapPlain : wrapCard;
 
-  if (loading) {
-    return wrap(
-      <>
-        <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
-        <p className="text-[13px] font-normal text-stone-400">리뷰 불러오는 중…</p>
-      </>
-    );
-  }
-
-  if (count === 0) {
-    return wrap(
-      <>
-        <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
-        {variant === "plain" ? (
-          <div className={`${STORE_DETAIL_CARD} p-4`}>
-            <p className="text-[14px] font-normal leading-relaxed text-stone-500">
-              아직 등록된 리뷰가 없습니다.
-            </p>
-          </div>
-        ) : (
-          <p className="text-[14px] font-normal leading-relaxed text-stone-500">
-            아직 등록된 리뷰가 없습니다.
-          </p>
-        )}
-      </>
-    );
-  }
-
   const ratingDist = useMemo(() => {
     const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     for (const r of reviews) {
@@ -139,7 +111,6 @@ export function StoreReviewsSection({
       });
       return copied;
     }
-    // recommended: 평점 우선 + 최신순
     copied.sort((a, b) => {
       const rd = (Number(b.rating) || 0) - (Number(a.rating) || 0);
       if (rd !== 0) return rd;
@@ -147,6 +118,34 @@ export function StoreReviewsSection({
     });
     return copied;
   }, [photoOnly, reviews, sortBy]);
+
+  if (loading) {
+    return wrap(
+      <>
+        <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
+        <p className="text-[13px] font-normal text-stone-400">리뷰 불러오는 중…</p>
+      </>
+    );
+  }
+
+  if (count === 0) {
+    return wrap(
+      <>
+        <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
+        {variant === "plain" ? (
+          <div className={`${STORE_DETAIL_CARD} p-4`}>
+            <p className="text-[14px] font-normal leading-relaxed text-stone-500">
+              아직 등록된 리뷰가 없습니다.
+            </p>
+          </div>
+        ) : (
+          <p className="text-[14px] font-normal leading-relaxed text-stone-500">
+            아직 등록된 리뷰가 없습니다.
+          </p>
+        )}
+      </>
+    );
+  }
 
   return wrap(
     <>

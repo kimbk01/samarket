@@ -33,6 +33,7 @@ export function MeetingDetail({ meeting }: { meeting: NeighborhoodMeetingDetailD
           chatRoomId={meeting.chat_room_id}
           successSurface="meeting"
           entryPolicy={meeting.entry_policy}
+          hasMeetingPassword={meeting.has_password}
           requiresApproval={meeting.requires_approval}
           isClosed={meeting.is_closed}
           memberCount={meeting.joined_count || meeting.member_count}

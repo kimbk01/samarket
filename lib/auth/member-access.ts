@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { isProductionDeploy } from "@/lib/config/deploy-surface";
 
 export type MemberAccessState = {
   userId: string;
@@ -186,6 +187,13 @@ export async function assertVerifiedMemberForAction(
     return { ok: false, status: 403, error: "이 회원은 현재 활동이 제한되어 있습니다.", state };
   }
   if (!canUseVerifiedMemberFeatures(state)) {
+    /** 비프로덕션에서 test_users(아이디 로그인)는 프로필 전화 인증 없이도 채팅·액션 허용 */
+    if (!isProductionDeploy()) {
+      const { data: tu } = await sb.from("test_users").select("id").eq("id", userId).maybeSingle();
+      if (tu && typeof (tu as { id?: string }).id === "string") {
+        return { ok: true, state };
+      }
+    }
     return { ok: false, status: 403, error: PHONE_VERIFICATION_REQUIRED_MESSAGE, state };
   }
   return { ok: true, state };

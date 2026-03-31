@@ -2,20 +2,22 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { philifeAppPaths } from "@domain/philife/paths";
 
-/** 오픈채팅 그룹채팅(room_type=group_meeting) 입장 링크 — 참여 조건은 상위에서 판단 */
+/** 모임 그룹 채팅: `meeting_open_chat` LINE UI (레거시 `/chats` group_meeting 미사용) */
 export function ChatButton({
-  roomId,
+  meetingId,
   disabled,
   reason,
   children,
 }: {
-  roomId: string;
+  meetingId: string;
   disabled?: boolean;
   reason?: string;
   children?: ReactNode;
 }) {
-  if (!roomId) {
+  const mid = String(meetingId ?? "").trim();
+  if (!mid) {
     return <p className="text-[13px] text-gray-500">채팅방이 아직 연결되지 않았어요.</p>;
   }
   if (disabled) {
@@ -23,7 +25,7 @@ export function ChatButton({
   }
   return (
     <Link
-      href={`/chats/${roomId}`}
+      href={philifeAppPaths.meetingOpenChat(mid)}
       className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-signature px-4 text-[16px] font-semibold text-white shadow-md active:opacity-90"
     >
       {children ?? "오픈채팅 입장"}

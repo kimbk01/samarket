@@ -67,6 +67,8 @@ export function philifeMeetingApi(meetingId: string) {
     leave: () => `${b}/leave`,
     events: (query: string) => `${b}/events?${query}`,
     chatRooms: () => `${b}/chat-rooms`,
+    /** 메인 모임 채팅 `meetings.chat_room_id` 연결 재시도 (멱등) */
+    ensureMainChat: () => `${b}/ensure-main-chat`,
   };
 }
 

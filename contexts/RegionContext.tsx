@@ -10,12 +10,12 @@ import {
 } from "react";
 import type { UserRegion } from "@/lib/regions/types";
 import {
-  getCurrentUserId,
   getUserRegions,
   addUserRegion as addUserRegionMock,
   removeUserRegion as removeUserRegionMock,
   setPrimaryUserRegion as setPrimaryUserRegionMock,
 } from "@/lib/regions/mock-user-regions";
+import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getRegionName } from "@/lib/regions/region-utils";
 
@@ -44,10 +44,8 @@ type RegionContextValue = {
 const RegionContext = createContext<RegionContextValue | null>(null);
 
 export function RegionProvider({ children }: { children: React.ReactNode }) {
-  const userId = getCurrentUserId();
-  const [userRegions, setUserRegions] = useState<UserRegion[]>(() =>
-    getUserRegions(userId)
-  );
+  const userId = useRegionMockUserId();
+  const [userRegions, setUserRegions] = useState<UserRegion[]>(() => getUserRegions(userId));
   const [currentRegionId, setCurrentRegionId] = useState<string | null>(null);
   const [profileSourcedRegion, setProfileSourcedRegion] = useState<UserRegion | null>(null);
 
@@ -88,9 +86,12 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /** 로그인 계정이 바뀌면 mock 동네 버킷·현재 선택을 분리하고 프로필 지역을 다시 맞춤 */
   useEffect(() => {
+    setUserRegions(getUserRegions(userId));
+    setCurrentRegionId(null);
     void refreshProfileLocation();
-  }, [refreshProfileLocation]);
+  }, [userId, refreshProfileLocation]);
 
   const mockPrimaryRegion = useMemo(
     () => userRegions.find((r) => r.isPrimary) ?? userRegions[0] ?? null,

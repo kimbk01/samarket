@@ -20,6 +20,7 @@ export const ROOM_TYPE_OPTIONS: { value: AdminRoomType; label: string }[] = [
   { value: "general_chat", label: "일반(레거시)" },
   { value: "community", label: "커뮤니티" },
   { value: "group", label: "모임·게시판" },
+  { value: "meeting_open_chat", label: "모임 오픈채팅" },
   { value: "business", label: "비즈·상점" },
 ];
 

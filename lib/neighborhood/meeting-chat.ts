@@ -1,16 +1,129 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * `meetings.chat_room_id` 와 `chat_room_participants`(방장) 를 맞춤. 실패 시 false.
+ * DB마다 `chat_rooms` CHECK·인덱스가 달라 insert 가 실패할 수 있음.
+ * - `context_type`: 여러 허용 값 순차 시도
+ * - `room_type`: 옛 스키마는 `group_meeting` 미포함일 수 있어 community/group/general_chat 도 시도
+ * - `chat_rooms_meeting_id_unique` 가 남아 있으면 두 번째 방은 막히므로 마이그레이션으로 DROP 필요
+ */
+const MEETING_CHAT_CONTEXT_TRIES = ["neighborhood", "etc", "post", "group", "job", "support"] as const;
+const MEETING_CHAT_ROOM_TYPE_TRIES = ["group_meeting", "community", "group", "general_chat"] as const;
+
+function isChatRoomsContextTypeConstraintError(message: string): boolean {
+  return /chat_rooms_context_type_check|context_type_check|check constraint.*context/i.test(message);
+}
+
+function isChatRoomsRoomTypeConstraintError(message: string): boolean {
+  return /room_type_check|chat_rooms_room_type|check constraint.*room_type/i.test(message);
+}
+
+/** 모임당 chat_rooms 1개 유니크 인덱스(옛 마이그레이션) — 이미 행이 있으면 insert 대신 고아 연결 */
+function isMeetingChatRoomDuplicateError(message: string): boolean {
+  return (
+    /duplicate key|23505|unique constraint/i.test(message) &&
+    /meeting_id|chat_rooms_meeting/i.test(message)
+  );
+}
+
+type MeetingChatRoomInsertBase = {
+  meeting_id: string;
+  /** 레거시 `posts` FK — 모임 원글은 `community_posts` 이므로 null 로 둠 */
+  related_post_id: string | null;
+  /** 필라이프 동네글 FK (`community_posts`). `related_post_id` 와 동시에 쓰지 않음 */
+  related_community_post_id?: string | null;
+  related_group_id: string;
+  initiator_id: string;
+  peer_id: string;
+  request_status: "approved";
+  participants_count: number;
+  last_message_preview: string;
+};
+
+/** 삭제·불일치 시 chat_rooms FK 위반 방지 */
+async function communityPostIdIfExists(
+  sb: SupabaseClient<any>,
+  postId: string | null | undefined
+): Promise<string | null> {
+  const id = typeof postId === "string" ? postId.trim() : "";
+  if (!id) return null;
+  const { data, error } = await sb.from("community_posts").select("id").eq("id", id).maybeSingle();
+  if (error || !data || typeof (data as { id?: unknown }).id !== "string") return null;
+  return id;
+}
+
+async function insertMeetingMainChatRoomFlexible(
+  sb: SupabaseClient<any>,
+  base: MeetingChatRoomInsertBase,
+): Promise<{ roomId: string | null; lastError: string; duplicateMeetingRoom: boolean }> {
+  let lastMsg = "";
+  let duplicateMeetingRoom = false;
+
+  for (const room_type of MEETING_CHAT_ROOM_TYPE_TRIES) {
+    for (const context_type of MEETING_CHAT_CONTEXT_TRIES) {
+      const { data, error } = await sb
+        .from("chat_rooms")
+        .insert({ ...base, room_type, context_type })
+        .select("id")
+        .single();
+      const id = data && typeof (data as { id?: string }).id === "string" ? (data as { id: string }).id : null;
+      if (!error && id) {
+        return { roomId: id, lastError: "", duplicateMeetingRoom: false };
+      }
+      lastMsg = error?.message ?? "";
+      if (isMeetingChatRoomDuplicateError(lastMsg)) {
+        duplicateMeetingRoom = true;
+        return { roomId: null, lastError: lastMsg, duplicateMeetingRoom: true };
+      }
+      if (isChatRoomsContextTypeConstraintError(lastMsg)) {
+        continue;
+      }
+      if (isChatRoomsRoomTypeConstraintError(lastMsg)) {
+        break;
+      }
+      return { roomId: null, lastError: lastMsg || "chat_rooms.insert failed", duplicateMeetingRoom: false };
+    }
+  }
+
+  for (const room_type of MEETING_CHAT_ROOM_TYPE_TRIES) {
+    const { data, error } = await sb
+      .from("chat_rooms")
+      .insert({ ...base, room_type, context_type: null })
+      .select("id")
+      .single();
+    const id = data && typeof (data as { id?: string }).id === "string" ? (data as { id: string }).id : null;
+    if (!error && id) {
+      return { roomId: id, lastError: "", duplicateMeetingRoom: false };
+    }
+    lastMsg = error?.message ?? "";
+    if (isMeetingChatRoomDuplicateError(lastMsg)) {
+      return { roomId: null, lastError: lastMsg, duplicateMeetingRoom: true };
+    }
+    if (isChatRoomsRoomTypeConstraintError(lastMsg)) {
+      continue;
+    }
+    if (!isChatRoomsContextTypeConstraintError(lastMsg) && lastMsg) {
+      return { roomId: null, lastError: lastMsg, duplicateMeetingRoom: false };
+    }
+  }
+
+  return {
+    roomId: null,
+    lastError: lastMsg || "chat_rooms.insert failed (room_type/context exhausted)",
+    duplicateMeetingRoom,
+  };
+}
+
+/**
+ * `meetings.chat_room_id` 와 `chat_room_participants`(방장) 를 맞춤.
  */
 async function attachMainChatRoomToMeeting(
   sb: SupabaseClient<any>,
   meetingId: string,
   roomId: string,
   hostUserId: string
-): Promise<boolean> {
+): Promise<{ ok: true } | { ok: false; message: string }> {
   const uid = hostUserId.trim();
-  if (!uid) return false;
+  if (!uid) return { ok: false, message: "host_user_id_empty" };
   const now = new Date().toISOString();
 
   const { data: partEx } = await sb
@@ -31,15 +144,16 @@ async function attachMainChatRoomToMeeting(
     });
     if (pErr) {
       console.error("[attachMainChatRoomToMeeting] chat_room_participants:", pErr.message);
+      return { ok: false, message: `chat_room_participants: ${pErr.message}` };
     }
   }
 
   const { error: uErr } = await sb.from("meetings").update({ chat_room_id: roomId }).eq("id", meetingId);
   if (uErr) {
     console.error("[attachMainChatRoomToMeeting] meetings.update:", uErr.message);
-    return false;
+    return { ok: false, message: `meetings.update: ${uErr.message}` };
   }
-  return true;
+  return { ok: true };
 }
 
 async function findExistingChatRoomIdForMeeting(
@@ -70,16 +184,19 @@ async function findExistingChatRoomIdForMeeting(
   return null;
 }
 
+export type EnsureMeetingGroupChatRoomOutcome =
+  | { ok: true; roomId: string; created: boolean }
+  | { ok: false; error: string };
+
 /**
- * 모임 전용 그룹 채팅방 (구현 아님, 연결만).
- * chat_rooms.meeting_id + room_type = group_meeting
+ * 모임 메인 `chat_rooms` 보장 — 실패 시 Postgres/Supabase 메시지 포함.
  */
-export async function ensureMeetingGroupChatRoom(
+export async function ensureMeetingGroupChatRoomResult(
   sb: SupabaseClient<any>,
   meetingId: string,
   organizerUserId: string,
   title: string
-): Promise<{ roomId: string; created: boolean } | null> {
+): Promise<EnsureMeetingGroupChatRoomOutcome> {
   const { data: meeting } = await sb
     .from("meetings")
     .select("id, post_id, chat_room_id, created_by, host_user_id")
@@ -92,58 +209,64 @@ export async function ensureMeetingGroupChatRoom(
     created_by?: string;
     host_user_id?: string;
   } | null;
-  if (!m?.id) return null;
-  if (m.chat_room_id) return { roomId: String(m.chat_room_id), created: false };
+  if (!m?.id) return { ok: false, error: "meeting_not_found" };
+  if (m.chat_room_id) return { ok: true, roomId: String(m.chat_room_id), created: false };
 
   const creator = String(m.host_user_id || m.created_by || organizerUserId);
 
   /** 이미 `chat_rooms` 행만 있고 `meetings.chat_room_id` 가 비어 있는 고아 연결 */
   const orphanId = await findExistingChatRoomIdForMeeting(sb, meetingId);
   if (orphanId) {
-    const ok = await attachMainChatRoomToMeeting(sb, meetingId, orphanId, creator);
-    return ok ? { roomId: orphanId, created: false } : null;
+    const att = await attachMainChatRoomToMeeting(sb, meetingId, orphanId, creator);
+    if (!att.ok) return { ok: false, error: att.message };
+    return { ok: true, roomId: orphanId, created: false };
   }
 
-  const { data: room, error: roomErr } = await sb
-    .from("chat_rooms")
-    .insert({
-      room_type: "group_meeting",
-      meeting_id: meetingId,
-      related_post_id: m.post_id ?? null,
-      related_group_id: meetingId,
-      context_type: "meeting",
-      initiator_id: creator,
-      peer_id: creator,
-      request_status: "approved",
-      participants_count: 1,
-      last_message_preview: `${title.slice(0, 40)} · 모임 채팅`,
-    })
-    .select("id")
-    .single();
+  const relatedCommunityPostId = await communityPostIdIfExists(sb, m.post_id);
+  const insertRes = await insertMeetingMainChatRoomFlexible(sb, {
+    meeting_id: meetingId,
+    related_post_id: null,
+    related_community_post_id: relatedCommunityPostId,
+    related_group_id: meetingId,
+    initiator_id: creator,
+    peer_id: creator,
+    request_status: "approved",
+    participants_count: 1,
+    last_message_preview: `${title.slice(0, 40)} · 모임 채팅`,
+  });
+  const roomId = insertRes.roomId;
 
-  const roomId = room && typeof (room as { id?: string }).id === "string" ? (room as { id: string }).id : null;
-
-  if (roomErr || !roomId) {
-    if (roomErr) {
-      console.error("[ensureMeetingGroupChatRoom] chat_rooms.insert:", roomErr.message);
+  if (!roomId) {
+    if (insertRes.lastError) {
+      console.error("[ensureMeetingGroupChatRoom] chat_rooms.insert:", insertRes.lastError);
     }
     const { data: again } = await sb.from("meetings").select("chat_room_id").eq("id", meetingId).maybeSingle();
     const existing = (again as { chat_room_id?: string | null } | null)?.chat_room_id;
     if (existing) {
-      return { roomId: String(existing), created: false };
+      return { ok: true, roomId: String(existing), created: false };
     }
     const retryOrphan = await findExistingChatRoomIdForMeeting(sb, meetingId);
     if (retryOrphan) {
-      const ok = await attachMainChatRoomToMeeting(sb, meetingId, retryOrphan, creator);
-      return ok ? { roomId: retryOrphan, created: false } : null;
+      const att = await attachMainChatRoomToMeeting(sb, meetingId, retryOrphan, creator);
+      if (!att.ok) return { ok: false, error: att.message };
+      return { ok: true, roomId: retryOrphan, created: false };
     }
-    return null;
+    if (insertRes.duplicateMeetingRoom) {
+      return {
+        ok: false,
+        error: `${insertRes.lastError} — Supabase에서 마이그레이션 \`20260331160000_meeting_chat_private_rls.sql\`(chat_rooms_meeting_id_unique DROP) 적용 여부를 확인하세요.`,
+      };
+    }
+    return {
+      ok: false,
+      error: insertRes.lastError || "chat_rooms.insert failed",
+    };
   }
 
-  const attachOk = await attachMainChatRoomToMeeting(sb, meetingId, roomId, creator);
-  if (!attachOk) {
+  const attachRes = await attachMainChatRoomToMeeting(sb, meetingId, roomId, creator);
+  if (!attachRes.ok) {
     console.error("[ensureMeetingGroupChatRoom] attach failed after insert roomId=", roomId);
-    return null;
+    return { ok: false, error: attachRes.message };
   }
 
   const { error: msgErr } = await sb.from("chat_messages").insert({
@@ -156,7 +279,20 @@ export async function ensureMeetingGroupChatRoom(
     console.error("[ensureMeetingGroupChatRoom] chat_messages.insert:", msgErr.message);
   }
 
-  return { roomId, created: true };
+  return { ok: true, roomId, created: true };
+}
+
+/**
+ * 모임 전용 그룹 채팅방 (구현 아님, 연결만).
+ */
+export async function ensureMeetingGroupChatRoom(
+  sb: SupabaseClient<any>,
+  meetingId: string,
+  organizerUserId: string,
+  title: string
+): Promise<{ roomId: string; created: boolean } | null> {
+  const r = await ensureMeetingGroupChatRoomResult(sb, meetingId, organizerUserId, title);
+  return r.ok ? { roomId: r.roomId, created: r.created } : null;
 }
 
 export async function addMeetingChatParticipant(
@@ -379,29 +515,21 @@ export async function createMeetingExtraChatRoom(
   const roomType = isPrivate ? "private" : "sub";
   const preview = `${title.slice(0, 36)} · 모임 채팅`;
 
-  const { data: chatRow, error: roomErr } = await sb
-    .from("chat_rooms")
-    .insert({
-      room_type: "group_meeting",
-      meeting_id: meetingId,
-      related_post_id: meet.post_id ?? null,
-      related_group_id: meetingId,
-      context_type: "meeting",
-      initiator_id: createdByUserId,
-      peer_id: createdByUserId,
-      request_status: "approved",
-      participants_count: participantIds.length,
-      last_message_preview: preview,
-    })
-    .select("id")
-    .single();
-
-  const linkedId =
-    chatRow && typeof (chatRow as { id?: string }).id === "string"
-      ? (chatRow as { id: string }).id
-      : null;
-  if (roomErr || !linkedId) {
-    return { ok: false, error: "db_error", message: roomErr?.message };
+  const relatedCommunityPostIdExtra = await communityPostIdIfExists(sb, meet.post_id);
+  const insertExtra = await insertMeetingMainChatRoomFlexible(sb, {
+    meeting_id: meetingId,
+    related_post_id: null,
+    related_community_post_id: relatedCommunityPostIdExtra,
+    related_group_id: meetingId,
+    initiator_id: createdByUserId,
+    peer_id: createdByUserId,
+    request_status: "approved",
+    participants_count: participantIds.length,
+    last_message_preview: preview,
+  });
+  const linkedId = insertExtra.roomId;
+  if (!linkedId) {
+    return { ok: false, error: "db_error", message: insertExtra.lastError };
   }
 
   const now = new Date().toISOString();

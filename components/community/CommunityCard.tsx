@@ -28,7 +28,11 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
 
   return {
-    href: philifeAppPaths.post(post.id),
+    href:
+      post.is_meetup && post.meeting_id
+        ? philifeAppPaths.meetingOpenChat(post.meeting_id)
+        : philifeAppPaths.post(post.id),
+    meetupMeetingId: post.is_meetup && post.meeting_id ? post.meeting_id : null,
     topicLabel: post.category_label,
     topicColor: post.topic_color,
     title: post.title?.trim() || "제목 없음",

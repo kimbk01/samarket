@@ -75,7 +75,7 @@ export async function applyCompletedOrderToCommerceCart(
 
     const wire = modifierWireFromOrderOptionsSnapshot(it.options_snapshot_json);
     const snapshotSummary = orderLineOptionsSummary(it.options_snapshot_json);
-    let lineNote = lineNoteFromOrderOptionsSnapshot(it.options_snapshot_json);
+    const lineNote = lineNoteFromOrderOptionsSnapshot(it.options_snapshot_json);
 
     let title = String(it.product_title_snapshot ?? "").trim() || "메뉴";
     let unitPrice = Math.round(Number(it.price_snapshot) || 0);

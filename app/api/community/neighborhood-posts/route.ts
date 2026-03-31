@@ -12,6 +12,7 @@ import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-l
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
 import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-topics";
 import { ensureMeetingGroupChatRoom } from "@/lib/neighborhood/meeting-chat";
+import { ensureDefaultMeetingOpenChatRoomForNewMeeting } from "@/lib/meeting-open-chat/rooms-service";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 
@@ -325,6 +326,21 @@ export async function POST(req: NextRequest) {
     const chatEnsured = await ensureMeetingGroupChatRoom(sb, meetingId, auth.userId, title);
     if (!chatEnsured) {
       console.error("[neighborhood-posts] ensureMeetingGroupChatRoom failed meetingId=", meetingId);
+    }
+
+    /** 모임 채팅용 기본 방 1개 (`meeting_open_chat_*`, 모임과 동일 개념) */
+    const openChatEnsured = await ensureDefaultMeetingOpenChatRoomForNewMeeting(sb, {
+      meetingId,
+      hostUserId: auth.userId,
+      title,
+      maxMembers: maxMem,
+      description: typeof meet.description === "string" ? meet.description.trim() : "",
+    });
+    if (!openChatEnsured.ok) {
+      console.error(
+        "[neighborhood-posts] ensureDefaultMeetingOpenChatRoomForNewMeeting",
+        openChatEnsured.error
+      );
     }
   }
 

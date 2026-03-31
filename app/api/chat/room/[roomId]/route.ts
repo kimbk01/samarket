@@ -28,7 +28,10 @@ import {
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
 import { buildPhilifeDetailRoom } from "@/lib/chats/philife/room-mappers";
-import { getPhilifeMeetingAccessState } from "@/lib/chats/philife/room-access";
+import {
+  getPhilifeMeetingAccessState,
+  resolvePhilifeMeetingAccessMeetingId,
+} from "@/lib/chats/philife/room-access";
 import type { ChatRoomActiveNotice } from "@/lib/types/chat";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
@@ -704,11 +707,12 @@ export async function GET(
     );
   }
 
-  /** 커뮤니티 모임 전용 — 거래 채팅과 분리, meeting 멤버·활성 참가자·모임 상태 검증 */
-  if (roomType === "group_meeting") {
+  /** 커뮤니티 모임 전용 — `group_meeting` 이 아니어도 meetings.chat_room_id 연결이면 동일 검증 */
+  const philifeMeetingId = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, crAny);
+  if (philifeMeetingId) {
     const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
-      meeting_id: crAny.meeting_id,
-      related_group_id: crAny.related_group_id,
+      meeting_id: philifeMeetingId,
+      related_group_id: philifeMeetingId,
     });
     if (!access.ok) {
       return NextResponse.json({ error: access.error }, { status: access.statusCode });

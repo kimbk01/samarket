@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import type { FeedListThumbColumn } from "@/lib/community-feed/topic-feed-skin";
+import { MeetupFeedOpenChatLink } from "@/components/community/MeetupFeedOpenChatLink";
 
 export type FeedListCardViewModel = {
   href: string;
+  /** 설정 시 피드에서 클릭 → 오픈채팅 진입 API 후 팝업/직접 이동 (허브 생략) */
+  meetupMeetingId?: string | null;
   topicLabel: string;
   topicColor: string | null;
   title: string;
@@ -90,15 +93,29 @@ function MetaLine({
   );
 }
 
-function CardShell({ href, children }: { href: string; children: React.ReactNode }) {
+function CardShell({
+  href,
+  meetupMeetingId,
+  children,
+}: {
+  href: string;
+  meetupMeetingId?: string | null;
+  children: React.ReactNode;
+}) {
   return (
     <article className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-      <Link
-        href={href}
-        className="block px-4 py-3 transition-colors hover:bg-neutral-50/60 active:bg-neutral-100/80"
-      >
-        {children}
-      </Link>
+      {meetupMeetingId ? (
+        <MeetupFeedOpenChatLink meetingId={meetupMeetingId} fallbackHref={href}>
+          {children}
+        </MeetupFeedOpenChatLink>
+      ) : (
+        <Link
+          href={href}
+          className="block px-4 py-3 transition-colors hover:bg-neutral-50/60 active:bg-neutral-100/80"
+        >
+          {children}
+        </Link>
+      )}
     </article>
   );
 }
@@ -107,7 +124,7 @@ function CardShell({ href, children }: { href: string; children: React.ReactNode
 export function FeedListLayoutCarrotThumbRight({ vm }: { vm: FeedListCardViewModel }) {
   const url = vm.thumbnailUrl;
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -137,7 +154,7 @@ export function FeedListLayoutCarrotThumbRight({ vm }: { vm: FeedListCardViewMod
 export function FeedListLayoutCarrotThumbLeft({ vm }: { vm: FeedListCardViewModel }) {
   const url = vm.thumbnailUrl;
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
       <div className="flex items-start gap-3">
         {url ? <Thumbnail92 url={url} /> : null}
         <div className="min-w-0 flex-1">
@@ -166,7 +183,7 @@ export function FeedListLayoutCarrotThumbLeft({ vm }: { vm: FeedListCardViewMode
 /** 텍스트 중심 / 썸네일 없음 fallback */
 export function FeedListLayoutTextOnly({ vm }: { vm: FeedListCardViewModel }) {
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
       <div className="min-w-0 w-full">
         <div className="flex flex-wrap items-center gap-2">
           <TopicBadge label={vm.topicLabel} color={vm.topicColor} />
@@ -230,7 +247,7 @@ export function FeedListLayoutPlace({ vm, thumbColumn }: { vm: FeedListCardViewM
 
   if (thumbColumn === "left" && url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
         <div className="flex items-start gap-3">
           <Thumbnail92 url={url} />
           {textBlock}
@@ -240,7 +257,7 @@ export function FeedListLayoutPlace({ vm, thumbColumn }: { vm: FeedListCardViewM
   }
   if (thumbColumn === "right" && url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
         <div className="flex items-start gap-3">
           {textBlock}
           <Thumbnail92 url={url} />
@@ -249,7 +266,7 @@ export function FeedListLayoutPlace({ vm, thumbColumn }: { vm: FeedListCardViewM
     );
   }
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
       <div className="min-w-0 w-full">{textBlock}</div>
     </CardShell>
   );
@@ -296,7 +313,7 @@ export function FeedListLayoutTags({ vm, thumbColumn }: { vm: FeedListCardViewMo
 
   if (thumbColumn === "left" && url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
         <div className="flex items-start gap-3">
           <Thumbnail92 url={url} />
           {textBlock}
@@ -306,7 +323,7 @@ export function FeedListLayoutTags({ vm, thumbColumn }: { vm: FeedListCardViewMo
   }
   if (thumbColumn === "right" && url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
         <div className="flex items-start gap-3">
           {textBlock}
           <Thumbnail92 url={url} />
@@ -315,7 +332,7 @@ export function FeedListLayoutTags({ vm, thumbColumn }: { vm: FeedListCardViewMo
     );
   }
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} meetupMeetingId={vm.meetupMeetingId}>
       <div className="min-w-0 w-full">{textBlock}</div>
     </CardShell>
   );

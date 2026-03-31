@@ -3,13 +3,13 @@
  * 매장 피드·탭바 동네는 프로필을 우선하도록 RegionProvider 에서 사용합니다.
  */
 
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   decodeProfileAppLocationPair,
   isProfileLocationComplete,
   resolveProfileLocationDisplayLine,
 } from "@/lib/profile/profile-location";
 import type { UserRegion } from "@/lib/regions/types";
-import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
 
 const PROFILE_LOCATION_ID = "profile-location";
 
@@ -25,7 +25,7 @@ export function userRegionFromProfileSlice(p: {
   const label = resolveProfileLocationDisplayLine(p).trim() || barangay;
   return {
     id: PROFILE_LOCATION_ID,
-    userId: getCurrentUserId(),
+    userId: getCurrentUser()?.id ?? "guest",
     regionId,
     cityId,
     barangay,

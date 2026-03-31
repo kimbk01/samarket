@@ -4,7 +4,11 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isAdminUser } from "@/lib/auth/get-current-user";
 import { getAdminChatRoomsFromDb } from "@/lib/admin-chats/getAdminChatRoomsFromDb";
-import { fetchAdminChatRoomsApi, fetchAdminChatRoomsListApi } from "@/lib/admin-chats/fetchAdminChatRoomsApi";
+import {
+  fetchAdminChatRoomsApi,
+  fetchAdminChatRoomsListApi,
+  fetchAdminMeetingOpenChatRoomsListApi,
+} from "@/lib/admin-chats/fetchAdminChatRoomsApi";
 import {
   filterAndSortChatRooms,
   type AdminChatFilters,
@@ -81,7 +85,8 @@ function mergeChatRoomsForAdmin(
   return [...byTradeKey.values(), ...byOtherId.values()].map(untag);
 }
 
-function storageForBulkDelete(r: AdminChatRoom): "chat_rooms" | "product_chats" {
+function storageForBulkDelete(r: AdminChatRoom): "chat_rooms" | "product_chats" | "meeting_open_chat" {
+  if (r.adminChatStorage === "meeting_open_chat") return "meeting_open_chat";
   if (r.adminChatStorage) return r.adminChatStorage;
   return "chat_rooms";
 }
@@ -101,7 +106,8 @@ function getInitialFilters(mode: ChatListMode): AdminChatFilters {
   if (mode === "reported") return { ...DEFAULT_FILTERS, reportedOnly: true };
   if (mode === "business") return DEFAULT_FILTERS;
   if (mode === "community") return { ...DEFAULT_FILTERS, roomType: "community" };
-  if (mode === "group") return { ...DEFAULT_FILTERS, roomType: "group" };
+  /** 모임·게시판(chat_rooms group) + 모임 오픈채팅을 한 화면에 표시 */
+  if (mode === "group") return DEFAULT_FILTERS;
   return DEFAULT_FILTERS;
 }
 
@@ -172,8 +178,19 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         fromChatRooms = await fetchAdminChatRoomsListApi().catch(() => []);
       }
 
-      const merged = mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)
-        .filter((r) => (r.messageCount ?? 0) > 0 || (r.lastMessage ?? "").trim() !== "")
+      let fromMeetingOpen: AdminChatRoom[] = [];
+      if (mode === "all" || mode === "group" || mode === "reported") {
+        fromMeetingOpen = await fetchAdminMeetingOpenChatRoomsListApi({
+          hasReport: mode === "reported",
+        }).catch(() => []);
+      }
+
+      const merged = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms), ...fromMeetingOpen].filter(
+        (r) =>
+          (r.messageCount ?? 0) > 0 ||
+          (r.lastMessage ?? "").trim() !== "" ||
+          r.adminChatStorage === "meeting_open_chat"
+      )
         .sort((a, b) => {
           const ta = new Date(a.lastMessageAt).getTime();
           const tb = new Date(b.lastMessageAt).getTime();
@@ -258,9 +275,16 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       .map((id) => {
         const r = rooms.find((x) => x.id === id);
         if (!r) return null;
-        return { id, storage: storageForBulkDelete(r) };
+        const storage = storageForBulkDelete(r);
+        if (storage === "meeting_open_chat") return null;
+        return { id, storage };
       })
       .filter((x): x is { id: string; storage: "chat_rooms" | "product_chats" } => x != null);
+
+    if (items.length === 0) {
+      setActionMessage("삭제할 수 있는 방이 없습니다. 모임 오픈채팅은 이 화면의 일괄 삭제 대상이 아닙니다.");
+      return;
+    }
 
     if (
       !window.confirm(

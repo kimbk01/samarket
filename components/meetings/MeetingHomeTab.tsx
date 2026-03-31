@@ -22,7 +22,7 @@ interface MeetingHomeTabProps {
   pendingApprovalCount?: number;
   /**
    * true: 상단 `MeetingInfoCard` + 탭바가 이미 있으므로
-   * 홈 탭에서 일시·장소·정원 바·아이콘 퀵네비(탭과 중복)는 생략한다.
+   * 홈 탭에서 일시·정원 바·아이콘 퀵네비(탭과 중복)는 생략한다.
    */
   compactSummary?: boolean;
 }
@@ -83,12 +83,6 @@ function MeetingHomeFullSummary({
           <span className="flex items-center gap-1.5">
             <span className="text-[14px]">📅</span>
             {formatKorDateTimeFull(meeting.meeting_date)}
-          </span>
-        ) : null}
-        {meeting.location_text ? (
-          <span className="flex items-center gap-1.5">
-            <span className="text-[14px]">📍</span>
-            {meeting.location_text}
           </span>
         ) : null}
         <span className="flex items-center gap-1.5">

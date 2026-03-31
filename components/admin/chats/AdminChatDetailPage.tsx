@@ -42,6 +42,7 @@ async function fetchAdminChatDetailFromApi(
   const r = data.room as {
     id: string;
     room_type?: string;
+    meeting_id?: string;
     item_id?: string | null;
     seller_id?: string | null;
     buyer_id?: string | null;
@@ -61,10 +62,14 @@ async function fetchAdminChatDetailFromApi(
           ? "community"
           : rt === "group"
             ? "group"
-            : rt === "business"
-              ? "business"
-              : undefined;
-  const productId = r.item_id ?? "";
+            : rt === "meeting_open_chat"
+              ? "meeting_open_chat"
+              : rt === "business"
+                ? "business"
+                : undefined;
+  const meetingId = (r.meeting_id ?? "").trim();
+  const productId =
+    r.item_id ?? (rt === "meeting_open_chat" && meetingId ? meetingId : "");
   const room: AdminChatRoom = {
     id: r.id,
     productId,
@@ -83,6 +88,9 @@ async function fetchAdminChatDetailFromApi(
     roomType: adminRt,
     contextType: (r as { context_type?: string | null }).context_type ?? undefined,
     isReadonly: (r as { is_readonly?: boolean }).is_readonly === true,
+    ...(rt === "meeting_open_chat"
+      ? { adminChatStorage: "meeting_open_chat" as const, meetingId }
+      : {}),
   };
   const rawMessages = Array.isArray(data.messages) ? data.messages : [];
   const messages: AdminChatMessage[] = rawMessages.map(
@@ -265,6 +273,16 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
               <p className="text-[12px] text-signature">
                 유형: {room.roomType}
                 {room.contextType ? ` · ${room.contextType}` : ""}
+              </p>
+            ) : null}
+            {room.roomType === "meeting_open_chat" && room.meetingId ? (
+              <p className="mt-1 text-[13px]">
+                <Link
+                  href={`/philife/meetings/${room.meetingId}`}
+                  className="font-medium text-signature hover:underline"
+                >
+                  모임 페이지로 이동
+                </Link>
               </p>
             ) : null}
             <AdminChatRoomStatusBadge status={room.roomStatus} className="mt-2" />

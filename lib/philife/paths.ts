@@ -15,6 +15,11 @@ export const philifeAppPaths = {
   chats: "/chats/philife?tab=inbox",
   post: (id: string) => `/philife/${encodeURIComponent(id)}`,
   meeting: (id: string) => `/philife/meetings/${encodeURIComponent(id)}`,
+  /** 모임 그룹 채팅 전용 (LINE UI, `meeting_open_chat_*`). 거래/배달 `/chats` 와 분리 */
+  meetingOpenChat: (meetingId: string) =>
+    `/philife/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat`,
+  meetingOpenChatRoom: (meetingId: string, roomId: string) =>
+    `/philife/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/${encodeURIComponent(roomId)}`,
 } as const;
 
 export const philifeAdminPaths = {

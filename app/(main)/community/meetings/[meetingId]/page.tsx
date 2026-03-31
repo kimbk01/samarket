@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { philifeAppPaths } from "@/lib/philife/paths";
 
 interface Props {
   params: Promise<{ meetingId: string }>;
@@ -8,5 +9,5 @@ export default async function CommunityMeetingPage({ params }: Props) {
   const { meetingId } = await params;
   const id = meetingId?.trim();
   if (!id) redirect("/philife");
-  redirect(`/philife/meetings/${encodeURIComponent(id)}`);
+  redirect(philifeAppPaths.meetingOpenChat(id));
 }

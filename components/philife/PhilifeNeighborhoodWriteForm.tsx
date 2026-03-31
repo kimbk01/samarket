@@ -7,9 +7,9 @@ import { useRegion } from "@/contexts/RegionContext";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
   philifeNeighborhoodPostsUrl,
-  philifeNeighborhoodTopicOptionsUrl,
   philifeUploadImageUrl,
 } from "@domain/philife/api";
+import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAppPaths } from "@domain/philife/paths";
 import {
   neighborhoodLocationKeyFromRegion,
@@ -98,11 +98,7 @@ export function PhilifeNeighborhoodWriteForm({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "no-store" });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          writeTopics?: { slug: string; name: string }[];
-        };
+        const j = await fetchPhilifeNeighborhoodTopicOptions();
         if (cancelled) return;
         if (!j?.ok || !Array.isArray(j.writeTopics)) {
           setWriteTopicOptions([]);

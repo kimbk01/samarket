@@ -147,7 +147,7 @@ function dedupeTradeChatRoomRows(rows: ChatRoomListRow[]): ChatRoomListRow[] {
 }
 
 const CHAT_ROOMS_LIST_SELECT =
-  "id, room_type, item_id, seller_id, buyer_id, last_message_at, last_message_preview, created_at, trade_status, initiator_id, peer_id, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id";
+  "id, room_type, item_id, seller_id, buyer_id, meeting_id, last_message_at, last_message_preview, created_at, trade_status, initiator_id, peer_id, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id";
 
 async function fetchParticipantChatRoomsChunked(
   sbAny: import("@supabase/supabase-js").SupabaseClient<any>,
@@ -288,6 +288,7 @@ export async function GET(req: NextRequest) {
     related_group_id: string | null;
     related_business_id: string | null;
     context_type: string | null;
+    meeting_id?: string | null;
   }[];
 
   const soRoomRows = allCrRows.filter((r) => String(r.room_type) === "store_order") as {
@@ -338,13 +339,27 @@ export async function GET(req: NextRequest) {
     ...new Set([...partnerIdsFromPc, ...crPartnerIds, ...genPartnerIds, ...partnerIdsSo, ...authorIdsFromPosts]),
   ]);
 
+  const genRoomIds = [...new Set(genRows.map((r) => String(r.id).trim()).filter(Boolean))];
+  const chatRoomIdToMeetingId = new Map<string, string>();
+  if (genRoomIds.length) {
+    const { data: mlink } = await sbAny.from("meetings").select("id, chat_room_id").in("chat_room_id", genRoomIds);
+    for (const raw of mlink ?? []) {
+      const m = raw as { id?: string; chat_room_id?: string | null };
+      const cid = String(m.chat_room_id ?? "").trim();
+      const mid = String(m.id ?? "").trim();
+      if (cid && mid) chatRoomIdToMeetingId.set(cid, mid);
+    }
+  }
+
   const meetingIds = [
-    ...new Set(
-      genRows
+    ...new Set([
+      ...chatRoomIdToMeetingId.values(),
+      ...genRows
         .filter((row) => row.room_type === "group_meeting")
-        .map((row) => row.related_group_id)
-        .filter((id): id is string => !!id)
-    ),
+        .map((row) => String(row.related_group_id ?? "").trim())
+        .filter(Boolean),
+      ...genRows.map((row) => String(row.meeting_id ?? "").trim()).filter(Boolean),
+    ]),
   ];
   const { data: meetingRows } = meetingIds.length
     ? await sbAny
@@ -501,8 +516,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (r.room_type === "group_meeting") {
-      const meetingId = String(r.related_group_id ?? "").trim();
+    const meetingIdForList =
+      chatRoomIdToMeetingId.get(r.id) ??
+      (r.room_type === "group_meeting"
+        ? String(r.related_group_id ?? r.meeting_id ?? "").trim()
+        : "");
+    if (
+      meetingIdForList &&
+      (r.room_type === "group_meeting" || chatRoomIdToMeetingId.has(r.id))
+    ) {
+      const meetingId = meetingIdForList;
       const meetingMeta = meetingMetaById.get(meetingId);
       const meetingTitle =
         (postRow && typeof (postRow as Record<string, unknown>).title === "string"

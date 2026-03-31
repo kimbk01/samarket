@@ -1,5 +1,34 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * `insertMeetingMainChatRoomFlexible` 가 `room_type` 을 community/group 등으로 넣은 경우에도
+ * `meetings.chat_room_id` 가 이 방이면 모임 메인 채팅으로 동일하게 접근 검사합니다.
+ */
+export async function resolvePhilifeMeetingAccessMeetingId(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  room: {
+    room_type?: string | null;
+    meeting_id?: string | null;
+    related_group_id?: string | null;
+  }
+): Promise<string | null> {
+  const rt = String(room.room_type ?? "");
+  const fromCols = String(room.meeting_id ?? room.related_group_id ?? "").trim();
+  if (rt === "group_meeting") {
+    return fromCols || null;
+  }
+  if (!fromCols) return null;
+  const { data: mch } = await sb
+    .from("meetings")
+    .select("chat_room_id")
+    .eq("id", fromCols)
+    .maybeSingle();
+  const linked = String((mch as { chat_room_id?: string | null })?.chat_room_id ?? "");
+  if (linked === roomId) return fromCols;
+  return null;
+}
+
 export type PhilifeMeetingAccessState =
   | {
       ok: true;
@@ -112,6 +141,14 @@ export async function getPhilifeMeetingAccessState(
       unreadCount = 0;
       isModeratorBypass = true;
     }
+  } else {
+    /** 메인 방: 참가자 행 누락·호스트만 개설된 경우에도 모임장·공동운영자는 입장 허용 */
+    const modMain = await isMeetingModerator(sb, meetingId, userId);
+    if (modMain) {
+      accessVia = "participant";
+      unreadCount = 0;
+      isModeratorBypass = true;
+    }
   }
 
   if (!accessVia) {
@@ -141,7 +178,7 @@ export async function getPhilifeMeetingAccessState(
     return { ok: false, statusCode: 404, error: "모임 정보를 찾을 수 없습니다." };
   }
 
-  if (accessVia === "participant") {
+  if (accessVia === "participant" && !isModeratorBypass) {
     const { data: memberRow } = await sb
       .from("meeting_members")
       .select("id")
@@ -150,7 +187,10 @@ export async function getPhilifeMeetingAccessState(
       .eq("status", "joined")
       .maybeSingle();
     if (!memberRow) {
-      return { ok: false, statusCode: 403, error: "모임에 참여 중일 때만 채팅을 이용할 수 있습니다." };
+      const mod = await isMeetingModerator(sb, meetingId, userId);
+      if (!mod) {
+        return { ok: false, statusCode: 403, error: "모임에 참여 중일 때만 채팅을 이용할 수 있습니다." };
+      }
     }
   }
 
@@ -184,4 +224,32 @@ export async function getPhilifeMeetingAccessState(
     canSend,
     isModeratorBypass,
   };
+}
+
+/** 모임장 검열 입장 등 참가자 행이 없을 때 메시지 전송·읽음 후속을 위해 보강 */
+export async function ensureChatParticipantRowIfMissing(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  userId: string
+): Promise<void> {
+  const { data: ex } = await sb
+    .from("chat_room_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (ex) return;
+  const now = new Date().toISOString();
+  const { error } = await sb.from("chat_room_participants").insert({
+    room_id: roomId,
+    user_id: userId,
+    role_in_room: "member",
+    is_active: true,
+    hidden: false,
+    joined_at: now,
+    unread_count: 0,
+  });
+  if (error && !/duplicate|23505|unique constraint/i.test(String(error.message ?? ""))) {
+    console.error("[ensureChatParticipantRowIfMissing]", error.message);
+  }
 }

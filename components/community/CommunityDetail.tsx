@@ -325,7 +325,7 @@ export function CommunityDetail({
               )}
               {me?.id ? (
                 <Link
-                  href={`${philifeAppPaths.meeting(meeting.id)}?tab=chat`}
+                  href={philifeAppPaths.meetingOpenChat(meeting.id)}
                   className={`${meetingToolbarBtn} border-transparent bg-[#7b3fe4] text-white`}
                 >
                   문의

@@ -13,7 +13,11 @@ import {
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
-import { getPhilifeMeetingAccessState } from "@/lib/chats/philife/room-access";
+import {
+  ensureChatParticipantRowIfMissing,
+  getPhilifeMeetingAccessState,
+  resolvePhilifeMeetingAccessMeetingId,
+} from "@/lib/chats/philife/room-access";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
 import { ensureStoreOrderChatRoomAccessForUser } from "@/lib/chat/store-order-chat-db";
 
@@ -58,8 +62,12 @@ export async function GET(
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
 
-  const { data: dbRoomProbe } = await sb.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
-  const hasDbChatRoom = !!dbRoomProbe?.id;
+  const { data: roomForGet } = await sb
+    .from("chat_rooms")
+    .select("id, room_type, meeting_id, related_group_id")
+    .eq("id", roomId)
+    .maybeSingle();
+  const hasDbChatRoom = !!(roomForGet as { id?: string } | null)?.id;
 
   if (!hasDbChatRoom && process.env.NODE_ENV !== "production") {
     const state = (globalThis as {
@@ -94,11 +102,6 @@ export async function GET(
   }
 
   const sbAny = sb;
-  const { data: roomForGet } = await sbAny
-    .from("chat_rooms")
-    .select("id, room_type, meeting_id, related_group_id")
-    .eq("id", roomId)
-    .maybeSingle();
   const rtGet = (roomForGet as { room_type?: string } | null)?.room_type ?? "";
   const { data: openChatForGet } = await sbAny
     .from("open_chat_rooms")
@@ -123,13 +126,16 @@ export async function GET(
   }
 
   /* 모임 채팅: 부가 방은 초대자만, 기본 방은 참가자+멤버 — 모임장/공동운영자는 부가 방 검열 입장 (room-access) */
-  if (rtGet === "group_meeting" && !isOpenChatLinkedGet) {
-    const access = await getPhilifeMeetingAccessState(
-      sbAny,
-      roomId,
-      userId,
-      roomForGet as { meeting_id?: string | null; related_group_id?: string | null },
-    );
+  const philifeMeetingIdGet = await resolvePhilifeMeetingAccessMeetingId(
+    sbAny,
+    roomId,
+    roomForGet as { room_type?: string | null; meeting_id?: string | null; related_group_id?: string | null }
+  );
+  if (philifeMeetingIdGet && !isOpenChatLinkedGet) {
+    const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
+      meeting_id: philifeMeetingIdGet,
+      related_group_id: philifeMeetingIdGet,
+    });
     if (!access.ok) {
       return NextResponse.json({ error: access.error }, { status: access.statusCode });
     }
@@ -268,10 +274,16 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "메시지를 입력하세요" }, { status: 400 });
   }
 
-  const { data: dbRoomProbePost } = await sb.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
-  const hasDbChatRoomPost = !!dbRoomProbePost?.id;
+  const { data: room, error: roomFetchErr } = await sb
+    .from("chat_rooms")
+    .select(
+      "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status"
+    )
+    .eq("id", roomId)
+    .maybeSingle();
+  const hasDbChatRoomPost = !!(room as { id?: string } | null)?.id && !roomFetchErr;
 
-  if (!hasDbChatRoomPost && process.env.NODE_ENV !== "production") {
+  if (!hasDbChatRoomPost && !roomFetchErr && process.env.NODE_ENV !== "production") {
     const state = (globalThis as {
       __samarketNeighborhoodDevSampleState?: {
         inquiryRooms?: Array<{ id: string; initiator_id: string; peer_id: string }>;
@@ -317,15 +329,8 @@ export async function POST(
   if (!access.ok) {
     return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
-  const { data: room } = await sbAny
-    .from("chat_rooms")
-    .select(
-      "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status"
-    )
-    .eq("id", roomId)
-    .maybeSingle();
 
-  if (!room) {
+  if (roomFetchErr || !room) {
     return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
   const r = room as {
@@ -372,14 +377,19 @@ export async function POST(
     .maybeSingle();
   const isOpenChatLinkedPost = !!(openChatForPost as { id?: string } | null)?.id;
 
-  if (roomForGm.room_type === "group_meeting" && !isOpenChatLinkedPost) {
-    const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, roomForGm);
+  const philifeMeetingIdPost = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, roomForGm);
+  if (philifeMeetingIdPost && !isOpenChatLinkedPost) {
+    const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
+      meeting_id: philifeMeetingIdPost,
+      related_group_id: philifeMeetingIdPost,
+    });
     if (!access.ok) {
       return NextResponse.json({ ok: false, error: access.error }, { status: access.statusCode });
     }
     if (!access.canSend) {
       return NextResponse.json({ ok: false, error: "종료된 모임 채팅에는 메시지를 보낼 수 없습니다." }, { status: 403 });
     }
+    await ensureChatParticipantRowIfMissing(sbAny, roomId, userId);
   } else if (roomForGm.room_type === "store_order") {
     const accessSoPost = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId);
     if (!accessSoPost.ok) {

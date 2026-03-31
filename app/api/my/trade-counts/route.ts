@@ -28,8 +28,8 @@ export async function GET() {
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  // 건수 API는 응답 지연·스윕 실패에 묶이지 않게 백그라운드만 수행 (구매/판매 목록 API에서 await 유지)
-  void applyBuyerAutoConfirmAllDue(sbAny);
+  // 구매/판매 목록 API와 동일: 스윕 완료 후 조회 — void 시 product_chats 스윕과 건수 조회가 겹치며 간헐 500 방지
+  await applyBuyerAutoConfirmAllDue(sbAny);
 
   try {
     // 직렬 로드: 병렬 시 buyer/seller item_trade reconcile 이 동시에 돌면 Supabase/스토리지 경합으로 간헐 실패할 수 있음

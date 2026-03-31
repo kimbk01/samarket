@@ -7,35 +7,45 @@ import { getLocationLabel } from "@/lib/products/form-options";
 
 const CURRENT_USER_ID = "me";
 
-/** 저장된 동네 목록 */
-export const MOCK_USER_REGIONS: UserRegion[] = [
-  {
-    id: "ur-1",
-    userId: CURRENT_USER_ID,
-    regionId: "quezon",
-    cityId: "q1",
-    barangay: "",
-    label: getLocationLabel("quezon", "q1"),
-    isPrimary: true,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "ur-2",
-    userId: CURRENT_USER_ID,
-    regionId: "quezon",
-    cityId: "q3",
-    barangay: "",
-    label: getLocationLabel("quezon", "q3"),
-    isPrimary: false,
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-  },
-];
+/** 저장된 동네 목록 (런타임 뮤테이션) */
+export const MOCK_USER_REGIONS: UserRegion[] = [];
 
+function seedDefaultRegionsIfEmpty(userId: string): void {
+  if (MOCK_USER_REGIONS.some((r) => r.userId === userId)) return;
+  const now = new Date().toISOString();
+  const templates: Omit<UserRegion, "id" | "userId" | "createdAt">[] = [
+    {
+      regionId: "quezon",
+      cityId: "q1",
+      barangay: "",
+      label: getLocationLabel("quezon", "q1"),
+      isPrimary: true,
+    },
+    {
+      regionId: "quezon",
+      cityId: "q3",
+      barangay: "",
+      label: getLocationLabel("quezon", "q3"),
+      isPrimary: false,
+    },
+  ];
+  templates.forEach((t, i) => {
+    MOCK_USER_REGIONS.push({
+      ...t,
+      id: `ur-${userId}-${i + 1}`,
+      userId,
+      createdAt: now,
+    });
+  });
+}
+
+/** 레거시: 즐겨찾기·검색 등 — 실제 로그인 id 와 분리된 mock 버킷 */
 export function getCurrentUserId(): string {
   return CURRENT_USER_ID;
 }
 
 export function getUserRegions(userId: string): UserRegion[] {
+  seedDefaultRegionsIfEmpty(userId);
   return MOCK_USER_REGIONS.filter((r) => r.userId === userId);
 }
 

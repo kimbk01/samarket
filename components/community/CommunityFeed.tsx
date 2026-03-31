@@ -8,7 +8,8 @@ import {
   neighborhoodLocationMetaFromRegion,
   neighborhoodLocationLabelFromRegion,
 } from "@/lib/neighborhood/location-key";
-import { philifeNeighborhoodFeedUrl, philifeNeighborhoodTopicOptionsUrl } from "@domain/philife/api";
+import { philifeNeighborhoodFeedUrl } from "@domain/philife/api";
+import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
@@ -55,11 +56,7 @@ export function CommunityFeed() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "no-store" });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          feedChips?: { slug: string; name: string }[];
-        };
+        const j = await fetchPhilifeNeighborhoodTopicOptions();
         if (cancelled) return;
         if (j?.ok && Array.isArray(j.feedChips)) {
           setChips([{ slug: "", label: "전체" }, ...j.feedChips.map((x) => ({ slug: x.slug, label: x.name }))]);
@@ -254,17 +251,27 @@ export function CommunityFeed() {
               </div>
             </div>
             <div className={`${TRADE_SECONDARY_TABS_SHELL_CLASS} ${TRADE_SECONDARY_TABS_INNER_Y_CLASS}`}>
-              <label
-                className={`flex cursor-pointer items-center gap-2 px-0 text-[12px] text-[var(--text-muted)] ${APP_MAIN_HEADER_INNER_CLASS} min-w-0`}
-              >
-                <input
-                  type="checkbox"
-                  checked={neighborOnly}
-                  onChange={(e) => setNeighborOnly(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                관심이웃 글만 보기
-              </label>
+              <div className={`min-w-0 space-y-1.5 ${APP_MAIN_HEADER_INNER_CLASS}`}>
+                <label className="flex cursor-pointer items-center gap-2 px-0 text-[12px] text-[var(--text-muted)]">
+                  <input
+                    type="checkbox"
+                    checked={neighborOnly}
+                    onChange={(e) => setNeighborOnly(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  관심이웃 글만 보기
+                </label>
+                <p className="text-[11px] leading-snug text-[var(--text-muted)]">
+                  글 목록은{" "}
+                  <span className="font-medium text-gray-600">상단에 표시된 내 동네</span> 기준이에요. 광역·시만 같아도{" "}
+                  <span className="font-medium text-gray-600">프로필 상세 주소</span>가 다르면 다른 동네로 잡혀 피드가
+                  달라질 수 있어요. 테스트 시{" "}
+                  <Link href="/regions" className="font-medium text-signature underline-offset-2 hover:underline">
+                    지역·상세 주소
+                  </Link>
+                  를 동일하게 맞춰 주세요.
+                </p>
+              </div>
             </div>
           </>
         }

@@ -82,6 +82,7 @@ export function MeetingCard({
       chatRoomId={meeting.chat_room_id}
       successSurface="meeting"
       entryPolicy={meeting.entry_policy}
+      hasMeetingPassword={meeting.has_password}
       requiresApproval={meeting.requires_approval}
       isClosed={meeting.is_closed}
       memberCount={joined}
@@ -102,7 +103,7 @@ export function MeetingCard({
             <span>{entryPolicyHeadline(meeting.entry_policy)}</span>
           </div>
           <Link
-            href={philifeAppPaths.meeting(meeting.id)}
+            href={philifeAppPaths.meetingOpenChat(meeting.id)}
             className="shrink-0 text-[12px] font-medium text-[#0d8f6a] underline underline-offset-2"
           >
             자세히
@@ -116,10 +117,6 @@ export function MeetingCard({
           <div className="flex gap-2">
             <dt className="w-14 shrink-0 font-medium text-gray-500">일시</dt>
             <dd className="min-w-0 text-gray-900">{when}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="w-14 shrink-0 font-medium text-gray-500">장소</dt>
-            <dd className="min-w-0 text-gray-900">{meeting.location_text || "—"}</dd>
           </div>
           <div className="flex gap-2">
             <dt className="w-14 shrink-0 font-medium text-gray-500">참여</dt>
@@ -153,7 +150,7 @@ export function MeetingCard({
           <p className="mt-1 text-[15px] font-bold text-gray-900">{meeting.title}</p>
         </div>
         <Link
-          href={philifeAppPaths.meeting(meeting.id)}
+          href={philifeAppPaths.meetingOpenChat(meeting.id)}
           className="shrink-0 text-[12px] font-medium text-emerald-800 underline"
         >
           자세히
@@ -162,11 +159,6 @@ export function MeetingCard({
       <p className="mt-2 text-[13px] text-emerald-900/90">
         <span className="font-medium">일시</span> {when}
       </p>
-      {meeting.location_text ? (
-        <p className="mt-1 text-[13px] text-emerald-900/90">
-          <span className="font-medium">장소</span> {meeting.location_text}
-        </p>
-      ) : null}
       <p className="mt-2 text-[12px] text-emerald-800/80">
         참여 {joined}/{meeting.max_members}명{pendingNote}
         {closedNote}

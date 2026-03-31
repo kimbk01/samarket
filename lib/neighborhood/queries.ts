@@ -442,6 +442,21 @@ export async function getMeetingDetail(meetingId: string): Promise<NeighborhoodM
   const ep = row.entry_policy;
   const entryRaw =
     ep != null && String(ep).trim() !== "" ? String(ep).trim().toLowerCase() : jp.toLowerCase();
+  const hasPwd = String(row.password_hash ?? "").trim().length > 0;
+  let entry_policy = (["open", "approve", "password", "invite_only"].includes(entryRaw)
+    ? entryRaw
+    : jp === "approve"
+      ? "approve"
+      : "open") as NeighborhoodMeetingDetailDTO["entry_policy"];
+  /** `password_hash` 가 있는데 정책만 open 으로 떨어지면 가입 API와 UI가 엇갈려 빈 POST 로 invalid_password 나는 경우 방지 */
+  if (
+    hasPwd &&
+    entry_policy === "open" &&
+    entryRaw !== "approve" &&
+    entryRaw !== "invite_only"
+  ) {
+    entry_policy = "password";
+  }
   return {
     id: String(row.id),
     post_id: String(row.post_id ?? ""),
@@ -455,17 +470,13 @@ export async function getMeetingDetail(meetingId: string): Promise<NeighborhoodM
     created_by: String(row.created_by ?? ""),
     host_user_id: String(row.host_user_id ?? row.created_by ?? ""),
     join_policy: jp,
-    entry_policy: (["open", "approve", "password", "invite_only"].includes(entryRaw)
-      ? entryRaw
-      : jp === "approve"
-        ? "approve"
-        : "open") as NeighborhoodMeetingDetailDTO["entry_policy"],
+    entry_policy,
     requires_approval:
       row.requires_approval === true ||
       entryRaw === "approve" ||
       entryRaw === "invite_only" ||
       jp === "approve",
-    has_password: String(row.password_hash ?? "").trim().length > 0,
+    has_password: hasPwd,
     status: st,
     is_closed: !!row.is_closed || st === "closed" || st === "ended" || st === "cancelled",
     joined_count: Number(row.joined_count ?? joinedHead),

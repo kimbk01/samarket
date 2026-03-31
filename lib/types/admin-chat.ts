@@ -11,6 +11,7 @@ export type AdminRoomType =
   | "community"
   | "group"
   | "business"
+  | "meeting_open_chat"
   | "";
 
 export interface AdminChatRoom {
@@ -39,7 +40,9 @@ export interface AdminChatRoom {
   /** 관리자 읽기 전용(메시지 전송 차단) */
   isReadonly?: boolean;
   /** 관리자 일괄 삭제 시 DB 테이블 구분 (통합 chat_rooms vs 레거시 product_chats) */
-  adminChatStorage?: "chat_rooms" | "product_chats";
+  adminChatStorage?: "chat_rooms" | "product_chats" | "meeting_open_chat";
+  /** meeting_open_chat_rooms.meeting_id — 모임 상세 링크용 */
+  meetingId?: string;
 }
 
 export type AdminChatMessageType = "text" | "image" | "system";

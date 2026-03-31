@@ -507,14 +507,15 @@ export function ChatDetailView({
   }, [menuOpen]);
 
   const postChatText = useCallback(
-    async (message: string): Promise<boolean> => {
-      if (!canWriteTradeMessage) return false;
+    async (message: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
+      if (!canWriteTradeMessage) return { ok: false, error: "이 채팅에서는 메시지를 보낼 수 없습니다." };
       if (isChatRoom) {
         try {
           const res = await fetch(`/api/chat/rooms/${room.id}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ body: message }),
+            credentials: "include",
           });
           const data = (await res.json().catch(() => ({}))) as {
             ok?: boolean;
@@ -534,12 +535,19 @@ export function ChatDetailView({
                 isRead: false,
               },
             ]);
-            return true;
+            return { ok: true };
           }
+          const apiErr = typeof data?.error === "string" ? data.error.trim() : "";
+          if (apiErr) return { ok: false, error: apiErr };
+          if (res.status === 401) return { ok: false, error: "로그인이 필요합니다." };
+          if (res.status === 403) {
+            return { ok: false, error: "접근이 제한되었거나 권한이 없습니다. 서버 안내를 확인해 주세요." };
+          }
+          if (res.status >= 500) return { ok: false, error: "서버 오류로 전송하지 못했습니다. 잠시 후 다시 시도해 주세요." };
         } catch {
-          return false;
+          return { ok: false, error: "네트워크 오류로 전송하지 못했습니다." };
         }
-        return false;
+        return { ok: false, error: "전송에 실패했습니다. 다시 시도해 주세요." };
       }
 
       try {
@@ -556,28 +564,28 @@ export function ChatDetailView({
               isRead: false,
             },
           ]);
-          return true;
+          return { ok: true };
         }
+        return { ok: false, error: res.error };
       } catch {
-        return false;
+        return { ok: false, error: "네트워크 오류로 전송하지 못했습니다." };
       }
-      return false;
     },
     [room.id, currentUserId, isChatRoom, canWriteTradeMessage]
   );
 
   const postChatTextForSellerPanel = useCallback(
     async (text: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
-      const ok = await postChatText(text);
-      return ok ? { ok: true } : { ok: false, error: "전송에 실패했습니다." };
+      const r = await postChatText(text);
+      return r.ok ? { ok: true } : { ok: false, error: r.error ?? "전송에 실패했습니다." };
     },
     [postChatText]
   );
 
   const sendBuyerOrderMatchAck = useCallback(async () => {
-    const ok = await postChatText(STORE_ORDER_MATCH_ACK_MESSAGE);
-    if (!ok) setSendError("확인 메시지 전송에 실패했습니다. 다시 시도해 주세요.");
-    return ok;
+    const r = await postChatText(STORE_ORDER_MATCH_ACK_MESSAGE);
+    if (!r.ok) setSendError(r.error ?? "확인 메시지 전송에 실패했습니다. 다시 시도해 주세요.");
+    return r.ok;
   }, [postChatText]);
 
   const handleSend = useCallback(
@@ -587,9 +595,9 @@ export function ChatDetailView({
         setSendError("이 채팅에서는 메시지를 보낼 수 없습니다.");
         return;
       }
-      const ok = await postChatText(message);
-      if (!ok) {
-        setSendError("전송에 실패했습니다. 다시 시도해 주세요.");
+      const r = await postChatText(message);
+      if (!r.ok) {
+        setSendError(r.error ?? "전송에 실패했습니다. 다시 시도해 주세요.");
       }
     },
     [canWriteTradeMessage, postChatText]
@@ -629,6 +637,7 @@ export function ChatDetailView({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ body: "", messageType: "image", imageUrl }),
+            credentials: "include",
           });
           const data = await res.json().catch(() => ({}));
           if (data?.ok && data?.message?.id) {

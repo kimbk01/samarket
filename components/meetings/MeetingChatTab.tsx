@@ -85,6 +85,8 @@ export function MeetingChatTab({
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [ensureMainBusy, setEnsureMainBusy] = useState(false);
+  const [ensureMainErr, setEnsureMainErr] = useState<string | null>(null);
 
   const effectiveMainChatId = apiMainChatRoomId ?? mainChatRoomIdProp;
 
@@ -125,6 +127,35 @@ export function MeetingChatTab({
       setListLoading(false);
     }
   }, [meetingId]);
+
+  const runEnsureMainChat = useCallback(async () => {
+    setEnsureMainErr(null);
+    setEnsureMainBusy(true);
+    try {
+      const res = await fetch(philifeMeetingApi(meetingId).ensureMainChat(), {
+        method: "POST",
+        credentials: "include",
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        mainChatRoomId?: string;
+        message?: string;
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok || !j?.ok || !j.mainChatRoomId) {
+        const detail = typeof j?.detail === "string" && j.detail.trim() ? `\n${j.detail.trim()}` : "";
+        setEnsureMainErr(`${j?.message ?? j?.error ?? "연결에 실패했습니다."}${detail}`);
+        return;
+      }
+      setApiMainChatRoomId(j.mainChatRoomId);
+      await loadRooms();
+    } catch {
+      setEnsureMainErr("네트워크 오류가 발생했습니다.");
+    } finally {
+      setEnsureMainBusy(false);
+    }
+  }, [meetingId, loadRooms]);
 
   useEffect(() => {
     if (viewerStatus !== "joined") return;
@@ -375,7 +406,7 @@ export function MeetingChatTab({
               <p className="mt-1 text-[12px] text-gray-500">{selected.subtitle}</p>
             </div>
           </div>
-          <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+          <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 px-4 py-10 text-center">
             <p className="text-[13px] font-medium text-gray-700">
               {selected.kind === "main"
                 ? "기본 채팅방 없음"
@@ -385,11 +416,26 @@ export function MeetingChatTab({
             </p>
             <p className="max-w-[280px] text-[12px] leading-relaxed text-gray-500">
               {selected.kind === "main"
-                ? "모임 기본 채팅방이 아직 연결되지 않았습니다. 참여 시 자동 생성되거나 운영자에게 문의하세요."
+                ? "DB 연결이 늦었거나 이전에 방 생성이 실패했을 수 있어요. 아래에서 다시 연결해 보세요."
                 : selected.kind === "demo"
                   ? "실제 모임에서는 아래 목록의 「채팅방 만들기」로 서브·비공개 방을 만들 수 있어요."
                   : "초대된 멤버만 입장합니다. Step C에서 접근 제한을 더 강화합니다."}
             </p>
+            {selected.kind === "main" ? (
+              <>
+                {ensureMainErr ? (
+                  <p className="max-w-[300px] text-[11px] leading-relaxed text-red-600">{ensureMainErr}</p>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={ensureMainBusy}
+                  onClick={() => void runEnsureMainChat()}
+                  className="rounded-xl bg-emerald-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm disabled:opacity-50 active:bg-emerald-700"
+                >
+                  {ensureMainBusy ? "연결 중…" : "메인 채팅방 연결하기"}
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
@@ -407,6 +453,17 @@ export function MeetingChatTab({
       ) : null}
       {listError ? (
         <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[12px] text-red-800">{listError}</p>
+      ) : null}
+      {ensureMainErr && !selectedKey ? (
+        <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[12px] text-red-800">{ensureMainErr}</p>
+      ) : null}
+
+      {!effectiveMainChatId && !listLoading ? (
+        <p className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-[11px] leading-relaxed text-gray-600">
+          모임 채팅은 필라이프 피드처럼 계정·동네별로 갈라지지 않고, 이 모임의{" "}
+          <span className="font-medium text-gray-800">하나의 메인 방</span>을 참여 멤버가 같이 씁니다. 「미연결」은
+          아직 DB에 방이 안 붙은 상태예요.
+        </p>
       ) : null}
 
       <div className="rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
@@ -438,9 +495,24 @@ export function MeetingChatTab({
                     </div>
                     <p className="mt-0.5 text-[12px] text-gray-500">{room.subtitle}</p>
                     {room.chatRoomId === null ? (
-                      <p className="mt-1 text-[11px] text-amber-700/90">
-                        {room.kind === "main" ? "채팅방 미연결" : room.kind === "demo" ? "샘플" : "연결 예정"}
-                      </p>
+                      <div className="mt-1 flex flex-col items-start gap-1">
+                        <p className="text-[11px] text-amber-700/90">
+                          {room.kind === "main" ? "채팅방 미연결" : room.kind === "demo" ? "샘플" : "연결 예정"}
+                        </p>
+                        {room.kind === "main" ? (
+                          <button
+                            type="button"
+                            disabled={ensureMainBusy}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void runEnsureMainChat();
+                            }}
+                            className="text-[11px] font-semibold text-emerald-700 underline-offset-2 hover:underline disabled:opacity-50"
+                          >
+                            {ensureMainBusy ? "연결 중…" : "메인 채팅방 연결"}
+                          </button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                   <span className="shrink-0 self-center text-gray-300" aria-hidden>

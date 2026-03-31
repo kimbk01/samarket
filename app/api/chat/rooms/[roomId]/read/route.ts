@@ -8,7 +8,10 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
-import { getPhilifeMeetingAccessState } from "@/lib/chats/philife/room-access";
+import {
+  getPhilifeMeetingAccessState,
+  resolvePhilifeMeetingAccessMeetingId,
+} from "@/lib/chats/philife/room-access";
 type ChatRowForRead = {
   room_type?: string | null;
   meeting_id?: string | null;
@@ -41,13 +44,14 @@ async function ensureParticipantReadState(
   if (upErr) return { ok: false, error: upErr.message };
   if (updated?.length) return { ok: true };
 
-  if (String(chatRow.room_type ?? "") !== "group_meeting") {
+  const philifeMid = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, chatRow);
+  if (!philifeMid) {
     return { ok: false, error: "채팅 참가자가 아닙니다." };
   }
 
   const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
-    meeting_id: chatRow.meeting_id,
-    related_group_id: chatRow.related_group_id,
+    meeting_id: philifeMid,
+    related_group_id: philifeMid,
   });
   if (!access.ok) {
     return { ok: false, error: access.error };
@@ -118,10 +122,16 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
   }
 
-  const { data: dbRoomProbeRead } = await sb.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
-  const hasDbChatRoomRead = !!dbRoomProbeRead?.id;
+  const { data: crRow, error: crErr } = await sb
+    .from("chat_rooms")
+    .select(
+      "id, last_message_id, room_type, meeting_id, related_group_id, item_id, seller_id, buyer_id"
+    )
+    .eq("id", roomId)
+    .maybeSingle();
+  const hasDbChatRoomRead = !!(crRow as { id?: string } | null)?.id && !crErr;
 
-  if (!hasDbChatRoomRead && process.env.NODE_ENV !== "production") {
+  if (!hasDbChatRoomRead && !crErr && process.env.NODE_ENV !== "production") {
     const state = (globalThis as {
       __samarketNeighborhoodDevSampleState?: {
         inquiryRooms?: Array<{ id: string; initiator_id: string; peer_id: string }>;
@@ -136,11 +146,6 @@ export async function POST(
   }
 
   const sbAny = sb;
-  const { data: crRow, error: crErr } = await sbAny
-    .from("chat_rooms")
-    .select("id, last_message_id, room_type, meeting_id, related_group_id")
-    .eq("id", roomId)
-    .maybeSingle();
   if (crErr || !crRow) {
     return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
@@ -178,13 +183,8 @@ export async function POST(
 
   /** 거래 통합방(chat_rooms) 읽음 시 legacy product_chats 미읽음도 같이 0 — 배지 이중 집계 방지 */
   try {
-    const { data: cr } = await sbAny
-      .from("chat_rooms")
-      .select("room_type, item_id, seller_id, buyer_id")
-      .eq("id", roomId)
-      .maybeSingle();
-    const row = cr as
-      | { room_type?: string; item_id?: string | null; seller_id?: string; buyer_id?: string }
+    const row = crRow as
+      | { room_type?: string; item_id?: string | null; seller_id?: string | null; buyer_id?: string | null }
       | null;
     if (row?.room_type === "item_trade" && row.item_id && row.seller_id && row.buyer_id) {
       const pcUpdates: Record<string, unknown> = { updated_at: now };
