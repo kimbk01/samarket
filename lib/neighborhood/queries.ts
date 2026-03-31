@@ -32,6 +32,11 @@ function summarize(text: string, max = 120): string {
 export type NeighborhoodFeedPageResult = {
   posts: NeighborhoodFeedPostDTO[];
   hasMore: boolean;
+  /**
+   * 이번 요청에서 Supabase `range`로 실제 읽은 행 수(필터 전).
+   * 필터로 반환 건수가 줄어도 offset은 이 값만큼 진행해야 페이지 경계에서 중복이 나지 않음.
+   */
+  dbScannedCount: number;
 };
 
 export async function listNeighborhoodFeed(options: {
@@ -52,13 +57,13 @@ export async function listNeighborhoodFeed(options: {
   try {
     sb = getSupabaseServer();
   } catch {
-    return { posts: [], hasMore: false };
+    return { posts: [], hasMore: false, dbScannedCount: 0 };
   }
 
   const pageSize = Math.min(Math.max(options.limit ?? 20, 1), 40);
   const offset = Math.min(Math.max(options.offset ?? 0, 0), 500);
   const lid = options.locationId.trim();
-  if (!lid) return { posts: [], hasMore: false };
+  if (!lid) return { posts: [], hasMore: false, dbScannedCount: 0 };
 
   const topics = options.topics ?? (await loadPhilifeDefaultSectionTopics());
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
@@ -109,8 +114,9 @@ export async function listNeighborhoodFeed(options: {
     ({ data, error } = await buildFeedQuery(FEED_SELECT_BASE));
   }
 
-  if (error || !Array.isArray(data)) return { posts: [], hasMore: false };
+  if (error || !Array.isArray(data)) return { posts: [], hasMore: false, dbScannedCount: 0 };
 
+  const dbScannedCount = data.length;
   let rows = (data as unknown as Record<string, unknown>[]).filter((r) => {
     if (!isCommunityPostPubliclyVisible(r as never)) return false;
     const loc = r.location_id;
@@ -123,7 +129,8 @@ export async function listNeighborhoodFeed(options: {
     return true;
   });
 
-  const hasMore = rows.length > pageSize;
+  /** DB 창을 꽉 채웠으면 뒤에 행이 더 있을 수 있음(필터로 이번 페이지가 짧아도 다음 offset 필요) */
+  const hasMore = dbScannedCount === fetchCount;
   rows = rows.slice(0, pageSize);
 
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
@@ -205,7 +212,7 @@ export async function listNeighborhoodFeed(options: {
     };
   });
 
-  return { posts, hasMore };
+  return { posts, hasMore, dbScannedCount };
 }
 
 /** `post_id`로 연결된 모임 id — 컬럼 세트가 옛 DB와 다를 때 단계적 select */

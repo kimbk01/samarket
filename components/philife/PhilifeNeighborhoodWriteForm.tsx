@@ -293,30 +293,31 @@ export function PhilifeNeighborhoodWriteForm({
         setErr(j.error ?? "등록에 실패했습니다.");
         return;
       }
-      if (category !== "meetup" && promoteAdEnabled && selectedAdProduct) {
-        try {
-          const applyRes = await fetch("/api/ads/apply", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              postId: j.id,
-              adProductId: selectedAdProduct.id,
-              paymentMethod: adPaymentMethod,
-              depositorName: adPaymentMethod === "bank_transfer" ? adDepositorName.trim() : undefined,
-              memo: adMemo.trim() || undefined,
-            }),
-          });
-          const aj = (await applyRes.json()) as { ok?: boolean; error?: string };
-          if (!applyRes.ok || !aj.ok) {
-            router.replace(philifeAppPaths.post(j.id));
-            return;
-          }
-        } catch {
-          router.replace(philifeAppPaths.post(j.id));
-          return;
-        }
-      }
+      /** 본문 등록 직후 상세로 이동 — 광고 API는 체감 대기 없이 백그라운드 (실패해도 글은 이미 생성됨) */
       router.replace(philifeAppPaths.post(j.id));
+      if (category !== "meetup" && promoteAdEnabled && selectedAdProduct) {
+        void (async () => {
+          try {
+            const applyRes = await fetch("/api/ads/apply", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                postId: j.id,
+                adProductId: selectedAdProduct.id,
+                paymentMethod: adPaymentMethod,
+                depositorName: adPaymentMethod === "bank_transfer" ? adDepositorName.trim() : undefined,
+                memo: adMemo.trim() || undefined,
+              }),
+            });
+            const aj = (await applyRes.json()) as { ok?: boolean; error?: string };
+            if (!applyRes.ok || !aj.ok) {
+              console.warn("[philife/write] ads/apply failed", aj?.error ?? applyRes.status);
+            }
+          } catch(e) {
+            console.warn("[philife/write] ads/apply", e);
+          }
+        })();
+      }
     } catch {
       setErr("네트워크 오류가 발생했습니다.");
     } finally {

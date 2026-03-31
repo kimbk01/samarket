@@ -24,6 +24,31 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
 const PAGE_SIZE = 20;
 
+function mergeNeighborhoodFeedById(
+  prev: NeighborhoodFeedPostDTO[],
+  incoming: NeighborhoodFeedPostDTO[],
+  append: boolean
+): NeighborhoodFeedPostDTO[] {
+  if (!append) {
+    const seen = new Set<string>();
+    const out: NeighborhoodFeedPostDTO[] = [];
+    for (const p of incoming) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      out.push(p);
+    }
+    return out;
+  }
+  const seen = new Set(prev.map((p) => p.id));
+  const out = [...prev];
+  for (const p of incoming) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+  }
+  return out;
+}
+
 const PHILIFE_TOPIC_TAB_CLASS = {
   on: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-semibold text-gray-900",
   off: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-medium text-gray-500 hover:text-gray-700",
@@ -143,7 +168,7 @@ export function CommunityFeed() {
           return;
         }
         const next = j.posts ?? [];
-        setPosts((prev) => (append ? [...prev, ...next] : next));
+        setPosts((prev) => mergeNeighborhoodFeedById(prev, next, append));
         setHasMore(!!j.hasMore);
         const advance =
           typeof j.dbPageLength === "number" ? j.dbPageLength : next.length;

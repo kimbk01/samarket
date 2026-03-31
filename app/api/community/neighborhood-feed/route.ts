@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 
   const topics = await loadPhilifeDefaultSectionTopics();
 
-  const { posts, hasMore } = await listNeighborhoodFeed({
+  const { posts, hasMore, dbScannedCount } = await listNeighborhoodFeed({
     locationId,
     category: category ?? undefined,
     authorUserId: authorId,
@@ -86,7 +86,8 @@ export async function GET(req: NextRequest) {
     locationId,
     posts,
     hasMore,
-    nextOffset: hasMore ? offset + posts.length : null,
-    dbPageLength: posts.length,
+    nextOffset: hasMore ? offset + dbScannedCount : null,
+    /** 필터 전 DB 행 수 — 클라 offset 계산용(`posts.length`와 다를 수 있음) */
+    dbPageLength: dbScannedCount,
   });
 }

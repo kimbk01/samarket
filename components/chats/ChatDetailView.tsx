@@ -408,7 +408,8 @@ export function ChatDetailView({
         /* ignore */
       }
       if (cancelled) return;
-      if (list.length === 0) {
+      /** 통합 채팅은 API·Realtime 경로만 사용 — `product_chat_messages` 폴백 호출은 불필요 지연 */
+      if (list.length === 0 && !isChatRoom) {
         try {
           const fromDb = await getMessagesFromDb(room.id, currentUserId);
           if (!cancelled && fromDb.length > 0) setMessages(fromDb);
@@ -425,7 +426,7 @@ export function ChatDetailView({
       if (!cancelled) setMessagesLoading(false);
     });
     return () => { cancelled = true; };
-  }, [room.id, currentUserId, fetchMessages]);
+  }, [room.id, currentUserId, fetchMessages, isChatRoom]);
 
   // 당근형: 상대가 보낸 메시지 실시간 반영 — 판매자/구매자 다른 창에서도 답장 수신
   useEffect(() => {
@@ -485,10 +486,10 @@ export function ChatDetailView({
     const pollMs = isStoreOrderChat
       ? chatRealtimeLive
         ? 90_000
-        : 35_000
+        : 22_000
       : isChatRoom && chatRealtimeLive
         ? 120_000
-        : 18_000;
+        : 10_000;
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") void tick();
     }, pollMs);

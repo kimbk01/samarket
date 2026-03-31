@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
@@ -328,26 +328,50 @@ export async function POST(req: NextRequest) {
       role: "host",
     });
 
-    /** 응답 전에 메인 `chat_rooms`를 만들고 `meetings.chat_room_id`를 채움 (`after()`는 실패·경합 시 미연결로 남음) */
-    const chatEnsured = await ensureMeetingGroupChatRoom(sb, meetingId, auth.userId, title);
-    if (!chatEnsured) {
-      console.error("[neighborhood-posts] ensureMeetingGroupChatRoom failed meetingId=", meetingId);
-    }
-
-    /** 모임 채팅용 기본 방 1개 (`meeting_open_chat_*`, 모임과 동일 개념) */
-    const openChatEnsured = await ensureDefaultMeetingOpenChatRoomForNewMeeting(sb, {
-      meetingId,
-      hostUserId: auth.userId,
-      title,
-      maxMembers: maxMem,
-      description: typeof meet.description === "string" ? meet.description.trim() : "",
+    /**
+     * 그룹 채팅·오픈채팅 방 생성은 여러 DB 라운드트립(특히 `chat_rooms` 제약 폴백)으로 응답이 길어짐.
+     * 글 등록 성공은 먼저 반환하고, 방 부트스트랩은 응답 후 백그라운드에서 수행 (`join`/미들웨어에서 `ensure` 재시도 가능).
+     */
+    const deferredMeetingId = meetingId;
+    const deferredHostUserId = auth.userId;
+    const deferredTitle = title;
+    const deferredMaxMem = maxMem;
+    const deferredMeetDesc = typeof meet.description === "string" ? meet.description.trim() : "";
+    after(async () => {
+      let sbDeferred: ReturnType<typeof getSupabaseServer>;
+      try {
+        sbDeferred = getSupabaseServer();
+      } catch {
+        console.error("[neighborhood-posts] after(): supabase unavailable");
+        return;
+      }
+      try {
+        const [chatEnsured, openChatEnsured] = await Promise.all([
+          ensureMeetingGroupChatRoom(sbDeferred, deferredMeetingId, deferredHostUserId, deferredTitle),
+          ensureDefaultMeetingOpenChatRoomForNewMeeting(sbDeferred, {
+            meetingId: deferredMeetingId,
+            hostUserId: deferredHostUserId,
+            title: deferredTitle,
+            maxMembers: deferredMaxMem,
+            description: deferredMeetDesc,
+          }),
+        ]);
+        if (!chatEnsured) {
+          console.error(
+            "[neighborhood-posts] ensureMeetingGroupChatRoom failed meetingId=",
+            deferredMeetingId
+          );
+        }
+        if (!openChatEnsured.ok) {
+          console.error(
+            "[neighborhood-posts] ensureDefaultMeetingOpenChatRoomForNewMeeting",
+            openChatEnsured.error
+          );
+        }
+      } catch (e) {
+        console.error("[neighborhood-posts] after() meeting chat bootstrap", e);
+      }
     });
-    if (!openChatEnsured.ok) {
-      console.error(
-        "[neighborhood-posts] ensureDefaultMeetingOpenChatRoomForNewMeeting",
-        openChatEnsured.error
-      );
-    }
   }
 
   if (images.length > 0 && images.some((url) => url.includes("supabase") || url.startsWith("http"))) {
