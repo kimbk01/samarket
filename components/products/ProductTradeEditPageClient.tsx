@@ -1,36 +1,37 @@
 "use client";
 
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { parseId } from "@/lib/validate-params";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { OwnerEditPostSnapshot } from "@/lib/posts/owner-edit-post-snapshot";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { ensureClientAccessOrRedirect } from "@/lib/auth/client-access-flow";
+import {
+  ensureClientAccessOrRedirect,
+  redirectForBlockedAction,
+} from "@/lib/auth/client-access-flow";
 import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
 import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 
-export function ProductTradeEditPageClient() {
-  const params = useParams();
+type Props = {
+  /** 서버 `app/(main)/products/[id]/edit/page.tsx`에서 `parseId`로 검증된 글 id */
+  postId: string;
+};
+
+export function ProductTradeEditPageClient({ postId: id }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const id = parseId(params.id);
 
   const [snapshot, setSnapshot] = useState<OwnerEditPostSnapshot | null>(null);
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
-  const [status, setStatus] = useState<
-    "loading" | "bad_id" | "error" | "locked" | "ready" | "no_write"
-  >("loading");
+  const [status, setStatus] = useState<"loading" | "error" | "locked" | "ready" | "no_write">(
+    "loading"
+  );
   const [errorMessage, setErrorMessage] = useState("");
 
   const load = useCallback(async () => {
-    if (!id) {
-      setStatus("bad_id");
-      return;
-    }
     const user = getCurrentUser();
     if (!ensureClientAccessOrRedirect(router, user, pathname || `/products/${id}/edit`)) {
       return;
@@ -51,13 +52,19 @@ export function ProductTradeEditPageClient() {
       post?: OwnerEditPostSnapshot;
     };
     if (!res.ok || !data.ok) {
+      const err = typeof data.error === "string" ? data.error : "";
+      if (
+        redirectForBlockedAction(router, err || (res.status === 401 ? "로그인이 필요합니다." : null), pathname || `/products/${id}/edit`)
+      ) {
+        return;
+      }
       if (res.status === 403 && data.locked) {
         setStatus("locked");
-        setErrorMessage(typeof data.error === "string" ? data.error : "지금은 수정할 수 없는 상태입니다.");
+        setErrorMessage(err || "지금은 수정할 수 없는 상태입니다.");
         return;
       }
       setStatus("error");
-      setErrorMessage(typeof data.error === "string" ? data.error : "불러오지 못했습니다.");
+      setErrorMessage(err || "불러오지 못했습니다.");
       return;
     }
     const post = data.post;
@@ -105,17 +112,6 @@ export function ProductTradeEditPageClient() {
     if (id) router.push(`/products/${id}`);
     else router.back();
   }, [id, router]);
-
-  if (status === "bad_id" || !id) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
-        <p className="text-[14px] text-gray-600">잘못된 상품 정보예요</p>
-        <Link href="/products" className="text-[14px] font-medium text-signature">
-          상품 목록으로
-        </Link>
-      </div>
-    );
-  }
 
   if (status === "loading") {
     return (
