@@ -116,12 +116,16 @@ export function MyContent() {
 
     const loadCounts = async () => {
       try {
-        const { purchaseCount, salesCount } = await fetchTradeHistoryCounts(viewerId);
+        const [tradeResult, storesPacket] = await Promise.all([
+          fetchTradeHistoryCounts(viewerId),
+          hasOwnerStoreFlag ? fetchMeStoresListDeduped() : Promise.resolve(null),
+        ]);
+        const { purchaseCount, salesCount } = tradeResult;
 
         let storeAttention: number | null = null;
         let hubStoreId: string | null = null;
-        if (hasOwnerStoreFlag) {
-          const { status, json: rawStores } = await fetchMeStoresListDeduped();
+        if (hasOwnerStoreFlag && storesPacket) {
+          const { status, json: rawStores } = storesPacket;
           const storesJson = rawStores as {
             ok?: boolean;
             stores?: Array<{

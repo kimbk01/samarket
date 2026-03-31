@@ -52,6 +52,11 @@ import {
   fetchLegacyChatRoomMessages,
 } from "@/lib/chats/fetch-chat-room-messages-api";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
+import {
+  useChatRoomRealtime,
+  type ChatRoomRealtimeConnectionState,
+} from "@/lib/chats/use-chat-room-realtime";
+import { ChatRealtimeAppBarIcons } from "@/components/chats/ChatRealtimeAppBarIcons";
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
 import { playCoalescedOrderMatchChatAlert } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { IG_DM_BODY_TEXT } from "@/lib/chats/instagram-dm-tokens";
@@ -241,6 +246,38 @@ export function ChatDetailView({
   }, [openReviewOnMount, canOpenReviewSheet, pathname, router]);
 
   const isChatRoom = room.source === "chat_room";
+
+  const [chatRealtimeConnState, setChatRealtimeConnState] =
+    useState<ChatRoomRealtimeConnectionState>("disabled");
+  const [chatRealtimeLive, setChatRealtimeLive] = useState(false);
+  const [chatMessageSoundMuted, setChatMessageSoundMuted] = useState(false);
+
+  const onIntegratedRealtimeMessage = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => mergeChatMessagesById(prev, [msg]));
+  }, []);
+
+  const onIntegratedRealtimeRemoved = useCallback((id: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const onIntegratedRealtimeConnectionState = useCallback((s: ChatRoomRealtimeConnectionState) => {
+    setChatRealtimeConnState(s);
+    setChatRealtimeLive(s === "live");
+  }, []);
+
+  useChatRoomRealtime({
+    roomId: isChatRoom ? room.id : null,
+    mode: "integrated",
+    enabled: isChatRoom && !!currentUserId?.trim(),
+    onMessage: onIntegratedRealtimeMessage,
+    onMessageRemoved: onIntegratedRealtimeRemoved,
+    onConnectionState: onIntegratedRealtimeConnectionState,
+  });
+
+  useEffect(() => {
+    setChatRealtimeLive(false);
+    setChatRealtimeConnState(isChatRoom ? "connecting" : "disabled");
+  }, [room.id, isChatRoom]);
 
   useEffect(() => {
     setPinnedListing(null);
@@ -444,8 +481,14 @@ export function ChatDetailView({
       });
     };
     tick(); // 마운트 직후 1회 실행 (초기 로드 직후 반영)
-    /** 매장 주문 채팅은 메시지 빈도가 낮고 Supabase 부하 완화를 위해 간격을 더 길게 */
-    const pollMs = isStoreOrderChat ? 35_000 : 18_000;
+    /** 통합 채팅: Realtime 구독 성공 시 폴링은 백업용으로만 길게. 미연결 시 기존 간격 유지 */
+    const pollMs = isStoreOrderChat
+      ? chatRealtimeLive
+        ? 90_000
+        : 35_000
+      : isChatRoom && chatRealtimeLive
+        ? 120_000
+        : 18_000;
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") void tick();
     }, pollMs);
@@ -463,7 +506,16 @@ export function ChatDetailView({
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible);
       if (typeof window !== "undefined") window.removeEventListener("pageshow", onPageShow);
     };
-  }, [room.id, currentUserId, fetchMessagesForPolling, isStoreOrderChat, amISeller, room.buyerId]);
+  }, [
+    room.id,
+    currentUserId,
+    fetchMessagesForPolling,
+    isStoreOrderChat,
+    isChatRoom,
+    chatRealtimeLive,
+    amISeller,
+    room.buyerId,
+  ]);
 
   // 읽음 처리: API 호출(테스트 로그인 포함) 후 상단 편지 숫자 갱신 이벤트
   useEffect(() => {
@@ -1095,6 +1147,14 @@ export function ChatDetailView({
                     </p>
                   </div>
                 </div>
+                {isChatRoom ? (
+                  <ChatRealtimeAppBarIcons
+                    state={chatRealtimeConnState}
+                    messagesLoading={messagesLoading}
+                    messageSoundMuted={chatMessageSoundMuted}
+                    onToggleMessageSound={() => setChatMessageSoundMuted((v) => !v)}
+                  />
+                ) : null}
                 {isStoreOrderSeller ? (
                   <StoreOrderSellerHamburger
                     chatRoomId={room.id}

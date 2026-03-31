@@ -18,6 +18,7 @@ import {
 import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getRegionName } from "@/lib/regions/region-utils";
+import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 
 type RegionContextValue = {
   userRegions: UserRegion[];
@@ -55,9 +56,9 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfileLocation = useCallback(async () => {
     try {
-      const res = await fetch("/api/me/profile", { credentials: "include", cache: "no-store" });
-      const json = (await res.json()) as { ok?: boolean; profile?: Record<string, unknown> | null };
-      if (!res.ok || !json?.ok || !json.profile) {
+      const { status, json: raw } = await fetchMeProfileDeduped();
+      const json = raw as { ok?: boolean; profile?: Record<string, unknown> | null };
+      if (status < 200 || status >= 300 || !json?.ok || !json.profile) {
         setProfileSourcedRegion(null);
         return;
       }

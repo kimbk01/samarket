@@ -1,6 +1,7 @@
 "use client";
 
 import { createElement, useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
@@ -17,15 +18,22 @@ type MeStoreApi = {
 /**
  * `/my/business` 허브 진입 시 심사 중·반려·무신청 등이면 모달로 안내.
  * `fetchMeStoresListDeduped` 캐시를 쓰므로 Mypage 등과 중복 호출 비용이 작음.
+ *
+ * @param opts.eager `false` — 마운트 시 `/api/me/stores`를 부르지 않음. `refresh()` 후에만 게이트 판별(하단 네비 등 전역 셸용).
  */
-export function useStoreBusinessHubEntryModal(primaryCloseLabel = "확인") {
+export function useStoreBusinessHubEntryModal(
+  primaryCloseLabel = "확인",
+  opts?: { eager?: boolean }
+) {
+  const eager = opts?.eager !== false;
   const router = useRouter();
   const [gate, setGate] = useState<OwnerStoreGateState | null>(null);
   const [firstId, setFirstId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(eager);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const load = useCallback(async () => {
+  /** @returns true면 심사 중·반려 등으로 `/my/business` 운영 진입을 막고 모달을 띄워야 함 */
+  const load = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     try {
       const { status, json: raw } = await fetchMeStoresListDeduped();
@@ -33,7 +41,7 @@ export function useStoreBusinessHubEntryModal(primaryCloseLabel = "확인") {
       if (status === 401 || !j?.ok || !Array.isArray(j.stores)) {
         setGate(null);
         setFirstId(null);
-        return;
+        return false;
       }
       const list = j.stores;
       const forGate = list.map((s) => ({
@@ -42,16 +50,22 @@ export function useStoreBusinessHubEntryModal(primaryCloseLabel = "확인") {
         rejected_reason: s.rejected_reason ?? null,
         revision_note: s.revision_note ?? null,
       }));
-      setGate(getOwnerStoreGateState(forGate));
-      setFirstId(list[0]?.id?.trim() ?? null);
+      const nextGate = getOwnerStoreGateState(forGate);
+      const first = list[0]?.id?.trim() ?? null;
+      flushSync(() => {
+        setGate(nextGate);
+        setFirstId(first);
+      });
+      return nextGate.kind !== "approved";
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    if (!eager) return;
     void load();
-  }, [load]);
+  }, [eager, load]);
 
   /** true = 모달을 띄웠으므로 라우팅하면 안 됨 */
   const openBlockedModalIfNeeded = useCallback(() => {
@@ -87,6 +101,7 @@ export function useStoreBusinessHubEntryModal(primaryCloseLabel = "확인") {
     firstStoreId: firstId,
     modalOpen,
     setModalOpen,
+    /** 게이트 갱신. 반환값: true면 운영 허브 진입 차단(모달 필요) */
     refresh: load,
     openBlockedModalIfNeeded,
     goBusinessHubOrModal,

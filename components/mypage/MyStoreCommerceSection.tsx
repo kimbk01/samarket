@@ -85,12 +85,17 @@ export function MyStoreCommerceSection() {
     );
   }
 
+  const enc = primaryStoreId ? encodeURIComponent(primaryStoreId) : "";
   const ordersHref = primaryStoreId
     ? buildStoreOrdersHref({ storeId: primaryStoreId, tab: "new" })
     : "/my/business/store-orders";
   const inquiriesHref = primaryStoreId
-    ? `/my/business/inquiries?storeId=${encodeURIComponent(primaryStoreId)}`
+    ? `/my/business/inquiries?storeId=${enc}`
     : "/my/business/inquiries";
+  const hubHref = primaryStoreId ? `/my/business?storeId=${enc}` : "/my/business";
+  const productsHref = primaryStoreId
+    ? `/my/business/products?storeId=${enc}`
+    : "/my/business/products";
 
   return (
     <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
@@ -107,6 +112,18 @@ export function MyStoreCommerceSection() {
           className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
         >
           받은 문의
+        </Link>
+        <Link
+          href={hubHref}
+          className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
+        >
+          운영 허브
+        </Link>
+        <Link
+          href={productsHref}
+          className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
+        >
+          상품 관리
         </Link>
         <Link
           href="/my/business/settlements"

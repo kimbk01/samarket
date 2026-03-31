@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEventHandler } from "react";
 import Link from "next/link";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
@@ -12,6 +13,7 @@ import {
   formatStoreApprovalStatusKo,
   isStorePubliclyListed,
 } from "@/lib/stores/store-approval-label-ko";
+import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 
 function computeCanSell(
   sales:
@@ -89,8 +91,27 @@ export function OwnerLiteStoreBar() {
           </p>
         </div>
         <div className="flex shrink-0 items-center justify-end gap-2">
-          <ShortcutLink href={primaryHref} label={primaryLabel} badge={primaryBadge} strong />
-          <ShortcutLink href={secondaryHref} label={secondaryLabel} badge={secondaryBadge} />
+          <ShortcutLink
+            href={primaryHref}
+            label={primaryLabel}
+            badge={primaryBadge}
+            strong
+            onClick={(e) => {
+              if (shouldInterceptBusinessHubHref(primaryHref) && openBlockedModalIfNeeded()) {
+                e.preventDefault();
+              }
+            }}
+          />
+          <ShortcutLink
+            href={secondaryHref}
+            label={secondaryLabel}
+            badge={secondaryBadge}
+            onClick={(e) => {
+              if (shouldInterceptBusinessHubHref(secondaryHref) && openBlockedModalIfNeeded()) {
+                e.preventDefault();
+              }
+            }}
+          />
           <Link
             href={`/my/business?storeId=${storeId}`}
             onClick={(e) => {
@@ -111,15 +132,18 @@ function ShortcutLink({
   label,
   badge,
   strong = false,
+  onClick,
 }: {
   href: string;
   label: string;
   badge?: number;
   strong?: boolean;
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={`inline-flex min-h-[36px] items-center rounded-full px-3 text-[12px] font-semibold ${
         strong
           ? "bg-gray-900 text-white shadow-sm"

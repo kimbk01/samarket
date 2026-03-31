@@ -15,6 +15,7 @@ import { ensureMeetingGroupChatRoom } from "@/lib/neighborhood/meeting-chat";
 import { ensureDefaultMeetingOpenChatRoomForNewMeeting } from "@/lib/meeting-open-chat/rooms-service";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
+import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
 
 type MeetingEntryPolicy = "open" | "approve" | "password" | "invite_only";
 
@@ -247,6 +248,11 @@ export async function POST(req: NextRequest) {
   const allowWaitlist = meet.allow_waitlist === true;
   const allowMemberInvite = meet.allow_member_invite === true;
 
+  /** DB `community_posts_category_check` — 글쓰기 주제 slug(어드민 임의 값)와 별도로 고정 enum 만 허용 */
+  const categoryForDb = isMeetup
+    ? "meetup"
+    : normalizeNeighborhoodCategory(rawCat) ?? "etc";
+
   const { data: inserted, error: insErr } = await sb
     .from("community_posts")
     .insert({
@@ -260,7 +266,7 @@ export async function POST(req: NextRequest) {
       summary: summarize(content),
       region_label: locationName || city || "동네",
       location_id: locationId,
-      category: isMeetup ? "meetup" : rawCat,
+      category: categoryForDb,
       images,
       is_question: rawCat === "question",
       is_meetup: isMeetup,

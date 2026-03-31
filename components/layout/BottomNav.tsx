@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BOTTOM_NAV_ITEMS,
@@ -15,6 +15,8 @@ import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-deduped";
+import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
+import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 
 const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => React.ReactNode> = {
   home: HomeIcon,
@@ -32,6 +34,9 @@ export function BottomNav() {
   const { chatUnread, philifeChatUnread, storesTabAttention, storeDeepLink } =
     useOwnerHubBadgeBreakdown();
   const { ownerStore } = useOwnerLiteStore();
+  const { hubBlockedModal, refresh: refreshBusinessHubGate, setModalOpen: setBusinessHubBlockedModalOpen } =
+    useStoreBusinessHubEntryModal("확인", { eager: false });
+  const storeDeepLinkNavBusyRef = useRef(false);
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
 
   /** 탭 전환은 replace로 쌓지 않음(뒤로가기가 채팅 등으로만 가는 현상 방지). 홈 루트에서만 push로 이전 홈 유지. */
@@ -72,6 +77,7 @@ export function BottomNav() {
 
   return (
     <>
+    {hubBlockedModal}
     <nav
       className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} min-w-0 max-w-full justify-center overflow-x-hidden`}
     >
@@ -152,7 +158,22 @@ export function BottomNav() {
               aria-label={ariaLbl}
               onClick={(e) => {
                 e.preventDefault();
-                router.push(storeDeepLink);
+                if (storeDeepLinkNavBusyRef.current) return;
+                storeDeepLinkNavBusyRef.current = true;
+                void (async () => {
+                  try {
+                    if (shouldInterceptBusinessHubHref(storeDeepLink)) {
+                      const block = await refreshBusinessHubGate();
+                      if (block) {
+                        setBusinessHubBlockedModalOpen(true);
+                        return;
+                      }
+                    }
+                    router.push(storeDeepLink);
+                  } finally {
+                    storeDeepLinkNavBusyRef.current = false;
+                  }
+                })();
               }}
             >
               {inner}

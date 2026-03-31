@@ -8,6 +8,7 @@ import type { ProfileRow, ProfileUpdatePayload } from "./types";
 import { patchSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { dispatchProfileUpdated } from "./profile-update-events";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 
 export type UpdateMyProfileResult =
   | { ok: true; warning?: string }
@@ -49,6 +50,7 @@ export async function updateMyProfile(
         | { ok?: boolean; error?: string; warning?: string }
         | null;
       if (res.ok && data?.ok) {
+        invalidateMeProfileDedupedCache();
         syncCachesAfterProfileSave(payload);
         const w = typeof data.warning === "string" && data.warning.trim() ? data.warning.trim() : undefined;
         return w ? { ok: true, warning: w } : { ok: true };
@@ -71,6 +73,7 @@ export async function updateMyProfile(
     if (typeof window !== "undefined") {
       localStorage.setItem(key, JSON.stringify(next));
     }
+    invalidateMeProfileDedupedCache();
     syncCachesAfterProfileSave(payload);
     return { ok: true };
   } catch {

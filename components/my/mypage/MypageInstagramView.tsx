@@ -16,6 +16,7 @@ import type { MyServiceRow } from "@/lib/my/types";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
+import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 
 export type MypageIgTabId = "trade" | "orders" | "board" | "store" | "account";
 
@@ -159,7 +160,7 @@ export function MypageInstagramView({
     ? `storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
     : "";
   const ownerOrdersHref = ownerHubStoreId?.trim()
-    ? buildStoreOrdersHref({ storeId: ownerHubStoreId.trim() })
+    ? buildStoreOrdersHref({ storeId: ownerHubStoreId.trim(), tab: "new" })
     : "/my/business/store-orders";
 
   const storeRows: MenuRow[] = hasOwnerStore
@@ -496,13 +497,9 @@ function Chevron() {
   );
 }
 
-/** 심사 중 등: `/my/business` 하위는 신청·프로필 미리보기만 예외하고 모달로 막음 */
+/** 심사 중 등: 운영 경로는 모달로 막음 (`shouldInterceptBusinessHubHref` 와 동일) */
 function shouldInterceptMypageBusinessHref(href: string, needsModal: boolean): boolean {
-  if (!needsModal) return false;
-  if (!href.startsWith("/my/business")) return false;
-  if (href.startsWith("/my/business/apply")) return false;
-  if (href.startsWith("/my/business/profile")) return false;
-  return true;
+  return needsModal && shouldInterceptBusinessHubHref(href);
 }
 
 function UserGlyph() {

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -114,14 +115,16 @@ export function StoreNearbyFeedSection({
       const silent = !!opts?.silent;
       if (!silent) setLoading(true);
       try {
-        const res = await fetch(`/api/stores/home-feed${fetchSuffix}`, { cache: "no-store" });
-        const json = await res.json();
-        if (json?.ok && Array.isArray(json.stores)) {
-          setStores(json.stores as StoreHomeFeedItem[]);
-          setMeta(json.meta ?? null);
-        } else {
-          if (!silent) setStores([]);
-        }
+        await runSingleFlight(`stores:home-feed:${fetchSuffix}`, async () => {
+          const res = await fetch(`/api/stores/home-feed${fetchSuffix}`, { cache: "no-store" });
+          const json = await res.json();
+          if (json?.ok && Array.isArray(json.stores)) {
+            setStores(json.stores as StoreHomeFeedItem[]);
+            setMeta(json.meta ?? null);
+          } else {
+            if (!silent) setStores([]);
+          }
+        });
       } catch {
         if (!silent) setStores([]);
       } finally {

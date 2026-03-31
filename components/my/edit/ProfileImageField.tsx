@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useRef, useState } from "react";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 
 export interface ProfileImageFieldProps {
   avatarUrl: string | null;
@@ -37,6 +38,7 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
         setUploadError(data?.error || "업로드에 실패했습니다.");
         return;
       }
+      invalidateMeProfileDedupedCache();
       onChangeUrl(data.url);
     } catch {
       setUploadError("업로드에 실패했습니다.");

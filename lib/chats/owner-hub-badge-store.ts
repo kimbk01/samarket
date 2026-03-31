@@ -110,7 +110,7 @@ function onVisibility() {
         if (typeof document !== "undefined" && document.visibilityState === "visible") {
           void fetchOwnerHubBadgeNow();
         }
-      }, 30_000);
+      }, 45_000);
     }
   } else if (pollInterval) {
     clearInterval(pollInterval);
@@ -155,7 +155,7 @@ function startHub() {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         void fetchOwnerHubBadgeNow();
       }
-    }, 30_000);
+    }, 45_000);
   }
 }
 

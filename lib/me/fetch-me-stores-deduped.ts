@@ -9,7 +9,8 @@ export type MeStoresListResult = {
   json: unknown;
 };
 
-const TTL_MS = 15_000;
+/** 짧은 TTL은 전역 셸·내정보에서 연쇄 호출 시 네트워크·서버 부하를 줄임. 매장 변경 직후는 invalidate 사용 */
+const TTL_MS = 22_000;
 const FLIGHT_KEY = "me:stores:list" as const;
 
 let cached: { expiresAt: number; value: MeStoresListResult } | null = null;

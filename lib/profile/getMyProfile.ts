@@ -9,6 +9,7 @@ import { DEFAULT_PROFILE_ROW } from "./types";
 import { fetchProfileRowSafe } from "./fetch-profile-row-safe";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 
 export async function getMyProfile(): Promise<ProfileRow | null> {
   const userId = getCurrentUser()?.id;
@@ -18,14 +19,12 @@ export async function getMyProfile(): Promise<ProfileRow | null> {
   const hasSupabaseProject = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim());
   if (typeof window !== "undefined" && hasSupabaseProject) {
     try {
-      const res = await fetch("/api/me/profile", { credentials: "include", cache: "no-store" });
-      const json = (await res.json().catch(() => null)) as
-        | { ok?: boolean; profile?: ProfileRow | null; error?: string }
-        | null;
-      if (res.ok && json?.ok && json.profile != null) {
+      const { status, json: raw } = await fetchMeProfileDeduped();
+      const json = raw as { ok?: boolean; profile?: ProfileRow | null; error?: string } | null;
+      if (status >= 200 && status < 300 && json?.ok && json.profile != null) {
         return json.profile as ProfileRow;
       }
-      if (res.ok && json?.ok && json.profile === null) {
+      if (status >= 200 && status < 300 && json?.ok && json.profile === null) {
         return null;
       }
     } catch {
