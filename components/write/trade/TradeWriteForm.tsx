@@ -94,6 +94,9 @@ function buildTradeMeta(
   return {};
 }
 import { createPost } from "@/lib/posts/createPost";
+import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
+import type { OwnerEditPostSnapshot } from "@/lib/posts/owner-edit-post-snapshot";
+import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -114,9 +117,18 @@ interface TradeWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  /** `/products/[id]/edit` — 기존 글 수정 */
+  editPostId?: string;
+  ownerEditSnapshot?: OwnerEditPostSnapshot;
 }
 
-export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteFormProps) {
+export function TradeWriteForm({
+  category,
+  onSuccess,
+  onCancel,
+  editPostId,
+  ownerEditSnapshot,
+}: TradeWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const appSettings = useMemo(() => getAppSettings(), []);
@@ -176,6 +188,7 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
   }, [category.id]);
 
   useEffect(() => {
+    if (editPostId) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -198,7 +211,44 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [editPostId]);
+
+  useEffect(() => {
+    if (!editPostId || !ownerEditSnapshot) return;
+    const h = hydrateTradeWriteFormFromSnapshot(skinKey, ownerEditSnapshot);
+    setTitle(h.title);
+    setDescription(h.description);
+    setPrice(h.price);
+    setRegion(h.region);
+    setCity(h.city);
+    setImages(h.images);
+    setIsFreeShare(h.isFreeShare);
+    setIsPriceOfferEnabled(h.isPriceOfferEnabled);
+    setIsDirectDeal(h.isDirectDeal);
+    setTradeTopicChildId(h.tradeTopicChildId);
+    setNeighborhood(h.neighborhood);
+    setBuildingName(h.buildingName);
+    setEstateType(h.estateType);
+    setDealType(h.dealType);
+    setDeposit(h.deposit);
+    setMonthly(h.monthly);
+    setManagementFee(h.managementFee);
+    setHasPremium(h.hasPremium);
+    setAreaSqm(h.areaSqm);
+    setRoomCount(h.roomCount);
+    setBathroomCount(h.bathroomCount);
+    setMoveInDate(h.moveInDate);
+    setCarModel(h.carModel);
+    setCarYear(h.carYear);
+    setMileage(h.mileage);
+    setUsedCarTrade(h.usedCarTrade);
+    setCarHasAccident(h.carHasAccident);
+    setSalary(h.salary);
+    setWorkPlace(h.workPlace);
+    setWorkType(h.workType);
+    setCurrency(h.currency);
+    setExchangeRate(h.exchangeRate);
+  }, [editPostId, ownerEditSnapshot, skinKey]);
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
@@ -263,14 +313,28 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
       setSubmitting(true);
       try {
         const user = getCurrentUser();
-        if (!ensureClientAccessOrRedirect(router, user, pathname || `/write/${category.slug}`)) {
+        if (
+          !ensureClientAccessOrRedirect(
+            router,
+            user,
+            pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`)
+          )
+        ) {
           return;
         }
         const files = images.map((item) => item.file).filter((f): f is File => !!f);
-        const imageUrls =
-          files.length > 0 && user?.id
-            ? await uploadPostImages(files, user.id)
-            : [];
+        const existingUrls = images
+          .filter((item) => !item.file && item.url && !item.url.startsWith("blob:"))
+          .map((item) => item.url);
+        const uploaded =
+          files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
+        const mergedImageUrls = [...existingUrls, ...uploaded];
+        /** 수정 시 빈 배열을 넘겨야 기존 이미지가 DB에서 제거됨(undefined면 update가 images를 건드리지 않음) */
+        const imageUrlsForSave = editPostId
+          ? mergedImageUrls
+          : mergedImageUrls.length > 0
+            ? mergedImageUrls
+            : undefined;
 
         const submitFreeShare = isUsedCarSkin ? false : isFreeShare;
         const priceToSend =
@@ -318,8 +382,8 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
             : isUsedCarSkin
               ? usedCarPostTitle
               : title.trim();
-        const res = await createPost({
-          type: "trade",
+        const payload = {
+          type: "trade" as const,
           categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
           title: postTitle || (isUsedCarSkin ? usedCarPostTitle : title.trim()),
           content: description.trim(),
@@ -329,14 +393,27 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
           region: region || undefined,
           city: city || undefined,
           barangay: undefined,
-          imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+          imageUrls: imageUrlsForSave,
           meta: Object.keys(meta).length > 0 ? meta : undefined,
-        });
-        if (res.ok) {
-          onSuccess(res.id);
+        };
+        if (editPostId) {
+          const res = await updateTradePostFromCreatePayload(editPostId, payload);
+          if (res.ok) {
+            onSuccess(editPostId);
+          } else {
+            if (redirectForBlockedAction(router, res.error, pathname || `/products/${editPostId}/edit`)) {
+              return;
+            }
+            setErrors({ submit: res.error });
+          }
         } else {
-          if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
-          setErrors({ submit: res.error });
+          const res = await createPost(payload);
+          if (res.ok) {
+            onSuccess(res.id);
+          } else {
+            if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
+            setErrors({ submit: res.error });
+          }
         }
       } finally {
         setSubmitting(false);
@@ -383,14 +460,18 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
       onSuccess,
       router,
       pathname,
+      editPostId,
     ]
   );
 
-  const backHref = getCategoryHref(category);
+  const backHref = editPostId ? `/products/${editPostId}` : getCategoryHref(category);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
+      <WriteScreenTier1Sync
+        title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
+        backHref={backHref}
+      />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
         <ImageUploader
           value={images}
@@ -957,8 +1038,9 @@ export function TradeWriteForm({ category, onSuccess, onCancel }: TradeWriteForm
           <p className="px-4 py-2 text-[13px] text-red-500">{errors.submit}</p>
         )}
         <SubmitButton
-          label="등록하기"
+          label={editPostId ? "수정 완료" : "등록하기"}
           submitting={submitting}
+          submittingLabel={editPostId ? "저장 중…" : "등록 중…"}
           onCancel={onCancel}
         />
       </form>

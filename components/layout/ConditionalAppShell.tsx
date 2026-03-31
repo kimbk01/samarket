@@ -33,6 +33,7 @@ export function ConditionalAppShell({
   const isSettings = pathname?.startsWith("/my/settings") ?? false;
   const isLogout = pathname === "/my/logout";
   const isMyEdit = pathname === "/my/edit";
+  const isProductEditPage = pathname?.match(/^\/products\/[^/]+\/edit$/) ?? false;
   const isWritePage =
     (pathname?.startsWith("/write") ?? false) || pathname === "/philife/write";
   const isPostDetail = pathname?.match(/^\/post\/[^/]+$/) ?? false;
@@ -91,6 +92,7 @@ export function ConditionalAppShell({
     !isChatRoomDetail &&
     !isPostDetail &&
     !isProductDetail &&
+    !isProductEditPage &&
     !isStoreProductDetail &&
     !isStoreSection &&
     !isCommunityApp &&

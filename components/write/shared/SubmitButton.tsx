@@ -3,6 +3,8 @@
 interface SubmitButtonProps {
   label?: string;
   submitting?: boolean;
+  /** 제출 중 버튼 문구 (기본: 등록 중…) */
+  submittingLabel?: string;
   onCancel?: () => void;
   disabled?: boolean;
 }
@@ -10,6 +12,7 @@ interface SubmitButtonProps {
 export function SubmitButton({
   label = "등록하기",
   submitting = false,
+  submittingLabel = "등록 중…",
   onCancel,
   disabled = false,
 }: SubmitButtonProps) {
@@ -29,7 +32,7 @@ export function SubmitButton({
         disabled={disabled || submitting}
         className="flex-1 rounded-lg bg-signature py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
       >
-        {submitting ? "등록 중…" : label}
+        {submitting ? submittingLabel : label}
       </button>
     </div>
   );

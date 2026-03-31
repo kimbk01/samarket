@@ -4,6 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
+import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
+import type { OwnerEditPostSnapshot } from "@/lib/posts/owner-edit-post-snapshot";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
@@ -30,6 +32,8 @@ interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  editPostId?: string;
+  ownerEditSnapshot?: OwnerEditPostSnapshot;
 }
 
 
@@ -47,7 +51,13 @@ function buildExchangeTitle(direction: string): string {
   return direction === "sell" ? "페소 팝니다" : "페소 삽니다";
 }
 
-export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWriteFormProps) {
+export function ExchangeWriteForm({
+  category,
+  onSuccess,
+  onCancel,
+  editPostId,
+  ownerEditSnapshot,
+}: ExchangeWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const appSettings = useMemo(() => getAppSettings(), []);
@@ -70,6 +80,45 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
   useEffect(() => {
     setTradeTopicChildId("");
   }, [category.id]);
+
+  useEffect(() => {
+    if (!editPostId || !ownerEditSnapshot) return;
+    const m = ownerEditSnapshot.meta ?? {};
+    const dir = m.exchange_direction === "buy" ? "buy" : "sell";
+    setDirection(dir);
+    setRegion(ownerEditSnapshot.region?.trim() ?? "");
+    setCity(ownerEditSnapshot.city?.trim() ?? "");
+
+    const baseRaw = m.exchange_rate_base;
+    const plusRaw = m.exchange_rate_plus;
+    const combinedRaw = m.exchange_rate;
+    const baseNum = typeof baseRaw === "number" ? baseRaw : Number(baseRaw);
+    const plusNum = typeof plusRaw === "number" ? plusRaw : Number(plusRaw);
+    const combinedNum = typeof combinedRaw === "number" ? combinedRaw : Number(combinedRaw);
+    if (Number.isFinite(baseNum) && baseNum > 0) {
+      setRate(String(baseNum));
+    } else if (Number.isFinite(combinedNum) && combinedNum > 0) {
+      setRate(String(combinedNum));
+    }
+    if (Number.isFinite(plusNum)) {
+      setRatePlus(String(plusNum));
+    }
+
+    const amt = m.amount ?? ownerEditSnapshot.price;
+    const amtNum = typeof amt === "number" ? amt : Number(amt);
+    if (Number.isFinite(amtNum) && amtNum > 0) {
+      setAmount(formatPriceInput(String(amtNum)));
+    }
+
+    const sp = m.seller_prep;
+    const bp = m.buyer_prep;
+    setSellerPrep(Array.isArray(sp) ? sp.filter((x): x is string => typeof x === "string") : []);
+    setBuyerPrep(Array.isArray(bp) ? bp.filter((x): x is string => typeof x === "string") : []);
+    setMemo(ownerEditSnapshot.content ?? "");
+
+    const crit = m.rate_criteria_at;
+    if (typeof crit === "string" && crit.trim()) setRatesFetchedAt(crit.trim());
+  }, [editPostId, ownerEditSnapshot]);
 
   /** 항상 페소↔한화. 저장/표시는 "1 PHP = X KRW"로 통일. */
   const fromCurrency = "PHP";
@@ -174,7 +223,13 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
       setSubmitting(true);
       try {
         const user = getCurrentUser();
-        if (!ensureClientAccessOrRedirect(router, user, pathname || `/write/${category.slug}`)) {
+        if (
+          !ensureClientAccessOrRedirect(
+            router,
+            user,
+            pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`)
+          )
+        ) {
           return;
         }
         const title = buildExchangeTitle(direction);
@@ -192,8 +247,8 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
           seller_prep: direction === "sell" ? [] : sellerPrep,
           buyer_prep: buyerPrep,
         };
-        const res = await createPost({
-          type: "trade",
+        const payload = {
+          type: "trade" as const,
           categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
           title,
           content,
@@ -202,11 +257,21 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
           region: region || undefined,
           city: city || undefined,
           meta,
-        });
-        if (res.ok) onSuccess(res.id);
-        else {
-          if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
-          setErrors({ submit: res.error });
+        };
+        if (editPostId) {
+          const res = await updateTradePostFromCreatePayload(editPostId, payload);
+          if (res.ok) onSuccess(editPostId);
+          else {
+            if (redirectForBlockedAction(router, res.error, pathname || `/products/${editPostId}/edit`)) return;
+            setErrors({ submit: res.error });
+          }
+        } else {
+          const res = await createPost(payload);
+          if (res.ok) onSuccess(res.id);
+          else {
+            if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
+            setErrors({ submit: res.error });
+          }
         }
       } finally {
         setSubmitting(false);
@@ -231,10 +296,11 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
       onSuccess,
       router,
       pathname,
+      editPostId,
     ]
   );
 
-  const backHref = getCategoryHref(category);
+  const backHref = editPostId ? `/products/${editPostId}` : getCategoryHref(category);
   const baseRates = liveRates ?? DEFAULT_RATES_PHP_BASE;
   const ratesForBoard = useMemo(() => {
     const result: Record<string, number> = { PHP: 1 };
@@ -244,7 +310,10 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
+      <WriteScreenTier1Sync
+        title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
+        backHref={backHref}
+      />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
         {/* 환율 상황판 (자동 조회) */}
         <section className="border-b border-gray-100 bg-white px-4 py-4">
@@ -440,7 +509,12 @@ export function ExchangeWriteForm({ category, onSuccess, onCancel }: ExchangeWri
 
         {errors.submit && <p className="px-4 py-2 text-[13px] text-red-500">{errors.submit}</p>}
 
-        <SubmitButton label="등록하기" submitting={submitting} onCancel={onCancel} />
+        <SubmitButton
+          label={editPostId ? "수정 완료" : "등록하기"}
+          submitting={submitting}
+          submittingLabel={editPostId ? "저장 중…" : "등록 중…"}
+          onCancel={onCancel}
+        />
       </form>
     </div>
   );
