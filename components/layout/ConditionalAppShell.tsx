@@ -34,6 +34,9 @@ export function ConditionalAppShell({
   const isLogout = pathname === "/my/logout";
   const isMyEdit = pathname === "/my/edit";
   const isProductEditPage = pathname?.match(/^\/products\/[^/]+\/edit$/) ?? false;
+  /** 개인거래 상품 등록·수정 — 하단 탭은 유지하되 매장 단축 바(OwnerLiteStoreBar)는 노출하지 않음 */
+  const isPersonalProductComposerPage =
+    pathname === "/products/new" || (pathname?.startsWith("/products/new/") ?? false) || isProductEditPage;
   const isWritePage =
     (pathname?.startsWith("/write") ?? false) || pathname === "/philife/write";
   const isPostDetail = pathname?.match(/^\/post\/[^/]+$/) ?? false;
@@ -123,7 +126,8 @@ export function ConditionalAppShell({
     !isSearch &&
     !isServicesSection &&
     !isTradeFloatingSurface &&
-    !isCommunityApp;
+    !isCommunityApp &&
+    !isPersonalProductComposerPage;
   const mountGlobalRealtimeChrome =
     showBottomNav || isMyTab || isStoreSection || isOrdersHub;
 
