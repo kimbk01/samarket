@@ -1,22 +1,64 @@
 /**
- * GET /api/auth/session — (main) 앱 셸·프록시와 동일하게 Supabase 세션만 인정.
- * Kasama/test 쿠키는 HTML 진입이 막혀 있으므로 여기서 200이면 안 됨(불일치 시 화면만 남는 현상).
+ * GET /api/auth/session — (main) 앱 셸·SessionLostRedirect 와 동일하게 Supabase 세션만 인정.
+ * Route Handler 에서 `cookies()` 만 쓰면 토큰 갱신 시 Set-Cookie 가 누락되어
+ * 주기적 세션 체크가 401 → 자동 로그아웃으로 이어질 수 있어,
+ * Request + mutable NextResponse 패턴으로 갱신 쿠키를 응답에 실음 (@supabase/ssr 권장).
  */
-import { NextResponse } from "next/server";
-import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
+
+type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const supabase = await createSupabaseRouteHandlerClient();
-  if (!supabase) {
+function mergeAuthCookies(from: NextResponse, to: NextResponse): void {
+  for (const c of from.cookies.getAll()) {
+    to.cookies.set(c);
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!url || !anon) {
     return NextResponse.json({ ok: false, authenticated: false }, { status: 401 });
   }
+
+  let cookieCarrier = NextResponse.next({
+    request: { headers: request.headers },
+  });
+
+  const supabase = createServerClient(url, anon, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet: CookieToSet[]) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+        cookieCarrier = NextResponse.next({
+          request: { headers: request.headers },
+        });
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieCarrier.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
-  if (!user?.id) {
-    return NextResponse.json({ ok: false, authenticated: false }, { status: 401 });
+
+  if (error || !user?.id) {
+    const res = NextResponse.json({ ok: false, authenticated: false }, { status: 401 });
+    mergeAuthCookies(cookieCarrier, res);
+    return res;
   }
-  return NextResponse.json({ ok: true, authenticated: true });
+
+  const res = NextResponse.json({ ok: true, authenticated: true });
+  mergeAuthCookies(cookieCarrier, res);
+  return res;
 }

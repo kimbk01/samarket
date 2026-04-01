@@ -41,12 +41,36 @@ export function SessionLostRedirect() {
     if (path === "/login" || path.startsWith("/login/")) return;
 
     await runSingleFlight(SESSION_CHECK_FLIGHT, async () => {
-      const res = await fetch("/api/auth/session", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (res.ok) return;
-      await handleSessionLost();
+      try {
+        const res = await fetch("/api/auth/session", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (res.ok) return;
+        /** 서버·게이트웨이 오류는 로그아웃으로 취급하지 않음(일시 장애로 세션 끊김 방지) */
+        if (res.status >= 500 || res.status === 429) return;
+
+        /** 401 등: 브라우저에서 refresh 한 번 시도 후 재검사 — 갱신 쿠키 반영 지연·Route Handler 쿠키 이슈 완화 */
+        if (res.status === 401) {
+          const sb = getSupabaseClient();
+          try {
+            await sb?.auth.refreshSession();
+          } catch {
+            /* ignore */
+          }
+          await new Promise((r) => setTimeout(r, 350));
+          const res2 = await fetch("/api/auth/session", {
+            credentials: "include",
+            cache: "no-store",
+          });
+          if (res2.ok) return;
+          if (res2.status >= 500 || res2.status === 429) return;
+        }
+
+        await handleSessionLost();
+      } catch {
+        /** 네트워크 끊김 등 — 자동 로그아웃 안 함 */
+      }
     });
   }, [handleSessionLost]);
 
