@@ -122,32 +122,77 @@ export async function GET(req: NextRequest) {
   }
 
   const rawList = orders ?? [];
+  if (!rawList.length) {
+    return NextResponse.json({ ok: true, orders: [] });
+  }
+
+  const rawOrderIds = rawList.map((o) => String(o.id ?? "").trim()).filter(Boolean);
+  if (!rawOrderIds.length) {
+    return NextResponse.json({ ok: true, orders: [] });
+  }
+
+  /** 숨김·라인아이템·리뷰는 서로 독립 — 한 번에 병렬 조회해 왕복 지연을 줄임 */
+  const [hiddenRes, itemsRes, revRes] = await Promise.all([
+    sb.from("store_order_buyer_hides").select("order_id").eq("buyer_user_id", buyerId).in("order_id", rawOrderIds),
+    sb
+      .from("store_order_items")
+      .select(
+        "id, order_id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json"
+      )
+      .in("order_id", rawOrderIds),
+    sb.from("store_reviews").select("order_id").in("order_id", rawOrderIds),
+  ]);
+
   let list = rawList;
-  if (rawList.length) {
-    const rawOrderIds = rawList.map((o) => String(o.id ?? "").trim()).filter(Boolean);
-    if (rawOrderIds.length) {
-      const { data: hiddenRows, error: hiddenErr } = await sb
-        .from("store_order_buyer_hides")
-        .select("order_id")
-        .eq("buyer_user_id", buyerId)
-        .in("order_id", rawOrderIds);
-      if (hiddenErr) {
-        if (!(hiddenErr.message?.includes("store_order_buyer_hides") && hiddenErr.message.includes("does not exist"))) {
-          console.error("[GET store-orders hidden]", hiddenErr);
-          return NextResponse.json({ ok: false, error: hiddenErr.message }, { status: 500 });
-        }
-      } else {
-        const hidden = new Set(
-          (hiddenRows ?? [])
-            .map((r) => String((r as { order_id?: string }).order_id ?? "").trim())
-            .filter(Boolean)
-        );
-        if (hidden.size > 0) {
-          list = rawList.filter((o) => !hidden.has(String(o.id ?? "").trim()));
-        }
-      }
+  const { data: hiddenRows, error: hiddenErr } = hiddenRes;
+  if (hiddenErr) {
+    if (
+      !(
+        hiddenErr.message?.includes("store_order_buyer_hides") &&
+        hiddenErr.message?.includes("does not exist")
+      )
+    ) {
+      console.error("[GET store-orders hidden]", hiddenErr);
+      return NextResponse.json({ ok: false, error: hiddenErr.message }, { status: 500 });
+    }
+  } else {
+    const hidden = new Set(
+      (hiddenRows ?? [])
+        .map((r) => String((r as { order_id?: string }).order_id ?? "").trim())
+        .filter(Boolean)
+    );
+    if (hidden.size > 0) {
+      list = rawList.filter((o) => !hidden.has(String(o.id ?? "").trim()));
     }
   }
+
+  const { data: itemRows, error: iErr } = itemsRes;
+  if (iErr) {
+    console.error("[GET store-orders items]", iErr);
+    return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
+  }
+
+  const itemsByOrder: Record<string, unknown[]> = {};
+  for (const row of itemRows ?? []) {
+    const oid = row.order_id as string;
+    if (!itemsByOrder[oid]) itemsByOrder[oid] = [];
+    itemsByOrder[oid].push(row);
+  }
+
+  const reviewedOrderIds = new Set<string>();
+  let reviewsUnavailable = false;
+  const { data: revRows, error: revErr } = revRes;
+  if (revErr) {
+    if (revErr.message?.includes("store_reviews") && revErr.message.includes("does not exist")) {
+      reviewsUnavailable = true;
+    }
+  } else if (revRows) {
+    for (const r of revRows) {
+      const oid = String((r as { order_id?: string }).order_id ?? "").trim();
+      if (oid) reviewedOrderIds.add(oid);
+    }
+  }
+
   const storeIds = [...new Set(list.map((o) => o.store_id as string))];
   const names: Record<string, string> = {};
   const profileImages: Record<string, string | null> = {};
@@ -164,43 +209,6 @@ export async function GET(req: NextRequest) {
       profileImages[sid] = typeof u === "string" && u.trim() ? u.trim() : null;
       const slugRaw = (s as { slug?: string | null }).slug;
       slugs[sid] = typeof slugRaw === "string" && slugRaw.trim() ? slugRaw.trim() : "";
-    }
-  }
-
-  const orderIds = list.map((o) => o.id as string);
-  const itemsByOrder: Record<string, unknown[]> = {};
-  if (orderIds.length) {
-    const { data: itemRows, error: iErr } = await sb
-      .from("store_order_items")
-      .select("id, order_id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
-      .in("order_id", orderIds);
-    if (iErr) {
-      console.error("[GET store-orders items]", iErr);
-      return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
-    }
-    for (const row of itemRows ?? []) {
-      const oid = row.order_id as string;
-      if (!itemsByOrder[oid]) itemsByOrder[oid] = [];
-      itemsByOrder[oid].push(row);
-    }
-  }
-
-  const reviewedOrderIds = new Set<string>();
-  let reviewsUnavailable = false;
-  if (orderIds.length) {
-    const { data: revRows, error: revErr } = await sb
-      .from("store_reviews")
-      .select("order_id")
-      .in("order_id", orderIds);
-    if (revErr) {
-      if (revErr.message?.includes("store_reviews") && revErr.message.includes("does not exist")) {
-        reviewsUnavailable = true;
-      }
-    } else if (revRows) {
-      for (const r of revRows) {
-        const oid = String((r as { order_id?: string }).order_id ?? "").trim();
-        if (oid) reviewedOrderIds.add(oid);
-      }
     }
   }
 

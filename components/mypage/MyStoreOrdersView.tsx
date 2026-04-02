@@ -397,43 +397,6 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
     | { kind: "ok"; orders: OrderRow[] }
   >({ kind: "loading" });
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent === true;
-    if (!silent) setState({ kind: "loading" });
-    try {
-      const res = await fetch("/api/me/store-orders", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (res.status === 401) {
-        if (!silent) setState({ kind: "unauth" });
-        return;
-      }
-      if (res.status === 503) {
-        if (!silent) {
-          setState({
-            kind: "error",
-            message: "supabase_unconfigured",
-          });
-        }
-        return;
-      }
-      const json = await res.json();
-      if (!json?.ok) {
-        if (!silent) {
-          setState({
-            kind: "error",
-            message: typeof json?.error === "string" ? json.error : "load_failed",
-          });
-        }
-        return;
-      }
-      setState({ kind: "ok", orders: (json.orders ?? []) as OrderRow[] });
-    } catch {
-      if (!silent) setState({ kind: "error", message: "network_error" });
-    }
-  }, []);
-
   const loadOrderChatUnreads = useCallback(async () => {
     try {
       const { ok, status, rooms } = await fetchChatRoomsBySegment("order");
@@ -447,6 +410,48 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
     }
   }, []);
 
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent === true;
+      if (!silent) setState({ kind: "loading" });
+      try {
+        const res = await fetch("/api/me/store-orders", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (res.status === 401) {
+          setOrderChatUnreadMap({});
+          if (!silent) setState({ kind: "unauth" });
+          return;
+        }
+        if (res.status === 503) {
+          if (!silent) {
+            setState({
+              kind: "error",
+              message: "supabase_unconfigured",
+            });
+          }
+          return;
+        }
+        const json = await res.json();
+        if (!json?.ok) {
+          if (!silent) {
+            setState({
+              kind: "error",
+              message: typeof json?.error === "string" ? json.error : "load_failed",
+            });
+          }
+          return;
+        }
+        setState({ kind: "ok", orders: (json.orders ?? []) as OrderRow[] });
+        void loadOrderChatUnreads();
+      } catch {
+        if (!silent) setState({ kind: "error", message: "network_error" });
+      }
+    },
+    [loadOrderChatUnreads]
+  );
+
   /** 읽음/폴링 이벤트가 연타될 때 `/api/chat/rooms?segment=order` 폭주 방지 */
   const orderUnreadThrottleRef = useRef(0);
   const loadOrderChatUnreadsThrottled = useCallback(() => {
@@ -456,17 +461,11 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
     void loadOrderChatUnreads();
   }, [loadOrderChatUnreads]);
 
+  /** 주문 목록·주문 채팅 읽지 않음을 동시에 요청해 체감 대기 시간을 줄임 (`fetchChatRoomsBySegment` 단일 비행 합류) */
   useEffect(() => {
     void load();
-  }, [load]);
-
-  useEffect(() => {
-    if (state.kind !== "ok") {
-      setOrderChatUnreadMap({});
-      return;
-    }
     void loadOrderChatUnreads();
-  }, [state.kind, loadOrderChatUnreads]);
+  }, [load, loadOrderChatUnreads]);
 
   useEffect(() => {
     const onUnread = () => loadOrderChatUnreadsThrottled();
