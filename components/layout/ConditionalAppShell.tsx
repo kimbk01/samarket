@@ -19,6 +19,7 @@ import { GlobalOrderChatUnreadSound } from "@/components/notifications/GlobalOrd
 import { NotificationSoundPrime } from "@/components/notifications/NotificationSoundPrime";
 import { NotificationsBadgeRealtimeBridge } from "@/components/notifications/NotificationsBadgeRealtimeBridge";
 import { HomeTradeReelsSideRail } from "@/components/home-feed/HomeTradeReelsSideRail";
+import { PhilifeFeedWarmPrefetch } from "@/components/community/PhilifeFeedWarmPrefetch";
 
 export function ConditionalAppShell({
   children,
@@ -142,6 +143,7 @@ export function ConditionalAppShell({
 
   return (
     <div className={appShellRootClass}>
+      <PhilifeFeedWarmPrefetch />
       {mountGlobalRealtimeChrome ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}

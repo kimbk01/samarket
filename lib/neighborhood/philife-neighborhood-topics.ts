@@ -21,10 +21,32 @@ export type PhilifeNeighborhoodWriteTopicOption = {
   name: string;
 };
 
-/** 섹션 기준 피드 주제 행 (캐시 없음 — API·서버에서 호출) */
+/** 프로세스 내 짧은 TTL — 피드·주제 API가 매 요청마다 동일 주제를 중복 조회하지 않도록 */
+let philifeSectionTopicsCache: { topics: CommunityTopicDTO[]; expiresAt: number } | null = null;
+const PHILIFE_SECTION_TOPICS_TTL_MS = 45_000;
+
+/** 섹션 기준 피드 주제 행 (서버 프로세스 메모리 캐시, TTL 약 45초) */
 export async function loadPhilifeDefaultSectionTopics(): Promise<CommunityTopicDTO[]> {
+  const now = Date.now();
+  if (philifeSectionTopicsCache && philifeSectionTopicsCache.expiresAt > now) {
+    return philifeSectionTopicsCache.topics;
+  }
   const slug = await getPhilifeNeighborhoodSectionSlugServer();
-  return listTopicsForSectionSlug(slug);
+  const topics = await listTopicsForSectionSlug(slug);
+  philifeSectionTopicsCache = { topics, expiresAt: now + PHILIFE_SECTION_TOPICS_TTL_MS };
+  return topics;
+}
+
+/** 이미 로드한 `topics`로 category 쿼리 허용 여부 판별 — 추가 DB 라운드트립 없음 */
+export function isPhilifeFeedCategorySlugAllowedByTopics(topics: CommunityTopicDTO[], slug: string): boolean {
+  const s = slug.trim().toLowerCase();
+  if (!s) return false;
+  if (s === "meetup") {
+    return topics.some((t) => t.allow_meetup);
+  }
+  return topics.some(
+    (t) => !t.is_feed_sort && !t.allow_meetup && t.slug.trim().toLowerCase() === s
+  );
 }
 
 /** 홈 피드 상단 칩: `is_feed_sort` 제외, `allow_meetup` 은 단일 「모임」칩으로 묶음 */
@@ -125,11 +147,6 @@ export function labelForNeighborhoodPostCategory(
 
 /** URL·쿼리 `category` 가 피드 필터로 허용되는지 (어드민 노출 주제와 동기) */
 export async function isPhilifeNeighborhoodFeedFilterSlugAllowed(slug: string): Promise<boolean> {
-  const s = slug.trim().toLowerCase();
-  if (!s) return false;
   const topics = await loadPhilifeDefaultSectionTopics();
-  if (s === "meetup") {
-    return topics.some((t) => t.allow_meetup);
-  }
-  return topics.some((t) => !t.is_feed_sort && !t.allow_meetup && t.slug === s);
+  return isPhilifeFeedCategorySlugAllowedByTopics(topics, slug);
 }

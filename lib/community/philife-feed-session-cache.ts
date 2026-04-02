@@ -1,6 +1,8 @@
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 
-const STORAGE_KEY = "philife_neighborhood_feed_v1";
+/** v2: 캐시 키에 뷰어(로그인) 구분 — 차단 필터·관심이웃과 불일치 방지 */
+const STORAGE_KEY = "philife_neighborhood_feed_v2";
 const MAX_AGE_MS = 1000 * 60 * 30;
 
 export type PhilifeFeedCacheSnapshot = {
@@ -12,21 +14,32 @@ export type PhilifeFeedCacheSnapshot = {
 
 type StoredShape = Record<string, PhilifeFeedCacheSnapshot>;
 
-function cacheId(locationKey: string, category: string, neighborOnly: boolean): string {
-  return `${locationKey}\u001f${category}\u001f${neighborOnly ? "1" : "0"}`;
+export function philifeFeedViewerSig(): string {
+  const id = getCurrentUser()?.id?.trim();
+  return id || "_anon";
+}
+
+function cacheId(
+  locationKey: string,
+  category: string,
+  neighborOnly: boolean,
+  viewerSig: string
+): string {
+  return `${locationKey}\u001f${category}\u001f${neighborOnly ? "1" : "0"}\u001f${viewerSig}`;
 }
 
 export function readPhilifeFeedCache(
   locationKey: string,
   category: string,
-  neighborOnly: boolean
+  neighborOnly: boolean,
+  viewerSig: string
 ): PhilifeFeedCacheSnapshot | null {
   if (typeof window === "undefined" || !locationKey) return null;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const all = JSON.parse(raw) as StoredShape;
-    const snap = all[cacheId(locationKey, category, neighborOnly)];
+    const snap = all[cacheId(locationKey, category, neighborOnly, viewerSig)];
     if (!snap?.posts?.length) return null;
     if (typeof snap.savedAt !== "number" || Date.now() - snap.savedAt > MAX_AGE_MS) return null;
     return snap;
@@ -39,13 +52,14 @@ export function writePhilifeFeedCache(
   locationKey: string,
   category: string,
   neighborOnly: boolean,
+  viewerSig: string,
   snapshot: Omit<PhilifeFeedCacheSnapshot, "savedAt">
 ): void {
   if (typeof window === "undefined" || !locationKey || !snapshot.posts.length) return;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     const all: StoredShape = raw ? (JSON.parse(raw) as StoredShape) : {};
-    all[cacheId(locationKey, category, neighborOnly)] = {
+    all[cacheId(locationKey, category, neighborOnly, viewerSig)] = {
       ...snapshot,
       savedAt: Date.now(),
     };

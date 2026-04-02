@@ -8,7 +8,6 @@ import {
   neighborhoodLocationMetaFromRegion,
   neighborhoodLocationLabelFromRegion,
 } from "@/lib/neighborhood/location-key";
-import { philifeNeighborhoodFeedUrl } from "@domain/philife/api";
 import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
@@ -23,8 +22,11 @@ import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
 import { readPhilifeFeedCache, writePhilifeFeedCache } from "@/lib/community/philife-feed-session-cache";
-
-const PAGE_SIZE = 20;
+import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
+import {
+  buildPhilifeNeighborhoodFeedClientUrl,
+  NEIGHBORHOOD_FEED_PAGE_SIZE,
+} from "@/lib/philife/neighborhood-feed-client-url";
 
 function mergeNeighborhoodFeedById(
   prev: NeighborhoodFeedPostDTO[],
@@ -57,6 +59,7 @@ const PHILIFE_TOPIC_TAB_CLASS = {
 } as const;
 
 export function CommunityFeed() {
+  const viewerSig = usePhilifeFeedViewerSig();
   const { currentRegion } = useRegion();
   const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
   const locationMeta = neighborhoodLocationMetaFromRegion(currentRegion);
@@ -123,19 +126,22 @@ export function CommunityFeed() {
       const controller = new AbortController();
       feedAbortRef.current = controller;
       try {
-        const p = new URLSearchParams();
-        p.set("locationKey", locationKey);
-        p.set("city", locationMeta?.city ?? "");
-        p.set("district", locationMeta?.district ?? "");
-        p.set("name", locationMeta?.name ?? (locationLabel || currentRegion?.label || ""));
-        p.set("limit", String(PAGE_SIZE));
-        p.set("offset", String(nextOffset));
-        if (category) p.set("category", category);
-        if (neighborOnly) p.set("neighborOnly", "1");
-        const res = await fetch(philifeNeighborhoodFeedUrl(p.toString()), {
-          cache: "no-store",
+        const url = buildPhilifeNeighborhoodFeedClientUrl({
+          locationKey,
+          meta: locationMeta,
+          locationLabelFallback: locationLabel,
+          regionLabel: currentRegion?.label ?? null,
+          category: category || undefined,
+          neighborOnly,
+          offset: nextOffset,
+          limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
+        });
+        const personalized = neighborOnly || viewerSig !== "_anon";
+        const res = await fetch(url, {
           credentials: "include",
           signal: controller.signal,
+          priority: "high",
+          ...(personalized ? { cache: "no-store" as RequestCache } : {}),
         });
         const j = (await res.json()) as {
           ok?: boolean;
@@ -185,7 +191,7 @@ export function CommunityFeed() {
           next.length > 0
         ) {
           const cachedPosts = mergeNeighborhoodFeedById([], next, false);
-          writePhilifeFeedCache(locationKey, category, neighborOnly, {
+          writePhilifeFeedCache(locationKey, category, neighborOnly, viewerSig, {
             posts: cachedPosts,
             hasMore: !!j.hasMore,
             nextOffset: resolvedNextOffset,
@@ -208,7 +214,17 @@ export function CommunityFeed() {
         }
       }
     },
-    [locationKey, locationMeta?.city, locationMeta?.district, locationMeta?.name, category, neighborOnly, currentRegion?.label, locationLabel]
+    [
+      locationKey,
+      locationMeta?.city,
+      locationMeta?.district,
+      locationMeta?.name,
+      category,
+      neighborOnly,
+      currentRegion?.label,
+      locationLabel,
+      viewerSig,
+    ]
   );
 
   useLayoutEffect(() => {
@@ -218,7 +234,7 @@ export function CommunityFeed() {
     loadMoreLockRef.current = false;
 
     if (locationKey) {
-      const snap = readPhilifeFeedCache(locationKey, category, neighborOnly);
+      const snap = readPhilifeFeedCache(locationKey, category, neighborOnly, viewerSig);
       if (snap?.posts?.length) {
         setPosts(snap.posts);
         setHasMore(snap.hasMore);
@@ -228,13 +244,17 @@ export function CommunityFeed() {
         setPosts([]);
         setErr("");
       }
+    } else {
+      setPosts([]);
+      setHasMore(false);
+      setErr("");
     }
 
     void fetchPage(0, false, session);
     return () => {
       feedAbortRef.current?.abort();
     };
-  }, [locationKey, category, neighborOnly, fetchPage]);
+  }, [locationKey, category, neighborOnly, viewerSig, fetchPage]);
 
   // 상단 광고 비동기 로드 (1회, 위치 무관)
   useEffect(() => {
@@ -258,13 +278,13 @@ export function CommunityFeed() {
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el || !hasMore || loading || loadingMore) return;
-    const session = feedSessionRef.current;
     const obs = new IntersectionObserver(
       (entries) => {
         if (!entries[0]?.isIntersecting || loadMoreLockRef.current) return;
         loadMoreLockRef.current = true;
         const start = nextOffsetRef.current;
-        void fetchPage(start, true, session).finally(() => {
+        const liveSession = feedSessionRef.current;
+        void fetchPage(start, true, liveSession).finally(() => {
           loadMoreLockRef.current = false;
         });
       },
