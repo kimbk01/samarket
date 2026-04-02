@@ -89,7 +89,7 @@ export function OwnerOrderChatPageClient({
     );
   }
 
-  const orderChatsHref = "/orders?tab=chat";
+  const orderChatsHref = "/my/store-orders";
   const flow: OrderChatFlow = order.order_type === "delivery" ? "delivery" : "pickup";
 
   return (

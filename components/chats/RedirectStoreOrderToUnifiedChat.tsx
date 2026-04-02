@@ -98,7 +98,7 @@ export function RedirectStoreOrderToUnifiedChat(props: Props) {
           주문 상세로 돌아가기
         </Link>
         <Link
-          href={props.variant === "buyer" ? "/orders?tab=chat" : "/mypage/trade/chat"}
+          href={props.variant === "buyer" ? "/my/store-orders" : "/mypage/trade/chat"}
           className="text-sm text-gray-600 underline"
         >
           주문 채팅 목록

@@ -90,7 +90,7 @@ export function MemberOrdersPageClient() {
         <MemberOrderTabs active={tab} onChange={setTab} counts={counts} />
 
         <p className="text-xs text-gray-500">
-          <Link href="/orders?tab=chat" className="text-violet-700 underline">
+          <Link href="/my/store-orders" className="text-violet-700 underline">
             주문 채팅 목록
           </Link>
           {" · "}

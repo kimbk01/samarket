@@ -129,7 +129,7 @@ export function StoreOrderDashboardSection({
           <span className="mt-2 text-[11px] font-semibold text-signature">내역</span>
         </Link>
         <Link
-          href="/orders?tab=chat"
+          href="/my/store-orders"
           className="flex w-[132px] shrink-0 flex-col rounded-2xl bg-neutral-50 p-3 ring-1 ring-neutral-100"
         >
           <span className="text-[10px] font-medium text-neutral-500">주문 채팅</span>

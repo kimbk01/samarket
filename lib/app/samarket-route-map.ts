@@ -72,13 +72,14 @@ export const SAMARKET_ROUTES = {
   },
   orders: {
     hub: "/orders",
+    /** 사업자·레거시 마이페이지 트리 — 구매자 배달 목록은 `orderChats` */
     storeOrders: "/mypage/store-orders",
     tradePurchases: "/mypage/purchases",
-    /** 주문·매장 채팅 목록 (방 상세는 `chat.room`) */
-    orderChats: "/orders?tab=chat",
+    /** 구매자 배달·매장 주문 목록(채팅 허브 탭과 동일) */
+    orderChats: "/my/store-orders",
   },
   chat: {
-    orderHub: "/orders?tab=chat",
+    orderHub: "/my/store-orders",
     newChat: "/chats/new",
     /** 주문/거래 공통 — 방 단위 단일 URL */
     room: (roomId: string) => `/chats/${encodeURIComponent(roomId)}`,

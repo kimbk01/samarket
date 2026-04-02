@@ -4,7 +4,6 @@ import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
 import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
-import { ChatRoomList } from "@/components/chats/ChatRoomList";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
 import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { parseRoomId } from "@/lib/validate-params";
@@ -38,18 +37,20 @@ export function OrdersHubContent() {
   const roomQueryRaw = searchParams.get("room");
   const reviewQueryRaw = searchParams.get("review");
 
-  /** 레거시 `/orders?tab=chat&room=` → 통합 주소 `/chats/[roomId]` (주소 단일화) */
+  /**
+   * 레거시 `/orders?tab=chat&room=` → `/chats/[roomId]`.
+   * 목록만 있는 `/orders?tab=chat` → 구매자 배달 내 주문 `/my/store-orders`.
+   */
   useLayoutEffect(() => {
     if (tab !== "chat") return;
     const roomId = parseRoomId(roomQueryRaw);
-    if (!roomId) return;
-    const qs = reviewQueryRaw === "1" ? "?review=1" : "";
-    router.replace(`/chats/${encodeURIComponent(roomId)}${qs}`, { scroll: false });
+    if (roomId) {
+      const qs = reviewQueryRaw === "1" ? "?review=1" : "";
+      router.replace(`/chats/${encodeURIComponent(roomId)}${qs}`, { scroll: false });
+      return;
+    }
+    router.replace("/my/store-orders", { scroll: false });
   }, [tab, roomQueryRaw, reviewQueryRaw, router]);
-
-  const getOrderHubRoomHref = useCallback((roomId: string) => {
-    return `/chats/${encodeURIComponent(roomId)}`;
-  }, []);
 
   const onSelectTab = useCallback(
     (id: OrdersHubTabId) => {
@@ -57,9 +58,13 @@ export function OrdersHubContent() {
         router.replace("/orders", { scroll: false });
         return;
       }
+      if (id === "chat") {
+        router.replace("/my/store-orders", { scroll: false });
+        return;
+      }
       router.replace(`/orders?tab=${encodeURIComponent(id)}`, { scroll: false });
     },
-    [router, tab]
+    [router]
   );
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -117,11 +122,6 @@ export function OrdersHubContent() {
 
       <div className="touch-pan-y mt-1" onTouchStart={onSwipeTouchStart} onTouchEnd={onSwipeTouchEnd}>
         {tab === "store" ? <MyStoreOrdersView embedded /> : null}
-        {tab === "chat" ? (
-          <div className="min-h-[50vh] bg-white">
-            <ChatRoomList segment="order" getRoomHref={getOrderHubRoomHref} />
-          </div>
-        ) : null}
         {tab === "purchases" ? (
           <div className="mx-auto max-w-lg px-4 py-3 pb-24">
             <PurchasesView />

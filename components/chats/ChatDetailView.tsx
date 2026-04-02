@@ -113,7 +113,7 @@ export function ChatDetailView({
     storeOrderId.length > 0;
   const isStoreOrderChat =
     isGeneralPurposeChat && room.generalChat?.kind === "store_order";
-  const chatHubListHref = isStoreOrderChat ? "/orders?tab=chat" : "/chats";
+  const chatHubListHref = isStoreOrderChat ? "/my/store-orders" : "/chats";
   const effectiveListHref = listHrefProp?.trim() || chatHubListHref;
   const [partnerBlocked, setPartnerBlocked] = useState(false);
   useEffect(() => {

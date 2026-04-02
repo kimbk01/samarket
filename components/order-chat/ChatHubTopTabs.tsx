@@ -17,13 +17,13 @@ const tabScrollHide =
 
 export function ChatHubTopTabs({
   active,
-  orderChatsHref = "/orders?tab=chat",
+  orderChatsHref = "/my/store-orders",
   showOrderTab = true,
 }: {
   active: ChatHubSegment;
   /** 주문 채팅 목록 URL — 관리자는 `/admin/order-chats` 등 전달 */
   orderChatsHref?: string;
-  /** false: `/chats` 허브 — 주문 채팅은 `/orders` 탭으로 이동 */
+  /** false: `/chats` 허브 — 주문 채팅 탭 기본 목적지는 `/my/store-orders` */
   showOrderTab?: boolean;
 }) {
   const outerRef = useRef<HTMLDivElement>(null);

@@ -13,7 +13,7 @@ function ChatRoomPageInner() {
   const from = searchParams.get("from");
   const listHref =
     from === "orders-chat"
-      ? "/orders?tab=chat"
+      ? "/my/store-orders"
       : from === "philife-open"
         ? "/chats/philife?tab=open"
         : from === "philife-inbox"

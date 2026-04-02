@@ -71,7 +71,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
   }, [state, cv]);
 
   const ordersHref = "/my/business/store-orders";
-  const orderChatsHref = "/orders?tab=chat";
+  const orderChatsHref = "/my/store-orders";
 
   if (state.kind === "loading") {
     return (

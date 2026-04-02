@@ -5,12 +5,12 @@
 export const ORDER_CHAT_SURFACE = {
   id: "order",
   hubTabLabel: "주문 채팅",
-  hubPath: "/orders?tab=chat",
-  /** `/orders` 상단 3탭 중 채팅 — 채팅 허브 탭과 문구를 다르게 둘 수 있음 */
+  hubPath: "/my/store-orders",
+  /** `/orders` 허브 상단 탭 라벨(탭 선택 시 실제 이동은 `/my/store-orders`) */
   ordersHubTabLabel: "주문채팅",
   listEmptyMessage: "주문 채팅이 없어요.",
-  emptyCtaHref: "/orders",
-  emptyCtaLabel: "주문 내역으로",
+  emptyCtaHref: "/my/store-orders",
+  emptyCtaLabel: "내 배달 주문으로",
 } as const;
 
 export type OrderChatSurface = typeof ORDER_CHAT_SURFACE;
