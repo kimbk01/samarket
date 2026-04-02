@@ -10,7 +10,9 @@ import {
   buildPhilifeTopicNameLookup,
   labelForNeighborhoodPostCategory,
   loadPhilifeDefaultSectionTopics,
+  neighborhoodPostTopicUiSlug,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
+import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
 import { isMeetingEventType } from "@/lib/neighborhood/meeting-event-format";
 import type {
   NeighborhoodCommentNode,
@@ -85,11 +87,15 @@ export async function listNeighborhoodFeed(options: {
   const authorUserId = options.authorUserId?.trim();
 
   const FEED_SELECT_FULL =
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
+  const FEED_SELECT_FULL_NO_TOPIC_SLUG =
     "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
   const FEED_SELECT_BASE =
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
+  const FEED_SELECT_BASE_NO_TOPIC_SLUG =
     "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
 
-  const buildFeedQuery = (selectCols: string) => {
+  const buildFeedQuery = (selectCols: string, useTopicSlugFilter: boolean) => {
     let qq = sb
       .from("community_posts")
       .select(selectCols)
@@ -99,19 +105,39 @@ export async function listNeighborhoodFeed(options: {
       .eq("is_sample_data", false)
       .order("created_at", { ascending: false })
       .order("id", { ascending: false });
-    if (cat) qq = qq.eq("category", cat);
+    if (cat) {
+      if (useTopicSlugFilter && selectCols.includes("topic_slug")) {
+        if (cat === "meetup") {
+          qq = qq.eq("category", "meetup");
+        } else if (normalizeNeighborhoodCategory(cat)) {
+          qq = qq.or(`category.eq.${cat},topic_slug.eq.${cat}`);
+        } else {
+          qq = qq.eq("topic_slug", cat);
+        }
+      } else {
+        qq = qq.eq("category", cat);
+      }
+    }
     if (authorUserId) qq = qq.eq("user_id", authorUserId);
     return qq.range(offset, offset + fetchCount - 1);
   };
 
-  let { data, error } = await buildFeedQuery(FEED_SELECT_FULL);
+  let useTopicSlug = true;
+  let { data, error } = await buildFeedQuery(FEED_SELECT_FULL, true);
+  if (error && isMissingDbColumnError(error, "topic_slug")) {
+    useTopicSlug = false;
+    ({ data, error } = await buildFeedQuery(FEED_SELECT_FULL_NO_TOPIC_SLUG, false));
+  }
   if (
     error &&
     (isMissingDbColumnError(error, "is_question") ||
       isMissingDbColumnError(error, "is_meetup") ||
       isMissingDbColumnError(error, "meetup_place"))
   ) {
-    ({ data, error } = await buildFeedQuery(FEED_SELECT_BASE));
+    ({ data, error } = await buildFeedQuery(
+      useTopicSlug ? FEED_SELECT_BASE : FEED_SELECT_BASE_NO_TOPIC_SLUG,
+      useTopicSlug
+    ));
   }
 
   if (error || !Array.isArray(data)) return { posts: [], hasMore: false, dbScannedCount: 0 };
@@ -172,7 +198,8 @@ export async function listNeighborhoodFeed(options: {
   const posts = rows.map((r) => {
     const uid = String(r.user_id ?? "");
     const locationLabel = String(r.region_label ?? "").trim();
-    const catSlug = String(r.category ?? "etc").trim().toLowerCase() || "etc";
+    const enumCat = String(r.category ?? "etc").trim().toLowerCase() || "etc";
+    const topicUiSlug = neighborhoodPostTopicUiSlug(r);
     const imgs = Array.isArray(r.images) ? (r.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
     const meet = meetByPost.get(String(r.id));
     const content = String(r.content ?? "");
@@ -180,13 +207,13 @@ export async function listNeighborhoodFeed(options: {
     const isMeetupRow = Boolean(r.is_meetup);
     const meetupPlace = r.meetup_place != null && String(r.meetup_place).trim() !== "" ? String(r.meetup_place).trim() : null;
     const hasMeeting = Boolean(meet?.id);
-    const isMeetup = hasMeeting || isMeetupRow || catSlug === "meetup";
-    const feedSkin = topicFeedSkinBySlug.get(catSlug) ?? defaultSkin;
-    const topicColor = topicColorBySlug.get(catSlug) ?? null;
+    const isMeetup = hasMeeting || isMeetupRow || enumCat === "meetup";
+    const feedSkin = topicFeedSkinBySlug.get(topicUiSlug) ?? defaultSkin;
+    const topicColor = topicColorBySlug.get(topicUiSlug) ?? null;
     return {
       id: String(r.id),
-      category: catSlug,
-      category_label: labelForNeighborhoodPostCategory(catSlug, topicNameBySlug),
+      category: topicUiSlug,
+      category_label: labelForNeighborhoodPostCategory(topicUiSlug, topicNameBySlug),
       feed_list_skin: feedSkin,
       topic_color: topicColor,
       is_question: isQuestion,
@@ -252,35 +279,43 @@ export async function getNeighborhoodPostDetail(
 
   const v = options?.viewerUserId?.trim() ?? "";
   const DETAIL_SELECT_FULL =
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
+  const DETAIL_SELECT_FULL_NO_TOPIC_SLUG =
     "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
   const DETAIL_SELECT_BASE =
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
+  const DETAIL_SELECT_BASE_NO_TOPIC_SLUG =
     "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
 
-  let pq = sb.from("community_posts").select(DETAIL_SELECT_FULL).eq("id", postId).eq("is_sample_data", false);
-  if (v) {
-    pq = pq.or(`status.eq.active,user_id.eq.${v}`);
-  } else {
-    pq = pq.eq("status", "active");
-  }
-  let { data, error } = await pq.maybeSingle();
+  const fetchDetailRow = async (cols: string) => {
+    let q = sb.from("community_posts").select(cols).eq("id", postId).eq("is_sample_data", false);
+    if (v) {
+      q = q.or(`status.eq.active,user_id.eq.${v}`);
+    } else {
+      q = q.eq("status", "active");
+    }
+    return q.maybeSingle();
+  };
 
+  let useTopicSlugDetail = true;
+  let { data, error } = await fetchDetailRow(DETAIL_SELECT_FULL);
+  if (error && isMissingDbColumnError(error, "topic_slug")) {
+    useTopicSlugDetail = false;
+    ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL_NO_TOPIC_SLUG));
+  }
   if (
     error &&
     (isMissingDbColumnError(error, "is_question") ||
       isMissingDbColumnError(error, "is_meetup") ||
       isMissingDbColumnError(error, "meetup_place"))
   ) {
-    let pq2 = sb.from("community_posts").select(DETAIL_SELECT_BASE).eq("id", postId).eq("is_sample_data", false);
-    if (v) {
-      pq2 = pq2.or(`status.eq.active,user_id.eq.${v}`);
-    } else {
-      pq2 = pq2.eq("status", "active");
-    }
-    ({ data, error } = await pq2.maybeSingle());
+    ({ data, error } = await fetchDetailRow(
+      useTopicSlugDetail ? DETAIL_SELECT_BASE : DETAIL_SELECT_BASE_NO_TOPIC_SLUG
+    ));
   }
 
   if (error || !data) return null;
-  const row = data as Record<string, unknown>;
+  const row = data as unknown as Record<string, unknown>;
   if (!isCommunityPostPubliclyVisible(row as never) && String(row.user_id ?? "") !== v) return null;
   if (row.location_id == null || String(row.location_id).trim() === "") return null;
 
@@ -296,7 +331,8 @@ export async function getNeighborhoodPostDetail(
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
-  const catSlug = String(row.category ?? "etc").trim().toLowerCase() || "etc";
+  const enumCat = String(row.category ?? "etc").trim().toLowerCase() || "etc";
+  const topicUiSlug = neighborhoodPostTopicUiSlug(row);
   const imgs = Array.isArray(row.images) ? (row.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
   const content = String(row.content ?? "");
   const isQuestion = Boolean(row.is_question);
@@ -305,15 +341,15 @@ export async function getNeighborhoodPostDetail(
 
   const meetLink = await fetchMeetingLinkByPostId(sb, postId);
   const hasMeeting = Boolean(meetLink?.id);
-  const isMeetup = hasMeeting || isMeetupRow || catSlug === "meetup";
+  const isMeetup = hasMeeting || isMeetupRow || enumCat === "meetup";
   const defaultSkin = normalizeCommunityFeedListSkin(undefined);
 
   return {
     id: String(row.id),
-    category: catSlug,
-    category_label: labelForNeighborhoodPostCategory(catSlug, topicNameBySlug),
-    feed_list_skin: topicFeedSkinBySlug.get(catSlug) ?? defaultSkin,
-    topic_color: topicColorBySlug.get(catSlug) ?? null,
+    category: topicUiSlug,
+    category_label: labelForNeighborhoodPostCategory(topicUiSlug, topicNameBySlug),
+    feed_list_skin: topicFeedSkinBySlug.get(topicUiSlug) ?? defaultSkin,
+    topic_color: topicColorBySlug.get(topicUiSlug) ?? null,
     is_question: isQuestion,
     is_meetup: isMeetup,
     meetup_place: meetupPlace,

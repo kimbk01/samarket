@@ -30,7 +30,7 @@ export default async function AppLayout({
                 <AppTitle />
                 {/* 메인 1단·헤더 스택 단일 삽입 — `lib/layout/main-tier1.ts` */}
                 <AppStickyHeader />
-                <ConditionalAppShell regionBarInLayout>{children}</ConditionalAppShell>
+                <ConditionalAppShell regionBarInLayout={true}>{children}</ConditionalAppShell>
               </MainTier1ChromeProvider>
             </StoreCommerceCartProvider>
           </CategoryListHeaderProvider>

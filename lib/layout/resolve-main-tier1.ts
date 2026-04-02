@@ -1,4 +1,6 @@
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
+import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
 function starts(p: string, prefix: string): boolean {
   return p === prefix || p.startsWith(`${prefix}/`);
@@ -40,8 +42,9 @@ function backHome(overrides: Partial<ResolvedMainTier1Subpage>): ResolvedMainTie
  * `null`이면 호출측에서 전용 분기(거래 탐색·커뮤니티 피드·배달 루트·거래 허브 루트 등)를 쓴다.
  */
 export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subpage | null {
-  const p = pathname.split("?")[0]!.trim();
-  if (!p) return { ...DEFAULT, titleText: "SAMarket" };
+  const raw = (pathname ?? "").split("?")[0]!.trim();
+  if (!raw) return { ...DEFAULT, titleText: "SAMarket" };
+  const p = normalizeAppPathnameForTier1(pathname);
 
   if (isTradeFloatingMenuSurface(p)) return null;
   if (p === "/philife") return null;
@@ -282,16 +285,22 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backHome({ titleText: "상품", showHubQuickActions: false });
   }
 
-  /** `/philife/:uuid` 동네 글 상세 — 클라이언트가 `MainTier1Extras`로 주제 라벨을 덮어씀 */
-  if (/^\/philife\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p)) {
-    return {
-      ...DEFAULT,
-      backHref: "/philife",
-      preferHistoryBack: true,
-      ariaLabel: "피드로",
-      titleText: "커뮤니티",
-      showHubQuickActions: true,
-    };
+  /**
+   * `/philife/:postId` 동네 글 상세 (단일 세그먼트·UUID 형태).
+   * `MainTier1Extras`로 주제 라벨을 덮어씀 — 여기서는 짧은 기본 제목만.
+   */
+  if (p.startsWith("/philife/")) {
+    const seg = p.slice("/philife/".length);
+    if (seg && !seg.includes("/") && isUuidLikeString(seg)) {
+      return {
+        ...DEFAULT,
+        backHref: "/philife",
+        preferHistoryBack: true,
+        ariaLabel: "피드로",
+        titleText: "커뮤니티",
+        showHubQuickActions: true,
+      };
+    }
   }
 
   const back = p.startsWith("/my/") || p.startsWith("/mypage") ? "/mypage" : "/home";

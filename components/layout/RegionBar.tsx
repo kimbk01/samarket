@@ -8,6 +8,7 @@ import {
   getMobileTopTier1RuleSet,
   isTradeFloatingMenuSurface,
 } from "@/lib/layout/mobile-top-tier1-rules";
+import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
@@ -81,7 +82,7 @@ function UnifiedTier1Shell({
 /** 메인 1단 UI — 단일 구현체. `Tier1ExplorationTitleRow`·서브페이지·매장 루트를 한 스타일(h-12)로 맞춘다. */
 export function RegionBar({ embedded }: { embedded?: boolean }) {
   const pathname = usePathname();
-  const pathNoQuery = pathname.split("?")[0] ?? pathname;
+  const pathNoQuery = normalizeAppPathnameForTier1(pathname);
   const ruleSet = getMobileTopTier1RuleSet(pathname);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;

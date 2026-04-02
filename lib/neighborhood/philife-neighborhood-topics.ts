@@ -145,6 +145,17 @@ export function labelForNeighborhoodPostCategory(
   );
 }
 
+/**
+ * 피드·상세 배지·스킨·칩 필터용 slug.
+ * `community_posts.topic_slug`(어드민 주제)가 있으면 우선하고, 옛 글은 `category` enum만 사용.
+ */
+export function neighborhoodPostTopicUiSlug(row: { category?: unknown; topic_slug?: unknown }): string {
+  const ts = String(row.topic_slug ?? "").trim().toLowerCase();
+  if (ts) return ts;
+  const c = String(row.category ?? "etc").trim().toLowerCase() || "etc";
+  return c;
+}
+
 /** URL·쿼리 `category` 가 피드 필터로 허용되는지 (어드민 노출 주제와 동기) */
 export async function isPhilifeNeighborhoodFeedFilterSlugAllowed(slug: string): Promise<boolean> {
   const topics = await loadPhilifeDefaultSectionTopics();

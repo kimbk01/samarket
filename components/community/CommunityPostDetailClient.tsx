@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
+import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import {
   getCurrentUser,
@@ -41,6 +41,23 @@ export function CommunityPostDetailClient({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
+  const tier1Title = post.is_meetup ? "오픈채팅" : post.topic_name?.trim() || "커뮤니티";
+
+  useLayoutEffect(() => {
+    if (!setMainTier1Extras) return;
+    setMainTier1Extras({
+      tier1: {
+        titleText: tier1Title,
+        backHref: philifeAppPaths.home,
+        preferHistoryBack: true,
+        ariaLabel: "피드로",
+        showHubQuickActions: true,
+      },
+    });
+    return () => setMainTier1Extras(null);
+  }, [setMainTier1Extras, tier1Title]);
 
   useEffect(() => {
     void (async () => {
@@ -126,12 +143,7 @@ export function CommunityPostDetailClient({
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-24">
-      <TradePrimaryColumnStickyAppBar
-        title="커뮤니티"
-        backButtonProps={{ backHref: "/philife", ariaLabel: "피드로" }}
-      />
-
-      <article className={`w-full min-w-0 pb-4 pt-[9px] ${APP_MAIN_GUTTER_X_CLASS}`}>
+      <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
         <div className="rounded-md border border-gray-100 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span

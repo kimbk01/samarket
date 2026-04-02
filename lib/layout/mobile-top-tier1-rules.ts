@@ -1,3 +1,5 @@
+import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
+
 const COMMUNITY_POST_DETAIL_RE = /^\/community\/post\/[^/]+$/;
 const PHILIFE_POST_DETAIL_RE = /^\/philife\/post\/[^/]+$/;
 const CHAT_ROOM_DETAIL_RE = /^\/chats\/[^/]+$/;
@@ -43,8 +45,7 @@ export type MobileTopTier1RuleSet = {
  * 대부분의 (main) 경로에서 1단을 켜고, 채팅방 상세처럼 내부 전용 헤더만 쓰는 화면만 끈다.
  */
 export function getMobileTopTier1RuleSet(pathname: string | null | undefined): MobileTopTier1RuleSet {
-  const safePath = typeof pathname === "string" ? pathname : "";
-  const pathNoQuery = safePath.split("?")[0] ?? safePath;
+  const pathNoQuery = normalizeAppPathnameForTier1(pathname);
 
   const isTradeExploration = isTradeFloatingMenuSurface(pathNoQuery);
   const isPhilifeExploration = pathNoQuery === "/philife" || pathNoQuery === "/community";
