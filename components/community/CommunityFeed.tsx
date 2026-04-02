@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRegion } from "@/contexts/RegionContext";
 import {
   neighborhoodLocationKeyFromRegion,
@@ -21,6 +21,8 @@ import { HorizontalDragScroll } from "./HorizontalDragScroll";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
+import { readPhilifeFeedCache, writePhilifeFeedCache } from "@/lib/community/philife-feed-session-cache";
 
 const PAGE_SIZE = 20;
 
@@ -172,8 +174,23 @@ export function CommunityFeed() {
         setHasMore(!!j.hasMore);
         const advance =
           typeof j.dbPageLength === "number" ? j.dbPageLength : next.length;
-        nextOffsetRef.current =
+        const resolvedNextOffset =
           typeof j.nextOffset === "number" ? j.nextOffset : nextOffset + advance;
+        nextOffsetRef.current = resolvedNextOffset;
+
+        if (
+          !append &&
+          session === feedSessionRef.current &&
+          locationKey &&
+          next.length > 0
+        ) {
+          const cachedPosts = mergeNeighborhoodFeedById([], next, false);
+          writePhilifeFeedCache(locationKey, category, neighborOnly, {
+            posts: cachedPosts,
+            hasMore: !!j.hasMore,
+            nextOffset: resolvedNextOffset,
+          });
+        }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (session !== feedSessionRef.current) return;
@@ -194,11 +211,25 @@ export function CommunityFeed() {
     [locationKey, locationMeta?.city, locationMeta?.district, locationMeta?.name, category, neighborOnly, currentRegion?.label, locationLabel]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     feedSessionRef.current += 1;
     const session = feedSessionRef.current;
     nextOffsetRef.current = 0;
     loadMoreLockRef.current = false;
+
+    if (locationKey) {
+      const snap = readPhilifeFeedCache(locationKey, category, neighborOnly);
+      if (snap?.posts?.length) {
+        setPosts(snap.posts);
+        setHasMore(snap.hasMore);
+        nextOffsetRef.current = snap.nextOffset;
+        setErr("");
+      } else {
+        setPosts([]);
+        setErr("");
+      }
+    }
+
     void fetchPage(0, false, session);
     return () => {
       feedAbortRef.current?.abort();
@@ -302,7 +333,14 @@ export function CommunityFeed() {
         }
       />
 
-      <div className="min-w-0">
+      <div className="relative min-w-0">
+        {loading && posts.length > 0 ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] animate-pulse bg-signature/50"
+            aria-hidden
+          />
+        ) : null}
+
         {topAds.length > 0 ? topAds.map((ad) => <AdPostCard key={ad.adId} ad={ad} />) : null}
 
         {err ? (
@@ -310,8 +348,8 @@ export function CommunityFeed() {
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">{err}</div>
           </div>
         ) : null}
-        {loading ? (
-          <p className="py-12 text-center text-[14px] text-gray-400">불러오는 중…</p>
+        {loading && posts.length === 0 ? (
+          <CommunityFeedSkeleton />
         ) : posts.length === 0 ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-gray-500`}>
             이 동네에 아직 글이 없어요.

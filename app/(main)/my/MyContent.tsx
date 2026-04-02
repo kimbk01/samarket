@@ -84,7 +84,10 @@ export function MyContent() {
   }, [load]);
 
   const loadAddressDefaultsRef = useRef(loadAddressDefaults);
-  loadAddressDefaultsRef.current = loadAddressDefaults;
+
+  useEffect(() => {
+    loadAddressDefaultsRef.current = loadAddressDefaults;
+  }, [loadAddressDefaults]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

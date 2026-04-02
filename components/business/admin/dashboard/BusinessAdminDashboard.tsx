@@ -62,7 +62,7 @@ export function BusinessAdminDashboard({
   const ordersBaseHref = buildStoreOrdersHref({ storeId: row.id });
   const inquiriesHref = `/my/business/inquiries?${q}`;
   const productsHubHref = `/my/business/products?${q}`;
-  const settlementsHref = "/my/business/settlements";
+  const settlementsHref = `/my/business/settlements?${q}`;
 
   const [orders, setOrders] = useState<TimelineOrder[]>([]);
   const [meta, setMeta] = useState({

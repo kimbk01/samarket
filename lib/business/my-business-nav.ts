@@ -102,7 +102,7 @@ export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessN
     orderItems.push({
       label: "정산 내역",
       icon: "settlement",
-      href: "/my/business/settlements",
+      href: `/my/business/settlements?${q}`,
     });
   }
   if (orderItems.length > 0) {

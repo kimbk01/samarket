@@ -79,7 +79,7 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
   if (showOps) {
     sections.push({
       title: "정산",
-      items: [{ label: "정산 내역", href: "/my/business/settlements" }],
+      items: [{ label: "정산 내역", href: `/my/business/settlements?${q}` }],
     });
   }
 

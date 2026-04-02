@@ -68,7 +68,9 @@ export function OwnerLiteStoreBar() {
         ? orderAttention
         : storeOrderChatUnread > 0
           ? storeOrderChatUnread
-          : orderAttention;
+          : canSell
+            ? orderAttention
+            : 0;
   const secondaryHref =
     inquiryAttention > 0 ? (canSell ? orderHref : basicInfoHref) : canSell ? inquiryHref : basicInfoHref;
   const secondaryLabel =

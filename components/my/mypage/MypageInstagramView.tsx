@@ -209,7 +209,11 @@ export function MypageInstagramView({
           title: "운영 상태",
           subtitle: "심사·판매 가능",
         },
-        { href: "/my/business/settlements", title: "정산 내역", subtitle: "매출·정산" },
+        {
+          href: bizQ ? `/my/business/settlements?${bizQ}` : "/my/business/settlements",
+          title: "정산 내역",
+          subtitle: "매출·정산",
+        },
         { href: "/my/ads", title: "광고·확장", subtitle: "노출 확대" },
       ]
     : [

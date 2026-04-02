@@ -75,6 +75,14 @@ export function BottomNav() {
     };
   }, []);
 
+  /** 주요 탭 JS·RSC 선로딩 — 커뮤니티(/philife) 등 탭 전환 체감 지연 완화 */
+  useEffect(() => {
+    for (const t of tabs) {
+      const h = t.href?.trim();
+      if (h) router.prefetch(h);
+    }
+  }, [tabs, router]);
+
   return (
     <>
     {hubBlockedModal}

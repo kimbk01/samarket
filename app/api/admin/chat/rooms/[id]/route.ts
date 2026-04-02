@@ -150,7 +150,7 @@ export async function GET(
       is_blinded: boolean;
     }[];
     const msgIds = msgs.map((m) => m.id);
-    let attByMessageId: Record<string, { file_type: string; file_url: string }[]> = {};
+    const attByMessageId: Record<string, { file_type: string; file_url: string }[]> = {};
     if (msgIds.length > 0) {
       const { data: atts } = await sbAny
         .from("meeting_open_chat_attachments")

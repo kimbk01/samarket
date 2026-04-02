@@ -7,6 +7,7 @@ import { HorizontalDragScroll } from "@/components/community/HorizontalDragScrol
 import { buildMyBusinessNavGroups } from "@/lib/business/my-business-nav";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { formatStoreApprovalStatusKo } from "@/lib/stores/store-approval-label-ko";
+import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 
 const PREFERRED_SHORTCUTS = [
   "주문 관리",
@@ -33,7 +34,8 @@ export function StoreOwnerOpsSection({
   hubAttentionSlot?: ReactNode;
   embedded?: boolean;
 }) {
-  const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
+  const { goBusinessHubOrModal, hubBlockedModal, openBlockedModalIfNeeded } =
+    useStoreBusinessHubEntryModal("확인");
   const shortcuts = useMemo((): OpsShortcut[] => {
     const groups = buildMyBusinessNavGroups({
       storeId: ownerStore.id,
@@ -107,6 +109,11 @@ export function StoreOwnerOpsSection({
           <Link
             key={item.label}
             href={item.href!}
+            onClick={(e) => {
+              if (shouldInterceptBusinessHubHref(item.href!) && openBlockedModalIfNeeded()) {
+                e.preventDefault();
+              }
+            }}
             className="flex w-[104px] shrink-0 flex-col items-center justify-center rounded-2xl border border-violet-100 bg-white px-2 py-3 text-center shadow-sm"
           >
             <span className="line-clamp-2 text-[11px] font-bold leading-tight text-violet-950">{item.label}</span>
@@ -120,7 +127,9 @@ export function StoreOwnerOpsSection({
       <div className={`mt-2 ${RAIL}`}>
         <button
           type="button"
-          onClick={() => goBusinessHubOrModal("/my/business")}
+          onClick={() =>
+            goBusinessHubOrModal(`/my/business?storeId=${encodeURIComponent(ownerStore.id)}`)
+          }
           className="shrink-0 rounded-full border border-violet-200 bg-violet-600/10 px-4 py-2 text-[11px] font-bold text-violet-950"
         >
           전체 메뉴

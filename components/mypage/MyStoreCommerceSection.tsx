@@ -126,7 +126,11 @@ export function MyStoreCommerceSection() {
           상품 관리
         </Link>
         <Link
-          href="/my/business/settlements"
+          href={
+            primaryStoreId
+              ? `/my/business/settlements?storeId=${encodeURIComponent(primaryStoreId)}`
+              : "/my/business/settlements"
+          }
           className="col-span-2 rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
         >
           정산 내역

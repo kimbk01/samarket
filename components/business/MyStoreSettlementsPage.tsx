@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getAppSettings } from "@/lib/admin-settings/mock-app-settings";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatPrice } from "@/lib/utils/format";
 
 type Row = {
   id: string;
@@ -31,9 +33,20 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function MyStoreSettlementsPage() {
+  const searchParams = useSearchParams();
+  const storeIdFilter = searchParams.get("storeId")?.trim() || null;
+
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const currency = useMemo(() => getAppSettings().defaultCurrency ?? "KRW", []);
+  const displayRows = useMemo(() => {
+    if (!storeIdFilter) return rows;
+    return rows.filter((r) => r.store_id === storeIdFilter);
+  }, [rows, storeIdFilter]);
+
+  const fmt = useCallback((n: number) => formatPrice(n, currency), [currency]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,9 +89,21 @@ export function MyStoreSettlementsPage() {
           <p className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-500">
             아직 정산 내역이 없습니다. 주문이 결제 완료되면 예정 건이 표시됩니다.
           </p>
+        ) : displayRows.length === 0 ? (
+          <p className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-500">
+            선택한 매장에 해당하는 정산 건이 없습니다. 운영 허브에서 다른 매장을 선택했는지 확인해 주세요.
+          </p>
         ) : (
           <ul className="space-y-2">
-            {rows.map((r) => (
+            {storeIdFilter ? (
+              <li className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-[12px] text-gray-600">
+                이 매장 정산만 표시 중입니다.{" "}
+                <Link href="/my/business/settlements" className="font-medium text-signature underline">
+                  전체 매장 보기
+                </Link>
+              </li>
+            ) : null}
+            {displayRows.map((r) => (
               <li key={r.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                 <div className="flex justify-between gap-2">
                   <span className="text-sm font-medium text-gray-900">{r.store_name}</span>
@@ -90,11 +115,10 @@ export function MyStoreSettlementsPage() {
                   주문 {r.order_no || r.order_id.slice(0, 8)} · 예정일 {r.settlement_due_date}
                 </p>
                 <p className="mt-2 text-lg font-semibold text-gray-900">
-                  {formatMoneyPhp(Number(r.settlement_amount) || 0)}
+                  {fmt(Number(r.settlement_amount) || 0)}
                 </p>
                 <p className="text-[11px] text-gray-400">
-                  매출 {formatMoneyPhp(Number(r.gross_amount) || 0)} · 수수료{" "}
-                  {formatMoneyPhp(Number(r.fee_amount) || 0)}
+                  매출 {fmt(Number(r.gross_amount) || 0)} · 수수료 {fmt(Number(r.fee_amount) || 0)}
                 </p>
                 {r.hold_reason ? (
                   <p className="mt-2 text-xs text-amber-800">보류 사유: {r.hold_reason}</p>
