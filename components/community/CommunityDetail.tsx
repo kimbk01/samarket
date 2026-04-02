@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import {
   getCurrentUser,
@@ -77,6 +77,23 @@ export function CommunityDetail({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
+  const tier1Title = meeting ? "오픈채팅" : post.category_label?.trim() || "커뮤니티";
+
+  useLayoutEffect(() => {
+    if (!setMainTier1Extras) return;
+    setMainTier1Extras({
+      tier1: {
+        titleText: tier1Title,
+        backHref: philifeAppPaths.home,
+        preferHistoryBack: true,
+        ariaLabel: "피드로",
+        showHubQuickActions: true,
+      },
+    });
+    return () => setMainTier1Extras(null);
+  }, [setMainTier1Extras, tier1Title]);
 
   useEffect(() => {
     const viewedKey = `community:viewed:${post.id}`;
@@ -243,12 +260,7 @@ export function CommunityDetail({
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-24">
-      <TradePrimaryColumnStickyAppBar
-        title="커뮤니티"
-        backButtonProps={{ backHref: philifeAppPaths.home, ariaLabel: "피드로" }}
-      />
-
-      <article className={`w-full min-w-0 pb-4 pt-[9px] ${APP_MAIN_GUTTER_X_CLASS}`}>
+      <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
         <div className="overflow-hidden rounded-[4px] border border-gray-100 bg-white shadow-sm">
           {post.images.length > 0 ? (
             <div className="grid grid-cols-1 gap-px bg-gray-100 sm:grid-cols-2">

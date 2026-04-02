@@ -282,6 +282,18 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backHome({ titleText: "상품", showHubQuickActions: false });
   }
 
+  /** `/philife/:uuid` 동네 글 상세 — 클라이언트가 `MainTier1Extras`로 주제 라벨을 덮어씀 */
+  if (/^\/philife\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p)) {
+    return {
+      ...DEFAULT,
+      backHref: "/philife",
+      preferHistoryBack: true,
+      ariaLabel: "피드로",
+      titleText: "커뮤니티",
+      showHubQuickActions: true,
+    };
+  }
+
   const back = p.startsWith("/my/") || p.startsWith("/mypage") ? "/mypage" : "/home";
   return { ...DEFAULT, backHref: back, titleText: "", showHubQuickActions: true };
 }
