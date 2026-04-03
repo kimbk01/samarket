@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { MeetingJoinButton } from "@/components/community/MeetingJoinButton";
 import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
 import { MeetingPendingCard } from "@/components/meetings/MeetingPendingCard";
 import { MeetingRestrictedCard } from "@/components/meetings/MeetingRestrictedCard";
@@ -130,8 +131,9 @@ function MeetingInfoCard({
 }
 
 /**
- * `/philife/meetings/[id]` — 승인 대기·강퇴/차단 등 예외만 유지.
- * 그 외(참여 전/후)는 오픈채팅 허브로 보냄.
+ * `/philife/meetings/[id]` — 모임 단톡 직접 진입 전용.
+ * - 참여자: 기본 방으로 즉시 보냄
+ * - 미참여자: 여기서 참여/입장 CTA를 바로 보여줌
  */
 export default async function PhilifeMeetingPage({ params, searchParams }: Props) {
   const { meetingId } = await params;
@@ -160,15 +162,15 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
 
   if (tab === "chat" && isJoined) {
     redirect(
-      defaultOpenChatRoomId && viewerIsDefaultOpenChatMember
+      defaultOpenChatRoomId
         ? philifeAppPaths.meetingOpenChatRoom(id, defaultOpenChatRoomId)
         : philifeAppPaths.meetingOpenChat(id)
     );
   }
 
-  if (!isPending && !isRestricted) {
+  if (isJoined) {
     redirect(
-      isJoined && defaultOpenChatRoomId && viewerIsDefaultOpenChatMember
+      defaultOpenChatRoomId
         ? philifeAppPaths.meetingOpenChatRoom(id, defaultOpenChatRoomId)
         : philifeAppPaths.meetingOpenChat(id)
     );
@@ -183,12 +185,34 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
 
       <div className={`${APP_MAIN_GUTTER_X_CLASS} pt-3`}>
         {!isJoined ? (
-          <MeetingInfoCard
-            meeting={meeting}
-            pendingCount={meeting.pending_count}
-            openChatAnyPassword={openChatAnyPassword}
-            openChatAnyApproval={openChatAnyApproval}
-          />
+          <div className="space-y-3">
+            <MeetingInfoCard
+              meeting={meeting}
+              pendingCount={meeting.pending_count}
+              openChatAnyPassword={openChatAnyPassword}
+              openChatAnyApproval={openChatAnyApproval}
+            />
+            {!isPending && !isRestricted ? (
+              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                <MeetingJoinButton
+                  meetingId={meeting.id}
+                  chatRoomId={meeting.chat_room_id}
+                  successSurface="meeting"
+                  entryPolicy={meeting.entry_policy}
+                  hasMeetingPassword={meeting.has_password}
+                  requiresApproval={meeting.requires_approval}
+                  isClosed={meeting.is_closed}
+                  memberCount={meeting.joined_count || meeting.member_count}
+                  maxMembers={meeting.max_members}
+                  pendingCount={meeting.pending_count}
+                  viewerStatus={viewerStatus}
+                  defaultOpenChatRoomId={defaultOpenChatRoomId}
+                  openChatRoomHasPassword={openChatAnyPassword}
+                  openChatRoomNeedsApprovalIntro={openChatAnyApproval}
+                />
+              </div>
+            ) : null}
+          </div>
         ) : null}
 
         {isPending && (

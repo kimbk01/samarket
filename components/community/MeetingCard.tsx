@@ -103,7 +103,7 @@ export function MeetingCard({
             <span>{entryPolicyHeadline(meeting.entry_policy)}</span>
           </div>
           <Link
-            href={philifeAppPaths.meetingOpenChat(meeting.id)}
+            href={philifeAppPaths.meeting(meeting.id)}
             className="shrink-0 text-[12px] font-medium text-[#0d8f6a] underline underline-offset-2"
           >
             자세히
@@ -150,7 +150,7 @@ export function MeetingCard({
           <p className="mt-1 text-[15px] font-bold text-gray-900">{meeting.title}</p>
         </div>
         <Link
-          href={philifeAppPaths.meetingOpenChat(meeting.id)}
+          href={philifeAppPaths.meeting(meeting.id)}
           className="shrink-0 text-[12px] font-medium text-emerald-800 underline"
         >
           자세히

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { loadPhilifeMeetingHubData } from "@/lib/neighborhood/philife-meeting-hub-load";
 import { philifeAppPaths } from "@/lib/philife/paths";
 
 interface Props {
@@ -9,5 +10,9 @@ export default async function CommunityMeetingPage({ params }: Props) {
   const { meetingId } = await params;
   const id = meetingId?.trim();
   if (!id) redirect("/philife");
-  redirect(philifeAppPaths.meetingOpenChat(id));
+  const hub = await loadPhilifeMeetingHubData(id);
+  if (hub?.isJoined && hub.defaultOpenChatRoomId) {
+    redirect(philifeAppPaths.meetingOpenChatRoom(id, hub.defaultOpenChatRoomId));
+  }
+  redirect(philifeAppPaths.meeting(id));
 }

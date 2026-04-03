@@ -33,14 +33,13 @@ export default async function MeetingOpenChatHubPage({ params }: Props) {
     myMembershipCreatedAt,
     activeOpenChatRoomCount,
     defaultOpenChatRoomId,
-    viewerIsDefaultOpenChatMember,
     openChatRoomHasPassword,
     openChatRoomNeedsApprovalIntro,
   } = hub;
 
   const postBack = `/philife/${meeting.post_id}`;
 
-  if (isJoined && activeOpenChatRoomCount === 1 && defaultOpenChatRoomId && viewerIsDefaultOpenChatMember) {
+  if (isJoined && activeOpenChatRoomCount === 1 && defaultOpenChatRoomId) {
     redirect(philifeAppPaths.meetingOpenChatRoom(meeting.id, defaultOpenChatRoomId));
   }
 

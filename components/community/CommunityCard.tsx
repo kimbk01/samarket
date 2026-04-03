@@ -30,7 +30,7 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
   return {
     href:
       post.is_meetup && post.meeting_id
-        ? philifeAppPaths.meetingOpenChat(post.meeting_id)
+        ? philifeAppPaths.meeting(post.meeting_id)
         : philifeAppPaths.post(post.id),
     meetupMeetingId: post.is_meetup && post.meeting_id ? post.meeting_id : null,
     topicLabel: post.category_label,
