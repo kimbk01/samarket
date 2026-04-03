@@ -60,6 +60,9 @@ export async function POST(req: NextRequest) {
       welcome_message?: string;
       allow_feed?: boolean;
       allow_album_upload?: boolean;
+      open_chat_identity_mode?: "realname" | "nickname_optional";
+      open_chat_owner_join_as?: "realname" | "nickname";
+      open_chat_owner_nickname?: string;
     };
   };
   try {
@@ -247,6 +250,24 @@ export async function POST(req: NextRequest) {
   const requiresApproval = entryPolicy === "approve" || entryPolicy === "invite_only";
   const allowWaitlist = meet.allow_waitlist === true;
   const allowMemberInvite = meet.allow_member_invite === true;
+  const openChatIdentityMode =
+    meet.open_chat_identity_mode === "realname" || meet.open_chat_identity_mode === "nickname_optional"
+      ? meet.open_chat_identity_mode
+      : undefined;
+  const openChatOwnerJoinAs =
+    meet.open_chat_owner_join_as === "realname" || meet.open_chat_owner_join_as === "nickname"
+      ? meet.open_chat_owner_join_as
+      : undefined;
+  const openChatOwnerNickname =
+    typeof meet.open_chat_owner_nickname === "string" ? meet.open_chat_owner_nickname.trim() : "";
+  const openChatJoinType =
+    entryPolicy === "password"
+      ? "password"
+      : entryPolicy === "approve"
+        ? "approval"
+        : entryPolicy === "invite_only"
+          ? "password_approval"
+          : "free";
 
   /** DB `community_posts_category_check` — 글쓰기 주제 slug(어드민 임의 값)와 별도로 고정 enum 만 허용 */
   const categoryForDb = isMeetup
@@ -354,6 +375,11 @@ export async function POST(req: NextRequest) {
             title: deferredTitle,
             maxMembers: deferredMaxMem,
             description: deferredMeetDesc,
+            joinType: openChatJoinType,
+            joinPasswordPlain: entryPolicy === "password" ? typeof meet.meeting_password === "string" ? meet.meeting_password : null : null,
+            identityMode: openChatIdentityMode,
+            ownerJoinAs: openChatOwnerJoinAs,
+            ownerOpenNickname: openChatOwnerNickname || undefined,
           }),
         ]);
         if (!chatEnsured) {

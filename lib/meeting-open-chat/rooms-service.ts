@@ -244,6 +244,11 @@ export async function ensureDefaultMeetingOpenChatRoomForNewMeeting(
     title: string;
     maxMembers: number;
     description?: string;
+    joinType?: MeetingOpenChatJoinType;
+    joinPasswordPlain?: string | null;
+    identityMode?: MeetingOpenChatIdentityMode;
+    ownerJoinAs?: MeetingOpenChatJoinAs | null;
+    ownerOpenNickname?: string;
   }
 ): Promise<{ ok: true; created: boolean } | { ok: false; error: string }> {
   const mid = input.meetingId.trim();
@@ -258,16 +263,44 @@ export async function ensureDefaultMeetingOpenChatRoomForNewMeeting(
   const maxMem = Math.min(Math.max(2, Math.round(Number(input.maxMembers)) || 300), 2000);
   const desc = (input.description ?? "").trim().slice(0, 500);
   const hostIdentity = await fetchViewerOpenChatIdentity(sb, uid);
-  const defaultIdentityMode = hostIdentity.suggestedRealname ? "realname" : "nickname_optional";
-  const defaultOwnerJoinAs = hostIdentity.suggestedRealname ? "realname" : "nickname";
+  const requestedJoinType =
+    input.joinType === "password" || input.joinType === "approval" || input.joinType === "password_approval"
+      ? input.joinType
+      : "free";
+  const requestedIdentityMode =
+    input.identityMode === "realname" || input.identityMode === "nickname_optional"
+      ? input.identityMode
+      : hostIdentity.suggestedRealname
+        ? "realname"
+        : "nickname_optional";
+  const requestedOwnerJoinAs =
+    input.ownerJoinAs === "realname" || input.ownerJoinAs === "nickname"
+      ? input.ownerJoinAs
+      : hostIdentity.suggestedRealname
+        ? "realname"
+        : "nickname";
+  const requestedOwnerNickname = String(input.ownerOpenNickname ?? "").trim() || ownerNick;
 
-  const { data: rpcRaw, error: rpcErr } = await sb.rpc("ensure_default_meeting_open_chat_room_atomic", {
-    p_meeting_id: mid,
-    p_host_user_id: uid,
-    p_title: roomTitle,
-    p_max_members: maxMem,
-    p_description: desc,
-  });
+  const useLegacyAtomicDefaultRoom =
+    requestedJoinType === "free" &&
+    requestedIdentityMode === (hostIdentity.suggestedRealname ? "realname" : "nickname_optional") &&
+    requestedOwnerJoinAs === (hostIdentity.suggestedRealname ? "realname" : "nickname") &&
+    requestedOwnerNickname === ownerNick &&
+    !(input.joinPasswordPlain?.trim());
+
+  let rpcRaw: unknown = null;
+  let rpcErr: { message?: string } | null = null;
+  if (useLegacyAtomicDefaultRoom) {
+    const rpc = await sb.rpc("ensure_default_meeting_open_chat_room_atomic", {
+      p_meeting_id: mid,
+      p_host_user_id: uid,
+      p_title: roomTitle,
+      p_max_members: maxMem,
+      p_description: desc,
+    });
+    rpcRaw = rpc.data;
+    rpcErr = rpc.error;
+  }
 
   if (!rpcErr && rpcRaw != null) {
     let pack: { ok?: boolean; created?: boolean; error?: string };
@@ -317,13 +350,14 @@ export async function ensureDefaultMeetingOpenChatRoomForNewMeeting(
     title: roomTitle,
     description: desc,
     thumbnailUrl: null,
-    joinType: "free",
-    identityMode: defaultIdentityMode,
+    joinType: requestedJoinType,
+    joinPasswordPlain: requestedJoinType === "password" ? input.joinPasswordPlain ?? null : null,
+    identityMode: requestedIdentityMode,
     maxMembers: maxMem,
     isSearchable: true,
     allowRejoinAfterKick: true,
-    ownerJoinAs: defaultOwnerJoinAs,
-    ownerOpenNickname: ownerNick,
+    ownerJoinAs: requestedOwnerJoinAs,
+    ownerOpenNickname: requestedOwnerNickname,
   });
 
   if (!created.ok) {

@@ -23,6 +23,8 @@ import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 type MeetEntryPolicy = "open" | "password";
+type MeetIdentityMode = "realname" | "nickname_optional";
+type MeetOwnerJoinAs = "realname" | "nickname";
 
 /** 시스템 오픈채팅 생성 — 섹션 제목 타이포 통일 */
 const MEETUP_SECTION_LABEL_BASE =
@@ -67,6 +69,9 @@ export function PhilifeNeighborhoodWriteForm({
   const [maxMembers, setMaxMembers] = useState(30);
   const [meetEntryPolicy, setMeetEntryPolicy] = useState<MeetEntryPolicy>("open");
   const [meetPassword, setMeetPassword] = useState("");
+  const [meetIdentityMode, setMeetIdentityMode] = useState<MeetIdentityMode>("realname");
+  const [meetOwnerJoinAs, setMeetOwnerJoinAs] = useState<MeetOwnerJoinAs>("realname");
+  const [meetOwnerNickname, setMeetOwnerNickname] = useState("");
   const [allowWaitlist, setAllowWaitlist] = useState(false);
   const [allowMemberInvite, setAllowMemberInvite] = useState(false);
   const [meetAllowFeed, setMeetAllowFeed] = useState(true);
@@ -88,6 +93,18 @@ export function PhilifeNeighborhoodWriteForm({
   const submitErrorAnchorRef = useRef<HTMLDivElement>(null);
   const me = getCurrentUser();
   const pointBalance = me?.id ? getUserPointBalance(me.id) : 0;
+
+  useEffect(() => {
+    if (category !== "meetup") return;
+    if (meetIdentityMode === "realname") {
+      setMeetOwnerJoinAs("realname");
+      return;
+    }
+    if (!meetOwnerNickname.trim()) {
+      const suggested = typeof me?.nickname === "string" ? me.nickname.trim() : "";
+      if (suggested) setMeetOwnerNickname(suggested.slice(0, 40));
+    }
+  }, [category, me?.nickname, meetIdentityMode, meetOwnerNickname]);
 
   useEffect(() => {
     if (!err) return;
@@ -224,6 +241,13 @@ export function PhilifeNeighborhoodWriteForm({
           return;
         }
       }
+      if (meetIdentityMode === "nickname_optional" && meetOwnerJoinAs === "nickname") {
+        const nick = meetOwnerNickname.replace(/\s+/g, " ").trim();
+        if (nick.length < 2 || nick.length > 40) {
+          setErr("닉네임으로 생성하려면 2~40자의 닉네임을 입력해 주세요.");
+          return;
+        }
+      }
     }
 
     if (category !== "meetup" && promoteAdEnabled) {
@@ -269,6 +293,11 @@ export function PhilifeNeighborhoodWriteForm({
           description: shortDesc,
           entry_policy: meetEntryPolicy,
           ...(meetEntryPolicy === "password" ? { meeting_password: meetPassword.trim() } : {}),
+          open_chat_identity_mode: meetIdentityMode,
+          open_chat_owner_join_as: meetIdentityMode === "realname" ? "realname" : meetOwnerJoinAs,
+          ...(meetIdentityMode === "nickname_optional" && meetOwnerJoinAs === "nickname"
+            ? { open_chat_owner_nickname: meetOwnerNickname.replace(/\s+/g, " ").trim() }
+            : {}),
           allow_waitlist: allowWaitlist,
           allow_member_invite: allowMemberInvite,
           welcome_message: null,
@@ -458,6 +487,97 @@ export function PhilifeNeighborhoodWriteForm({
                       className="mt-[4pt] w-full rounded-[4px] border border-amber-200 px-3 py-2 text-[14px]"
                       placeholder="4자 이상"
                     />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-[4pt]" role="group" aria-labelledby="meetup-identity-heading">
+                <p id="meetup-identity-heading" className={MEETUP_SECTION_LABEL_CLASS}>
+                  표시 이름 설정
+                </p>
+                <div className="grid gap-2 rounded-[4px] border border-gray-100 bg-gray-50/50 p-3">
+                  {(
+                    [
+                      {
+                        mode: "realname" as const,
+                        label: "실명 참여",
+                        desc: "방장과 참여자 모두 가입 정보의 실명 기준으로 입장합니다.",
+                      },
+                      {
+                        mode: "nickname_optional" as const,
+                        label: "닉네임 참여",
+                        desc: "참여자는 실명 또는 닉네임을 선택할 수 있고, 방장도 생성 시 선택합니다.",
+                      },
+                    ] as const
+                  ).map(({ mode, label, desc }) => (
+                    <label
+                      key={mode}
+                      className={`cursor-pointer rounded-[4px] border px-3 py-2.5 transition-colors ${
+                        meetIdentityMode === mode
+                          ? "border-emerald-300 bg-emerald-50"
+                          : "border-gray-200 bg-white hover:bg-gray-50"
+                      }`}
+                    >
+                      <span className="flex items-start gap-2">
+                        <input
+                          type="radio"
+                          name="meet_identity_mode"
+                          checked={meetIdentityMode === mode}
+                          onChange={() => setMeetIdentityMode(mode)}
+                          className="mt-0.5 h-4 w-4 shrink-0 border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-[13px] font-medium text-gray-900">{label}</span>
+                          <span className="mt-1 block text-[12px] leading-snug text-gray-600">{desc}</span>
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {meetIdentityMode === "nickname_optional" ? (
+                  <div className="rounded-[4px] border border-gray-100 bg-white p-3">
+                    <p className="text-[12px] font-medium text-gray-800">방장 표시 이름</p>
+                    <div className="mt-2 grid gap-2">
+                      {(
+                        [
+                          { value: "realname" as const, label: "실명으로 생성" },
+                          { value: "nickname" as const, label: "닉네임으로 생성" },
+                        ] as const
+                      ).map(({ value, label }) => (
+                        <label
+                          key={value}
+                          className={`cursor-pointer rounded-[4px] border px-3 py-2 transition-colors ${
+                            meetOwnerJoinAs === value
+                              ? "border-emerald-300 bg-emerald-50"
+                              : "border-gray-200 bg-gray-50 hover:bg-white"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="meet_owner_join_as"
+                              checked={meetOwnerJoinAs === value}
+                              onChange={() => setMeetOwnerJoinAs(value)}
+                              className="h-4 w-4 shrink-0 border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span className="text-[13px] text-gray-800">{label}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {meetOwnerJoinAs === "nickname" ? (
+                      <div className="mt-3">
+                        <label className={MEETUP_SECTION_LABEL_CLASS}>방장 닉네임</label>
+                        <input
+                          value={meetOwnerNickname}
+                          onChange={(e) => setMeetOwnerNickname(e.target.value)}
+                          className="mt-[4pt] w-full rounded-[4px] border border-gray-200 px-3 py-2 text-[14px]"
+                          placeholder="오픈채팅에서 사용할 닉네임"
+                          autoComplete="off"
+                          maxLength={40}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

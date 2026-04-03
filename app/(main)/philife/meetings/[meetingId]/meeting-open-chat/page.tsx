@@ -1,10 +1,11 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MeetingJoinButton } from "@/components/community/MeetingJoinButton";
 import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
 import { MeetingOpenChatListClient } from "@/components/meeting-open-chat/MeetingOpenChatListClient";
 import { MeetingPendingCard } from "@/components/meetings/MeetingPendingCard";
 import { MeetingRestrictedCard } from "@/components/meetings/MeetingRestrictedCard";
 import { loadPhilifeMeetingHubData } from "@/lib/neighborhood/philife-meeting-hub-load";
+import { philifeAppPaths } from "@/lib/philife/paths";
 import { APP_MAIN_GUTTER_NEG_X_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 interface Props {
@@ -29,12 +30,17 @@ export default async function MeetingOpenChatHubPage({ params }: Props) {
     hasLeft,
     hostUserIdForProps,
     myMembershipCreatedAt,
+    activeOpenChatRoomCount,
     defaultOpenChatRoomId,
     openChatRoomHasPassword,
     openChatRoomNeedsApprovalIntro,
   } = hub;
 
   const postBack = `/philife/${meeting.post_id}`;
+
+  if (isJoined && activeOpenChatRoomCount === 1 && defaultOpenChatRoomId) {
+    redirect(philifeAppPaths.meetingOpenChatRoom(meeting.id, defaultOpenChatRoomId));
+  }
 
   return (
     <div
