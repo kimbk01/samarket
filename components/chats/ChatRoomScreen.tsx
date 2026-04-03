@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ChatRoom } from "@/lib/types/chat";
@@ -102,7 +102,7 @@ export function ChatRoomScreen({
     }
   }, [roomId, currentUserId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMounted(true);
   }, []);
 

@@ -74,6 +74,7 @@ export default function OwnerStoreOrderChatBridgePage() {
 
   return (
     <RedirectStoreOrderToUnifiedChat
+      key={`${ctx.store_id}:${orderId}`}
       variant="owner"
       storeId={ctx.store_id}
       slug={ctx.slug}

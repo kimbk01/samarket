@@ -6,5 +6,5 @@ import { RedirectStoreOrderToUnifiedChat } from "@/components/chats/RedirectStor
 export default function OrdersHubStoreOrderChatBridgePage() {
   const params = useParams();
   const orderId = typeof params?.orderId === "string" ? params.orderId : "";
-  return <RedirectStoreOrderToUnifiedChat variant="buyer" orderId={orderId} />;
+  return <RedirectStoreOrderToUnifiedChat key={orderId || "pending"} variant="buyer" orderId={orderId} />;
 }

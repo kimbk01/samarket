@@ -14,6 +14,7 @@ import { markRoomAsRead } from "@/lib/chat/markRoomAsRead";
 import { getAppSettings } from "@/lib/app-settings";
 import { ChatProductSummary } from "./ChatProductSummary";
 import { ChatMessageList } from "./ChatMessageList";
+import { ChatMessagesLoadingSkeleton } from "./ChatMessagesLoadingSkeleton";
 import { ChatInputBar } from "./ChatInputBar";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { BlockActionSheet } from "@/components/reports/BlockActionSheet";
@@ -59,7 +60,6 @@ import {
 import { ChatRealtimeAppBarIcons } from "@/components/chats/ChatRealtimeAppBarIcons";
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
 import { playCoalescedOrderMatchChatAlert } from "@/lib/notifications/coalesced-chat-alert-sound";
-import { IG_DM_BODY_TEXT } from "@/lib/chats/instagram-dm-tokens";
 import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
 import type { UserTrustSummary } from "@/lib/types/review";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
@@ -466,6 +466,7 @@ export function ChatDetailView({
   useEffect(() => {
     let cancelled = false;
     setMessagesLoading(true);
+    setMessages([]);
     (async () => {
       let list: ChatMessage[] = [];
       try {
@@ -1283,16 +1284,12 @@ export function ChatDetailView({
       )}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {messagesLoading ? (
-          <div
-            className={`flex flex-1 items-center justify-center ${isStoreOrderChat ? `bg-white ${IG_DM_BODY_TEXT} text-[#A8A8A8]` : "bg-[#F7F7F7] text-[14px] text-gray-600"}`}
-          >
-            메시지 불러오는 중...
-          </div>
-        ) : (
-          <div
-            className={`flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-white px-3 py-2" : "bg-[#F7F7F7] px-2 py-1"}`}
-          >
+        <div
+          className={`flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-white px-3 py-2" : "bg-[#F7F7F7] px-2 py-1"}`}
+        >
+          {messagesLoading ? (
+            <ChatMessagesLoadingSkeleton variant={isStoreOrderChat ? "instagram" : "default"} />
+          ) : (
             <ChatMessageList
               messages={messages}
               currentUserId={currentUserId}
@@ -1300,8 +1297,8 @@ export function ChatDetailView({
               partnerAvatar={partnerDisplayAvatar || undefined}
               variant={isStoreOrderChat ? "instagram" : "default"}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {partnerBlocked ? (

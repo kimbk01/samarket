@@ -19,6 +19,34 @@ import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts
 
 export const dynamic = "force-dynamic";
 
+async function loadStoreOrderReviewMeta(
+  sb: import("@supabase/supabase-js").SupabaseClient<any>,
+  orderId: string
+): Promise<{
+  reviewRow: { id?: string; visible_to_public?: boolean } | null;
+  revErr: { message?: string } | null;
+}> {
+  let reviewRow: { id?: string; visible_to_public?: boolean } | null = null;
+  let revErr: { message?: string } | null = null;
+  const sel = await sb
+    .from("store_reviews")
+    .select("id, visible_to_public")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  reviewRow = sel.data as typeof reviewRow;
+  revErr = sel.error;
+  if (
+    revErr &&
+    /visible_to_public|column/i.test(String(revErr.message)) &&
+    /does not exist/i.test(String(revErr.message))
+  ) {
+    const fb = await sb.from("store_reviews").select("id").eq("order_id", orderId).maybeSingle();
+    reviewRow = fb.data ? { id: fb.data.id as string, visible_to_public: true } : null;
+    revErr = fb.error;
+  }
+  return { reviewRow, revErr };
+}
+
 async function isBuyerHiddenStoreOrder(
   sb: import("@supabase/supabase-js").SupabaseClient<any>,
   buyerUserId: string,
@@ -83,24 +111,39 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "hidden_check_failed" }, { status: 500 });
   }
 
-  const { data: items, error: iErr } = await sb
-    .from("store_order_items")
-    .select("id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
-    .eq("order_id", oid)
-    .order("id");
+  const storeId = order.store_id as string;
+  const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
+  const [itemsRes, storeRes, reviewMeta, ens] = await Promise.all([
+    sb
+      .from("store_order_items")
+      .select("id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
+      .eq("order_id", oid)
+      .order("id"),
+    sb
+      .from("stores")
+      .select(
+        "store_name, slug, owner_user_id, region, city, district, address_line1, address_line2"
+      )
+      .eq("id", storeId)
+      .maybeSingle(),
+    loadStoreOrderReviewMeta(sb, oid),
+    (async () => {
+      try {
+        return await ensureStoreOrderChatRoom(sbAny, oid);
+      } catch {
+        return { ok: false as const, error: "exception" };
+      }
+    })(),
+  ]);
+
+  const { data: items, error: iErr } = itemsRes;
   if (iErr) {
     console.error("[GET store-order items]", iErr);
     return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
   }
 
-  const { data: store } = await sb
-    .from("stores")
-    .select(
-      "store_name, slug, owner_user_id, region, city, district, address_line1, address_line2"
-    )
-    .eq("id", order.store_id as string)
-    .maybeSingle();
+  const { data: store } = storeRes;
 
   const store_pickup_address_lines =
     store ?
@@ -113,22 +156,7 @@ export async function GET(
       })
     : [];
 
-  let reviewRow: { id?: string; visible_to_public?: boolean } | null = null;
-  let revErr = null as { message?: string } | null;
-  {
-    const sel = await sb
-      .from("store_reviews")
-      .select("id, visible_to_public")
-      .eq("order_id", oid)
-      .maybeSingle();
-    reviewRow = sel.data as typeof reviewRow;
-    revErr = sel.error;
-    if (revErr && /visible_to_public|column/i.test(String(revErr.message)) && /does not exist/i.test(String(revErr.message))) {
-      const fb = await sb.from("store_reviews").select("id").eq("order_id", oid).maybeSingle();
-      reviewRow = fb.data ? { id: fb.data.id as string, visible_to_public: true } : null;
-      revErr = fb.error;
-    }
-  }
+  const { reviewRow, revErr } = reviewMeta;
 
   const completed = order.order_status === "completed";
   const reviewsUnavailable = !!(
@@ -140,12 +168,7 @@ export async function GET(
   const canSubmitReview = completed && !reviewId && !reviewsUnavailable;
 
   let chat_room_id: string | null = null;
-  try {
-    const ens = await ensureStoreOrderChatRoom(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
-    if (ens.ok) chat_room_id = ens.roomId;
-  } catch {
-    /* 스키마 미적용 등 — RedirectStoreOrderToUnifiedChat 에서 안내 */
-  }
+  if (ens.ok) chat_room_id = ens.roomId;
 
   return NextResponse.json({
     ok: true,
