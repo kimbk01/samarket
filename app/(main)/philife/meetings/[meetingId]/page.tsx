@@ -150,6 +150,8 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
     isJoined,
     isPending,
     isRestricted,
+    defaultOpenChatRoomId,
+    viewerIsDefaultOpenChatMember,
     openChatAnyPassword,
     openChatAnyApproval,
     hostUserIdForProps,
@@ -157,11 +159,19 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
   } = hub;
 
   if (tab === "chat" && isJoined) {
-    redirect(philifeAppPaths.meetingOpenChat(id));
+    redirect(
+      defaultOpenChatRoomId && viewerIsDefaultOpenChatMember
+        ? philifeAppPaths.meetingOpenChatRoom(id, defaultOpenChatRoomId)
+        : philifeAppPaths.meetingOpenChat(id)
+    );
   }
 
   if (!isPending && !isRestricted) {
-    redirect(philifeAppPaths.meetingOpenChat(id));
+    redirect(
+      isJoined && defaultOpenChatRoomId && viewerIsDefaultOpenChatMember
+        ? philifeAppPaths.meetingOpenChatRoom(id, defaultOpenChatRoomId)
+        : philifeAppPaths.meetingOpenChat(id)
+    );
   }
 
   return (

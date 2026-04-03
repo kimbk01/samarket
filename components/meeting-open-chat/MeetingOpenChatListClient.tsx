@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MeetingOpenChatJoinDialog } from "@/components/meeting-open-chat/MeetingOpenChatJoinDialog";
+import type { MeetingOpenChatListInitialData } from "@/lib/meeting-open-chat/meeting-open-chat-list-initial-data";
 import type {
   MeetingOpenChatJoinAs,
   MeetingOpenChatRoomListEntry,
@@ -90,12 +91,14 @@ export function MeetingOpenChatListClient({
   meetingId,
   variant = "standalone",
   postBackHref,
+  initialData,
 }: {
   meetingId: string;
   /** 모임 상세에 넣을 때: 높이·헤더 축소 */
   variant?: "standalone" | "embedded";
   /** embedded일 때 '← 글' (피드 게시글) */
   postBackHref?: string;
+  initialData?: MeetingOpenChatListInitialData | null;
 }) {
   const router = useRouter();
   const autoEnteredRef = useRef(false);
@@ -104,11 +107,23 @@ export function MeetingOpenChatListClient({
     autoEnteredRef.current = false;
     autoPromptedJoinRef.current = false;
   }, [meetingId]);
-  const [rooms, setRooms] = useState<MeetingOpenChatRoomListEntry[] | null>(null);
-  const [viewerSuggestedOpenNickname, setViewerSuggestedOpenNickname] = useState<string | null>(null);
-  const [viewerSuggestedRealname, setViewerSuggestedRealname] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRooms(initialData?.rooms ?? null);
+    setViewerSuggestedOpenNickname(initialData?.viewerSuggestedOpenNickname ?? null);
+    setViewerSuggestedRealname(initialData?.viewerSuggestedRealname ?? null);
+    setLoading(!initialData);
+    setError(null);
+  }, [initialData, meetingId]);
+  const [rooms, setRooms] = useState<MeetingOpenChatRoomListEntry[] | null>(() => initialData?.rooms ?? null);
+  const [viewerSuggestedOpenNickname, setViewerSuggestedOpenNickname] = useState<string | null>(
+    () => initialData?.viewerSuggestedOpenNickname ?? null
+  );
+  const [viewerSuggestedRealname, setViewerSuggestedRealname] = useState<string | null>(
+    () => initialData?.viewerSuggestedRealname ?? null
+  );
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialData);
   const [joinRoom, setJoinRoom] = useState<MeetingOpenChatRoomListEntry | null>(null);
   const [joinNick, setJoinNick] = useState("");
   const [joinPw, setJoinPw] = useState("");
@@ -181,8 +196,8 @@ export function MeetingOpenChatListClient({
   }, [meetingId, searchQuery]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load({ silent: Boolean(initialData) });
+  }, [initialData, load]);
 
   useEffect(() => {
     const id = window.setInterval(() => {

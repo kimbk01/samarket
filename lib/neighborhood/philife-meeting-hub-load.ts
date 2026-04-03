@@ -25,6 +25,7 @@ export type PhilifeMeetingHubData = {
   myMembershipCreatedAt: string | null;
   activeOpenChatRoomCount: number;
   defaultOpenChatRoomId: string | null;
+  viewerIsDefaultOpenChatMember: boolean;
   openChatRoomHasPassword: boolean;
   openChatRoomNeedsApprovalIntro: boolean;
   openChatAnyPassword: boolean;
@@ -154,6 +155,7 @@ export async function loadPhilifeMeetingHubData(
   let defaultOpenChatRoomId: string | null = null;
   let defaultRoomJoinType: string | null = null;
   let pickPasswordHashPresent = false;
+  let viewerIsDefaultOpenChatMember = false;
   let activeOpenChatRoomCount = 0;
   let openChatAnyPassword = false;
   let openChatAnyApproval = false;
@@ -193,6 +195,17 @@ export async function loadPhilifeMeetingHubData(
         pickPasswordHashPresent = String((pick as OcRow).password_hash ?? "").trim().length > 0;
       }
     }
+
+    if (viewerId && defaultOpenChatRoomId) {
+      const { data: openChatMember } = await sb
+        .from("meeting_open_chat_members")
+        .select("id")
+        .eq("room_id", defaultOpenChatRoomId)
+        .eq("user_id", viewerId)
+        .eq("status", "active")
+        .maybeSingle();
+      viewerIsDefaultOpenChatMember = openChatMember != null;
+    }
   }
 
   const openChatRoomHasPassword =
@@ -216,6 +229,7 @@ export async function loadPhilifeMeetingHubData(
     myMembershipCreatedAt,
     activeOpenChatRoomCount,
     defaultOpenChatRoomId,
+    viewerIsDefaultOpenChatMember,
     openChatRoomHasPassword,
     openChatRoomNeedsApprovalIntro,
     openChatAnyPassword,

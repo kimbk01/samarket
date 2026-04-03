@@ -3,6 +3,7 @@
  */
 export const philifeAppPaths = {
   home: "/philife",
+  /** 1) 공개 필라이프 오픈채팅 */
   openChat: "/philife/open-chat",
   /** @deprecated 북마크용 — 실제 생성은 `writeMeeting` */
   openChatCreate: "/philife/open-chat/create",
@@ -12,10 +13,11 @@ export const philifeAppPaths = {
   write: "/philife/write",
   writeMeeting: "/philife/write?category=meetup",
   my: "/philife/my",
+  /** 2) 거래 채팅 */
   chats: "/chats/philife?tab=inbox",
   post: (id: string) => `/philife/${encodeURIComponent(id)}`,
   meeting: (id: string) => `/philife/meetings/${encodeURIComponent(id)}`,
-  /** 모임 그룹 채팅 전용 (LINE UI, `meeting_open_chat_*`). 거래/배달 `/chats` 와 분리 */
+  /** 3) 커뮤니티 모임 단톡방 (`meeting_open_chat_*`) */
   meetingOpenChat: (meetingId: string) =>
     `/philife/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat`,
   meetingOpenChatRoom: (meetingId: string, roomId: string) =>

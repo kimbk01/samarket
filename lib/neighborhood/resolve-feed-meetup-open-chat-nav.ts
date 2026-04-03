@@ -31,7 +31,7 @@ export function resolveFeedMeetupOpenChatNavPlan(hub: PhilifeMeetingHubData): Fe
     return { action: "navigate", path: hubPath };
   }
 
-  if (hub.isJoined && rid) {
+  if (hub.isJoined && rid && hub.viewerIsDefaultOpenChatMember) {
     return { action: "navigate", path: roomPath };
   }
 

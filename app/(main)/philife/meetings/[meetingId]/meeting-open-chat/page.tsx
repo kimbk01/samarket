@@ -4,6 +4,7 @@ import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimary
 import { MeetingOpenChatListClient } from "@/components/meeting-open-chat/MeetingOpenChatListClient";
 import { MeetingPendingCard } from "@/components/meetings/MeetingPendingCard";
 import { MeetingRestrictedCard } from "@/components/meetings/MeetingRestrictedCard";
+import { loadMeetingOpenChatListInitialData } from "@/lib/meeting-open-chat/meeting-open-chat-list-initial-data";
 import { loadPhilifeMeetingHubData } from "@/lib/neighborhood/philife-meeting-hub-load";
 import { philifeAppPaths } from "@/lib/philife/paths";
 import { APP_MAIN_GUTTER_NEG_X_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
@@ -32,15 +33,18 @@ export default async function MeetingOpenChatHubPage({ params }: Props) {
     myMembershipCreatedAt,
     activeOpenChatRoomCount,
     defaultOpenChatRoomId,
+    viewerIsDefaultOpenChatMember,
     openChatRoomHasPassword,
     openChatRoomNeedsApprovalIntro,
   } = hub;
 
   const postBack = `/philife/${meeting.post_id}`;
 
-  if (isJoined && activeOpenChatRoomCount === 1 && defaultOpenChatRoomId) {
+  if (isJoined && activeOpenChatRoomCount === 1 && defaultOpenChatRoomId && viewerIsDefaultOpenChatMember) {
     redirect(philifeAppPaths.meetingOpenChatRoom(meeting.id, defaultOpenChatRoomId));
   }
+
+  const initialListData = isJoined ? await loadMeetingOpenChatListInitialData(meeting.id) : null;
 
   return (
     <div
@@ -100,6 +104,7 @@ export default async function MeetingOpenChatHubPage({ params }: Props) {
               meetingId={meeting.id}
               variant="embedded"
               postBackHref={postBack}
+              initialData={initialListData}
             />
           </div>
         )}
