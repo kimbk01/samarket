@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MeetingPasswordOnlyModal } from "@/components/community/MeetingPasswordOnlyModal";
 import { MeetingOpenChatJoinDialog } from "@/components/meeting-open-chat/MeetingOpenChatJoinDialog";
 import { LineOpenChatHeader } from "@/components/meeting-open-chat/line/LineOpenChatHeader";
@@ -17,6 +17,7 @@ import { meetingOpenChatRoleCanManage } from "@/lib/meeting-open-chat/permission
 import { playLoudOpenChatPing } from "@/lib/meeting-open-chat/play-open-chat-ping";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { philifeAppPaths } from "@/lib/philife/paths";
+import type { MeetingOpenChatRoomInitialData } from "@/lib/meeting-open-chat/meeting-open-chat-room-initial-types";
 import type {
   MeetingOpenChatMemberRole,
   MeetingOpenChatMessagePublic,
@@ -98,14 +99,19 @@ function openChatMessagePreviewLine(m: MeetingOpenChatMessagePublic): string {
 export function MeetingOpenChatRoomClient({
   meetingId,
   roomId,
+  initialData,
 }: {
   meetingId: string;
   roomId: string;
+  /** RSC에서 내려주면 첫 페인트부터 방·메시지 표시(직접 URL 진입 시 이중 로딩 완화) */
+  initialData?: MeetingOpenChatRoomInitialData | null;
 }) {
   const router = useRouter();
-  const [room, setRoom] = useState<MeetingOpenChatRoomPublic | null>(null);
-  const [chatMember, setChatMember] = useState<ChatMemberMe | null>(null);
-  const [messages, setMessages] = useState<MeetingOpenChatMessagePublic[]>([]);
+  const [room, setRoom] = useState<MeetingOpenChatRoomPublic | null>(() => initialData?.room ?? null);
+  const [chatMember, setChatMember] = useState<ChatMemberMe | null>(() => initialData?.chatMember ?? null);
+  const [messages, setMessages] = useState<MeetingOpenChatMessagePublic[]>(
+    () => initialData?.initialMessages ?? []
+  );
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
@@ -120,9 +126,15 @@ export function MeetingOpenChatRoomClient({
   const [joinPw, setJoinPw] = useState("");
   const [joinIntro, setJoinIntro] = useState("");
   const [joinErr, setJoinErr] = useState<string | null>(null);
-  const [viewerSuggestedOpenNickname, setViewerSuggestedOpenNickname] = useState<string | null>(null);
+  const [viewerSuggestedOpenNickname, setViewerSuggestedOpenNickname] = useState<string | null>(
+    () => initialData?.viewerSuggestedOpenNickname ?? null
+  );
   const [useFullJoinDialog, setUseFullJoinDialog] = useState(false);
   const lastPwdAttemptRef = useRef("");
+  /** 서버에서 메시지까지 내려준 경우 첫 클라이언트 GET 생략 */
+  const skipNextClientMessagesFetchRef = useRef(initialData?.initialMessages !== undefined);
+  /** 첫 `loadRoom`만 silent(스냅샷이 있을 때 로딩 문구·점프 방지) */
+  const silentFirstRoomRefreshRef = useRef(Boolean(initialData?.room));
 
   const apiRoom = `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(roomId)}`;
   const apiMessages = `${apiRoom}/messages`;
@@ -144,7 +156,7 @@ export function MeetingOpenChatRoomClient({
   const [participants, setParticipants] = useState<MeetingOpenChatParticipantPublic[]>([]);
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
   const [previewInitial, setPreviewInitial] = useState<MeetingOpenChatParticipantPublic | null>(null);
-  const [viewerUnreadCount, setViewerUnreadCount] = useState(0);
+  const [viewerUnreadCount, setViewerUnreadCount] = useState(() => initialData?.viewerUnreadCount ?? 0);
   const [messageAction, setMessageAction] = useState<MessageActionContext | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
 
@@ -216,6 +228,20 @@ export function MeetingOpenChatRoomClient({
     [apiRead, loadRoom]
   );
 
+  const scrollToBottomAndMarkLastRead = useCallback(() => {
+    requestAnimationFrame(() => {
+      const el = listRef.current;
+      if (!el) return;
+      if (nearBottomRef.current) {
+        el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+        const list = messagesRef.current;
+        if (list.length > 0) {
+          requestMarkRead(list[list.length - 1].id);
+        }
+      }
+    });
+  }, [requestMarkRead]);
+
   const loadMessages = useCallback(async () => {
     try {
       const res = await fetch(apiMessages, { credentials: "include" });
@@ -224,21 +250,12 @@ export function MeetingOpenChatRoomClient({
         const list = json.messages;
         messagesRef.current = list;
         setMessages(list);
-        requestAnimationFrame(() => {
-          const el = listRef.current;
-          if (!el) return;
-          if (nearBottomRef.current) {
-            el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
-            if (list.length > 0) {
-              requestMarkRead(list[list.length - 1].id);
-            }
-          }
-        });
+        scrollToBottomAndMarkLastRead();
       }
     } catch {
       /* ignore */
     }
-  }, [apiMessages, requestMarkRead]);
+  }, [apiMessages, scrollToBottomAndMarkLastRead]);
 
   const onMessageListScroll = useCallback(() => {
     const el = listRef.current;
@@ -254,14 +271,27 @@ export function MeetingOpenChatRoomClient({
   }, [requestMarkRead]);
 
   useEffect(() => {
-    void loadRoom();
+    const silent = silentFirstRoomRefreshRef.current;
+    silentFirstRoomRefreshRef.current = false;
+    void loadRoom({ silent });
   }, [loadRoom]);
 
+  useLayoutEffect(() => {
+    if (!chatMember || initialData?.initialMessages === undefined) return;
+    nearBottomRef.current = true;
+    messagesRef.current = initialData.initialMessages;
+    scrollToBottomAndMarkLastRead();
+  }, [chatMember, initialData?.initialMessages, scrollToBottomAndMarkLastRead]);
+
   useEffect(() => {
-    if (chatMember) {
+    if (!chatMember) return;
+    if (skipNextClientMessagesFetchRef.current) {
+      skipNextClientMessagesFetchRef.current = false;
       nearBottomRef.current = true;
-      void loadMessages();
+      return;
     }
+    nearBottomRef.current = true;
+    void loadMessages();
   }, [chatMember, loadMessages]);
 
   useEffect(() => {
