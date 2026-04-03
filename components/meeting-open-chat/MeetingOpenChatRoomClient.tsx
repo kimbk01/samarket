@@ -96,6 +96,19 @@ function openChatMessagePreviewLine(m: MeetingOpenChatMessagePublic): string {
   return "(내용 없음)";
 }
 
+function mergeMeetingOpenChatMessages(
+  prev: MeetingOpenChatMessagePublic[],
+  next: MeetingOpenChatMessagePublic[]
+): MeetingOpenChatMessagePublic[] {
+  if (next.length === 0) return prev;
+  const byId = new Map<string, MeetingOpenChatMessagePublic>();
+  for (const message of prev) byId.set(message.id, message);
+  for (const message of next) byId.set(message.id, message);
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+}
+
 export function MeetingOpenChatRoomClient({
   meetingId,
   roomId,
@@ -146,7 +159,7 @@ export function MeetingOpenChatRoomClient({
   const apiLeave = `${apiRoom}/leave`;
 
   const [notices, setNotices] = useState<MeetingOpenChatNoticePublic[]>([]);
-  const [loudSound, setLoudSound] = useState(true);
+  const [loudSound, setLoudSound] = useState(() => readLoudSoundPreference());
   const lastSeenMessageIdRef = useRef<string | null>(null);
   const [operatorOpen, setOperatorOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -502,8 +515,30 @@ export function MeetingOpenChatRoomClient({
 
   const onSend = async () => {
     const t = draft.trim();
-    if (!t || busy) return;
+    if (!t || busy || !chatMember) return;
     setBusy(true);
+    const tempId = `local:${roomId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    const optimisticMessage: MeetingOpenChatMessagePublic = {
+      id: tempId,
+      room_id: roomId,
+      user_id: null,
+      member_id: chatMember.memberId,
+      message_type: replyTarget ? "reply" : "text",
+      content: t,
+      reply_to_message_id: replyTarget?.id ?? null,
+      is_blinded: false,
+      blinded_reason: null,
+      blinded_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      deleted_at: null,
+      sender_open_nickname: chatMember.openNickname,
+      attachments: [],
+    };
+    const optimisticList = mergeMeetingOpenChatMessages(messagesRef.current, [optimisticMessage]);
+    messagesRef.current = optimisticList;
+    setMessages(optimisticList);
+    scrollToBottomAndMarkLastRead();
     try {
       const res = await fetch(apiMessages, {
         method: "POST",
@@ -514,16 +549,36 @@ export function MeetingOpenChatRoomClient({
           replyToMessageId: replyTarget?.id ?? null,
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        message?: MeetingOpenChatMessagePublic;
+      };
       if (!res.ok || !json.ok) {
+        const rolledBack = messagesRef.current.filter((message) => message.id !== tempId);
+        messagesRef.current = rolledBack;
+        setMessages(rolledBack);
         setLoadErr(json.error ?? "전송 실패");
         return;
       }
       setDraft("");
       setReplyTarget(null);
       nearBottomRef.current = true;
-      await loadMessages();
+      const merged = json.message
+        ? mergeMeetingOpenChatMessages(
+            messagesRef.current.filter((message) => message.id !== tempId),
+            [json.message]
+          )
+        : messagesRef.current.filter((message) => message.id !== tempId);
+      messagesRef.current = merged;
+      setMessages(merged);
+      scrollToBottomAndMarkLastRead();
       setLoadErr(null);
+    } catch {
+      const rolledBack = messagesRef.current.filter((message) => message.id !== tempId);
+      messagesRef.current = rolledBack;
+      setMessages(rolledBack);
+      setLoadErr("전송 실패");
     } finally {
       setBusy(false);
     }
@@ -536,7 +591,7 @@ export function MeetingOpenChatRoomClient({
   const onImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || busy) return;
+    if (!file || busy || !chatMember) return;
     setBusy(true);
     setLoadErr(null);
     try {
@@ -555,6 +610,36 @@ export function MeetingOpenChatRoomClient({
         return;
       }
       const caption = draft.trim();
+      const tempId = `local:${roomId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      const optimisticMessage: MeetingOpenChatMessagePublic = {
+        id: tempId,
+        room_id: roomId,
+        user_id: null,
+        member_id: chatMember.memberId,
+        message_type: "image",
+        content: caption,
+        reply_to_message_id: replyTarget?.id ?? null,
+        is_blinded: false,
+        blinded_reason: null,
+        blinded_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        deleted_at: null,
+        sender_open_nickname: chatMember.openNickname,
+        attachments: [
+          {
+            id: `${tempId}:image`,
+            fileType: "image",
+            fileUrl: upJson.url,
+            fileName: upJson.fileName ?? file.name,
+            fileSize: upJson.fileSize ?? file.size,
+          },
+        ],
+      };
+      const optimisticList = mergeMeetingOpenChatMessages(messagesRef.current, [optimisticMessage]);
+      messagesRef.current = optimisticList;
+      setMessages(optimisticList);
+      scrollToBottomAndMarkLastRead();
       const res = await fetch(apiMessages, {
         method: "POST",
         credentials: "include",
@@ -567,15 +652,35 @@ export function MeetingOpenChatRoomClient({
           replyToMessageId: replyTarget?.id ?? null,
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        message?: MeetingOpenChatMessagePublic;
+      };
       if (!res.ok || !json.ok) {
+        const rolledBack = messagesRef.current.filter((message) => message.id !== tempId);
+        messagesRef.current = rolledBack;
+        setMessages(rolledBack);
         alert(json.error ?? "사진 전송에 실패했습니다.");
         return;
       }
       setDraft("");
       setReplyTarget(null);
       nearBottomRef.current = true;
-      await loadMessages();
+      const merged = json.message
+        ? mergeMeetingOpenChatMessages(
+            messagesRef.current.filter((message) => message.id !== tempId),
+            [json.message]
+          )
+        : messagesRef.current.filter((message) => message.id !== tempId);
+      messagesRef.current = merged;
+      setMessages(merged);
+      scrollToBottomAndMarkLastRead();
+    } catch {
+      const rolledBack = messagesRef.current.filter((message) => message.id !== tempId);
+      messagesRef.current = rolledBack;
+      setMessages(rolledBack);
+      alert("사진 전송에 실패했습니다.");
     } finally {
       setBusy(false);
     }

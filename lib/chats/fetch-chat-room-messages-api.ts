@@ -88,10 +88,55 @@ export function integratedChatRowToMessage(
 }
 
 const integratedMessagesKey = (roomId: string) => `chat:integrated-messages:${roomId}`;
+const MESSAGE_CACHE_TTL_MS = 20_000;
+type MessageCacheEntry = { messages: ChatMessage[]; updatedAt: number };
+const integratedMessageCache = new Map<string, MessageCacheEntry>();
+const legacyMessageCache = new Map<string, MessageCacheEntry>();
+
+function cloneChatMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((message) => ({
+    ...message,
+    imageUrls: Array.isArray(message.imageUrls) ? [...message.imageUrls] : message.imageUrls,
+    replyTo: message.replyTo ? { ...message.replyTo } : message.replyTo,
+    reactions: message.reactions?.map((reaction) => ({ ...reaction })),
+  }));
+}
+
+function readMessageCache(cache: Map<string, MessageCacheEntry>, roomId: string): ChatMessage[] | null {
+  const entry = cache.get(roomId);
+  if (!entry) return null;
+  if (Date.now() - entry.updatedAt > MESSAGE_CACHE_TTL_MS) {
+    cache.delete(roomId);
+    return null;
+  }
+  return cloneChatMessages(entry.messages);
+}
+
+function writeMessageCache(cache: Map<string, MessageCacheEntry>, roomId: string, messages: ChatMessage[]): ChatMessage[] {
+  const cloned = cloneChatMessages(messages);
+  cache.set(roomId, { messages: cloned, updatedAt: Date.now() });
+  return cloneChatMessages(cloned);
+}
 
 /** POST 직후 캐시된 GET 결과가 남아 내 메시지가 안 보이는 현상 방지 */
 export function bustIntegratedChatMessagesCache(roomId: string): void {
   forgetSingleFlight(integratedMessagesKey(roomId));
+}
+
+export function peekIntegratedChatRoomMessagesCache(roomId: string): ChatMessage[] | null {
+  return readMessageCache(integratedMessageCache, roomId);
+}
+
+export function peekLegacyChatRoomMessagesCache(roomId: string): ChatMessage[] | null {
+  return readMessageCache(legacyMessageCache, roomId);
+}
+
+export function updateIntegratedChatRoomMessagesCache(roomId: string, messages: ChatMessage[]): void {
+  writeMessageCache(integratedMessageCache, roomId, messages);
+}
+
+export function updateLegacyChatRoomMessagesCache(roomId: string, messages: ChatMessage[]): void {
+  writeMessageCache(legacyMessageCache, roomId, messages);
 }
 
 /** 통합 채팅방 GET …/api/chat/rooms/:id/messages (동시 호출 합류) */
@@ -103,12 +148,16 @@ export function fetchIntegratedChatRoomMessages(roomId: string): Promise<ChatMes
         credentials: "include",
         cache: "no-store",
       });
-      if (!res.ok) return [];
+      if (!res.ok) return readMessageCache(integratedMessageCache, roomId) ?? [];
       const data = await res.json();
       const raw = Array.isArray(data?.messages) ? (data.messages as IntegratedRow[]) : [];
-      return raw.map(mapIntegratedRow);
+      return writeMessageCache(
+        integratedMessageCache,
+        roomId,
+        raw.map(mapIntegratedRow)
+      );
     } catch {
-      return [];
+      return readMessageCache(integratedMessageCache, roomId) ?? [];
     }
   });
 }
@@ -122,11 +171,15 @@ export function fetchLegacyChatRoomMessages(roomId: string): Promise<ChatMessage
         credentials: "include",
         cache: "no-store",
       });
-      if (!res.ok) return [];
+      if (!res.ok) return readMessageCache(legacyMessageCache, roomId) ?? [];
       const apiMessages = await res.json();
-      return Array.isArray(apiMessages) ? (apiMessages as ChatMessage[]) : [];
+      return writeMessageCache(
+        legacyMessageCache,
+        roomId,
+        Array.isArray(apiMessages) ? (apiMessages as ChatMessage[]) : []
+      );
     } catch {
-      return [];
+      return readMessageCache(legacyMessageCache, roomId) ?? [];
     }
   });
 }

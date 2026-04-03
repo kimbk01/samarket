@@ -51,6 +51,10 @@ import {
   bustIntegratedChatMessagesCache,
   fetchIntegratedChatRoomMessages,
   fetchLegacyChatRoomMessages,
+  peekIntegratedChatRoomMessagesCache,
+  peekLegacyChatRoomMessagesCache,
+  updateIntegratedChatRoomMessagesCache,
+  updateLegacyChatRoomMessagesCache,
 } from "@/lib/chats/fetch-chat-room-messages-api";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
 import {
@@ -62,7 +66,6 @@ import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack
 import { playCoalescedOrderMatchChatAlert } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
 import type { UserTrustSummary } from "@/lib/types/review";
-import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { clampTrustScore } from "@/lib/trust/trust-score-core";
 
 interface ChatDetailViewProps {
@@ -78,6 +81,33 @@ interface ChatDetailViewProps {
   embeddedFill?: boolean;
   tradeHubColumnLayout?: boolean;
   ownerStoreOrderModalChrome?: boolean;
+}
+
+const OPTIMISTIC_MESSAGE_PREFIX = "local:";
+
+function isOptimisticChatMessage(message: ChatMessage): boolean {
+  return message.id.startsWith(OPTIMISTIC_MESSAGE_PREFIX);
+}
+
+function sameChatPayload(a: ChatMessage, b: ChatMessage): boolean {
+  const aType = a.messageType ?? "text";
+  const bType = b.messageType ?? "text";
+  const aImages = Array.isArray(a.imageUrls) ? a.imageUrls.join("\n") : a.imageUrl ?? "";
+  const bImages = Array.isArray(b.imageUrls) ? b.imageUrls.join("\n") : b.imageUrl ?? "";
+  return (
+    a.senderId === b.senderId &&
+    aType === bType &&
+    (a.message ?? "") === (b.message ?? "") &&
+    aImages === bImages
+  );
+}
+
+function reconcileOptimisticMessages(prev: ChatMessage[], confirmed: ChatMessage[]): ChatMessage[] {
+  if (confirmed.length === 0) return prev;
+  return prev.filter((message) => {
+    if (!isOptimisticChatMessage(message)) return true;
+    return !confirmed.some((nextMessage) => sameChatPayload(message, nextMessage));
+  });
 }
 
 export function ChatDetailView({
@@ -120,44 +150,6 @@ export function ChatDetailView({
   const chatHubListHref = isStoreOrderChat ? "/my/store-orders" : "/chats";
   const effectiveListHref = listHrefProp?.trim() || chatHubListHref;
   const [partnerBlocked, setPartnerBlocked] = useState(false);
-  /** 상단 상대방 — `/api/users/.../public-profile` (매너 배터리·최신 닉네임·프로필 사진) */
-  const [partnerPublicProfile, setPartnerPublicProfile] = useState<PublicSellerProfileDTO | null>(null);
-  useEffect(() => {
-    if (!partnerId?.trim()) {
-      setPartnerPublicProfile(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(`/api/users/${encodeURIComponent(partnerId)}/public-profile`, {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          profile?: PublicSellerProfileDTO;
-        };
-        if (cancelled) return;
-        const prof = data.profile;
-        if (
-          res.ok &&
-          data.ok &&
-          prof?.id &&
-          prof.id.trim().toLowerCase() === partnerId.trim().toLowerCase()
-        ) {
-          setPartnerPublicProfile(prof);
-        } else {
-          setPartnerPublicProfile(null);
-        }
-      } catch {
-        if (!cancelled) setPartnerPublicProfile(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [partnerId]);
 
   useEffect(() => {
     if (!partnerId?.trim()) {
@@ -181,7 +173,7 @@ export function ChatDetailView({
       cancelled = true;
     };
   }, [partnerId]);
-  const reportEnabled = getAppSettings().reportEnabled !== false;
+  const reportEnabled = useMemo(() => getAppSettings().reportEnabled !== false, []);
   const [reportSheetOpen, setReportSheetOpen] = useState(false);
   const [blockSheetOpen, setBlockSheetOpen] = useState(false);
   const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
@@ -215,27 +207,27 @@ export function ChatDetailView({
   const amISeller = room.sellerId === currentUserId;
 
   const partnerDisplayNickname = useMemo(
-    () => partnerPublicProfile?.nickname?.trim() || room.partnerNickname?.trim() || "상대",
-    [partnerPublicProfile?.nickname, room.partnerNickname]
+    () => room.partnerNickname?.trim() || "상대",
+    [room.partnerNickname]
   );
   const partnerDisplayAvatar = useMemo(
-    () => partnerPublicProfile?.avatar_url?.trim() || room.partnerAvatar?.trim() || "",
-    [partnerPublicProfile?.avatar_url, room.partnerAvatar]
+    () => room.partnerAvatar?.trim() || "",
+    [room.partnerAvatar]
   );
   const partnerTrustSummary: UserTrustSummary | null = useMemo(
     () =>
-      partnerPublicProfile
+      partnerId?.trim() && typeof room.partnerTrustScore === "number"
         ? {
-            userId: partnerPublicProfile.id,
+            userId: partnerId,
             reviewCount: 0,
             averageRating: 0,
-            mannerScore: clampTrustScore(partnerPublicProfile.trustScore),
+            mannerScore: clampTrustScore(room.partnerTrustScore),
             positiveCount: 0,
             negativeCount: 0,
             summaryTags: [],
           }
         : null,
-    [partnerPublicProfile]
+    [partnerId, room.partnerTrustScore]
   );
 
   /** storeId 는 API에서 가끔 비어 패널만 지연 로드될 수 있음 — 헤더 햄버거는 주문 id 만으로 노출 */
@@ -260,7 +252,6 @@ export function ChatDetailView({
       ? pinnedListing
       : propListing;
 
-  const isSold = room.product?.status === "sold" || displayListing === "completed";
   const effectiveProductChatId = (room.productChatRoomId || room.id).trim();
   const chatMode = room.chatMode ?? "open";
   const soldToOther =
@@ -318,8 +309,36 @@ export function ChatDetailView({
   const [chatRealtimeLive, setChatRealtimeLive] = useState(false);
   const [chatMessageSoundMuted, setChatMessageSoundMuted] = useState(false);
 
+  const appendOptimisticMessage = useCallback(
+    (message: Omit<ChatMessage, "id">) => {
+      const optimistic: ChatMessage = {
+        ...message,
+        id: `${OPTIMISTIC_MESSAGE_PREFIX}${room.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+      };
+      setMessages((prev) => mergeChatMessagesById(prev, [optimistic]));
+      return optimistic;
+    },
+    [room.id]
+  );
+
+  const confirmOptimisticMessage = useCallback((tempId: string, confirmed: ChatMessage) => {
+    setMessages((prev) =>
+      mergeChatMessagesById(
+        reconcileOptimisticMessages(
+          prev.filter((message) => message.id !== tempId),
+          [confirmed]
+        ),
+        [confirmed]
+      )
+    );
+  }, []);
+
+  const dropOptimisticMessage = useCallback((tempId: string) => {
+    setMessages((prev) => prev.filter((message) => message.id !== tempId));
+  }, []);
+
   const onIntegratedRealtimeMessage = useCallback((msg: ChatMessage) => {
-    setMessages((prev) => mergeChatMessagesById(prev, [msg]));
+    setMessages((prev) => mergeChatMessagesById(reconcileOptimisticMessages(prev, [msg]), [msg]));
   }, []);
 
   const onIntegratedRealtimeRemoved = useCallback((id: string) => {
@@ -360,6 +379,11 @@ export function ChatDetailView({
       setPinnedForProductId(null);
     }
   }, [amISeller, pinnedListing, pinnedForProductId, postId, propListing]);
+
+  useEffect(() => {
+    if (isChatRoom) updateIntegratedChatRoomMessagesCache(room.id, messages);
+    else updateLegacyChatRoomMessagesCache(room.id, messages);
+  }, [isChatRoom, room.id, messages]);
 
   const persistListingState = useCallback(
     async (state: SellerListingState) => {
@@ -463,8 +487,11 @@ export function ChatDetailView({
   // 초기 로드: API 우선 (테스트 로그인·RLS 시 판매자도 동일하게 메시지 수신)
   useEffect(() => {
     let cancelled = false;
-    setMessagesLoading(true);
-    setMessages([]);
+    const cached = isChatRoom
+      ? peekIntegratedChatRoomMessagesCache(room.id)
+      : peekLegacyChatRoomMessagesCache(room.id);
+    setMessages(cached ?? []);
+    setMessagesLoading(cached == null);
     (async () => {
       let list: ChatMessage[] = [];
       try {
@@ -545,7 +572,7 @@ export function ChatDetailView({
             }
           }
         }
-        return mergeChatMessagesById(prev, next);
+        return mergeChatMessagesById(reconcileOptimisticMessages(prev, next), next);
       });
     };
     tick(); // 마운트 직후 1회 실행 (초기 로드 직후 반영)
@@ -629,6 +656,14 @@ export function ChatDetailView({
   const postChatText = useCallback(
     async (message: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
       if (!canWriteTradeMessage) return { ok: false, error: "이 채팅에서는 메시지를 보낼 수 없습니다." };
+      const optimistic = appendOptimisticMessage({
+        roomId: room.id,
+        senderId: currentUserId,
+        message,
+        messageType: "text",
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      });
       if (isChatRoom) {
         try {
           const res = await fetch(`/api/chat/rooms/${room.id}/messages`, {
@@ -644,19 +679,18 @@ export function ChatDetailView({
           };
           if (data?.ok && data?.message?.id) {
             bustIntegratedChatMessagesCache(room.id);
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: data.message!.id!,
-                roomId: room.id,
-                senderId: currentUserId,
-                message,
-                createdAt: data.message!.createdAt ?? new Date().toISOString(),
-                isRead: false,
-              },
-            ]);
+            confirmOptimisticMessage(optimistic.id, {
+              id: data.message.id,
+              roomId: room.id,
+              senderId: currentUserId,
+              message,
+              messageType: "text",
+              createdAt: data.message.createdAt ?? optimistic.createdAt,
+              isRead: false,
+            });
             return { ok: true };
           }
+          dropOptimisticMessage(optimistic.id);
           const apiErr = typeof data?.error === "string" ? data.error.trim() : "";
           if (apiErr) return { ok: false, error: apiErr };
           if (res.status === 401) return { ok: false, error: "로그인이 필요합니다." };
@@ -665,33 +699,35 @@ export function ChatDetailView({
           }
           if (res.status >= 500) return { ok: false, error: "서버 오류로 전송하지 못했습니다. 잠시 후 다시 시도해 주세요." };
         } catch {
+          dropOptimisticMessage(optimistic.id);
           return { ok: false, error: "네트워크 오류로 전송하지 못했습니다." };
         }
+        dropOptimisticMessage(optimistic.id);
         return { ok: false, error: "전송에 실패했습니다. 다시 시도해 주세요." };
       }
 
       try {
         const res = await sendChatMessage(room.id, { type: "text", text: message });
         if (res.ok) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: res.messageId,
-              roomId: room.id,
-              senderId: currentUserId,
-              message,
-              createdAt: new Date().toISOString(),
-              isRead: false,
-            },
-          ]);
+          confirmOptimisticMessage(optimistic.id, {
+            id: res.messageId,
+            roomId: room.id,
+            senderId: currentUserId,
+            message,
+            messageType: "text",
+            createdAt: optimistic.createdAt,
+            isRead: false,
+          });
           return { ok: true };
         }
+        dropOptimisticMessage(optimistic.id);
         return { ok: false, error: res.error };
       } catch {
+        dropOptimisticMessage(optimistic.id);
         return { ok: false, error: "네트워크 오류로 전송하지 못했습니다." };
       }
     },
-    [room.id, currentUserId, isChatRoom, canWriteTradeMessage]
+    [room.id, currentUserId, isChatRoom, canWriteTradeMessage, appendOptimisticMessage, confirmOptimisticMessage, dropOptimisticMessage]
   );
 
   const postChatTextForSellerPanel = useCallback(
@@ -745,6 +781,7 @@ export function ChatDetailView({
         return;
       }
       setImageSending(true);
+      let optimistic: ChatMessage | null = null;
       try {
         const urls = await uploadPostImages([file], user.id);
         const imageUrl = urls[0];
@@ -752,6 +789,15 @@ export function ChatDetailView({
           setSendError("이미지 업로드에 실패했습니다. 다시 시도해 주세요.");
           return;
         }
+        optimistic = appendOptimisticMessage({
+          roomId: room.id,
+          senderId: currentUserId,
+          message: "",
+          messageType: "image",
+          imageUrl,
+          createdAt: new Date().toISOString(),
+          isRead: false,
+        });
         if (isChatRoom) {
           const res = await fetch(`/api/chat/rooms/${room.id}/messages`, {
             method: "POST",
@@ -761,20 +807,19 @@ export function ChatDetailView({
           });
           const data = await res.json().catch(() => ({}));
           if (data?.ok && data?.message?.id) {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: data.message.id,
-                roomId: room.id,
-                senderId: currentUserId,
-                message: "",
-                messageType: "image" as const,
-                imageUrl,
-                createdAt: data.message.createdAt ?? new Date().toISOString(),
-                isRead: false,
-              },
-            ]);
+            bustIntegratedChatMessagesCache(room.id);
+            confirmOptimisticMessage(optimistic.id, {
+              id: data.message.id,
+              roomId: room.id,
+              senderId: currentUserId,
+              message: "",
+              messageType: "image",
+              imageUrl,
+              createdAt: data.message.createdAt ?? optimistic.createdAt,
+              isRead: false,
+            });
           } else {
+            dropOptimisticMessage(optimistic.id);
             setSendError(
               typeof data?.error === "string" ? data.error : "전송에 실패했습니다. 다시 시도해 주세요."
             );
@@ -787,29 +832,28 @@ export function ChatDetailView({
           imageUrl,
         });
         if (sendRes.ok) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: sendRes.messageId,
-              roomId: room.id,
-              senderId: currentUserId,
-              message: "",
-              messageType: "image" as const,
-              imageUrl,
-              createdAt: new Date().toISOString(),
-              isRead: false,
-            },
-          ]);
+          confirmOptimisticMessage(optimistic.id, {
+            id: sendRes.messageId,
+            roomId: room.id,
+            senderId: currentUserId,
+            message: "",
+            messageType: "image",
+            imageUrl,
+            createdAt: optimistic.createdAt,
+            isRead: false,
+          });
         } else {
+          dropOptimisticMessage(optimistic.id);
           setSendError(sendRes.error || "전송에 실패했습니다. 다시 시도해 주세요.");
         }
       } catch {
+        if (optimistic) dropOptimisticMessage(optimistic.id);
         setSendError("전송에 실패했습니다. 다시 시도해 주세요.");
       } finally {
         setImageSending(false);
       }
     },
-    [room.id, currentUserId, isChatRoom, canWriteTradeMessage]
+    [room.id, currentUserId, isChatRoom, canWriteTradeMessage, appendOptimisticMessage, confirmOptimisticMessage, dropOptimisticMessage]
   );
 
   const loadStoreOrderDetail = useCallback(async () => {
@@ -962,7 +1006,7 @@ export function ChatDetailView({
     } catch {
       /* ignore */
     }
-  }, [room.id, currentUserId, isChatRoom, router, effectiveListHref]);
+  }, [room.id, isChatRoom, router, effectiveListHref]);
 
   const moreMenuPanel = menuOpen ? (
     <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">

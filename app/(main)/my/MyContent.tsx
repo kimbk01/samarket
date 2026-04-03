@@ -17,6 +17,7 @@ import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getUserSettings } from "@/lib/settings/user-settings-store";
 
 type OverviewCounts = {
   purchases: number | null;
@@ -24,9 +25,11 @@ type OverviewCounts = {
   storeAttention: number | null;
 };
 
-export function MyContent() {
-  const [data, setData] = useState<MyPageData | null>(null);
-  const [loading, setLoading] = useState(true);
+export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
+  const [data, setData] = useState<MyPageData | null>(() =>
+    initialMyPageData !== undefined ? initialMyPageData : null
+  );
+  const [loading, setLoading] = useState(() => initialMyPageData === undefined);
   const [overviewCounts, setOverviewCounts] = useState<OverviewCounts>({
     purchases: null,
     sales: null,
@@ -80,8 +83,20 @@ export function MyContent() {
   }, []);
 
   useEffect(() => {
+    if (initialMyPageData !== undefined) return;
     void load();
-  }, [load]);
+  }, [load, initialMyPageData]);
+
+  /** 서버 선로딩 시 배너 숨김은 로컬 설정과 맞춤 */
+  useEffect(() => {
+    if (initialMyPageData === undefined || !data?.profile?.id) return;
+    const uid = data.profile.id.trim();
+    if (!uid) return;
+    const hidden = getUserSettings(uid).app_banner_hidden === true;
+    if (hidden !== data.bannerHidden) {
+      setData((prev) => (prev ? { ...prev, bannerHidden: hidden } : prev));
+    }
+  }, [initialMyPageData, data?.profile?.id, data?.bannerHidden]);
 
   const loadAddressDefaultsRef = useRef(loadAddressDefaults);
 

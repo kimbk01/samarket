@@ -7,8 +7,9 @@ import { buildBusinessAdminSidebar } from "@/lib/business/business-admin-nav";
 import { getBusinessAdminPageTitle } from "@/lib/business/business-admin-page-title";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
-import { fetchMeStoresListDeduped, invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-deduped";
+import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import { useOwnerCommerceNotificationUnreadCount } from "@/hooks/useOwnerCommerceNotificationUnreadCount";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminSidebar";
@@ -53,11 +54,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
     if (!stores || stores.length === 0) return null;
     const byParam =
       storeIdParam.length > 0 ? stores.find((s) => s.id === storeIdParam) : undefined;
-    return (
-      byParam ??
-      stores.find((s) => String(s.approval_status) === "approved") ??
-      stores[0]!
-    );
+    return byParam ?? pickPreferredOwnerStore(stores) ?? stores[0]!;
   }, [stores, storeIdParam]);
 
   const orderCountsStoreId =

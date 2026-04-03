@@ -26,10 +26,12 @@ import {
   type StoreProductRow,
   type StoreRow,
 } from "@/lib/stores/db-store-mapper";
+import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { BusinessAdminDashboard } from "@/components/business/admin/dashboard/BusinessAdminDashboard";
+import type { MyBusinessServerInitial } from "@/lib/business/load-my-business-server";
 
 type LoadState =
   | { kind: "loading" }
@@ -44,11 +46,32 @@ type LoadState =
       products: BusinessProduct[];
     };
 
-export function MyBusinessPage() {
+function loadStateFromServerInitial(s: MyBusinessServerInitial): LoadState {
+  switch (s.kind) {
+    case "unauth":
+      return { kind: "unauth" };
+    case "config":
+      return { kind: "config" };
+    case "error":
+      return { kind: "error", message: s.message };
+    case "empty":
+      return { kind: "empty" };
+    case "remote":
+      return { kind: "remote", row: s.row, profile: s.profile, products: s.products };
+  }
+}
+
+export function MyBusinessPage({
+  initialServerState,
+}: {
+  initialServerState?: MyBusinessServerInitial | null;
+} = {}) {
   const searchParams = useSearchParams();
   const preferredStoreId = searchParams.get("storeId")?.trim() ?? "";
 
-  const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [state, setState] = useState<LoadState>(() =>
+    initialServerState != null ? loadStateFromServerInitial(initialServerState) : { kind: "loading" }
+  );
   const [orderAlertsBadge, setOrderAlertsBadge] = useState(0);
   const prevPendingDeliveryRef = useRef<number | null>(null);
   const alertStoreIdRef = useRef<string | null>(null);
@@ -91,10 +114,7 @@ export function MyBusinessPage() {
       }
       const byPreferred =
         preferredStoreId.length > 0 ? stores.find((s) => s.id === preferredStoreId) : undefined;
-      const row =
-        byPreferred ??
-        stores.find((s) => String(s.approval_status) === "approved") ??
-        stores[0]!;
+      const row = byPreferred ?? pickPreferredOwnerStore(stores) ?? stores[0]!;
       let products: BusinessProduct[] = [];
       if (row.approval_status === "approved") {
         const pr = await fetch(`/api/me/stores/${row.id}/products`, {
@@ -118,7 +138,13 @@ export function MyBusinessPage() {
     }
   }, [preferredStoreId]);
 
+  const skipFirstRemoteRef = useRef(initialServerState != null);
+
   useEffect(() => {
+    if (skipFirstRemoteRef.current) {
+      skipFirstRemoteRef.current = false;
+      return;
+    }
     void loadRemote();
   }, [loadRemote]);
 
@@ -195,6 +221,12 @@ export function MyBusinessPage() {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-amber-50 p-4 text-[14px] text-amber-900`}>
         <p>로그인(또는 개발용 테스트 로그인) 후 매장 신청을 이용할 수 있습니다.</p>
+        <Link
+          href="/mypage"
+          className="inline-flex w-fit rounded-lg border border-amber-200 bg-white px-4 py-2 text-[14px] font-medium text-amber-900"
+        >
+          내 정보로 이동
+        </Link>
       </div>
     );
   }

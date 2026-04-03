@@ -17,7 +17,7 @@ export async function getMessagesFromDb(
   const sb = supabase as any;
   const { data: rows, error } = await sb
     .from("product_chat_messages")
-    .select("*")
+    .select("id, product_chat_id, sender_id, content, message_type, image_url, read_at, created_at, is_hidden")
     .eq("product_chat_id", roomId)
     .order("created_at", { ascending: true });
 

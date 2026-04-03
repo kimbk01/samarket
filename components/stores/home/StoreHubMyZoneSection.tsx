@@ -14,12 +14,14 @@ export function StoreHubMyZoneSection({
   buyerState,
   recentOrder,
   ownerStore,
-  ownerHubBadge,
+  ownerStoreTabAttention,
+  ownerOrderAttention,
 }: {
   buyerState: StoreOrderDashboardBuyerState;
   recentOrder: RecentOrderPreview | null;
   ownerStore: StoreRow | null;
-  ownerHubBadge: number;
+  ownerStoreTabAttention: number;
+  ownerOrderAttention: number;
 }) {
   return (
     <section className={`mt-2 space-y-3 p-3 ${FB.card}`}>
@@ -35,7 +37,8 @@ export function StoreHubMyZoneSection({
         <StoreOwnerOpsSection
           embedded
           ownerStore={ownerStore}
-          ownerHubBadge={ownerHubBadge}
+          ownerStoreTabAttention={ownerStoreTabAttention}
+          ownerOrderAttention={ownerOrderAttention}
           hubAttentionSlot={null}
         />
       : null}

@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { loadMeStoresListForUser } from "@/lib/me/load-me-stores-for-user";
 import { makeStoreSlug } from "@/lib/stores/make-store-slug";
 import { isMissingStoresApplicantNicknameColumnError } from "@/lib/stores/stores-applicant-nickname-db";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
-
-const ME_STORE_SELECT =
-  [
-    "id, owner_user_id, store_name, slug, business_type, owner_can_edit_store_identity",
-    "store_category_id, store_topic_id",
-    "description, kakao_id, phone, email, website_url",
-    "region, city, district, address_line1, address_line2, lat, lng",
-    "profile_image_url, business_hours_json, gallery_images_json, is_open",
-    "delivery_available, pickup_available, reservation_available, visit_available",
-    "approval_status, is_visible, rejected_reason, revision_note",
-    "created_at, updated_at, approved_at",
-    "store_categories ( name, slug ), store_topics ( name, slug )",
-  ].join(", ");
 
 export const dynamic = "force-dynamic";
 
@@ -40,62 +28,14 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const { data, error } = await supabase
-    .from("stores")
-    .select(ME_STORE_SELECT)
-    .eq("owner_user_id", userId)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("[GET /api/me/stores]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
-
-  type MeStoreRow = Record<string, unknown> & { id: string };
-  const list = (data ?? []) as unknown as MeStoreRow[];
-
-  let ownerApplicantFallback: string | null = null;
-  const { data: prof } = await supabase.from("profiles").select("nickname").eq("id", userId).maybeSingle();
-  const pn = typeof prof?.nickname === "string" ? prof.nickname.trim() : "";
-  if (pn) ownerApplicantFallback = pn;
-
-  const nickFromCol = new Map<string, string>();
-  const storeIds = list.map((s) => s.id);
-  if (storeIds.length > 0) {
-    const { data: nickRows, error: nickErr } = await supabase
-      .from("stores")
-      .select("id, applicant_nickname")
-      .in("id", storeIds);
-    if (!nickErr && nickRows) {
-      for (const r of nickRows) {
-        const sid = String((r as { id?: string }).id ?? "");
-        const an = String((r as { applicant_nickname?: string | null }).applicant_nickname ?? "").trim();
-        if (sid && an) nickFromCol.set(sid, an);
-      }
-    }
-  }
-  const ids = list.map((s) => s.id);
-  const permByStore: Record<string, { allowed_to_sell: boolean; sales_status: string }> = {};
-  if (ids.length > 0) {
-    const { data: perms } = await supabase
-      .from("store_sales_permissions")
-      .select("store_id, allowed_to_sell, sales_status")
-      .in("store_id", ids);
-    for (const p of perms ?? []) {
-      permByStore[p.store_id as string] = {
-        allowed_to_sell: !!p.allowed_to_sell,
-        sales_status: String(p.sales_status ?? ""),
-      };
-    }
+  const result = await loadMeStoresListForUser(supabase, userId);
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
   }
 
   return NextResponse.json({
     ok: true,
-    stores: list.map((s) => ({
-      ...s,
-      applicant_nickname: nickFromCol.get(s.id) ?? ownerApplicantFallback,
-      sales_permission: permByStore[s.id] ?? null,
-    })),
+    stores: result.stores,
   });
 }
 

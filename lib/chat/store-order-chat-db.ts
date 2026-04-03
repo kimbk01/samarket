@@ -451,55 +451,76 @@ export async function ensureStoreOrderChatRoomAccessForUser(
     { u: buyerId, role: "buyer" },
     { u: sellerId, role: "seller" },
   ];
-  for (const t of tuples) {
-    const { data: pr } = await sb
-      .from("chat_room_participants")
-      .select("unread_count, hidden, left_at, is_active")
-      .eq("room_id", rid)
-      .eq("user_id", t.u)
-      .maybeSingle();
-    const rec = pr as {
+  const participantRows = await Promise.all(
+    tuples.map(async (tuple) => {
+      const { data } = await sb
+        .from("chat_room_participants")
+        .select("unread_count, hidden, left_at, is_active")
+        .eq("room_id", rid)
+        .eq("user_id", tuple.u)
+        .maybeSingle();
+      return {
+        tuple,
+        rec: data as {
+          unread_count?: number;
+          hidden?: boolean | null;
+          left_at?: string | null;
+          is_active?: boolean | null;
+        } | null,
+      };
+    })
+  );
+
+  const ensuredUsers = new Set<string>();
+  await Promise.all(
+    participantRows.map(async ({ tuple, rec }) => {
+      const needs =
+        !rec ||
+        rec.hidden === true ||
+        (rec.left_at != null && String(rec.left_at).trim() !== "") ||
+        rec.is_active === false;
+      if (!needs) return;
+      const { error: upErr } = await sb.from("chat_room_participants").upsert(
+        {
+          room_id: rid,
+          user_id: tuple.u,
+          role_in_room: tuple.role,
+          joined_at: now,
+          is_active: true,
+          hidden: false,
+          left_at: null,
+          unread_count: rec?.unread_count ?? 0,
+        },
+        { onConflict: "room_id,user_id" }
+      );
+      if (upErr) {
+        console.error("[store-order-chat] ensure participant upsert", upErr);
+        return;
+      }
+      ensuredUsers.add(tuple.u);
+    })
+  );
+
+  const meFromInitial = participantRows.find(({ tuple }) => tuple.u === uid)?.rec as {
       unread_count?: number;
       hidden?: boolean | null;
       left_at?: string | null;
       is_active?: boolean | null;
-    } | null;
-    const needs =
-      !rec ||
-      rec.hidden === true ||
-      (rec.left_at != null && String(rec.left_at).trim() !== "") ||
-      rec.is_active === false;
-    if (!needs) continue;
-    const { error: upErr } = await sb.from("chat_room_participants").upsert(
-      {
-        room_id: rid,
-        user_id: t.u,
-        role_in_room: t.role,
-        joined_at: now,
-        is_active: true,
-        hidden: false,
-        left_at: null,
-        unread_count: rec?.unread_count ?? 0,
-      },
-      { onConflict: "room_id,user_id" }
-    );
-    if (upErr) {
-      console.error("[store-order-chat] ensure participant upsert", upErr);
-    }
-  }
-
-  const { data: mePart } = await sb
-    .from("chat_room_participants")
-    .select("unread_count, hidden, left_at, is_active")
-    .eq("room_id", rid)
-    .eq("user_id", uid)
-    .maybeSingle();
-  const me = mePart as {
-    unread_count?: number;
-    hidden?: boolean | null;
-    left_at?: string | null;
-    is_active?: boolean | null;
   } | null;
+  const me =
+    ensuredUsers.has(uid) || !meFromInitial || meFromInitial.hidden === true || meFromInitial.left_at != null || meFromInitial.is_active === false
+      ? ((await sb
+          .from("chat_room_participants")
+          .select("unread_count, hidden, left_at, is_active")
+          .eq("room_id", rid)
+          .eq("user_id", uid)
+          .maybeSingle()).data as {
+          unread_count?: number;
+          hidden?: boolean | null;
+          left_at?: string | null;
+          is_active?: boolean | null;
+        } | null)
+      : meFromInitial;
   if (!me || me.hidden === true || me.left_at != null || me.is_active === false) {
     return { ok: false, reason: "not_member" };
   }

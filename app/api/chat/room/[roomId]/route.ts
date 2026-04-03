@@ -124,8 +124,29 @@ async function tradeFieldsAfterTimeTransitions(
   basePcRow: Record<string, unknown>,
   post: Record<string, unknown> | null | undefined
 ) {
-  await applyBuyerAutoConfirmForRoom(sbAny, productChatId);
-  await applyProductChatTimeTransitions(sbAny, productChatId);
+  const flow = String(basePcRow.trade_flow_status ?? "chatting");
+  const mode = String(basePcRow.chat_mode ?? "open");
+  const sellerCompletedAt =
+    typeof basePcRow.seller_completed_at === "string" ? basePcRow.seller_completed_at : null;
+  const reviewDeadlineAt =
+    typeof basePcRow.review_deadline_at === "string" ? basePcRow.review_deadline_at : null;
+  const updatedAt = typeof basePcRow.updated_at === "string" ? basePcRow.updated_at : null;
+
+  const shouldRunAutoConfirm = flow === "seller_marked_done" && !!sellerCompletedAt;
+  const shouldRunTimeTransition =
+    ((flow === "buyer_confirmed" || flow === "review_pending") && mode === "open" && !!reviewDeadlineAt) ||
+    (flow === "review_completed" && mode === "limited" && !!updatedAt);
+
+  if (!shouldRunAutoConfirm && !shouldRunTimeTransition) {
+    return tradeFieldsFromRows(basePcRow, post);
+  }
+
+  if (shouldRunAutoConfirm) {
+    await applyBuyerAutoConfirmForRoom(sbAny, productChatId);
+  }
+  if (shouldRunTimeTransition) {
+    await applyProductChatTimeTransitions(sbAny, productChatId);
+  }
   const { data: fresh } = await sbAny
     .from("product_chats")
     .select("id, trade_flow_status, chat_mode, buyer_confirm_source")
@@ -281,12 +302,14 @@ export async function GET(
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
+  const PRODUCT_CHAT_DETAIL_SELECT =
+    "id, post_id, seller_id, buyer_id, unread_count_seller, unread_count_buyer, created_at, updated_at, last_message_preview, last_message_at, trade_flow_status, chat_mode, buyer_confirm_source, seller_completed_at, review_deadline_at";
   const CHAT_ROOM_DETAIL_SELECT =
     "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked";
 
   /** 레거시 product_chats id 와 통합 chat_rooms id 를 동시에 조회 — 순차 왕복 1회 이상 절감 */
   const [pcRes, crRes] = await Promise.all([
-    sbAny.from("product_chats").select("*").eq("id", roomId).maybeSingle(),
+    sbAny.from("product_chats").select(PRODUCT_CHAT_DETAIL_SELECT).eq("id", roomId).maybeSingle(),
     sbAny.from("chat_rooms").select(CHAT_ROOM_DETAIL_SELECT).eq("id", roomId).maybeSingle(),
   ]);
   const r = pcRes.data;
@@ -843,7 +866,7 @@ export async function GET(
   const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
   const { data: pcFallback } = await sbAny
     .from("product_chats")
-    .select("*")
+    .select(PRODUCT_CHAT_DETAIL_SELECT)
     .eq("post_id", itemId)
     .eq("seller_id", crRow.seller_id ?? "")
     .eq("buyer_id", crRow.buyer_id ?? "")

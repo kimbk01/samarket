@@ -7,6 +7,7 @@ import {
   invalidateMeStoresListDedupedCache,
 } from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { computeOwnerCanSell } from "@/lib/stores/owner-lite-store-shortcuts";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export type OwnerLiteStoreState = {
@@ -29,9 +30,19 @@ function emit() {
   for (const l of listeners) l();
 }
 
-function pickPreferredOwnerStore(stores: StoreRow[]): StoreRow | null {
+export function pickPreferredOwnerStore(stores: StoreRow[]): StoreRow | null {
   if (stores.length === 0) return null;
-  return stores.find((store) => String(store.approval_status) === "approved") ?? stores[0] ?? null;
+  return (
+    stores.find(
+      (store) =>
+        String(store.approval_status) === "approved" &&
+        store.is_visible === true &&
+        computeOwnerCanSell(store.sales_permission)
+    ) ??
+    stores.find((store) => String(store.approval_status) === "approved") ??
+    stores[0] ??
+    null
+  );
 }
 
 async function loadFromNetwork(options?: { withLoadingSpinner?: boolean }): Promise<void> {

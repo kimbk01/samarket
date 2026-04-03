@@ -25,12 +25,16 @@ type OpsShortcut = { label: string; href: string; badge?: number };
 
 export function StoreOwnerOpsSection({
   ownerStore,
-  ownerHubBadge,
+  ownerStoreTabAttention,
+  ownerOrderAttention,
   hubAttentionSlot,
   embedded = false,
 }: {
   ownerStore: StoreRow;
-  ownerHubBadge: number;
+  /** 주문·문의·배달채팅 등 매장 탭 할 일 — 카드 헤더 뱃지 */
+  ownerStoreTabAttention: number;
+  /** 신규·환불요청 등 주문 처리 건 — `주문 관리` 숏컷 배지 */
+  ownerOrderAttention: number;
   hubAttentionSlot?: ReactNode;
   embedded?: boolean;
 }) {
@@ -46,7 +50,7 @@ export function StoreOwnerOpsSection({
         !!ownerStore.sales_permission &&
         ownerStore.sales_permission.allowed_to_sell === true &&
         ownerStore.sales_permission.sales_status === "approved",
-      orderAlertsBadge: ownerHubBadge,
+      orderAlertsBadge: ownerOrderAttention,
     });
     const items = groups.flatMap((g) => g.items).filter((item) => item.href && !item.disabled);
     const preferred = PREFERRED_SHORTCUTS.map((label) => items.find((item) => item.label === label)).filter(
@@ -61,15 +65,15 @@ export function StoreOwnerOpsSection({
       { label: "매장 설정", href: `/my/business/profile?${q}` },
       { label: "심사 상태", href: `/my/business/ops-status?${q}` },
     ];
-  }, [ownerStore, ownerHubBadge]);
+  }, [ownerStore, ownerOrderAttention]);
 
   return (
     <section
       id="owner-operations"
       className={
         embedded ?
-          "rounded-xl border border-violet-100 bg-violet-50/40 p-2"
-        : "rounded-2xl border border-violet-200/60 bg-gradient-to-r from-violet-50/90 to-white p-3 shadow-sm ring-1 ring-violet-100/80"
+          "scroll-mt-28 rounded-xl border border-violet-100 bg-violet-50/40 p-2"
+        : "scroll-mt-28 rounded-2xl border border-violet-200/60 bg-gradient-to-r from-violet-50/90 to-white p-3 shadow-sm ring-1 ring-violet-100/80"
       }
     >
       {hubBlockedModal}
@@ -96,9 +100,9 @@ export function StoreOwnerOpsSection({
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {hubAttentionSlot}
-          {ownerHubBadge > 0 ?
+          {ownerStoreTabAttention > 0 ?
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-              {ownerHubBadge > 99 ? "99+" : ownerHubBadge}
+              {ownerStoreTabAttention > 99 ? "99+" : ownerStoreTabAttention}
             </span>
           : null}
         </div>

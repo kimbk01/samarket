@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
 import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
 import { PurchasesView } from "@/components/mypage/PurchasesView";
-import { parseRoomId } from "@/lib/validate-params";
 import {
   ORDERS_HUB_TAB_ORDER,
   OrdersHubTopTabs,
@@ -34,23 +33,10 @@ export function OrdersHubContent() {
     [searchParams]
   );
 
-  const roomQueryRaw = searchParams.get("room");
-  const reviewQueryRaw = searchParams.get("review");
-
   /**
-   * 레거시 `/orders?tab=chat&room=` → `/chats/[roomId]`.
-   * 목록만 있는 `/orders?tab=chat` → 구매자 배달 내 주문 `/my/store-orders`.
+   * `tab=chat`·`room=` 는 `app/(main)/orders/page.tsx` 서버에서 `/chats/...` 또는 `/my/store-orders` 로 리다이렉트.
+   * 여기서 클라 `router.replace` 를 또 쓰면 이중 네비·깜빡임만 생김.
    */
-  useLayoutEffect(() => {
-    if (tab !== "chat") return;
-    const roomId = parseRoomId(roomQueryRaw);
-    if (roomId) {
-      const qs = reviewQueryRaw === "1" ? "?review=1" : "";
-      router.replace(`/chats/${encodeURIComponent(roomId)}${qs}`, { scroll: false });
-      return;
-    }
-    router.replace("/my/store-orders", { scroll: false });
-  }, [tab, roomQueryRaw, reviewQueryRaw, router]);
 
   const onSelectTab = useCallback(
     (id: OrdersHubTabId) => {

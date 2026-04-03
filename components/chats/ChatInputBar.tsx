@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { getAppSettings } from "@/lib/app-settings";
 import { MAX_CHAT_IMAGE_ATTACH } from "@/lib/chats/chat-image-bundle";
 import { usePreferMobileChatImagePicker } from "@/lib/ui/use-prefer-mobile-chat-image-picker";
@@ -65,7 +65,10 @@ export function ChatInputBar({
   const attachWrapRef = useRef<HTMLDivElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const maxLength = Math.max(1, getAppSettings().maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH);
+  const maxLength = useMemo(
+    () => Math.max(1, getAppSettings().maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH),
+    []
+  );
   const hasText = !!text.trim();
   const inputLocked = !!disabled || imageSending;
 

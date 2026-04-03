@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ChatRoom } from "@/lib/types/chat";
@@ -47,12 +47,15 @@ export function ChatRoomScreen({
   /** 매장 주문 관리 모달 — 상단 탭(채팅·주문)만 표시 */
   ownerStoreOrderModalChrome?: boolean;
 }) {
-  const [mounted, setMounted] = useState(false);
-  const currentUserId = mounted ? (getCurrentUser()?.id ?? null) : null;
+  const [[authReady, currentUserId], setAuth] = useState<[boolean, string | null]>(() => [false, null]);
 
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  useLayoutEffect(() => {
+    setAuth([true, getCurrentUser()?.id?.trim() ?? null]);
+  }, []);
 
   const reload = useCallback(async () => {
     if (!roomId) {
@@ -69,13 +72,13 @@ export function ChatRoomScreen({
     }
     setLoading(true);
     setErr(null);
+    const controller = new AbortController();
+    const tid = window.setTimeout(() => controller.abort(), 28_000);
     try {
-      /** 통합·레거시 메시지 API를 방 메타와 동시에 시작 — `ChatDetailView`의 single-flight와 합류해 첫 페인트 지연 감소 */
-      void fetchIntegratedChatRoomMessages(roomId);
-      void fetchLegacyChatRoomMessages(roomId);
       const res = await fetch(`/api/chat/room/${encodeURIComponent(roomId)}`, {
         credentials: "include",
         cache: "no-store",
+        signal: controller.signal,
       });
       const j: unknown = await res.json().catch(() => null);
       if (res.status === 404) {
@@ -93,26 +96,30 @@ export function ChatRoomScreen({
         setRoom(null);
         return;
       }
+      if (j.source === "chat_room") {
+        void fetchIntegratedChatRoomMessages(j.id);
+      } else {
+        void fetchLegacyChatRoomMessages(j.id);
+      }
       setRoom(j);
     } catch {
       setErr("network");
       setRoom(null);
     } finally {
+      window.clearTimeout(tid);
       setLoading(false);
     }
   }, [roomId, currentUserId]);
 
-  useLayoutEffect(() => {
-    setMounted(true);
-  }, []);
-
   useEffect(() => {
-    if (!mounted) return;
+    if (!authReady) return;
     void reload();
-  }, [mounted, reload]);
+  }, [authReady, reload]);
 
+  const authReadyRef = useRef(authReady);
+  authReadyRef.current = authReady;
   useRefetchOnPageShowRestore(() => {
-    if (!mounted) return;
+    if (!authReadyRef.current) return;
     void reload();
   });
 
@@ -143,7 +150,7 @@ export function ChatRoomScreen({
     );
   }
 
-  if (!mounted) {
+  if (!authReady) {
     return (
       <div className={`flex items-center justify-center text-sm text-[#8E8E8E] ${embeddedEmptyClass}`}>불러오는 중…</div>
     );

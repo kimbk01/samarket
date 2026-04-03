@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
   IG_DM_BODY_TEXT,
@@ -167,12 +168,15 @@ export function ChatMessageList({
   variant = "default",
 }: ChatMessageListProps) {
   const ig = variant === "instagram";
-  const seenIds = new Set<string>();
-  const uniqueMessages = messages.filter((msg) => {
-    if (seenIds.has(msg.id)) return false;
-    seenIds.add(msg.id);
-    return true;
-  });
+  const uniqueMessages = useMemo(() => {
+    const seenIds = new Set<string>();
+    return messages.filter((msg) => {
+      if (seenIds.has(msg.id)) return false;
+      seenIds.add(msg.id);
+      return true;
+    });
+  }, [messages]);
+  const blocks = useMemo(() => buildBlocks(uniqueMessages, currentUserId), [uniqueMessages, currentUserId]);
 
   if (uniqueMessages.length === 0) {
     return (
@@ -185,8 +189,6 @@ export function ChatMessageList({
       </div>
     );
   }
-
-  const blocks = buildBlocks(uniqueMessages, currentUserId);
   const items: React.ReactNode[] = [];
 
   blocks.forEach((block, blockIdx) => {

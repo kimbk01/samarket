@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRegion } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
-import { useOwnerHubBadgeTotal } from "@/lib/chats/use-owner-hub-badge-total";
+import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
+import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
+import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
+import { resolveOwnerLiteStoreShortcuts } from "@/lib/stores/owner-lite-store-shortcuts";
+import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
+import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import type {
   RecentOrderPreview,
   StoreOrderDashboardBuyerState,
@@ -28,11 +34,56 @@ type OrderRowLite = {
   created_at?: string;
 };
 
+/** 매장주만 마운트 — 허브 진입 모달만 여기서 켜고, 배지 데이터는 부모 구독과 동일 스냅샷을 받습니다 */
+function StoresHubOwnerOperChip({
+  ownerStore,
+  breakdown,
+}: {
+  ownerStore: StoreRow;
+  breakdown: OwnerHubBadgeBreakdown;
+}): ReactNode {
+  const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
+  const storeOpsAttention = breakdown.storesTabAttention;
+  const ownerOperHref =
+    storeOpsAttention > 0
+      ? resolveOwnerLiteStoreShortcuts(ownerStore, breakdown).primary.href
+      : "#owner-operations";
+
+  return (
+    <>
+      {hubBlockedModal}
+      <Link
+        href={ownerOperHref}
+        onClick={(e) => {
+          if (
+            ownerOperHref.startsWith("/") &&
+            shouldInterceptBusinessHubHref(ownerOperHref) &&
+            openBlockedModalIfNeeded()
+          ) {
+            e.preventDefault();
+          }
+        }}
+        className={`relative inline-flex shrink-0 rounded-md px-3 py-1.5 text-[12px] font-semibold ${FB.secondaryBtn}`}
+        aria-label={
+          storeOpsAttention > 0 ? `매장 운영 할 일 ${storeOpsAttention}건` : "매장 운영 바로가기"
+        }
+      >
+        운영
+        {storeOpsAttention > 0 ?
+          <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-[#E4E6EB] dark:ring-[#3A3B3C]`} aria-hidden>
+            {storeOpsAttention > 99 ? "99+" : storeOpsAttention}
+          </span>
+        : null}
+      </Link>
+    </>
+  );
+}
+
 export function StoresHub() {
   const { primaryRegion } = useRegion();
   const [userGeo, setUserGeo] = useState<{ lat: number; lng: number } | null>(null);
   const { ownerStore, ownerStores, loading: ownerStoresLoading } = useOwnerLiteStore();
-  const ownerHubBadge = useOwnerHubBadgeTotal();
+  const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
   const [buyerOrderSummary, setBuyerOrderSummary] = useState<StoreOrderDashboardBuyerState>({
     kind: "loading",
   });
@@ -141,18 +192,7 @@ export function StoresHub() {
 
   const ownerQuickLink =
     ownerStore ?
-      <a
-        href="#owner-operations"
-        className={`relative inline-flex shrink-0 rounded-md px-3 py-1.5 text-[12px] font-semibold ${FB.secondaryBtn}`}
-        aria-label={ownerHubBadge > 0 ? `매장 운영 ${ownerHubBadge}건` : "매장 운영"}
-      >
-        운영
-        {ownerHubBadge > 0 ?
-          <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-[#E4E6EB] dark:ring-[#3A3B3C]`} aria-hidden>
-            {ownerHubBadge > 99 ? "99+" : ownerHubBadge}
-          </span>
-        : null}
-      </a>
+      <StoresHubOwnerOperChip ownerStore={ownerStore} breakdown={ownerHubBreakdown} />
     : null;
 
   return (
@@ -177,7 +217,8 @@ export function StoresHub() {
         buyerState={buyerOrderSummary}
         recentOrder={recentOrder}
         ownerStore={ownerStore}
-        ownerHubBadge={ownerHubBadge}
+        ownerStoreTabAttention={ownerHubBreakdown.storesTabAttention}
+        ownerOrderAttention={ownerHubBreakdown.orderAttention}
       />
     </div>
   );

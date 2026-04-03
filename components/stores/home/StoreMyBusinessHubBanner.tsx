@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import {
   formatStoreApprovalStatusKo,
   isStorePubliclyListed,
@@ -9,8 +10,7 @@ import {
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 
 function pickPrimaryStore(stores: StoreRow[]): StoreRow | null {
-  if (stores.length === 0) return null;
-  return stores.find((s) => String(s.approval_status) === "approved") ?? stores[0] ?? null;
+  return pickPreferredOwnerStore(stores);
 }
 
 /**

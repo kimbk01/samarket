@@ -7,75 +7,28 @@ import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import {
   formatStoreApprovalStatusKo,
   isStorePubliclyListed,
 } from "@/lib/stores/store-approval-label-ko";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
-
-function computeCanSell(
-  sales:
-    | {
-        allowed_to_sell?: boolean;
-        sales_status?: string | null;
-      }
-    | null
-    | undefined
-) {
-  return !!sales && sales.allowed_to_sell === true && sales.sales_status === "approved";
-}
+import { resolveOwnerLiteStoreShortcuts } from "@/lib/stores/owner-lite-store-shortcuts";
 
 export function OwnerLiteStoreBar() {
   const { ownerStore } = useOwnerLiteStore();
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
-  const { inquiryAttention, orderAttention, storeOrderChatUnread, storeDeepLink } =
-    useOwnerHubBadgeBreakdown();
+  const breakdown = useOwnerHubBadgeBreakdown();
 
   if (!ownerStore) return null;
 
-  const canSell = computeCanSell(ownerStore.sales_permission);
   const storeId = encodeURIComponent(ownerStore.id);
-  const profileHref = `/my/business/profile?storeId=${storeId}`;
-  const basicInfoHref = `/my/business/basic-info?storeId=${storeId}`;
-  const orderHref = buildStoreOrdersHref({ storeId: ownerStore.id, tab: "new" });
-  const inquiryHref = `/my/business/inquiries?storeId=${storeId}`;
-  const primaryHref =
-    inquiryAttention > 0
-      ? storeDeepLink ?? inquiryHref
-      : canSell && orderAttention > 0
-        ? storeDeepLink ?? orderHref
-      : storeOrderChatUnread > 0
-        ? storeDeepLink ?? SAMARKET_ROUTES.orders.storeOrders
-        : canSell
-        ? storeDeepLink ?? orderHref
-        : profileHref;
-  const primaryLabel =
-    inquiryAttention > 0
-      ? "문의 확인"
-      : canSell && orderAttention > 0
-        ? "주문 관리"
-      : storeOrderChatUnread > 0
-        ? "배달채팅"
-        : canSell
-          ? "주문 관리"
-          : "매장 설정";
-  const primaryBadge =
-    inquiryAttention > 0
-      ? inquiryAttention
-      : canSell && orderAttention > 0
-        ? orderAttention
-        : storeOrderChatUnread > 0
-          ? storeOrderChatUnread
-          : canSell
-            ? orderAttention
-            : 0;
-  const secondaryHref =
-    inquiryAttention > 0 ? (canSell ? orderHref : basicInfoHref) : canSell ? inquiryHref : basicInfoHref;
-  const secondaryLabel =
-    inquiryAttention > 0 ? (canSell ? "주문 관리" : "기본 정보") : canSell ? "받은 문의" : "기본 정보";
-  const secondaryBadge = inquiryAttention > 0 ? orderAttention : canSell ? inquiryAttention : 0;
+  const { primary, secondary } = resolveOwnerLiteStoreShortcuts(ownerStore, breakdown);
+  const primaryHref = primary.href;
+  const primaryLabel = primary.label;
+  const primaryBadge = primary.badge;
+  const secondaryHref = secondary.href;
+  const secondaryLabel = secondary.label;
+  const secondaryBadge = secondary.badge;
 
   return (
     <TradePrimaryAppBarShell className="border-t border-white/40">

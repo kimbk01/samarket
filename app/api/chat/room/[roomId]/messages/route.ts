@@ -39,7 +39,7 @@ export async function GET(
 
   const { data: rows, error } = await sbAny
     .from("product_chat_messages")
-    .select("*")
+    .select("id, product_chat_id, sender_id, content, message_type, image_url, read_at, created_at, is_hidden")
     .eq("product_chat_id", roomId)
     .order("created_at", { ascending: true });
 

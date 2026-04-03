@@ -25,7 +25,7 @@ export async function markRoomAsRead(roomId: string): Promise<MarkRoomAsReadResu
     const sb = supabase as any;
     const { data: room } = await sb
       .from("product_chats")
-      .select("*")
+      .select("id, seller_id, buyer_id")
       .eq("id", roomId)
       .single();
 
@@ -41,12 +41,16 @@ export async function markRoomAsRead(roomId: string): Promise<MarkRoomAsReadResu
 
     const { data: messages } = await sb
       .from("product_chat_messages")
-      .select("*")
-      .eq("product_chat_id", roomId);
+      .select("id")
+      .eq("product_chat_id", roomId)
+      .neq("sender_id", user.id)
+      .is("read_at", null);
 
-    const toMark = (messages ?? []).filter((m: Record<string, unknown>) => m.sender_id !== user.id && m.read_at == null);
-    for (const m of toMark) {
-      await sb.from("product_chat_messages").update({ read_at: now }).eq("id", m.id);
+    const messageIds = (messages ?? [])
+      .map((message: Record<string, unknown>) => String(message.id ?? "").trim())
+      .filter(Boolean);
+    if (messageIds.length > 0) {
+      await sb.from("product_chat_messages").update({ read_at: now }).in("id", messageIds);
     }
     return { ok: true };
   } catch {

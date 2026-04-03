@@ -32,6 +32,18 @@ export const OWNER_HUB_BADGE_EMPTY: OwnerHubBadgeBreakdown = {
   total: 0,
 };
 
+function parseInternalAppHref(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim();
+  if (!trimmed.startsWith("/")) return null;
+  try {
+    const url = new URL(trimmed, "https://samarket.local");
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
   if (!data || typeof data !== "object" || (data as { ok?: boolean }).ok !== true) {
     return OWNER_HUB_BADGE_EMPTY;
@@ -53,8 +65,7 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
     typeof d.storesTabAttention === "number"
       ? d.storesTabAttention
       : Math.max(0, orderAttention) + Math.max(0, inquiryAttention) + Math.max(0, storeOrderChatUnread);
-  const storeDeepLink =
-    typeof d.storeDeepLink === "string" && d.storeDeepLink.trim() ? d.storeDeepLink.trim() : null;
+  const storeDeepLink = parseInternalAppHref(d.storeDeepLink);
   const total =
     typeof d.total === "number"
       ? d.total

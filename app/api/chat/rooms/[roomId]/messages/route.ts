@@ -62,11 +62,18 @@ export async function GET(
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
 
-  const { data: roomForGet } = await sb
-    .from("chat_rooms")
-    .select("id, room_type, meeting_id, related_group_id, buyer_id, seller_id, store_order_id")
-    .eq("id", roomId)
-    .maybeSingle();
+  const [{ data: roomForGet }, { data: openChatForGet }] = await Promise.all([
+    sb
+      .from("chat_rooms")
+      .select("id, room_type, meeting_id, related_group_id, buyer_id, seller_id, store_order_id")
+      .eq("id", roomId)
+      .maybeSingle(),
+    (sb as import("@supabase/supabase-js").SupabaseClient<any>)
+      .from("open_chat_rooms")
+      .select("id")
+      .eq("linked_chat_room_id", roomId)
+      .maybeSingle(),
+  ]);
   const hasDbChatRoom = !!(roomForGet as { id?: string } | null)?.id;
 
   if (!hasDbChatRoom && process.env.NODE_ENV !== "production") {
@@ -103,11 +110,6 @@ export async function GET(
 
   const sbAny = sb;
   const rtGet = (roomForGet as { room_type?: string } | null)?.room_type ?? "";
-  const { data: openChatForGet } = await sbAny
-    .from("open_chat_rooms")
-    .select("id")
-    .eq("linked_chat_room_id", roomId)
-    .maybeSingle();
   const isOpenChatLinkedGet = !!(openChatForGet as { id?: string } | null)?.id;
   let openChatViewerCanManage = false;
   let openChatRoomIdForGet = "";
@@ -434,7 +436,7 @@ export async function POST(
   if (roomTrade.room_type === "item_trade" && roomTrade.item_id) {
     const { data: postRow } = await sbAny
       .from("posts")
-      .select("*")
+      .select("id, status, seller_listing_state, reserved_buyer_id")
       .eq("id", roomTrade.item_id)
       .maybeSingle();
     if (
@@ -511,8 +513,9 @@ export async function POST(
   }
   const now = (msg as { created_at: string }).created_at ?? new Date().toISOString();
   const msgId = (msg as { id: string }).id;
-  const preview =
-    messageType === "image"
+  const preview = blindReasonForMessage
+    ? "숨김 처리된 메시지"
+    : messageType === "image"
       ? text
         ? text.slice(0, 100)
         : imageList.length > 1
