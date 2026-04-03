@@ -64,7 +64,7 @@ export async function GET(
 
   const { data: roomForGet } = await sb
     .from("chat_rooms")
-    .select("id, room_type, meeting_id, related_group_id")
+    .select("id, room_type, meeting_id, related_group_id, buyer_id, seller_id, store_order_id")
     .eq("id", roomId)
     .maybeSingle();
   const hasDbChatRoom = !!(roomForGet as { id?: string } | null)?.id;
@@ -140,7 +140,16 @@ export async function GET(
       return NextResponse.json({ error: access.error }, { status: access.statusCode });
     }
   } else if (rtGet === "store_order") {
-    const accessSo = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId);
+    const rg = roomForGet as {
+      buyer_id?: string | null;
+      seller_id?: string | null;
+      store_order_id?: string | null;
+    } | null;
+    const accessSo = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId, {
+      preloadedRoom: rg
+        ? { buyer_id: rg.buyer_id, seller_id: rg.seller_id, store_order_id: rg.store_order_id }
+        : null,
+    });
     if (!accessSo.ok) {
       return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
     }
@@ -277,7 +286,7 @@ export async function POST(
   const { data: room, error: roomFetchErr } = await sb
     .from("chat_rooms")
     .select(
-      "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status"
+      "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status, store_order_id"
     )
     .eq("id", roomId)
     .maybeSingle();
@@ -391,7 +400,13 @@ export async function POST(
     }
     await ensureChatParticipantRowIfMissing(sbAny, roomId, userId);
   } else if (roomForGm.room_type === "store_order") {
-    const accessSoPost = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId);
+    const accessSoPost = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId, {
+      preloadedRoom: {
+        buyer_id: r.buyer_id,
+        seller_id: r.seller_id,
+        store_order_id: (room as { store_order_id?: string | null }).store_order_id,
+      },
+    });
     if (!accessSoPost.ok) {
       return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
     }

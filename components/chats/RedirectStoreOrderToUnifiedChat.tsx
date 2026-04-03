@@ -167,7 +167,7 @@ export function RedirectStoreOrderToUnifiedChat(props: Props) {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-gray-50 px-4">
-      <p className="text-sm text-[#8E8E8E]">채팅으로 연결하는 중…</p>
+      <p className="text-sm text-[#8E8E8E]">채팅을 불러오는 중…</p>
     </div>
   );
 }

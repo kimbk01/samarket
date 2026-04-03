@@ -14,7 +14,9 @@ function ChatRoomPageInner() {
   const listHref =
     from === "orders-chat"
       ? "/my/store-orders"
-      : from === "philife-open"
+      : from === "orders-hub"
+        ? "/orders?tab=store"
+        : from === "philife-open"
         ? "/chats/philife?tab=open"
         : from === "philife-inbox"
           ? "/chats/philife?tab=inbox"

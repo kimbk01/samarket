@@ -376,10 +376,17 @@ export async function ensureStoreOrderChatRoom(
  * - `chat_rooms.buyer_id` / `seller_id` 누락 시 `store_orders`·`stores`로 채움
  * - `chat_room_participants` 누락·숨김·퇴장·비활성 시 구매자·점주 행 복구
  */
+export type StoreOrderChatRoomPreloadedRow = {
+  buyer_id?: string | null;
+  seller_id?: string | null;
+  store_order_id?: string | null;
+};
+
 export async function ensureStoreOrderChatRoomAccessForUser(
   sb: SupabaseClient<any>,
   roomId: string,
-  userId: string
+  userId: string,
+  opts?: { preloadedRoom?: StoreOrderChatRoomPreloadedRow | null }
 ): Promise<
   | { ok: true; buyerId: string; sellerId: string; unreadCount: number }
   | { ok: false; reason: "not_member" | "room_not_found" }
@@ -388,13 +395,19 @@ export async function ensureStoreOrderChatRoomAccessForUser(
   const uid = userId.trim();
   if (!rid || !uid) return { ok: false, reason: "not_member" };
 
-  const { data: cr, error: crErr } = await sb
-    .from("chat_rooms")
-    .select("id, room_type, store_order_id, buyer_id, seller_id")
-    .eq("id", rid)
-    .eq("room_type", "store_order")
-    .maybeSingle();
-  if (crErr || !cr) return { ok: false, reason: "room_not_found" };
+  let cr: { buyer_id?: string | null; seller_id?: string | null; store_order_id?: string | null } | null =
+    opts?.preloadedRoom && typeof opts.preloadedRoom === "object" ? opts.preloadedRoom : null;
+
+  if (!cr) {
+    const { data, error: crErr } = await sb
+      .from("chat_rooms")
+      .select("id, room_type, store_order_id, buyer_id, seller_id")
+      .eq("id", rid)
+      .eq("room_type", "store_order")
+      .maybeSingle();
+    if (crErr || !data) return { ok: false, reason: "room_not_found" };
+    cr = data;
+  }
 
   let buyerId = typeof cr.buyer_id === "string" && cr.buyer_id.trim() ? cr.buyer_id.trim() : "";
   let sellerId = typeof cr.seller_id === "string" && cr.seller_id.trim() ? cr.seller_id.trim() : "";

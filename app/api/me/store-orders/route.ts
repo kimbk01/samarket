@@ -194,21 +194,50 @@ export async function GET(req: NextRequest) {
   }
 
   const storeIds = [...new Set(list.map((o) => o.store_id as string))];
+  const orderIdsForChat = list.map((o) => String(o.id ?? "").trim()).filter(Boolean);
+
+  const [storesRes, chatRoomsRes] = await Promise.all([
+    storeIds.length
+      ? sb.from("stores").select("id, store_name, profile_image_url, slug").in("id", storeIds)
+      : Promise.resolve({ data: [] as const, error: null as null }),
+    orderIdsForChat.length
+      ? sb
+          .from("chat_rooms")
+          .select("id, store_order_id")
+          .eq("room_type", "store_order")
+          .in("store_order_id", orderIdsForChat)
+      : Promise.resolve({ data: [] as const, error: null as null }),
+  ]);
+
   const names: Record<string, string> = {};
   const profileImages: Record<string, string | null> = {};
   const slugs: Record<string, string> = {};
-  if (storeIds.length) {
-    const { data: stores } = await sb
-      .from("stores")
-      .select("id, store_name, profile_image_url, slug")
-      .in("id", storeIds);
-    for (const s of stores ?? []) {
-      const sid = s.id as string;
-      names[sid] = (s.store_name as string) ?? "";
-      const u = s.profile_image_url;
-      profileImages[sid] = typeof u === "string" && u.trim() ? u.trim() : null;
-      const slugRaw = (s as { slug?: string | null }).slug;
-      slugs[sid] = typeof slugRaw === "string" && slugRaw.trim() ? slugRaw.trim() : "";
+  const { data: stores } = storesRes;
+  for (const s of stores ?? []) {
+    const sid = s.id as string;
+    names[sid] = (s.store_name as string) ?? "";
+    const u = s.profile_image_url;
+    profileImages[sid] = typeof u === "string" && u.trim() ? u.trim() : null;
+    const slugRaw = (s as { slug?: string | null }).slug;
+    slugs[sid] = typeof slugRaw === "string" && slugRaw.trim() ? slugRaw.trim() : "";
+  }
+
+  const chatRoomByOrderId: Record<string, string> = {};
+  const { data: chatRoomRows, error: chatRoomsErr } = chatRoomsRes;
+  if (chatRoomsErr) {
+    if (
+      !(
+        String(chatRoomsErr.message ?? "").includes("chat_rooms") &&
+        String(chatRoomsErr.message ?? "").includes("does not exist")
+      )
+    ) {
+      console.error("[GET store-orders chat_rooms]", chatRoomsErr);
+    }
+  } else {
+    for (const r of chatRoomRows ?? []) {
+      const so = String((r as { store_order_id?: string }).store_order_id ?? "").trim();
+      const rid = String((r as { id?: string }).id ?? "").trim();
+      if (so && rid && !chatRoomByOrderId[so]) chatRoomByOrderId[so] = rid;
     }
   }
 
@@ -232,6 +261,8 @@ export async function GET(req: NextRequest) {
         items: itemsByOrder[id] ?? [],
         has_review: hasReview,
         can_submit_review: canSubmitReview,
+        /** 목록에서 바로 `/chats/[id]`로 진입할 때 브리지 GET 생략용 */
+        chat_room_id: chatRoomByOrderId[id] ?? null,
       };
     }),
   });

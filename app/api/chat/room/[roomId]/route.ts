@@ -281,8 +281,20 @@ export async function GET(
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const { data: dbRoomProbeDetail } = await sbAny.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
-  const hasDbChatRoomDetail = !!dbRoomProbeDetail?.id;
+  const CHAT_ROOM_DETAIL_SELECT =
+    "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked";
+
+  /** 레거시 product_chats id 와 통합 chat_rooms id 를 동시에 조회 — 순차 왕복 1회 이상 절감 */
+  const [pcRes, crRes] = await Promise.all([
+    sbAny.from("product_chats").select("*").eq("id", roomId).maybeSingle(),
+    sbAny.from("chat_rooms").select(CHAT_ROOM_DETAIL_SELECT).eq("id", roomId).maybeSingle(),
+  ]);
+  const r = pcRes.data;
+  const pcErr = pcRes.error;
+  const cr = crRes.data;
+  const crErr = crRes.error;
+
+  const hasDbChatRoomDetail = !!(cr && (cr as { id?: string }).id);
 
   if (!hasDbChatRoomDetail && process.env.NODE_ENV !== "production") {
     const sampleRoom = getDevSampleChatRoomPayload(roomId, userId);
@@ -293,13 +305,7 @@ export async function GET(
     }
   }
 
-  const { data: r, error } = await sbAny
-    .from("product_chats")
-    .select("*")
-    .eq("id", roomId)
-    .maybeSingle();
-
-  if (!error && r && (r.seller_id === userId || r.buyer_id === userId)) {
+  if (!pcErr && r && (r.seller_id === userId || r.buyer_id === userId)) {
     // 같은 대화에 chat_rooms(item_trade)가 있으면 그걸 반환 — 구매자도 tradeStatus 갱신 보이도록
     const { data: crSameRows } = await sbAny
       .from("chat_rooms")
@@ -450,14 +456,7 @@ export async function GET(
     });
   }
 
-  // 당근형: chat_rooms (item_trade | 일반 community/group/business/general_chat)
-  const { data: cr, error: crErr } = await sbAny
-    .from("chat_rooms")
-    .select(
-      "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked"
-    )
-    .eq("id", roomId)
-    .maybeSingle();
+  // 당근형: chat_rooms (item_trade | 일반 community/group/business/general_chat) — 위에서 병렬 로드됨
   if (crErr || !cr) {
     return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
@@ -584,7 +583,13 @@ export async function GET(
       last_message_at: string | null;
       created_at: string;
     };
-    const accessSo = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId);
+    const accessSo = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId, {
+      preloadedRoom: {
+        buyer_id: crSo.buyer_id,
+        seller_id: crSo.seller_id,
+        store_order_id: crSo.store_order_id,
+      },
+    });
     if (!accessSo.ok) {
       return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
     }
@@ -593,119 +598,79 @@ export async function GET(
     const prSo = { unread_count: accessSo.unreadCount };
     const amISellerSo = sRow === userId;
     const partnerIdSo = amISellerSo ? bRow : sRow;
-    const partnerDispSo = await fetchPartnerDisplayFields(sbAny, partnerIdSo, partnerIdSo.slice(0, 8));
+    const oid = (crSo.store_order_id ?? "").trim();
+
+    const [partnerDispSo, ordRes] = await Promise.all([
+      fetchPartnerDisplayFields(sbAny, partnerIdSo, partnerIdSo.slice(0, 8) || "?"),
+      oid
+        ? sbAny.from("store_orders").select("order_no, store_id, order_status").eq("id", oid).maybeSingle()
+        : Promise.resolve({ data: null as null }),
+    ]);
     const partnerNickSo = partnerDispSo.partnerNickname;
-    const oid = crSo.store_order_id ?? "";
+    const ordRow = ordRes.data as { order_no?: string; store_id?: string; order_status?: string } | null;
+
     let titleSo = "배달 주문";
     let storeIdForRoom: string | null = null;
-    if (oid) {
-      const { data: ordRow } = await sbAny
-        .from("store_orders")
-        .select("order_no, store_id, order_status")
-        .eq("id", oid)
-        .maybeSingle();
-      if (ordRow) {
-        storeIdForRoom = (ordRow as { store_id: string }).store_id;
-        const { data: stRow } = await sbAny
-          .from("stores")
-          .select("store_name")
-          .eq("id", (ordRow as { store_id: string }).store_id)
-          .maybeSingle();
-        const sn = (stRow as { store_name?: string } | null)?.store_name ?? "";
-        titleSo = sn
-          ? `${sn} · 주문 ${(ordRow as { order_no: string }).order_no}`
-          : `주문 ${(ordRow as { order_no: string }).order_no}`;
-      }
-      const statusLabel =
-        ordRow && typeof (ordRow as { order_status?: string }).order_status === "string"
-          ? BUYER_ORDER_STATUS_LABEL[(ordRow as { order_status: string }).order_status] ??
-            (ordRow as { order_status: string }).order_status
-          : "";
-      return NextResponse.json(
-        {
-          id: crSo.id,
-          productId: oid || crSo.id,
-          buyerId: bRow,
-          sellerId: sRow,
-          partnerNickname: partnerNickSo.trim() || partnerIdSo.slice(0, 8),
-          partnerAvatar: partnerDispSo.partnerAvatar,
-          partnerTrustScore: partnerDispSo.partnerTrustScore,
-          lastMessage: crSo.last_message_preview ?? "",
-          lastMessageAt: crSo.last_message_at ?? crSo.created_at,
-          unreadCount: prSo.unread_count ?? 0,
-          tradeStatus: "inquiry",
-          product: await chatProductFromPostEnriched(
-            sbAny,
-            { title: titleSo, status: "active" } as Record<string, unknown>,
-            oid || crSo.id
-          ),
-          source: "chat_room",
-          chatDomain: "store",
-          roomTitle: titleSo,
-          roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
-          buyerReviewSubmitted: false,
-          productChatRoomId: null,
-          tradeFlowStatus: "chatting",
-          chatMode: "open",
-          soldBuyerId: null,
-          reservedBuyerId: null,
-          buyerConfirmSource: null,
-          generalChat: {
-            kind: "store_order",
-            storeOrderId: oid || null,
-            storeId: storeIdForRoom,
-            relatedPostId: null,
-            relatedCommentId: null,
-            relatedGroupId: null,
-            relatedBusinessId: null,
-            contextType: null,
-          } satisfies GeneralChatMeta,
-        },
-        { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
-      );
+    let stRow: { store_name?: string } | null = null;
+    if (ordRow && (ordRow as { store_id?: string }).store_id) {
+      storeIdForRoom = (ordRow as { store_id: string }).store_id;
+      const st = await sbAny.from("stores").select("store_name").eq("id", storeIdForRoom).maybeSingle();
+      stRow = (st.data as { store_name?: string } | null) ?? null;
+      const sn = stRow?.store_name ?? "";
+      const ono = String((ordRow as { order_no?: string }).order_no ?? "");
+      titleSo = sn ? `${sn} · 주문 ${ono}` : `주문 ${ono}`;
     }
-    return NextResponse.json(
-      {
-        id: crSo.id,
-        productId: oid || crSo.id,
-        buyerId: bRow,
-        sellerId: sRow,
-        partnerNickname: partnerNickSo.trim() || partnerIdSo.slice(0, 8),
-        partnerAvatar: partnerDispSo.partnerAvatar,
-        partnerTrustScore: partnerDispSo.partnerTrustScore,
-        lastMessage: crSo.last_message_preview ?? "",
-        lastMessageAt: crSo.last_message_at ?? crSo.created_at,
-        unreadCount: prSo.unread_count ?? 0,
-        tradeStatus: "inquiry",
-        product: await chatProductFromPostEnriched(
-          sbAny,
-          { title: titleSo, status: "active" } as Record<string, unknown>,
-          oid || crSo.id
-        ),
-        source: "chat_room",
-        chatDomain: "store",
-        roomTitle: titleSo,
-        roomSubtitle: "배달채팅",
-        buyerReviewSubmitted: false,
-        productChatRoomId: null,
-        tradeFlowStatus: "chatting",
-        chatMode: "open",
-        soldBuyerId: null,
-        reservedBuyerId: null,
-        buyerConfirmSource: null,
-        generalChat: {
-          kind: "store_order",
-          storeOrderId: oid || null,
-          storeId: storeIdForRoom,
-          relatedPostId: null,
-          relatedCommentId: null,
-          relatedGroupId: null,
-          relatedBusinessId: null,
-          contextType: null,
-        } satisfies GeneralChatMeta,
-      },
-      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+
+    const statusLabel =
+      ordRow && typeof ordRow.order_status === "string"
+        ? BUYER_ORDER_STATUS_LABEL[ordRow.order_status] ?? ordRow.order_status
+        : "";
+
+    const productPayloadSo = await chatProductFromPostEnriched(
+      sbAny,
+      { title: titleSo, status: "active" } as Record<string, unknown>,
+      oid || crSo.id
     );
+
+    const jsonBody = {
+      id: crSo.id,
+      productId: oid || crSo.id,
+      buyerId: bRow,
+      sellerId: sRow,
+      partnerNickname: partnerNickSo.trim() || partnerIdSo.slice(0, 8),
+      partnerAvatar: partnerDispSo.partnerAvatar,
+      partnerTrustScore: partnerDispSo.partnerTrustScore,
+      lastMessage: crSo.last_message_preview ?? "",
+      lastMessageAt: crSo.last_message_at ?? crSo.created_at,
+      unreadCount: prSo.unread_count ?? 0,
+      tradeStatus: "inquiry",
+      product: productPayloadSo,
+      source: "chat_room",
+      chatDomain: "store",
+      roomTitle: titleSo,
+      roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
+      buyerReviewSubmitted: false,
+      productChatRoomId: null,
+      tradeFlowStatus: "chatting",
+      chatMode: "open",
+      soldBuyerId: null,
+      reservedBuyerId: null,
+      buyerConfirmSource: null,
+      generalChat: {
+        kind: "store_order",
+        storeOrderId: oid || null,
+        storeId: storeIdForRoom,
+        relatedPostId: null,
+        relatedCommentId: null,
+        relatedGroupId: null,
+        relatedBusinessId: null,
+        contextType: null,
+      } satisfies GeneralChatMeta,
+    };
+
+    return NextResponse.json(jsonBody, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    });
   }
 
   /** 커뮤니티 모임 전용 — `group_meeting` 이 아니어도 meetings.chat_room_id 연결이면 동일 검증 */

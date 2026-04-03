@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/ui/app-content-layout";
 import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
 import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
+import { fetchIntegratedChatRoomMessages } from "@/lib/chats/fetch-chat-room-messages-api";
 import type { ChatRoom } from "@/lib/types/chat";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
@@ -52,7 +54,24 @@ type OrderRow = {
   can_submit_review?: boolean;
   /** 매장 프로필(채팅 목록 카드와 동일 톤의 썸네일) */
   store_profile_image_url?: string | null;
+  /** `GET /api/me/store-orders` — 있으면 브리지 없이 `/chats/[id]` 직행 */
+  chat_room_id?: string | null;
 };
+
+function buyerStoreOrderChatHref(args: {
+  embedded: boolean;
+  orderId: string;
+  chatRoomId?: string | null;
+}): string {
+  const rid = typeof args.chatRoomId === "string" ? args.chatRoomId.trim() : "";
+  if (rid) {
+    const from = args.embedded ? "orders-hub" : "orders-chat";
+    return `/chats/${encodeURIComponent(rid)}?from=${from}`;
+  }
+  return args.embedded
+    ? `/orders/store/${encodeURIComponent(args.orderId)}/chat`
+    : `/my/store-orders/${encodeURIComponent(args.orderId)}/chat`;
+}
 
 const MEMBER_STATUSES = new Set<string>([
   "pending",
@@ -186,6 +205,7 @@ function MyStoreOrderCard({
   canSubmitReview,
   chatDisabled,
   orderChatUnread,
+  chatWarmupRoomId,
   onCancelPending,
   cancelBusy,
   allowDelete,
@@ -200,13 +220,22 @@ function MyStoreOrderCard({
   chatDisabled: boolean;
   /** 주문 채팅 미읽음 — 배달/포장 뱃지 우측 상단 표시 */
   orderChatUnread: number;
+  /** 직행 채팅일 때 호버로 라우트·메시지 캐시 워밍 */
+  chatWarmupRoomId?: string | null;
   onCancelPending?: (id: string) => void;
   cancelBusy?: boolean;
   allowDelete?: boolean;
   onDelete?: (id: string) => void;
   deleteBusy?: boolean;
 }) {
+  const router = useRouter();
   const reorderPayload = reorderPayloadFromListOrder(o);
+  const onChatPointerEnter = useCallback(() => {
+    const rid = typeof chatWarmupRoomId === "string" ? chatWarmupRoomId.trim() : "";
+    if (!rid) return;
+    void fetchIntegratedChatRoomMessages(rid);
+    router.prefetch(chatHref);
+  }, [chatHref, chatWarmupRoomId, router]);
   const activeTab = [
     "pending",
     "accepted",
@@ -340,7 +369,12 @@ function MyStoreOrderCard({
             주문 채팅
           </span>
         ) : (
-          <Link href={chatHref} className={actionCellSignature}>
+          <Link
+            href={chatHref}
+            className={actionCellSignature}
+            onMouseEnter={onChatPointerEnter}
+            onFocus={onChatPointerEnter}
+          >
             주문 채팅
           </Link>
         )}
@@ -656,10 +690,13 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
                           ? `/orders/store/${encodeURIComponent(o.id)}`
                           : `/my/store-orders/${encodeURIComponent(o.id)}`
                       }
-                      chatHref={
-                        embedded
-                          ? `/orders/store/${encodeURIComponent(o.id)}/chat`
-                          : `/my/store-orders/${encodeURIComponent(o.id)}/chat`
+                      chatHref={buyerStoreOrderChatHref({
+                        embedded,
+                        orderId: o.id,
+                        chatRoomId: o.chat_room_id,
+                      })}
+                      chatWarmupRoomId={
+                        isStoreOrderChatDisabledForBuyer(o.order_status) ? null : (o.chat_room_id ?? null)
                       }
                       chatDisabled={isStoreOrderChatDisabledForBuyer(o.order_status)}
                       orderChatUnread={orderChatUnreadMap[o.id] ?? 0}

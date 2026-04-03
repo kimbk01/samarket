@@ -67,7 +67,7 @@ export default function OwnerStoreOrderChatBridgePage() {
   if (!ctx) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-background px-4">
-        <p className="text-sm text-gray-500">채팅으로 연결하는 중…</p>
+        <p className="text-sm text-gray-500">채팅을 불러오는 중…</p>
       </div>
     );
   }
