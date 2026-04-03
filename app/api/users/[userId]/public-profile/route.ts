@@ -8,6 +8,8 @@ import {
   mapProfileRowToPublicSeller,
   mapTestUserRowToPublicSeller,
 } from "@/lib/users/map-profile-to-public-seller";
+import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
+import { buildTradeLocationPreviewForPublic } from "@/lib/addresses/user-address-format";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +48,18 @@ export async function GET(
   if (!profErr && prof && typeof (prof as { id?: string }).id === "string") {
     const profile = mapProfileRowToPublicSeller(prof as Record<string, unknown>);
     if (profile.id) {
+      let tradeLocationLine: string | null = null;
+      try {
+        const defaults = await getUserAddressDefaults(sbAny, userId);
+        tradeLocationLine = buildTradeLocationPreviewForPublic(defaults.trade);
+      } catch {
+        /* user_addresses 미구성·RLS 등 — 생략 */
+      }
       return NextResponse.json(
-        { ok: true, profile },
+        {
+          ok: true,
+          profile: { ...profile, tradeLocationLine },
+        },
         { headers: { "Cache-Control": "private, max-age=60" } }
       );
     }

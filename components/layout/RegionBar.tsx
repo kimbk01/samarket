@@ -181,7 +181,13 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
   return (
     <UnifiedTier1Shell embedded={embedded}>
       <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-        <div className="flex w-[44px] shrink-0 justify-start">
+        <div
+          className={
+            o?.leftSlot != null
+              ? "flex w-auto min-w-[44px] max-w-[min(200px,50vw)] shrink-0 items-center justify-start"
+              : "flex w-[44px] shrink-0 justify-start"
+          }
+        >
           {o?.leftSlot != null ? (
             o.leftSlot
           ) : hideBack ? (

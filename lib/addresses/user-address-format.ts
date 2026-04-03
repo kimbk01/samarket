@@ -1,5 +1,26 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { getLocationLabel } from "@/lib/products/form-options";
+import { getLocationLabel, getLocationLabelIfValid } from "@/lib/products/form-options";
+
+/**
+ * 타인에게 보이는 거래 동네 한 줄 — 상세 도로명·fullAddress 는 제외.
+ * (물품 상세 판매자 줄·프로필 「거래 주소」와 맞춤)
+ */
+export function buildTradeLocationPreviewForPublic(a: UserAddressDTO | null | undefined): string | null {
+  if (!a) return null;
+  const nn = a.neighborhoodName?.trim();
+  if (nn) return nn;
+  const rid = a.appRegionId?.trim() ?? "";
+  const cid = a.appCityId?.trim() ?? "";
+  if (rid && cid) {
+    const valid = getLocationLabelIfValid(rid, cid);
+    if (valid) return valid;
+    const loose = getLocationLabel(rid, cid).trim();
+    if (loose) return loose;
+  }
+  const parts = [a.barangay, a.cityMunicipality, a.province].filter((x) => x?.trim());
+  const line = parts.join(", ").trim();
+  return line || null;
+}
 
 export function buildTradePublicLine(a: UserAddressDTO): string {
   if (a.neighborhoodName?.trim()) return a.neighborhoodName.trim();

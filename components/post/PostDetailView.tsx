@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -48,16 +48,15 @@ import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
 import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
+import { formatPostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
 import type { UserTrustSummary } from "@/lib/types/review";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
-import {
-  PostDetailStickyNavBar,
-  POST_DETAIL_IMAGE_INSET_BELOW_MAIN_TOP_PX,
-  POST_DETAIL_NAV_STACK_BOTTOM_PX,
-} from "@/components/post/PostDetailStickyNavBar";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
+import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 
 const META_LABELS: Record<string, Record<string, string>> = {
   "real-estate": {
@@ -519,10 +518,13 @@ interface PostDetailViewProps {
 export function PostDetailView({ post }: PostDetailViewProps) {
   const router = useRouter();
   const user = getCurrentUser();
+  const notificationUnreadCount = useMyNotificationUnreadCount();
 
   const [backHref, setBackHref] = useState("/home");
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
   const [author, setAuthor] = useState<PostDetailSellerAuthor | null>(null);
+  /** `/api/users/.../public-profile` — 기본 거래 주소 동네(글 지역이 비었을 때) */
+  const [sellerTradeLocationLine, setSellerTradeLocationLine] = useState<string | null>(null);
   const [otherPosts, setOtherPosts] = useState<PostWithMeta[]>([]);
   const [authorSalesTab, setAuthorSalesTab] = useState<"all" | "trading" | "done">("all");
   const [similarPosts, setSimilarPosts] = useState<PostWithMeta[]>([]);
@@ -543,36 +545,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const [sellerMoreOpen, setSellerMoreOpen] = useState(false);
   const [cancelSaleBusy, setCancelSaleBusy] = useState(false);
 
-  /** 일반 글 상세: 이미지 히어로가 메인 1단 아래 네비 줄을 지나면 배경·구분선 표시 */
-  const detailHeroRef = useRef<HTMLDivElement>(null);
-  const [detailNavSolid, setDetailNavSolid] = useState(false);
-  const updateDetailNavSolid = useCallback(() => {
-    const el = detailHeroRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const navBottom = POST_DETAIL_NAV_STACK_BOTTOM_PX;
-    setDetailNavSolid(rect.bottom < navBottom + 10);
-  }, []);
-
-  useEffect(() => {
-    updateDetailNavSolid();
-    window.addEventListener("scroll", updateDetailNavSolid, { passive: true });
-    window.addEventListener("resize", updateDetailNavSolid);
-    return () => {
-      window.removeEventListener("scroll", updateDetailNavSolid);
-      window.removeEventListener("resize", updateDetailNavSolid);
-    };
-  }, [updateDetailNavSolid]);
-
-  useLayoutEffect(() => {
-    const el = detailHeroRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => updateDetailNavSolid());
-    ro.observe(el);
-    updateDetailNavSolid();
-    return () => ro.disconnect();
-  }, [updateDetailNavSolid, post.id]);
-
   const appSettings = getAppSettings();
   const chatEnabled = appSettings.chatEnabled !== false;
   const allowChatAfterSold = appSettings.allowChatAfterSold === true;
@@ -580,6 +552,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const defaultCurrency = appSettings.defaultCurrency || "KRW";
 
   const listingOwnerId = postAuthorUserId(post as unknown as Record<string, unknown>);
+
+  const isOwnPost = Boolean(user?.id && listingOwnerId && user.id === listingOwnerId);
+  const showSellerCancelBar =
+    isOwnPost &&
+    post.type !== "community" &&
+    !["hidden", "sold", "deleted", "blinded"].includes(String(post.status ?? "").toLowerCase());
 
   useEffect(() => {
     incrementPostViewCount(post.id);
@@ -624,17 +602,75 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
+    const showBuyerMore = !isOwnPost;
+    const showSellerMore = isOwnPost && showSellerCancelBar;
     setMainTier1Extras({
       tier1: {
         titleText: tier1Title,
-        backHref,
         preferHistoryBack: true,
         ariaLabel: "이전 화면",
-        showHubQuickActions: true,
+        showHubQuickActions: false,
+        leftSlot: (
+          <div className="flex items-center">
+            <AppBackButton preferHistoryBack backHref={backHref} ariaLabel="이전 화면" />
+            <Link
+              href="/home"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+              aria-label="홈"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+            </Link>
+          </div>
+        ),
+        rightSlot: (
+          <div className="flex shrink-0 items-center justify-end gap-0.5">
+            {showBuyerMore ? (
+              <button
+                type="button"
+                onClick={() => setDetailMoreOpen(true)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+                aria-label="더보기"
+              >
+                <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="12" cy="19" r="2" />
+                </svg>
+              </button>
+            ) : showSellerMore ? (
+              <button
+                type="button"
+                onClick={() => setSellerMoreOpen(true)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+                aria-label="더보기"
+              >
+                <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="12" cy="19" r="2" />
+                </svg>
+              </button>
+            ) : null}
+            <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
+          </div>
+        ),
       },
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, tier1Title, backHref]);
+  }, [
+    setMainTier1Extras,
+    tier1Title,
+    backHref,
+    isOwnPost,
+    showSellerCancelBar,
+    notificationUnreadCount,
+  ]);
 
   useEffect(() => {
     if (!category || !writeCtx) return;
@@ -647,6 +683,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     const sellerUserId = (listingOwnerId ?? post.author_id)?.trim();
     if (!sellerUserId) {
       setAuthor(null);
+      setSellerTradeLocationLine(null);
       return;
     }
     let cancelled = false;
@@ -667,6 +704,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             avatar_url: data.profile.avatar_url,
             trustScore: data.profile.trustScore,
           });
+          const tradeLine = data.profile.tradeLocationLine?.trim();
+          setSellerTradeLocationLine(tradeLine || null);
           return;
         }
       } catch {
@@ -682,8 +721,10 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           avatar_url: p.avatar_url,
           trustScore: p.trustScore ?? p.speed ?? p.temperature ?? 50,
         });
+        setSellerTradeLocationLine(null);
       } else {
         setAuthor(null);
+        setSellerTradeLocationLine(null);
       }
     })();
     return () => {
@@ -714,8 +755,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     const n = post.favorite_count;
     setFavoriteCount(typeof n === "number" && Number.isFinite(n) ? n : 0);
   }, [post.id, post.favorite_count]);
-
-  const isOwnPost = Boolean(user?.id && listingOwnerId && user.id === listingOwnerId);
 
   const handleFavorite = useCallback(async () => {
     if (!user?.id) {
@@ -815,11 +854,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     }
   }, [post.id, post.type, post.author_id, user, router, existingTradeRoomId, chatBlockedByOtherReservation]);
 
-  const showSellerCancelBar =
-    isOwnPost &&
-    post.type !== "community" &&
-    !["hidden", "sold", "deleted", "blinded"].includes(String(post.status ?? "").toLowerCase());
-
   const runCancelOwnSale = useCallback(async () => {
     setCancelSaleBusy(true);
     try {
@@ -854,9 +888,15 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const tradeChatCtaLabel =
     post.type !== "community" && existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
 
+  const listingLocationLine = useMemo(() => {
+    const fromPost = formatPostListingLocationLine(post.region, post.city);
+    if (fromPost) return fromPost;
+    const t = sellerTradeLocationLine?.trim();
+    return t || null;
+  }, [post.region, post.city, sellerTradeLocationLine]);
+
   const showLocation =
-    (category == null || category.settings?.has_location !== false) &&
-    !!(post.region && post.city);
+    (category == null || category.settings?.has_location !== false) && !!listingLocationLine;
 
   const reMeta = (post.meta ?? {}) as Record<string, unknown>;
   const hasRealEstateMeta =
@@ -912,21 +952,10 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           : [];
     return (
       <div className="max-w-lg mx-auto pb-24">
-        <PostDetailStickyNavBar
-          detailNavSolid={detailNavSolid}
-          backHref={backHref}
-          isOwnPost={isOwnPost}
-          onOpenMore={() => setDetailMoreOpen(true)}
-          onOpenSellerMore={showSellerCancelBar ? () => setSellerMoreOpen(true) : undefined}
-        />
-
-        {/* 1. 이미지 — 메인 1단~이미지 2px(패딩), 스크롤 판별은 갤러리 래퍼 ref */}
+        {/* 1. 이미지 — 전역 1단(RegionBar)만 사용, 별도 2단 네비 없음 */}
         <div className="bg-white">
-          <div
-            className="relative w-full bg-gray-100"
-            style={{ paddingTop: POST_DETAIL_IMAGE_INSET_BELOW_MAIN_TOP_PX }}
-          >
-            <div ref={detailHeroRef} className="relative w-full">
+          <div className="relative w-full bg-gray-100">
+            <div className="relative w-full">
               {imgList.length > 0 ? (
                 <ProductImageGallery images={imgList} title={post.title ?? ""} />
               ) : (
@@ -947,8 +976,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           <PostDetailSellerProfileRow
             author={author}
             regionLine={
-              post.region || post.city ? (
-                <p className="text-[12px] text-gray-500">{getLocationLabel(post.region!, post.city!)}</p>
+              listingLocationLine ? (
+                <p className="text-[12px] text-gray-500 truncate">{listingLocationLine}</p>
               ) : null
             }
           />
@@ -1157,21 +1186,10 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   return (
     <div className="pb-24 max-w-lg mx-auto">
-      <PostDetailStickyNavBar
-        detailNavSolid={detailNavSolid}
-        backHref={backHref}
-        isOwnPost={isOwnPost}
-        onOpenMore={() => setDetailMoreOpen(true)}
-        onOpenSellerMore={showSellerCancelBar ? () => setSellerMoreOpen(true) : undefined}
-      />
-
-      {/* 1. 이미지 — 메인 1단~이미지 2px */}
+      {/* 1. 이미지 — 전역 1단만 사용 */}
       <div className="bg-white">
-        <div
-          className="relative w-full bg-gray-100"
-          style={{ paddingTop: POST_DETAIL_IMAGE_INSET_BELOW_MAIN_TOP_PX }}
-        >
-          <div ref={detailHeroRef} className="relative w-full">
+        <div className="relative w-full bg-gray-100">
+          <div className="relative w-full">
             {(() => {
               const imgArr = Array.isArray(post.images)
                 ? post.images.filter((s): s is string => typeof s === "string")
@@ -1213,8 +1231,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         <PostDetailSellerProfileRow
           author={author}
           regionLine={
-            post.region || post.city ? (
-              <p className="text-[12px] text-gray-500 truncate">{[post.region, post.city].filter(Boolean).join(" ")}</p>
+            listingLocationLine ? (
+              <p className="text-[12px] text-gray-500 truncate">{listingLocationLine}</p>
             ) : null
           }
         />
@@ -1265,9 +1283,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           </div>
         )}
         <ul className="mt-3 space-y-1 text-[13px] text-gray-600">
-          {showLocation && (
-            <li>지역 · {getLocationLabel(post.region!, post.city!)}</li>
-          )}
+          {showLocation && listingLocationLine ? <li>지역 · {listingLocationLine}</li> : null}
           <li>등록 · {formatTimeAgo(post.created_at)}</li>
           {(() => {
             const s = [post.view_count != null && `조회 ${post.view_count}`, !isOwnPost && `관심 ${favoriteCount}`].filter(Boolean).join(" · ");
