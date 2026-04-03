@@ -99,8 +99,10 @@ export function MeetingOpenChatListClient({
 }) {
   const router = useRouter();
   const autoEnteredRef = useRef(false);
+  const autoPromptedJoinRef = useRef(false);
   useEffect(() => {
     autoEnteredRef.current = false;
+    autoPromptedJoinRef.current = false;
   }, [meetingId]);
   const [rooms, setRooms] = useState<MeetingOpenChatRoomListEntry[] | null>(null);
   const [viewerSuggestedOpenNickname, setViewerSuggestedOpenNickname] = useState<string | null>(null);
@@ -222,6 +224,27 @@ export function MeetingOpenChatListClient({
     if (!only?.id || !only.viewerIsChatMember) return;
     router.replace(`${base}/${encodeURIComponent(only.id)}`);
   }, [loading, error, searchQuery, sortedRooms, base, router]);
+
+  useEffect(() => {
+    if (loading || error || searchQuery || sortedRooms.length !== 1 || autoPromptedJoinRef.current) return;
+    const only = sortedRooms[0];
+    if (!only?.id || only.viewerIsChatMember || joinRoom) return;
+    autoPromptedJoinRef.current = true;
+    setJoinRoom(only);
+    setJoinErr(null);
+    setJoinPw("");
+    setJoinIntro("");
+    setJoinNick(viewerSuggestedOpenNickname ?? "");
+    setJoinAs(only.identity_mode === "realname" ? "realname" : viewerSuggestedRealname ? "realname" : "nickname");
+  }, [
+    loading,
+    error,
+    searchQuery,
+    sortedRooms,
+    joinRoom,
+    viewerSuggestedOpenNickname,
+    viewerSuggestedRealname,
+  ]);
 
   const openJoinModal = useCallback(
     (room: MeetingOpenChatRoomListEntry) => {
