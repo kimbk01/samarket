@@ -612,6 +612,9 @@ export async function GET(
     let titleSo = "배달 주문";
     let storeIdForRoom: string | null = null;
     let stRow: { store_name?: string } | null = null;
+    /** roomSubtitle·보조 조회 — 첫 ordRow 가 비어도 폴백 행에서 상태 라벨 유지 */
+    let orderMetaForStatus: { order_status?: string } | null = ordRow;
+
     if (ordRow && (ordRow as { store_id?: string }).store_id) {
       storeIdForRoom = (ordRow as { store_id: string }).store_id;
       const st = await sbAny.from("stores").select("store_name").eq("id", storeIdForRoom).maybeSingle();
@@ -619,11 +622,28 @@ export async function GET(
       const sn = stRow?.store_name ?? "";
       const ono = String((ordRow as { order_no?: string }).order_no ?? "");
       titleSo = sn ? `${sn} · 주문 ${ono}` : `주문 ${ono}`;
+    } else if (oid && !storeIdForRoom) {
+      /** 첫 조회가 빈 행·오류여도 store_id 보강 — 클라 `generalChat.storeId`·판매자 패널 URL용 */
+      const { data: sidRow } = await sbAny
+        .from("store_orders")
+        .select("store_id, order_no, order_status")
+        .eq("id", oid)
+        .maybeSingle();
+      const sid = String((sidRow as { store_id?: string } | null)?.store_id ?? "").trim();
+      if (sid) {
+        storeIdForRoom = sid;
+        orderMetaForStatus = orderMetaForStatus ?? (sidRow as { order_status?: string } | null);
+        const st = await sbAny.from("stores").select("store_name").eq("id", sid).maybeSingle();
+        stRow = (st.data as { store_name?: string } | null) ?? null;
+        const sn = stRow?.store_name ?? "";
+        const ono = String((sidRow as { order_no?: string } | null)?.order_no ?? "");
+        titleSo = sn ? `${sn} · 주문 ${ono}` : ono ? `주문 ${ono}` : titleSo;
+      }
     }
 
     const statusLabel =
-      ordRow && typeof ordRow.order_status === "string"
-        ? BUYER_ORDER_STATUS_LABEL[ordRow.order_status] ?? ordRow.order_status
+      orderMetaForStatus && typeof orderMetaForStatus.order_status === "string"
+        ? BUYER_ORDER_STATUS_LABEL[orderMetaForStatus.order_status] ?? orderMetaForStatus.order_status
         : "";
 
     const productPayloadSo = await chatProductFromPostEnriched(

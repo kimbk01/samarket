@@ -238,11 +238,9 @@ export function ChatDetailView({
     [partnerPublicProfile]
   );
 
+  /** storeId 는 API에서 가끔 비어 패널만 지연 로드될 수 있음 — 헤더 햄버거는 주문 id 만으로 노출 */
   const isStoreOrderSeller =
-    isStoreOrderChat &&
-    amISeller &&
-    storeOrderId.length > 0 &&
-    storeIdForOrderChat.length > 0;
+    isStoreOrderChat && amISeller && storeOrderId.length > 0;
 
   const [sellerDrawerOpen, setSellerDrawerOpen] = useState(false);
   const [sellerAdminModalOpen, setSellerAdminModalOpen] = useState(false);
@@ -1211,7 +1209,12 @@ export function ChatDetailView({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-semibold text-gray-900">{partnerDisplayNickname}</p>
                     <p className="truncate text-[12px] text-gray-700">
-                      {room.product ? (amISeller ? "상대방 · 구매자" : "상대방 · 이 글의 판매자") : "채팅"}
+                      {isStoreOrderChat && !isStoreOrderBuyer
+                        ? (room.roomSubtitle?.trim() ||
+                            (amISeller ? "상대방 · 주문 고객" : "상대방 · 매장"))
+                        : room.product
+                          ? (amISeller ? "상대방 · 구매자" : "상대방 · 이 글의 판매자")
+                          : "채팅"}
                     </p>
                   </div>
                   {partnerTrustSummary ? (
@@ -1226,6 +1229,7 @@ export function ChatDetailView({
                     messagesLoading={messagesLoading}
                     messageSoundMuted={chatMessageSoundMuted}
                     onToggleMessageSound={() => setChatMessageSoundMuted((v) => !v)}
+                    variant={isStoreOrderChat ? "instagram" : "default"}
                   />
                 ) : null}
                 {isStoreOrderSeller ? (
