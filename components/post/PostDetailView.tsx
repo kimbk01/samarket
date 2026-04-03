@@ -34,6 +34,7 @@ import {
 } from "@/lib/jobs/form-options";
 import { CURRENCY_SYMBOLS, formatPrepKeysForDisplay } from "@/lib/exchange/form-options";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
+import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { PostCard } from "./PostCard";
 import { ProductImageGallery } from "@/components/product/detail/ProductImageGallery";
 import {
@@ -617,6 +618,23 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       }
     });
   }, [post.category_id]);
+
+  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
+  const tier1Title = useMemo(() => category?.name?.trim() || "거래", [category?.name]);
+
+  useLayoutEffect(() => {
+    if (!setMainTier1Extras) return;
+    setMainTier1Extras({
+      tier1: {
+        titleText: tier1Title,
+        backHref,
+        preferHistoryBack: true,
+        ariaLabel: "이전 화면",
+        showHubQuickActions: true,
+      },
+    });
+    return () => setMainTier1Extras(null);
+  }, [setMainTier1Extras, tier1Title, backHref]);
 
   useEffect(() => {
     if (!category || !writeCtx) return;

@@ -286,6 +286,24 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   }
 
   /**
+   * `/post/:id` 거래·서비스 등 글 상세 (UUID).
+   * `PostDetailView`의 `MainTier1Extras`로 카테고리(피드 주제)명을 덮어씀.
+   */
+  if (p.startsWith("/post/")) {
+    const seg = p.slice("/post/".length);
+    if (seg && !seg.includes("/") && isUuidLikeString(seg)) {
+      return {
+        ...DEFAULT,
+        backHref: "/home",
+        preferHistoryBack: true,
+        ariaLabel: "이전 화면",
+        titleText: "거래",
+        showHubQuickActions: true,
+      };
+    }
+  }
+
+  /**
    * `/philife/:postId` 동네 글 상세 (단일 세그먼트·UUID 형태).
    * `MainTier1Extras`로 주제 라벨을 덮어씀 — 여기서는 짧은 기본 제목만.
    */
