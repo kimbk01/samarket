@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isUserJoinedMeetingMember } from "@/lib/community-meeting-open-chat/meeting-member-guard";
-import { fetchViewerSuggestedOpenNickname } from "@/lib/meeting-open-chat/fetch-viewer-suggested-open-nickname";
+import { fetchViewerOpenChatIdentity } from "@/lib/meeting-open-chat/fetch-viewer-open-chat-identity";
 import { getActiveMeetingOpenChatMember } from "@/lib/meeting-open-chat/room-access";
 import { getMeetingOpenChatUnreadOthersCount } from "@/lib/meeting-open-chat/read-service";
 import {
@@ -10,8 +10,17 @@ import {
   patchMeetingOpenChatRoom,
   type PatchMeetingOpenChatRoomInput,
 } from "@/lib/meeting-open-chat/rooms-service";
+import type { MeetingOpenChatIdentityMode, MeetingOpenChatJoinType } from "@/lib/meeting-open-chat/types";
 
 type Ctx = { params: Promise<{ meetingId: string; roomId: string }> };
+
+function joinTypeFromBody(v: unknown): MeetingOpenChatJoinType | undefined {
+  return v === "free" || v === "password" || v === "approval" || v === "password_approval" ? v : undefined;
+}
+
+function identityModeFromBody(v: unknown): MeetingOpenChatIdentityMode | undefined {
+  return v === "realname" || v === "nickname_optional" ? v : undefined;
+}
 
 export async function GET(_req: Request, ctx: Ctx) {
   const auth = await requireAuthenticatedUserId();
@@ -56,14 +65,17 @@ export async function GET(_req: Request, ctx: Ctx) {
     if (ur.ok) viewerUnreadCount = ur.count;
   }
 
-  const viewerSuggestedOpenNickname = chatMember ? null : await fetchViewerSuggestedOpenNickname(sb, auth.userId);
+  const viewerIdentity = chatMember
+    ? { suggestedNickname: null, suggestedRealname: null }
+    : await fetchViewerOpenChatIdentity(sb, auth.userId);
 
   return NextResponse.json({
     ok: true,
     room: room.room,
     chatMember,
     viewerUnreadCount,
-    viewerSuggestedOpenNickname,
+    viewerSuggestedOpenNickname: viewerIdentity.suggestedNickname,
+    viewerSuggestedRealname: viewerIdentity.suggestedRealname,
   });
 }
 
@@ -99,6 +111,13 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (typeof body.description === "string") patch.description = body.description;
   if (body.thumbnailUrl === null || typeof body.thumbnailUrl === "string") {
     patch.thumbnailUrl = body.thumbnailUrl as string | null;
+  }
+  if (joinTypeFromBody(body.joinType) !== undefined) patch.joinType = joinTypeFromBody(body.joinType);
+  if (typeof body.joinPassword === "string" || body.joinPassword === null) {
+    patch.joinPasswordPlain = body.joinPassword as string | null;
+  }
+  if (identityModeFromBody(body.identityMode) !== undefined) {
+    patch.identityMode = identityModeFromBody(body.identityMode);
   }
   if (typeof body.maxMembers === "number") patch.maxMembers = body.maxMembers;
   if (typeof body.isSearchable === "boolean") patch.isSearchable = body.isSearchable;

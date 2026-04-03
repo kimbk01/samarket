@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   meetingOpenChatRoleCanEditRoomSettings,
   meetingOpenChatRoleCanManage,
 } from "@/lib/meeting-open-chat/permissions";
 import type {
   MeetingOpenChatBanListItem,
+  MeetingOpenChatIdentityMode,
   MeetingOpenChatJoinRequestListItem,
+  MeetingOpenChatJoinType,
   MeetingOpenChatMemberRole,
   MeetingOpenChatNoticePublic,
   MeetingOpenChatReportListItem,
@@ -15,6 +17,7 @@ import type {
 } from "@/lib/meeting-open-chat/types";
 
 type View = "main" | "join" | "reports" | "bans" | "notices" | "settings";
+type FlashMessage = { tone: "success" | "error"; text: string } | null;
 
 export function LineOpenChatPinnedNotices({ notices }: { notices: MeetingOpenChatNoticePublic[] }) {
   const pinned = notices.filter((n) => n.isPinned);
@@ -52,6 +55,10 @@ export function LineOpenChatOperatorMenuSheet({
 }) {
   const [view, setView] = useState<View>("main");
   const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState<FlashMessage>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   const [joinReqs, setJoinReqs] = useState<MeetingOpenChatJoinRequestListItem[]>([]);
   const [reports, setReports] = useState<MeetingOpenChatReportListItem[]>([]);
@@ -60,6 +67,9 @@ export function LineOpenChatOperatorMenuSheet({
 
   const [editTitle, setEditTitle] = useState(room.title);
   const [editDesc, setEditDesc] = useState(room.description);
+  const [editJoinType, setEditJoinType] = useState<MeetingOpenChatJoinType>(room.join_type);
+  const [editIdentityMode, setEditIdentityMode] = useState<MeetingOpenChatIdentityMode>(room.identity_mode);
+  const [editPassword, setEditPassword] = useState("");
   const [editMax, setEditMax] = useState(String(room.max_members));
   const [editSearchable, setEditSearchable] = useState(room.is_searchable);
   const [editRejoin, setEditRejoin] = useState(room.allow_rejoin_after_kick);
@@ -79,13 +89,71 @@ export function LineOpenChatOperatorMenuSheet({
   useEffect(() => {
     if (!open) return;
     setView("main");
+    setFlash(null);
     setEditTitle(room.title);
     setEditDesc(room.description);
+    setEditJoinType(room.join_type);
+    setEditIdentityMode(room.identity_mode);
+    setEditPassword("");
     setEditMax(String(room.max_members));
     setEditSearchable(room.is_searchable);
     setEditRejoin(room.allow_rejoin_after_kick);
     setEditActive(room.is_active);
   }, [open, room]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const applyViewportInset = () => {
+      if (typeof window === "undefined") return;
+      const vv = window.visualViewport;
+      if (!vv) {
+        setKeyboardInset(0);
+        return;
+      }
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardInset(inset > 80 ? Math.round(inset) : 0);
+    };
+    applyViewportInset();
+    window.addEventListener("resize", applyViewportInset);
+    window.visualViewport?.addEventListener("resize", applyViewportInset);
+    window.visualViewport?.addEventListener("scroll", applyViewportInset);
+    return () => {
+      window.removeEventListener("resize", applyViewportInset);
+      window.visualViewport?.removeEventListener("resize", applyViewportInset);
+      window.visualViewport?.removeEventListener("scroll", applyViewportInset);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const root = contentRef.current;
+    if (!root) return;
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !root.contains(target)) return;
+      window.setTimeout(() => {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 120);
+    };
+    root.addEventListener("focusin", onFocusIn);
+    return () => root.removeEventListener("focusin", onFocusIn);
+  }, [open]);
+
+  const settingsPreviewJoin =
+    editJoinType === "password" ? "목록에서 방을 누르면 비밀번호 팝업이 먼저 열립니다." : "목록에서 방을 누르면 바로 입장 흐름이 시작됩니다.";
+  const settingsPreviewIdentity =
+    editIdentityMode === "realname"
+      ? "참여자는 모두 프로필 실명으로 표시됩니다."
+      : "참여자는 입장 팝업에서 실명 또는 닉네임을 고를 수 있습니다.";
 
   const loadJoin = useCallback(async () => {
     const res = await fetch(`${base}/join-requests`, { credentials: "include" });
@@ -125,6 +193,7 @@ export function LineOpenChatOperatorMenuSheet({
 
   const resolveJoin = async (requestId: string, decision: "approve" | "reject") => {
     setBusy(true);
+    setFlash(null);
     try {
       const res = await fetch(`${base}/join-requests/${encodeURIComponent(requestId)}`, {
         method: "PATCH",
@@ -139,6 +208,7 @@ export function LineOpenChatOperatorMenuSheet({
       }
       await loadJoin();
       onRefreshAll();
+      setFlash({ tone: "success", text: decision === "approve" ? "입장 요청을 승인했습니다." : "입장 요청을 거절했습니다." });
     } finally {
       setBusy(false);
     }
@@ -150,6 +220,7 @@ export function LineOpenChatOperatorMenuSheet({
     blindAssociatedMessage = false
   ) => {
     setBusy(true);
+    setFlash(null);
     try {
       const res = await fetch(`${base}/reports/${encodeURIComponent(reportId)}`, {
         method: "PATCH",
@@ -164,6 +235,7 @@ export function LineOpenChatOperatorMenuSheet({
       }
       await loadReports();
       onRefreshAll();
+      setFlash({ tone: "success", text: "신고를 처리했습니다." });
     } finally {
       setBusy(false);
     }
@@ -172,6 +244,7 @@ export function LineOpenChatOperatorMenuSheet({
   const releaseBan = async (banId: string) => {
     if (!window.confirm("차단을 해제할까요? 해당 회원은 다시 입장 신청이 가능합니다.")) return;
     setBusy(true);
+    setFlash(null);
     try {
       const res = await fetch(`${base}/bans/${encodeURIComponent(banId)}/release`, {
         method: "POST",
@@ -184,6 +257,7 @@ export function LineOpenChatOperatorMenuSheet({
       }
       await loadBans();
       onRefreshAll();
+      setFlash({ tone: "success", text: "차단을 해제했습니다." });
     } finally {
       setBusy(false);
     }
@@ -192,6 +266,7 @@ export function LineOpenChatOperatorMenuSheet({
   const saveNoticeEdit = async () => {
     if (!noticeEditingId) return;
     setBusy(true);
+    setFlash(null);
     try {
       const res = await fetch(`${base}/notices/${encodeURIComponent(noticeEditingId)}`, {
         method: "PATCH",
@@ -211,6 +286,7 @@ export function LineOpenChatOperatorMenuSheet({
       setNoticeEditingId(null);
       await loadNotices();
       onRefreshAll();
+      setFlash({ tone: "success", text: "공지 수정이 저장되었습니다." });
     } finally {
       setBusy(false);
     }
@@ -219,6 +295,7 @@ export function LineOpenChatOperatorMenuSheet({
   const deleteNotice = async (noticeId: string) => {
     if (!window.confirm("이 공지를 삭제할까요?")) return;
     setBusy(true);
+    setFlash(null);
     try {
       const res = await fetch(`${base}/notices/${encodeURIComponent(noticeId)}`, {
         method: "DELETE",
@@ -232,6 +309,7 @@ export function LineOpenChatOperatorMenuSheet({
       if (noticeEditingId === noticeId) setNoticeEditingId(null);
       await loadNotices();
       onRefreshAll();
+      setFlash({ tone: "success", text: "공지를 삭제했습니다." });
     } finally {
       setBusy(false);
     }
@@ -239,6 +317,7 @@ export function LineOpenChatOperatorMenuSheet({
 
   const submitNotice = async () => {
     setBusy(true);
+    setFlash(null);
     try {
       const res = await fetch(`${base}/notices`, {
         method: "POST",
@@ -259,6 +338,7 @@ export function LineOpenChatOperatorMenuSheet({
       setNewNoticeBody("");
       await loadNotices();
       onRefreshAll();
+      setFlash({ tone: "success", text: "공지를 등록했습니다." });
     } finally {
       setBusy(false);
     }
@@ -266,6 +346,7 @@ export function LineOpenChatOperatorMenuSheet({
 
   const saveSettings = async () => {
     setBusy(true);
+    setFlash(null);
     try {
       const max = Number(editMax);
       const res = await fetch(base, {
@@ -275,6 +356,9 @@ export function LineOpenChatOperatorMenuSheet({
         body: JSON.stringify({
           title: editTitle,
           description: editDesc,
+          joinType: editJoinType,
+          joinPassword: editJoinType === "password" ? (editPassword.trim() ? editPassword : undefined) : null,
+          identityMode: editIdentityMode,
           maxMembers: Number.isFinite(max) ? max : room.max_members,
           isSearchable: editSearchable,
           allowRejoinAfterKick: editRejoin,
@@ -287,7 +371,12 @@ export function LineOpenChatOperatorMenuSheet({
         return;
       }
       onRefreshAll();
-      onClose();
+      setFlash({ tone: "success", text: "방 설정이 저장되었습니다." });
+      if (closeTimerRef.current != null) window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = window.setTimeout(() => {
+        closeTimerRef.current = null;
+        onClose();
+      }, 850);
     } finally {
       setBusy(false);
     }
@@ -301,7 +390,13 @@ export function LineOpenChatOperatorMenuSheet({
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="운영 메뉴">
       <button type="button" className="absolute inset-0 bg-black/40" aria-label="닫기" onClick={onClose} />
-      <div className="relative max-h-[85vh] overflow-hidden rounded-t-2xl bg-white shadow-2xl">
+      <div
+        className="relative overflow-hidden rounded-t-2xl bg-white shadow-2xl"
+        style={{
+          maxHeight: `min(85vh, calc(100dvh - ${Math.max(16, keyboardInset + 8)}px))`,
+          marginBottom: `max(${keyboardInset}px, env(safe-area-inset-bottom, 0px))`,
+        }}
+      >
         <div className="flex items-center border-b border-gray-100 px-3 py-2">
           {view !== "main" && (
             <button
@@ -325,7 +420,22 @@ export function LineOpenChatOperatorMenuSheet({
           </button>
         </div>
 
-        <div className="max-h-[calc(85vh-48px)] overflow-y-auto px-3 pb-6 pt-2">
+        <div
+          ref={contentRef}
+          className="max-h-[calc(85vh-48px)] overflow-y-auto px-3 pt-2"
+          style={{ paddingBottom: "max(1.5rem, calc(1rem + env(safe-area-inset-bottom, 0px)))" }}
+        >
+          {flash ? (
+            <div
+              className={`mb-3 rounded-xl px-3 py-2 text-[12px] font-semibold ${
+                flash.tone === "success"
+                  ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border border-rose-200 bg-rose-50 text-rose-800"
+              }`}
+            >
+              {flash.text}
+            </div>
+          ) : null}
           {view === "main" && (
             <ul className="space-y-1">
               {canManage && (
@@ -615,6 +725,99 @@ export function LineOpenChatOperatorMenuSheet({
                 onChange={(e) => setEditDesc(e.target.value)}
                 className="min-h-[64px] w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
               />
+              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-[12px] leading-relaxed text-amber-900">
+                <p className="font-bold">현재 방 정책</p>
+                <p className="mt-1">
+                  입장 방식:
+                  {" "}
+                  {editJoinType === "password" ? "비밀번호 참여" : editJoinType === "approval" ? "승인 참여" : "즉시 참여"}
+                </p>
+                <p className="mt-1">
+                  표시 이름:
+                  {" "}
+                  {editIdentityMode === "realname" ? "실명 고정" : "실명 또는 닉네임 선택"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-[12px] leading-relaxed text-emerald-900">
+                <p className="font-bold">적용 결과 미리보기</p>
+                <p className="mt-1">{settingsPreviewJoin}</p>
+                <p className="mt-1">{settingsPreviewIdentity}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <label className="block text-xs font-bold text-gray-700">입장 방식</label>
+                <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                  비밀번호 방으로 바꾸면 목록에서 방을 누를 때 같은 페이지 팝업으로 비밀번호를 받습니다.
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                      editJoinType === "free"
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                        : "border-gray-200 bg-white text-gray-700"
+                    }`}
+                    onClick={() => setEditJoinType("free")}
+                  >
+                    즉시 참여
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                      editJoinType === "password"
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                        : "border-gray-200 bg-white text-gray-700"
+                    }`}
+                    onClick={() => setEditJoinType("password")}
+                  >
+                    비밀번호 참여
+                  </button>
+                </div>
+                {editJoinType === "password" && (
+                  <div className="mt-3">
+                    <label className="block text-xs font-bold text-gray-700">비밀번호</label>
+                    <input
+                      type="password"
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                      placeholder={room.has_password ? "새 비밀번호 입력 시 변경" : "4자 이상"}
+                      className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                    />
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      비워 두면 현재 비밀번호를 유지합니다.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <label className="block text-xs font-bold text-gray-700">표시 이름 정책</label>
+                <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                  실명 참여는 모두 프로필 실명으로 입장하고, 닉네임/실명 선택은 참가자가 입장 팝업에서 직접 고릅니다.
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                      editIdentityMode === "realname"
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                        : "border-gray-200 bg-white text-gray-700"
+                    }`}
+                    onClick={() => setEditIdentityMode("realname")}
+                  >
+                    실명 참여
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                      editIdentityMode === "nickname_optional"
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                        : "border-gray-200 bg-white text-gray-700"
+                    }`}
+                    onClick={() => setEditIdentityMode("nickname_optional")}
+                  >
+                    닉네임/실명 선택
+                  </button>
+                </div>
+              </div>
               <label className="block text-xs font-bold text-gray-700">최대 인원</label>
               <input
                 value={editMax}

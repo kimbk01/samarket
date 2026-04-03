@@ -4,6 +4,8 @@
  */
 
 export type MeetingOpenChatJoinType = "free" | "password" | "approval" | "password_approval";
+export type MeetingOpenChatIdentityMode = "realname" | "nickname_optional";
+export type MeetingOpenChatJoinAs = "realname" | "nickname";
 
 export type MeetingOpenChatMemberRole = "owner" | "sub_admin" | "member";
 
@@ -25,6 +27,7 @@ export type MeetingOpenChatRoomRow = {
   description: string;
   thumbnail_url: string | null;
   join_type: MeetingOpenChatJoinType;
+  identity_mode: MeetingOpenChatIdentityMode;
   password_hash: string | null;
   max_members: number;
   is_active: boolean;

@@ -98,7 +98,15 @@ async function chatProductFromPostEnriched(
   post: Record<string, unknown> | null | undefined,
   postId: string
 ) {
+  const existingAuthorNickname =
+    post && typeof post.author_nickname === "string" ? post.author_nickname.trim() : "";
+  if (!post || existingAuthorNickname) {
+    return chatProductSummaryFromPostRow(post ?? undefined, postId);
+  }
   const aid = postAuthorUserId(post ?? undefined);
+  if (!aid) {
+    return chatProductSummaryFromPostRow(post ?? undefined, postId);
+  }
   const map = await fetchNicknamesForUserIds(sbAny, aid ? [aid] : []);
   return chatProductSummaryFromPostRow(enrichPostWithAuthorNickname(post ?? undefined, map), postId);
 }
@@ -508,21 +516,26 @@ export async function GET(
   };
 
   const roomType = crAny.room_type ?? "";
+  const isGeneralChatRoom =
+    roomType === "general_chat" || roomType === "community" || roomType === "group" || roomType === "business";
 
-  const { data: openChatMeta } = await sbAny
-    .from("open_chat_rooms")
-    .select("id, title, description, owner_user_id, status, joined_count, linked_chat_room_id")
-    .eq("linked_chat_room_id", roomId)
-    .maybeSingle();
-  const openChat = openChatMeta as {
-    id?: string;
-    title?: string | null;
-    description?: string | null;
-    owner_user_id?: string | null;
-    status?: string | null;
-    joined_count?: number | null;
-    linked_chat_room_id?: string | null;
-  } | null;
+  const openChat = isGeneralChatRoom
+    ? (((
+        await sbAny
+          .from("open_chat_rooms")
+          .select("id, title, description, owner_user_id, status, joined_count, linked_chat_room_id")
+          .eq("linked_chat_room_id", roomId)
+          .maybeSingle()
+      ).data as {
+        id?: string;
+        title?: string | null;
+        description?: string | null;
+        owner_user_id?: string | null;
+        status?: string | null;
+        joined_count?: number | null;
+        linked_chat_room_id?: string | null;
+      } | null) ?? null)
+    : null;
 
   if (openChat?.id) {
     const { data: partRowOpenChat } = await sbAny
@@ -763,9 +776,6 @@ export async function GET(
     );
   }
 
-  const isGeneralChatRoom =
-    roomType === "general_chat" || roomType === "community" || roomType === "group" || roomType === "business";
-
   if (isGeneralChatRoom) {
     const { data: partRowG } = await sbAny
       .from("chat_room_participants")
@@ -786,22 +796,11 @@ export async function GET(
     const ini = crAny.initiator_id ?? "";
     const peer = crAny.peer_id ?? "";
     const partnerId2 = userId === ini ? peer : ini;
-    let partnerNickname2 = partnerId2.slice(0, 8);
-    if (partnerId2) {
-      const { data: profileRow2 } = await sbAny.from("profiles").select("nickname, username").eq("id", partnerId2).maybeSingle();
-      if (profileRow2) {
-        const p = profileRow2 as Record<string, unknown>;
-        partnerNickname2 = (p.nickname ?? p.username ?? partnerNickname2) as string;
-      } else {
-        const { data: testRow2 } = await sbAny.from("test_users").select("display_name, username").eq("id", partnerId2).maybeSingle();
-        if (testRow2) {
-          const t = testRow2 as Record<string, unknown>;
-          partnerNickname2 = (t.display_name ?? t.username ?? partnerNickname2) as string;
-        }
-      }
-    }
     const postIdG = crAny.related_post_id ?? "";
-    const postG = postIdG ? await fetchPostRowForChat(sbAny, postIdG) : null;
+    const [partnerDispGeneral, postG] = await Promise.all([
+      fetchPartnerDisplayFields(sbAny, partnerId2, partnerId2.slice(0, 8)),
+      postIdG ? fetchPostRowForChat(sbAny, postIdG) : Promise.resolve(null),
+    ]);
     const kind = generalChatKindFromRoomRow(roomType, crAny.context_type ?? null);
     const titleFallback =
       kind === "business"
@@ -809,12 +808,14 @@ export async function GET(
         : kind === "community"
           ? "커뮤니티 문의"
           : "일반 채팅";
-    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, await fetchNicknamesForUserIds(sbAny, [postAuthorUserId(postG) ?? ""].filter(Boolean))) : null;
+    const postAuthorId = postAuthorUserId(postG);
+    const postNicknameMap = postAuthorId ? await fetchNicknamesForUserIds(sbAny, [postAuthorId]) : null;
+    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, postNicknameMap ?? new Map()) : null;
     return NextResponse.json(
       buildPhilifeDetailRoom({
         id: crAny.id,
         roomKind: "direct",
-        title: partnerNickname2.trim() || partnerId2.slice(0, 8) || titleFallback,
+        title: partnerDispGeneral.partnerNickname.trim() || partnerId2.slice(0, 8) || titleFallback,
         subtitle:
           kind === "business"
             ? "비즈 문의 채팅"

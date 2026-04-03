@@ -1,7 +1,7 @@
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isUserJoinedMeetingMember } from "@/lib/community-meeting-open-chat/meeting-member-guard";
-import { fetchViewerSuggestedOpenNickname } from "@/lib/meeting-open-chat/fetch-viewer-suggested-open-nickname";
+import { fetchViewerOpenChatIdentity } from "@/lib/meeting-open-chat/fetch-viewer-open-chat-identity";
 import type {
   MeetingOpenChatRoomInitialChatMember,
   MeetingOpenChatRoomInitialData,
@@ -71,15 +71,16 @@ export async function loadMeetingOpenChatRoomInitialData(
       if (list.ok) initialMessages = list.messages;
     }
 
-    const viewerSuggestedOpenNickname = chatMember
-      ? null
-      : await fetchViewerSuggestedOpenNickname(sb, userId);
+    const viewerIdentity = chatMember
+      ? { suggestedNickname: null, suggestedRealname: null }
+      : await fetchViewerOpenChatIdentity(sb, userId);
 
     return {
       room: room.room,
       chatMember,
       viewerUnreadCount,
-      viewerSuggestedOpenNickname,
+      viewerSuggestedOpenNickname: viewerIdentity.suggestedNickname,
+      viewerSuggestedRealname: viewerIdentity.suggestedRealname,
       ...(initialMessages !== undefined ? { initialMessages } : {}),
     };
   } catch {

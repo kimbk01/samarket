@@ -11,9 +11,10 @@ export function isMissingSellerListingColumnError(message: string | undefined | 
   );
 }
 
-/** select('*') 실패 시 재시도용 — 채팅 카드·거래 보조 필드 */
+/** 채팅 카드·거래 보조 필드용 기본 컬럼 */
 const POST_COLUMNS_CHAT_SAFE =
   "id, user_id, title, content, description, price, status, sold_buyer_id, reserved_buyer_id, thumbnail_url, images, region, city, district, meta, view_count, favorite_count, created_at, updated_at, trade_category_id, category_id, board_id, service_id, is_free_share, visibility";
+const POST_COLUMNS_CHAT_PREFERRED = `${POST_COLUMNS_CHAT_SAFE}, seller_listing_state, author_id`;
 
 export async function fetchPostRowForChat(
   sbAny: SupabaseClient<any>,
@@ -22,7 +23,11 @@ export async function fetchPostRowForChat(
   const pid = typeof postId === "string" ? postId.trim() : "";
   if (!pid) return null;
 
-  let { data, error } = await sbAny.from("posts").select("*").eq("id", pid).maybeSingle();
+  let { data, error } = await sbAny
+    .from("posts")
+    .select(POST_COLUMNS_CHAT_PREFERRED)
+    .eq("id", pid)
+    .maybeSingle();
   if (error && isMissingSellerListingColumnError(error.message)) {
     const r2 = await sbAny.from("posts").select(POST_COLUMNS_CHAT_SAFE).eq("id", pid).maybeSingle();
     data = r2.data;
@@ -39,7 +44,7 @@ export async function fetchPostRowsForChatIn(
   const ids = [...new Set(postIds.map((x) => String(x).trim()).filter(Boolean))];
   if (!ids.length) return [];
 
-  let { data, error } = await sbAny.from("posts").select("*").in("id", ids);
+  let { data, error } = await sbAny.from("posts").select(POST_COLUMNS_CHAT_PREFERRED).in("id", ids);
   if (error && isMissingSellerListingColumnError(error.message)) {
     const r2 = await sbAny.from("posts").select(POST_COLUMNS_CHAT_SAFE).in("id", ids);
     data = r2.data;

@@ -1,14 +1,24 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hashCommunityChatJoinPassword, verifyCommunityChatJoinPassword } from "@/lib/community-meeting-open-chat/join-password";
+import { fetchViewerOpenChatIdentity } from "./fetch-viewer-open-chat-identity";
 import { insertMeetingOpenChatSystemMessage } from "./messages-service";
 import { getActiveMeetingOpenChatMember } from "./room-access";
-import type { MeetingOpenChatJoinType, MeetingOpenChatRoomPublic } from "./types";
+import type {
+  MeetingOpenChatIdentityMode,
+  MeetingOpenChatJoinAs,
+  MeetingOpenChatJoinType,
+  MeetingOpenChatRoomPublic,
+} from "./types";
 
 const ROOM_SELECT =
-  "id, meeting_id, title, description, thumbnail_url, join_type, password_hash, max_members, is_active, is_searchable, allow_rejoin_after_kick, owner_user_id, last_message_preview, last_message_at, active_member_count, pending_join_count, created_at, updated_at";
+  "id, meeting_id, title, description, thumbnail_url, join_type, identity_mode, password_hash, max_members, is_active, is_searchable, allow_rejoin_after_kick, owner_user_id, last_message_preview, last_message_at, active_member_count, pending_join_count, created_at, updated_at";
 
 export function meetingOpenChatRoomToPublic(row: Record<string, unknown>): MeetingOpenChatRoomPublic {
   const join_type = row.join_type as MeetingOpenChatJoinType;
+  const identity_mode =
+    row.identity_mode === "realname" || row.identity_mode === "nickname_optional"
+      ? row.identity_mode
+      : "nickname_optional";
   const hashStr = String((row as { password_hash?: unknown }).password_hash ?? "").trim();
   const has_password =
     join_type === "password" ||
@@ -18,12 +28,55 @@ export function meetingOpenChatRoomToPublic(row: Record<string, unknown>): Meeti
   return {
     ...(rest as Omit<MeetingOpenChatRoomPublic, "has_password">),
     join_type,
+    identity_mode,
     has_password,
   } as MeetingOpenChatRoomPublic;
 }
 
 function isMissingMeetingOpenChatSchemaError(message: string): boolean {
   return /42P01|meeting_open_chat_rooms|does not exist/i.test(message);
+}
+
+async function resolveMeetingOpenChatDisplayIdentity(
+  sb: SupabaseClient<any>,
+  userId: string,
+  input: {
+    roomIdentityMode: MeetingOpenChatIdentityMode;
+    requestedJoinAs?: MeetingOpenChatJoinAs | null;
+    openNickname?: string | null;
+    openProfileImageUrl?: string | null;
+  }
+): Promise<
+  | { ok: true; openNickname: string; openProfileImageUrl: string | null }
+  | { ok: false; error: string; status: number }
+> {
+  const viewerIdentity = await fetchViewerOpenChatIdentity(sb, userId);
+  const effectiveJoinAs =
+    input.roomIdentityMode === "realname" ? "realname" : (input.requestedJoinAs ?? "nickname");
+
+  if (effectiveJoinAs === "realname") {
+    const realname = String(viewerIdentity.suggestedRealname ?? "").trim();
+    if (!realname) {
+      return { ok: false, error: "realname_required", status: 400 };
+    }
+    return {
+      ok: true,
+      openNickname: realname.slice(0, 40),
+      openProfileImageUrl: input.openProfileImageUrl?.trim() || viewerIdentity.avatarUrl || null,
+    };
+  }
+
+  const requestedNickname = String(input.openNickname ?? "").trim();
+  const fallbackNickname = String(viewerIdentity.suggestedNickname ?? "").trim();
+  const openNickname = (requestedNickname || fallbackNickname).slice(0, 40);
+  if (!openNickname) {
+    return { ok: false, error: "open_nickname_required", status: 400 };
+  }
+  return {
+    ok: true,
+    openNickname,
+    openProfileImageUrl: input.openProfileImageUrl?.trim() || viewerIdentity.avatarUrl || null,
+  };
 }
 
 export async function listMeetingOpenChatRoomsForMeeting(
@@ -59,11 +112,13 @@ export type CreateMeetingOpenChatRoomInput = {
   description?: string;
   thumbnailUrl?: string | null;
   joinType: MeetingOpenChatJoinType;
+  identityMode: MeetingOpenChatIdentityMode;
   joinPasswordPlain?: string | null;
   maxMembers: number;
   isSearchable: boolean;
   allowRejoinAfterKick?: boolean;
-  ownerOpenNickname: string;
+  ownerJoinAs?: MeetingOpenChatJoinAs | null;
+  ownerOpenNickname?: string;
   ownerOpenProfileImageUrl?: string | null;
   ownerIntroMessage?: string;
 };
@@ -78,8 +133,10 @@ export async function createMeetingOpenChatRoom(
   if (!Number.isFinite(maxMembers) || maxMembers < 2 || maxMembers > 2000) {
     return { ok: false, error: "max_members_invalid", status: 400 };
   }
-  const ownerOpenNickname = input.ownerOpenNickname.trim().slice(0, 40);
-  if (!ownerOpenNickname) return { ok: false, error: "open_nickname_required", status: 400 };
+  const identityMode = input.identityMode;
+  if (identityMode !== "realname" && identityMode !== "nickname_optional") {
+    return { ok: false, error: "identity_mode_invalid", status: 400 };
+  }
 
   if (input.joinType === "password_approval") {
     return { ok: false, error: "join_type_not_implemented", status: 501 };
@@ -94,6 +151,14 @@ export async function createMeetingOpenChatRoom(
     return { ok: false, error: "join_type_invalid", status: 400 };
   }
 
+  const ownerIdentity = await resolveMeetingOpenChatDisplayIdentity(sb, input.creatorUserId, {
+    roomIdentityMode: identityMode,
+    requestedJoinAs: input.ownerJoinAs,
+    openNickname: input.ownerOpenNickname,
+    openProfileImageUrl: input.ownerOpenProfileImageUrl,
+  });
+  if (!ownerIdentity.ok) return ownerIdentity;
+
   const now = new Date().toISOString();
   const roomInsert = {
     meeting_id: input.meetingId.trim(),
@@ -101,6 +166,7 @@ export async function createMeetingOpenChatRoom(
     description: (input.description ?? "").trim(),
     thumbnail_url: input.thumbnailUrl?.trim() || null,
     join_type: input.joinType,
+    identity_mode: identityMode,
     password_hash,
     max_members: maxMembers,
     is_active: true,
@@ -130,8 +196,8 @@ export async function createMeetingOpenChatRoom(
     room_id: roomId,
     user_id: input.creatorUserId,
     role: "owner",
-    open_nickname: ownerOpenNickname,
-    open_profile_image_url: input.ownerOpenProfileImageUrl?.trim() || null,
+    open_nickname: ownerIdentity.openNickname,
+    open_profile_image_url: ownerIdentity.openProfileImageUrl,
     intro_message: (input.ownerIntroMessage ?? "").trim().slice(0, 500),
     status: "active",
     joined_at: now,
@@ -191,6 +257,9 @@ export async function ensureDefaultMeetingOpenChatRoomForNewMeeting(
 
   const maxMem = Math.min(Math.max(2, Math.round(Number(input.maxMembers)) || 300), 2000);
   const desc = (input.description ?? "").trim().slice(0, 500);
+  const hostIdentity = await fetchViewerOpenChatIdentity(sb, uid);
+  const defaultIdentityMode = hostIdentity.suggestedRealname ? "realname" : "nickname_optional";
+  const defaultOwnerJoinAs = hostIdentity.suggestedRealname ? "realname" : "nickname";
 
   const { data: rpcRaw, error: rpcErr } = await sb.rpc("ensure_default_meeting_open_chat_room_atomic", {
     p_meeting_id: mid,
@@ -249,9 +318,11 @@ export async function ensureDefaultMeetingOpenChatRoomForNewMeeting(
     description: desc,
     thumbnailUrl: null,
     joinType: "free",
+    identityMode: defaultIdentityMode,
     maxMembers: maxMem,
     isSearchable: true,
     allowRejoinAfterKick: true,
+    ownerJoinAs: defaultOwnerJoinAs,
     ownerOpenNickname: ownerNick,
   });
 
@@ -479,7 +550,8 @@ export type JoinMeetingOpenChatRoomInput = {
   meetingId: string;
   roomId: string;
   userId: string;
-  openNickname: string;
+  joinAs?: MeetingOpenChatJoinAs | null;
+  openNickname?: string;
   openProfileImageUrl?: string | null;
   introMessage?: string | null;
   joinPasswordPlain?: string | null;
@@ -495,8 +567,6 @@ export async function joinMeetingOpenChatRoom(
 > {
   const roomId = input.roomId.trim();
   const userId = input.userId.trim();
-  const openNickname = input.openNickname.trim().slice(0, 40);
-  if (!openNickname) return { ok: false, error: "open_nickname_required", status: 400 };
 
   const raw = await sb
     .from("meeting_open_chat_rooms")
@@ -522,9 +592,19 @@ export async function joinMeetingOpenChatRoom(
   }
 
   const joinType = fullRow.join_type as MeetingOpenChatJoinType;
+  const identityMode = (fullRow.identity_mode as MeetingOpenChatIdentityMode | null) ?? "nickname_optional";
   if (joinType === "password_approval") {
     return { ok: false, error: "join_type_not_implemented", status: 501 };
   }
+
+  const joinIdentity = await resolveMeetingOpenChatDisplayIdentity(sb, userId, {
+    roomIdentityMode: identityMode,
+    requestedJoinAs: input.joinAs,
+    openNickname: input.openNickname,
+    openProfileImageUrl: input.openProfileImageUrl,
+  });
+  if (!joinIdentity.ok) return joinIdentity;
+  const openNickname = joinIdentity.openNickname;
 
   const maxMembers = Number(fullRow.max_members ?? 300);
   const allowRejoinAfterKick = Boolean(fullRow.allow_rejoin_after_kick);
@@ -569,7 +649,6 @@ export async function joinMeetingOpenChatRoom(
       };
     }
 
-    const now = new Date().toISOString();
     const { data: reqRow, error: reqErr } = await sb
       .from("meeting_open_chat_join_requests")
       .insert({
@@ -577,7 +656,7 @@ export async function joinMeetingOpenChatRoom(
         user_id: userId,
         intro_message: (input.introMessage ?? "").trim().slice(0, 500),
         open_nickname: openNickname,
-        open_profile_image_url: input.openProfileImageUrl?.trim() || null,
+        open_profile_image_url: joinIdentity.openProfileImageUrl,
         status: "pending",
       })
       .select("id")
@@ -640,7 +719,7 @@ export async function joinMeetingOpenChatRoom(
       .update({
         status: "active",
         open_nickname: openNickname,
-        open_profile_image_url: input.openProfileImageUrl?.trim() || null,
+        open_profile_image_url: joinIdentity.openProfileImageUrl,
         intro_message: (input.introMessage ?? "").trim().slice(0, 500),
         kicked_at: null,
         banned_at: null,
@@ -664,7 +743,7 @@ export async function joinMeetingOpenChatRoom(
       user_id: userId,
       role: "member",
       open_nickname: openNickname,
-      open_profile_image_url: input.openProfileImageUrl?.trim() || null,
+      open_profile_image_url: joinIdentity.openProfileImageUrl,
       intro_message: (input.introMessage ?? "").trim().slice(0, 500),
       status: "active",
       joined_at: now,
@@ -704,6 +783,9 @@ export type PatchMeetingOpenChatRoomInput = {
   title?: string;
   description?: string;
   thumbnailUrl?: string | null;
+  joinType?: MeetingOpenChatJoinType;
+  joinPasswordPlain?: string | null;
+  identityMode?: MeetingOpenChatIdentityMode;
   maxMembers?: number;
   isSearchable?: boolean;
   allowRejoinAfterKick?: boolean;
@@ -746,6 +828,40 @@ export async function patchMeetingOpenChatRoom(
   if (patch.description !== undefined) updates.description = patch.description.trim();
   if (patch.thumbnailUrl !== undefined) {
     updates.thumbnail_url = patch.thumbnailUrl === null ? null : patch.thumbnailUrl.trim() || null;
+  }
+  if (patch.joinType !== undefined) {
+    if (patch.joinType === "password_approval") {
+      return { ok: false, error: "join_type_not_implemented", status: 501 };
+    }
+    if (patch.joinType !== "free" && patch.joinType !== "password" && patch.joinType !== "approval") {
+      return { ok: false, error: "join_type_invalid", status: 400 };
+    }
+    updates.join_type = patch.joinType;
+    const currentHash = String((row as { password_hash?: string | null }).password_hash ?? "").trim();
+    if (patch.joinType === "password") {
+      const nextPw = String(patch.joinPasswordPlain ?? "").trim();
+      if (nextPw) {
+        if (nextPw.length < 4) return { ok: false, error: "password_too_short", status: 400 };
+        updates.password_hash = hashCommunityChatJoinPassword(nextPw);
+      } else if (!currentHash) {
+        return { ok: false, error: "password_too_short", status: 400 };
+      }
+    } else {
+      updates.password_hash = null;
+    }
+  } else if (patch.joinPasswordPlain !== undefined) {
+    const currentJoinType = String((row as { join_type?: string | null }).join_type ?? "").trim();
+    const nextPw = String(patch.joinPasswordPlain ?? "").trim();
+    if (currentJoinType === "password") {
+      if (nextPw.length < 4) return { ok: false, error: "password_too_short", status: 400 };
+      updates.password_hash = hashCommunityChatJoinPassword(nextPw);
+    }
+  }
+  if (patch.identityMode !== undefined) {
+    if (patch.identityMode !== "realname" && patch.identityMode !== "nickname_optional") {
+      return { ok: false, error: "identity_mode_invalid", status: 400 };
+    }
+    updates.identity_mode = patch.identityMode;
   }
   if (patch.maxMembers !== undefined) {
     const m = Math.round(Number(patch.maxMembers));

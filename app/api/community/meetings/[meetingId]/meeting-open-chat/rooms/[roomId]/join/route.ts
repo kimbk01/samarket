@@ -3,8 +3,14 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isUserJoinedMeetingMember } from "@/lib/community-meeting-open-chat/meeting-member-guard";
 import { joinMeetingOpenChatRoom } from "@/lib/meeting-open-chat/rooms-service";
+import type { MeetingOpenChatJoinAs } from "@/lib/meeting-open-chat/types";
 
 type Ctx = { params: Promise<{ meetingId: string; roomId: string }> };
+
+function joinAsFromBody(v: unknown): MeetingOpenChatJoinAs | null {
+  if (v === "realname" || v === "nickname") return v;
+  return null;
+}
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthenticatedUserId();
@@ -38,6 +44,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     meetingId: mid,
     roomId: rid,
     userId: auth.userId,
+    joinAs: joinAsFromBody(body.joinAs),
     openNickname: typeof body.openNickname === "string" ? body.openNickname : "",
     openProfileImageUrl: typeof body.openProfileImageUrl === "string" ? body.openProfileImageUrl : null,
     introMessage: typeof body.introMessage === "string" ? body.introMessage : null,

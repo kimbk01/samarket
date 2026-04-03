@@ -104,10 +104,17 @@ function sameChatPayload(a: ChatMessage, b: ChatMessage): boolean {
 
 function reconcileOptimisticMessages(prev: ChatMessage[], confirmed: ChatMessage[]): ChatMessage[] {
   if (confirmed.length === 0) return prev;
-  return prev.filter((message) => {
-    if (!isOptimisticChatMessage(message)) return true;
-    return !confirmed.some((nextMessage) => sameChatPayload(message, nextMessage));
-  });
+  const consumedOptimisticIds = new Set<string>();
+  for (const confirmedMessage of confirmed) {
+    const optimisticMatch = prev.find(
+      (message) =>
+        isOptimisticChatMessage(message) &&
+        !consumedOptimisticIds.has(message.id) &&
+        sameChatPayload(message, confirmedMessage)
+    );
+    if (optimisticMatch) consumedOptimisticIds.add(optimisticMatch.id);
+  }
+  return prev.filter((message) => !consumedOptimisticIds.has(message.id));
 }
 
 export function ChatDetailView({
@@ -157,20 +164,31 @@ export function ChatDetailView({
       return;
     }
     let cancelled = false;
-    void (async () => {
-      try {
-        const r = await fetch(
-          `/api/me/block-relation?otherUserId=${encodeURIComponent(partnerId)}`,
-          { credentials: "include" }
-        );
-        const j = (await r.json()) as { ok?: boolean; isBlocked?: boolean };
-        if (!cancelled && j.ok) setPartnerBlocked(j.isBlocked === true);
-      } catch {
-        if (!cancelled) setPartnerBlocked(false);
-      }
-    })();
+    const run = () => {
+      void (async () => {
+        try {
+          const r = await fetch(
+            `/api/me/block-relation?otherUserId=${encodeURIComponent(partnerId)}`,
+            { credentials: "include" }
+          );
+          const j = (await r.json()) as { ok?: boolean; isBlocked?: boolean };
+          if (!cancelled && j.ok) setPartnerBlocked(j.isBlocked === true);
+        } catch {
+          if (!cancelled) setPartnerBlocked(false);
+        }
+      })();
+    };
+    const idleId =
+      typeof window !== "undefined" && "requestIdleCallback" in window
+        ? window.requestIdleCallback(run, { timeout: 1200 })
+        : window.setTimeout(run, 180);
     return () => {
       cancelled = true;
+      if (typeof window !== "undefined" && "cancelIdleCallback" in window && typeof idleId === "number") {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId as number);
+      }
     };
   }, [partnerId]);
   const reportEnabled = useMemo(() => getAppSettings().reportEnabled !== false, []);
@@ -322,15 +340,7 @@ export function ChatDetailView({
   );
 
   const confirmOptimisticMessage = useCallback((tempId: string, confirmed: ChatMessage) => {
-    setMessages((prev) =>
-      mergeChatMessagesById(
-        reconcileOptimisticMessages(
-          prev.filter((message) => message.id !== tempId),
-          [confirmed]
-        ),
-        [confirmed]
-      )
-    );
+    setMessages((prev) => mergeChatMessagesById(prev.filter((message) => message.id !== tempId), [confirmed]));
   }, []);
 
   const dropOptimisticMessage = useCallback((tempId: string) => {

@@ -105,9 +105,11 @@ export async function getRoomByIdFromDb(
   if (!supabase || !currentUserId) return null;
 
   const sb = supabase as any;
+  const PRODUCT_CHAT_DETAIL_SELECT =
+    "id, post_id, seller_id, buyer_id, last_message_at, last_message_preview, unread_count_seller, unread_count_buyer, created_at";
   const { data: r, error } = await sb
     .from("product_chats")
-    .select("*")
+    .select(PRODUCT_CHAT_DETAIL_SELECT)
     .eq("id", roomId)
     .single();
 

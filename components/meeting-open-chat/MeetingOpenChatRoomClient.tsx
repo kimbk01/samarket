@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { MeetingPasswordOnlyModal } from "@/components/community/MeetingPasswordOnlyModal";
 import { MeetingOpenChatJoinDialog } from "@/components/meeting-open-chat/MeetingOpenChatJoinDialog";
 import { LineOpenChatHeader } from "@/components/meeting-open-chat/line/LineOpenChatHeader";
 import { LineOpenChatParticipantSheet } from "@/components/meeting-open-chat/sheets/LineOpenChatParticipantSheet";
@@ -19,6 +18,7 @@ import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom
 import { philifeAppPaths } from "@/lib/philife/paths";
 import type { MeetingOpenChatRoomInitialData } from "@/lib/meeting-open-chat/meeting-open-chat-room-initial-types";
 import type {
+  MeetingOpenChatJoinAs,
   MeetingOpenChatMemberRole,
   MeetingOpenChatMessagePublic,
   MeetingOpenChatNoticePublic,
@@ -73,10 +73,13 @@ function formatMeetingOpenJoinError(code: string | null): string | null {
       return "채팅 닉네임을 입력해 주세요.";
     case "open_nickname_taken":
       return "이 닉네임은 이미 사용 중입니다. 다른 닉네임을 입력해 주세요.";
+    case "realname_required":
+      return "프로필 실명이 있어야 실명 참여를 사용할 수 있습니다.";
     case "banned":
       return "이 방에 참여할 수 없습니다.";
     case "room_not_active":
       return "비활성화된 방입니다.";
+    case "room_full":
     case "full":
       return "인원이 가득 찼습니다.";
     case "join_type_not_implemented":
@@ -84,6 +87,20 @@ function formatMeetingOpenJoinError(code: string | null): string | null {
     default:
       return code.length < 100 ? code : "입장에 실패했습니다.";
   }
+}
+
+function roomJoinBadgeLabel(
+  joinType: MeetingOpenChatRoomPublic["join_type"]
+): string {
+  if (joinType === "password" || joinType === "password_approval") return "비밀번호";
+  if (joinType === "approval") return "승인";
+  return "즉시";
+}
+
+function roomIdentityBadgeLabel(
+  identityMode: MeetingOpenChatRoomPublic["identity_mode"]
+): string {
+  return identityMode === "realname" ? "실명" : "닉네임/실명";
 }
 
 function openChatMessagePreviewLine(m: MeetingOpenChatMessagePublic): string {
@@ -142,8 +159,16 @@ export function MeetingOpenChatRoomClient({
   const [viewerSuggestedOpenNickname, setViewerSuggestedOpenNickname] = useState<string | null>(
     () => initialData?.viewerSuggestedOpenNickname ?? null
   );
-  const [useFullJoinDialog, setUseFullJoinDialog] = useState(false);
-  const lastPwdAttemptRef = useRef("");
+  const [viewerSuggestedRealname, setViewerSuggestedRealname] = useState<string | null>(
+    () => initialData?.viewerSuggestedRealname ?? null
+  );
+  const [joinAs, setJoinAs] = useState<MeetingOpenChatJoinAs>(() =>
+    initialData?.room?.identity_mode === "realname"
+      ? "realname"
+      : initialData?.viewerSuggestedRealname
+        ? "realname"
+        : "nickname"
+  );
   /** 서버에서 메시지까지 내려준 경우 첫 클라이언트 GET 생략 */
   const skipNextClientMessagesFetchRef = useRef(initialData?.initialMessages !== undefined);
   /** 첫 `loadRoom`만 silent(스냅샷이 있을 때 로딩 문구·점프 방지) */
@@ -201,6 +226,7 @@ export function MeetingOpenChatRoomClient({
         chatMember?: ChatMemberMe | null;
         viewerUnreadCount?: number;
         viewerSuggestedOpenNickname?: string | null;
+        viewerSuggestedRealname?: string | null;
         error?: string;
       };
       if (!res.ok || !json.ok || !json.room) {
@@ -213,6 +239,13 @@ export function MeetingOpenChatRoomClient({
       setViewerSuggestedOpenNickname(
         typeof sug === "string" && sug.trim() ? sug.trim().slice(0, 40) : null
       );
+      const real = json.viewerSuggestedRealname;
+      setViewerSuggestedRealname(
+        typeof real === "string" && real.trim() ? real.trim().slice(0, 40) : null
+      );
+      setJoinAs((prev) =>
+        json.room?.identity_mode === "realname" ? "realname" : prev === "nickname" ? "nickname" : real ? "realname" : "nickname"
+      );
       if (typeof json.viewerUnreadCount === "number") setViewerUnreadCount(json.viewerUnreadCount);
       if (!silent) setLoadErr(null);
     } catch {
@@ -222,7 +255,7 @@ export function MeetingOpenChatRoomClient({
 
   const requestMarkRead = useCallback(
     (messageId: string) => {
-      if (!messageId || lastReadAckRef.current === messageId) return;
+      if (!messageId || messageId.startsWith("local:") || lastReadAckRef.current === messageId) return;
       lastReadAckRef.current = messageId;
       void fetch(apiRead, {
         method: "POST",
@@ -314,8 +347,18 @@ export function MeetingOpenChatRoomClient({
     setViewerUnreadCount(0);
     setJoinErr(null);
     setViewerSuggestedOpenNickname(null);
-    setUseFullJoinDialog(false);
+    setViewerSuggestedRealname(null);
+    setJoinAs("nickname");
+    setJoinNick("");
+    setJoinPw("");
+    setJoinIntro("");
   }, [roomId]);
+
+  useEffect(() => {
+    if (!chatMember && !joinNick.trim() && viewerSuggestedOpenNickname?.trim()) {
+      setJoinNick(viewerSuggestedOpenNickname.trim());
+    }
+  }, [chatMember, joinNick, viewerSuggestedOpenNickname]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -429,7 +472,12 @@ export function MeetingOpenChatRoomClient({
     if (chatMember) void loadNotices();
   }, [chatMember, loadNotices]);
 
-  const joinWith = async (opts: { openNickname: string; joinPassword?: string; introMessage?: string }) => {
+  const joinWith = async (opts: {
+    joinAs: MeetingOpenChatJoinAs;
+    openNickname?: string;
+    joinPassword?: string;
+    introMessage?: string;
+  }) => {
     if (!room) return;
     setBusy(true);
     setJoinErr(null);
@@ -440,7 +488,8 @@ export function MeetingOpenChatRoomClient({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          openNickname: opts.openNickname.trim().slice(0, 40),
+          joinAs: opts.joinAs,
+          openNickname: opts.openNickname?.trim().slice(0, 40),
           joinPassword: room.has_password ? opts.joinPassword : undefined,
           introMessage: needsIntro ? opts.introMessage?.trim() || undefined : undefined,
         }),
@@ -452,13 +501,7 @@ export function MeetingOpenChatRoomClient({
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        const err = json.error ?? "join_failed";
-        setJoinErr(err);
-        if (err === "open_nickname_taken" && room.join_type === "password") {
-          setUseFullJoinDialog(true);
-          setJoinPw(lastPwdAttemptRef.current);
-          setJoinNick("");
-        }
+        setJoinErr(json.error ?? "join_failed");
         return;
       }
       if (json.pendingApproval) {
@@ -473,19 +516,12 @@ export function MeetingOpenChatRoomClient({
   };
 
   const onJoinFromDialog = () => {
-    lastPwdAttemptRef.current = joinPw;
     void joinWith({
-      openNickname: joinNick,
+      joinAs: room?.identity_mode === "realname" ? "realname" : joinAs,
+      openNickname: joinAs === "nickname" ? joinNick : undefined,
       joinPassword: joinPw,
       introMessage: joinIntro,
     });
-  };
-
-  const onJoinFromPasswordModal = (password: string) => {
-    lastPwdAttemptRef.current = password;
-    const nickBase = (viewerSuggestedOpenNickname ?? "참가자").trim();
-    const nick = (nickBase || "참가자").slice(0, 40);
-    void joinWith({ openNickname: nick, joinPassword: password });
   };
 
   const onBlindMessage = async (messageId: string) => {
@@ -765,36 +801,44 @@ export function MeetingOpenChatRoomClient({
         </div>
       )}
 
+      <div className="border-b border-gray-200 bg-white/90 px-3 py-2">
+        <div className="mx-auto flex max-w-lg flex-wrap items-center gap-2">
+          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-800">
+            {roomJoinBadgeLabel(room.join_type)}
+          </span>
+          <span className="rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-bold text-sky-800">
+            {roomIdentityBadgeLabel(room.identity_mode)}
+          </span>
+          {!chatMember ? (
+            <span className="text-[11px] text-gray-500">
+              방을 누른 뒤 같은 화면에서 바로 참여할 수 있습니다.
+            </span>
+          ) : null}
+        </div>
+      </div>
+
       {!chatMember ? (
         <>
           <div className="min-h-[30vh] flex-1 bg-[#ececec]/80" aria-hidden />
-          {room.join_type === "password" && !useFullJoinDialog ? (
-            <MeetingPasswordOnlyModal
-              open
-              onClose={() => router.push(backHref)}
-              onSubmit={(pw) => onJoinFromPasswordModal(pw)}
-              busy={busy}
-              error={formatMeetingOpenJoinError(joinErr)}
-              title="채팅방 비밀번호"
-              hint="방장이 설정한 비밀번호를 입력하면 바로 입장합니다."
-              submitLabel="입장하기"
-            />
-          ) : (
-            <MeetingOpenChatJoinDialog
-              roomTitle={room.title}
-              hasPassword={room.has_password}
-              needsApprovalIntro={room.join_type === "approval" || room.join_type === "password_approval"}
-              joinNick={joinNick}
-              setJoinNick={setJoinNick}
-              joinPw={joinPw}
-              setJoinPw={setJoinPw}
-              joinIntro={joinIntro}
-              setJoinIntro={setJoinIntro}
-              busy={busy}
-              error={formatMeetingOpenJoinError(joinErr)}
-              onJoin={() => onJoinFromDialog()}
-            />
-          )}
+          <MeetingOpenChatJoinDialog
+            roomTitle={room.title}
+            hasPassword={room.has_password}
+            needsApprovalIntro={room.join_type === "approval" || room.join_type === "password_approval"}
+            identityMode={room.identity_mode}
+            joinAs={room.identity_mode === "realname" ? "realname" : joinAs}
+            setJoinAs={setJoinAs}
+            suggestedRealname={viewerSuggestedRealname}
+            joinNick={joinNick}
+            setJoinNick={setJoinNick}
+            joinPw={joinPw}
+            setJoinPw={setJoinPw}
+            joinIntro={joinIntro}
+            setJoinIntro={setJoinIntro}
+            busy={busy}
+            error={formatMeetingOpenJoinError(joinErr)}
+            onClose={() => router.push(backHref)}
+            onJoin={() => onJoinFromDialog()}
+          />
         </>
       ) : (
         <>
@@ -805,6 +849,16 @@ export function MeetingOpenChatRoomClient({
               onScroll={onMessageListScroll}
               className="flex-1 space-y-2 overflow-y-auto px-2 py-2 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]"
             >
+              {messages.length === 0 ? (
+                <div className="px-3 py-8 text-center">
+                  <div className="inline-flex max-w-xs flex-col rounded-2xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm">
+                    <span className="text-[13px] font-bold text-gray-900">첫 대화를 시작해 보세요</span>
+                    <span className="mt-1 text-[12px] leading-relaxed text-gray-600">
+                      인사말이나 모임 관련 한마디를 남기면 참여자들이 더 쉽게 대화를 이어갈 수 있습니다.
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               {messages.map((m, idx) => {
                 const canModerateMsg =
                   chatMember &&
