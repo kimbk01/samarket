@@ -73,18 +73,22 @@ export async function POST(req: NextRequest) {
   }
 
   // 2) 차단 확인 (user_blocks: user_id=blocker, blocked_user_id=blocked)
-  const { data: block1 } = await sbAny
-    .from("user_blocks")
-    .select("id")
-    .eq("user_id", buyerId)
-    .eq("blocked_user_id", sellerId)
-    .maybeSingle();
-  const { data: block2 } = await sbAny
-    .from("user_blocks")
-    .select("id")
-    .eq("user_id", sellerId)
-    .eq("blocked_user_id", buyerId)
-    .maybeSingle();
+  const [block1Res, block2Res] = await Promise.all([
+    sbAny
+      .from("user_blocks")
+      .select("id")
+      .eq("user_id", buyerId)
+      .eq("blocked_user_id", sellerId)
+      .maybeSingle(),
+    sbAny
+      .from("user_blocks")
+      .select("id")
+      .eq("user_id", sellerId)
+      .eq("blocked_user_id", buyerId)
+      .maybeSingle(),
+  ]);
+  const block1 = block1Res.data;
+  const block2 = block2Res.data;
   if (block1 || block2) {
     return NextResponse.json({ ok: false, error: "차단 관계에서는 채팅할 수 없습니다." }, { status: 403 });
   }

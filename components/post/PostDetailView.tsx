@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -538,6 +538,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [isChatNavPending, startChatNavTransition] = useTransition();
+  const chatCtaBusy = chatLoading || isChatNavPending;
   const [chatError, setChatError] = useState("");
   /** 거래 글: 이 글·본인·판매자 기준으로 이미 열린 채팅방 (상품↔채팅 연동) */
   const [existingTradeRoomId, setExistingTradeRoomId] = useState<string | null>(null);
@@ -630,6 +632,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         ),
         rightSlot: (
           <div className="flex shrink-0 items-center justify-end gap-0.5">
+            <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
             {showBuyerMore ? (
               <button
                 type="button"
@@ -657,7 +660,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                 </svg>
               </button>
             ) : null}
-            <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
           </div>
         ),
       },
@@ -805,6 +807,25 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     return shouldBlockNewItemChatForBuyer(post as unknown as Record<string, unknown>, user.id);
   }, [post, user?.id, listingOwnerId, existingTradeRoomId]);
 
+  const navigateToTradeChatRoom = useCallback(
+    (roomId: string) => {
+      const path = `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(roomId)}`;
+      startChatNavTransition(() => {
+        router.push(path);
+      });
+    },
+    [router, startChatNavTransition]
+  );
+
+  const prefetchTradeChatShell = useCallback(() => {
+    void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+    if (existingTradeRoomId) {
+      void router.prefetch(
+        `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(existingTradeRoomId)}`
+      );
+    }
+  }, [router, existingTradeRoomId]);
+
   const handleChat = useCallback(async () => {
     setChatError("");
     if (!user?.id) {
@@ -812,7 +833,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       return;
     }
     if (post.type !== "community" && existingTradeRoomId) {
-      router.push(`${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(existingTradeRoomId)}`);
+      navigateToTradeChatRoom(existingTradeRoomId);
       return;
     }
     const authorId = postAuthorUserId(post as unknown as Record<string, unknown>)?.trim();
@@ -829,7 +850,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       const res = await startCommunityInquiry(post.id, authorId, null);
       setChatLoading(false);
       if (res.ok) {
-        router.push(`${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(res.roomId)}`);
+        navigateToTradeChatRoom(res.roomId);
       } else {
         setChatError(res.error ?? "채팅방을 열 수 없습니다.");
       }
@@ -848,11 +869,23 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     const res = await createOrGetChatRoom(post.id);
     setChatLoading(false);
     if (res.ok) {
-      router.push(`${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(res.roomId)}`);
+      void router.prefetch(
+        `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(res.roomId)}`
+      );
+      navigateToTradeChatRoom(res.roomId);
     } else {
       setChatError(res.error ?? "채팅방을 열 수 없습니다.");
     }
-  }, [post.id, post.type, post.author_id, user, router, existingTradeRoomId, chatBlockedByOtherReservation]);
+  }, [
+    post.id,
+    post.type,
+    post.author_id,
+    user,
+    router,
+    existingTradeRoomId,
+    chatBlockedByOtherReservation,
+    navigateToTradeChatRoom,
+  ]);
 
   const runCancelOwnSale = useCallback(async () => {
     setCancelSaleBusy(true);
@@ -884,6 +917,15 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     (category == null || category.settings?.has_price !== false);
   const showChat =
     chatEnabled && (category == null || category.settings?.has_chat !== false);
+
+  /** 거래·커뮤니티 문의 공통 채팅 허브(및 알려진 기존 거래 방) RSC 선로딩 */
+  useEffect(() => {
+    if (!user?.id) return;
+    if (listingOwnerId && user.id === listingOwnerId) return;
+    if (!showChat) return;
+    prefetchTradeChatShell();
+  }, [user?.id, listingOwnerId, showChat, prefetchTradeChatShell]);
+
   const chatCtaLabel = post.type === "community" ? "문의하기" : "채팅하기";
   const tradeChatCtaLabel =
     post.type !== "community" && existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
@@ -1100,10 +1142,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               <button
                 type="button"
                 onClick={handleChat}
+                onPointerDown={prefetchTradeChatShell}
                 disabled={
                   !showChat ||
                   (isSold && !allowChatAfterSold) ||
-                  chatLoading ||
+                  chatCtaBusy ||
                   chatBlockedByOtherReservation
                 }
                 className={PRODUCT_DETAIL_CTA_BUTTON}
@@ -1115,7 +1158,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                       : undefined
                 }
               >
-                {chatLoading ? "이동 중..." : tradeChatCtaLabel}
+                {chatCtaBusy ? "이동 중…" : tradeChatCtaLabel}
               </button>
             </div>
           )}
@@ -1499,10 +1542,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             <button
               type="button"
               onClick={handleChat}
+              onPointerDown={prefetchTradeChatShell}
               disabled={
                 !showChat ||
                 (isSold && !allowChatAfterSold) ||
-                chatLoading ||
+                chatCtaBusy ||
                 chatBlockedByOtherReservation
               }
               className={PRODUCT_DETAIL_CTA_BUTTON}
@@ -1514,7 +1558,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                     : undefined
               }
             >
-              {chatLoading ? "이동 중..." : tradeChatCtaLabel}
+              {chatCtaBusy ? "이동 중…" : tradeChatCtaLabel}
             </button>
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ChatRoom, ChatMessage } from "@/lib/types/chat";
@@ -60,6 +60,10 @@ import { ChatRealtimeAppBarIcons } from "@/components/chats/ChatRealtimeAppBarIc
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
 import { playCoalescedOrderMatchChatAlert } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { IG_DM_BODY_TEXT } from "@/lib/chats/instagram-dm-tokens";
+import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
+import type { UserTrustSummary } from "@/lib/types/review";
+import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
+import { clampTrustScore } from "@/lib/trust/trust-score-core";
 
 interface ChatDetailViewProps {
   room: ChatRoom;
@@ -116,6 +120,45 @@ export function ChatDetailView({
   const chatHubListHref = isStoreOrderChat ? "/my/store-orders" : "/chats";
   const effectiveListHref = listHrefProp?.trim() || chatHubListHref;
   const [partnerBlocked, setPartnerBlocked] = useState(false);
+  /** 상단 상대방 — `/api/users/.../public-profile` (매너 배터리·최신 닉네임·프로필 사진) */
+  const [partnerPublicProfile, setPartnerPublicProfile] = useState<PublicSellerProfileDTO | null>(null);
+  useEffect(() => {
+    if (!partnerId?.trim()) {
+      setPartnerPublicProfile(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/users/${encodeURIComponent(partnerId)}/public-profile`, {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          profile?: PublicSellerProfileDTO;
+        };
+        if (cancelled) return;
+        const prof = data.profile;
+        if (
+          res.ok &&
+          data.ok &&
+          prof?.id &&
+          prof.id.trim().toLowerCase() === partnerId.trim().toLowerCase()
+        ) {
+          setPartnerPublicProfile(prof);
+        } else {
+          setPartnerPublicProfile(null);
+        }
+      } catch {
+        if (!cancelled) setPartnerPublicProfile(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [partnerId]);
+
   useEffect(() => {
     if (!partnerId?.trim()) {
       setPartnerBlocked(false);
@@ -170,6 +213,31 @@ export function ChatDetailView({
     room.product?.status
   );
   const amISeller = room.sellerId === currentUserId;
+
+  const partnerDisplayNickname = useMemo(
+    () => partnerPublicProfile?.nickname?.trim() || room.partnerNickname?.trim() || "상대",
+    [partnerPublicProfile?.nickname, room.partnerNickname]
+  );
+  const partnerDisplayAvatar = useMemo(
+    () => partnerPublicProfile?.avatar_url?.trim() || room.partnerAvatar?.trim() || "",
+    [partnerPublicProfile?.avatar_url, room.partnerAvatar]
+  );
+  const partnerTrustSummary: UserTrustSummary | null = useMemo(
+    () =>
+      partnerPublicProfile
+        ? {
+            userId: partnerPublicProfile.id,
+            reviewCount: 0,
+            averageRating: 0,
+            mannerScore: clampTrustScore(partnerPublicProfile.trustScore),
+            positiveCount: 0,
+            negativeCount: 0,
+            summaryTags: [],
+          }
+        : null,
+    [partnerPublicProfile]
+  );
+
   const isStoreOrderSeller =
     isStoreOrderChat &&
     amISeller &&
@@ -1131,22 +1199,25 @@ export function ChatDetailView({
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/90 ring-1 ring-black/5">
-                    {room.partnerAvatar ? (
-                      <img src={room.partnerAvatar} alt="" className="h-full w-full object-cover" />
+                    {partnerDisplayAvatar ? (
+                      <img src={partnerDisplayAvatar} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-[14px] font-medium text-gray-600">
-                        {room.partnerNickname?.charAt(0) ?? "?"}
+                        {partnerDisplayNickname.charAt(0) || "?"}
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold text-gray-900">
-                      {room.partnerNickname}
-                    </p>
+                    <p className="truncate text-[15px] font-semibold text-gray-900">{partnerDisplayNickname}</p>
                     <p className="truncate text-[12px] text-gray-700">
                       {room.product ? (amISeller ? "상대방 · 구매자" : "상대방 · 이 글의 판매자") : "채팅"}
                     </p>
                   </div>
+                  {partnerTrustSummary ? (
+                    <div className="shrink-0 pr-0.5" aria-label="상대방 거래 매너">
+                      <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
+                    </div>
+                  ) : null}
                 </div>
                 {isChatRoom ? (
                   <ChatRealtimeAppBarIcons
@@ -1225,8 +1296,8 @@ export function ChatDetailView({
             <ChatMessageList
               messages={messages}
               currentUserId={currentUserId}
-              partnerNickname={room.partnerNickname}
-              partnerAvatar={room.partnerAvatar}
+              partnerNickname={partnerDisplayNickname}
+              partnerAvatar={partnerDisplayAvatar || undefined}
               variant={isStoreOrderChat ? "instagram" : "default"}
             />
           </div>
@@ -1338,7 +1409,7 @@ export function ChatDetailView({
               targetType="chat"
               targetId={room.id}
               targetUserId={partnerId}
-              targetLabel={room.partnerNickname}
+              targetLabel={partnerDisplayNickname}
               roomId={room.id}
               productId={room.productId}
               onClose={() => setReportSheetOpen(false)}
@@ -1361,7 +1432,7 @@ export function ChatDetailView({
             </div>
             <BlockActionSheet
               targetUserId={partnerId}
-              targetLabel={room.partnerNickname}
+              targetLabel={partnerDisplayNickname}
               roomId={room.id}
               roomSource={room.source}
               currentUserId={currentUserId}
@@ -1390,7 +1461,7 @@ export function ChatDetailView({
               effectiveProductChatId={effectiveProductChatId}
               productId={room.productId}
               revieweeId={partnerId}
-              revieweeLabel={room.partnerNickname}
+              revieweeLabel={partnerDisplayNickname}
               roleType="buyer_to_seller"
               onSuccess={() => {
                 setReviewSheetOpen(false);

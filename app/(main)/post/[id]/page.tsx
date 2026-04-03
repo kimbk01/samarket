@@ -6,6 +6,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { getPostById } from "@/lib/posts/getPostById";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { PostDetailView } from "@/components/post/PostDetailView";
+import { PostDetailFeedChromeReset } from "@/components/post/PostDetailFeedChromeReset";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 
 type ApiPostRow = {
@@ -92,24 +93,23 @@ export default function PostDetailPage() {
     );
   }
 
-  if (post === undefined) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-[14px] text-gray-500">
-        불러오는 중…
-      </div>
-    );
-  }
-
-  if (post === null) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-        <p className="text-[15px] font-medium text-gray-700">글을 찾을 수 없습니다.</p>
-        <div className="mt-4 flex justify-center">
-          <AppBackButton className="text-signature hover:bg-signature/10" />
+  return (
+    <>
+      <PostDetailFeedChromeReset />
+      {post === undefined ? (
+        <div className="flex min-h-screen items-center justify-center text-[14px] text-gray-500">
+          불러오는 중…
         </div>
-      </div>
-    );
-  }
-
-  return <PostDetailView post={post} />;
+      ) : post === null ? (
+        <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
+          <p className="text-[15px] font-medium text-gray-700">글을 찾을 수 없습니다.</p>
+          <div className="mt-4 flex justify-center">
+            <AppBackButton className="text-signature hover:bg-signature/10" />
+          </div>
+        </div>
+      ) : (
+        <PostDetailView post={post} />
+      )}
+    </>
+  );
 }
