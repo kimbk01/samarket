@@ -19,10 +19,11 @@ type ApiPostRow = {
 export default function PostDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
-  const [post, setPost] = useState<Awaited<ReturnType<typeof getPostById>>>(null);
+  const [post, setPost] = useState<PostWithMeta | null | undefined>(undefined);
 
   const load = useCallback(async () => {
     if (!id) return;
+    setPost(undefined);
     const p = await getPostById(id);
     setPost(p);
   }, [id]);

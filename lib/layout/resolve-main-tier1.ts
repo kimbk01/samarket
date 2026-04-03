@@ -286,21 +286,18 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   }
 
   /**
-   * `/post/:id` 거래·서비스 등 글 상세 (UUID).
-   * `PostDetailView`의 `MainTier1Extras`로 카테고리(피드 주제)명을 덮어씀.
+   * `/post/:id` 거래·서비스 글 상세 — id 는 UUID 외 형식도 있을 수 있음.
+   * `PostDetailView`·페이지 부트스트랩의 `MainTier1Extras`로 카테고리(피드 주제)명을 덮어씀.
    */
-  if (p.startsWith("/post/")) {
-    const seg = p.slice("/post/".length);
-    if (seg && !seg.includes("/") && isUuidLikeString(seg)) {
-      return {
-        ...DEFAULT,
-        backHref: "/home",
-        preferHistoryBack: true,
-        ariaLabel: "이전 화면",
-        titleText: "거래",
-        showHubQuickActions: true,
-      };
-    }
+  if (/^\/post\/[^/]+$/.test(p)) {
+    return {
+      ...DEFAULT,
+      backHref: "/home",
+      preferHistoryBack: true,
+      ariaLabel: "이전 화면",
+      titleText: "거래",
+      showHubQuickActions: true,
+    };
   }
 
   /**
