@@ -3,12 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
   isCommunityMessengerIncomingCallBannerEnabled,
   isCommunityMessengerIncomingCallSoundEnabled,
 } from "@/lib/community-messenger/preferences";
+import {
+  getCommunityMessengerPermissionGuide,
+  primeCommunityMessengerDevicePermission,
+} from "@/lib/community-messenger/call-permission";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -133,6 +139,14 @@ export function GlobalCommunityMessengerIncomingCall() {
       ? sessions.find((session) => pathname !== `/community-messenger/rooms/${session.roomId}`) ?? null
       : null;
 
+  useEffect(() => {
+    if (!visibleSession) return;
+    const tone = startCommunityMessengerCallTone("incoming");
+    return () => {
+      tone.stop();
+    };
+  }, [visibleSession?.id]);
+
   const rejectCall = useCallback(async (sessionId: string) => {
     setBusyId(`reject:${sessionId}`);
     try {
@@ -147,10 +161,22 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [refresh]);
 
-  const acceptCall = useCallback((session: CommunityMessengerCallSession) => {
-    router.push(
-      `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`
-    );
+  const acceptCall = useCallback(async (session: CommunityMessengerCallSession) => {
+    setBusyId(`accept:${session.id}`);
+    try {
+      try {
+        await primeCommunityMessengerDevicePermission(session.callKind);
+      } catch (error) {
+        alert(
+          `${getCommunityMessengerMediaErrorMessage(error, session.callKind)}\n\n${getCommunityMessengerPermissionGuide(session.callKind).description}`
+        );
+      }
+      router.push(
+        `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`
+      );
+    } finally {
+      setBusyId(null);
+    }
   }, [router]);
 
   if (!visibleSession) return null;
@@ -176,10 +202,11 @@ export function GlobalCommunityMessengerIncomingCall() {
           </button>
           <button
             type="button"
-            onClick={() => acceptCall(visibleSession)}
+            onClick={() => void acceptCall(visibleSession)}
+            disabled={busyId === `accept:${visibleSession.id}`}
             className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
           >
-            수락하고 이동
+            {busyId === `accept:${visibleSession.id}` ? "준비 중..." : "수락하고 이동"}
           </button>
         </div>
       </div>

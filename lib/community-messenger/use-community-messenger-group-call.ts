@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import type {
@@ -173,7 +174,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   useEffect(() => {
     const node = localVideoRef.current;
     if (!node) return;
-    node.srcObject = localStream;
+    bindMediaStreamToElement(node, localStream, { muted: true });
     return () => {
       node.srcObject = null;
     };
@@ -182,7 +183,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   useEffect(() => {
     for (const peer of remotePeers) {
       const node = remoteVideoNodesRef.current.get(peer.userId);
-      if (node) node.srcObject = peer.stream;
+      if (node) bindMediaStreamToElement(node, peer.stream);
     }
   }, [remotePeers]);
 
@@ -247,12 +248,17 @@ export function useCommunityMessengerGroupCall(args: Props) {
       }
 
       connection.ontrack = (event) => {
+        if (event.streams.length === 0) {
+          nextRemoteStream.addTrack(event.track);
+        }
         for (const streamItem of event.streams) {
           for (const track of streamItem.getTracks()) {
             nextRemoteStream.addTrack(track);
           }
         }
         syncRemotePeerState(peer.userId, peer.label, nextRemoteStream);
+        const node = remoteVideoNodesRef.current.get(peer.userId);
+        if (node) bindMediaStreamToElement(node, nextRemoteStream);
       };
 
       connection.onicecandidate = (event) => {
@@ -744,7 +750,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const bindRemoteVideo: BindRemoteVideo = useCallback((userId, node) => {
     remoteVideoNodesRef.current.set(userId, node);
     const stream = remoteStreamsRef.current.get(userId);
-    if (node) node.srcObject = stream ?? null;
+    if (node) bindMediaStreamToElement(node, stream ?? null);
   }, []);
 
   return {

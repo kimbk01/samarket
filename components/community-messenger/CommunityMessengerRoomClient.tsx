@@ -4,8 +4,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getCommunityMessengerPermissionGuide,
+  primeCommunityMessengerDevicePermission,
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
+import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
+import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { useCommunityMessengerCall } from "@/lib/community-messenger/use-community-messenger-call";
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { useCommunityMessengerRoomRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
@@ -181,6 +184,17 @@ export function CommunityMessengerRoomClient({
         : "브라우저 주소창 왼쪽의 사이트 설정에서 마이크를 허용해 주세요."
     );
   }, [call.panel?.kind]);
+
+  const retryCallDevicePermission = useCallback(async () => {
+    const kind = call.panel?.kind;
+    if (!kind) return;
+    try {
+      await primeCommunityMessengerDevicePermission(kind);
+    } catch {
+      /* ignore and fall through to hook-level prepare */
+    }
+    await call.prepareDevices();
+  }, [call, call.panel?.kind]);
 
   useEffect(() => {
     if (!snapshot || !isOpenGroupRoom) return;
@@ -363,6 +377,14 @@ export function CommunityMessengerRoomClient({
       router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
     });
   }, [call, initialCallAction, initialCallSessionId, roomId, router, snapshot?.activeCall]);
+
+  useEffect(() => {
+    if (!call.panel || call.panel.mode === "preview" || call.panel.mode === "active") return;
+    const tone = startCommunityMessengerCallTone(call.panel.mode === "incoming" ? "incoming" : "outgoing");
+    return () => {
+      tone.stop();
+    };
+  }, [call.panel?.mode, call.panel?.sessionId]);
 
   if (loading) {
     return (
@@ -999,7 +1021,7 @@ export function CommunityMessengerRoomClient({
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => void call.prepareDevices()}
+                    onClick={() => void retryCallDevicePermission()}
                     disabled={call.busy === "preview"}
                     className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
                   >
@@ -1014,11 +1036,11 @@ export function CommunityMessengerRoomClient({
                   </button>
                 </div>
               </div>
-            ) : call.panel.mode === "preview" && call.panel.kind === "video" && !call.localStream ? (
+            ) : call.panel.mode === "preview" && !call.localStream ? (
               <div className="mt-4 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => void call.prepareDevices()}
+                  onClick={() => void retryCallDevicePermission()}
                   disabled={call.busy === "preview"}
                   className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
                 >
@@ -1078,9 +1100,9 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void call.cancelOutgoingCall()}
                     disabled={call.busy === "call-cancel"}
-                    className="flex-1 rounded-2xl bg-red-500/15 px-4 py-3 text-[14px] font-semibold text-red-200"
+                    className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                   >
-                    호출 취소
+                    통화 끊기
                   </button>
                 </>
               ) : (
@@ -1089,9 +1111,9 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void call.endActiveCall()}
                     disabled={call.busy === "call-end"}
-                    className="flex-1 rounded-2xl bg-red-500/15 px-4 py-3 text-[14px] font-semibold text-red-200"
+                    className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                   >
-                    통화 종료
+                    통화 끊기
                   </button>
                   {call.connectionBadge?.tone === "poor" ? (
                     <button
@@ -1106,6 +1128,21 @@ export function CommunityMessengerRoomClient({
                 </>
               )}
             </div>
+            {!isGroupRoom ? (
+              <audio ref={directCall.remoteAudioRef} autoPlay playsInline className="hidden" />
+            ) : call.panel.kind !== "video" ? (
+              groupCall.remotePeers.map((peer) => (
+                <audio
+                  key={`audio:${peer.userId}`}
+                  ref={(node) => {
+                    bindMediaStreamToElement(node, peer.stream);
+                  }}
+                  autoPlay
+                  playsInline
+                  className="hidden"
+                />
+              ))
+            ) : null}
           </div>
         </div>
       ) : null}

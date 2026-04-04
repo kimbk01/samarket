@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import type {
@@ -93,6 +94,7 @@ export function useCommunityMessengerCall(args: {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
@@ -129,7 +131,7 @@ export function useCommunityMessengerCall(args: {
   useEffect(() => {
     const node = localVideoRef.current;
     if (!node) return;
-    node.srcObject = localStream;
+    bindMediaStreamToElement(node, localStream, { muted: true });
     return () => {
       node.srcObject = null;
     };
@@ -138,7 +140,16 @@ export function useCommunityMessengerCall(args: {
   useEffect(() => {
     const node = remoteVideoRef.current;
     if (!node) return;
-    node.srcObject = remoteStream;
+    bindMediaStreamToElement(node, remoteStream);
+    return () => {
+      node.srcObject = null;
+    };
+  }, [remoteStream]);
+
+  useEffect(() => {
+    const node = remoteAudioRef.current;
+    if (!node) return;
+    bindMediaStreamToElement(node, remoteStream);
     return () => {
       node.srcObject = null;
     };
@@ -264,11 +275,16 @@ export function useCommunityMessengerCall(args: {
         connection.addTrack(track, stream);
       }
       connection.ontrack = (event) => {
+        if (event.streams.length === 0) {
+          nextRemoteStream.addTrack(event.track);
+        }
         for (const streamItem of event.streams) {
           for (const track of streamItem.getTracks()) {
             nextRemoteStream.addTrack(track);
           }
         }
+        bindMediaStreamToElement(remoteVideoRef.current, nextRemoteStream);
+        bindMediaStreamToElement(remoteAudioRef.current, nextRemoteStream);
       };
       connection.onicecandidate = (event) => {
         if (!event.candidate) return;
@@ -723,6 +739,7 @@ export function useCommunityMessengerCall(args: {
     remoteStream,
     localVideoRef,
     remoteVideoRef,
+    remoteAudioRef,
     callStatusLabel,
     connectionBadge,
     prepareDevices,
