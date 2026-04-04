@@ -10,12 +10,15 @@ import type {
   CommunityMessengerCallParticipant,
   CommunityMessengerCallParticipantStatus,
   CommunityMessengerDiscoverableGroupSummary,
+  CommunityMessengerIdentityMode,
+  CommunityMessengerRoomAliasProfile,
   CommunityMessengerCallSessionMode,
   CommunityMessengerCallSession,
   CommunityMessengerCallSessionStatus,
   CommunityMessengerCallSignal,
   CommunityMessengerCallSignalType,
   CommunityMessengerRoomJoinPolicy,
+  CommunityMessengerRoomIdentityPolicy,
   CommunityMessengerCallStatus,
   CommunityMessengerFriendRequest,
   CommunityMessengerFriendRequestStatus,
@@ -51,6 +54,7 @@ type RoomRow = {
   room_status?: CommunityMessengerRoomStatus | null;
   visibility?: CommunityMessengerRoomVisibility | null;
   join_policy?: CommunityMessengerRoomJoinPolicy | null;
+  identity_policy?: CommunityMessengerRoomIdentityPolicy | null;
   is_readonly?: boolean | null;
   title: string | null;
   summary?: string | null;
@@ -75,6 +79,16 @@ type ParticipantRow = {
   is_muted: boolean | null;
   is_pinned: boolean | null;
   joined_at: string | null;
+};
+
+type RoomProfileRow = {
+  id: string;
+  room_id: string;
+  user_id: string;
+  identity_mode: CommunityMessengerIdentityMode;
+  display_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
 };
 
 type MessageRow = {
@@ -148,6 +162,7 @@ type DevRoom = {
   roomStatus: CommunityMessengerRoomStatus;
   visibility: CommunityMessengerRoomVisibility;
   joinPolicy: CommunityMessengerRoomJoinPolicy;
+  identityPolicy: CommunityMessengerRoomIdentityPolicy;
   isReadonly: boolean;
   title: string;
   summary: string;
@@ -173,6 +188,16 @@ type DevParticipant = {
   isMuted: boolean;
   isPinned: boolean;
   joinedAt: string;
+};
+
+type DevRoomProfile = {
+  id: string;
+  roomId: string;
+  userId: string;
+  identityMode: CommunityMessengerIdentityMode;
+  displayName: string;
+  bio: string;
+  avatarUrl: string | null;
 };
 
 type DevMessage = {
@@ -239,6 +264,7 @@ type DevState = {
   favoriteFriends: Map<string, Set<string>>;
   rooms: DevRoom[];
   participants: DevParticipant[];
+  roomProfiles: DevRoomProfile[];
   messages: DevMessage[];
   calls: DevCall[];
   callSessions: DevCallSession[];
@@ -256,7 +282,9 @@ function trimText(value: unknown): string {
 function isMissingTableError(error: unknown): boolean {
   const message =
     typeof error === "object" && error && "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
-  return /does not exist|relation .* does not exist|schema cache/i.test(message);
+  return /does not exist|relation .* does not exist|schema cache|column .* does not exist|Could not find the .* column/i.test(
+    message
+  );
 }
 
 function isUniqueViolationError(error: unknown): boolean {
@@ -297,8 +325,17 @@ function normalizeRoomVisibility(value: unknown, roomType: CommunityMessengerRoo
 }
 
 function normalizeRoomJoinPolicy(value: unknown, roomType: CommunityMessengerRoomType): CommunityMessengerRoomJoinPolicy {
+  if (value === "free") return "free";
   if (value === "password") return "password";
   return roomType === "open_group" ? "password" : "invite_only";
+}
+
+function normalizeRoomIdentityPolicy(
+  value: unknown,
+  roomType: CommunityMessengerRoomType
+): CommunityMessengerRoomIdentityPolicy {
+  if (value === "alias_allowed") return "alias_allowed";
+  return roomType === "open_group" ? "alias_allowed" : "real_name";
 }
 
 function isTerminalCallSessionStatus(value: unknown): value is Exclude<CommunityMessengerCallSessionStatus, "ringing" | "active"> {
@@ -315,6 +352,7 @@ function getDevState(): DevState {
       favoriteFriends: new Map(),
       rooms: [],
       participants: [],
+      roomProfiles: [],
       messages: [],
       calls: [],
       callSessions: [],
@@ -343,6 +381,122 @@ async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow
     .select("id, nickname, username, avatar_url")
     .in("id", unique);
   return new Map(((data ?? []) as ProfileRow[]).map((row) => [row.id, row]));
+}
+
+function roomProfileKey(roomId: string, userId: string) {
+  return `${roomId}:${userId}`;
+}
+
+async function fetchRoomProfilesByRoomIds(roomIds: string[]): Promise<Map<string, RoomProfileRow | DevRoomProfile>> {
+  const uniqueRoomIds = dedupeIds(roomIds);
+  const result = new Map<string, RoomProfileRow | DevRoomProfile>();
+  if (!uniqueRoomIds.length) return result;
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data, error } = await (sb as any)
+      .from("community_messenger_room_profiles")
+      .select("id, room_id, user_id, identity_mode, display_name, bio, avatar_url")
+      .in("room_id", uniqueRoomIds);
+    if (!error || !isMissingTableError(error)) {
+      for (const row of (data ?? []) as RoomProfileRow[]) {
+        result.set(roomProfileKey(row.room_id, row.user_id), row);
+      }
+      return result;
+    }
+  }
+  const dev = getDevState();
+  for (const row of dev.roomProfiles.filter((item) => uniqueRoomIds.includes(item.roomId))) {
+    result.set(roomProfileKey(row.roomId, row.userId), row);
+  }
+  return result;
+}
+
+function resolveRoomProfileLite(
+  baseProfile: CommunityMessengerProfileLite | undefined,
+  roomProfile: RoomProfileRow | DevRoomProfile | undefined
+): CommunityMessengerProfileLite | undefined {
+  if (!baseProfile) return undefined;
+  if (!roomProfile) return baseProfile;
+  const isDbProfile = "room_id" in roomProfile;
+  const identityMode = (isDbProfile ? roomProfile.identity_mode : roomProfile.identityMode) as CommunityMessengerIdentityMode;
+  if (identityMode !== "alias") {
+    return {
+      ...baseProfile,
+      identityMode: "real_name",
+      aliasProfile: null,
+    };
+  }
+  const displayName = trimText(isDbProfile ? roomProfile.display_name : roomProfile.displayName);
+  const bio = trimText(isDbProfile ? roomProfile.bio : roomProfile.bio);
+  const avatarUrl = trimText(isDbProfile ? roomProfile.avatar_url : roomProfile.avatarUrl) || baseProfile.avatarUrl;
+  return {
+    ...baseProfile,
+    label: displayName || baseProfile.label,
+    subtitle: bio || baseProfile.subtitle,
+    avatarUrl,
+    identityMode: "alias",
+    aliasProfile: {
+      displayName: displayName || baseProfile.label,
+      bio,
+      avatarUrl,
+    },
+  };
+}
+
+async function upsertRoomIdentityProfile(input: {
+  userId: string;
+  roomId: string;
+  identityMode: CommunityMessengerIdentityMode;
+  aliasProfile?: Partial<CommunityMessengerRoomAliasProfile> | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const aliasDisplayName = trimText(input.aliasProfile?.displayName);
+  const aliasBio = trimText(input.aliasProfile?.bio);
+  const aliasAvatarUrl = trimText(input.aliasProfile?.avatarUrl) || null;
+  if (input.identityMode === "alias" && !aliasDisplayName) {
+    return { ok: false, error: "alias_name_required" };
+  }
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { error } = await (sb as any).from("community_messenger_room_profiles").upsert(
+      {
+        room_id: roomId,
+        user_id: input.userId,
+        identity_mode: input.identityMode,
+        display_name: input.identityMode === "alias" ? aliasDisplayName : "",
+        bio: input.identityMode === "alias" ? aliasBio : "",
+        avatar_url: input.identityMode === "alias" ? aliasAvatarUrl : null,
+        updated_at: nowIso(),
+      },
+      { onConflict: "room_id,user_id" }
+    );
+    if (!error) return { ok: true };
+    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_profile_upsert_failed") };
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed("messenger_migration_required");
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const existing = dev.roomProfiles.find((item) => item.roomId === roomId && item.userId === input.userId);
+  if (existing) {
+    existing.identityMode = input.identityMode;
+    existing.displayName = input.identityMode === "alias" ? aliasDisplayName : "";
+    existing.bio = input.identityMode === "alias" ? aliasBio : "";
+    existing.avatarUrl = input.identityMode === "alias" ? aliasAvatarUrl : null;
+    return { ok: true };
+  }
+  dev.roomProfiles.push({
+    id: randomUUID(),
+    roomId,
+    userId: input.userId,
+    identityMode: input.identityMode,
+    displayName: input.identityMode === "alias" ? aliasDisplayName : "",
+    bio: input.identityMode === "alias" ? aliasBio : "",
+    avatarUrl: input.identityMode === "alias" ? aliasAvatarUrl : null,
+  });
+  return { ok: true };
 }
 
 async function getViewerRelationSets(
@@ -575,7 +729,8 @@ async function listFollowingIds(userId: string, relationType: "neighbor_follow" 
 async function mapRoomSummary(
   userId: string,
   room: RoomRow | DevRoom,
-  participants: Array<ParticipantRow | DevParticipant>
+  participants: Array<ParticipantRow | DevParticipant>,
+  roomProfileMap?: Map<string, RoomProfileRow | DevRoomProfile>
 ): Promise<CommunityMessengerRoomSummary> {
   const roomId = room.id;
   const isDbRoom = "room_type" in room;
@@ -583,6 +738,7 @@ async function mapRoomSummary(
   const roomStatus = normalizeRoomStatus(isDbRoom ? room.room_status : room.roomStatus);
   const visibility = normalizeRoomVisibility(isDbRoom ? room.visibility : room.visibility, roomType);
   const joinPolicy = normalizeRoomJoinPolicy(isDbRoom ? room.join_policy : room.joinPolicy, roomType);
+  const identityPolicy = normalizeRoomIdentityPolicy(isDbRoom ? room.identity_policy : room.identityPolicy, roomType);
   const isReadonly = isDbRoom ? room.is_readonly === true : room.isReadonly;
   const roomTitle = trimText(isDbRoom ? room.title : room.title);
   const roomSummary = trimText(isDbRoom ? room.summary : room.summary);
@@ -603,7 +759,10 @@ async function mapRoomSummary(
   );
   const peers = memberIds.filter((id) => id !== userId);
   const peerProfiles = await hydrateProfiles(userId, peers);
-  const memberProfiles = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+  const memberProfilesRaw = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+  const memberProfiles = memberProfilesRaw.map((profile) =>
+    resolveRoomProfileLite(profile, roomProfileMap?.get(roomProfileKey(roomId, profile.id))) ?? profile
+  );
   const ownerLabel =
     (ownerUserId ? memberProfiles.find((profile) => profile.id === ownerUserId)?.label : "") ||
     (ownerUserId ? profileLabel(null, ownerUserId) : "-");
@@ -624,6 +783,7 @@ async function mapRoomSummary(
     roomStatus,
     visibility,
     joinPolicy,
+    identityPolicy,
     isReadonly,
     title,
     subtitle,
@@ -639,6 +799,10 @@ async function mapRoomSummary(
     isDiscoverable,
     requiresPassword,
     allowMemberInvite,
+    myIdentityMode: resolveRoomProfileLite(
+      memberProfilesRaw.find((profile) => profile.id === userId),
+      roomProfileMap?.get(roomProfileKey(roomId, userId))
+    )?.identityMode,
     peerUserId: roomType === "direct" ? peers[0] ?? null : null,
   };
 }
@@ -663,7 +827,7 @@ async function listRooms(userId: string): Promise<{
           (sb as any)
             .from("community_messenger_rooms")
             .select(
-              "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
             )
             .in("id", roomIds)
             .order("last_message_at", { ascending: false }),
@@ -695,8 +859,9 @@ async function listRooms(userId: string): Promise<{
     byRoomId.set(roomId, list);
   }
 
+  const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
   const summaries = await Promise.all(
-    roomRows.map((room) => mapRoomSummary(userId, room, byRoomId.get(room.id) ?? []))
+    roomRows.map((room) => mapRoomSummary(userId, room, byRoomId.get(room.id) ?? [], roomProfileMap))
   );
   return {
     chats: summaries.filter((room) => room.roomType === "direct"),
@@ -719,7 +884,7 @@ export async function listDiscoverableOpenGroupRooms(
       (sb as any)
         .from("community_messenger_rooms")
         .select(
-          "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
         )
         .eq("room_type", "open_group")
         .eq("is_discoverable", true)
@@ -767,9 +932,10 @@ export async function listDiscoverableOpenGroupRooms(
     byRoomId.set(roomId, list);
   }
 
+  const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
   const summaries = await Promise.all(
     roomRows.map(async (room) => {
-      const summary = await mapRoomSummary(userId, room, byRoomId.get(room.id) ?? []);
+      const summary = await mapRoomSummary(userId, room, byRoomId.get(room.id) ?? [], roomProfileMap);
       if (summary.roomType !== "open_group") return null;
       if (keyword) {
         const haystack = [summary.title, summary.summary, summary.ownerLabel].join(" ").toLowerCase();
@@ -780,7 +946,8 @@ export async function listDiscoverableOpenGroupRooms(
         roomType: "open_group" as const,
         roomStatus: summary.roomStatus,
         visibility: "public" as const,
-        joinPolicy: "password" as const,
+        joinPolicy: summary.joinPolicy === "free" ? "free" : "password",
+        identityPolicy: summary.identityPolicy,
         title: summary.title,
         summary: summary.summary,
         ownerUserId: summary.ownerUserId,
@@ -797,6 +964,16 @@ export async function listDiscoverableOpenGroupRooms(
   );
 
   return summaries.filter(Boolean) as CommunityMessengerDiscoverableGroupSummary[];
+}
+
+export async function getOpenGroupJoinPreview(
+  userId: string,
+  roomId: string
+): Promise<{ ok: boolean; group?: CommunityMessengerDiscoverableGroupSummary; error?: string }> {
+  const groups = await listDiscoverableOpenGroupRooms(userId);
+  const group = groups.find((item) => item.id === trimText(roomId));
+  if (!group) return { ok: false, error: "room_not_found" };
+  return { ok: true, group };
 }
 
 async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
@@ -1590,6 +1767,7 @@ export async function ensureCommunityMessengerDirectRoom(
     roomStatus: "active",
     visibility: "private",
     joinPolicy: "invite_only",
+    identityPolicy: "real_name",
     isReadonly: false,
     title: "",
     summary: "",
@@ -1679,6 +1857,31 @@ export async function createPrivateGroupRoom(input: {
     if (!isMissingTableError(roomError)) {
       return { ok: false, error: String(roomError.message ?? "group_create_failed") };
     }
+    const { data: legacyRoom, error: legacyRoomError } = await (sb as any)
+      .from("community_messenger_rooms")
+      .insert({
+        room_type: "group",
+        created_by: input.userId,
+        title,
+        last_message: "",
+        last_message_type: "system",
+      })
+      .select("id")
+      .single();
+    if (!legacyRoomError) {
+      const roomId = legacyRoom.id as string;
+      const { error: participantError } = await (sb as any).from("community_messenger_participants").insert(
+        memberIds.map((memberId) => ({
+          room_id: roomId,
+          user_id: memberId,
+          role: memberId === input.userId ? "owner" : "member",
+        }))
+      );
+      if (!participantError) return { ok: true, roomId };
+      await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
+      return { ok: false, error: String(participantError.message ?? "group_participant_create_failed") };
+    }
+    return { ok: false, error: "messenger_migration_required" };
   }
 
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
@@ -1693,6 +1896,7 @@ export async function createPrivateGroupRoom(input: {
     roomStatus: "active",
     visibility: "private",
     joinPolicy: "invite_only",
+    identityPolicy: "real_name",
     isReadonly: false,
     title,
     summary: "",
@@ -1727,18 +1931,29 @@ export async function createOpenGroupRoom(input: {
   userId: string;
   title: string;
   summary?: string;
-  password: string;
+  password?: string;
   memberLimit?: number;
   isDiscoverable?: boolean;
+  joinPolicy?: Extract<CommunityMessengerRoomJoinPolicy, "password" | "free">;
+  identityPolicy?: CommunityMessengerRoomIdentityPolicy;
+  creatorIdentityMode?: CommunityMessengerIdentityMode;
+  creatorAliasProfile?: Partial<CommunityMessengerRoomAliasProfile> | null;
 }): Promise<{ ok: boolean; roomId?: string; error?: string }> {
   const title = trimText(input.title);
   const summary = trimText(input.summary);
   const password = trimText(input.password);
   const memberLimit = Math.min(1000, Math.max(2, Math.floor(Number(input.memberLimit ?? 200) || 200)));
   const isDiscoverable = input.isDiscoverable !== false;
+  const joinPolicy = input.joinPolicy === "free" ? "free" : "password";
+  const identityPolicy = input.identityPolicy === "real_name" ? "real_name" : "alias_allowed";
+  const creatorIdentityMode =
+    input.creatorIdentityMode === "alias" && identityPolicy === "alias_allowed" ? "alias" : "real_name";
   if (!title) return { ok: false, error: "title_required" };
-  if (!password) return { ok: false, error: "password_required" };
-  const passwordHash = hashMeetingPassword(password);
+  if (joinPolicy === "password" && !password) return { ok: false, error: "password_required" };
+  if (creatorIdentityMode === "alias" && !trimText(input.creatorAliasProfile?.displayName)) {
+    return { ok: false, error: "alias_name_required" };
+  }
+  const passwordHash = joinPolicy === "password" ? hashMeetingPassword(password) : null;
   const sb = getSupabaseOrNull();
   if (sb) {
     const { data: room, error: roomError } = await (sb as any)
@@ -1747,7 +1962,8 @@ export async function createOpenGroupRoom(input: {
         room_type: "open_group",
         room_status: "active",
         visibility: "public",
-        join_policy: "password",
+        join_policy: joinPolicy,
+        identity_policy: identityPolicy,
         is_readonly: false,
         created_by: input.userId,
         owner_user_id: input.userId,
@@ -1769,13 +1985,23 @@ export async function createOpenGroupRoom(input: {
         user_id: input.userId,
         role: "owner",
       });
-      if (!participantError) return { ok: true, roomId };
+      if (!participantError) {
+        const roomProfile = await upsertRoomIdentityProfile({
+          userId: input.userId,
+          roomId,
+          identityMode: creatorIdentityMode,
+          aliasProfile: input.creatorAliasProfile,
+        });
+        if (roomProfile.ok) return { ok: true, roomId };
+        return roomProfile;
+      }
       await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
       return { ok: false, error: String(participantError.message ?? "open_group_participant_create_failed") };
     }
     if (!isMissingTableError(roomError)) {
       return { ok: false, error: String(roomError.message ?? "open_group_create_failed") };
     }
+    return { ok: false, error: "messenger_migration_required" };
   }
 
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
@@ -1789,7 +2015,8 @@ export async function createOpenGroupRoom(input: {
     roomType: "open_group",
     roomStatus: "active",
     visibility: "public",
-    joinPolicy: "password",
+    joinPolicy,
+    identityPolicy,
     isReadonly: false,
     title,
     summary,
@@ -1815,6 +2042,13 @@ export async function createOpenGroupRoom(input: {
     isPinned: false,
     joinedAt: createdAt,
   });
+  const roomProfile = await upsertRoomIdentityProfile({
+    userId: input.userId,
+    roomId,
+    identityMode: creatorIdentityMode,
+    aliasProfile: input.creatorAliasProfile,
+  });
+  if (!roomProfile.ok) return roomProfile;
   return { ok: true, roomId };
 }
 
@@ -1901,18 +2135,20 @@ export async function inviteCommunityMessengerGroupMembers(input: {
 export async function joinOpenGroupRoomWithPassword(input: {
   userId: string;
   roomId: string;
-  password: string;
+  password?: string;
+  identityMode?: CommunityMessengerIdentityMode;
+  aliasProfile?: Partial<CommunityMessengerRoomAliasProfile> | null;
 }): Promise<{ ok: boolean; roomId?: string; error?: string }> {
   const roomId = trimText(input.roomId);
   const password = trimText(input.password);
+  const identityMode = input.identityMode === "alias" ? "alias" : "real_name";
   if (!roomId) return { ok: false, error: "room_not_found" };
-  if (!password) return { ok: false, error: "password_required" };
   const sb = getSupabaseOrNull();
   if (sb) {
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
       .select(
-        "id, room_type, room_status, is_readonly, title, summary, owner_user_id, member_limit, is_discoverable, password_hash"
+        "id, room_type, room_status, join_policy, identity_policy, is_readonly, title, summary, owner_user_id, member_limit, is_discoverable, password_hash"
       )
       .eq("id", roomId)
       .maybeSingle();
@@ -1922,7 +2158,13 @@ export async function joinOpenGroupRoomWithPassword(input: {
     if (room) {
       if (room.room_type !== "open_group") return { ok: false, error: "not_open_group_room" };
       if ((room.room_status ?? "active") !== "active" || room.is_readonly === true) return { ok: false, error: "room_unavailable" };
-      if (!verifyMeetingPassword(password, room.password_hash)) return { ok: false, error: "invalid_password" };
+      const joinPolicy = normalizeRoomJoinPolicy(room.join_policy, "open_group");
+      const identityPolicy = normalizeRoomIdentityPolicy(room.identity_policy, "open_group");
+      if (joinPolicy === "password") {
+        if (!password) return { ok: false, error: "password_required" };
+        if (!verifyMeetingPassword(password, room.password_hash)) return { ok: false, error: "invalid_password" };
+      }
+      if (identityPolicy !== "alias_allowed" && identityMode === "alias") return { ok: false, error: "forbidden" };
       const { count } = await (sb as any)
         .from("community_messenger_participants")
         .select("id", { count: "exact", head: true })
@@ -1937,9 +2179,19 @@ export async function joinOpenGroupRoomWithPassword(input: {
         },
         { onConflict: "room_id,user_id" }
       );
-      if (!error) return { ok: true, roomId };
+      if (!error) {
+        const roomProfile = await upsertRoomIdentityProfile({
+          userId: input.userId,
+          roomId,
+          identityMode,
+          aliasProfile: input.aliasProfile,
+        });
+        if (roomProfile.ok) return { ok: true, roomId };
+        return roomProfile;
+      }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "join_failed") };
     }
+    return { ok: false, error: "messenger_migration_required" };
   }
 
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
@@ -1949,7 +2201,11 @@ export async function joinOpenGroupRoomWithPassword(input: {
   const room = dev.rooms.find((item) => item.id === roomId);
   if (!room || room.roomType !== "open_group") return { ok: false, error: "not_open_group_room" };
   if (room.roomStatus !== "active" || room.isReadonly) return { ok: false, error: "room_unavailable" };
-  if (!verifyMeetingPassword(password, room.passwordHash)) return { ok: false, error: "invalid_password" };
+  if (room.joinPolicy === "password") {
+    if (!password) return { ok: false, error: "password_required" };
+    if (!verifyMeetingPassword(password, room.passwordHash)) return { ok: false, error: "invalid_password" };
+  }
+  if (room.identityPolicy !== "alias_allowed" && identityMode === "alias") return { ok: false, error: "forbidden" };
   const memberCount = dev.participants.filter((participant) => participant.roomId === roomId).length;
   if (room.memberLimit && memberCount >= room.memberLimit) return { ok: false, error: "room_full" };
   if (!dev.participants.some((participant) => participant.roomId === roomId && participant.userId === input.userId)) {
@@ -1964,6 +2220,13 @@ export async function joinOpenGroupRoomWithPassword(input: {
       joinedAt: nowIso(),
     });
   }
+  const roomProfile = await upsertRoomIdentityProfile({
+    userId: input.userId,
+    roomId,
+    identityMode,
+    aliasProfile: input.aliasProfile,
+  });
+  if (!roomProfile.ok) return roomProfile;
   return { ok: true, roomId };
 }
 
@@ -1975,6 +2238,8 @@ export async function updateOpenGroupRoomSettings(input: {
   password?: string;
   memberLimit?: number;
   isDiscoverable?: boolean;
+  joinPolicy?: Extract<CommunityMessengerRoomJoinPolicy, "password" | "free">;
+  identityPolicy?: CommunityMessengerRoomIdentityPolicy;
 }): Promise<{ ok: boolean; error?: string }> {
   const roomId = trimText(input.roomId);
   if (!roomId) return { ok: false, error: "room_not_found" };
@@ -1992,6 +2257,12 @@ export async function updateOpenGroupRoomSettings(input: {
     patch.member_limit = Math.min(1000, Math.max(2, Math.floor(input.memberLimit)));
   }
   if (typeof input.isDiscoverable === "boolean") patch.is_discoverable = input.isDiscoverable;
+  if (input.joinPolicy === "free" || input.joinPolicy === "password") patch.join_policy = input.joinPolicy;
+  if (input.identityPolicy === "real_name" || input.identityPolicy === "alias_allowed") {
+    patch.identity_policy = input.identityPolicy;
+  }
+  if (input.joinPolicy === "free") patch.password_hash = null;
+  if (input.joinPolicy === "password" && !password) return { ok: false, error: "password_required" };
 
   if (sb) {
     const { data: room, error: roomError } = await (sb as any)
@@ -2025,6 +2296,11 @@ export async function updateOpenGroupRoomSettings(input: {
     room.memberLimit = Math.min(1000, Math.max(2, Math.floor(input.memberLimit)));
   }
   if (typeof input.isDiscoverable === "boolean") room.isDiscoverable = input.isDiscoverable;
+  if (input.joinPolicy === "free" || input.joinPolicy === "password") room.joinPolicy = input.joinPolicy;
+  if (input.identityPolicy === "real_name" || input.identityPolicy === "alias_allowed") {
+    room.identityPolicy = input.identityPolicy;
+  }
+  if (input.joinPolicy === "free") room.passwordHash = null;
   return { ok: true };
 }
 
@@ -2089,7 +2365,7 @@ export async function getCommunityMessengerRoomSnapshot(
         (sb as any)
           .from("community_messenger_rooms")
           .select(
-            "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+            "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
           )
           .eq("id", id)
           .maybeSingle(),
@@ -2126,12 +2402,16 @@ export async function getCommunityMessengerRoomSnapshot(
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
   }
 
-  const [summary, activeCall] = await Promise.all([
-    mapRoomSummary(userId, room, participants),
+  const [roomProfileMap, activeCall] = await Promise.all([
+    fetchRoomProfilesByRoomIds([id]),
     getActiveCallSessionForRoom(userId, id),
   ]);
+  const summary = await mapRoomSummary(userId, room, participants, roomProfileMap);
   const memberIds = dedupeIds(participants.map((item) => ("user_id" in item ? item.user_id : item.userId)));
-  const members = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+  const membersRaw = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+  const members = membersRaw.map((profile) =>
+    resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile
+  );
   const profileMap = await fetchProfilesByIds(memberIds);
   const meParticipant = participants.find(
     (item) => ("user_id" in item ? item.user_id : item.userId) === userId
@@ -2146,7 +2426,14 @@ export async function getCommunityMessengerRoomSnapshot(
       id: message.id,
       roomId: isDbMessage ? message.room_id : message.roomId,
       senderId,
-      senderLabel: senderId ? profileLabel(profileMap.get(senderId), senderId) : "시스템",
+      senderLabel: senderId
+        ? (
+            resolveRoomProfileLite(
+              members.find((member) => member.id === senderId),
+              roomProfileMap.get(roomProfileKey(id, senderId))
+            )?.label ?? profileLabel(profileMap.get(senderId), senderId)
+          )
+        : "시스템",
       messageType: (isDbMessage ? message.message_type : message.messageType) as CommunityMessengerMessage["messageType"],
       content: trimText(isDbMessage ? message.content : message.content),
       createdAt: trimText(isDbMessage ? message.created_at : message.createdAt) || nowIso(),

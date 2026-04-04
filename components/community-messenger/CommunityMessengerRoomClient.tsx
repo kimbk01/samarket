@@ -33,6 +33,8 @@ export function CommunityMessengerRoomClient({
   const [openGroupPassword, setOpenGroupPassword] = useState("");
   const [openGroupMemberLimit, setOpenGroupMemberLimit] = useState("200");
   const [openGroupDiscoverable, setOpenGroupDiscoverable] = useState(true);
+  const [openGroupJoinPolicy, setOpenGroupJoinPolicy] = useState<"password" | "free">("password");
+  const [openGroupIdentityPolicy, setOpenGroupIdentityPolicy] = useState<"real_name" | "alias_allowed">("alias_allowed");
 
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -117,6 +119,8 @@ export function CommunityMessengerRoomClient({
         return "공개 그룹방에서만 사용할 수 있는 기능입니다.";
       case "password_required":
         return "비밀번호를 입력해 주세요.";
+      case "alias_name_required":
+        return "별칭 닉네임을 입력해 주세요.";
       case "invalid_password":
         return "비밀번호가 맞지 않습니다.";
       case "room_full":
@@ -129,6 +133,8 @@ export function CommunityMessengerRoomClient({
         return "이 작업을 수행할 권한이 없습니다.";
       case "messenger_storage_unavailable":
         return "메신저 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+      case "messenger_migration_required":
+        return "메신저 저장소 마이그레이션이 아직 반영되지 않았습니다. DB 스키마를 먼저 업데이트해 주세요.";
       default:
         return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     }
@@ -141,6 +147,8 @@ export function CommunityMessengerRoomClient({
     setOpenGroupPassword("");
     setOpenGroupMemberLimit(String(snapshot.room.memberLimit ?? 200));
     setOpenGroupDiscoverable(snapshot.room.isDiscoverable);
+    setOpenGroupJoinPolicy(snapshot.room.joinPolicy === "free" ? "free" : "password");
+    setOpenGroupIdentityPolicy(snapshot.room.identityPolicy === "real_name" ? "real_name" : "alias_allowed");
   }, [isOpenGroupRoom, snapshot]);
 
   const saveOpenGroupSettings = useCallback(async () => {
@@ -156,6 +164,8 @@ export function CommunityMessengerRoomClient({
           password: openGroupPassword,
           memberLimit: Number(openGroupMemberLimit || "200"),
           isDiscoverable: openGroupDiscoverable,
+          joinPolicy: openGroupJoinPolicy,
+          identityPolicy: openGroupIdentityPolicy,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -172,6 +182,8 @@ export function CommunityMessengerRoomClient({
     getRoomActionErrorMessage,
     isOpenGroupRoom,
     openGroupDiscoverable,
+    openGroupIdentityPolicy,
+    openGroupJoinPolicy,
     openGroupMemberLimit,
     openGroupPassword,
     openGroupSummary,
@@ -368,6 +380,21 @@ export function CommunityMessengerRoomClient({
           <div className="mb-3 rounded-2xl bg-red-50 px-3 py-3 text-[13px] text-red-700">{call.errorMessage}</div>
         ) : null}
         <div className="flex flex-wrap gap-2">
+          {isOpenGroupRoom ? (
+            <>
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-[12px] font-medium text-sky-700">
+                {snapshot.room.joinPolicy === "password" ? "비밀번호 입장" : "자유 입장"}
+              </span>
+              <span className="rounded-full bg-violet-50 px-3 py-1 text-[12px] font-medium text-violet-700">
+                {snapshot.room.identityPolicy === "alias_allowed" ? "이 방은 별칭 참여 허용" : "이 방은 실명 기반"}
+              </span>
+              {snapshot.room.myIdentityMode ? (
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
+                  내 표시 방식 {snapshot.room.myIdentityMode === "alias" ? "별칭" : "실명"}
+                </span>
+              ) : null}
+            </>
+          ) : null}
           {snapshot.members.map((member) => (
             <span
               key={member.id}
@@ -458,18 +485,55 @@ export function CommunityMessengerRoomClient({
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
                 />
                 <div className="grid gap-3 md:grid-cols-2">
-                  <input
-                    value={openGroupPassword}
-                    onChange={(e) => setOpenGroupPassword(e.target.value)}
-                    placeholder="새 비밀번호(선택)"
-                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
-                  />
+                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2">
+                    <button
+                      type="button"
+                      onClick={() => setOpenGroupJoinPolicy("password")}
+                      className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
+                    >
+                      비밀번호
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenGroupJoinPolicy("free");
+                        setOpenGroupPassword("");
+                      }}
+                      className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
+                    >
+                      자유 입장
+                    </button>
+                  </div>
                   <input
                     value={openGroupMemberLimit}
                     onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
                     placeholder="최대 인원"
                     className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
                   />
+                </div>
+                {openGroupJoinPolicy === "password" ? (
+                  <input
+                    value={openGroupPassword}
+                    onChange={(e) => setOpenGroupPassword(e.target.value)}
+                    placeholder="새 비밀번호"
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                  />
+                ) : null}
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroupIdentityPolicy("real_name")}
+                    className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
+                  >
+                    실명 기반
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
+                    className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
+                  >
+                    별칭 허용
+                  </button>
                 </div>
                 <label className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3">
                   <div>

@@ -17,6 +17,8 @@ export async function PATCH(
     password?: string;
     memberLimit?: number;
     isDiscoverable?: boolean;
+    joinPolicy?: "password" | "free";
+    identityPolicy?: "real_name" | "alias_allowed";
   };
   try {
     body = await req.json();
@@ -32,6 +34,9 @@ export async function PATCH(
     password: typeof body.password === "string" ? body.password : undefined,
     memberLimit: typeof body.memberLimit === "number" ? body.memberLimit : undefined,
     isDiscoverable: typeof body.isDiscoverable === "boolean" ? body.isDiscoverable : undefined,
+    joinPolicy: body.joinPolicy === "free" ? "free" : body.joinPolicy === "password" ? "password" : undefined,
+    identityPolicy:
+      body.identityPolicy === "real_name" || body.identityPolicy === "alias_allowed" ? body.identityPolicy : undefined,
   });
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

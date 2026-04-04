@@ -3,7 +3,9 @@ export type CommunityMessengerTab = "friends" | "chats" | "groups" | "calls" | "
 export type CommunityMessengerRoomType = "direct" | "private_group" | "open_group";
 export type CommunityMessengerRoomStatus = "active" | "blocked" | "archived";
 export type CommunityMessengerRoomVisibility = "private" | "public";
-export type CommunityMessengerRoomJoinPolicy = "invite_only" | "password";
+export type CommunityMessengerRoomJoinPolicy = "invite_only" | "password" | "free";
+export type CommunityMessengerIdentityMode = "real_name" | "alias";
+export type CommunityMessengerRoomIdentityPolicy = "real_name" | "alias_allowed";
 export type CommunityMessengerMessageType = "text" | "image" | "system" | "call_stub";
 export type CommunityMessengerCallKind = "voice" | "video";
 export type CommunityMessengerCallStatus =
@@ -35,6 +37,12 @@ export type CommunityMessengerProfileLite = {
   label: string;
   subtitle?: string;
   avatarUrl: string | null;
+  identityMode?: CommunityMessengerIdentityMode;
+  aliasProfile?: {
+    displayName: string;
+    bio: string;
+    avatarUrl: string | null;
+  } | null;
   following: boolean;
   blocked: boolean;
   isFriend: boolean;
@@ -58,6 +66,7 @@ export type CommunityMessengerRoomSummary = {
   roomStatus: CommunityMessengerRoomStatus;
   visibility: CommunityMessengerRoomVisibility;
   joinPolicy: CommunityMessengerRoomJoinPolicy;
+  identityPolicy: CommunityMessengerRoomIdentityPolicy;
   isReadonly: boolean;
   title: string;
   subtitle: string;
@@ -73,6 +82,7 @@ export type CommunityMessengerRoomSummary = {
   isDiscoverable: boolean;
   requiresPassword: boolean;
   allowMemberInvite: boolean;
+  myIdentityMode?: CommunityMessengerIdentityMode;
   peerUserId?: string | null;
 };
 
@@ -81,7 +91,8 @@ export type CommunityMessengerDiscoverableGroupSummary = {
   roomType: "open_group";
   roomStatus: CommunityMessengerRoomStatus;
   visibility: "public";
-  joinPolicy: "password";
+  joinPolicy: "password" | "free";
+  identityPolicy: CommunityMessengerRoomIdentityPolicy;
   title: string;
   summary: string;
   ownerUserId: string | null;
@@ -182,6 +193,13 @@ export type CommunityMessengerBootstrap = {
   groups: CommunityMessengerRoomSummary[];
   discoverableGroups: CommunityMessengerDiscoverableGroupSummary[];
   calls: CommunityMessengerCallLog[];
+};
+
+export type CommunityMessengerRoomAliasProfile = {
+  identityMode: CommunityMessengerIdentityMode;
+  displayName: string;
+  bio: string;
+  avatarUrl: string | null;
 };
 
 export function isCommunityMessengerGroupRoomType(roomType: CommunityMessengerRoomType): boolean {

@@ -11,7 +11,15 @@ export async function POST(
 
   const { roomId } = await context.params;
 
-  let body: { password?: string };
+  let body: {
+    password?: string;
+    identityMode?: "real_name" | "alias";
+    aliasProfile?: {
+      displayName?: string;
+      bio?: string;
+      avatarUrl?: string;
+    };
+  };
   try {
     body = await req.json();
   } catch {
@@ -22,6 +30,8 @@ export async function POST(
     userId: auth.userId,
     roomId,
     password: String(body.password ?? ""),
+    identityMode: body.identityMode === "alias" ? "alias" : "real_name",
+    aliasProfile: body.aliasProfile,
   });
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

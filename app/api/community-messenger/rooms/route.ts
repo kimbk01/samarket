@@ -32,6 +32,14 @@ export async function POST(req: NextRequest) {
     memberLimit?: number;
     isDiscoverable?: boolean;
     memberIds?: string[];
+    joinPolicy?: "password" | "free";
+    identityPolicy?: "real_name" | "alias_allowed";
+    creatorIdentityMode?: "real_name" | "alias";
+    creatorAliasProfile?: {
+      displayName?: string;
+      bio?: string;
+      avatarUrl?: string;
+    };
   };
   try {
     body = await req.json();
@@ -56,6 +64,10 @@ export async function POST(req: NextRequest) {
       password: String(body.password ?? ""),
       memberLimit: Number(body.memberLimit ?? 200),
       isDiscoverable: body.isDiscoverable !== false,
+      joinPolicy: body.joinPolicy === "free" ? "free" : "password",
+      identityPolicy: body.identityPolicy === "real_name" ? "real_name" : "alias_allowed",
+      creatorIdentityMode: body.creatorIdentityMode === "alias" ? "alias" : "real_name",
+      creatorAliasProfile: body.creatorAliasProfile,
     });
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   }
