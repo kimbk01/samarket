@@ -92,8 +92,8 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
       </section>
 
       <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <h2 className="text-[15px] font-semibold text-gray-900">오픈채팅</h2>
-        <p className="mt-1 text-[13px] text-gray-600">참여 중인 오픈채팅은 글 상세·채팅 화면에서 이어갈 수 있어요.</p>
+        <h2 className="text-[15px] font-semibold text-gray-900">모임</h2>
+        <p className="mt-1 text-[13px] text-gray-600">참여 중인 모임은 글 상세에서 계속 확인할 수 있어요.</p>
       </section>
     </div>
   );

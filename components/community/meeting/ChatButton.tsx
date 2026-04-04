@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { philifeAppPaths } from "@domain/philife/paths";
 
-/** 모임 그룹 채팅: `meeting_open_chat` LINE UI (레거시 `/chats` group_meeting 미사용) */
+/** 커뮤니티 채팅 제거 후 모임 상세로만 이동 */
 export function ChatButton({
   meetingId,
   disabled,
@@ -25,10 +25,10 @@ export function ChatButton({
   }
   return (
     <Link
-      href={philifeAppPaths.meetingGroupChat(mid)}
+      href={philifeAppPaths.meeting(mid)}
       className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-signature px-4 text-[16px] font-semibold text-white shadow-md active:opacity-90"
     >
-      {children ?? "단톡방 입장"}
+      {children ?? "모임 보기"}
     </Link>
   );
 }

@@ -24,10 +24,10 @@ function LockIcon({ className }: { className?: string }) {
 }
 
 function entryPolicyHeadline(policy: NeighborhoodMeetingDetailDTO["entry_policy"]): string {
-  if (policy === "approve") return "승인제 오픈채팅";
-  if (policy === "invite_only") return "초대·승인제 오픈채팅";
-  if (policy === "password") return "비밀번호 오픈채팅";
-  return "바로 참여 오픈채팅";
+  if (policy === "approve") return "승인제 모임";
+  if (policy === "invite_only") return "초대·승인제 모임";
+  if (policy === "password") return "비밀번호 모임";
+  return "바로 참여 모임";
 }
 
 function joinMethodLabel(policy: NeighborhoodMeetingDetailDTO["entry_policy"]): string {
@@ -137,7 +137,7 @@ export function MeetingCard({
           </div>
         </dl>
         <div className="mt-4">{joinButton}</div>
-        <p className="mt-2 text-center text-[11px] text-gray-500">※ 모임 참여 후 이용 가능 합니다</p>
+        <p className="mt-2 text-center text-[11px] text-gray-500">※ 모임 참여 후 상세 정보를 볼 수 있습니다</p>
       </div>
     );
   }
@@ -146,7 +146,7 @@ export function MeetingCard({
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[13px] font-semibold text-emerald-900">오픈채팅</p>
+          <p className="text-[13px] font-semibold text-emerald-900">모임</p>
           <p className="mt-1 text-[15px] font-bold text-gray-900">{meeting.title}</p>
         </div>
         <Link

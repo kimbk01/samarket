@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { MeetingJoinButton } from "@/components/community/MeetingJoinButton";
 import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
 import { MeetingPendingCard } from "@/components/meetings/MeetingPendingCard";
@@ -6,7 +6,6 @@ import { MeetingRestrictedCard } from "@/components/meetings/MeetingRestrictedCa
 import type { NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { loadPhilifeMeetingHubData } from "@/lib/neighborhood/philife-meeting-hub-load";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import { philifeAppPaths } from "@/lib/philife/paths";
 
 interface Props {
   params: Promise<{ meetingId: string }>;
@@ -137,9 +136,7 @@ function MeetingInfoCard({
  */
 export default async function PhilifeMeetingPage({ params, searchParams }: Props) {
   const { meetingId } = await params;
-  const sp = await searchParams;
-  const tabRaw = sp.tab;
-  const tab = typeof tabRaw === "string" ? tabRaw : Array.isArray(tabRaw) ? tabRaw[0] : undefined;
+  await searchParams;
   const id = meetingId?.trim();
   if (!id) notFound();
 
@@ -152,29 +149,11 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
     isJoined,
     isPending,
     isRestricted,
-    defaultOpenChatRoomId,
-    viewerIsDefaultOpenChatMember,
     openChatAnyPassword,
     openChatAnyApproval,
     hostUserIdForProps,
     myMembershipCreatedAt,
   } = hub;
-
-  if (tab === "chat" && isJoined) {
-    redirect(
-      defaultOpenChatRoomId
-        ? philifeAppPaths.meetingGroupChatRoom(id, defaultOpenChatRoomId)
-        : philifeAppPaths.meetingGroupChat(id)
-    );
-  }
-
-  if (isJoined) {
-    redirect(
-      defaultOpenChatRoomId
-        ? philifeAppPaths.meetingGroupChatRoom(id, defaultOpenChatRoomId)
-        : philifeAppPaths.meetingGroupChat(id)
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] pb-28">
@@ -206,9 +185,6 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
                   maxMembers={meeting.max_members}
                   pendingCount={meeting.pending_count}
                   viewerStatus={viewerStatus}
-                  defaultOpenChatRoomId={defaultOpenChatRoomId}
-                  openChatRoomHasPassword={openChatAnyPassword}
-                  openChatRoomNeedsApprovalIntro={openChatAnyApproval}
                 />
               </div>
             ) : null}

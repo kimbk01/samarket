@@ -58,7 +58,7 @@ export function MeetingJoinRequestModal({
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
         <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
           <h2 id="join-req-title" className="text-[16px] font-bold text-gray-900">
-            단톡방 참여 요청
+            모임 참여 요청
           </h2>
           <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-[13px] text-gray-500 hover:bg-gray-100" disabled={busy}>
             닫기
@@ -66,9 +66,9 @@ export function MeetingJoinRequestModal({
         </div>
         <div className="space-y-3 px-4 py-4">
           <p className="text-[12px] leading-relaxed text-gray-500">
-            모임장에게 전달됩니다. 채팅에서는 <span className="font-medium text-gray-700">로그인한 계정(닉네임)</span>으로 표시됩니다.
+            모임장에게 전달됩니다. 승인 후 모임 참여 상태가 갱신됩니다.
           </p>
-          <Field label="닉네임" required hint="채팅 닉네임과 같게 적어도 됩니다.">
+          <Field label="이름" required hint="운영자가 확인할 수 있는 이름을 적어 주세요.">
             <input
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}

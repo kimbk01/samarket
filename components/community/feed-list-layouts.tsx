@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import type { FeedListThumbColumn } from "@/lib/community-feed/topic-feed-skin";
-import { MeetupFeedOpenChatLink } from "@/components/community/MeetupFeedOpenChatLink";
 
 export type FeedListCardViewModel = {
   href: string;
-  /** 설정 시 피드에서 클릭 → 오픈채팅 진입 API 후 팝업/직접 이동 (허브 생략) */
+  /** 모임 글이면 meetingId 가 함께 내려오지만 이동은 글 상세로 통일 */
   meetupMeetingId?: string | null;
   topicLabel: string;
   topicColor: string | null;
@@ -46,7 +45,7 @@ function Badges({ isQuestion, isMeetup }: { isQuestion: boolean; isMeetup: boole
         <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">질문</span>
       ) : null}
       {isMeetup ? (
-        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">오픈채팅</span>
+        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">모임</span>
       ) : null}
     </span>
   );
@@ -95,7 +94,6 @@ function MetaLine({
 
 function CardShell({
   href,
-  meetupMeetingId,
   children,
 }: {
   href: string;
@@ -104,18 +102,12 @@ function CardShell({
 }) {
   return (
     <article className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-      {meetupMeetingId ? (
-        <MeetupFeedOpenChatLink meetingId={meetupMeetingId} fallbackHref={href}>
-          {children}
-        </MeetupFeedOpenChatLink>
-      ) : (
-        <Link
-          href={href}
-          className="block px-4 py-3 transition-colors hover:bg-neutral-50/60 active:bg-neutral-100/80"
-        >
-          {children}
-        </Link>
-      )}
+      <Link
+        href={href}
+        className="block px-4 py-3 transition-colors hover:bg-neutral-50/60 active:bg-neutral-100/80"
+      >
+        {children}
+      </Link>
     </article>
   );
 }

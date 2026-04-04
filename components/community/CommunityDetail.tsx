@@ -55,7 +55,7 @@ export function CommunityDetail({
   post: NeighborhoodFeedPostDTO;
   meeting: NeighborhoodMeetingDetailDTO | null;
   initialComments: NeighborhoodCommentNode[];
-  /** 오픈채팅 글: 참여(또는 호스트)일 때만 댓글 작성·목록 허용 */
+  /** 모임 글: 참여(또는 호스트)일 때만 댓글 작성·목록 허용 */
   viewerJoinedMeeting?: boolean;
 }) {
   const router = useRouter();
@@ -79,7 +79,7 @@ export function CommunityDetail({
   }, []);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const tier1Title = meeting ? "오픈채팅" : post.category_label?.trim() || "커뮤니티";
+  const tier1Title = meeting ? "모임" : post.category_label?.trim() || "커뮤니티";
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -289,7 +289,7 @@ export function CommunityDetail({
           <div className="p-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-[4px] bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
-                {meeting ? "오픈채팅" : post.category_label}
+                {meeting ? "모임" : post.category_label}
               </span>
             </div>
             <h1 className="mt-3 text-xl font-bold text-gray-900">{post.title}</h1>
@@ -480,8 +480,8 @@ export function CommunityDetail({
               <CommentLockIcon className="h-5 w-5 shrink-0 text-gray-400" />
               <span>
                 {!me?.id
-                  ? "로그인 후 단톡방에 참여하면 댓글을 작성할 수 있어요."
-                  : "단톡방 참여 후 댓글을 작성할 수 있어요."}
+                  ? "로그인 후 모임에 참여하면 댓글을 작성할 수 있어요."
+                  : "모임 참여 후 댓글을 작성할 수 있어요."}
               </span>
             </div>
           ) : (

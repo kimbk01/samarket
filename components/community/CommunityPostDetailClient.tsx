@@ -43,7 +43,7 @@ export function CommunityPostDetailClient({
   }, []);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const tier1Title = post.is_meetup ? "오픈채팅" : post.topic_name?.trim() || "커뮤니티";
+  const tier1Title = post.is_meetup ? "모임" : post.topic_name?.trim() || "커뮤니티";
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;

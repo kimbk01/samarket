@@ -59,12 +59,8 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
       (await isViewerJoinedNeighborhoodMeeting(post.meeting_id, viewerId));
   }
 
-  /** 개설자·승인 멤버는 글 상세를 건너뛰고 오픈채팅(채팅 화면)으로 */
+  /** 개설자·승인 멤버도 채팅 대신 모임 상세로 이동 */
   if (post.meeting_id && viewerJoinedMeeting) {
-    const hub = await loadPhilifeMeetingHubData(post.meeting_id);
-    if (hub?.defaultOpenChatRoomId) {
-      redirect(philifeAppPaths.meetingGroupChatRoom(post.meeting_id, hub.defaultOpenChatRoomId));
-    }
     redirect(philifeAppPaths.meeting(post.meeting_id));
   }
 

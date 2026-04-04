@@ -59,7 +59,7 @@ export function CommunityComposeSheet({
               onClick={onClose}
               className="flex items-center justify-center rounded-xl bg-emerald-600 py-3.5 text-[15px] font-medium text-white"
             >
-              오픈채팅 만들기
+              모임 만들기
             </Link>
           </li>
         </ul>

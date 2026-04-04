@@ -11,7 +11,6 @@ import { resolveNeighborhoodLocationId } from "@/lib/neighborhood/ensure-locatio
 import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
 import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-topics";
-import { ensureDefaultCommunityGroupChatRoomForNewMeeting } from "@/lib/community-group-chat/service";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
@@ -348,46 +347,7 @@ export async function POST(req: NextRequest) {
       role: "host",
     });
 
-    /**
-     * 그룹 채팅·오픈채팅 방 생성은 여러 DB 라운드트립(특히 `chat_rooms` 제약 폴백)으로 응답이 길어짐.
-     * 글 등록 성공은 먼저 반환하고, 방 부트스트랩은 응답 후 백그라운드에서 수행 (`join`/미들웨어에서 `ensure` 재시도 가능).
-     */
-    const deferredMeetingId = meetingId;
-    const deferredHostUserId = auth.userId;
-    const deferredTitle = title;
-    const deferredMaxMem = maxMem;
-    const deferredMeetDesc = typeof meet.description === "string" ? meet.description.trim() : "";
-    after(async () => {
-      let sbDeferred: ReturnType<typeof getSupabaseServer>;
-      try {
-        sbDeferred = getSupabaseServer();
-      } catch {
-        console.error("[neighborhood-posts] after(): supabase unavailable");
-        return;
-      }
-      try {
-        const openChatEnsured = await ensureDefaultCommunityGroupChatRoomForNewMeeting(sbDeferred, {
-          meetingId: deferredMeetingId,
-          hostUserId: deferredHostUserId,
-          title: deferredTitle,
-          maxMembers: deferredMaxMem,
-          description: deferredMeetDesc,
-          joinType: openChatJoinType,
-          joinPasswordPlain: entryPolicy === "password" ? typeof meet.meeting_password === "string" ? meet.meeting_password : null : null,
-          identityMode: openChatIdentityMode,
-          ownerJoinAs: openChatOwnerJoinAs,
-          ownerOpenNickname: openChatOwnerNickname || undefined,
-        });
-        if (!openChatEnsured.ok) {
-          console.error(
-            "[neighborhood-posts] ensureDefaultCommunityGroupChatRoomForNewMeeting",
-            openChatEnsured.error
-          );
-        }
-      } catch (e) {
-        console.error("[neighborhood-posts] after() meeting chat bootstrap", e);
-      }
-    });
+    void after;
   }
 
   if (images.length > 0 && images.some((url) => url.includes("supabase") || url.startsWith("http"))) {

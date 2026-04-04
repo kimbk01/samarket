@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/** 모임·오픈채팅방 비밀번호 입력 전용 팝업 */
+/** 모임 비밀번호 입력 전용 팝업 */
 export function MeetingPasswordOnlyModal({
   open,
   onClose,
@@ -18,7 +18,7 @@ export function MeetingPasswordOnlyModal({
   onSubmit: (password: string) => void;
   busy: boolean;
   error?: string | null;
-  /** 방 비밀번호 등 다른 맥락 */
+  /** 다른 맥락용 제목 */
   title?: string;
   /** null 이면 안내 문구 숨김 */
   hint?: string | null;

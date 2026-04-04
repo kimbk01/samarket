@@ -1,7 +1,6 @@
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { isSameUserId, normalizeUserIdForCompare } from "@/lib/auth/same-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { ensureAndGetDefaultCommunityGroupChatRoomId } from "@/lib/community-group-chat/service";
 import { getMeetingDetail } from "@/lib/neighborhood/queries";
 import type { NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 
@@ -152,72 +151,6 @@ export async function loadPhilifeMeetingHubData(
   const myMembershipCreatedAt =
     (myMembership as { created_at?: string | null } | null)?.created_at ?? null;
 
-  let defaultOpenChatRoomId: string | null = null;
-  let defaultRoomJoinType: string | null = null;
-  let pickPasswordHashPresent = false;
-  let viewerIsDefaultOpenChatMember = false;
-  let activeOpenChatRoomCount = 0;
-  let openChatAnyPassword = false;
-  let openChatAnyApproval = false;
-  if (sb) {
-    await ensureAndGetDefaultCommunityGroupChatRoomId(sb, id);
-
-    const { data: ocRows, error: ocErr } = await sb
-      .from("meeting_open_chat_rooms")
-      .select("id, join_type, created_at, password_hash")
-      .eq("meeting_id", id)
-      .eq("is_active", true);
-
-    if (!ocErr && Array.isArray(ocRows) && ocRows.length > 0) {
-      type OcRow = { id?: string; join_type?: string; created_at?: string; password_hash?: string | null };
-      const ocRowList = ocRows as OcRow[];
-      activeOpenChatRoomCount = ocRowList.length;
-      for (const r of ocRowList) {
-        const jt = String(r.join_type ?? "").trim();
-        if (jt === "password" || jt === "password_approval") openChatAnyPassword = true;
-        if (jt === "approval" || jt === "password_approval") openChatAnyApproval = true;
-      }
-
-      const gated = (jt: string) =>
-        jt === "password" || jt === "approval" || jt === "password_approval";
-
-      const sorted = [...ocRowList].sort(
-        (a, b) =>
-          new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
-      );
-      const withGated = sorted.filter((r) => gated(String(r.join_type ?? "").trim()));
-      const withoutGated = sorted.filter((r) => !gated(String(r.join_type ?? "").trim()));
-      const pick = withGated[0] ?? withoutGated[0];
-      const pid = typeof pick?.id === "string" ? pick.id.trim() : "";
-      if (pid) {
-        defaultOpenChatRoomId = pid;
-        defaultRoomJoinType = String(pick?.join_type ?? "").trim() || null;
-        pickPasswordHashPresent = String((pick as OcRow).password_hash ?? "").trim().length > 0;
-      }
-    }
-
-    if (viewerId && defaultOpenChatRoomId) {
-      const { data: openChatMember } = await sb
-        .from("meeting_open_chat_members")
-        .select("id")
-        .eq("room_id", defaultOpenChatRoomId)
-        .eq("user_id", viewerId)
-        .eq("status", "active")
-        .maybeSingle();
-      viewerIsDefaultOpenChatMember = openChatMember != null;
-    }
-  }
-
-  const openChatRoomHasPassword =
-    defaultRoomJoinType === "password" ||
-    defaultRoomJoinType === "password_approval" ||
-    /** DB·타입 불일치 대비: 해시만 있고 join_type 이 free 등으로 남은 경우 */
-    (pickPasswordHashPresent &&
-      defaultRoomJoinType !== "approval" &&
-      defaultRoomJoinType !== "password_approval");
-  const openChatRoomNeedsApprovalIntro =
-    defaultRoomJoinType === "approval" || defaultRoomJoinType === "password_approval";
-
   return {
     meeting,
     viewerStatus,
@@ -227,12 +160,12 @@ export async function loadPhilifeMeetingHubData(
     hasLeft,
     hostUserIdForProps,
     myMembershipCreatedAt,
-    activeOpenChatRoomCount,
-    defaultOpenChatRoomId,
-    viewerIsDefaultOpenChatMember,
-    openChatRoomHasPassword,
-    openChatRoomNeedsApprovalIntro,
-    openChatAnyPassword,
-    openChatAnyApproval,
+    activeOpenChatRoomCount: 0,
+    defaultOpenChatRoomId: null,
+    viewerIsDefaultOpenChatMember: false,
+    openChatRoomHasPassword: false,
+    openChatRoomNeedsApprovalIntro: false,
+    openChatAnyPassword: false,
+    openChatAnyApproval: false,
   };
 }

@@ -59,7 +59,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
         <ul className="space-y-2 text-[13px] text-gray-600">
           <li className="flex items-start gap-2">
             <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
-            승인되면 오픈채팅방에 입장할 수 있어요.
+            승인되면 모임 상세를 이용할 수 있어요.
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
