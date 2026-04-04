@@ -31,6 +31,7 @@ export function CommunityMessengerRoomClient({
   const autoHandledSessionRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
   const loadedRef = useRef(false);
+  const messageEndRef = useRef<HTMLDivElement | null>(null);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
@@ -82,6 +83,15 @@ export function CommunityMessengerRoomClient({
     }
     setRoomMessages((prev) => mergeRoomMessages(prev, snapshot.messages));
   }, [snapshot]);
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      messageEndRef.current?.scrollIntoView({ block: "end" });
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [roomMessages]);
 
   const inviteCandidates = useMemo(() => {
     const memberIds = new Set((snapshot?.members ?? []).map((member) => member.id));
@@ -194,7 +204,14 @@ export function CommunityMessengerRoomClient({
       /* ignore and fall through to hook-level prepare */
     }
     await call.prepareDevices();
-  }, [call, call.panel?.kind]);
+    if (call.panel?.mode === "dialing" && !call.panel.sessionId) {
+      await call.startOutgoingCall(kind);
+      return;
+    }
+    if (call.panel?.mode === "incoming") {
+      await call.acceptIncomingCall();
+    }
+  }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId]);
 
   useEffect(() => {
     if (!snapshot || !isOpenGroupRoom) return;
@@ -306,11 +323,13 @@ export function CommunityMessengerRoomClient({
         alert(getRoomActionErrorMessage(json.error));
         return;
       }
-      await refresh(true);
+      setRoomMessages((prev) =>
+        prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item))
+      );
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, message, refresh, roomId, snapshot]);
+  }, [getRoomActionErrorMessage, message, roomId, snapshot]);
 
   const inviteMembers = useCallback(async () => {
     if (inviteIds.length === 0) return;
@@ -565,6 +584,7 @@ export function CommunityMessengerRoomClient({
               첫 메시지를 보내서 대화를 시작해 보세요.
             </div>
           )}
+          <div ref={messageEndRef} />
         </main>
       </div>
 

@@ -38,6 +38,7 @@ const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
 
 let cachedIceServers: RTCIceServer[] | null = null;
 let cachedIceServersPromise: Promise<RTCIceServer[]> | null = null;
+let cachedIceServersExpiresAt = 0;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -57,8 +58,15 @@ function readSessionDescription(
   return { type: expectedType, sdp };
 }
 
+function hasRelayIceServer(servers: RTCIceServer[]): boolean {
+  return servers.some((server) => {
+    const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+    return urls.some((value) => typeof value === "string" && /^turns?:/i.test(value));
+  });
+}
+
 async function getCommunityMessengerIceServers(): Promise<RTCIceServer[]> {
-  if (cachedIceServers) return cachedIceServers;
+  if (cachedIceServers && cachedIceServersExpiresAt > Date.now()) return cachedIceServers;
   if (cachedIceServersPromise) return cachedIceServersPromise;
   cachedIceServersPromise = fetch("/api/community-messenger/calls/ice-servers", {
     cache: "no-store",
@@ -70,13 +78,16 @@ async function getCommunityMessengerIceServers(): Promise<RTCIceServer[]> {
       };
       if (!res.ok || !json.ok || !Array.isArray(json.iceServers) || json.iceServers.length === 0) {
         cachedIceServers = DEFAULT_ICE_SERVERS;
+        cachedIceServersExpiresAt = Date.now() + 10_000;
         return cachedIceServers;
       }
       cachedIceServers = json.iceServers;
+      cachedIceServersExpiresAt = Date.now() + (hasRelayIceServer(json.iceServers) ? 5 * 60_000 : 60_000);
       return cachedIceServers;
     })
     .catch(() => {
       cachedIceServers = DEFAULT_ICE_SERVERS;
+      cachedIceServersExpiresAt = Date.now() + 10_000;
       return cachedIceServers;
     })
     .finally(() => {
@@ -113,6 +124,8 @@ export function useCommunityMessengerCall(args: {
   const activeSinceRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
   const sessionCleanupTimerRef = useRef<number | null>(null);
+  const autoRetryTimerRef = useRef<number | null>(null);
+  const autoRetryAttemptRef = useRef(0);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
 
@@ -122,8 +135,15 @@ export function useCommunityMessengerCall(args: {
     sessionCleanupTimerRef.current = null;
   }, []);
 
+  const clearPendingAutoRetry = useCallback(() => {
+    if (autoRetryTimerRef.current === null) return;
+    window.clearTimeout(autoRetryTimerRef.current);
+    autoRetryTimerRef.current = null;
+  }, []);
+
   const cleanupMedia = useCallback(() => {
     clearPendingSessionCleanup();
+    clearPendingAutoRetry();
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
     for (const track of localStream?.getTracks() ?? []) track.stop();
@@ -136,19 +156,21 @@ export function useCommunityMessengerCall(args: {
     pendingIncomingAcceptanceRef.current = null;
     processedSignalIdsRef.current.clear();
     activeSinceRef.current = null;
+    autoRetryAttemptRef.current = 0;
     setElapsedSeconds(0);
     setTransportState("idle");
     setCallQuality(null);
-  }, [clearPendingSessionCleanup, localStream, remoteStream]);
+  }, [clearPendingAutoRetry, clearPendingSessionCleanup, localStream, remoteStream]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       clearPendingSessionCleanup();
+      clearPendingAutoRetry();
       cleanupMedia();
     };
-  }, [cleanupMedia, clearPendingSessionCleanup]);
+  }, [cleanupMedia, clearPendingAutoRetry, clearPendingSessionCleanup]);
 
   useEffect(() => {
     const node = localVideoRef.current;
@@ -308,7 +330,11 @@ export function useCommunityMessengerCall(args: {
       if (existing) return existing;
       const stream = await ensureLocalStream(kind);
       const iceServers = await getCommunityMessengerIceServers();
-      const connection = new RTCPeerConnection({ iceServers });
+      const connection = new RTCPeerConnection({
+        iceServers,
+        bundlePolicy: "max-bundle",
+        iceCandidatePoolSize: 4,
+      });
       setTransportState("connecting");
       const nextRemoteStream = new MediaStream();
       setRemoteStream(nextRemoteStream);
@@ -338,6 +364,8 @@ export function useCommunityMessengerCall(args: {
       connection.onconnectionstatechange = () => {
         const state = connection.connectionState;
         if (state === "connected") {
+          clearPendingAutoRetry();
+          autoRetryAttemptRef.current = 0;
           setTransportState("connected");
           setPanel((prev) =>
             prev && prev.sessionId === sessionId ? { ...prev, mode: "active" } : prev
@@ -353,12 +381,12 @@ export function useCommunityMessengerCall(args: {
         }
         if (state === "disconnected") {
           setTransportState("disconnected");
-          setErrorMessage("네트워크가 불안정합니다. 다시 연결을 시도할 수 있습니다.");
+          setErrorMessage("네트워크가 잠시 불안정합니다. 자동으로 다시 연결합니다.");
           return;
         }
         if (state === "failed") {
           setTransportState("failed");
-          setErrorMessage("통화 연결이 끊겼습니다. 다시 연결을 시도해 주세요.");
+          setErrorMessage("통화 연결이 약해 자동 복구를 시도합니다.");
           return;
         }
         if (state === "closed") {
@@ -368,6 +396,8 @@ export function useCommunityMessengerCall(args: {
       connection.oniceconnectionstatechange = () => {
         const state = connection.iceConnectionState;
         if (state === "connected" || state === "completed") {
+          clearPendingAutoRetry();
+          autoRetryAttemptRef.current = 0;
           setTransportState("connected");
           setPanel((prev) =>
             prev && prev.sessionId === sessionId ? { ...prev, mode: "active" } : prev
@@ -392,7 +422,7 @@ export function useCommunityMessengerCall(args: {
       peerConnectionRef.current = connection;
       return connection;
     },
-    [ensureLocalStream, sendSignal]
+    [clearPendingAutoRetry, ensureLocalStream, sendSignal]
   );
 
   const completeIncomingAcceptance = useCallback(
@@ -403,11 +433,15 @@ export function useCommunityMessengerCall(args: {
       const answer = await connection.createAnswer();
       await connection.setLocalDescription(answer);
       await sendSignal(pending.sessionId, pending.peerUserId, "answer", { sdp: answer.sdp ?? "" });
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pending.sessionId)}`, {
+      const acceptRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pending.sessionId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept" }),
       });
+      const acceptJson = (await acceptRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!acceptRes.ok || !acceptJson.ok) {
+        throw new Error(acceptJson.error ?? "call_accept_failed");
+      }
       pendingOfferRef.current = null;
       pendingIncomingAcceptanceRef.current = null;
       activeSinceRef.current = Date.now();
@@ -520,6 +554,22 @@ export function useCommunityMessengerCall(args: {
       clearInterval(timer);
     };
   }, [panel?.mode, transportState]);
+
+  useEffect(() => {
+    if (!panel?.sessionId) return;
+    if (panel.mode === "active" && transportState === "connected") return;
+    let cancelled = false;
+    const refreshNow = () => {
+      if (cancelled) return;
+      void args.onRefresh();
+    };
+    refreshNow();
+    const timer = window.setInterval(refreshNow, 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [args, panel?.mode, panel?.sessionId, transportState]);
 
   useEffect(() => {
     if (!currentSessionId) return;
@@ -793,6 +843,37 @@ export function useCommunityMessengerCall(args: {
       setBusy(null);
     }
   }, [args.peerUserId, currentSessionId, panel, sendSignal]);
+
+  useEffect(() => {
+    if (!panel?.sessionId) {
+      clearPendingAutoRetry();
+      autoRetryAttemptRef.current = 0;
+      return;
+    }
+    if (panel.mode === "incoming") {
+      clearPendingAutoRetry();
+      return;
+    }
+    if (transportState === "connected") {
+      clearPendingAutoRetry();
+      autoRetryAttemptRef.current = 0;
+      return;
+    }
+    if ((transportState !== "disconnected" && transportState !== "failed") || busy === "call-retry") {
+      clearPendingAutoRetry();
+      return;
+    }
+    if (autoRetryAttemptRef.current >= 2) return;
+    clearPendingAutoRetry();
+    autoRetryTimerRef.current = window.setTimeout(() => {
+      autoRetryTimerRef.current = null;
+      autoRetryAttemptRef.current += 1;
+      void retryConnection();
+    }, transportState === "failed" ? 400 : 1200);
+    return () => {
+      clearPendingAutoRetry();
+    };
+  }, [busy, clearPendingAutoRetry, panel?.mode, panel?.sessionId, retryConnection, transportState]);
 
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";
