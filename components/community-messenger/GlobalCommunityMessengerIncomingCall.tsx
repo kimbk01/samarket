@@ -126,13 +126,17 @@ export function GlobalCommunityMessengerIncomingCall() {
     for (const session of sessions) {
       nextIds.add(session.id);
       if (!seenIdsRef.current.has(session.id)) {
-        if (incomingCallSoundEnabled && pathname !== `/community-messenger/rooms/${session.roomId}`) {
+        if (
+          incomingCallSoundEnabled &&
+          !incomingCallBannerEnabled &&
+          pathname !== `/community-messenger/rooms/${session.roomId}`
+        ) {
           playNotificationSound();
         }
       }
     }
     seenIdsRef.current = nextIds;
-  }, [incomingCallSoundEnabled, pathname, sessions]);
+  }, [incomingCallBannerEnabled, incomingCallSoundEnabled, pathname, sessions]);
 
   const visibleSession =
     incomingCallBannerEnabled
@@ -206,7 +210,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             disabled={busyId === `accept:${visibleSession.id}`}
             className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
           >
-            {busyId === `accept:${visibleSession.id}` ? "준비 중..." : "수락하고 이동"}
+            {busyId === `accept:${visibleSession.id}` ? "준비 중..." : "수락"}
           </button>
         </div>
       </div>

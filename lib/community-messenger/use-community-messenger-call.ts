@@ -13,7 +13,7 @@ import type {
 
 type CallPanelState = {
   kind: CommunityMessengerCallKind;
-  mode: "preview" | "outgoing" | "incoming" | "active";
+  mode: "dialing" | "incoming" | "connecting" | "active";
   sessionId: string | null;
   peerLabel: string;
 };
@@ -186,10 +186,10 @@ export function useCommunityMessengerCall(args: {
 
     if (activeCall.status === "ringing") {
       setPanel((prev) => {
-        if (prev?.sessionId === activeCall.id && prev.mode === "preview") return prev;
+        if (prev?.sessionId === activeCall.id && (prev.mode === "connecting" || prev.mode === "active")) return prev;
         return {
           kind: activeCall.callKind,
-          mode: activeCall.isMineInitiator ? "outgoing" : "incoming",
+          mode: activeCall.isMineInitiator ? "dialing" : "incoming",
           sessionId: activeCall.id,
           peerLabel: activeCall.peerLabel,
         };
@@ -201,12 +201,12 @@ export function useCommunityMessengerCall(args: {
       activeSinceRef.current = new Date(activeCall.answeredAt ?? activeCall.startedAt).getTime();
       setPanel({
         kind: activeCall.callKind,
-        mode: "active",
+        mode: transportState === "connected" ? "active" : "connecting",
         sessionId: activeCall.id,
         peerLabel: activeCall.peerLabel,
       });
     }
-  }, [args.activeCall, cleanupMedia, panel?.sessionId]);
+  }, [args.activeCall, cleanupMedia, panel?.sessionId, transportState]);
 
   const ensureLocalStream = useCallback(async (kind: CommunityMessengerCallKind) => {
     if (localStream) return localStream;
@@ -304,10 +304,16 @@ export function useCommunityMessengerCall(args: {
         const state = connection.connectionState;
         if (state === "connected") {
           setTransportState("connected");
+          setPanel((prev) =>
+            prev && prev.sessionId === sessionId ? { ...prev, mode: "active" } : prev
+          );
           return;
         }
         if (state === "connecting" || state === "new") {
           setTransportState("connecting");
+          setPanel((prev) =>
+            prev && prev.sessionId === sessionId && prev.mode !== "incoming" ? { ...prev, mode: "connecting" } : prev
+          );
           return;
         }
         if (state === "disconnected") {
@@ -328,10 +334,16 @@ export function useCommunityMessengerCall(args: {
         const state = connection.iceConnectionState;
         if (state === "connected" || state === "completed") {
           setTransportState("connected");
+          setPanel((prev) =>
+            prev && prev.sessionId === sessionId ? { ...prev, mode: "active" } : prev
+          );
           return;
         }
         if (state === "checking" || state === "new") {
           setTransportState("connecting");
+          setPanel((prev) =>
+            prev && prev.sessionId === sessionId && prev.mode !== "incoming" ? { ...prev, mode: "connecting" } : prev
+          );
           return;
         }
         if (state === "disconnected") {
@@ -368,7 +380,7 @@ export function useCommunityMessengerCall(args: {
       setTransportState("connecting");
       setPanel({
         kind: pending.callKind,
-        mode: "active",
+        mode: "connecting",
         sessionId: pending.sessionId,
         peerLabel: pending.peerLabel,
       });
@@ -529,24 +541,10 @@ export function useCommunityMessengerCall(args: {
     };
   }, [applySignal, args.viewerUserId, currentSessionId]);
 
-  const openPreview = useCallback(async (kind: CommunityMessengerCallKind) => {
-    setErrorMessage(null);
-    if (args.roomType !== "direct") {
-      setErrorMessage("그룹 통화 실연결은 다음 단계에서 지원합니다.");
-      return;
-    }
-    setPanel({
-      kind,
-      mode: "preview",
-      sessionId: null,
-      peerLabel: args.peerLabel,
-    });
-  }, [args.peerLabel, args.roomType]);
-
   const prepareDevices = useCallback(async () => {
     const kind = panel?.kind ?? args.activeCall?.callKind;
     if (!kind) return;
-    setBusy("preview");
+    setBusy("device-prepare");
     setErrorMessage(null);
     try {
       await ensureLocalStream(kind);
@@ -557,21 +555,28 @@ export function useCommunityMessengerCall(args: {
     }
   }, [args.activeCall?.callKind, ensureLocalStream, panel?.kind]);
 
-  const closePreview = useCallback(() => {
+  const dismissPanel = useCallback(() => {
     cleanupMedia();
     setPanel(null);
     setErrorMessage(null);
   }, [cleanupMedia]);
 
-  const startCall = useCallback(async () => {
-    if (!panel || panel.mode !== "preview" || !args.peerUserId) return;
+  const startOutgoingCall = useCallback(async (kind: CommunityMessengerCallKind) => {
+    if (!args.peerUserId) return;
     setBusy("call-start");
     setErrorMessage(null);
+    setPanel({
+      kind,
+      mode: "dialing",
+      sessionId: null,
+      peerLabel: args.peerLabel,
+    });
     try {
+      await ensureLocalStream(kind);
       const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(args.roomId)}/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callKind: panel.kind }),
+        body: JSON.stringify({ callKind: kind }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; session?: CommunityMessengerCallSession };
       if (!res.ok || !json.ok || !json.session) {
@@ -589,7 +594,7 @@ export function useCommunityMessengerCall(args: {
       }
       setPanel({
         kind: session.callKind,
-        mode: "outgoing",
+        mode: "dialing",
         sessionId: session.id,
         peerLabel: session.peerLabel,
       });
@@ -606,11 +611,11 @@ export function useCommunityMessengerCall(args: {
         typeof error === "object" && error && "name" in error
           ? String((error as { name?: unknown }).name ?? "")
           : "";
-      setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, panel.kind) : "통화 연결을 시작하지 못했습니다.");
+      setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, kind) : "통화 연결을 시작하지 못했습니다.");
     } finally {
       setBusy(null);
     }
-  }, [args, ensurePeerConnection, panel, sendSignal]);
+  }, [args, ensureLocalStream, ensurePeerConnection, sendSignal]);
 
   const rejectIncomingCall = useCallback(async () => {
     if (!args.activeCall?.id) return;
@@ -650,6 +655,12 @@ export function useCommunityMessengerCall(args: {
       };
       await ensurePeerConnection(activeCall.callKind, activeCall.id, activeCall.peerUserId);
       setTransportState("connecting");
+      setPanel({
+        kind: activeCall.callKind,
+        mode: "connecting",
+        sessionId: activeCall.id,
+        peerLabel: activeCall.peerLabel,
+      });
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}/signals`, {
         cache: "no-store",
       });
@@ -752,9 +763,9 @@ export function useCommunityMessengerCall(args: {
 
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";
-    if (panel.mode === "preview") return "통화 준비";
+    if (panel.mode === "dialing") return "상대방에게 거는 중";
     if (panel.mode === "incoming") return "수신 전화";
-    if (panel.mode === "outgoing") return "연결 중";
+    if (panel.mode === "connecting") return "연결 중";
     return "통화 진행 중";
   }, [panel]);
 
@@ -783,9 +794,8 @@ export function useCommunityMessengerCall(args: {
     callStatusLabel,
     connectionBadge,
     prepareDevices,
-    openPreview,
-    closePreview,
-    startCall,
+    dismissPanel,
+    startOutgoingCall,
     acceptIncomingCall,
     rejectIncomingCall,
     cancelOutgoingCall,

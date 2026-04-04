@@ -11,6 +11,8 @@ const TONE_INTERVAL_MS: Record<CallToneMode, number> = {
   outgoing: 3200,
 };
 
+let activeToneStopper: (() => void) | null = null;
+
 export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneController {
   if (typeof window === "undefined") {
     return { stop() {} };
@@ -21,6 +23,8 @@ export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneCon
   let stopped = false;
   let intervalId: number | null = null;
   let audio: HTMLAudioElement | null = null;
+
+  activeToneStopper?.();
 
   const stop = () => {
     stopped = true;
@@ -33,7 +37,12 @@ export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneCon
       audio.currentTime = 0;
       audio = null;
     }
+    if (activeToneStopper === stop) {
+      activeToneStopper = null;
+    }
   };
+
+  activeToneStopper = stop;
 
   try {
     audio = new Audio(NOTIFICATION_SOUND_ASSET_PATH);

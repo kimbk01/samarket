@@ -14,7 +14,7 @@ import type {
 
 type GroupCallPanelState = {
   kind: CommunityMessengerCallKind;
-  mode: "preview" | "outgoing" | "incoming" | "active";
+  mode: "dialing" | "incoming" | "connecting" | "active";
   sessionId: string | null;
   peerLabel: string;
 };
@@ -197,6 +197,18 @@ export function useCommunityMessengerGroupCall(args: Props) {
     }, 1000);
     return () => clearInterval(timer);
   }, [panel?.mode]);
+
+  useEffect(() => {
+    if (!panel || panel.mode === "incoming") return;
+    const states = Object.values(peerStates);
+    if (states.some((state) => state === "connected")) {
+      setPanel((prev) => (prev ? { ...prev, mode: "active" } : prev));
+      return;
+    }
+    if (states.some((state) => state === "connecting" || state === "new")) {
+      setPanel((prev) => (prev ? { ...prev, mode: "connecting" } : prev));
+    }
+  }, [panel, peerStates]);
 
   const ensureLocalStream = useCallback(
     async (kind: CommunityMessengerCallKind) => {
@@ -412,7 +424,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       if (myParticipant?.status === "joined" && activeCall.isMineInitiator) {
         setPanel({
           kind: activeCall.callKind,
-          mode: "outgoing",
+          mode: "dialing",
           sessionId: activeCall.id,
           peerLabel: activeCall.peerLabel,
         });
@@ -434,7 +446,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
         activeSinceRef.current = new Date(activeCall.answeredAt ?? activeCall.startedAt).getTime();
         setPanel({
           kind: activeCall.callKind,
-          mode: "active",
+          mode: Object.values(peerStates).some((state) => state === "connected") ? "active" : "connecting",
           sessionId: activeCall.id,
           peerLabel: activeCall.peerLabel,
         });
@@ -455,7 +467,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       cleanupMedia();
       setPanel(null);
     }
-  }, [args.activeCall, args.enabled, cleanupMedia, myParticipant?.status, panel?.sessionId]);
+  }, [args.activeCall, args.enabled, cleanupMedia, myParticipant?.status, panel?.sessionId, peerStates]);
 
   useEffect(() => {
     if (!args.enabled || !args.activeCall || args.activeCall.sessionMode !== "group") return;
@@ -545,24 +557,10 @@ export function useCommunityMessengerGroupCall(args: Props) {
     }
   }, [amJoined, args.activeCall, args.enabled, args.viewerUserId, createOfferForPeer, currentSessionId, joinedParticipants, panel]);
 
-  const openPreview = useCallback(
-    async (kind: CommunityMessengerCallKind) => {
-      if (!args.enabled) return;
-      setErrorMessage(null);
-      setPanel({
-        kind,
-        mode: "preview",
-        sessionId: null,
-        peerLabel: args.roomLabel,
-      });
-    },
-    [args.enabled, args.roomLabel]
-  );
-
   const prepareDevices = useCallback(async () => {
     const kind = panel?.kind ?? args.activeCall?.callKind;
     if (!kind) return;
-    setBusy("preview");
+    setBusy("device-prepare");
     setErrorMessage(null);
     try {
       await ensureLocalStream(kind);
@@ -573,21 +571,28 @@ export function useCommunityMessengerGroupCall(args: Props) {
     }
   }, [args.activeCall?.callKind, ensureLocalStream, panel?.kind]);
 
-  const closePreview = useCallback(() => {
+  const dismissPanel = useCallback(() => {
     cleanupMedia();
     setPanel(null);
     setErrorMessage(null);
   }, [cleanupMedia]);
 
-  const startCall = useCallback(async () => {
-    if (!args.enabled || !panel || panel.mode !== "preview") return;
+  const startOutgoingCall = useCallback(async (kind: CommunityMessengerCallKind) => {
+    if (!args.enabled) return;
     setBusy("call-start");
     setErrorMessage(null);
+    setPanel({
+      kind,
+      mode: "dialing",
+      sessionId: null,
+      peerLabel: args.roomLabel,
+    });
     try {
+      await ensureLocalStream(kind);
       const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(args.roomId)}/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callKind: panel.kind }),
+        body: JSON.stringify({ callKind: kind }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; session?: CommunityMessengerCallSession };
       if (!res.ok || !json.ok || !json.session) {
@@ -600,15 +605,21 @@ export function useCommunityMessengerGroupCall(args: Props) {
       }
       setPanel({
         kind: json.session.callKind,
-        mode: "outgoing",
+        mode: "dialing",
         sessionId: json.session.id,
         peerLabel: json.session.peerLabel,
       });
       await args.onRefresh();
+    } catch (error) {
+      const errorName =
+        typeof error === "object" && error && "name" in error
+          ? String((error as { name?: unknown }).name ?? "")
+          : "";
+      setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, kind) : "그룹 통화 시작에 실패했습니다.");
     } finally {
       setBusy(null);
     }
-  }, [args, panel]);
+  }, [args, ensureLocalStream]);
 
   const acceptIncomingCall = useCallback(async () => {
     const activeCall = args.activeCall;
@@ -625,7 +636,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       activeSinceRef.current = Date.now();
       setPanel({
         kind: activeCall.callKind,
-        mode: "active",
+        mode: "connecting",
         sessionId: activeCall.id,
         peerLabel: activeCall.peerLabel,
       });
@@ -729,9 +740,9 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";
-    if (panel.mode === "preview") return "통화 준비";
+    if (panel.mode === "dialing") return "참여자에게 거는 중";
     if (panel.mode === "incoming") return "수신 전화";
-    if (panel.mode === "outgoing") return "연결 중";
+    if (panel.mode === "connecting") return "연결 중";
     return "그룹 통화 진행 중";
   }, [panel]);
 
@@ -766,9 +777,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
     connectionBadge,
     participants,
     prepareDevices,
-    openPreview,
-    closePreview,
-    startCall,
+    dismissPanel,
+    startOutgoingCall,
     acceptIncomingCall,
     rejectIncomingCall,
     cancelOutgoingCall,

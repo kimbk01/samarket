@@ -22,6 +22,14 @@ export function getCommunityMessengerMediaErrorMessage(
   if (name === "NotReadableError" || name === "TrackStartError") {
     return "다른 앱이 장치를 사용 중일 수 있습니다. 장치 점유를 해제한 뒤 다시 시도해 주세요.";
   }
+  if (name === "AbortError") {
+    return "장치 연결이 잠시 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";
+  }
+  if (name === "OverconstrainedError") {
+    return kind === "video"
+      ? "카메라 또는 마이크 설정을 맞추지 못했습니다. 다른 장치를 선택하거나 권한을 다시 확인해 주세요."
+      : "마이크 설정을 맞추지 못했습니다. 다른 장치를 선택하거나 권한을 다시 확인해 주세요.";
+  }
   return kind === "video"
     ? "영상 통화 장치 준비에 실패했습니다. 권한과 장치 상태를 확인해 주세요."
     : "음성 통화 장치 준비에 실패했습니다. 권한과 장치 상태를 확인해 주세요.";

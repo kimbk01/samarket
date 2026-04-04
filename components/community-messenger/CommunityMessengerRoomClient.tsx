@@ -379,7 +379,7 @@ export function CommunityMessengerRoomClient({
   }, [call, initialCallAction, initialCallSessionId, roomId, router, snapshot?.activeCall]);
 
   useEffect(() => {
-    if (!call.panel || call.panel.mode === "preview" || call.panel.mode === "active") return;
+    if (!call.panel || (call.panel.mode !== "incoming" && call.panel.mode !== "dialing")) return;
     const tone = startCommunityMessengerCallTone(call.panel.mode === "incoming" ? "incoming" : "outgoing");
     return () => {
       tone.stop();
@@ -625,7 +625,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => {
                       setActiveSheet(null);
-                      void call.openPreview("voice");
+                      void call.startOutgoingCall("voice");
                     }}
                     disabled={roomUnavailable}
                     className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
@@ -636,7 +636,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => {
                       setActiveSheet(null);
-                      void call.openPreview("video");
+                      void call.startOutgoingCall("video");
                     }}
                     disabled={roomUnavailable}
                     className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
@@ -936,7 +936,11 @@ export function CommunityMessengerRoomClient({
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold">
                         VIDEO
                       </div>
-                      <p className="text-[13px] text-white/75">카메라와 마이크를 확인하면 바로 연결할 수 있습니다.</p>
+                      <p className="text-[13px] text-white/75">
+                        {call.panel.mode === "incoming"
+                          ? "카메라와 마이크 권한을 확인하면 바로 통화에 참여합니다."
+                          : "카메라와 마이크 권한을 확인하는 중입니다."}
+                      </p>
                     </div>
                   )}
                   {call.localStream && !isGroupRoom && directCall.remoteStream ? (
@@ -956,7 +960,9 @@ export function CommunityMessengerRoomClient({
                   <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#06C755]/90 text-[26px] font-semibold text-white">
                     MIC
                   </div>
-                  <p className="text-[13px] text-white/70">마이크 연결을 준비하고 있습니다.</p>
+                  <p className="text-[13px] text-white/70">
+                    {call.panel.mode === "incoming" ? "마이크 확인 후 바로 연결합니다." : "마이크 연결을 준비하고 있습니다."}
+                  </p>
                 </div>
               )}
             </div>
@@ -1022,10 +1028,12 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={() => void retryCallDevicePermission()}
-                    disabled={call.busy === "preview"}
+                    disabled={call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"}
                     className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
                   >
-                    {call.busy === "preview" ? "확인 중..." : permissionGuide?.retryLabel ?? "권한 확인"}
+                    {call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"
+                      ? "확인 중..."
+                      : permissionGuide?.retryLabel ?? "권한 확인"}
                   </button>
                   <button
                     type="button"
@@ -1036,15 +1044,17 @@ export function CommunityMessengerRoomClient({
                   </button>
                 </div>
               </div>
-            ) : call.panel.mode === "preview" && !call.localStream ? (
+            ) : (call.panel.mode === "dialing" || call.panel.mode === "connecting") && !call.localStream ? (
               <div className="mt-4 flex gap-2">
                 <button
                   type="button"
                   onClick={() => void retryCallDevicePermission()}
-                  disabled={call.busy === "preview"}
+                  disabled={call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"}
                   className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
                 >
-                  {call.busy === "preview" ? "확인 중..." : permissionGuide?.retryLabel ?? "권한 확인"}
+                  {call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"
+                    ? "확인 중..."
+                    : permissionGuide?.retryLabel ?? "권한 확인"}
                 </button>
                 <button
                   type="button"
@@ -1057,25 +1067,7 @@ export function CommunityMessengerRoomClient({
             ) : null}
 
             <div className="mt-5 flex gap-2">
-              {call.panel.mode === "preview" ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void call.startCall()}
-                    disabled={call.busy === "call-start"}
-                    className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
-                  >
-                    통화 시작
-                  </button>
-                  <button
-                    type="button"
-                    onClick={call.closePreview}
-                    className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] text-white/80"
-                  >
-                    닫기
-                  </button>
-                </>
-              ) : call.panel.mode === "incoming" ? (
+              {call.panel.mode === "incoming" ? (
                 <>
                   <button
                     type="button"
@@ -1094,12 +1086,18 @@ export function CommunityMessengerRoomClient({
                     수락
                   </button>
                 </>
-              ) : call.panel.mode === "outgoing" ? (
+              ) : call.panel.mode === "dialing" || call.panel.mode === "connecting" ? (
                 <>
                   <button
                     type="button"
-                    onClick={() => void call.cancelOutgoingCall()}
-                    disabled={call.busy === "call-cancel"}
+                    onClick={() => {
+                      if (call.panel?.sessionId) {
+                        void call.cancelOutgoingCall();
+                        return;
+                      }
+                      call.dismissPanel();
+                    }}
+                    disabled={call.panel?.sessionId ? call.busy === "call-cancel" : false}
                     className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                   >
                     통화 끊기
