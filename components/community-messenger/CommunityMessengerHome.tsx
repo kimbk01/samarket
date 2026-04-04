@@ -298,6 +298,18 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     () => (data?.friends ?? []).filter((friend) => friend.isFavoriteFriend),
     [data?.friends]
   );
+  const selectedGroupFriends = useMemo(() => {
+    const friendMap = new Map((data?.friends ?? []).map((friend) => [friend.id, friend]));
+    return groupMembers.map((id) => friendMap.get(id)).filter((friend): friend is CommunityMessengerProfileLite => Boolean(friend));
+  }, [data?.friends, groupMembers]);
+  const groupTitlePreview = useMemo(() => {
+    const explicitTitle = groupTitle.trim();
+    if (explicitTitle) return explicitTitle;
+    if (selectedGroupFriends.length === 0) return "";
+    const labels = selectedGroupFriends.map((friend) => friend.label).filter(Boolean).slice(0, 3);
+    if (groupMembers.length > labels.length) return `${labels.join(", ")} 외 ${groupMembers.length - labels.length}명`;
+    return labels.join(", ");
+  }, [groupMembers.length, groupTitle, selectedGroupFriends]);
 
   const sortedFriends = useMemo(() => {
     return [...(data?.friends ?? [])].sort((a, b) => {
@@ -651,11 +663,11 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         <div className="space-y-4">
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="text-[16px] font-semibold text-gray-900">새 그룹 만들기</h2>
-            <p className="mt-1 text-[13px] text-gray-500">라인 스타일 그룹방을 만들고 친구를 바로 초대하세요.</p>
+            <p className="mt-1 text-[13px] text-gray-500">제목은 선택 입력입니다. 비워두면 선택한 친구 이름으로 자동 생성됩니다.</p>
             <input
               value={groupTitle}
               onChange={(e) => setGroupTitle(e.target.value)}
-              placeholder="예: 사마켓 운영팀"
+              placeholder="예: 사마켓 운영팀 (선택 입력)"
               className="mt-3 h-11 w-full rounded-xl border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
             />
             <div className="mt-3 flex items-center justify-between gap-3 text-[12px] text-gray-500">
@@ -670,40 +682,61 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                 </button>
               ) : null}
             </div>
-            <div className="mt-3 grid gap-2">
-              {(data?.friends ?? []).map((friend) => {
-                const checked = groupMembers.includes(friend.id);
-                return (
-                  <label
-                    key={friend.id}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-3"
-                  >
-                    <div>
-                      <p className="text-[14px] font-medium text-gray-900">{friend.label}</p>
-                      <p className="text-[12px] text-gray-500">{friend.subtitle ?? "친구"}</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => {
-                        setGroupMembers((prev) =>
-                          e.target.checked ? [...prev, friend.id] : prev.filter((id) => id !== friend.id)
-                        );
-                      }}
-                      className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
-                    />
-                  </label>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              onClick={() => void createGroup()}
-              disabled={busyId === "create-group" || !groupTitle.trim() || groupMembers.length === 0}
-              className="mt-4 w-full rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-            >
-              그룹 생성
-            </button>
+            {groupTitlePreview ? (
+              <div className="mt-3 rounded-xl bg-[#F8FAF9] px-3 py-3 text-[12px] text-gray-600">
+                생성 예정 그룹명: <span className="font-semibold text-gray-900">{groupTitlePreview}</span>
+              </div>
+            ) : null}
+            {(data?.friends ?? []).length > 0 ? (
+              <>
+                <div className="mt-3 grid gap-2">
+                  {(data?.friends ?? []).map((friend) => {
+                    const checked = groupMembers.includes(friend.id);
+                    return (
+                      <label
+                        key={friend.id}
+                        className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-3"
+                      >
+                        <div>
+                          <p className="text-[14px] font-medium text-gray-900">{friend.label}</p>
+                          <p className="text-[12px] text-gray-500">{friend.subtitle ?? "친구"}</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            setGroupMembers((prev) =>
+                              e.target.checked ? [...prev, friend.id] : prev.filter((id) => id !== friend.id)
+                            );
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void createGroup()}
+                  disabled={busyId === "create-group" || groupMembers.length === 0}
+                  className="mt-4 w-full rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                >
+                  {busyId === "create-group" ? "그룹 생성 중..." : "그룹 생성"}
+                </button>
+              </>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center">
+                <p className="text-[14px] font-semibold text-gray-900">그룹에 초대할 친구가 아직 없습니다.</p>
+                <p className="mt-1 text-[12px] text-gray-500">친구를 먼저 추가하면 그룹방 생성이 바로 활성화됩니다.</p>
+                <button
+                  type="button"
+                  onClick={() => setTab("friends")}
+                  className="mt-3 rounded-xl bg-[#06C755] px-4 py-3 text-[13px] font-semibold text-white"
+                >
+                  친구 탭으로 이동
+                </button>
+              </div>
+            )}
           </section>
 
           <InfoSection title="그룹 채팅방" subtitle="운영 공지, 동호회, 지역 모임 메신저를 별도 축으로 운영합니다.">
@@ -928,6 +961,16 @@ function RoomCard({ room, href }: { room: CommunityMessengerRoomSummary; href: s
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="truncate text-[14px] font-semibold text-gray-900">{room.title}</p>
+            {room.roomStatus !== "active" ? (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                {room.roomStatus === "blocked" ? "차단됨" : "보관됨"}
+              </span>
+            ) : null}
+            {room.isReadonly ? (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-700">
+                읽기 전용
+              </span>
+            ) : null}
             {room.unreadCount > 0 ? (
               <span className="rounded-full bg-[#06C755] px-2 py-0.5 text-[11px] font-semibold text-white">
                 {room.unreadCount}

@@ -84,6 +84,7 @@ export function CommunityMessengerRoomClient({
     onRefresh: refresh,
   });
   const call = snapshot?.room.roomType === "group" ? groupCall : directCall;
+  const roomUnavailable = snapshot ? snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly : true;
 
   const sendMessage = useCallback(async () => {
     const content = message.trim();
@@ -225,14 +226,16 @@ export function CommunityMessengerRoomClient({
             <button
               type="button"
               onClick={() => void call.openPreview("voice")}
-              className="rounded-full bg-white px-3 py-2 text-[12px] font-semibold text-gray-800 shadow-sm ring-1 ring-gray-200"
+              disabled={roomUnavailable}
+              className="rounded-full bg-white px-3 py-2 text-[12px] font-semibold text-gray-800 shadow-sm ring-1 ring-gray-200 disabled:opacity-40"
             >
               음성
             </button>
             <button
               type="button"
               onClick={() => void call.openPreview("video")}
-              className="rounded-full bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white"
+              disabled={roomUnavailable}
+              className="rounded-full bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
             >
               영상
             </button>
@@ -247,7 +250,7 @@ export function CommunityMessengerRoomClient({
               ? "이 방은 관리자에 의해 차단되었습니다."
               : snapshot.room.roomStatus === "archived"
                 ? "이 방은 관리자에 의해 보관되었습니다."
-                : "이 방은 정상 상태입니다."}
+                : "이 방은 현재 제한 상태입니다."}
             {snapshot.room.isReadonly ? " 현재 읽기 전용 상태입니다." : ""}
           </div>
         ) : null}
@@ -392,13 +395,22 @@ export function CommunityMessengerRoomClient({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             rows={1}
-            placeholder="메시지를 입력하세요"
-            className="max-h-28 min-h-[44px] flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755]"
+            disabled={roomUnavailable}
+            placeholder={
+              roomUnavailable
+                ? snapshot.room.isReadonly
+                  ? "읽기 전용 방입니다"
+                  : snapshot.room.roomStatus === "blocked"
+                    ? "차단된 방입니다"
+                    : "보관된 방입니다"
+                : "메시지를 입력하세요"
+            }
+            className="max-h-28 min-h-[44px] flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
           />
           <button
             type="button"
             onClick={() => void sendMessage()}
-            disabled={!message.trim() || busy === "send"}
+            disabled={roomUnavailable || !message.trim() || busy === "send"}
             className="rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
           >
             전송

@@ -421,6 +421,28 @@ async function hydrateProfiles(
   });
 }
 
+async function resolveCommunityMessengerGroupTitle(
+  userId: string,
+  memberIds: string[],
+  rawTitle?: string
+): Promise<string> {
+  const explicitTitle = trimText(rawTitle);
+  if (explicitTitle) return explicitTitle;
+
+  const peerIds = dedupeIds(memberIds.filter((id) => id !== userId));
+  if (!peerIds.length) return `그룹 ${memberIds.length}명`;
+
+  const peers = await hydrateProfiles(userId, peerIds);
+  const labels = peers
+    .map((peer) => trimText(peer.label))
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (!labels.length) return `그룹 ${memberIds.length}명`;
+  if (peerIds.length > labels.length) return `${labels.join(", ")} 외 ${peerIds.length - labels.length}명`;
+  return labels.join(", ");
+}
+
 async function hydrateSelfProfile(userId: string): Promise<CommunityMessengerProfileLite | null> {
   const me = await hydrateProfiles(userId, [userId], { includeSelf: true });
   return me[0] ?? null;
@@ -1410,10 +1432,9 @@ export async function createCommunityMessengerGroupRoom(input: {
   title: string;
   memberIds: string[];
 }): Promise<{ ok: boolean; roomId?: string; error?: string }> {
-  const title = trimText(input.title);
   const memberIds = dedupeIds([input.userId, ...input.memberIds]);
-  if (!title) return { ok: false, error: "title_required" };
   if (memberIds.length < 2) return { ok: false, error: "members_required" };
+  const title = await resolveCommunityMessengerGroupTitle(input.userId, memberIds, input.title);
   const sb = getSupabaseOrNull();
   if (sb) {
     const { data: room, error: roomError } = await (sb as any)
