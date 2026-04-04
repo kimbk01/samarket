@@ -12,10 +12,6 @@ function resolveChatListHref(from: string | undefined): string {
       return "/my/store-orders";
     case "orders-hub":
       return "/orders?tab=store";
-    case "philife-open":
-      return "/chats/philife?tab=open";
-    case "philife-inbox":
-      return "/chats/philife?tab=inbox";
     default:
       return "/mypage/trade/chat";
   }

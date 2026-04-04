@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatTimeAgo } from "@/lib/utils/format";
-import { startCommunityInquiry } from "@/lib/chat/startCommunityInquiry";
 import { createCommunityCommentReport } from "@/lib/reports/createCommunityCommentReport";
 
 type CommentRow = {
@@ -19,12 +18,10 @@ const LOGIN_REDIRECT = "/my/account";
 
 export function PostCommunityCommentsSection({
   postId,
-  authorUserId,
   currentUserId,
   showCommentReport = true,
 }: {
   postId: string;
-  authorUserId: string;
   currentUserId: string | null;
   showCommentReport?: boolean;
 }) {
@@ -33,7 +30,6 @@ export function PostCommunityCommentsSection({
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [chatBusyId, setChatBusyId] = useState<string | null>(null);
   const [reportBusyId, setReportBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [replyParentId, setReplyParentId] = useState<string | null>(null);
@@ -103,19 +99,6 @@ export function PostCommunityCommentsSection({
     }
   };
 
-  const openInquiry = async (peerUserId: string, commentId: string) => {
-    if (!currentUserId) {
-      router.push(LOGIN_REDIRECT);
-      return;
-    }
-    setChatBusyId(commentId);
-    setError("");
-    const res = await startCommunityInquiry(postId, peerUserId, commentId);
-    setChatBusyId(null);
-    if (res.ok) router.push(`/chats/${res.roomId}`);
-    else setError(res.error);
-  };
-
   const onReportComment = async (commentId: string) => {
     if (!currentUserId) {
       router.push(LOGIN_REDIRECT);
@@ -133,15 +116,10 @@ export function PostCommunityCommentsSection({
     else setError(res.error);
   };
 
-  const authorId = authorUserId.trim();
-
   const renderCommentRow = (c: CommentRow, opts: { isChild: boolean; allowReply: boolean }) => {
     const uid = c.user_id?.trim() ?? "";
     const label = c.authorNickname?.trim() || uid.slice(0, 8) || "사용자";
     const isCommentMine = !!currentUserId && uid === currentUserId;
-    const isPostAuthor = !!currentUserId && currentUserId === authorId;
-    const showToCommenter = isPostAuthor && !isCommentMine && uid;
-    const showToAuthor = isCommentMine && !isPostAuthor && authorId && uid !== authorId;
     const showReportBtn = showCommentReport && !!currentUserId && !isCommentMine;
 
     return (
@@ -170,26 +148,6 @@ export function PostCommunityCommentsSection({
                 className="rounded-md border border-red-100 bg-white px-2 py-1 text-[11px] font-medium text-red-700 disabled:opacity-50"
               >
                 {reportBusyId === c.id ? "…" : "신고"}
-              </button>
-            )}
-            {showToCommenter && (
-              <button
-                type="button"
-                disabled={chatBusyId === c.id}
-                onClick={() => openInquiry(uid, c.id)}
-                className="rounded-md bg-signature px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
-              >
-                {chatBusyId === c.id ? "…" : "문의"}
-              </button>
-            )}
-            {showToAuthor && (
-              <button
-                type="button"
-                disabled={chatBusyId === c.id}
-                onClick={() => openInquiry(authorId, c.id)}
-                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-800 disabled:opacity-50"
-              >
-                {chatBusyId === c.id ? "…" : "작성자에게"}
               </button>
             )}
             {opts.allowReply && currentUserId && (

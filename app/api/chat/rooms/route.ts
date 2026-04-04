@@ -25,7 +25,7 @@ function isStoreOrderRoomRow(r: ChatRoomListRow): boolean {
 }
 
 function filterRoomsByListSegment(rows: ChatRoomListRow[], segment: string | null): ChatRoomListRow[] {
-  if (segment === "order" || segment === "philife" || segment === "philife_inbox") {
+  if (segment === "order") {
     return [];
   }
   return rows.filter((r) => r.generalChat == null);
@@ -96,14 +96,7 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
   const rawSeg = req.nextUrl.searchParams.get("segment")?.trim().toLowerCase() ?? null;
-  const segment =
-    rawSeg === "trade"
-      ? "trade"
-      : rawSeg === "philife" || rawSeg === "community"
-        ? "philife"
-        : rawSeg === "philife_inbox"
-            ? "philife_inbox"
-            : null;
+  const segment = rawSeg === "trade" ? "trade" : rawSeg === "order" ? "order" : null;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {

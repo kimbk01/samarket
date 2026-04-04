@@ -249,7 +249,7 @@ export function StoresBrowsePrimaryView({
     if (!primary || subs.length === 0) return "";
     if (!listLoaded && remoteLoading) return "실매장 목록을 불러오는 중…";
     if (feedSource === "supabase_unconfigured") {
-      return "DB가 연결되지 않았습니다. Supabase 환경 변수를 확인해 주세요.";
+      return "지금은 이 업종의 매장 목록을 준비 중입니다. 잠시 후 다시 확인해 주세요.";
     }
     if (useRemoteList) {
       return "등록된 실매장입니다. 동네·위치 설정에 따라 정렬됩니다.";
@@ -390,7 +390,7 @@ export function StoresBrowsePrimaryView({
             <p className="text-sm text-gray-600 dark:text-gray-300">표시할 매장이 없습니다.</p>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
               {feedSource === "supabase_unconfigured" ?
-                "서버에 Supabase URL·SERVICE_ROLE 키가 설정되면 어드민 DB와 동일한 실데이터가 표시됩니다."
+                "매장 목록을 준비 중입니다. 잠시 후 다시 확인하거나 다른 업종을 먼저 둘러보세요."
               : "다른 세부 업종을 선택하거나, 매장의 업종·세부 주제·승인·노출 상태를 확인해 주세요."}
             </p>
             {otherPrimaries.length > 0 ?

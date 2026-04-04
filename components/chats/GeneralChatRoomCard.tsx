@@ -5,10 +5,9 @@ import type { ChatRoom } from "@/lib/types/chat";
 import { formatChatTime } from "@/lib/utils/format";
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
 import { ChatRoomListMenu } from "@/components/chats/ChatRoomListMenu";
-import { COMMUNITY_CHAT_SURFACE } from "@/lib/chats/surfaces/community-chat-surface";
 
 const KIND_LABEL: Record<NonNullable<ChatRoom["generalChat"]>["kind"], string> = {
-  community: COMMUNITY_CHAT_SURFACE.tradeListRoomBadgeLabel,
+  community: "일반",
   group: "모임",
   open_chat: "오픈채팅",
   business: "비즈",

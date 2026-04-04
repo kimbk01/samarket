@@ -2,6 +2,20 @@
 
 export const MAX_CHAT_IMAGE_ATTACH = 10;
 
+function getAllowedChatImagePrefixes(): string[] {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
+  if (!base) return [];
+  return [`${base}/storage/v1/object/public/`];
+}
+
+function isAllowedIncomingChatImageUrl(raw: string): boolean {
+  const value = raw.trim();
+  if (!value) return false;
+  if (!/^https?:\/\//i.test(value)) return false;
+  const allowPrefixes = getAllowedChatImagePrefixes();
+  return allowPrefixes.some((prefix) => value.startsWith(prefix));
+}
+
 export type ProductChatImageBundlePayload = {
   bundle: true;
   urls: string[];
@@ -53,10 +67,13 @@ export function normalizeIncomingImageUrlList(input: {
   const out: string[] = [];
   if (Array.isArray(input.imageUrls)) {
     for (const u of input.imageUrls) {
-      if (typeof u === "string" && u.trim()) out.push(u.trim());
+      if (typeof u === "string" && isAllowedIncomingChatImageUrl(u)) out.push(u.trim());
     }
   }
-  const single = typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : "";
+  const single =
+    typeof input.imageUrl === "string" && isAllowedIncomingChatImageUrl(input.imageUrl)
+      ? input.imageUrl.trim()
+      : "";
   if (single) out.push(single);
   const dedup = [...new Set(out)];
   return dedup.slice(0, MAX_CHAT_IMAGE_ATTACH);

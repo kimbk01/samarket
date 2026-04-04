@@ -13,7 +13,6 @@ import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodCommentNode, NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { formatTimeAgo } from "@/lib/utils/format";
-import { startCommunityInquiryToAuthor } from "@/lib/chat/startCommunityInquiry";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
 import { CommentList } from "./CommentList";
 import { MeetingCard } from "./MeetingCard";
@@ -68,7 +67,6 @@ export function CommunityDetail({
   const [commentText, setCommentText] = useState("");
   const [parentId, setParentId] = useState<string | null>(null);
   const [scrollSig, setScrollSig] = useState(0);
-  const [inquiryErr, setInquiryErr] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportErr, setReportErr] = useState("");
@@ -195,17 +193,6 @@ export function CommunityDetail({
     } finally {
       setBusy(false);
     }
-  };
-
-  const onInquiry = async () => {
-    if (!post.author_id || !me?.id) {
-      router.push("/login");
-      return;
-    }
-    setInquiryErr("");
-    const res = await startCommunityInquiryToAuthor(post.id, post.author_id);
-    if (res.ok) router.push(`/chats/${res.roomId}`);
-    else setInquiryErr(res.error);
   };
 
   const onDeletePost = async () => {
@@ -380,15 +367,6 @@ export function CommunityDetail({
               {me?.id && me.id !== post.author_id ? (
                 <button
                   type="button"
-                  onClick={() => void onInquiry()}
-                  className="rounded-md bg-signature px-4 py-2 text-[13px] font-medium text-white"
-                >
-                  작성자에게 문의
-                </button>
-              ) : null}
-              {me?.id && me.id !== post.author_id ? (
-                <button
-                  type="button"
                   onClick={() => {
                     setReportErr("");
                     setReportOpen(true);
@@ -426,7 +404,6 @@ export function CommunityDetail({
             </div>
           ) : null}
           {deleteErr ? <p className="px-4 pb-2 text-[12px] text-red-600">{deleteErr}</p> : null}
-          {inquiryErr ? <p className="px-4 pb-2 text-[12px] text-red-600">{inquiryErr}</p> : null}
 
           {/* 내 글일 때: 광고 신청 버튼 */}
           {me?.id && me.id === post.author_id && (

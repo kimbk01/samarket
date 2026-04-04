@@ -221,10 +221,8 @@ export const adminMenu: AdminMenuItem[] = [
           { key: "chat-all", title: "전체채팅", path: "/admin/chats", status: "done" },
           { key: "chat-trade-flow", title: "거래흐름·온도", path: "/admin/trade-flow", status: "done" },
           { key: "chat-trade", title: "거래채팅", path: "/admin/chats/trade", status: "done" },
+          { key: "chat-messenger", title: "커뮤니티 메신저", path: "/admin/chats/messenger", status: "done" },
           { key: "chat-reported", title: "신고채팅", path: "/admin/chats/reported", status: "done" },
-          { key: "chat-business", title: "업체·비즈", path: "/admin/chats/business", status: "done" },
-          { key: "chat-community", title: "커뮤니티 채팅", path: "/admin/chats/community", status: "done" },
-          { key: "chat-group", title: "모임·게시판", path: "/admin/chats/group", status: "done" },
         ],
       },
       {

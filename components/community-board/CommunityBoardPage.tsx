@@ -1,14 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { BoardSkinRenderer } from "./BoardSkinRenderer";
 import type { Board, PostListItem } from "@/lib/community-board/types";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { startGroupInquiry } from "@/lib/chat/startGroupInquiry";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
-import { isUuidString } from "@/lib/shared/uuid-string";
 
 export interface CommunityBoardPageProps {
   board: Board;
@@ -48,40 +43,9 @@ export function CommunityBoardPage({
   hideBoardDescription = false,
   feedFilterBaseHref = null,
 }: CommunityBoardPageProps) {
-  const router = useRouter();
-  const [boardInquiryBusy, setBoardInquiryBusy] = useState(false);
-  const [boardInquiryError, setBoardInquiryError] = useState("");
   const baseHref = SAMARKET_ROUTES.community.home;
   const filterBaseHref = (feedFilterBaseHref?.trim() || baseHref) as string;
   const showCategoryFilter = board.category_mode === "board_category";
-
-  const contactUidRaw =
-    board.policy?.moderator_user_id?.trim() ||
-    (typeof process.env.NEXT_PUBLIC_COMMUNITY_BOARD_CONTACT_USER_ID === "string"
-      ? process.env.NEXT_PUBLIC_COMMUNITY_BOARD_CONTACT_USER_ID.trim()
-      : "");
-  const contactUid = isUuidString(contactUidRaw) ? contactUidRaw : "";
-  const me = getCurrentUser()?.id ?? "";
-  const showBoardInquiry = !!contactUid && me !== contactUid;
-
-  const onBoardInquiry = async () => {
-    if (!contactUid) return;
-    const u = getCurrentUser();
-    if (!u?.id) {
-      router.push("/my/account");
-      return;
-    }
-    if (u.id === contactUid) return;
-    setBoardInquiryError("");
-    setBoardInquiryBusy(true);
-    const res = await startGroupInquiry({
-      peerUserId: contactUid,
-      groupKey: `community_board:${board.id}`,
-    });
-    setBoardInquiryBusy(false);
-    if (res.ok) router.push(`/chats/${res.roomId}`);
-    else setBoardInquiryError(res.error);
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,16 +62,6 @@ export function CommunityBoardPage({
               글 {totalPostCount ?? posts.length}개
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              {showBoardInquiry && (
-                <button
-                  type="button"
-                  onClick={() => void onBoardInquiry()}
-                  disabled={boardInquiryBusy}
-                  className="rounded-lg border border-gray-200 bg-signature/5 px-3 py-1.5 text-sm font-medium text-gray-900 disabled:opacity-50"
-                >
-                  {boardInquiryBusy ? "연결 중…" : "운영진에게 문의"}
-                </button>
-              )}
               <Link
                 href={
                   categorySlug
@@ -120,7 +74,6 @@ export function CommunityBoardPage({
               </Link>
             </div>
           </div>
-          {boardInquiryError ? <p className="mt-2 text-xs text-red-600">{boardInquiryError}</p> : null}
           {localTopics.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
               <Link

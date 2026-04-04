@@ -11,7 +11,7 @@ export type ChatHubSecondaryTabItem = {
 };
 
 /**
- * `/chats` trade — 구매·판매, `/chats/philife` — 1:1·오픈채팅.
+ * `/chats` trade — 구매·판매.
  * 상단 `ChatHubTopTabs` primary와 **글자 크기·색만** 맞추고, 탭 UI는 2분할 하단 보더 형태 유지.
  */
 export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem[] }) {

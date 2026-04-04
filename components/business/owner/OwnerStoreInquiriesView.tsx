@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { useCallback, useEffect, useState } from "react";
@@ -31,8 +31,10 @@ function formatDate(iso: string | null) {
 }
 
 export function OwnerStoreInquiriesView() {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const preferredStoreId = (searchParams.get("storeId") ?? "").trim();
+  const loginHref = `/login?next=${encodeURIComponent(pathname ?? "/my/business/inquiries")}`;
 
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -147,7 +149,14 @@ export function OwnerStoreInquiriesView() {
     return <p className="text-sm text-gray-500">불러오는 중…</p>;
   }
   if (state.kind === "unauth") {
-    return <p className="text-sm text-gray-600">로그인이 필요합니다.</p>;
+    return (
+      <div className="rounded-xl bg-white p-6 text-sm text-gray-600 shadow-sm">
+        <p>로그인 후 고객 문의를 확인하고 바로 답변할 수 있습니다.</p>
+        <Link href={loginHref} className="mt-3 inline-flex rounded-lg bg-signature px-4 py-2 font-semibold text-white">
+          로그인하고 문의 보기
+        </Link>
+      </div>
+    );
   }
   if (state.kind === "config") {
     return <p className="text-sm text-gray-600">서버 설정을 확인해 주세요.</p>;

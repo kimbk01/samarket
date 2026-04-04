@@ -220,12 +220,12 @@ export function MyBusinessPage({
   if (state.kind === "unauth") {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-amber-50 p-4 text-[14px] text-amber-900`}>
-        <p>로그인(또는 개발용 테스트 로그인) 후 매장 신청을 이용할 수 있습니다.</p>
+        <p>로그인 후 매장 신청과 주문 운영을 바로 시작할 수 있습니다.</p>
         <Link
-          href="/mypage"
+          href="/login?next=%2Fmy%2Fbusiness"
           className="inline-flex w-fit rounded-lg border border-amber-200 bg-white px-4 py-2 text-[14px] font-medium text-amber-900"
         >
-          내 정보로 이동
+          로그인하고 매장 시작하기
         </Link>
       </div>
     );
@@ -234,7 +234,7 @@ export function MyBusinessPage({
   if (state.kind === "config") {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-gray-600`}>
-        <p>서버에 Supabase 환경 변수가 없어 DB 매장을 불러올 수 없습니다.</p>
+        <p>지금은 매장 데이터를 불러오지 못하고 있습니다. 잠시 후 다시 시도해 주세요.</p>
         <MockBusinessFallback />
       </div>
     );

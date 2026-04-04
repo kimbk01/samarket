@@ -143,7 +143,7 @@ export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
   { id: "home", href: "/home", label: "거래", icon: "trade" },
   { id: "community", href: "/philife", label: "커뮤니티", icon: "community" },
   { id: "stores", href: "/stores", label: "배달", icon: "stores" },
-  { id: "chat", href: "/mypage/trade/chat", label: "거래채팅", icon: "chat" },
+  { id: "chat", href: "/community-messenger", label: "메신저", icon: "chat" },
   { id: "my", href: "/mypage", label: "내정보", icon: "my" },
   // 예: 탭별 색·폰트만 바꿀 때
   // { id: "home", href: "/home", label: "홈", icon: "home", iconActiveClass: "text-emerald-600", labelActiveExtraClass: "font-semibold" },

@@ -53,12 +53,11 @@ export function getMobileTopTier1RuleSet(pathname: string | null | undefined): M
   const isUnderMypageTrade = startsWithPath(pathNoQuery, "/mypage/trade");
 
   const isMypageTradeChatRoom = /^\/mypage\/trade\/chat\/[^/]+$/.test(pathNoQuery);
+  const isCommunityMessengerRoom = /^\/community-messenger\/rooms\/[^/]+$/.test(pathNoQuery);
   const isLegacyChatRoomDetail =
     CHAT_ROOM_DETAIL_RE.test(pathNoQuery) &&
     pathNoQuery !== "/chats/new" &&
-    pathNoQuery !== "/chats/order" &&
-    pathNoQuery !== "/chats/community" &&
-    pathNoQuery !== "/chats/philife";
+    pathNoQuery !== "/chats/order";
 
   /** `/stores` 루트만 제외 — `startsWithPath(..., "/stores/")`는 `/stores//`로 잘못 매칭되어 browse 등이 빠지던 버그 방지 */
   const isStoresSubpathExcludingRoot =
@@ -87,6 +86,7 @@ export function getMobileTopTier1RuleSet(pathname: string | null | undefined): M
   /** 전역 1단과 로컬 `TradePrimaryColumnStickyAppBar` 등이 겹치지 않게 끄는 구간 */
   const suppressMainTier1 =
     isMypageTradeChatRoom ||
+    isCommunityMessengerRoom ||
     isLegacyChatRoomDetail ||
     suppressStoresTier1ForLocalChrome ||
     isMyBusinessOwnerHubSurface ||

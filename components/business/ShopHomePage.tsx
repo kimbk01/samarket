@@ -1,14 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { getBusinessProfileBySlug } from "@/lib/business/mock-business-profiles";
 import { getBusinessProducts } from "@/lib/business/mock-business-products";
 import { BusinessProfileView } from "./BusinessProfileView";
 import { BusinessProductList } from "./BusinessProductList";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { startBusinessInquiry } from "@/lib/chat/startBusinessInquiry";
 import { isUuidString } from "@/lib/shared/uuid-string";
 
 interface ShopHomePageProps {
@@ -16,9 +13,6 @@ interface ShopHomePageProps {
 }
 
 export function ShopHomePage({ slug }: ShopHomePageProps) {
-  const router = useRouter();
-  const [inquiryBusy, setInquiryBusy] = useState(false);
-  const [inquiryError, setInquiryError] = useState("");
   const profile = getBusinessProfileBySlug(slug);
 
   if (!profile) {
@@ -37,45 +31,18 @@ export function ShopHomePage({ slug }: ShopHomePageProps) {
   const me = getCurrentUser()?.id ?? "";
   const isOwner = !!me && profile.ownerUserId === me;
 
-  const onShopInquiry = async () => {
-    if (!operatorOk) return;
-    const u = getCurrentUser();
-    if (!u?.id) {
-      router.push("/my/account");
-      return;
-    }
-    if (u.id === profile.ownerUserId) return;
-    setInquiryError("");
-    setInquiryBusy(true);
-    const res = await startBusinessInquiry({
-      operatorUserId: profile.ownerUserId,
-      businessKey: profile.id,
-    });
-    setInquiryBusy(false);
-    if (res.ok) router.push(`/chats/${res.roomId}`);
-    else setInquiryError(res.error);
-  };
-
   return (
     <div className="space-y-6">
       <BusinessProfileView profile={profile} isOwner={false} />
       <div className="rounded-lg border border-gray-200 bg-white p-3 text-center space-y-2">
-        {!isOwner && operatorOk && (
-          <button
-            type="button"
-            onClick={() => void onShopInquiry()}
-            disabled={inquiryBusy}
-            className="w-full rounded-full bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
-          >
-            {inquiryBusy ? "연결 중…" : "문의하기"}
-          </button>
-        )}
         {!operatorOk && (
           <p className="text-[12px] text-gray-500">
-            상점 운영자 계정(ownerUserId)이 로그인 UUID와 연결되면 문의하기를 사용할 수 있어요.
+            상점 운영자 계정(ownerUserId)이 로그인 UUID와 연결되면 운영 기능을 더 넓힐 수 있어요.
           </p>
         )}
-        {inquiryError ? <p className="text-[12px] text-red-600">{inquiryError}</p> : null}
+        {!isOwner && operatorOk ? (
+          <p className="text-[12px] text-gray-500">채팅 문의 기능은 현재 비활성화되어 있습니다.</p>
+        ) : null}
         <button
           type="button"
           className="rounded-full border border-signature bg-white px-4 py-2 text-[14px] font-medium text-signature"

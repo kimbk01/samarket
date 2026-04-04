@@ -1,0 +1,575 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import type {
+  CommunityMessengerCallKind,
+  CommunityMessengerCallSession,
+  CommunityMessengerCallSignal,
+} from "@/lib/community-messenger/types";
+
+type CallPanelState = {
+  kind: CommunityMessengerCallKind;
+  mode: "preview" | "outgoing" | "incoming" | "active";
+  sessionId: string | null;
+  peerLabel: string;
+};
+
+const CALL_RING_TIMEOUT_MS = 35_000;
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
+  { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+];
+
+let cachedIceServers: RTCIceServer[] | null = null;
+let cachedIceServersPromise: Promise<RTCIceServer[]> | null = null;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readCandidateInit(payload: Record<string, unknown>): RTCIceCandidateInit | null {
+  const candidate = payload.candidate;
+  return isRecord(candidate) ? (candidate as RTCIceCandidateInit) : null;
+}
+
+function readSessionDescription(
+  payload: Record<string, unknown>,
+  expectedType: "offer" | "answer"
+): RTCSessionDescriptionInit | null {
+  const sdp = typeof payload.sdp === "string" ? payload.sdp : "";
+  if (!sdp) return null;
+  return { type: expectedType, sdp };
+}
+
+async function getCommunityMessengerIceServers(): Promise<RTCIceServer[]> {
+  if (cachedIceServers) return cachedIceServers;
+  if (cachedIceServersPromise) return cachedIceServersPromise;
+  cachedIceServersPromise = fetch("/api/community-messenger/calls/ice-servers", {
+    cache: "no-store",
+  })
+    .then(async (res) => {
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        iceServers?: RTCIceServer[];
+      };
+      if (!res.ok || !json.ok || !Array.isArray(json.iceServers) || json.iceServers.length === 0) {
+        cachedIceServers = DEFAULT_ICE_SERVERS;
+        return cachedIceServers;
+      }
+      cachedIceServers = json.iceServers;
+      return cachedIceServers;
+    })
+    .catch(() => {
+      cachedIceServers = DEFAULT_ICE_SERVERS;
+      return cachedIceServers;
+    })
+    .finally(() => {
+      cachedIceServersPromise = null;
+    });
+  return cachedIceServersPromise;
+}
+
+export function useCommunityMessengerCall(args: {
+  roomId: string;
+  roomType: "direct" | "group";
+  viewerUserId: string;
+  peerUserId: string | null;
+  peerLabel: string;
+  activeCall: CommunityMessengerCallSession | null;
+  onRefresh: () => Promise<void> | void;
+}) {
+  const [panel, setPanel] = useState<CallPanelState | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const processedSignalIdsRef = useRef<Set<string>>(new Set());
+  const activeSinceRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+
+  const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
+
+  const cleanupMedia = useCallback(() => {
+    peerConnectionRef.current?.close();
+    peerConnectionRef.current = null;
+    for (const track of localStream?.getTracks() ?? []) track.stop();
+    for (const track of remoteStream?.getTracks() ?? []) track.stop();
+    setLocalStream(null);
+    setRemoteStream(null);
+    pendingOfferRef.current = null;
+    pendingCandidatesRef.current = [];
+    processedSignalIdsRef.current.clear();
+    activeSinceRef.current = null;
+    setElapsedSeconds(0);
+  }, [localStream, remoteStream]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      cleanupMedia();
+    };
+  }, [cleanupMedia]);
+
+  useEffect(() => {
+    const node = localVideoRef.current;
+    if (!node) return;
+    node.srcObject = localStream;
+    return () => {
+      node.srcObject = null;
+    };
+  }, [localStream]);
+
+  useEffect(() => {
+    const node = remoteVideoRef.current;
+    if (!node) return;
+    node.srcObject = remoteStream;
+    return () => {
+      node.srcObject = null;
+    };
+  }, [remoteStream]);
+
+  useEffect(() => {
+    if (panel?.mode !== "active") return;
+    const startedAt = activeSinceRef.current ?? Date.now();
+    activeSinceRef.current = startedAt;
+    setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    const timer = setInterval(() => {
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [panel?.mode]);
+
+  useEffect(() => {
+    const activeCall = args.activeCall;
+    if (!activeCall) {
+      if (panel?.sessionId) {
+        cleanupMedia();
+        setPanel(null);
+      }
+      return;
+    }
+
+    if (activeCall.status === "ringing") {
+      setPanel((prev) => {
+        if (prev?.sessionId === activeCall.id && prev.mode === "preview") return prev;
+        return {
+          kind: activeCall.callKind,
+          mode: activeCall.isMineInitiator ? "outgoing" : "incoming",
+          sessionId: activeCall.id,
+          peerLabel: activeCall.peerLabel,
+        };
+      });
+      return;
+    }
+
+    if (activeCall.status === "active") {
+      activeSinceRef.current = new Date(activeCall.answeredAt ?? activeCall.startedAt).getTime();
+      setPanel({
+        kind: activeCall.callKind,
+        mode: "active",
+        sessionId: activeCall.id,
+        peerLabel: activeCall.peerLabel,
+      });
+    }
+  }, [args.activeCall, cleanupMedia, panel?.sessionId]);
+
+  const ensureLocalStream = useCallback(async (kind: CommunityMessengerCallKind) => {
+    if (localStream) return localStream;
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: kind === "video",
+    });
+    if (!mountedRef.current) {
+      for (const track of stream.getTracks()) track.stop();
+      throw new Error("unmounted");
+    }
+    setLocalStream(stream);
+    return stream;
+  }, [localStream]);
+
+  const sendSignal = useCallback(async (sessionId: string, toUserId: string, signalType: "offer" | "answer" | "ice-candidate" | "hangup", payload: Record<string, unknown>) => {
+    await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toUserId, signalType, payload }),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!args.activeCall || args.activeCall.status !== "ringing" || !args.activeCall.isMineInitiator) return;
+    const sessionId = args.activeCall.id;
+    const peerUserId = args.activeCall.peerUserId;
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          if (peerUserId) {
+            await sendSignal(sessionId, peerUserId, "hangup", { reason: "missed" });
+          }
+          await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "missed" }),
+          });
+          cleanupMedia();
+          setPanel(null);
+          setErrorMessage("상대방이 받지 않아 부재중 통화로 처리되었습니다.");
+          await args.onRefresh();
+        } catch {
+          /* ignore timeout failure */
+        }
+      })();
+    }, CALL_RING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [args, cleanupMedia, sendSignal]);
+
+  const flushPendingCandidates = useCallback(async () => {
+    const connection = peerConnectionRef.current;
+    if (!connection || !connection.remoteDescription) return;
+    for (const candidate of pendingCandidatesRef.current.splice(0)) {
+      try {
+        await connection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch {
+        /* ignore candidate failures */
+      }
+    }
+  }, []);
+
+  const ensurePeerConnection = useCallback(
+    async (kind: CommunityMessengerCallKind, sessionId: string, peerUserId: string) => {
+      const existing = peerConnectionRef.current;
+      if (existing) return existing;
+      const stream = await ensureLocalStream(kind);
+      const iceServers = await getCommunityMessengerIceServers();
+      const connection = new RTCPeerConnection({ iceServers });
+      const nextRemoteStream = new MediaStream();
+      setRemoteStream(nextRemoteStream);
+      for (const track of stream.getTracks()) {
+        connection.addTrack(track, stream);
+      }
+      connection.ontrack = (event) => {
+        for (const streamItem of event.streams) {
+          for (const track of streamItem.getTracks()) {
+            nextRemoteStream.addTrack(track);
+          }
+        }
+      };
+      connection.onicecandidate = (event) => {
+        if (!event.candidate) return;
+        void sendSignal(sessionId, peerUserId, "ice-candidate", {
+          candidate: event.candidate.toJSON(),
+        });
+      };
+      peerConnectionRef.current = connection;
+      return connection;
+    },
+    [ensureLocalStream, sendSignal]
+  );
+
+  const applySignal = useCallback(
+    async (signal: CommunityMessengerCallSignal) => {
+      if (signal.toUserId !== args.viewerUserId) return;
+      if (processedSignalIdsRef.current.has(signal.id)) return;
+      processedSignalIdsRef.current.add(signal.id);
+
+      if (signal.signalType === "offer") {
+        pendingOfferRef.current = readSessionDescription(signal.payload, "offer");
+        return;
+      }
+
+      if (signal.signalType === "answer") {
+        const answer = readSessionDescription(signal.payload, "answer");
+        if (!answer || !peerConnectionRef.current) return;
+        if (!peerConnectionRef.current.currentRemoteDescription) {
+          await peerConnectionRef.current.setRemoteDescription(answer);
+          await flushPendingCandidates();
+        }
+        return;
+      }
+
+      if (signal.signalType === "ice-candidate") {
+        const candidate = readCandidateInit(signal.payload);
+        if (!candidate) return;
+        if (!peerConnectionRef.current?.remoteDescription) {
+          pendingCandidatesRef.current.push(candidate);
+          return;
+        }
+        try {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch {
+          /* ignore candidate failures */
+        }
+        return;
+      }
+
+      if (signal.signalType === "hangup") {
+        cleanupMedia();
+        setPanel(null);
+        setErrorMessage("상대방이 통화를 종료했습니다.");
+        await args.onRefresh();
+      }
+    },
+    [args, cleanupMedia, flushPendingCandidates]
+  );
+
+  useEffect(() => {
+    if (!currentSessionId) return;
+    const sessionId = currentSessionId;
+    const sb = getSupabaseClient();
+    let channel: RealtimeChannel | null = null;
+    let cancelled = false;
+
+    async function bootstrapSignals() {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
+      if (!res.ok || !json.ok) return;
+      for (const signal of json.signals ?? []) {
+        if (cancelled) break;
+        await applySignal(signal);
+      }
+    }
+
+    void bootstrapSignals();
+    if (sb) {
+      channel = sb
+        .channel(`community-messenger-call-signals:${sessionId}:${args.viewerUserId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "community_messenger_call_signals",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const row = payload.new as Record<string, unknown> | undefined;
+            if (!row) return;
+            void applySignal({
+              id: String(row.id ?? ""),
+              sessionId: String(row.session_id ?? ""),
+              roomId: String(row.room_id ?? ""),
+              fromUserId: String(row.from_user_id ?? ""),
+              toUserId: String(row.to_user_id ?? ""),
+              signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
+              payload: isRecord(row.payload) ? row.payload : {},
+              createdAt: String(row.created_at ?? new Date().toISOString()),
+            });
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      cancelled = true;
+      if (sb && channel) void sb.removeChannel(channel);
+    };
+  }, [applySignal, args.viewerUserId, currentSessionId]);
+
+  const openPreview = useCallback(async (kind: CommunityMessengerCallKind) => {
+    setErrorMessage(null);
+    if (args.roomType !== "direct") {
+      setErrorMessage("그룹 통화 실연결은 다음 단계에서 지원합니다.");
+      return;
+    }
+    setBusy("preview");
+    try {
+      await ensureLocalStream(kind);
+      setPanel({
+        kind,
+        mode: "preview",
+        sessionId: null,
+        peerLabel: args.peerLabel,
+      });
+    } catch {
+      setErrorMessage("마이크 또는 카메라 권한을 확인해 주세요.");
+    } finally {
+      setBusy(null);
+    }
+  }, [args.peerLabel, args.roomType, ensureLocalStream]);
+
+  const closePreview = useCallback(() => {
+    cleanupMedia();
+    setPanel(null);
+    setErrorMessage(null);
+  }, [cleanupMedia]);
+
+  const startCall = useCallback(async () => {
+    if (!panel || panel.mode !== "preview" || !args.peerUserId) return;
+    setBusy("call-start");
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(args.roomId)}/calls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callKind: panel.kind }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; session?: CommunityMessengerCallSession };
+      if (!res.ok || !json.ok || !json.session) {
+        setErrorMessage(
+          json.error === "group_call_not_supported_yet"
+            ? "그룹 통화 실연결은 다음 단계에서 지원합니다."
+            : "통화 시작에 실패했습니다."
+        );
+        return;
+      }
+      const session = json.session;
+      setPanel({
+        kind: session.callKind,
+        mode: "outgoing",
+        sessionId: session.id,
+        peerLabel: session.peerLabel,
+      });
+      const connection = await ensurePeerConnection(session.callKind, session.id, session.peerUserId);
+      const offer = await connection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: session.callKind === "video",
+      });
+      await connection.setLocalDescription(offer);
+      await sendSignal(session.id, session.peerUserId, "offer", { sdp: offer.sdp ?? "" });
+      await args.onRefresh();
+    } finally {
+      setBusy(null);
+    }
+  }, [args, ensurePeerConnection, panel, sendSignal]);
+
+  const rejectIncomingCall = useCallback(async () => {
+    if (!args.activeCall?.id) return;
+    setBusy("call-reject");
+    try {
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(args.activeCall.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      if (args.peerUserId) {
+        await sendSignal(args.activeCall.id, args.peerUserId, "hangup", { reason: "reject" });
+      }
+      cleanupMedia();
+      setPanel(null);
+      await args.onRefresh();
+    } finally {
+      setBusy(null);
+    }
+  }, [args, cleanupMedia, sendSignal]);
+
+  const acceptIncomingCall = useCallback(async () => {
+    const activeCall = args.activeCall;
+    if (!activeCall) return;
+    setBusy("call-accept");
+    setErrorMessage(null);
+    try {
+      const connection = await ensurePeerConnection(activeCall.callKind, activeCall.id, activeCall.peerUserId);
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}/signals`, {
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
+      for (const signal of json.signals ?? []) {
+        await applySignal(signal);
+      }
+      const offer = pendingOfferRef.current;
+      if (!offer) {
+        setErrorMessage("통화 제안 정보를 아직 받지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      await connection.setRemoteDescription(offer);
+      await flushPendingCandidates();
+      const answer = await connection.createAnswer();
+      await connection.setLocalDescription(answer);
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept" }),
+      });
+      await sendSignal(activeCall.id, activeCall.peerUserId, "answer", { sdp: answer.sdp ?? "" });
+      activeSinceRef.current = Date.now();
+      setPanel({
+        kind: activeCall.callKind,
+        mode: "active",
+        sessionId: activeCall.id,
+        peerLabel: activeCall.peerLabel,
+      });
+      await args.onRefresh();
+    } catch {
+      setErrorMessage("통화 연결을 시작하지 못했습니다.");
+    } finally {
+      setBusy(null);
+    }
+  }, [applySignal, args, ensurePeerConnection, flushPendingCandidates, sendSignal]);
+
+  const cancelOutgoingCall = useCallback(async () => {
+    const sessionId = currentSessionId;
+    if (!sessionId || !args.peerUserId) return;
+    setBusy("call-cancel");
+    try {
+      await sendSignal(sessionId, args.peerUserId, "hangup", { reason: "cancel" });
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      cleanupMedia();
+      setPanel(null);
+      await args.onRefresh();
+    } finally {
+      setBusy(null);
+    }
+  }, [args.onRefresh, args.peerUserId, cleanupMedia, currentSessionId, sendSignal]);
+
+  const endActiveCall = useCallback(async () => {
+    const sessionId = currentSessionId;
+    if (!sessionId || !args.peerUserId) return;
+    setBusy("call-end");
+    try {
+      await sendSignal(sessionId, args.peerUserId, "hangup", { reason: "end" });
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "end",
+          durationSeconds: elapsedSeconds,
+        }),
+      });
+      cleanupMedia();
+      setPanel(null);
+      await args.onRefresh();
+    } finally {
+      setBusy(null);
+    }
+  }, [args.onRefresh, args.peerUserId, cleanupMedia, currentSessionId, elapsedSeconds, sendSignal]);
+
+  const callStatusLabel = useMemo(() => {
+    if (!panel) return "";
+    if (panel.mode === "preview") return "연결 전 미리보기";
+    if (panel.mode === "incoming") return "수신 통화";
+    if (panel.mode === "outgoing") return "상대방 연결 대기 중";
+    return "통화 진행 중";
+  }, [panel]);
+
+  return {
+    panel,
+    busy,
+    errorMessage,
+    elapsedSeconds,
+    localStream,
+    remoteStream,
+    localVideoRef,
+    remoteVideoRef,
+    callStatusLabel,
+    openPreview,
+    closePreview,
+    startCall,
+    acceptIncomingCall,
+    rejectIncomingCall,
+    cancelOutgoingCall,
+    endActiveCall,
+  };
+}

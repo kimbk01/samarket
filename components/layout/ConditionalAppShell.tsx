@@ -20,6 +20,7 @@ import { NotificationSoundPrime } from "@/components/notifications/NotificationS
 import { NotificationsBadgeRealtimeBridge } from "@/components/notifications/NotificationsBadgeRealtimeBridge";
 import { HomeTradeReelsSideRail } from "@/components/home-feed/HomeTradeReelsSideRail";
 import { PhilifeFeedWarmPrefetch } from "@/components/community/PhilifeFeedWarmPrefetch";
+import { GlobalCommunityMessengerIncomingCall } from "@/components/community-messenger/GlobalCommunityMessengerIncomingCall";
 
 export function ConditionalAppShell({
   children,
@@ -47,23 +48,23 @@ export function ConditionalAppShell({
   const isStoreSection = pathname === "/stores" || (pathname?.startsWith("/stores/") ?? false);
   /** 거래 허브 안 채팅방 상세 — 메시지 영역만 스크롤되게 뷰포트 높이 고정. 목록·구매·판매 등은 문서 스크롤 */
   const isMypageTradeChatRoom = pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/) ?? false;
+  const isCommunityMessengerRoom = pathname?.match(/^\/community-messenger\/rooms\/[^/]+$/) ?? false;
   /**
    * 거래 채팅방: AppStickyHeader(1단)은 플로우 상단에 따로 있으므로,
    * 본 셸 높이에서만 1단·상단 safe-area 를 빼면 `1단 + 본문` 이 뷰포트에 맞는다.
    * 하단 메인 탭은 fixed 이므로 여기서 높이에서 빼지 않음(`trade` 레이아웃 `pb-24` 로 여백).
    */
-  const appShellRootClass = isMypageTradeChatRoom
+  const appShellRootClass = isMypageTradeChatRoom || isCommunityMessengerRoom
     ? topTier1RuleSet.showRegionBar
       ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
       : "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
     : "min-h-screen min-w-0 max-w-full overflow-x-clip bg-[#F7F7F7]";
   const isChatRoomDetail =
     isMypageTradeChatRoom ||
+    isCommunityMessengerRoom ||
     ((pathname?.match(/^\/chats\/[^/]+$/) &&
       pathname !== "/chats/new" &&
-      pathname !== "/chats/order" &&
-      pathname !== "/chats/community" &&
-      pathname !== "/chats/philife") ??
+      pathname !== "/chats/order") ??
       false);
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
@@ -73,14 +74,14 @@ export function ConditionalAppShell({
     (pathname?.startsWith("/community/") ?? false) ||
     pathname === "/philife" ||
     (pathname?.startsWith("/philife/") ?? false);
+  const isCommunityMessengerSurface =
+    pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);
   const isOrdersHub = pathname === "/orders" || (pathname?.startsWith("/orders/") ?? false);
   /** TRADE 탐색(/home·/market/카테고리) + 홈 개인거래 숏컷 — 동일 플로팅 다이얼·스크롤 패딩 */
   const isTradeFloatingSurface = isTradeFloatingMenuSurface(pathname);
   /** 채팅 목록 허브 — 상단 매장 단축 바가 스티키와 겹쳐 보이지 않게 제외 */
   const isChatsHubSurface =
-    pathname === "/mypage/trade/chat" ||
-    pathname === "/chats/philife" ||
-    (pathname?.startsWith("/chats/philife") ?? false);
+    pathname === "/mypage/trade/chat";
   const hideBarAndFloat = isSettings || isLogout || isMyEdit;
   /** 모바일 메인 1단은 탐색형 화면에서만 유지 */
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
@@ -100,6 +101,7 @@ export function ConditionalAppShell({
     !isStoreProductDetail &&
     !isStoreSection &&
     !isCommunityApp &&
+    !isCommunityMessengerSurface &&
     !isOrdersHub &&
     !isTradeFloatingSurface;
   /** 거래 채팅방 상세에서도 하단 메인 탭 유지(당근형) */
@@ -127,6 +129,7 @@ export function ConditionalAppShell({
     !isSearch &&
     !isServicesSection &&
     !isTradeFloatingSurface &&
+    !isCommunityMessengerSurface &&
     !isCommunityApp &&
     !isPersonalProductComposerPage;
   const mountGlobalRealtimeChrome =
@@ -147,16 +150,21 @@ export function ConditionalAppShell({
       {mountGlobalRealtimeChrome ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
+      {mountGlobalRealtimeChrome ? <GlobalCommunityMessengerIncomingCall /> : null}
       {showRegionBar && <RegionBar />}
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main
         className={`${mainBottomClass} min-w-0 overflow-x-hidden ${
-          isMypageTradeChatRoom ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden" : ""
+          isMypageTradeChatRoom || isCommunityMessengerRoom
+            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden"
+            : ""
         }`}
       >
         <div
           className={`${APP_MAIN_COLUMN_CLASS}${
-            isMypageTradeChatRoom ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""
+            isMypageTradeChatRoom || isCommunityMessengerRoom
+              ? " flex min-h-0 min-w-0 flex-1 flex-col"
+              : ""
           }`}
         >
           {children}

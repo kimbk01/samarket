@@ -12,9 +12,7 @@ import {
 import type { CommunityCommentDTO, CommunityPostDetailDTO } from "@/lib/community-feed/types";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { formatTimeAgo } from "@/lib/utils/format";
-import { startCommunityInquiryToAuthor } from "@/lib/chat/startCommunityInquiry";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
-import { useRouter } from "next/navigation";
 import { philifePostCommentsUrl, philifePostLikeUrl, philifePostViewUrl } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
 
@@ -25,7 +23,6 @@ export function CommunityPostDetailClient({
   post: CommunityPostDetailDTO;
   initialComments: CommunityCommentDTO[];
 }) {
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [comments, setComments] = useState(initialComments);
@@ -33,7 +30,6 @@ export function CommunityPostDetailClient({
   const [viewCount, setViewCount] = useState(post.view_count);
   const [busy, setBusy] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [inquiryErr, setInquiryErr] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportErr, setReportErr] = useState("");
@@ -125,17 +121,6 @@ export function CommunityPostDetailClient({
     }
   };
 
-  const onInquiry = async () => {
-    if (!post.author_id || !me?.id) {
-      router.push("/login");
-      return;
-    }
-    setInquiryErr("");
-    const res = await startCommunityInquiryToAuthor(post.id, post.author_id);
-    if (res.ok) router.push(`/chats/${res.roomId}`);
-    else setInquiryErr(res.error);
-  };
-
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
       ? formatTimeAgo(post.created_at, "ko-KR")
@@ -195,15 +180,6 @@ export function CommunityPostDetailClient({
             >
               공감 {likeCount}
             </button>
-            {me?.id && me.id !== post.author_id && !post.is_meetup ? (
-              <button
-                type="button"
-                onClick={() => void onInquiry()}
-                className="rounded-md bg-signature px-4 py-2 text-[13px] font-medium text-white"
-              >
-                작성자에게 문의
-              </button>
-            ) : null}
             {me?.id && me.id !== post.author_id ? (
               <button
                 type="button"
@@ -220,7 +196,6 @@ export function CommunityPostDetailClient({
               목록
             </Link>
           </div>
-          {inquiryErr ? <p className="mt-2 text-[12px] text-red-600">{inquiryErr}</p> : null}
         </div>
 
         {reportOpen ? (

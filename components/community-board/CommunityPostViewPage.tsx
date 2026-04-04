@@ -60,7 +60,6 @@ export function CommunityPostViewPage({
         {showComments && (
           <PostCommunityCommentsSection
             postId={post.id}
-            authorUserId={authorUserId}
             currentUserId={me?.id ?? null}
             showCommentReport={showReport}
           />

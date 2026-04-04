@@ -79,6 +79,7 @@ export const SAMARKET_ROUTES = {
     orderChats: "/my/store-orders",
   },
   chat: {
+    messengerHub: "/community-messenger",
     orderHub: "/my/store-orders",
     newChat: "/chats/new",
     /** 주문/거래 공통 — 방 단위 단일 URL */

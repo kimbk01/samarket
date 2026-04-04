@@ -72,6 +72,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
 
   const ordersHref = "/my/business/store-orders";
   const orderChatsHref = "/my/store-orders";
+  const loginHref = `/login?next=${encodeURIComponent(ordersHref)}`;
 
   if (state.kind === "loading") {
     return (
@@ -84,9 +85,9 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
   if (state.kind === "unauth") {
     return (
       <div className="min-h-screen bg-[#f3f4f6] px-4 py-10 text-center text-sm text-gray-600">
-        로그인이 필요합니다.
-        <Link href={ordersHref} className="mt-4 block text-violet-700 underline">
-          주문 관리
+        로그인 후 주문 채팅과 주문 현황을 바로 확인할 수 있습니다.
+        <Link href={loginHref} className="mt-4 inline-flex rounded-lg bg-violet-700 px-4 py-2 font-semibold text-white">
+          로그인하고 주문 보기
         </Link>
       </div>
     );

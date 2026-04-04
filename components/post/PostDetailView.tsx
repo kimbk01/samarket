@@ -18,7 +18,6 @@ import { createReport } from "@/lib/reports/createReport";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
-import { startCommunityInquiry } from "@/lib/chat/startCommunityInquiry";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -832,28 +831,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       router.push(LOGIN_REDIRECT);
       return;
     }
-    if (post.type !== "community" && existingTradeRoomId) {
+    if (existingTradeRoomId) {
       navigateToTradeChatRoom(existingTradeRoomId);
-      return;
-    }
-    const authorId = postAuthorUserId(post as unknown as Record<string, unknown>)?.trim();
-    if (post.type === "community") {
-      if (!authorId) {
-        setChatError("작성자 정보를 찾을 수 없습니다.");
-        return;
-      }
-      if (user.id === authorId) {
-        setChatError("본인 글에는 문의하기를 사용할 수 없습니다.");
-        return;
-      }
-      setChatLoading(true);
-      const res = await startCommunityInquiry(post.id, authorId, null);
-      setChatLoading(false);
-      if (res.ok) {
-        navigateToTradeChatRoom(res.roomId);
-      } else {
-        setChatError(res.error ?? "채팅방을 열 수 없습니다.");
-      }
       return;
     }
     const tradeOwnerId = postAuthorUserId(post as unknown as Record<string, unknown>);
@@ -878,7 +857,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     }
   }, [
     post.id,
-    post.type,
     post.author_id,
     user,
     router,
@@ -916,9 +894,9 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     (post.type === "trade" || post.price != null || post.is_free_share === true) &&
     (category == null || category.settings?.has_price !== false);
   const showChat =
-    chatEnabled && (category == null || category.settings?.has_chat !== false);
+    post.type !== "community" && chatEnabled && (category == null || category.settings?.has_chat !== false);
 
-  /** 거래·커뮤니티 문의 공통 채팅 허브(및 알려진 기존 거래 방) RSC 선로딩 */
+  /** 거래 채팅 허브(및 알려진 기존 거래 방) RSC 선로딩 */
   useEffect(() => {
     if (!user?.id) return;
     if (listingOwnerId && user.id === listingOwnerId) return;
@@ -926,9 +904,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     prefetchTradeChatShell();
   }, [user?.id, listingOwnerId, showChat, prefetchTradeChatShell]);
 
-  const chatCtaLabel = post.type === "community" ? "문의하기" : "채팅하기";
-  const tradeChatCtaLabel =
-    post.type !== "community" && existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
+  const chatCtaLabel = "채팅하기";
+  const tradeChatCtaLabel = existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
 
   const listingLocationLine = useMemo(() => {
     const fromPost = formatPostListingLocationLine(post.region, post.city);
@@ -1402,7 +1379,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       {post.type === "community" && (
         <PostCommunityCommentsSection
           postId={post.id}
-          authorUserId={post.author_id}
           currentUserId={user?.id ?? null}
         />
       )}

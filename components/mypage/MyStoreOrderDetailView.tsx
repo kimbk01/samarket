@@ -256,7 +256,15 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   }
   if (state.kind === "unauth") {
     return (
-      <p className="text-sm text-gray-600">로그인 후 주문 상세를 확인할 수 있습니다.</p>
+      <div className="space-y-3 rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-600 shadow-sm">
+        <p>로그인 후 주문 상세와 매장 채팅을 계속 확인할 수 있습니다.</p>
+        <Link
+          href={`/login?next=${encodeURIComponent(orderBase)}`}
+          className="inline-flex rounded-lg bg-signature px-4 py-2 font-semibold text-white"
+        >
+          로그인하고 주문 이어보기
+        </Link>
+      </div>
     );
   }
   if (state.kind === "not_found") {

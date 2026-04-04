@@ -105,6 +105,26 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backHome({ titleText: "내정보", showHubQuickActions: true });
   }
 
+  if (p === "/community-messenger") {
+    return backHome({
+      titleText: "메신저",
+      subtitle: "친구·1:1·그룹·통화",
+      showHubQuickActions: true,
+    });
+  }
+
+  if (/^\/community-messenger\/rooms\/[^/]+$/.test(p)) {
+    return {
+      ...DEFAULT,
+      backHref: "/community-messenger?tab=chats",
+      preferHistoryBack: true,
+      ariaLabel: "메신저로 돌아가기",
+      titleText: "메신저 대화",
+      subtitle: "1:1·그룹 채팅",
+      showHubQuickActions: false,
+    };
+  }
+
   if (p === "/write" || starts(p, "/write/")) {
     return backHome({ titleText: "글쓰기", showHubQuickActions: true });
   }
@@ -115,10 +135,6 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
 
   if (p === "/philife/my") {
     return backHome({ titleText: "내 커뮤니티 활동", showHubQuickActions: true });
-  }
-
-  if (p === "/chats/philife" || starts(p, "/chats/philife")) {
-    return backHome({ titleText: "커뮤니티 채팅", showHubQuickActions: true });
   }
 
   if (p === "/home/reviews" || starts(p, "/home/reviews/")) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -384,6 +384,7 @@ function MyStoreOrderCard({
 }
 
 export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) {
+  const pathname = usePathname();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const [tab, setTab] = useState<MemberOrderTab>("all");
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
@@ -463,6 +464,7 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
 
   const counts = useMemo(() => tabCounts(allSorted), [allSorted]);
   const filtered = useMemo(() => filterByTab(allSorted, tab), [allSorted, tab]);
+  const loginHref = `/login?next=${encodeURIComponent(pathname ?? (embedded ? "/orders?tab=store" : "/my/store-orders"))}`;
 
   const requestCancelPending = useCallback(
     async (orderId: string) => {
@@ -563,7 +565,13 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
           <div
             className={`rounded-lg border ${FB_DIVIDER} bg-white px-4 py-4 text-center text-[15px] text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
           >
-            로그인 후 매장 주문 내역을 확인할 수 있습니다.
+            <p>로그인 후 매장 주문 내역과 주문 채팅을 확인할 수 있습니다.</p>
+            <Link
+              href={loginHref}
+              className="mt-3 inline-flex rounded-lg bg-signature px-4 py-2.5 text-[15px] font-semibold text-white"
+            >
+              로그인하고 주문 보기
+            </Link>
           </div>
         ) : null}
 

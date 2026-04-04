@@ -11,7 +11,6 @@ import { ChatRoomCard } from "./ChatRoomCard";
 import { GeneralChatRoomCard } from "./GeneralChatRoomCard";
 import { ORDER_CHAT_SURFACE } from "@/lib/chats/surfaces/order-chat-surface";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
-import { COMMUNITY_CHAT_SURFACE } from "@/lib/chats/surfaces/community-chat-surface";
 import {
   fetchChatRoomsBySegment,
   type ChatRoomsListSegment,
@@ -118,36 +117,20 @@ export function ChatRoomList({
   }
 
   if (!rooms || rooms.length === 0) {
-    const isPhilifeInbox = segment === "philife" || segment === "philife_inbox";
-    const isPhilifeOpen = segment === "philife_open";
     const emptyCopy =
       segment === "order"
         ? ORDER_CHAT_SURFACE.listEmptyMessage
-        : isPhilifeOpen
-          ? COMMUNITY_CHAT_SURFACE.openEmptyMessage
-          : isPhilifeInbox
-            ? COMMUNITY_CHAT_SURFACE.inboxEmptyMessage
-            : TRADE_CHAT_SURFACE.listEmptyMessage;
+        : TRADE_CHAT_SURFACE.listEmptyMessage;
     const emptyCta =
       segment === "order"
         ? {
             href: ORDER_CHAT_SURFACE.emptyCtaHref,
             label: ORDER_CHAT_SURFACE.emptyCtaLabel,
           }
-        : isPhilifeOpen
-          ? {
-              href: COMMUNITY_CHAT_SURFACE.boardFeedPath,
-              label: COMMUNITY_CHAT_SURFACE.openFeedLinkLabel,
-            }
-          : isPhilifeInbox
-            ? {
-                href: COMMUNITY_CHAT_SURFACE.boardFeedPath,
-                label: COMMUNITY_CHAT_SURFACE.boardFeedLinkLabel,
-              }
-            : {
-                href: TRADE_CHAT_SURFACE.emptyCtaHref,
-                label: TRADE_CHAT_SURFACE.emptyCtaLabel,
-              };
+        : {
+            href: TRADE_CHAT_SURFACE.emptyCtaHref,
+            label: TRADE_CHAT_SURFACE.emptyCtaLabel,
+          };
     return (
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-[#8E8E8E]`}>
         <p>{emptyCopy}</p>

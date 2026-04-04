@@ -266,6 +266,7 @@ export function OwnerStoreOrdersView() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const loginHref = `/login?next=${encodeURIComponent(pathname ?? "/my/business/store-orders")}`;
   const ownerNotifAckRef = useRef(false);
   const [chatModal, setChatModal] = useState<{
     orderId: string;
@@ -455,7 +456,14 @@ export function OwnerStoreOrdersView() {
   if (state.kind === "loading") {
     body = <p className="text-sm text-gray-500">불러오는 중…</p>;
   } else if (state.kind === "unauth") {
-    body = <p className="text-sm text-gray-600">로그인이 필요합니다.</p>;
+    body = (
+      <div className="rounded-xl bg-white p-6 text-sm text-gray-600 shadow-sm">
+        <p>로그인 후 매장 주문을 확인하고 바로 고객과 연결할 수 있습니다.</p>
+        <Link href={loginHref} className="mt-3 inline-flex rounded-lg bg-signature px-4 py-2 font-semibold text-white">
+          로그인하고 주문 보기
+        </Link>
+      </div>
+    );
   } else if (state.kind === "config") {
     body = <p className="text-sm text-gray-600">서버 설정을 확인해 주세요.</p>;
   } else if (state.kind === "no_store") {
@@ -523,7 +531,24 @@ export function OwnerStoreOrdersView() {
         </div>
       ) : null}
       {state.orders.length === 0 ? (
-        <p className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm">아직 주문이 없습니다.</p>
+        <div className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm">
+          <p className="text-gray-800">아직 주문이 없습니다.</p>
+          <p className="mt-1">매장 정보와 메뉴를 점검한 뒤 공유하면 첫 주문을 더 빨리 받을 수 있습니다.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={`/my/business?storeId=${encodeURIComponent(state.storeId)}`}
+              className="inline-flex rounded-lg bg-signature px-4 py-2 font-semibold text-white"
+            >
+              매장 운영 보기
+            </Link>
+            <Link
+              href={`/my/business/profile?storeId=${encodeURIComponent(state.storeId)}`}
+              className="inline-flex rounded-lg border border-gray-200 bg-white px-4 py-2 font-medium text-gray-800"
+            >
+              매장 정보 점검
+            </Link>
+          </div>
+        </div>
       ) : (
         <ul className={`${OWNER_STORE_STACK_Y_CLASS} w-full min-w-0`}>
           {state.orders.map((o) => (
