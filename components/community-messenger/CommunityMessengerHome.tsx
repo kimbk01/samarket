@@ -263,8 +263,12 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     () => (data?.calls ?? []).filter((call) => call.status === "missed").length,
     [data?.calls]
   );
-  const rejectedCallCount = useMemo(
-    () => (data?.calls ?? []).filter((call) => call.status === "rejected").length,
+  const groupCallCount = useMemo(
+    () => (data?.calls ?? []).filter((call) => call.sessionMode === "group").length,
+    [data?.calls]
+  );
+  const directCallCount = useMemo(
+    () => (data?.calls ?? []).filter((call) => call.sessionMode === "direct").length,
     [data?.calls]
   );
   const endedCallCount = useMemo(
@@ -617,14 +621,20 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
 
       {!loading && activeTab === "calls" ? (
         <div className="space-y-4">
-          <section className="grid grid-cols-3 gap-2">
+          <section className="grid grid-cols-2 gap-2">
             <CallSummaryCard label="부재중" value={missedCallCount} tone="red" />
-            <CallSummaryCard label="거절됨" value={rejectedCallCount} tone="slate" />
+            <CallSummaryCard label="그룹 통화" value={groupCallCount} tone="sky" />
+            <CallSummaryCard label="1:1 통화" value={directCallCount} tone="slate" />
             <CallSummaryCard label="완료" value={endedCallCount} tone="green" />
           </section>
           {missedCallCount > 0 ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
               최근 부재중 통화가 {missedCallCount}건 있습니다. 통화 탭에서 바로 확인해 보세요.
+            </div>
+          ) : null}
+          {groupCallCount > 0 ? (
+            <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-[13px] text-sky-700">
+              최근 그룹 통화가 {groupCallCount}건 있습니다. 참여 인원과 방 기준으로 기록을 확인할 수 있습니다.
             </div>
           ) : null}
           <InfoSection title="통화 기록" subtitle="실제 WebRTC 연결 기준으로 최근 상태를 표시합니다.">
@@ -644,7 +654,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
             <ul className="mt-2 space-y-2 text-[13px] text-gray-600">
               <li>거래 채팅은 `거래 채팅`, 주문 채팅은 `주문 채팅`, 커뮤니티 대화는 `메신저`로 분리됩니다.</li>
               <li>친구 기반 1:1 채팅과 그룹 채팅을 기본으로 하고, 팔로우는 소셜 그래프 용도로 유지합니다.</li>
-              <li>통화는 현재 UI/상태 흐름만 제공하며, 실제 WebRTC 연결은 다음 단계에서 붙입니다.</li>
+              <li>통화는 1:1과 최대 4인 그룹 메쉬 WebRTC를 지원하며, 홈 통화 탭에서 상태와 기록을 함께 관리합니다.</li>
             </ul>
           </section>
 
@@ -849,14 +859,28 @@ function CallCard({ call }: { call: CommunityMessengerCallLog }) {
     <div className="rounded-xl border border-gray-100 px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[14px] font-semibold text-gray-900">{call.title}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[14px] font-semibold text-gray-900">{call.title}</p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                call.sessionMode === "group" ? "bg-sky-50 text-sky-700" : "bg-gray-100 text-gray-700"
+              }`}
+            >
+              {call.sessionMode === "group" ? "그룹" : "1:1"}
+            </span>
+          </div>
           <p className={`mt-1 text-[12px] ${tone}`}>
             {call.callKind === "video" ? "영상 통화" : "음성 통화"} · {formatCallStatus(call.status)}
+          </p>
+          <p className="mt-1 text-[12px] text-gray-500">
+            {call.sessionMode === "group"
+              ? `${call.peerLabel} · 총 ${call.participantCount}명`
+              : call.peerLabel}
           </p>
         </div>
         <div className="text-right">
           <p className="text-[11px] text-gray-400">{formatRelative(call.startedAt)}</p>
-          <p className="mt-1 text-[12px] font-medium text-gray-700">{call.durationSeconds}초</p>
+          <p className="mt-1 text-[12px] font-medium text-gray-700">{formatDurationShort(call.durationSeconds)}</p>
         </div>
       </div>
     </div>
@@ -870,11 +894,13 @@ function CallSummaryCard({
 }: {
   label: string;
   value: number;
-  tone: "red" | "slate" | "green";
+  tone: "red" | "slate" | "green" | "sky";
 }) {
   const className =
     tone === "red"
       ? "border-red-200 bg-red-50 text-red-700"
+      : tone === "sky"
+        ? "border-sky-200 bg-sky-50 text-sky-700"
       : tone === "green"
         ? "border-green-200 bg-green-50 text-green-700"
         : "border-gray-200 bg-gray-50 text-gray-700";
@@ -922,4 +948,12 @@ function formatRelative(value: string): string {
   if (hours < 24) return `${hours}시간 전`;
   const days = Math.floor(hours / 24);
   return `${days}일 전`;
+}
+
+function formatDurationShort(value: number): string {
+  const total = Math.max(0, Math.floor(value));
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  if (mins < 1) return `${secs}초`;
+  return `${mins}분 ${secs}초`;
 }

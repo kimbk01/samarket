@@ -4,6 +4,9 @@ import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallKind,
   CommunityMessengerCallLog,
+  CommunityMessengerCallParticipant,
+  CommunityMessengerCallParticipantStatus,
+  CommunityMessengerCallSessionMode,
   CommunityMessengerCallSession,
   CommunityMessengerCallSessionStatus,
   CommunityMessengerCallSignal,
@@ -82,11 +85,19 @@ type CallRow = {
   started_at: string | null;
 };
 
+type CallSessionMetaRow = {
+  id: string;
+  room_id: string;
+  session_mode: CommunityMessengerCallSessionMode | null;
+};
+
 type CallSessionRow = {
   id: string;
   room_id: string;
   initiator_user_id: string;
-  recipient_user_id: string;
+  recipient_user_id: string | null;
+  session_mode?: CommunityMessengerCallSessionMode | null;
+  max_participants?: number | null;
   call_kind: CommunityMessengerCallKind;
   status: CommunityMessengerCallSessionStatus;
   started_at: string | null;
@@ -103,6 +114,17 @@ type CallSignalRow = {
   to_user_id: string;
   signal_type: CommunityMessengerCallSignalType;
   payload: Record<string, unknown> | null;
+  created_at: string | null;
+};
+
+type CallSessionParticipantRow = {
+  id: string;
+  session_id: string;
+  room_id: string;
+  user_id: string;
+  participation_status: CommunityMessengerCallParticipantStatus;
+  joined_at: string | null;
+  left_at: string | null;
   created_at: string | null;
 };
 
@@ -156,14 +178,16 @@ type DevCall = {
 type DevCallSession = {
   id: string;
   roomId: string;
+  sessionMode: CommunityMessengerCallSessionMode;
   initiatorUserId: string;
-  recipientUserId: string;
+  recipientUserId: string | null;
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallSessionStatus;
   startedAt: string;
   answeredAt: string | null;
   endedAt: string | null;
   createdAt: string;
+  participants: DevCallSessionParticipant[];
 };
 
 type DevCallSignal = {
@@ -174,6 +198,17 @@ type DevCallSignal = {
   toUserId: string;
   signalType: CommunityMessengerCallSignalType;
   payload: Record<string, unknown>;
+  createdAt: string;
+};
+
+type DevCallSessionParticipant = {
+  id: string;
+  sessionId: string;
+  roomId: string;
+  userId: string;
+  participationStatus: CommunityMessengerCallParticipantStatus;
+  joinedAt: string | null;
+  leftAt: string | null;
   createdAt: string;
 };
 
@@ -573,7 +608,7 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
   if (sb) {
     const { data, error } = await (sb as any)
       .from("community_messenger_call_logs")
-      .select("id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at")
+      .select("id, session_id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at")
       .or(`caller_user_id.eq.${userId},peer_user_id.eq.${userId}`)
       .order("started_at", { ascending: false })
       .limit(30);
@@ -592,26 +627,115 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
   );
   const peerProfiles = await hydrateProfiles(userId, peerIds);
   const peerMap = new Map(peerProfiles.map((profile) => [profile.id, profile]));
-  const roomMap = await loadRoomTitleMap(
-    dedupeIds(rows.map((row) => ("room_id" in row ? row.room_id : row.roomId) ?? "").filter(Boolean)),
-    userId
+  const rooms = await listRooms(userId);
+  const roomMetaMap = new Map(
+    [...rooms.chats, ...rooms.groups].map((room) => [
+      room.id,
+      { title: room.title, roomType: room.roomType, memberCount: room.memberCount },
+    ])
   );
+  const sessionIds = dedupeIds(
+    rows
+      .map((row) => {
+        const isDbCall = "caller_user_id" in row;
+        return (isDbCall ? row.session_id : row.sessionId) ?? "";
+      })
+      .filter(Boolean)
+  );
+  const sessionMap = new Map<string, CallSessionMetaRow | DevCallSession>();
+  const participantsBySession = new Map<string, CommunityMessengerCallParticipant[]>();
+  if (sb && sessionIds.length) {
+    const [{ data: sessionRows }, { data: sessionParticipantRows }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_call_sessions")
+        .select("id, room_id, session_mode")
+        .in("id", sessionIds),
+      (sb as any)
+        .from("community_messenger_call_session_participants")
+        .select("session_id, user_id, participation_status, joined_at, left_at, created_at")
+        .in("session_id", sessionIds),
+    ]);
+    for (const session of (sessionRows ?? []) as CallSessionMetaRow[]) {
+      sessionMap.set(session.id, session);
+    }
+    const participantRows = (sessionParticipantRows ?? []) as Array<{
+      session_id?: string | null;
+      user_id?: string | null;
+      participation_status?: CommunityMessengerCallParticipantStatus | null;
+      joined_at?: string | null;
+      left_at?: string | null;
+    }>;
+    const participantIds = dedupeIds(
+      participantRows.map((row) => row.user_id ?? "").filter(Boolean)
+    );
+    const participantProfiles = await hydrateProfiles(userId, participantIds, { includeSelf: true });
+    const participantProfileMap = new Map(participantProfiles.map((profile) => [profile.id, profile]));
+    for (const row of participantRows) {
+      const sessionId = trimText(row.session_id) || "";
+      const participantUserId = trimText(row.user_id) || "";
+      if (!sessionId || !participantUserId) continue;
+      const list = participantsBySession.get(sessionId) ?? [];
+      const profile = participantProfileMap.get(participantUserId);
+      list.push({
+        userId: participantUserId,
+        label: profile?.label ?? profileLabel(null, participantUserId),
+        status: (trimText(row.participation_status) as CommunityMessengerCallParticipantStatus) || "invited",
+        joinedAt: trimText(row.joined_at) || null,
+        leftAt: trimText(row.left_at) || null,
+        isMe: participantUserId === userId,
+      });
+      participantsBySession.set(sessionId, list);
+    }
+  } else {
+    for (const session of getDevState().callSessions.filter((item) => sessionIds.includes(item.id))) {
+      sessionMap.set(session.id, session);
+      const participants = await loadCallSessionParticipants(userId, session);
+      participantsBySession.set(session.id, participants);
+    }
+  }
 
   return rows.map((row) => {
-    const isDbCall = "call_kind" in row;
-    const roomId = ("room_id" in row ? row.room_id : row.roomId) ?? null;
-    const peerUserId = ("peer_user_id" in row ? row.peer_user_id : row.peerUserId) ?? null;
+    const isDbCall = "caller_user_id" in row;
+    const roomId = (isDbCall ? row.room_id : row.roomId) ?? null;
+    const sessionId = (isDbCall ? row.session_id : row.sessionId) ?? null;
+    const peerUserId = (isDbCall ? row.peer_user_id : row.peerUserId) ?? null;
     const peer = peerUserId ? peerMap.get(peerUserId) : undefined;
-    const startedAt = trimText("started_at" in row ? row.started_at : row.startedAt) || nowIso();
-    const title = roomId ? roomMap.get(roomId) ?? peer?.label ?? "통화" : peer?.label ?? "통화";
+    const startedAt = trimText(isDbCall ? row.started_at : row.startedAt) || nowIso();
+    const session = sessionId ? sessionMap.get(sessionId) : null;
+    const roomMeta = roomId ? roomMetaMap.get(roomId) : null;
+    const sessionMode =
+      session && "session_mode" in session
+        ? (session.session_mode ?? "direct")
+        : session
+          ? session.sessionMode
+          : (roomMeta?.roomType ?? "direct");
+    const participants = sessionId ? participantsBySession.get(sessionId) ?? [] : [];
+    const participantLabels = participants
+      .filter((participant) => !participant.isMe)
+      .map((participant) => participant.label);
+    const participantCount =
+      sessionMode === "group" ? Math.max(participants.length, Number(roomMeta?.memberCount ?? 0), 2) : 2;
+    const title =
+      sessionMode === "group"
+        ? roomMeta?.title ?? "그룹 통화"
+        : roomId
+          ? roomMeta?.title ?? peer?.label ?? "통화"
+          : peer?.label ?? "통화";
+    const groupPeerLabel =
+      participantLabels.length > 1
+        ? `${participantLabels[0]} 외 ${participantLabels.length - 1}명`
+        : participantLabels[0] ?? `${participantCount}명 그룹`;
     return {
       id: row.id,
       roomId,
+      sessionMode,
       title,
-      peerLabel: peer?.label ?? "상대",
+      peerLabel: sessionMode === "group" ? groupPeerLabel : peer?.label ?? "상대",
       peerUserId,
+      participantCount,
+      participantLabels,
       callKind: (isDbCall ? row.call_kind : row.callKind) as CommunityMessengerCallKind,
-      status: (isDbCall ? row.status : row.status) as CommunityMessengerCallStatus,
+      status: row.status as CommunityMessengerCallStatus,
       startedAt,
       durationSeconds: Number((isDbCall ? row.duration_seconds : row.durationSeconds) ?? 0),
     };
@@ -629,6 +753,75 @@ async function loadRoomTitleMap(roomIds: string[], userId: string): Promise<Map<
   return roomMap;
 }
 
+async function loadCallSessionParticipants(
+  userId: string,
+  session: CallSessionRow | DevCallSession
+): Promise<CommunityMessengerCallParticipant[]> {
+  const isDbSession = "initiator_user_id" in session;
+  const sessionId = session.id;
+  const fallbackIds = dedupeIds(
+    (isDbSession
+      ? [session.initiator_user_id, session.recipient_user_id]
+      : [session.initiatorUserId, session.recipientUserId]
+    ).filter((value): value is string => typeof value === "string" && value.length > 0)
+  );
+
+  let rows: Array<CallSessionParticipantRow | DevCallSessionParticipant> = [];
+  const sb = getSupabaseOrNull();
+  if (isDbSession && sb) {
+    const { data, error } = await (sb as any)
+      .from("community_messenger_call_session_participants")
+      .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
+    if (data && !error) {
+      rows = data as CallSessionParticipantRow[];
+    }
+  } else if (!isDbSession) {
+    rows = session.participants;
+  }
+
+  if (!rows.length) {
+    const startedAt = trimText(isDbSession ? session.started_at : session.startedAt) || nowIso();
+    const endedAt = trimText(isDbSession ? session.ended_at : session.endedAt) || null;
+    const status = (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus;
+    rows = fallbackIds.map((memberId) => ({
+      id: `${sessionId}:${memberId}`,
+      session_id: sessionId,
+      room_id: isDbSession ? session.room_id : session.roomId,
+      user_id: memberId,
+      participation_status:
+        status === "active"
+          ? "joined"
+          : status === "rejected" && memberId === (isDbSession ? session.recipient_user_id : session.recipientUserId)
+            ? "rejected"
+            : status === "ended" || status === "missed" || status === "cancelled"
+              ? "left"
+              : "invited",
+      joined_at: status === "active" ? trimText(isDbSession ? session.answered_at : session.answeredAt) || startedAt : null,
+      left_at: status === "ended" || status === "missed" || status === "cancelled" || status === "rejected" ? endedAt : null,
+      created_at: startedAt,
+    })) as CallSessionParticipantRow[];
+  }
+
+  const memberIds = dedupeIds(rows.map((row) => ("user_id" in row ? row.user_id : row.userId)));
+  const profiles = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+  const profileMap = new Map(profiles.map((item) => [item.id, item]));
+  return rows.map((row) => {
+    const isDbRow = "user_id" in row;
+    const participantUserId = isDbRow ? row.user_id : row.userId;
+    const profile = profileMap.get(participantUserId);
+    return {
+      userId: participantUserId,
+      label: profile?.label ?? profileLabel(null, participantUserId),
+      status: (isDbRow ? row.participation_status : row.participationStatus) as CommunityMessengerCallParticipantStatus,
+      joinedAt: trimText(isDbRow ? row.joined_at : row.joinedAt) || null,
+      leftAt: trimText(isDbRow ? row.left_at : row.leftAt) || null,
+      isMe: participantUserId === userId,
+    };
+  });
+}
+
 async function mapCallSession(
   userId: string,
   session: CallSessionRow | DevCallSession
@@ -636,23 +829,39 @@ async function mapCallSession(
   const isDbSession = "initiator_user_id" in session;
   const initiatorUserId = isDbSession ? session.initiator_user_id : session.initiatorUserId;
   const recipientUserId = isDbSession ? session.recipient_user_id : session.recipientUserId;
-  const peerUserId = initiatorUserId === userId ? recipientUserId : initiatorUserId;
-  const profiles = await hydrateProfiles(userId, [peerUserId]);
+  const sessionMode = ((isDbSession ? session.session_mode : session.sessionMode) ?? "direct") as CommunityMessengerCallSessionMode;
+  const participants = await loadCallSessionParticipants(userId, session);
+  const peerUserId =
+    sessionMode === "direct"
+      ? initiatorUserId === userId
+        ? recipientUserId
+        : initiatorUserId
+      : null;
+  const profiles = peerUserId ? await hydrateProfiles(userId, [peerUserId]) : [];
   const peer = profiles[0];
+  const joinedCount = participants.filter((item) => item.status === "joined").length;
+  const peerLabel =
+    sessionMode === "group"
+      ? joinedCount > 1
+        ? `그룹 통화 · ${joinedCount}명 참여 중`
+        : "그룹 통화"
+      : (peer?.label ?? profileLabel(null, peerUserId ?? initiatorUserId));
 
   return {
     id: session.id,
     roomId: isDbSession ? session.room_id : session.roomId,
+    sessionMode,
     initiatorUserId,
     recipientUserId,
     peerUserId,
-    peerLabel: peer?.label ?? profileLabel(null, peerUserId),
+    peerLabel,
     callKind: (isDbSession ? session.call_kind : session.callKind) as CommunityMessengerCallKind,
     status: (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus,
     startedAt: trimText(isDbSession ? session.started_at : session.startedAt) || nowIso(),
     answeredAt: trimText(isDbSession ? session.answered_at : session.answeredAt) || null,
     endedAt: trimText(isDbSession ? session.ended_at : session.endedAt) || null,
     isMineInitiator: initiatorUserId === userId,
+    participants,
   };
 }
 
@@ -665,7 +874,7 @@ async function getActiveCallSessionForRoom(
     const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
       .select(
-        "id, room_id, initiator_user_id, recipient_user_id, call_kind, status, started_at, answered_at, ended_at, created_at"
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
       )
       .eq("room_id", roomId)
       .in("status", ["ringing", "active"])
@@ -1537,15 +1746,20 @@ export async function startCommunityMessengerCallSession(input: {
   if (!roomId) return { ok: false, error: "room_required" };
   const snapshot = await getCommunityMessengerRoomSnapshot(input.userId, roomId);
   if (!snapshot) return { ok: false, error: "room_not_found" };
-  if (snapshot.room.roomType !== "direct") return { ok: false, error: "group_call_not_supported_yet" };
   if (snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly) {
     return { ok: false, error: "room_unavailable" };
   }
   if (snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
     return { ok: true, session: snapshot.activeCall };
   }
-  const peerUserId = trimText(snapshot.room.peerUserId ?? "") || snapshot.members.find((item) => item.id !== input.userId)?.id;
-  if (!peerUserId) return { ok: false, error: "peer_not_found" };
+  const isGroupRoom = snapshot.room.roomType === "group";
+  const peerUserId = isGroupRoom
+    ? null
+    : trimText(snapshot.room.peerUserId ?? "") || snapshot.members.find((item) => item.id !== input.userId)?.id || null;
+  if (!isGroupRoom && !peerUserId) return { ok: false, error: "peer_not_found" };
+  if (isGroupRoom && snapshot.members.length > 4) {
+    return { ok: false, error: "group_call_limit_exceeded" };
+  }
 
   const sb = getSupabaseOrNull();
   const startedAt = nowIso();
@@ -1556,16 +1770,50 @@ export async function startCommunityMessengerCallSession(input: {
         room_id: roomId,
         initiator_user_id: input.userId,
         recipient_user_id: peerUserId,
+        session_mode: isGroupRoom ? "group" : "direct",
+        max_participants: isGroupRoom ? 4 : 2,
         call_kind: input.callKind,
         status: "ringing",
         started_at: startedAt,
         updated_at: startedAt,
       })
       .select(
-        "id, room_id, initiator_user_id, recipient_user_id, call_kind, status, started_at, answered_at, ended_at, created_at"
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
       )
       .single();
     if (!error && data) {
+      const inserted = data as CallSessionRow;
+      const participantRows = isGroupRoom
+        ? snapshot.members.map((member) => ({
+            session_id: inserted.id,
+            room_id: roomId,
+            user_id: member.id,
+            participation_status: member.id === input.userId ? "joined" : "invited",
+            joined_at: member.id === input.userId ? startedAt : null,
+            left_at: null,
+            created_at: startedAt,
+          }))
+        : [
+            {
+              session_id: inserted.id,
+              room_id: roomId,
+              user_id: input.userId,
+              participation_status: "invited",
+              joined_at: null,
+              left_at: null,
+              created_at: startedAt,
+            },
+            {
+              session_id: inserted.id,
+              room_id: roomId,
+              user_id: peerUserId,
+              participation_status: "invited",
+              joined_at: null,
+              left_at: null,
+              created_at: startedAt,
+            },
+          ];
+      await (sb as any).from("community_messenger_call_session_participants").insert(participantRows);
       return { ok: true, session: await mapCallSession(input.userId, data as CallSessionRow) };
     }
     if (!isMissingTableError(error)) {
@@ -1577,6 +1825,7 @@ export async function startCommunityMessengerCallSession(input: {
   const session: DevCallSession = {
     id: randomUUID(),
     roomId,
+    sessionMode: isGroupRoom ? "group" : "direct",
     initiatorUserId: input.userId,
     recipientUserId: peerUserId,
     callKind: input.callKind,
@@ -1585,7 +1834,20 @@ export async function startCommunityMessengerCallSession(input: {
     answeredAt: null,
     endedAt: null,
     createdAt: startedAt,
+    participants: snapshot.members
+      .filter((member) => (isGroupRoom ? true : member.id === input.userId || member.id === peerUserId))
+      .map((member) => ({
+        id: randomUUID(),
+        sessionId: "",
+        roomId,
+        userId: member.id,
+        participationStatus: member.id === input.userId && isGroupRoom ? "joined" : "invited",
+        joinedAt: member.id === input.userId && isGroupRoom ? startedAt : null,
+        leftAt: null,
+        createdAt: startedAt,
+      })),
   };
+  session.participants = session.participants.map((item) => ({ ...item, sessionId: session.id }));
   dev.callSessions.unshift(session);
   return { ok: true, session: await mapCallSession(input.userId, session) };
 }
@@ -1598,8 +1860,28 @@ export async function updateCommunityMessengerCallSession(input: {
 }): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
+  const durationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
+  const finalizeLog = async (session: CallSessionRow | DevCallSession, mapped: CommunityMessengerCallSession) => {
+    const status =
+      mapped.status === "ended"
+        ? "ended"
+        : mapped.status === "rejected"
+          ? "rejected"
+          : mapped.status === "cancelled"
+            ? "cancelled"
+            : "missed";
+    await createCommunityMessengerCallLog({
+      userId: "initiator_user_id" in session ? session.initiator_user_id : session.initiatorUserId,
+      roomId: "room_id" in session ? session.room_id : session.roomId,
+      sessionId,
+      peerUserId: mapped.sessionMode === "direct" ? mapped.peerUserId : null,
+      callKind: "call_kind" in session ? session.call_kind : session.callKind,
+      status,
+      durationSeconds,
+    });
+  };
 
-  const resolveNextStatus = (
+  const resolveDirectNextStatus = (
     session: CallSessionRow | DevCallSession
   ): { nextStatus: CommunityMessengerCallSessionStatus; answeredAt?: string | null; endedAt?: string | null } | null => {
     const isDbSession = "initiator_user_id" in session;
@@ -1634,13 +1916,136 @@ export async function updateCommunityMessengerCallSession(input: {
     const { data: row } = await (sb as any)
       .from("community_messenger_call_sessions")
       .select(
-        "id, room_id, initiator_user_id, recipient_user_id, call_kind, status, started_at, answered_at, ended_at, created_at"
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
       )
       .eq("id", sessionId)
       .maybeSingle();
     if (row) {
       const session = row as CallSessionRow;
-      const next = resolveNextStatus(session);
+      if ((session.session_mode ?? "direct") === "group") {
+        const now = nowIso();
+        const { data: participantRows } = await (sb as any)
+          .from("community_messenger_call_session_participants")
+          .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
+          .eq("session_id", sessionId);
+        const participants = (participantRows ?? []) as CallSessionParticipantRow[];
+        const mine = participants.find((item) => item.user_id === input.userId);
+        if (!mine) return { ok: false, error: "forbidden" };
+
+        if (input.action === "cancel") {
+          if (session.initiator_user_id !== input.userId || session.status !== "ringing") {
+            return { ok: false, error: "bad_action" };
+          }
+          await (sb as any)
+            .from("community_messenger_call_session_participants")
+            .update({ participation_status: "left", left_at: now })
+            .eq("session_id", sessionId);
+          const { data: updated } = await (sb as any)
+            .from("community_messenger_call_sessions")
+            .update({ status: "cancelled", ended_at: now, updated_at: now })
+            .eq("id", sessionId)
+            .select(
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+            )
+            .single();
+          if (updated) {
+            const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+            await finalizeLog(session, mapped);
+            return { ok: true, session: mapped };
+          }
+          return { ok: false, error: "call_session_update_failed" };
+        }
+
+        if (input.action === "accept") {
+          if (session.status !== "ringing" && session.status !== "active") return { ok: false, error: "bad_action" };
+          await (sb as any)
+            .from("community_messenger_call_session_participants")
+            .update({ participation_status: "joined", joined_at: now, left_at: null })
+            .eq("session_id", sessionId)
+            .eq("user_id", input.userId);
+        } else if (input.action === "reject") {
+          if (session.status !== "ringing" && session.status !== "active") return { ok: false, error: "bad_action" };
+          await (sb as any)
+            .from("community_messenger_call_session_participants")
+            .update({ participation_status: "rejected", left_at: now })
+            .eq("session_id", sessionId)
+            .eq("user_id", input.userId);
+        } else if (input.action === "end") {
+          if (session.status !== "active" && session.status !== "ringing") return { ok: false, error: "bad_action" };
+          await (sb as any)
+            .from("community_messenger_call_session_participants")
+            .update({ participation_status: "left", left_at: now })
+            .eq("session_id", sessionId)
+            .eq("user_id", input.userId);
+        } else if (input.action === "missed") {
+          if (session.status !== "ringing") return { ok: false, error: "bad_action" };
+          await (sb as any)
+            .from("community_messenger_call_session_participants")
+            .update({ participation_status: "left", left_at: now })
+            .eq("session_id", sessionId);
+          const { data: updated } = await (sb as any)
+            .from("community_messenger_call_sessions")
+            .update({ status: "missed", ended_at: now, updated_at: now })
+            .eq("id", sessionId)
+            .select(
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+            )
+            .single();
+          if (updated) {
+            const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+            await finalizeLog(session, mapped);
+            return { ok: true, session: mapped };
+          }
+          return { ok: false, error: "call_session_update_failed" };
+        } else {
+          return { ok: false, error: "bad_action" };
+        }
+
+        const { data: refreshedRows } = await (sb as any)
+          .from("community_messenger_call_session_participants")
+          .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
+          .eq("session_id", sessionId);
+        const refreshedParticipants = (refreshedRows ?? []) as CallSessionParticipantRow[];
+        const joinedCount = refreshedParticipants.filter((item) => item.participation_status === "joined").length;
+        const invitedCount = refreshedParticipants.filter((item) => item.participation_status === "invited").length;
+        const nextStatus =
+          joinedCount > 1 || (joinedCount >= 1 && invitedCount > 0)
+            ? "active"
+            : invitedCount > 0
+              ? "ringing"
+              : joinedCount > 0
+                ? "ended"
+                : input.action === "reject"
+                  ? "rejected"
+                  : "ended";
+        const updatePayload: Record<string, unknown> = {
+          status: nextStatus,
+          updated_at: now,
+        };
+        if (nextStatus === "active" && !session.answered_at) updatePayload.answered_at = now;
+        if (isTerminalCallSessionStatus(nextStatus)) updatePayload.ended_at = now;
+        const { data: updated } = await (sb as any)
+          .from("community_messenger_call_sessions")
+          .update(updatePayload)
+          .eq("id", sessionId)
+          .select(
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+          )
+          .single();
+        if (!updated) return { ok: false, error: "call_session_update_failed" };
+        const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+        if (isTerminalCallSessionStatus(mapped.status)) {
+          const { data: existingLog } = await (sb as any)
+            .from("community_messenger_call_logs")
+            .select("id")
+            .eq("session_id", sessionId)
+            .maybeSingle();
+          if (!existingLog) await finalizeLog(session, mapped);
+        }
+        return { ok: true, session: mapped };
+      }
+
+      const next = resolveDirectNextStatus(session);
       if (!next) return { ok: false, error: "bad_action" };
       const updatePayload: Record<string, unknown> = {
         status: next.nextStatus,
@@ -1653,10 +2058,27 @@ export async function updateCommunityMessengerCallSession(input: {
         .update(updatePayload)
         .eq("id", sessionId)
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, call_kind, status, started_at, answered_at, ended_at, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
         )
         .single();
       if (!error && updated) {
+        const participantStatus =
+          next.nextStatus === "active"
+            ? "joined"
+            : next.nextStatus === "rejected"
+              ? "rejected"
+              : isTerminalCallSessionStatus(next.nextStatus)
+                ? "left"
+                : "invited";
+        await (sb as any)
+          .from("community_messenger_call_session_participants")
+          .update({
+            participation_status: participantStatus,
+            joined_at: next.answeredAt ?? null,
+            left_at: next.endedAt ?? null,
+          })
+          .eq("session_id", sessionId)
+          .eq("user_id", input.userId);
         const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
         if (isTerminalCallSessionStatus(mapped.status)) {
           const { data: existingLog } = await (sb as any)
@@ -1664,26 +2086,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .select("id")
             .eq("session_id", sessionId)
             .maybeSingle();
-          if (!existingLog) {
-            const peerUserId = mapped.peerUserId;
-            const durationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
-            await createCommunityMessengerCallLog({
-              userId: session.initiator_user_id,
-              roomId: session.room_id,
-              sessionId,
-              peerUserId,
-              callKind: session.call_kind,
-              status:
-                mapped.status === "ended"
-                  ? "ended"
-                  : mapped.status === "rejected"
-                    ? "rejected"
-                    : mapped.status === "cancelled"
-                      ? "cancelled"
-                      : "missed",
-              durationSeconds,
-            });
-          }
+          if (!existingLog) await finalizeLog(session, mapped);
         }
         return { ok: true, session: mapped };
       }
@@ -1696,29 +2099,79 @@ export async function updateCommunityMessengerCallSession(input: {
   const dev = getDevState();
   const session = dev.callSessions.find((item) => item.id === sessionId);
   if (!session) return { ok: false, error: "not_found" };
-  const next = resolveNextStatus(session);
+
+  if (session.sessionMode === "group") {
+    const mine = session.participants.find((item) => item.userId === input.userId);
+    if (!mine) return { ok: false, error: "forbidden" };
+    const now = nowIso();
+    if (input.action === "accept") {
+      mine.participationStatus = "joined";
+      mine.joinedAt = now;
+      mine.leftAt = null;
+      if (!session.answeredAt) session.answeredAt = now;
+      session.status = "active";
+    } else if (input.action === "reject") {
+      mine.participationStatus = "rejected";
+      mine.leftAt = now;
+    } else if (input.action === "end") {
+      mine.participationStatus = "left";
+      mine.leftAt = now;
+    } else if (input.action === "cancel") {
+      if (session.initiatorUserId !== input.userId) return { ok: false, error: "bad_action" };
+      session.status = "cancelled";
+      session.endedAt = now;
+      for (const participant of session.participants) {
+        participant.participationStatus = "left";
+        participant.leftAt = now;
+      }
+    } else if (input.action === "missed") {
+      session.status = "missed";
+      session.endedAt = now;
+      for (const participant of session.participants) {
+        participant.participationStatus = "left";
+        participant.leftAt = now;
+      }
+    } else {
+      return { ok: false, error: "bad_action" };
+    }
+    if (!isTerminalCallSessionStatus(session.status)) {
+      const joinedCount = session.participants.filter((item) => item.participationStatus === "joined").length;
+      const invitedCount = session.participants.filter((item) => item.participationStatus === "invited").length;
+      if (joinedCount > 1 || (joinedCount >= 1 && invitedCount > 0)) session.status = "active";
+      else if (invitedCount > 0) session.status = "ringing";
+      else {
+        session.status = joinedCount > 0 ? "ended" : input.action === "reject" ? "rejected" : "ended";
+        session.endedAt = now;
+      }
+    }
+    const mapped = await mapCallSession(input.userId, session);
+    if (isTerminalCallSessionStatus(mapped.status) && !dev.calls.some((item) => item.sessionId === sessionId)) {
+      await finalizeLog(session, mapped);
+    }
+    return { ok: true, session: mapped };
+  }
+
+  const next = resolveDirectNextStatus(session);
   if (!next) return { ok: false, error: "bad_action" };
   session.status = next.nextStatus;
   if (typeof next.answeredAt !== "undefined") session.answeredAt = next.answeredAt;
   if (typeof next.endedAt !== "undefined") session.endedAt = next.endedAt;
+  for (const participant of session.participants) {
+    if (participant.userId !== input.userId) continue;
+    participant.participationStatus =
+      next.nextStatus === "active"
+        ? "joined"
+        : next.nextStatus === "rejected"
+          ? "rejected"
+          : isTerminalCallSessionStatus(next.nextStatus)
+            ? "left"
+            : "invited";
+    participant.joinedAt = next.answeredAt ?? participant.joinedAt;
+    participant.leftAt = next.endedAt ?? participant.leftAt;
+  }
   const mapped = await mapCallSession(input.userId, session);
   if (isTerminalCallSessionStatus(mapped.status) && !dev.calls.some((item) => item.sessionId === sessionId)) {
-    await createCommunityMessengerCallLog({
-      userId: session.initiatorUserId,
-      roomId: session.roomId,
-      sessionId,
-      peerUserId: session.recipientUserId,
-      callKind: session.callKind,
-      status:
-        mapped.status === "ended"
-          ? "ended"
-          : mapped.status === "rejected"
-            ? "rejected"
-            : mapped.status === "cancelled"
-              ? "cancelled"
-              : "missed",
-      durationSeconds: Math.max(0, Number(input.durationSeconds ?? 0)),
-    });
+    await finalizeLog(session, mapped);
   }
   return { ok: true, session: mapped };
 }
@@ -1770,24 +2223,64 @@ export async function listIncomingCommunityMessengerCallSessions(
 ): Promise<CommunityMessengerCallSession[]> {
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data, error } = await (sb as any)
-      .from("community_messenger_call_sessions")
-      .select(
-        "id, room_id, initiator_user_id, recipient_user_id, call_kind, status, started_at, answered_at, ended_at, created_at"
-      )
-      .eq("recipient_user_id", userId)
-      .eq("status", "ringing")
-      .order("created_at", { ascending: false })
-      .limit(10);
-    if (data && !error) {
-      const mapped = await Promise.all((data as CallSessionRow[]).map((row) => mapCallSession(userId, row)));
+    const [{ data: directRows, error: directError }, { data: groupParticipantRows, error: groupError }] =
+      await Promise.all([
+        (sb as any)
+          .from("community_messenger_call_sessions")
+          .select(
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+          )
+          .eq("recipient_user_id", userId)
+          .eq("session_mode", "direct")
+          .eq("status", "ringing")
+          .order("created_at", { ascending: false })
+          .limit(10),
+        (sb as any)
+          .from("community_messenger_call_session_participants")
+          .select("session_id, participation_status")
+          .eq("user_id", userId)
+          .in("participation_status", ["invited"])
+          .limit(20),
+      ]);
+
+    const groupSessionIds = dedupeIds(
+      ((groupParticipantRows ?? []) as Array<{ session_id?: string | null }>)
+        .map((row) => row.session_id)
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+    );
+
+    let groupRows: CallSessionRow[] = [];
+    if (groupSessionIds.length) {
+      const { data } = await (sb as any)
+        .from("community_messenger_call_sessions")
+        .select(
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+        )
+        .in("id", groupSessionIds)
+        .eq("session_mode", "group")
+        .in("status", ["ringing", "active"])
+        .order("created_at", { ascending: false });
+      groupRows = (data ?? []) as CallSessionRow[];
+    }
+
+    if ((!directError || !groupError) && ((directRows ?? []).length || groupRows.length)) {
+      const merged = [...((directRows ?? []) as CallSessionRow[]), ...groupRows]
+        .sort((a, b) => (trimText(b.created_at) || "").localeCompare(trimText(a.created_at) || ""))
+        .slice(0, 10);
+      const mapped = await Promise.all(merged.map((row) => mapCallSession(userId, row)));
       return mapped;
     }
   }
 
   const dev = getDevState();
   const sessions = dev.callSessions
-    .filter((item) => item.recipientUserId === userId && item.status === "ringing")
+    .filter((item) => {
+      if (item.sessionMode === "direct") {
+        return item.recipientUserId === userId && item.status === "ringing";
+      }
+      const mine = item.participants.find((participant) => participant.userId === userId);
+      return Boolean(mine && mine.participationStatus === "invited" && (item.status === "ringing" || item.status === "active"));
+    })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 10);
   return Promise.all(sessions.map((row) => mapCallSession(userId, row)));
@@ -1822,12 +2315,20 @@ export async function createCommunityMessengerCallSignal(input: {
   if (sb) {
     const { data: session } = await (sb as any)
       .from("community_messenger_call_sessions")
-      .select("id, room_id, initiator_user_id, recipient_user_id, status")
+      .select("id, room_id, initiator_user_id, recipient_user_id, session_mode, status")
       .eq("id", sessionId)
       .maybeSingle();
     if (!session) return { ok: false, error: "session_not_found" };
     const row = session as CallSessionRow;
-    const participants = [row.initiator_user_id, row.recipient_user_id];
+    const { data: participantRows } = await (sb as any)
+      .from("community_messenger_call_session_participants")
+      .select("user_id")
+      .eq("session_id", sessionId);
+    const participants = dedupeIds(
+      ((participantRows ?? []) as Array<{ user_id?: string | null }>)
+        .map((item) => item.user_id)
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+    );
     if (!participants.includes(input.userId) || !participants.includes(toUserId) || input.userId === toUserId) {
       return { ok: false, error: "forbidden" };
     }
@@ -1850,7 +2351,7 @@ export async function createCommunityMessengerCallSignal(input: {
   const dev = getDevState();
   const session = dev.callSessions.find((item) => item.id === sessionId);
   if (!session) return { ok: false, error: "session_not_found" };
-  const participants = [session.initiatorUserId, session.recipientUserId];
+  const participants = dedupeIds(session.participants.map((item) => item.userId));
   if (!participants.includes(input.userId) || !participants.includes(toUserId) || input.userId === toUserId) {
     return { ok: false, error: "forbidden" };
   }

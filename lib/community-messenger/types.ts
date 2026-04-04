@@ -18,7 +18,9 @@ export type CommunityMessengerCallSessionStatus =
   | "rejected"
   | "missed"
   | "cancelled";
+export type CommunityMessengerCallSessionMode = "direct" | "group";
 export type CommunityMessengerCallSignalType = "offer" | "answer" | "ice-candidate" | "hangup";
+export type CommunityMessengerCallParticipantStatus = "invited" | "joined" | "left" | "rejected";
 export type CommunityMessengerFriendRequestStatus =
   | "pending"
   | "accepted"
@@ -90,9 +92,12 @@ export type CommunityMessengerRoomSnapshot = {
 export type CommunityMessengerCallLog = {
   id: string;
   roomId: string | null;
+  sessionMode: CommunityMessengerCallSessionMode;
   title: string;
   peerLabel: string;
   peerUserId: string | null;
+  participantCount: number;
+  participantLabels: string[];
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallStatus;
   startedAt: string;
@@ -102,9 +107,10 @@ export type CommunityMessengerCallLog = {
 export type CommunityMessengerCallSession = {
   id: string;
   roomId: string;
+  sessionMode: CommunityMessengerCallSessionMode;
   initiatorUserId: string;
-  recipientUserId: string;
-  peerUserId: string;
+  recipientUserId: string | null;
+  peerUserId: string | null;
   peerLabel: string;
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallSessionStatus;
@@ -112,6 +118,16 @@ export type CommunityMessengerCallSession = {
   answeredAt: string | null;
   endedAt: string | null;
   isMineInitiator: boolean;
+  participants: CommunityMessengerCallParticipant[];
+};
+
+export type CommunityMessengerCallParticipant = {
+  userId: string;
+  label: string;
+  status: CommunityMessengerCallParticipantStatus;
+  joinedAt: string | null;
+  leftAt: string | null;
+  isMe: boolean;
 };
 
 export type CommunityMessengerCallSignal = {

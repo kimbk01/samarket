@@ -57,6 +57,18 @@ export function GlobalCommunityMessengerIncomingCall() {
           void refresh();
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_session_participants",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void refresh();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -108,7 +120,9 @@ export function GlobalCommunityMessengerIncomingCall() {
         <p className="text-[12px] font-semibold text-[#06C755]">수신 통화</p>
         <h2 className="mt-1 text-[18px] font-semibold text-gray-900">{visibleSession.peerLabel}</h2>
         <p className="mt-1 text-[13px] text-gray-500">
-          {visibleSession.callKind === "video" ? "영상 통화" : "음성 통화"}가 왔습니다.
+          {visibleSession.sessionMode === "group"
+            ? `${visibleSession.callKind === "video" ? "그룹 영상 통화" : "그룹 음성 통화"} 초대가 왔습니다.`
+            : `${visibleSession.callKind === "video" ? "영상 통화" : "음성 통화"}가 왔습니다.`}
         </p>
         <div className="mt-4 flex gap-2">
           <button

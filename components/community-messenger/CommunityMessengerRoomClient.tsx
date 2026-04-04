@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCommunityMessengerCall } from "@/lib/community-messenger/use-community-messenger-call";
+import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { useCommunityMessengerRoomRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import type {
   CommunityMessengerBootstrap,
@@ -65,7 +66,7 @@ export function CommunityMessengerRoomClient({
     return friends.filter((friend) => !memberIds.has(friend.id));
   }, [friends, snapshot?.members]);
 
-  const call = useCommunityMessengerCall({
+  const directCall = useCommunityMessengerCall({
     roomId,
     roomType: snapshot?.room.roomType ?? "direct",
     viewerUserId: snapshot?.viewerUserId ?? "",
@@ -74,6 +75,15 @@ export function CommunityMessengerRoomClient({
     activeCall: snapshot?.activeCall ?? null,
     onRefresh: refresh,
   });
+  const groupCall = useCommunityMessengerGroupCall({
+    enabled: snapshot?.room.roomType === "group",
+    roomId,
+    viewerUserId: snapshot?.viewerUserId ?? "",
+    roomLabel: snapshot?.room.title ?? "그룹 통화",
+    activeCall: snapshot?.activeCall ?? null,
+    onRefresh: refresh,
+  });
+  const call = snapshot?.room.roomType === "group" ? groupCall : directCall;
 
   const sendMessage = useCallback(async () => {
     const content = message.trim();
@@ -153,7 +163,13 @@ export function CommunityMessengerRoomClient({
     if (initialCallAction !== "accept") return;
     if (initialCallSessionId && activeCall.id !== initialCallSessionId) return;
     if (autoHandledSessionRef.current === activeCall.id) return;
-    if (activeCall.isMineInitiator || activeCall.status !== "ringing") return;
+    if (activeCall.isMineInitiator) return;
+    const shouldAutoAccept =
+      activeCall.sessionMode === "group"
+        ? (activeCall.status === "ringing" || activeCall.status === "active") &&
+          activeCall.participants.some((participant) => participant.isMe && participant.status === "invited")
+        : activeCall.status === "ringing";
+    if (!shouldAutoAccept) return;
     autoHandledSessionRef.current = activeCall.id;
     void call.acceptIncomingCall().finally(() => {
       router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
@@ -398,7 +414,9 @@ export function CommunityMessengerRoomClient({
             </p>
             <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{call.panel.peerLabel}</h2>
             <p className="mt-2 text-[13px] leading-5 text-gray-500">
-              1:1 메신저 방에서 실제 WebRTC 연결을 시도합니다. 마이크 및 카메라 권한이 필요할 수 있습니다.
+              {snapshot.room.roomType === "group"
+                ? "그룹 메신저 방에서 최대 4인 메쉬 WebRTC 연결을 시도합니다. 마이크 및 카메라 권한이 필요할 수 있습니다."
+                : "1:1 메신저 방에서 실제 WebRTC 연결을 시도합니다. 마이크 및 카메라 권한이 필요할 수 있습니다."}
             </p>
 
             <div className="mt-5 rounded-3xl bg-[#F4F6F8] px-4 py-8 text-center">
@@ -414,15 +432,37 @@ export function CommunityMessengerRoomClient({
                     />
                     <p className="px-3 py-2 text-[12px] font-medium text-white/85">내 화면</p>
                   </div>
-                  <div className="overflow-hidden rounded-3xl bg-black">
-                    <video
-                      ref={call.remoteVideoRef}
-                      autoPlay
-                      playsInline
-                      className="h-40 w-full bg-black object-cover"
-                    />
-                    <p className="px-3 py-2 text-[12px] font-medium text-white/85">상대 화면</p>
-                  </div>
+                  {snapshot.room.roomType === "group" ? (
+                    groupCall.remotePeers.length ? (
+                      groupCall.remotePeers.map((peer) => (
+                        <div key={peer.userId} className="overflow-hidden rounded-3xl bg-black">
+                          <video
+                            ref={(node) => {
+                              groupCall.bindRemoteVideo(peer.userId, node);
+                            }}
+                            autoPlay
+                            playsInline
+                            className="h-40 w-full bg-black object-cover"
+                          />
+                          <p className="px-3 py-2 text-[12px] font-medium text-white/85">{peer.label}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-center rounded-3xl bg-white text-[12px] text-gray-500">
+                        참여자 연결 대기 중
+                      </div>
+                    )
+                  ) : (
+                    <div className="overflow-hidden rounded-3xl bg-black">
+                      <video
+                        ref={directCall.remoteVideoRef}
+                        autoPlay
+                        playsInline
+                        className="h-40 w-full bg-black object-cover"
+                      />
+                      <p className="px-3 py-2 text-[12px] font-medium text-white/85">상대 화면</p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#06C755] text-[26px] text-white">
@@ -431,6 +471,37 @@ export function CommunityMessengerRoomClient({
               )}
               <p className="mt-4 text-[18px] font-semibold text-gray-900">{call.panel.peerLabel}</p>
               <p className="mt-1 text-[13px] text-gray-500">{call.callStatusLabel}</p>
+              {snapshot.room.roomType === "group" && groupCall.participants.length ? (
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  {groupCall.participants.map((participant) => (
+                    <span
+                      key={participant.userId}
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                        participant.status === "joined"
+                          ? "bg-green-50 text-green-700"
+                          : participant.status === "invited"
+                            ? "bg-gray-100 text-gray-700"
+                            : "bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {participant.label} · {formatParticipantStatus(participant.status)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {call.connectionBadge ? (
+                <p
+                  className={`mt-2 inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${
+                    call.connectionBadge.tone === "good"
+                      ? "bg-green-50 text-green-700"
+                      : call.connectionBadge.tone === "poor"
+                        ? "bg-red-50 text-red-700"
+                        : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {call.connectionBadge.label}
+                </p>
+              ) : null}
               {call.panel.mode === "active" ? (
                 <p className="mt-1 text-[12px] font-medium text-[#06C755]">{formatDuration(call.elapsedSeconds)}</p>
               ) : null}
@@ -495,6 +566,16 @@ export function CommunityMessengerRoomClient({
                   >
                     통화 종료
                   </button>
+                  {call.connectionBadge?.tone === "poor" ? (
+                    <button
+                      type="button"
+                      onClick={() => void call.retryConnection()}
+                      disabled={call.busy === "call-retry"}
+                      className="rounded-2xl border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700"
+                    >
+                      다시 연결
+                    </button>
+                  ) : null}
                 </>
               )}
             </div>
@@ -516,4 +597,11 @@ function formatDuration(value: number): string {
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function formatParticipantStatus(value: "invited" | "joined" | "left" | "rejected"): string {
+  if (value === "joined") return "참여 중";
+  if (value === "invited") return "대기";
+  if (value === "rejected") return "거절";
+  return "종료";
 }

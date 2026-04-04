@@ -16,6 +16,9 @@ type CallPanelState = {
   peerLabel: string;
 };
 
+type CallTransportState = "idle" | "connecting" | "connected" | "disconnected" | "failed";
+type CallQuality = "good" | "normal" | "poor" | null;
+
 const CALL_RING_TIMEOUT_MS = 35_000;
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
@@ -83,6 +86,8 @@ export function useCommunityMessengerCall(args: {
   const [busy, setBusy] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [transportState, setTransportState] = useState<CallTransportState>("idle");
+  const [callQuality, setCallQuality] = useState<CallQuality>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -108,6 +113,8 @@ export function useCommunityMessengerCall(args: {
     processedSignalIdsRef.current.clear();
     activeSinceRef.current = null;
     setElapsedSeconds(0);
+    setTransportState("idle");
+    setCallQuality(null);
   }, [localStream, remoteStream]);
 
   useEffect(() => {
@@ -249,6 +256,7 @@ export function useCommunityMessengerCall(args: {
       const stream = await ensureLocalStream(kind);
       const iceServers = await getCommunityMessengerIceServers();
       const connection = new RTCPeerConnection({ iceServers });
+      setTransportState("connecting");
       const nextRemoteStream = new MediaStream();
       setRemoteStream(nextRemoteStream);
       for (const track of stream.getTracks()) {
@@ -267,6 +275,48 @@ export function useCommunityMessengerCall(args: {
           candidate: event.candidate.toJSON(),
         });
       };
+      connection.onconnectionstatechange = () => {
+        const state = connection.connectionState;
+        if (state === "connected") {
+          setTransportState("connected");
+          return;
+        }
+        if (state === "connecting" || state === "new") {
+          setTransportState("connecting");
+          return;
+        }
+        if (state === "disconnected") {
+          setTransportState("disconnected");
+          setErrorMessage("네트워크가 불안정합니다. 다시 연결을 시도할 수 있습니다.");
+          return;
+        }
+        if (state === "failed") {
+          setTransportState("failed");
+          setErrorMessage("통화 연결이 끊겼습니다. 다시 연결을 시도해 주세요.");
+          return;
+        }
+        if (state === "closed") {
+          setTransportState("idle");
+        }
+      };
+      connection.oniceconnectionstatechange = () => {
+        const state = connection.iceConnectionState;
+        if (state === "connected" || state === "completed") {
+          setTransportState("connected");
+          return;
+        }
+        if (state === "checking" || state === "new") {
+          setTransportState("connecting");
+          return;
+        }
+        if (state === "disconnected") {
+          setTransportState("disconnected");
+          return;
+        }
+        if (state === "failed") {
+          setTransportState("failed");
+        }
+      };
       peerConnectionRef.current = connection;
       return connection;
     },
@@ -280,7 +330,17 @@ export function useCommunityMessengerCall(args: {
       processedSignalIdsRef.current.add(signal.id);
 
       if (signal.signalType === "offer") {
-        pendingOfferRef.current = readSessionDescription(signal.payload, "offer");
+        const offer = readSessionDescription(signal.payload, "offer");
+        if (!offer) return;
+        if (peerConnectionRef.current && panel?.mode === "active" && args.peerUserId) {
+          await peerConnectionRef.current.setRemoteDescription(offer);
+          await flushPendingCandidates();
+          const answer = await peerConnectionRef.current.createAnswer();
+          await peerConnectionRef.current.setLocalDescription(answer);
+          await sendSignal(signal.sessionId, args.peerUserId, "answer", { sdp: answer.sdp ?? "" });
+          return;
+        }
+        pendingOfferRef.current = offer;
         return;
       }
 
@@ -316,8 +376,45 @@ export function useCommunityMessengerCall(args: {
         await args.onRefresh();
       }
     },
-    [args, cleanupMedia, flushPendingCandidates]
+    [args, cleanupMedia, flushPendingCandidates, panel?.mode, sendSignal]
   );
+
+  useEffect(() => {
+    if (panel?.mode !== "active") return;
+    const connection = peerConnectionRef.current;
+    if (!connection) return;
+    let cancelled = false;
+
+    const timer = setInterval(() => {
+      void (async () => {
+        try {
+          const stats = await connection.getStats();
+          let nextQuality: CallQuality = null;
+          stats.forEach((report) => {
+            if (report.type !== "candidate-pair") return;
+            const selected = (report as RTCStats & { nominated?: boolean; state?: string }).state === "succeeded";
+            if (!selected) return;
+            const rtt = Number((report as RTCStats & { currentRoundTripTime?: number }).currentRoundTripTime ?? 0);
+            if (!rtt) {
+              nextQuality = "normal";
+              return;
+            }
+            if (rtt < 0.15) nextQuality = "good";
+            else if (rtt < 0.35) nextQuality = "normal";
+            else nextQuality = "poor";
+          });
+          if (!cancelled) setCallQuality(nextQuality);
+        } catch {
+          /* ignore stats polling failure */
+        }
+      })();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [panel?.mode, transportState]);
 
   useEffect(() => {
     if (!currentSessionId) return;
@@ -422,6 +519,10 @@ export function useCommunityMessengerCall(args: {
         return;
       }
       const session = json.session;
+      if (!session.peerUserId) {
+        setErrorMessage("상대방 정보를 불러오지 못했습니다.");
+        return;
+      }
       setPanel({
         kind: session.callKind,
         mode: "outgoing",
@@ -467,6 +568,10 @@ export function useCommunityMessengerCall(args: {
     setBusy("call-accept");
     setErrorMessage(null);
     try {
+      if (!activeCall.peerUserId) {
+        setErrorMessage("상대방 정보를 불러오지 못했습니다.");
+        return;
+      }
       const connection = await ensurePeerConnection(activeCall.callKind, activeCall.id, activeCall.peerUserId);
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}/signals`, {
         cache: "no-store",
@@ -546,6 +651,26 @@ export function useCommunityMessengerCall(args: {
     }
   }, [args.onRefresh, args.peerUserId, cleanupMedia, currentSessionId, elapsedSeconds, sendSignal]);
 
+  const retryConnection = useCallback(async () => {
+    const sessionId = currentSessionId;
+    const connection = peerConnectionRef.current;
+    if (!sessionId || !connection || !args.peerUserId || !panel) return;
+    setBusy("call-retry");
+    setErrorMessage("네트워크 복구를 시도하고 있습니다.");
+    setTransportState("connecting");
+    try {
+      const offer = await connection.createOffer({
+        iceRestart: true,
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: panel.kind === "video",
+      });
+      await connection.setLocalDescription(offer);
+      await sendSignal(sessionId, args.peerUserId, "offer", { sdp: offer.sdp ?? "" });
+    } finally {
+      setBusy(null);
+    }
+  }, [args.peerUserId, currentSessionId, panel, sendSignal]);
+
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";
     if (panel.mode === "preview") return "연결 전 미리보기";
@@ -553,6 +678,18 @@ export function useCommunityMessengerCall(args: {
     if (panel.mode === "outgoing") return "상대방 연결 대기 중";
     return "통화 진행 중";
   }, [panel]);
+
+  const connectionBadge = useMemo(() => {
+    if (transportState === "connected") {
+      if (callQuality === "good") return { label: "연결 좋음", tone: "good" as const };
+      if (callQuality === "poor") return { label: "연결 약함", tone: "poor" as const };
+      return { label: "연결 안정", tone: "normal" as const };
+    }
+    if (transportState === "connecting") return { label: "연결 중", tone: "normal" as const };
+    if (transportState === "disconnected") return { label: "끊김 감지", tone: "poor" as const };
+    if (transportState === "failed") return { label: "연결 실패", tone: "poor" as const };
+    return null;
+  }, [callQuality, transportState]);
 
   return {
     panel,
@@ -564,6 +701,7 @@ export function useCommunityMessengerCall(args: {
     localVideoRef,
     remoteVideoRef,
     callStatusLabel,
+    connectionBadge,
     openPreview,
     closePreview,
     startCall,
@@ -571,5 +709,6 @@ export function useCommunityMessengerCall(args: {
     rejectIncomingCall,
     cancelOutgoingCall,
     endActiveCall,
+    retryConnection,
   };
 }
