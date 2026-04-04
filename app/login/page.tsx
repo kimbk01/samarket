@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { MyTestLoginSection } from "@/components/my/MyTestLoginSection";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -42,7 +43,8 @@ function normalizeEmailForSignIn(raw: string): string {
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
-  const nextForSignup = safeInternalPath(searchParams.get("next")?.trim() || POST_LOGIN_PATH);
+  const nextPath = safeInternalPath(searchParams.get("next")?.trim() || POST_LOGIN_PATH);
+  const nextForSignup = nextPath;
   const [oauthBusy, setOauthBusy] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -92,7 +94,7 @@ function LoginPageContent() {
      * `router.push` 만 쓰면 로그인 직후 RSC/프록시가 쿠키 없이 돌고 `/login` 으로 튕기는 경우가 있음.
      * 전체 네비게이션으로 `sb-*-auth-token` 이 다음 요청에 반드시 실리게 함.
      */
-    window.location.assign(POST_LOGIN_PATH);
+    window.location.assign(nextPath);
   };
 
   const handleOAuthLogin = async (provider: "google" | "kakao" | "apple") => {
@@ -106,7 +108,7 @@ function LoginPageContent() {
     }
     const redirectTo =
       typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(POST_LOGIN_PATH)}`
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
         : undefined;
     try {
       const { error: oauthError } = await withTimeout(
@@ -205,6 +207,9 @@ function LoginPageContent() {
         <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
           피드·매장·채팅 등 서비스는 로그인 후 이용할 수 있습니다.
         </p>
+      </div>
+      <div className="w-full max-w-sm">
+        <MyTestLoginSection redirectTo={nextPath} />
       </div>
     </div>
   );

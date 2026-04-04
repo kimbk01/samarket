@@ -305,6 +305,19 @@ export type AdminCommunityMessengerDashboard = {
     count: number;
     share: number;
   }>;
+  forceEndTrendStats: Array<{
+    key: "24h" | "7d" | "30d";
+    label: string;
+    currentCount: number;
+    previousCount: number;
+    delta: number;
+    direction: "up" | "down" | "flat";
+  }>;
+  forceEndAdminStats: Array<{
+    adminLabel: string;
+    count: number;
+    share: number;
+  }>;
   rooms: AdminCommunityMessengerRoomSummary[];
   requests: AdminCommunityMessengerFriendRequest[];
   calls: AdminCommunityMessengerCallLog[];
@@ -500,6 +513,41 @@ function mapReport(
   };
 }
 
+function buildForceEndTrendStats(callAudits: AdminCommunityMessengerCallAuditLog[]) {
+  const now = Date.now();
+  const windows = [
+    { key: "24h" as const, label: "최근 24시간", sizeMs: 24 * 60 * 60 * 1000 },
+    { key: "7d" as const, label: "최근 7일", sizeMs: 7 * 24 * 60 * 60 * 1000 },
+    { key: "30d" as const, label: "최근 30일", sizeMs: 30 * 24 * 60 * 60 * 1000 },
+  ];
+
+  return windows.map((window) => {
+    let currentCount = 0;
+    let previousCount = 0;
+
+    for (const audit of callAudits) {
+      const timestamp = new Date(audit.createdAt).getTime();
+      if (!Number.isFinite(timestamp) || timestamp > now) continue;
+      const age = now - timestamp;
+      if (age <= window.sizeMs) {
+        currentCount += 1;
+      } else if (age <= window.sizeMs * 2) {
+        previousCount += 1;
+      }
+    }
+
+    const delta = currentCount - previousCount;
+    return {
+      key: window.key,
+      label: window.label,
+      currentCount,
+      previousCount,
+      delta,
+      direction: delta > 0 ? ("up" as const) : delta < 0 ? ("down" as const) : ("flat" as const),
+    };
+  });
+}
+
 export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommunityMessengerDashboard> {
   const [{ rooms, participants }, requestData, callData, reportData, sessionData, sessionParticipantData, auditData] = await Promise.all([
     getRoomsAndParticipants(),
@@ -615,6 +663,20 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
       share: forceEndTotal > 0 ? count / forceEndTotal : 0,
     };
   }).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, "ko-KR"));
+  const forceEndTrendStats = buildForceEndTrendStats(callAudits);
+  const forceEndAdminCounts = new Map<string, number>();
+  for (const audit of callAudits) {
+    const adminLabel = t(audit.actorLabel) || "관리자 미상";
+    forceEndAdminCounts.set(adminLabel, (forceEndAdminCounts.get(adminLabel) ?? 0) + 1);
+  }
+  const forceEndAdminStats = [...forceEndAdminCounts.entries()]
+    .map(([adminLabel, count]) => ({
+      adminLabel,
+      count,
+      share: forceEndTotal > 0 ? count / forceEndTotal : 0,
+    }))
+    .sort((left, right) => right.count - left.count || left.adminLabel.localeCompare(right.adminLabel, "ko-KR"))
+    .slice(0, 8);
 
   return {
     stats: {
@@ -633,6 +695,8 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
       forceEndTotal,
     },
     forceEndReasonStats,
+    forceEndTrendStats,
+    forceEndAdminStats,
     rooms: roomSummaries,
     requests,
     calls,

@@ -6,7 +6,11 @@ import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 
 type AuthState = { userId: string; username: string; role: string } | null;
 
-export function TestLoginBar() {
+type TestLoginBarProps = {
+  redirectTo?: string;
+};
+
+export function TestLoginBar({ redirectTo }: TestLoginBarProps) {
   const [auth, setAuth] = useState<AuthState>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +42,9 @@ export function TestLoginBar() {
       setUsername("");
       setPassword("");
       refresh();
+      if (redirectTo?.trim()) {
+        window.location.assign(redirectTo);
+      }
     } catch {
       setError("요청 실패");
     } finally {

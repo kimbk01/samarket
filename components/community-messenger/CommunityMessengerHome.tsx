@@ -42,6 +42,9 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const [activeTab, setActiveTab] = useState<CommunityMessengerTab>(normalizeTab(initialTab ?? null));
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<CommunityMessengerProfileLite[]>([]);
@@ -49,12 +52,37 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const counts = data?.tabs ?? EMPTY_COUNTS;
 
+  const getMessengerActionErrorMessage = useCallback((error?: string) => {
+    switch (error) {
+      case "bad_peer":
+        return "1:1 채팅 대상을 다시 확인해 주세요.";
+      case "blocked_target":
+        return "차단 관계에서는 채팅방을 만들 수 없습니다.";
+      case "title_required":
+        return "그룹방 제목을 입력해 주세요.";
+      case "members_required":
+        return "그룹방에 초대할 친구를 1명 이상 선택해 주세요.";
+      case "room_lookup_failed":
+        return "기존 채팅방 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+      case "room_create_failed":
+      case "room_participant_create_failed":
+        return "1:1 채팅방 생성에 실패했습니다.";
+      case "group_create_failed":
+      case "group_participant_create_failed":
+        return "그룹방 생성에 실패했습니다.";
+      default:
+        return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    }
+  }, []);
+
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const res = await fetch("/api/community-messenger/bootstrap", { cache: "no-store" });
-      const json = (await res.json()) as CommunityMessengerBootstrap & { ok?: boolean };
+      const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & { ok?: boolean; error?: string };
       if (res.ok && json.ok) {
+        setAuthRequired(false);
+        setPageError(null);
         setData({
           me: json.me ?? null,
           tabs: json.tabs ?? EMPTY_COUNTS,
@@ -67,6 +95,12 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           calls: json.calls ?? [],
         });
       } else {
+        setAuthRequired(res.status === 401 || res.status === 403);
+        setPageError(
+          res.status === 401 || res.status === 403
+            ? "로그인 후 메신저를 사용할 수 있습니다."
+            : "메신저 데이터를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요."
+        );
         setData(null);
       }
     } finally {
@@ -96,6 +130,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
 
   const startDirectRoom = useCallback(
     async (peerUserId: string) => {
+      setActionError(null);
       setBusyId(`room:${peerUserId}`);
       try {
         const res = await fetch("/api/community-messenger/rooms", {
@@ -103,15 +138,22 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ roomType: "direct", peerUserId }),
         });
-        const json = (await res.json()) as { ok?: boolean; roomId?: string };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
         if (res.ok && json.ok && json.roomId) {
           router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
+          return;
         }
+        if (res.status === 401 || res.status === 403) {
+          setAuthRequired(true);
+          setPageError("로그인 후 메신저를 사용할 수 있습니다.");
+          return;
+        }
+        setActionError(getMessengerActionErrorMessage(json.error));
       } finally {
         setBusyId(null);
       }
     },
-    [router]
+    [getMessengerActionErrorMessage, router]
   );
 
   const searchUsers = useCallback(async () => {
@@ -221,6 +263,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const createGroup = useCallback(async () => {
     const memberIds = groupMembers.filter(Boolean);
     if (!groupTitle.trim() || memberIds.length === 0) return;
+    setActionError(null);
     setBusyId("create-group");
     try {
       const res = await fetch("/api/community-messenger/rooms", {
@@ -232,17 +275,24 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           memberIds,
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; roomId?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
       await refresh();
       if (res.ok && json.ok && json.roomId) {
         setGroupTitle("");
         setGroupMembers([]);
         router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
+        return;
       }
+      if (res.status === 401 || res.status === 403) {
+        setAuthRequired(true);
+        setPageError("로그인 후 메신저를 사용할 수 있습니다.");
+        return;
+      }
+      setActionError(getMessengerActionErrorMessage(json.error));
     } finally {
       setBusyId(null);
     }
-  }, [groupMembers, groupTitle, refresh, router]);
+  }, [getMessengerActionErrorMessage, groupMembers, groupTitle, refresh, router]);
 
   const favoriteFriends = useMemo(
     () => (data?.friends ?? []).filter((friend) => friend.isFavoriteFriend),
@@ -333,13 +383,48 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         onChange={setTab}
       />
 
+      {actionError ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{actionError}</div>
+      ) : null}
+
       {loading ? (
         <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-center text-[14px] text-gray-500">
           메신저 데이터를 불러오는 중입니다.
         </div>
       ) : null}
 
-      {!loading && activeTab === "friends" ? (
+      {!loading && authRequired ? (
+        <section className="rounded-2xl border border-gray-200 bg-white px-4 py-8 text-center">
+          <p className="text-[16px] font-semibold text-gray-900">로그인이 필요합니다.</p>
+          <p className="mt-2 text-[13px] text-gray-500">{pageError ?? "메신저는 로그인 후 사용할 수 있습니다."}</p>
+          <div className="mt-4 flex justify-center">
+            <Link
+              href={`/login?next=${encodeURIComponent("/community-messenger")}`}
+              className="rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+            >
+              로그인하러 가기
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {!loading && !authRequired && !data ? (
+        <section className="rounded-2xl border border-gray-200 bg-white px-4 py-8 text-center">
+          <p className="text-[16px] font-semibold text-gray-900">메신저를 불러오지 못했습니다.</p>
+          <p className="mt-2 text-[13px] text-gray-500">{pageError ?? "잠시 후 다시 시도해 주세요."}</p>
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+            >
+              다시 불러오기
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {!loading && data && activeTab === "friends" ? (
         <div className="space-y-4">
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
             <div className="flex gap-2">
@@ -552,7 +637,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         </div>
       ) : null}
 
-      {!loading && activeTab === "chats" ? (
+      {!loading && data && activeTab === "chats" ? (
         <InfoSection title="1:1 채팅방" subtitle="거래/주문 채팅과 분리된 커뮤니티 메신저 대화입니다.">
           {sortedChats.length ? (
             sortedChats.map((room) => <RoomCard key={room.id} room={room} href={`/community-messenger/rooms/${room.id}`} />)
@@ -562,7 +647,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         </InfoSection>
       ) : null}
 
-      {!loading && activeTab === "groups" ? (
+      {!loading && data && activeTab === "groups" ? (
         <div className="space-y-4">
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="text-[16px] font-semibold text-gray-900">새 그룹 만들기</h2>
@@ -573,6 +658,18 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
               placeholder="예: 사마켓 운영팀"
               className="mt-3 h-11 w-full rounded-xl border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
             />
+            <div className="mt-3 flex items-center justify-between gap-3 text-[12px] text-gray-500">
+              <span>선택된 친구 {groupMembers.length}명</span>
+              {groupMembers.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setGroupMembers([])}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-700"
+                >
+                  선택 해제
+                </button>
+              ) : null}
+            </div>
             <div className="mt-3 grid gap-2">
               {(data?.friends ?? []).map((friend) => {
                 const checked = groupMembers.includes(friend.id);
@@ -619,7 +716,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         </div>
       ) : null}
 
-      {!loading && activeTab === "calls" ? (
+      {!loading && data && activeTab === "calls" ? (
         <div className="space-y-4">
           <section className="grid grid-cols-2 gap-2">
             <CallSummaryCard label="부재중" value={missedCallCount} tone="red" />
@@ -647,7 +744,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         </div>
       ) : null}
 
-      {!loading && activeTab === "settings" ? (
+      {!loading && data && activeTab === "settings" ? (
         <div className="space-y-4">
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="text-[16px] font-semibold text-gray-900">메신저 운영 원칙</h2>

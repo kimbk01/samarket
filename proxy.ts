@@ -1,5 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { KASAMA_DEV_UID_COOKIE, KASAMA_DEV_UID_PUB_COOKIE } from "@/lib/auth/dev-session-cookie";
+import { allowKasamaDevSession } from "@/lib/config/deploy-surface";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
 /**
  * 앱 UI(HTML·RSC) — 미로그인 시 /login 으로만 진입 가능.
@@ -21,6 +24,13 @@ function requestHasSupabaseAuthCookies(request: NextRequest): boolean {
     if (name === "supabase.auth.token" || name.startsWith("supabase.auth.token.")) return true;
   }
   return false;
+}
+
+function requestHasKasamaDevAuthCookies(request: NextRequest): boolean {
+  const primary = request.cookies.get(KASAMA_DEV_UID_COOKIE)?.value?.trim();
+  if (primary && isUuidLikeString(primary)) return true;
+  const mirrored = request.cookies.get(KASAMA_DEV_UID_PUB_COOKIE)?.value?.trim();
+  return Boolean(mirrored && isUuidLikeString(mirrored));
 }
 
 /** HTML 문서가 브라우저(웨일 등) 디스크 캐시에 오래 머물며 “예전처럼 로그인 없이 보임”으로 보이는 일 완화 */
@@ -63,10 +73,9 @@ export async function proxy(request: NextRequest) {
     return preventAuthPageCache(NextResponse.next());
   }
 
-  /**
-   * HTML·RSC 는 Supabase 세션만 인정. Kasama(test-login) 쿠키로는 페이지를 열지 않음
-   * (API 는 `getOptionalAuthenticatedUserId` 등에서 별도 처리).
-   */
+  if (allowKasamaDevSession() && requestHasKasamaDevAuthCookies(request)) {
+    return preventAuthPageCache(NextResponse.next());
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();

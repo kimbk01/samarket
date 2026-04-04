@@ -237,6 +237,14 @@ function isMissingTableError(error: unknown): boolean {
   return /does not exist|relation .* does not exist|schema cache/i.test(message);
 }
 
+function isUniqueViolationError(error: unknown): boolean {
+  const message =
+    typeof error === "object" && error && "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+  const code =
+    typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+  return code === "23505" || /duplicate key|unique constraint/i.test(message);
+}
+
 function getSupabaseOrNull(): SupabaseLike | null {
   try {
     return getSupabaseServer();
@@ -1292,6 +1300,15 @@ export async function ensureCommunityMessengerDirectRoom(
   const directKey = directKeyFor(userId, peerId);
   const sb = getSupabaseOrNull();
   if (sb) {
+    const loadExistingRoomId = async () => {
+      const { data } = await (sb as any)
+        .from("community_messenger_rooms")
+        .select("id")
+        .eq("room_type", "direct")
+        .eq("direct_key", directKey)
+        .maybeSingle();
+      return typeof data?.id === "string" ? (data.id as string) : null;
+    };
     const { data: existing, error: existingError } = await (sb as any)
       .from("community_messenger_rooms")
       .select("id")
@@ -1318,15 +1335,30 @@ export async function ensureCommunityMessengerDirectRoom(
         .single();
       if (!roomError) {
         const roomId = room.id as string;
-        await (sb as any).from("community_messenger_participants").insert([
+        const { error: participantError } = await (sb as any).from("community_messenger_participants").insert([
           { room_id: roomId, user_id: userId, role: "owner" },
           { room_id: roomId, user_id: peerId, role: "member" },
         ]);
-        return { ok: true, roomId };
+        if (!participantError) {
+          return { ok: true, roomId };
+        }
+        await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
+        return { ok: false, error: String(participantError.message ?? "room_participant_create_failed") };
+      }
+      if (isUniqueViolationError(roomError)) {
+        const roomId = await loadExistingRoomId();
+        if (roomId) return { ok: true, roomId };
       }
       if (!isMissingTableError(roomError)) {
         return { ok: false, error: String(roomError.message ?? "room_create_failed") };
       }
+    }
+    if (isUniqueViolationError(existingError)) {
+      const roomId = await loadExistingRoomId();
+      if (roomId) return { ok: true, roomId };
+    }
+    if (existingError && !isMissingTableError(existingError)) {
+      return { ok: false, error: String(existingError.message ?? "room_lookup_failed") };
     }
   }
 
@@ -1399,14 +1431,18 @@ export async function createCommunityMessengerGroupRoom(input: {
       .single();
     if (!roomError) {
       const roomId = room.id as string;
-      await (sb as any).from("community_messenger_participants").insert(
+      const { error: participantError } = await (sb as any).from("community_messenger_participants").insert(
         memberIds.map((memberId) => ({
           room_id: roomId,
           user_id: memberId,
           role: memberId === input.userId ? "owner" : "member",
         }))
       );
-      return { ok: true, roomId };
+      if (!participantError) {
+        return { ok: true, roomId };
+      }
+      await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
+      return { ok: false, error: String(participantError.message ?? "group_participant_create_failed") };
     }
     if (!isMissingTableError(roomError)) {
       return { ok: false, error: String(roomError.message ?? "group_create_failed") };
