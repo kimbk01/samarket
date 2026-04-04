@@ -11,8 +11,8 @@ export function getCommunityMessengerMediaErrorMessage(
 
   if (name === "NotAllowedError" || name === "PermissionDeniedError") {
     return kind === "video"
-      ? "카메라와 마이크 권한을 허용한 뒤 다시 시도해 주세요."
-      : "마이크 권한을 허용한 뒤 다시 시도해 주세요.";
+      ? "카메라와 마이크 권한이 필요합니다. 브라우저 주소창 왼쪽의 사이트 설정에서 권한을 허용해 주세요."
+      : "마이크 권한이 필요합니다. 브라우저 주소창 왼쪽의 사이트 설정에서 권한을 허용해 주세요.";
   }
   if (name === "NotFoundError" || name === "DevicesNotFoundError") {
     return kind === "video"

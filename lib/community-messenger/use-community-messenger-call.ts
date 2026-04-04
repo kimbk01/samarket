@@ -486,6 +486,20 @@ export function useCommunityMessengerCall(args: {
     });
   }, [args.peerLabel, args.roomType]);
 
+  const prepareDevices = useCallback(async () => {
+    const kind = panel?.kind ?? args.activeCall?.callKind;
+    if (!kind) return;
+    setBusy("preview");
+    setErrorMessage(null);
+    try {
+      await ensureLocalStream(kind);
+    } catch (error) {
+      setErrorMessage(getCommunityMessengerMediaErrorMessage(error, kind));
+    } finally {
+      setBusy(null);
+    }
+  }, [args.activeCall?.callKind, ensureLocalStream, panel?.kind]);
+
   const closePreview = useCallback(() => {
     cleanupMedia();
     setPanel(null);
@@ -682,9 +696,9 @@ export function useCommunityMessengerCall(args: {
 
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";
-    if (panel.mode === "preview") return "연결 전 미리보기";
-    if (panel.mode === "incoming") return "수신 통화";
-    if (panel.mode === "outgoing") return "상대방 연결 대기 중";
+    if (panel.mode === "preview") return "통화 준비";
+    if (panel.mode === "incoming") return "수신 전화";
+    if (panel.mode === "outgoing") return "연결 중";
     return "통화 진행 중";
   }, [panel]);
 
@@ -711,6 +725,7 @@ export function useCommunityMessengerCall(args: {
     remoteVideoRef,
     callStatusLabel,
     connectionBadge,
+    prepareDevices,
     openPreview,
     closePreview,
     startCall,

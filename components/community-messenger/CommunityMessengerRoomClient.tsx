@@ -2,6 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getCommunityMessengerPermissionGuide,
+  openCommunityMessengerPermissionSettings,
+} from "@/lib/community-messenger/call-permission";
 import { useCommunityMessengerCall } from "@/lib/community-messenger/use-community-messenger-call";
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { useCommunityMessengerRoomRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
@@ -23,6 +27,7 @@ export function CommunityMessengerRoomClient({
   const router = useRouter();
   const autoHandledSessionRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
+  const loadedRef = useRef(false);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
@@ -41,7 +46,7 @@ export function CommunityMessengerRoomClient({
   const [activeSheet, setActiveSheet] = useState<null | "menu" | "members" | "info">(null);
 
   const refresh = useCallback(async (silent = false) => {
-    const shouldBlock = !silent && !snapshot;
+    const shouldBlock = !silent && !loadedRef.current;
     if (shouldBlock) setLoading(true);
     try {
       const roomRes = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, { cache: "no-store" });
@@ -50,9 +55,10 @@ export function CommunityMessengerRoomClient({
       };
       setSnapshot(roomRes.ok && roomJson.ok ? (roomJson as CommunityMessengerRoomSnapshot) : null);
     } finally {
+      loadedRef.current = true;
       if (shouldBlock) setLoading(false);
     }
-  }, [roomId, snapshot]);
+  }, [roomId]);
 
   useEffect(() => {
     void refresh();
@@ -107,6 +113,7 @@ export function CommunityMessengerRoomClient({
   });
   const call =
     snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group" ? groupCall : directCall;
+  const permissionGuide = call.panel ? getCommunityMessengerPermissionGuide(call.panel.kind) : null;
   const roomUnavailable = snapshot ? snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly : true;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
@@ -165,6 +172,15 @@ export function CommunityMessengerRoomClient({
         return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     }
   }, []);
+
+  const openCallPermissionHelp = useCallback(() => {
+    if (openCommunityMessengerPermissionSettings()) return;
+    alert(
+      call.panel?.kind === "video"
+        ? "브라우저 주소창 왼쪽의 사이트 설정에서 카메라와 마이크를 허용해 주세요."
+        : "브라우저 주소창 왼쪽의 사이트 설정에서 마이크를 허용해 주세요."
+    );
+  }, [call.panel?.kind]);
 
   useEffect(() => {
     if (!snapshot || !isOpenGroupRoom) return;
@@ -413,7 +429,7 @@ export function CommunityMessengerRoomClient({
               {snapshot.room.isReadonly ? " 현재 읽기 전용 상태입니다." : ""}
             </div>
           ) : null}
-          {call.errorMessage ? (
+          {call.errorMessage && !call.panel ? (
             <div className="rounded-2xl bg-red-50 px-3 py-3 text-[13px] text-red-700">{call.errorMessage}</div>
           ) : null}
           <div className="flex flex-wrap gap-2">
@@ -861,76 +877,84 @@ export function CommunityMessengerRoomClient({
       ) : null}
 
       {call.panel ? (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 px-4 pb-6">
-          <div className="w-full max-w-[440px] rounded-[28px] bg-white p-5 shadow-2xl">
-            <p className="text-[13px] font-medium text-[#06C755]">
-              {call.panel.kind === "video" ? "영상 통화" : "음성 통화"} 실연결
-            </p>
-            <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{call.panel.peerLabel}</h2>
-            <p className="mt-2 text-[13px] leading-5 text-gray-500">
-              {isGroupRoom
-                ? "그룹 메신저 방에서 최대 4인 메쉬 WebRTC 연결을 시도합니다. 마이크 및 카메라 권한이 필요할 수 있습니다."
-                : "1:1 메신저 방에서 실제 WebRTC 연결을 시도합니다. 마이크 및 카메라 권한이 필요할 수 있습니다."}
-            </p>
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/70 px-4 pb-4 sm:items-center sm:pb-0">
+          <div className="w-full max-w-[420px] rounded-[32px] bg-[#111827] px-5 pb-5 pt-6 text-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-white/85">
+                {isGroupRoom ? "그룹 " : ""}
+                {call.panel.kind === "video" ? "영상 통화" : "음성 통화"}
+              </span>
+              {call.panel.mode === "active" ? (
+                <span className="rounded-full bg-[#06C755]/20 px-3 py-1 text-[12px] font-semibold text-[#86EFAC]">
+                  {formatDuration(call.elapsedSeconds)}
+                </span>
+              ) : null}
+            </div>
 
-            <div className="mt-5 rounded-3xl bg-[#F4F6F8] px-4 py-8 text-center">
+            <div className="mt-5 overflow-hidden rounded-[28px] bg-black">
               {call.panel.kind === "video" ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="overflow-hidden rounded-3xl bg-black">
-                    {call.localStream ? (
+                <div className="relative min-h-[250px] bg-black">
+                  {!isGroupRoom && directCall.remoteStream ? (
+                    <video
+                      ref={directCall.remoteVideoRef}
+                      autoPlay
+                      playsInline
+                      className="h-[250px] w-full bg-black object-cover"
+                    />
+                  ) : call.localStream ? (
+                    <video
+                      ref={call.localVideoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="h-[250px] w-full bg-black object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-[250px] flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-6 text-center">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold">
+                        VIDEO
+                      </div>
+                      <p className="text-[13px] text-white/75">카메라와 마이크를 확인하면 바로 연결할 수 있습니다.</p>
+                    </div>
+                  )}
+                  {call.localStream && !isGroupRoom && directCall.remoteStream ? (
+                    <div className="absolute bottom-3 right-3 overflow-hidden rounded-2xl border border-white/15 bg-black shadow-lg">
                       <video
                         ref={call.localVideoRef}
                         autoPlay
                         muted
                         playsInline
-                        className="h-40 w-full bg-black object-cover"
+                        className="h-24 w-20 bg-black object-cover"
                       />
-                    ) : (
-                      <div className="flex h-40 w-full items-center justify-center bg-[#111827] px-4 text-center text-[12px] text-white/75">
-                        통화 시작 또는 수락 시 카메라와 마이크 권한을 확인합니다.
-                      </div>
-                    )}
-                    <p className="px-3 py-2 text-[12px] font-medium text-white/85">내 화면</p>
-                  </div>
-                  {isGroupRoom ? (
-                    groupCall.remotePeers.length ? (
-                      groupCall.remotePeers.map((peer) => (
-                        <div key={peer.userId} className="overflow-hidden rounded-3xl bg-black">
-                          <video
-                            ref={(node) => {
-                              groupCall.bindRemoteVideo(peer.userId, node);
-                            }}
-                            autoPlay
-                            playsInline
-                            className="h-40 w-full bg-black object-cover"
-                          />
-                          <p className="px-3 py-2 text-[12px] font-medium text-white/85">{peer.label}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="flex items-center justify-center rounded-3xl bg-white text-[12px] text-gray-500">
-                        참여자 연결 대기 중
-                      </div>
-                    )
-                  ) : (
-                    <div className="overflow-hidden rounded-3xl bg-black">
-                      <video
-                        ref={directCall.remoteVideoRef}
-                        autoPlay
-                        playsInline
-                        className="h-40 w-full bg-black object-cover"
-                      />
-                      <p className="px-3 py-2 text-[12px] font-medium text-white/85">상대 화면</p>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               ) : (
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#06C755] text-[26px] text-white">
-                  AUD
+                <div className="flex h-[250px] flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,#1f2937,#020617)]">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#06C755]/90 text-[26px] font-semibold text-white">
+                    MIC
+                  </div>
+                  <p className="text-[13px] text-white/70">마이크 연결을 준비하고 있습니다.</p>
                 </div>
               )}
-              <p className="mt-4 text-[18px] font-semibold text-gray-900">{call.panel.peerLabel}</p>
-              <p className="mt-1 text-[13px] text-gray-500">{call.callStatusLabel}</p>
+            </div>
+
+            <div className="mt-5 text-center">
+              <h2 className="text-[24px] font-semibold text-white">{call.panel.peerLabel}</h2>
+              <p className="mt-1 text-[14px] text-white/70">{call.callStatusLabel}</p>
+              {call.connectionBadge ? (
+                <p
+                  className={`mt-3 inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${
+                    call.connectionBadge.tone === "good"
+                      ? "bg-green-500/15 text-green-200"
+                      : call.connectionBadge.tone === "poor"
+                        ? "bg-red-500/15 text-red-200"
+                        : "bg-white/10 text-white/80"
+                  }`}
+                >
+                  {call.connectionBadge.label}
+                </p>
+              ) : null}
               {isGroupRoom && groupCall.participants.length ? (
                 <div className="mt-3 flex flex-wrap justify-center gap-2">
                   {groupCall.participants.map((participant) => (
@@ -938,10 +962,10 @@ export function CommunityMessengerRoomClient({
                       key={participant.userId}
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
                         participant.status === "joined"
-                          ? "bg-green-50 text-green-700"
+                          ? "bg-green-500/15 text-green-200"
                           : participant.status === "invited"
-                            ? "bg-gray-100 text-gray-700"
-                            : "bg-red-50 text-red-700"
+                            ? "bg-white/10 text-white/75"
+                            : "bg-red-500/15 text-red-200"
                       }`}
                     >
                       {participant.label} · {formatParticipantStatus(participant.status)}
@@ -949,23 +973,66 @@ export function CommunityMessengerRoomClient({
                   ))}
                 </div>
               ) : null}
-              {call.connectionBadge ? (
-                <p
-                  className={`mt-2 inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${
-                    call.connectionBadge.tone === "good"
-                      ? "bg-green-50 text-green-700"
-                      : call.connectionBadge.tone === "poor"
-                        ? "bg-red-50 text-red-700"
-                        : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {call.connectionBadge.label}
-                </p>
-              ) : null}
-              {call.panel.mode === "active" ? (
-                <p className="mt-1 text-[12px] font-medium text-[#06C755]">{formatDuration(call.elapsedSeconds)}</p>
+              {isGroupRoom && groupCall.remotePeers.length ? (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {groupCall.remotePeers.map((peer) => (
+                    <div key={peer.userId} className="overflow-hidden rounded-2xl bg-black">
+                      <video
+                        ref={(node) => {
+                          groupCall.bindRemoteVideo(peer.userId, node);
+                        }}
+                        autoPlay
+                        playsInline
+                        className="h-24 w-full bg-black object-cover"
+                      />
+                      <p className="px-2 py-2 text-[11px] text-white/75">{peer.label}</p>
+                    </div>
+                  ))}
+                </div>
               ) : null}
             </div>
+
+            {call.errorMessage ? (
+              <div className="mt-4 rounded-2xl bg-white/10 p-4 text-left">
+                <p className="text-[13px] font-semibold text-[#FECACA]">{call.errorMessage}</p>
+                <p className="mt-2 text-[12px] leading-5 text-white/70">{permissionGuide?.description}</p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void call.prepareDevices()}
+                    disabled={call.busy === "preview"}
+                    className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
+                  >
+                    {call.busy === "preview" ? "확인 중..." : permissionGuide?.retryLabel ?? "권한 확인"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCallPermissionHelp}
+                    className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
+                  >
+                    {permissionGuide?.settingsLabel ?? "권한 안내"}
+                  </button>
+                </div>
+              </div>
+            ) : call.panel.mode === "preview" && call.panel.kind === "video" && !call.localStream ? (
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void call.prepareDevices()}
+                  disabled={call.busy === "preview"}
+                  className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
+                >
+                  {call.busy === "preview" ? "확인 중..." : permissionGuide?.retryLabel ?? "권한 확인"}
+                </button>
+                <button
+                  type="button"
+                  onClick={openCallPermissionHelp}
+                  className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
+                >
+                  {permissionGuide?.settingsLabel ?? "권한 안내"}
+                </button>
+              </div>
+            ) : null}
 
             <div className="mt-5 flex gap-2">
               {call.panel.mode === "preview" ? (
@@ -981,7 +1048,7 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={call.closePreview}
-                    className="rounded-2xl border border-gray-200 px-4 py-3 text-[14px] text-gray-700"
+                    className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] text-white/80"
                   >
                     닫기
                   </button>
@@ -992,7 +1059,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void call.rejectIncomingCall()}
                     disabled={call.busy === "call-reject"}
-                    className="rounded-2xl border border-gray-200 px-4 py-3 text-[14px] text-gray-700"
+                    className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] text-white/80"
                   >
                     거절
                   </button>
@@ -1011,7 +1078,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void call.cancelOutgoingCall()}
                     disabled={call.busy === "call-cancel"}
-                    className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-[14px] font-semibold text-red-700"
+                    className="flex-1 rounded-2xl bg-red-500/15 px-4 py-3 text-[14px] font-semibold text-red-200"
                   >
                     호출 취소
                   </button>
@@ -1022,7 +1089,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void call.endActiveCall()}
                     disabled={call.busy === "call-end"}
-                    className="flex-1 rounded-2xl bg-[#111827] px-4 py-3 text-[14px] font-semibold text-white"
+                    className="flex-1 rounded-2xl bg-red-500/15 px-4 py-3 text-[14px] font-semibold text-red-200"
                   >
                     통화 종료
                   </button>
@@ -1031,7 +1098,7 @@ export function CommunityMessengerRoomClient({
                       type="button"
                       onClick={() => void call.retryConnection()}
                       disabled={call.busy === "call-retry"}
-                      className="rounded-2xl border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700"
+                      className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80"
                     >
                       다시 연결
                     </button>

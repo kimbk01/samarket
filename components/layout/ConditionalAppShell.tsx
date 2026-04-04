@@ -21,6 +21,7 @@ import { NotificationsBadgeRealtimeBridge } from "@/components/notifications/Not
 import { HomeTradeReelsSideRail } from "@/components/home-feed/HomeTradeReelsSideRail";
 import { PhilifeFeedWarmPrefetch } from "@/components/community/PhilifeFeedWarmPrefetch";
 import { GlobalCommunityMessengerIncomingCall } from "@/components/community-messenger/GlobalCommunityMessengerIncomingCall";
+import { GlobalCommunityMessengerUnreadSound } from "@/components/community-messenger/GlobalCommunityMessengerUnreadSound";
 
 export function ConditionalAppShell({
   children,
@@ -152,6 +153,7 @@ export function ConditionalAppShell({
       {mountGlobalRealtimeChrome ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
+      <GlobalCommunityMessengerUnreadSound />
       <GlobalCommunityMessengerIncomingCall />
       {showRegionBar && <RegionBar />}
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}

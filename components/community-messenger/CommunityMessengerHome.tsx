@@ -46,6 +46,7 @@ function normalizeTab(value: string | null): CommunityMessengerTab {
 
 export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) {
   const router = useRouter();
+  const loadedRef = useRef(false);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
   const discoverableGroupsRef = useRef<HTMLElement | null>(null);
   const callHistoryRef = useRef<HTMLElement | null>(null);
@@ -129,7 +130,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   }, []);
 
   const refresh = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+    const shouldBlock = !silent && !loadedRef.current;
+    if (shouldBlock) setLoading(true);
     try {
       const res = await fetch("/api/community-messenger/bootstrap", { cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & { ok?: boolean; error?: string };
@@ -158,7 +160,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setData(null);
       }
     } finally {
-      if (!silent) setLoading(false);
+      loadedRef.current = true;
+      if (shouldBlock) setLoading(false);
     }
   }, []);
 
@@ -174,7 +177,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   useCommunityMessengerHomeRealtime({
     userId: data?.me?.id ?? null,
     roomIds: homeRoomIds,
-    enabled: !loading,
+    enabled: Boolean(data?.me?.id),
     onRefresh: () => {
       void refresh(true);
     },
@@ -191,6 +194,11 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const startDirectRoom = useCallback(
     async (peerUserId: string) => {
       setActionError(null);
+      const existingRoom = (data?.chats ?? []).find((room) => room.roomType === "direct" && room.peerUserId === peerUserId);
+      if (existingRoom) {
+        router.push(`/community-messenger/rooms/${encodeURIComponent(existingRoom.id)}`);
+        return;
+      }
       setBusyId(`room:${peerUserId}`);
       try {
         const res = await fetch("/api/community-messenger/rooms", {
@@ -213,7 +221,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage, router]
+    [data?.chats, getMessengerActionErrorMessage, router]
   );
 
   const searchUsers = useCallback(async () => {
@@ -243,7 +251,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         });
-        await refresh();
+        await refresh(true);
         await searchUsers();
       } finally {
         setBusyId(null);
@@ -261,7 +269,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
         });
-        await refresh();
+        await refresh(true);
       } finally {
         setBusyId(null);
       }
@@ -276,7 +284,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendUserId)}/favorite`, {
           method: "POST",
         });
-        await refresh();
+        await refresh(true);
       } finally {
         setBusyId(null);
       }
@@ -293,7 +301,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         });
-        await refresh();
+        await refresh(true);
         await searchUsers();
       } finally {
         setBusyId(null);
@@ -311,7 +319,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         });
-        await refresh();
+        await refresh(true);
         await searchUsers();
       } finally {
         setBusyId(null);
@@ -336,7 +344,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-      await refresh();
+      await refresh(true);
       if (res.ok && json.ok && json.roomId) {
         setGroupTitle("");
         setGroupMembers([]);
@@ -383,7 +391,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-      await refresh();
+      await refresh(true);
       if (res.ok && json.ok && json.roomId) {
         setOpenGroupTitle("");
         setOpenGroupSummary("");
@@ -447,7 +455,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-      await refresh();
+      await refresh(true);
       if (res.ok && json.ok && json.roomId) {
         setJoinPassword("");
         setJoinIdentityMode("real_name");
@@ -639,7 +647,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendUserId)}`, {
           method: "DELETE",
         });
-        await refresh();
+        await refresh(true);
         await searchUsers();
       } finally {
         setBusyId(null);

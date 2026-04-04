@@ -2574,19 +2574,21 @@ export async function sendCommunityMessengerMessage(input: {
         .from("community_messenger_participants")
         .select("id, user_id, unread_count")
         .eq("room_id", roomId);
-      for (const participant of (participants ?? []) as Array<{
-        id: string;
-        user_id: string;
-        unread_count?: number | null;
-      }>) {
-        await (sb as any)
-          .from("community_messenger_participants")
-          .update({
-            unread_count: participant.user_id === input.userId ? 0 : Number(participant.unread_count ?? 0) + 1,
-            last_read_at: participant.user_id === input.userId ? createdAt : null,
-          })
-          .eq("id", participant.id);
-      }
+      await Promise.all(
+        ((participants ?? []) as Array<{
+          id: string;
+          user_id: string;
+          unread_count?: number | null;
+        }>).map((participant) =>
+          (sb as any)
+            .from("community_messenger_participants")
+            .update({
+              unread_count: participant.user_id === input.userId ? 0 : Number(participant.unread_count ?? 0) + 1,
+              last_read_at: participant.user_id === input.userId ? createdAt : null,
+            })
+            .eq("id", participant.id)
+        )
+      );
       return { ok: true };
     }
     if (!isMissingTableError(insertError)) {
