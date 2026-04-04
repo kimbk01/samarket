@@ -38,6 +38,10 @@ export function BottomNav() {
     useStoreBusinessHubEntryModal("확인", { eager: false });
   const storeDeepLinkNavBusyRef = useRef(false);
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
+  const isChatRoomDetail =
+    (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
+    (pathname?.match(/^\/chats\/[^/]+\/?$/) ?? false) ||
+    (pathname?.match(/^\/mypage\/trade\/chat\/[^/]+\/?$/) ?? false);
 
   /** 탭 전환은 replace로 쌓지 않음(뒤로가기가 채팅 등으로만 가는 현상 방지). 홈 루트에서만 push로 이전 홈 유지. */
   const onMainTabLinkClick = useCallback(
@@ -82,6 +86,8 @@ export function BottomNav() {
       if (h) router.prefetch(h);
     }
   }, [tabs, router]);
+
+  if (isChatRoomDetail) return null;
 
   return (
     <>
