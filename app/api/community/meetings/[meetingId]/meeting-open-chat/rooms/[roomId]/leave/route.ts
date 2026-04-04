@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isUserJoinedMeetingMember } from "@/lib/community-meeting-open-chat/meeting-member-guard";
+import { isUserJoinedMeetingMember } from "@/lib/meeting-open-chat/meeting-member-guard";
 import { leaveMeetingOpenChatRoom } from "@/lib/meeting-open-chat/rooms-service";
 
 type Ctx = { params: Promise<{ meetingId: string; roomId: string }> };

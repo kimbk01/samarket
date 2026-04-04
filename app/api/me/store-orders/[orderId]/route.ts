@@ -11,9 +11,9 @@ import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transition
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
-  appendStoreOrderChatStatusTransition,
-  ensureStoreOrderChatRoom,
-} from "@/lib/chat/store-order-chat-db";
+  appendOrderChatStatusTransition,
+  ensureOrderChatRoom,
+} from "@/lib/order-chat/service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 
@@ -130,7 +130,7 @@ export async function GET(
     loadStoreOrderReviewMeta(sb, oid),
     (async () => {
       try {
-        return await ensureStoreOrderChatRoom(sbAny, oid);
+        return await ensureOrderChatRoom(sbAny, oid);
       } catch {
         return { ok: false as const, error: "exception" };
       }
@@ -167,8 +167,8 @@ export async function GET(
   const reviewVisibleToPublic = reviewRow?.visible_to_public !== false;
   const canSubmitReview = completed && !reviewId && !reviewsUnavailable;
 
-  let chat_room_id: string | null = null;
-  if (ens.ok) chat_room_id = ens.roomId;
+  let order_chat_ready = false;
+  if (ens.ok) order_chat_ready = true;
 
   return NextResponse.json({
     ok: true,
@@ -182,7 +182,7 @@ export async function GET(
     items: items ?? [],
     review: reviewId ? { id: reviewId, visible_to_public: reviewVisibleToPublic } : null,
     can_submit_review: canSubmitReview,
-    chat_room_id,
+    order_chat_ready,
   });
 }
 
@@ -301,12 +301,11 @@ export async function PATCH(
         .eq("id", order.store_id as string)
         .maybeSingle();
       const ownerId = (stRow as { owner_user_id?: string } | null)?.owner_user_id;
-      await appendStoreOrderChatStatusTransition(
+      await appendOrderChatStatusTransition(
         sb as import("@supabase/supabase-js").SupabaseClient<any>,
         oid,
         order.order_status as string,
-        "refund_requested",
-        ownerId ? { incrementUnreadForUserIds: [ownerId] } : undefined
+        "refund_requested"
       );
     } catch {
       /* ignore */
@@ -389,12 +388,11 @@ export async function PATCH(
       .maybeSingle();
     const ownerId2 = (stRow2 as { owner_user_id?: string } | null)?.owner_user_id;
     cancelOwnerId = ownerId2 ? String(ownerId2) : null;
-    await appendStoreOrderChatStatusTransition(
+    await appendOrderChatStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid,
       order.order_status as string,
-      "cancelled",
-      ownerId2 ? { incrementUnreadForUserIds: [ownerId2] } : undefined
+      "cancelled"
     );
   } catch {
     /* ignore */

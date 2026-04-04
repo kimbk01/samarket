@@ -8,26 +8,21 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
-import {
-  getPhilifeMeetingAccessState,
-  resolvePhilifeMeetingAccessMeetingId,
-} from "@/lib/chats/philife/room-access";
+import { resolvePhilifeMeetingAccessMeetingId } from "@/lib/chats/philife/room-access";
 type ChatRowForRead = {
   room_type?: string | null;
   meeting_id?: string | null;
   related_group_id?: string | null;
 };
 
-/**
- * 참가자 행이 없으면 group_meeting + 모임장·공동운영자(검열 입장)일 때만 행을 만들고 읽음을 반영합니다.
- */
+/** 참가자 행이 있어야 읽음 처리합니다. */
 async function ensureParticipantReadState(
   sbAny: SupabaseClient<any>,
   roomId: string,
   userId: string,
   lastReadId: string | null,
   now: string,
-  chatRow: ChatRowForRead,
+  _chatRow: ChatRowForRead,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: updated, error: upErr } = await sbAny
     .from("chat_room_participants")
@@ -43,57 +38,7 @@ async function ensureParticipantReadState(
 
   if (upErr) return { ok: false, error: upErr.message };
   if (updated?.length) return { ok: true };
-
-  const philifeMid = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, chatRow);
-  if (!philifeMid) {
-    return { ok: false, error: "채팅 참가자가 아닙니다." };
-  }
-
-  const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
-    meeting_id: philifeMid,
-    related_group_id: philifeMid,
-  });
-  if (!access.ok) {
-    return { ok: false, error: access.error };
-  }
-  if (!access.isModeratorBypass) {
-    return { ok: false, error: "채팅 참가자가 아닙니다." };
-  }
-
-  const { error: insErr } = await sbAny.from("chat_room_participants").insert({
-    room_id: roomId,
-    user_id: userId,
-    role_in_room: "member",
-    is_active: true,
-    hidden: false,
-    joined_at: now,
-    unread_count: 0,
-    last_read_message_id: lastReadId,
-    last_read_at: now,
-    updated_at: now,
-  });
-
-  if (insErr) {
-    const msg = String(insErr.message ?? "");
-    if (/duplicate|unique|23505/i.test(msg)) {
-      const { data: upd2, error: up2 } = await sbAny
-        .from("chat_room_participants")
-        .update({
-          last_read_message_id: lastReadId,
-          last_read_at: now,
-          unread_count: 0,
-          updated_at: now,
-        })
-        .eq("room_id", roomId)
-        .eq("user_id", userId)
-        .select("id");
-      if (up2) return { ok: false, error: up2.message };
-      if (upd2?.length) return { ok: true };
-    }
-    return { ok: false, error: msg };
-  }
-
-  return { ok: true };
+  return { ok: false, error: "채팅 참가자가 아닙니다." };
 }
 
 export async function POST(
@@ -155,6 +100,10 @@ export async function POST(
     meeting_id?: string | null;
     related_group_id?: string | null;
   };
+  const legacyMeetingId = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, cr);
+  if (legacyMeetingId) {
+    return NextResponse.json({ ok: false, error: "삭제된 모임 채팅입니다." }, { status: 404 });
+  }
   let lastReadId = messageId;
   if (!lastReadId) {
     lastReadId = typeof cr.last_message_id === "string" ? cr.last_message_id : null;

@@ -1,6 +1,6 @@
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isUserJoinedMeetingMember } from "@/lib/community-meeting-open-chat/meeting-member-guard";
+import { isUserJoinedMeetingMember } from "@/lib/meeting-open-chat/meeting-member-guard";
 import { fetchViewerOpenChatIdentity } from "@/lib/meeting-open-chat/fetch-viewer-open-chat-identity";
 import type {
   MeetingOpenChatRoomInitialChatMember,

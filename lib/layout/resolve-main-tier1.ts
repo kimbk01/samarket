@@ -113,20 +113,6 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backHome({ titleText: "커뮤니티 글쓰기", showHubQuickActions: true });
   }
 
-  if (p === "/philife/open-chat") {
-    return backHome({ titleText: "오픈채팅", subtitle: "커뮤니티", showHubQuickActions: true });
-  }
-
-  if (/^\/philife\/open-chat\/[^/]+$/.test(p)) {
-    return {
-      ...DEFAULT,
-      backHref: "/philife/open-chat",
-      titleText: "오픈채팅",
-      subtitle: "커뮤니티",
-      showHubQuickActions: true,
-    };
-  }
-
   if (p === "/philife/my") {
     return backHome({ titleText: "내 커뮤니티 활동", showHubQuickActions: true });
   }

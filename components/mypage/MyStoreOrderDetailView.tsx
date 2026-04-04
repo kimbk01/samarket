@@ -122,7 +122,6 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         items: ItemRow[];
         review: { id: string; visible_to_public?: boolean } | null;
         can_submit_review: boolean;
-        chat_room_id: string | null;
       }
   >({ kind: "loading" });
   const [cancelBusy, setCancelBusy] = useState(false);
@@ -161,15 +160,12 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         }
         return;
       }
-      const cr =
-        typeof json.chat_room_id === "string" && json.chat_room_id.trim() ? json.chat_room_id.trim() : null;
       setState({
         kind: "ok",
         order: json.order as OrderDetail,
         items: (json.items ?? []) as ItemRow[],
         review: (json.review ?? null) as { id: string } | null,
         can_submit_review: !!json.can_submit_review,
-        chat_room_id: cr,
       });
     } catch {
       if (!silent) setState({ kind: "error", message: "network_error" });
@@ -288,7 +284,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     );
   }
 
-  const { order, items, review, can_submit_review, chat_room_id } = state;
+  const { order, items, review, can_submit_review } = state;
   const reorderItems =
     order.order_status === "completed"
       ? items
@@ -320,12 +316,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const refundPending = order.order_status === "refund_requested";
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
   const payDisplay = formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail);
-  const directRoomId =
-    typeof chat_room_id === "string" && chat_room_id.trim() ? chat_room_id.trim() : "";
-  const chatHref =
-    !orderChatDisabled && directRoomId
-      ? `/chats/${encodeURIComponent(directRoomId)}?from=${ordersHub ? "orders-hub" : "orders-chat"}`
-      : `${orderBase}/chat`;
+  const chatHref = `${orderBase}/chat`;
 
   return (
     <div className="space-y-4">

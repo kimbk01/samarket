@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { appendStoreOrderPaymentCompletedChatLine } from "@/lib/chat/store-order-chat-db";
+import { appendOrderChatPaymentCompletedLine } from "@/lib/order-chat/service";
 import {
   notifyBuyerStorePaymentCompleted,
   notifyBuyerStorePaymentFailed,
@@ -107,7 +107,7 @@ export async function recordStoreOrderPaid(
           storeId: order.store_id as string,
         });
       }
-      void appendStoreOrderPaymentCompletedChatLine(
+      void appendOrderChatPaymentCompletedLine(
         sb as import("@supabase/supabase-js").SupabaseClient<any>,
         oid
       ).catch((e) => console.error("[recordStoreOrderPaid] payment chat line", e));
@@ -148,7 +148,7 @@ export async function recordStoreOrderPaid(
       storeId: order.store_id as string,
     });
   }
-  void appendStoreOrderPaymentCompletedChatLine(
+  void appendOrderChatPaymentCompletedLine(
     sb as import("@supabase/supabase-js").SupabaseClient<any>,
     oid
   ).catch((e) => console.error("[recordStoreOrderPaid] payment chat line", e));

@@ -32,6 +32,7 @@ type OrderRowLite = {
   order_status?: string;
   store_name?: string;
   created_at?: string;
+  order_chat_unread_count?: number;
 };
 
 /** 매장주만 마운트 — 허브 진입 모달만 여기서 켜고, 배지 데이터는 부모 구독과 동일 스냅샷을 받습니다 */
@@ -123,10 +124,7 @@ export function StoresHub() {
 
   const loadBuyerHub = useCallback(async () => {
     try {
-      const [ordersRes, chatsRes] = await Promise.all([
-        fetch("/api/me/store-orders", { credentials: "include", cache: "no-store" }),
-        fetch("/api/chat/rooms?segment=order", { credentials: "include", cache: "no-store" }),
-      ]);
+      const ordersRes = await fetch("/api/me/store-orders", { credentials: "include", cache: "no-store" });
       if (ordersRes.status === 401) {
         setBuyerOrderSummary({ kind: "idle" });
         setRecentOrder(null);
@@ -137,18 +135,17 @@ export function StoresHub() {
         ok?: boolean;
         orders?: OrderRowLite[];
       };
-      const chatsJson = (await chatsRes.json().catch(() => ({}))) as {
-        rooms?: Array<{ unreadCount?: number }>;
-      };
 
       const orders = Array.isArray(ordersJson.orders) ? ordersJson.orders : [];
-      const rooms = Array.isArray(chatsJson.rooms) ? chatsJson.rooms : [];
       const activeOrders = orders.filter((order) =>
         ["pending", "accepted", "preparing", "delivering", "ready_for_pickup", "arrived"].includes(
           String(order.order_status ?? "")
         )
       ).length;
-      const unreadChats = rooms.reduce((sum, room) => sum + Math.max(0, Number(room.unreadCount) || 0), 0);
+      const unreadChats = orders.reduce(
+        (sum, order) => sum + Math.max(0, Number(order.order_chat_unread_count) || 0),
+        0
+      );
 
       const first = orders[0];
       setRecentOrder(
@@ -166,7 +163,7 @@ export function StoresHub() {
         kind: "ready",
         activeOrders,
         totalOrders: orders.length,
-        orderChatRooms: rooms.length,
+        orderChatRooms: orders.length,
         unreadChats,
       });
     } catch {

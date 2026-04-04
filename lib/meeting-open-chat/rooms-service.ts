@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { hashCommunityChatJoinPassword, verifyCommunityChatJoinPassword } from "@/lib/community-meeting-open-chat/join-password";
+import {
+  hashMeetingOpenChatJoinPassword,
+  verifyMeetingOpenChatJoinPassword,
+} from "@/lib/meeting-open-chat/join-password";
 import { fetchViewerOpenChatIdentity } from "./fetch-viewer-open-chat-identity";
 import { insertMeetingOpenChatSystemMessage } from "./messages-service";
 import { getActiveMeetingOpenChatMember } from "./room-access";
@@ -146,7 +149,7 @@ export async function createMeetingOpenChatRoom(
   if (input.joinType === "password") {
     const pw = input.joinPasswordPlain?.trim() ?? "";
     if (pw.length < 4) return { ok: false, error: "password_too_short", status: 400 };
-    password_hash = hashCommunityChatJoinPassword(pw);
+    password_hash = hashMeetingOpenChatJoinPassword(pw);
   } else if (input.joinType !== "free" && input.joinType !== "approval") {
     return { ok: false, error: "join_type_invalid", status: 400 };
   }
@@ -660,7 +663,7 @@ export async function joinMeetingOpenChatRoom(
     joinType === "password" ||
     (joinType === "free" && Boolean(String(pwHash ?? "").trim()));
   if (mustVerifyRoomPassword) {
-    const okPw = verifyCommunityChatJoinPassword(input.joinPasswordPlain ?? "", pwHash);
+    const okPw = verifyMeetingOpenChatJoinPassword(input.joinPasswordPlain ?? "", pwHash);
     if (!okPw) return { ok: false, error: "invalid_password", status: 403 };
   }
 
@@ -876,7 +879,7 @@ export async function patchMeetingOpenChatRoom(
       const nextPw = String(patch.joinPasswordPlain ?? "").trim();
       if (nextPw) {
         if (nextPw.length < 4) return { ok: false, error: "password_too_short", status: 400 };
-        updates.password_hash = hashCommunityChatJoinPassword(nextPw);
+        updates.password_hash = hashMeetingOpenChatJoinPassword(nextPw);
       } else if (!currentHash) {
         return { ok: false, error: "password_too_short", status: 400 };
       }
@@ -888,7 +891,7 @@ export async function patchMeetingOpenChatRoom(
     const nextPw = String(patch.joinPasswordPlain ?? "").trim();
     if (currentJoinType === "password") {
       if (nextPw.length < 4) return { ok: false, error: "password_too_short", status: 400 };
-      updates.password_hash = hashCommunityChatJoinPassword(nextPw);
+      updates.password_hash = hashMeetingOpenChatJoinPassword(nextPw);
     }
   }
   if (patch.identityMode !== undefined) {

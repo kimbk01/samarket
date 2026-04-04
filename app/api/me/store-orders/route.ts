@@ -31,7 +31,7 @@ import {
 import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-order-status";
 import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
-import { ensureStoreOrderChatRoom } from "@/lib/chat/store-order-chat-db";
+import { ensureOrderChatRoom, getBuyerOrderChatUnreadMap } from "@/lib/order-chat/service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
@@ -196,17 +196,11 @@ export async function GET(req: NextRequest) {
   const storeIds = [...new Set(list.map((o) => o.store_id as string))];
   const orderIdsForChat = list.map((o) => String(o.id ?? "").trim()).filter(Boolean);
 
-  const [storesRes, chatRoomsRes] = await Promise.all([
+  const [storesRes, unreadMap] = await Promise.all([
     storeIds.length
       ? sb.from("stores").select("id, store_name, profile_image_url, slug").in("id", storeIds)
       : Promise.resolve({ data: [] as const, error: null as null }),
-    orderIdsForChat.length
-      ? sb
-          .from("chat_rooms")
-          .select("id, store_order_id")
-          .eq("room_type", "store_order")
-          .in("store_order_id", orderIdsForChat)
-      : Promise.resolve({ data: [] as const, error: null as null }),
+    getBuyerOrderChatUnreadMap(sb as SupabaseClient<any>, buyerId, orderIdsForChat),
   ]);
 
   const names: Record<string, string> = {};
@@ -220,25 +214,6 @@ export async function GET(req: NextRequest) {
     profileImages[sid] = typeof u === "string" && u.trim() ? u.trim() : null;
     const slugRaw = (s as { slug?: string | null }).slug;
     slugs[sid] = typeof slugRaw === "string" && slugRaw.trim() ? slugRaw.trim() : "";
-  }
-
-  const chatRoomByOrderId: Record<string, string> = {};
-  const { data: chatRoomRows, error: chatRoomsErr } = chatRoomsRes;
-  if (chatRoomsErr) {
-    if (
-      !(
-        String(chatRoomsErr.message ?? "").includes("chat_rooms") &&
-        String(chatRoomsErr.message ?? "").includes("does not exist")
-      )
-    ) {
-      console.error("[GET store-orders chat_rooms]", chatRoomsErr);
-    }
-  } else {
-    for (const r of chatRoomRows ?? []) {
-      const so = String((r as { store_order_id?: string }).store_order_id ?? "").trim();
-      const rid = String((r as { id?: string }).id ?? "").trim();
-      if (so && rid && !chatRoomByOrderId[so]) chatRoomByOrderId[so] = rid;
-    }
   }
 
   return NextResponse.json({
@@ -261,8 +236,7 @@ export async function GET(req: NextRequest) {
         items: itemsByOrder[id] ?? [],
         has_review: hasReview,
         can_submit_review: canSubmitReview,
-        /** 목록에서 바로 `/chats/[id]`로 진입할 때 브리지 GET 생략용 */
-        chat_room_id: chatRoomByOrderId[id] ?? null,
+        order_chat_unread_count: unreadMap[id] ?? 0,
       };
     }),
   });
@@ -667,10 +641,10 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    const ens = await ensureStoreOrderChatRoom(sb as SupabaseClient<any>, orderId);
-    if (!ens.ok) console.error("[POST store-orders] ensure chat", ens.error);
+    const ens = await ensureOrderChatRoom(sb as SupabaseClient<any>, orderId);
+    if (!ens.ok) console.error("[POST store-orders] ensure order chat", ens.error);
   } catch (e) {
-    console.error("[POST store-orders] ensure chat", e);
+    console.error("[POST store-orders] ensure order chat", e);
   }
 
   const composedAddress =

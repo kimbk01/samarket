@@ -11,7 +11,6 @@ import { resolveNeighborhoodLocationId } from "@/lib/neighborhood/ensure-locatio
 import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
 import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-topics";
-import { ensureMeetingGroupChatRoom } from "@/lib/neighborhood/meeting-chat";
 import { ensureDefaultMeetingOpenChatRoomForNewMeeting } from "@/lib/meeting-open-chat/rooms-service";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
@@ -367,27 +366,18 @@ export async function POST(req: NextRequest) {
         return;
       }
       try {
-        const [chatEnsured, openChatEnsured] = await Promise.all([
-          ensureMeetingGroupChatRoom(sbDeferred, deferredMeetingId, deferredHostUserId, deferredTitle),
-          ensureDefaultMeetingOpenChatRoomForNewMeeting(sbDeferred, {
-            meetingId: deferredMeetingId,
-            hostUserId: deferredHostUserId,
-            title: deferredTitle,
-            maxMembers: deferredMaxMem,
-            description: deferredMeetDesc,
-            joinType: openChatJoinType,
-            joinPasswordPlain: entryPolicy === "password" ? typeof meet.meeting_password === "string" ? meet.meeting_password : null : null,
-            identityMode: openChatIdentityMode,
-            ownerJoinAs: openChatOwnerJoinAs,
-            ownerOpenNickname: openChatOwnerNickname || undefined,
-          }),
-        ]);
-        if (!chatEnsured) {
-          console.error(
-            "[neighborhood-posts] ensureMeetingGroupChatRoom failed meetingId=",
-            deferredMeetingId
-          );
-        }
+        const openChatEnsured = await ensureDefaultMeetingOpenChatRoomForNewMeeting(sbDeferred, {
+          meetingId: deferredMeetingId,
+          hostUserId: deferredHostUserId,
+          title: deferredTitle,
+          maxMembers: deferredMaxMem,
+          description: deferredMeetDesc,
+          joinType: openChatJoinType,
+          joinPasswordPlain: entryPolicy === "password" ? typeof meet.meeting_password === "string" ? meet.meeting_password : null : null,
+          identityMode: openChatIdentityMode,
+          ownerJoinAs: openChatOwnerJoinAs,
+          ownerOpenNickname: openChatOwnerNickname || undefined,
+        });
         if (!openChatEnsured.ok) {
           console.error(
             "[neighborhood-posts] ensureDefaultMeetingOpenChatRoomForNewMeeting",

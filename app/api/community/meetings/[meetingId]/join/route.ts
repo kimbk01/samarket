@@ -5,7 +5,6 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isMeetingJoinable } from "@/lib/community-engine/visibility";
 import { verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
-import { addMeetingChatParticipant, ensureMeetingGroupChatRoom } from "@/lib/neighborhood/meeting-chat";
 import { ensureAndGetDefaultMeetingOpenChatRoomId } from "@/lib/meeting-open-chat/rooms-service";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 
@@ -42,7 +41,7 @@ export async function POST(req: Request, ctx: Ctx) {
         return NextResponse.json({
           ok: true,
           already: true,
-          chatRoomId: meeting.chat_room_id ?? null,
+          chatRoomId: null,
           fallback: "dev_samples",
         });
       }
@@ -70,7 +69,7 @@ export async function POST(req: Request, ctx: Ctx) {
       if (needsApproval) {
         return NextResponse.json({ ok: true, pending: true, fallback: "dev_samples" });
       }
-      return NextResponse.json({ ok: true, chatRoomId: meeting.chat_room_id ?? null, fallback: "dev_samples" });
+      return NextResponse.json({ ok: true, chatRoomId: null, fallback: "dev_samples" });
     }
   }
 
@@ -202,9 +201,7 @@ export async function POST(req: Request, ctx: Ctx) {
       });
       if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
     }
-    const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
-    await addMeetingChatParticipant(sb, id, auth.userId);
-    return await attachOpenChat({ ok: true, chatRoomId: room?.roomId ?? null, hostRejoined: true });
+    return await attachOpenChat({ ok: true, chatRoomId: null, hostRejoined: true });
   }
 
   if (ex?.status === "kicked" || ex?.status === "banned") {
@@ -212,9 +209,7 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   if (ex?.status === "joined") {
-    const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
-    await addMeetingChatParticipant(sb, id, auth.userId);
-    return await attachOpenChat({ ok: true, already: true, chatRoomId: room?.roomId ?? null });
+    return await attachOpenChat({ ok: true, already: true, chatRoomId: null });
   }
 
   const canSilentMemberRejoin =
@@ -234,9 +229,7 @@ export async function POST(req: Request, ctx: Ctx) {
       })
       .eq("id", ex.id);
     if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
-    const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
-    await addMeetingChatParticipant(sb, id, auth.userId);
-    return await attachOpenChat({ ok: true, chatRoomId: room?.roomId ?? null, rejoined: true });
+    return await attachOpenChat({ ok: true, chatRoomId: null, rejoined: true });
   }
 
   if (ex?.status === "pending") {
@@ -259,9 +252,7 @@ export async function POST(req: Request, ctx: Ctx) {
         .eq("id", ex.id);
       if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
 
-      const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
-      await addMeetingChatParticipant(sb, id, auth.userId);
-      return await attachOpenChat({ ok: true, invited: true, chatRoomId: room?.roomId ?? null });
+      return await attachOpenChat({ ok: true, invited: true, chatRoomId: null });
     }
     return NextResponse.json({ ok: true, pending: true, alreadyPending: true, chatRoomId: null });
   }
@@ -382,8 +373,5 @@ export async function POST(req: Request, ctx: Ctx) {
     if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
   }
 
-  const room = await ensureMeetingGroupChatRoom(sb, id, auth.userId, meeting.title ?? "모임");
-  await addMeetingChatParticipant(sb, id, auth.userId);
-
-  return await attachOpenChat({ ok: true, chatRoomId: room?.roomId ?? null });
+  return await attachOpenChat({ ok: true, chatRoomId: null });
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isUserJoinedMeetingMember } from "@/lib/community-meeting-open-chat/meeting-member-guard";
+import { isUserJoinedMeetingMember } from "@/lib/meeting-open-chat/meeting-member-guard";
 import { getActiveMeetingOpenChatMember, getMeetingOpenChatRoomMeetingId } from "./room-access";
 import type { MeetingOpenChatMemberAccess } from "./types";
 

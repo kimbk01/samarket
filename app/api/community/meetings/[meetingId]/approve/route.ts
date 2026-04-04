@@ -4,7 +4,6 @@ import { isSameUserId } from "@/lib/auth/same-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
-import { addMeetingChatParticipant, ensureMeetingGroupChatRoom } from "@/lib/neighborhood/meeting-chat";
 
 interface Ctx {
   params: Promise<{ meetingId: string }>;
@@ -115,10 +114,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     body: "채팅·피드·앨범 탭을 이용할 수 있습니다.",
     link_url: `/philife/meetings/${id}`,
   });
-
-  const organizerId = String(m.host_user_id ?? m.created_by ?? auth.userId).trim();
-  await ensureMeetingGroupChatRoom(sb, id, organizerId, String(m?.title ?? "모임"));
-  await addMeetingChatParticipant(sb, id, target);
 
   return NextResponse.json({ ok: true });
 }

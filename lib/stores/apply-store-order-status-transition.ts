@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
-  appendStoreOrderChatStatusTransition,
-} from "@/lib/chat/store-order-chat-db";
+  appendOrderChatStatusTransition,
+} from "@/lib/order-chat/service";
 import { notifyBuyerStoreOrderOwnerStatus } from "@/lib/notifications/notify-store-commerce";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
@@ -157,7 +157,7 @@ export async function applyStoreOrderStatusTransition(
   });
 
   try {
-    await appendStoreOrderChatStatusTransition(
+    await appendOrderChatStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid,
       current,

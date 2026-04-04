@@ -20,6 +20,7 @@ import {
 import { getCachedOwnerHubBadge } from "@/lib/chats/owner-hub-badge-cache";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
+import { countOwnerOrderChatUnread } from "@/lib/order-chat/service";
 
 export const dynamic = "force-dynamic";
 
@@ -84,10 +85,12 @@ export async function GET() {
         : Promise.resolve({ data: null as unknown, error: { message: "no_stores_sb" } }),
     ]);
 
-    const socialChatUnread = sumSocialChatUnread(unreadParts);
-    const tradeChatUnread = sumTradeChatUnread(unreadParts);
-    const philifeChatUnread = Math.max(0, unreadParts.communityParticipantUnread);
-    const storeOrderChatUnread = Math.max(0, unreadParts.storeOrderParticipantUnread);
+    const [socialChatUnread, tradeChatUnread, philifeChatUnread, storeOrderChatUnread] = await Promise.all([
+      Promise.resolve(sumSocialChatUnread(unreadParts)),
+      Promise.resolve(sumTradeChatUnread(unreadParts)),
+      Promise.resolve(Math.max(0, unreadParts.communityParticipantUnread)),
+      countOwnerOrderChatUnread(storesSb as any, userId).catch(() => 0),
+    ]);
     const chatUnread = tradeChatUnread;
 
     let orderAttention = 0;

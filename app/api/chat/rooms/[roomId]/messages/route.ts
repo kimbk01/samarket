@@ -13,33 +13,8 @@ import {
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
-import {
-  ensureChatParticipantRowIfMissing,
-  getPhilifeMeetingAccessState,
-  resolvePhilifeMeetingAccessMeetingId,
-} from "@/lib/chats/philife/room-access";
+import { resolvePhilifeMeetingAccessMeetingId } from "@/lib/chats/philife/room-access";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
-import { ensureStoreOrderChatRoomAccessForUser } from "@/lib/chat/store-order-chat-db";
-
-function senderNicknameFromMessageMetadata(meta: unknown): string | null {
-  if (!meta || typeof meta !== "object" || meta === null) return null;
-  const raw = (meta as { senderNickname?: unknown }).senderNickname;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
-}
-
-const OPEN_CHAT_MEMBER_BLIND_REASON_PREFIX = "open_chat_member_blind:";
-
-function canViewHiddenOpenChatMessage(
-  hiddenReason: unknown,
-  roomId: string,
-  senderId: string | null | undefined,
-  viewerCanManage: boolean
-): boolean {
-  if (!viewerCanManage) return false;
-  if (typeof hiddenReason !== "string") return false;
-  if (!senderId?.trim()) return false;
-  return hiddenReason.startsWith(`${OPEN_CHAT_MEMBER_BLIND_REASON_PREFIX}${roomId}:${senderId}`);
-}
 
 export async function GET(
   req: NextRequest,
@@ -62,18 +37,11 @@ export async function GET(
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
 
-  const [{ data: roomForGet }, { data: openChatForGet }] = await Promise.all([
-    sb
-      .from("chat_rooms")
-      .select("id, room_type, meeting_id, related_group_id, buyer_id, seller_id, store_order_id")
-      .eq("id", roomId)
-      .maybeSingle(),
-    (sb as import("@supabase/supabase-js").SupabaseClient<any>)
-      .from("open_chat_rooms")
-      .select("id")
-      .eq("linked_chat_room_id", roomId)
-      .maybeSingle(),
-  ]);
+  const { data: roomForGet } = await sb
+    .from("chat_rooms")
+    .select("id, room_type, meeting_id, related_group_id, buyer_id, seller_id, store_order_id")
+    .eq("id", roomId)
+    .maybeSingle();
   const hasDbChatRoom = !!(roomForGet as { id?: string } | null)?.id;
 
   if (!hasDbChatRoom && process.env.NODE_ENV !== "production") {
@@ -110,51 +78,17 @@ export async function GET(
 
   const sbAny = sb;
   const rtGet = (roomForGet as { room_type?: string } | null)?.room_type ?? "";
-  const isOpenChatLinkedGet = !!(openChatForGet as { id?: string } | null)?.id;
-  let openChatViewerCanManage = false;
-  let openChatRoomIdForGet = "";
-  if (isOpenChatLinkedGet && (openChatForGet as { id?: string } | null)?.id) {
-    openChatRoomIdForGet = String((openChatForGet as { id?: string }).id ?? "");
-    const { data: viewerMember } = await sbAny
-      .from("open_chat_members")
-      .select("role, status")
-      .eq("room_id", openChatRoomIdForGet)
-      .eq("user_id", userId)
-      .maybeSingle();
-    const viewerMemberRow = viewerMember as { role?: string | null; status?: string | null } | null;
-    openChatViewerCanManage =
-      viewerMemberRow?.status === "joined" &&
-      (viewerMemberRow.role === "owner" || viewerMemberRow.role === "moderator");
-  }
 
-  /* 모임 채팅: 부가 방은 초대자만, 기본 방은 참가자+멤버 — 모임장/공동운영자는 부가 방 검열 입장 (room-access) */
+  /* 구 모임 chat_rooms 축은 제거됨 */
   const philifeMeetingIdGet = await resolvePhilifeMeetingAccessMeetingId(
     sbAny,
     roomId,
     roomForGet as { room_type?: string | null; meeting_id?: string | null; related_group_id?: string | null }
   );
-  if (philifeMeetingIdGet && !isOpenChatLinkedGet) {
-    const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
-      meeting_id: philifeMeetingIdGet,
-      related_group_id: philifeMeetingIdGet,
-    });
-    if (!access.ok) {
-      return NextResponse.json({ error: access.error }, { status: access.statusCode });
-    }
+  if (philifeMeetingIdGet) {
+    return NextResponse.json({ error: "삭제된 모임 채팅입니다." }, { status: 404 });
   } else if (rtGet === "store_order") {
-    const rg = roomForGet as {
-      buyer_id?: string | null;
-      seller_id?: string | null;
-      store_order_id?: string | null;
-    } | null;
-    const accessSo = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId, {
-      preloadedRoom: rg
-        ? { buyer_id: rg.buyer_id, seller_id: rg.seller_id, store_order_id: rg.store_order_id }
-        : null,
-    });
-    if (!accessSo.ok) {
-      return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
-    }
+    return NextResponse.json({ error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
   } else {
     const { data: part } = await sbAny
       .from("chat_room_participants")
@@ -184,64 +118,7 @@ export async function GET(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const list = ((messages ?? []) as Array<Record<string, unknown>>)
     .reverse()
-    .filter((message) => {
-      if (message.deleted_by_sender === true) return false;
-      if (message.is_hidden_by_admin !== true) return true;
-      return canViewHiddenOpenChatMessage(
-        message.hidden_reason,
-        openChatRoomIdForGet,
-        typeof message.sender_id === "string" ? message.sender_id : null,
-        openChatViewerCanManage
-      );
-    });
-  if (isOpenChatLinkedGet && openChatRoomIdForGet) {
-    const openChatRoomId = openChatRoomIdForGet;
-    const senderIds = Array.from(
-      new Set(
-        list
-          .map((message) =>
-            typeof (message as { sender_id?: unknown }).sender_id === "string"
-              ? String((message as { sender_id?: string }).sender_id)
-              : ""
-          )
-          .filter((id) => id.length > 0)
-      )
-    );
-    const nicknameMap = new Map<string, string>();
-    if (senderIds.length > 0) {
-      const { data: memberRows } = await sbAny
-        .from("open_chat_members")
-        .select("user_id, nickname")
-        .eq("room_id", openChatRoomId)
-        .in("user_id", senderIds);
-      for (const row of memberRows ?? []) {
-        const userIdValue =
-          typeof (row as { user_id?: unknown }).user_id === "string"
-            ? String((row as { user_id?: string }).user_id)
-            : "";
-        const nicknameValue =
-          typeof (row as { nickname?: unknown }).nickname === "string"
-            ? String((row as { nickname?: string }).nickname).trim()
-            : "";
-        if (userIdValue && nicknameValue) nicknameMap.set(userIdValue, nicknameValue);
-      }
-    }
-    return NextResponse.json({
-      messages: list.map((message) => {
-        const row = message as {
-          sender_id?: string | null;
-          metadata?: unknown;
-        } & Record<string, unknown>;
-        return {
-          ...row,
-          hidden_reason: typeof row.hidden_reason === "string" ? row.hidden_reason : null,
-          sender_nickname:
-            (row.sender_id ? nicknameMap.get(row.sender_id) : null) ??
-            senderNicknameFromMessageMetadata(row.metadata),
-        };
-      }),
-    });
-  }
+    .filter((message) => message.deleted_by_sender !== true);
   return NextResponse.json({ messages: list });
 }
 
@@ -381,37 +258,11 @@ export async function POST(
     }
   }
   const roomForGm = room as { room_type?: string; meeting_id?: string | null; related_group_id?: string | null };
-  const { data: openChatForPost } = await sbAny
-    .from("open_chat_rooms")
-    .select("id")
-    .eq("linked_chat_room_id", roomId)
-    .maybeSingle();
-  const isOpenChatLinkedPost = !!(openChatForPost as { id?: string } | null)?.id;
-
   const philifeMeetingIdPost = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, roomForGm);
-  if (philifeMeetingIdPost && !isOpenChatLinkedPost) {
-    const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
-      meeting_id: philifeMeetingIdPost,
-      related_group_id: philifeMeetingIdPost,
-    });
-    if (!access.ok) {
-      return NextResponse.json({ ok: false, error: access.error }, { status: access.statusCode });
-    }
-    if (!access.canSend) {
-      return NextResponse.json({ ok: false, error: "종료된 모임 채팅에는 메시지를 보낼 수 없습니다." }, { status: 403 });
-    }
-    await ensureChatParticipantRowIfMissing(sbAny, roomId, userId);
+  if (philifeMeetingIdPost) {
+    return NextResponse.json({ ok: false, error: "삭제된 모임 채팅입니다." }, { status: 404 });
   } else if (roomForGm.room_type === "store_order") {
-    const accessSoPost = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId, {
-      preloadedRoom: {
-        buyer_id: r.buyer_id,
-        seller_id: r.seller_id,
-        store_order_id: (room as { store_order_id?: string | null }).store_order_id,
-      },
-    });
-    if (!accessSoPost.ok) {
-      return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
-    }
+    return NextResponse.json({ ok: false, error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
   } else {
     const { data: part } = await sbAny
       .from("chat_room_participants")
@@ -459,40 +310,12 @@ export async function POST(
     messageType === "image"
       ? text || (imageList.length > 1 ? `사진 ${imageList.length}장` : "사진")
       : text || "(메시지)";
-  let openChatSenderNickname: string | null = null;
-  let blindReasonForMessage: string | null = null;
-  if (isOpenChatLinkedPost && (openChatForPost as { id?: string } | null)?.id) {
-    const openChatRoomId = String((openChatForPost as { id?: string }).id ?? "");
-    const { data: myOpenChatMember } = await sbAny
-      .from("open_chat_members")
-      .select("nickname, is_message_blinded, message_blind_reason")
-      .eq("room_id", openChatRoomId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    const myMemberRow = myOpenChatMember as {
-      nickname?: string | null;
-      is_message_blinded?: boolean | null;
-      message_blind_reason?: string | null;
-    } | null;
-    const nickname = myMemberRow?.nickname;
-    openChatSenderNickname = typeof nickname === "string" && nickname.trim() ? nickname.trim() : null;
-    if (myMemberRow?.is_message_blinded === true) {
-      const note =
-        typeof myMemberRow.message_blind_reason === "string" && myMemberRow.message_blind_reason.trim()
-          ? `:${myMemberRow.message_blind_reason.trim().slice(0, 400)}`
-          : "";
-      blindReasonForMessage = `${OPEN_CHAT_MEMBER_BLIND_REASON_PREFIX}${openChatRoomId}:${userId}${note}`;
-    }
-  }
   const metadata: Record<string, unknown> =
     messageType === "image"
       ? imageList.length > 1
         ? { imageUrls: imageList, imageUrl: imageList[0] }
         : { imageUrl: imageList[0] }
       : {};
-  if (openChatSenderNickname) {
-    metadata.senderNickname = openChatSenderNickname;
-  }
 
   const { data: msg, error: insertErr } = await sbAny
     .from("chat_messages")
@@ -502,10 +325,8 @@ export async function POST(
       message_type: messageType,
       body: bodyText,
       metadata,
-      is_hidden_by_admin: blindReasonForMessage ? true : false,
-      hidden_reason: blindReasonForMessage,
     })
-    .select("id, created_at, is_hidden_by_admin, hidden_reason")
+    .select("id, created_at")
     .single();
 
   if (insertErr) {
@@ -513,9 +334,8 @@ export async function POST(
   }
   const now = (msg as { created_at: string }).created_at ?? new Date().toISOString();
   const msgId = (msg as { id: string }).id;
-  const preview = blindReasonForMessage
-    ? "숨김 처리된 메시지"
-    : messageType === "image"
+  const preview =
+    messageType === "image"
       ? text
         ? text.slice(0, 100)
         : imageList.length > 1
@@ -567,9 +387,6 @@ export async function POST(
     message: {
       id: (msg as { id: string }).id,
       createdAt: now,
-      senderNickname: openChatSenderNickname,
-      isHiddenByAdmin: (msg as { is_hidden_by_admin?: boolean }).is_hidden_by_admin === true,
-      hiddenReason: (msg as { hidden_reason?: string | null }).hidden_reason ?? null,
     },
   });
 }

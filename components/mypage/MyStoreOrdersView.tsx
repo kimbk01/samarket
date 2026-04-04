@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MemberOrderStatusBadge } from "@/components/member-orders/MemberOrderStatusBadge";
@@ -18,10 +18,6 @@ import {
   APP_MAIN_GUTTER_NEG_X_CLASS,
   APP_MAIN_GUTTER_X_CLASS,
 } from "@/lib/ui/app-content-layout";
-import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
-import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
-import { fetchIntegratedChatRoomMessages } from "@/lib/chats/fetch-chat-room-messages-api";
-import type { ChatRoom } from "@/lib/types/chat";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 
@@ -54,20 +50,10 @@ type OrderRow = {
   can_submit_review?: boolean;
   /** 매장 프로필(채팅 목록 카드와 동일 톤의 썸네일) */
   store_profile_image_url?: string | null;
-  /** `GET /api/me/store-orders` — 있으면 브리지 없이 `/chats/[id]` 직행 */
-  chat_room_id?: string | null;
+  order_chat_unread_count?: number;
 };
 
-function buyerStoreOrderChatHref(args: {
-  embedded: boolean;
-  orderId: string;
-  chatRoomId?: string | null;
-}): string {
-  const rid = typeof args.chatRoomId === "string" ? args.chatRoomId.trim() : "";
-  if (rid) {
-    const from = args.embedded ? "orders-hub" : "orders-chat";
-    return `/chats/${encodeURIComponent(rid)}?from=${from}`;
-  }
+function buyerStoreOrderChatHref(args: { embedded: boolean; orderId: string }): string {
   return args.embedded
     ? `/orders/store/${encodeURIComponent(args.orderId)}/chat`
     : `/my/store-orders/${encodeURIComponent(args.orderId)}/chat`;
@@ -120,20 +106,6 @@ function tabCounts(rows: OrderRow[]): Record<MemberOrderTab, number> {
 
 function isDeliveryFulfillment(ft: string) {
   return ft === "local_delivery" || ft === "shipping";
-}
-
-function unreadByStoreOrderIdFromRooms(rooms: ChatRoom[]): Record<string, number> {
-  const m: Record<string, number> = {};
-  for (const r of rooms) {
-    const gc = r.generalChat;
-    if (gc?.kind !== "store_order") continue;
-    const oid = gc.storeOrderId?.trim();
-    if (!oid) continue;
-    const u = Math.max(0, Math.floor(Number(r.unreadCount) || 0));
-    if (u <= 0) continue;
-    m[oid] = (m[oid] ?? 0) + u;
-  }
-  return m;
 }
 
 function statusUserLine(status: string) {
@@ -205,7 +177,6 @@ function MyStoreOrderCard({
   canSubmitReview,
   chatDisabled,
   orderChatUnread,
-  chatWarmupRoomId,
   onCancelPending,
   cancelBusy,
   allowDelete,
@@ -220,8 +191,6 @@ function MyStoreOrderCard({
   chatDisabled: boolean;
   /** 주문 채팅 미읽음 — 배달/포장 뱃지 우측 상단 표시 */
   orderChatUnread: number;
-  /** 직행 채팅일 때 호버로 라우트·메시지 캐시 워밍 */
-  chatWarmupRoomId?: string | null;
   onCancelPending?: (id: string) => void;
   cancelBusy?: boolean;
   allowDelete?: boolean;
@@ -231,11 +200,8 @@ function MyStoreOrderCard({
   const router = useRouter();
   const reorderPayload = reorderPayloadFromListOrder(o);
   const onChatPointerEnter = useCallback(() => {
-    const rid = typeof chatWarmupRoomId === "string" ? chatWarmupRoomId.trim() : "";
-    if (!rid) return;
-    void fetchIntegratedChatRoomMessages(rid);
     router.prefetch(chatHref);
-  }, [chatHref, chatWarmupRoomId, router]);
+  }, [chatHref, router]);
   const activeTab = [
     "pending",
     "accepted",
@@ -423,26 +389,12 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
   const [deleteBusyId, setDeleteBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [orderChatUnreadMap, setOrderChatUnreadMap] = useState<Record<string, number>>({});
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "unauth" }
     | { kind: "error"; message: string }
     | { kind: "ok"; orders: OrderRow[] }
   >({ kind: "loading" });
-
-  const loadOrderChatUnreads = useCallback(async () => {
-    try {
-      const { ok, status, rooms } = await fetchChatRoomsBySegment("order");
-      if (status === 401 || !ok) {
-        setOrderChatUnreadMap({});
-        return;
-      }
-      setOrderChatUnreadMap(unreadByStoreOrderIdFromRooms(rooms));
-    } catch {
-      /* 이전 맵 유지 */
-    }
-  }, []);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -454,7 +406,6 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
           cache: "no-store",
         });
         if (res.status === 401) {
-          setOrderChatUnreadMap({});
           if (!silent) setState({ kind: "unauth" });
           return;
         }
@@ -478,39 +429,18 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
           return;
         }
         setState({ kind: "ok", orders: (json.orders ?? []) as OrderRow[] });
-        void loadOrderChatUnreads();
       } catch {
         if (!silent) setState({ kind: "error", message: "network_error" });
       }
     },
-    [loadOrderChatUnreads]
+    []
   );
-
-  /** 읽음/폴링 이벤트가 연타될 때 `/api/chat/rooms?segment=order` 폭주 방지 */
-  const orderUnreadThrottleRef = useRef(0);
-  const loadOrderChatUnreadsThrottled = useCallback(() => {
-    const now = Date.now();
-    if (now - orderUnreadThrottleRef.current < 20_000) return;
-    orderUnreadThrottleRef.current = now;
-    void loadOrderChatUnreads();
-  }, [loadOrderChatUnreads]);
-
-  /** 주문 목록·주문 채팅 읽지 않음을 동시에 요청해 체감 대기 시간을 줄임 (`fetchChatRoomsBySegment` 단일 비행 합류) */
   useEffect(() => {
     void load();
-    void loadOrderChatUnreads();
-  }, [load, loadOrderChatUnreads]);
-
-  useEffect(() => {
-    const onUnread = () => loadOrderChatUnreadsThrottled();
-    window.addEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onUnread);
-    return () => window.removeEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onUnread);
-  }, [loadOrderChatUnreadsThrottled]);
+  }, [load]);
 
   useRefetchOnPageShowRestore(() => {
     void load({ silent: true });
-    orderUnreadThrottleRef.current = 0;
-    void loadOrderChatUnreads();
   });
 
   useLayoutEffect(() => {
@@ -693,13 +623,9 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
                       chatHref={buyerStoreOrderChatHref({
                         embedded,
                         orderId: o.id,
-                        chatRoomId: o.chat_room_id,
                       })}
-                      chatWarmupRoomId={
-                        isStoreOrderChatDisabledForBuyer(o.order_status) ? null : (o.chat_room_id ?? null)
-                      }
                       chatDisabled={isStoreOrderChatDisabledForBuyer(o.order_status)}
-                      orderChatUnread={orderChatUnreadMap[o.id] ?? 0}
+                      orderChatUnread={Math.max(0, Number(o.order_chat_unread_count) || 0)}
                       reviewHref={
                         embedded
                           ? `/orders/store/${encodeURIComponent(o.id)}/review`

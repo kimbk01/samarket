@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { ensureStoreOrderChatRoom } from "@/lib/chat/store-order-chat-db";
+import { ensureOrderChatRoom } from "@/lib/order-chat/service";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { ownerAcceptRequiresRecordedPayment } from "@/lib/stores/owner-order-payment-policy";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
@@ -80,10 +80,10 @@ export async function GET(
     return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
   }
 
-  let chat_room_id: string | null = null;
+  let order_chat_ready = false;
   try {
-    const ens = await ensureStoreOrderChatRoom(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
-    if (ens.ok) chat_room_id = ens.roomId;
+    const ens = await ensureOrderChatRoom(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
+    if (ens.ok) order_chat_ready = true;
   } catch {
     /* ignore */
   }
@@ -95,7 +95,7 @@ export async function GET(
       owner_user_id: userId,
       store_name: (storeRow?.store_name as string) ?? "",
       store_slug: (storeRow?.slug as string) ?? "",
-      chat_room_id,
+      order_chat_ready,
       store_pickup_address_lines,
     },
     order: { ...order, items: items ?? [] },
