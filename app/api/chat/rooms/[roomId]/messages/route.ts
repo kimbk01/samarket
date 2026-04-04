@@ -263,6 +263,8 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "삭제된 모임 채팅입니다." }, { status: 404 });
   } else if (roomForGm.room_type === "store_order") {
     return NextResponse.json({ ok: false, error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
+  } else if (roomForGm.room_type !== "item_trade") {
+    return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
   } else {
     const { data: part } = await sbAny
       .from("chat_room_participants")

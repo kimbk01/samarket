@@ -1,4 +1,5 @@
-import { CommunityGroupChatCreateClient } from "@/components/community-group-chat/CommunityGroupChatCreateClient";
+import { notFound, permanentRedirect } from "next/navigation";
+import { philifeAppPaths } from "@/lib/philife/paths";
 
 interface Props {
   params: Promise<{ meetingId: string }>;
@@ -7,6 +8,6 @@ interface Props {
 export default async function MeetingGroupChatNewPage({ params }: Props) {
   const { meetingId } = await params;
   const id = meetingId?.trim() ?? "";
-  if (!id) return null;
-  return <CommunityGroupChatCreateClient meetingId={id} />;
+  if (!id) notFound();
+  permanentRedirect(philifeAppPaths.meeting(id));
 }

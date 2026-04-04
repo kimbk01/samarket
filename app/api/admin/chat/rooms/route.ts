@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(limit + 1);
   if (roomType) q = q.eq("room_type", roomType);
+  else q = q.eq("room_type", "item_trade");
   if (contextType) q = q.eq("context_type", contextType);
   if (tradeStatus) q = q.eq("trade_status", tradeStatus);
   if (requestStatus) q = q.eq("request_status", requestStatus);
@@ -124,15 +125,7 @@ export async function GET(req: NextRequest) {
     let productTitle = "";
     if (r.item_id) productTitle = titleByPostId[r.item_id] ?? "";
     else if (r.related_post_id) productTitle = titleByPostId[r.related_post_id] ?? "";
-    if (!productTitle) {
-      if (r.room_type === "community") productTitle = "커뮤니티 문의";
-      else if (r.room_type === "group")
-        productTitle = `모임·게시판 (${(r.related_group_id ?? "").slice(0, 8)}…)`;
-      else if (r.room_type === "business")
-        productTitle = `비즈·상점 (${(r.related_business_id ?? "").slice(0, 8)}…)`;
-      else if (r.room_type === "general_chat")
-        productTitle = r.context_type ? `일반(${r.context_type})` : "일반 채팅";
-    }
+    if (!productTitle && r.room_type === "item_trade") productTitle = "거래 채팅";
     return {
       ...r,
       productTitle,

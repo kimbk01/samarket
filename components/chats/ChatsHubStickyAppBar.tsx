@@ -8,8 +8,6 @@ import { ChatsPhilifeHubMainTier1Sync } from "@/components/chats/ChatsPhilifeHub
  * 오래된 import·캐시가 이 경로를 참조해도 빌드가 깨지지 않게 유지한다.
  */
 export function ChatsHubStickyAppBar({ segment }: { segment: ChatHubSegment }) {
-  if (segment === "community") {
-    return <ChatsPhilifeHubMainTier1Sync />;
-  }
-  return null;
+  void segment;
+  return <ChatsPhilifeHubMainTier1Sync />;
 }

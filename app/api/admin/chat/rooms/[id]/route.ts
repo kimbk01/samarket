@@ -48,6 +48,9 @@ export async function GET(
       is_blocked?: boolean;
       is_locked?: boolean;
     };
+    if (roomRow.room_type !== "item_trade") {
+      return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
+    }
     const [participants, messages, events, reports] = await Promise.all([
       sbAny.from("chat_room_participants").select("*").eq("room_id", roomId),
       sbAny.from("chat_messages").select("id, sender_id, message_type, body, created_at, is_hidden_by_admin").eq("room_id", roomId).order("created_at", { ascending: true }).limit(200),
@@ -75,14 +78,7 @@ export async function GET(
         else if (Array.isArray(imgs) && imgs[0]) productThumbnail = String(imgs[0]);
       }
     }
-    if (!productTitle) {
-      const rt = roomRow.room_type ?? "";
-      if (rt === "community") productTitle = "커뮤니티 문의";
-      else if (rt === "group") productTitle = `모임·게시판 (${(roomRow.related_group_id ?? "").slice(0, 8)}…)`;
-      else if (rt === "business") productTitle = `비즈·상점 (${(roomRow.related_business_id ?? "").slice(0, 8)}…)`;
-      else if (rt === "general_chat")
-        productTitle = roomRow.context_type ? `일반(${roomRow.context_type})` : "일반 채팅";
-    }
+    if (!productTitle) productTitle = "거래 채팅";
     const sellerId = (trade ? roomRow.seller_id : roomRow.initiator_id ?? roomRow.seller_id) ?? "";
     const buyerId = (trade ? roomRow.buyer_id : roomRow.peer_id ?? roomRow.buyer_id) ?? "";
     const userIds = [sellerId, buyerId].filter(Boolean);
@@ -107,135 +103,6 @@ export async function GET(
       messageCount: (messages.data ?? []).length,
       reportCount: (reports.data ?? []).length,
       purposeKind: trade ? "trade" : roomRow.room_type ?? "general",
-    });
-  }
-
-  const openRoomRaw = await sbAny
-    .from("meeting_open_chat_rooms")
-    .select("*")
-    .eq("id", roomId)
-    .maybeSingle()
-    .then((r) => r.data);
-
-  if (openRoomRaw) {
-    const mor = openRoomRaw as {
-      id: string;
-      meeting_id: string;
-      title: string;
-      thumbnail_url: string | null;
-      owner_user_id: string;
-      last_message_preview: string | null;
-      last_message_at: string | null;
-      created_at: string;
-      is_active: boolean;
-      active_member_count: number;
-    };
-    const [{ data: msgsRaw }, { data: reportsRaw }] = await Promise.all([
-      sbAny
-        .from("meeting_open_chat_messages")
-        .select("id, user_id, member_id, message_type, content, created_at, is_blinded")
-        .eq("room_id", roomId)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: true })
-        .limit(200),
-      sbAny.from("meeting_open_chat_reports").select("*").eq("room_id", roomId),
-    ]);
-    const msgs = (msgsRaw ?? []) as {
-      id: string;
-      user_id: string | null;
-      member_id: string | null;
-      message_type: string;
-      content: string;
-      created_at: string;
-      is_blinded: boolean;
-    }[];
-    const msgIds = msgs.map((m) => m.id);
-    const attByMessageId: Record<string, { file_type: string; file_url: string }[]> = {};
-    if (msgIds.length > 0) {
-      const { data: atts } = await sbAny
-        .from("meeting_open_chat_attachments")
-        .select("message_id, file_type, file_url, sort_order")
-        .in("message_id", msgIds);
-      for (const a of atts ?? []) {
-        const row = a as { message_id: string; file_type: string; file_url: string; sort_order?: number };
-        if (!attByMessageId[row.message_id]) attByMessageId[row.message_id] = [];
-        attByMessageId[row.message_id].push({ file_type: row.file_type, file_url: row.file_url });
-      }
-    }
-    const ownerNick =
-      (await fetchNicknamesForUserIds(sbAny, [mor.owner_user_id])).get(mor.owner_user_id) ??
-      mor.owner_user_id.slice(0, 8);
-
-    let meetingTitle = "";
-    const { data: meet } = await sbAny.from("meetings").select("id, title").eq("id", mor.meeting_id).maybeSingle();
-    if (meet && typeof (meet as { title?: string }).title === "string") {
-      meetingTitle = ((meet as { title: string }).title ?? "").trim();
-    }
-    const productTitle = meetingTitle ? `${mor.title} · ${meetingTitle}` : mor.title;
-    const productThumbnail = (mor.thumbnail_url ?? "").trim();
-
-    const messagesForRes = msgs.map((m) => {
-      const extras = attByMessageId[m.id] ?? [];
-      const extraText =
-        extras.length > 0
-          ? extras.map((e) => `[${e.file_type}:${e.file_url}]`).join("\n")
-          : "";
-      const body = [m.content?.trim() || "", extraText].filter(Boolean).join("\n");
-      const mt = m.message_type === "image" || m.message_type === "system" ? m.message_type : "text";
-      return {
-        id: m.id,
-        sender_id: m.user_id ?? "",
-        message_type: mt,
-        body,
-        created_at: m.created_at,
-        is_hidden_by_admin: m.is_blinded,
-      };
-    });
-
-    const reportsForRes = (reportsRaw ?? []).map((r: Record<string, unknown>) => ({
-      id: r.id,
-      reporter_user_id: r.reporter_user_id,
-      reason_type: r.report_reason,
-      reason_detail: r.report_detail,
-      status: r.status,
-      created_at: r.created_at,
-    }));
-
-    const roomForApi = {
-      id: mor.id,
-      room_type: "meeting_open_chat",
-      meeting_id: mor.meeting_id,
-      item_id: null as string | null,
-      seller_id: mor.owner_user_id,
-      buyer_id: null as string | null,
-      initiator_id: mor.owner_user_id,
-      peer_id: null as string | null,
-      last_message_preview: mor.last_message_preview,
-      last_message_at: mor.last_message_at,
-      created_at: mor.created_at,
-      is_readonly: true,
-      is_blocked: !mor.is_active,
-      is_locked: false,
-    };
-
-    const roomStatus: "active" | "blocked" | "archived" = mor.is_active ? "active" : "blocked";
-
-    return NextResponse.json({
-      room: roomForApi,
-      participants: [],
-      messages: messagesForRes,
-      events: [],
-      reports: reportsForRes,
-      moderationLogs: [],
-      item: null,
-      productTitle,
-      productThumbnail,
-      sellerNickname: ownerNick,
-      buyerNickname: `참여 ${mor.active_member_count}명`,
-      roomStatus,
-      messageCount: messagesForRes.length,
-      reportCount: reportsForRes.length,
-      purposeKind: "meeting_open_chat",
     });
   }
 

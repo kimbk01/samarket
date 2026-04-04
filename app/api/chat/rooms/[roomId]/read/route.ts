@@ -104,6 +104,9 @@ export async function POST(
   if (legacyMeetingId) {
     return NextResponse.json({ ok: false, error: "삭제된 모임 채팅입니다." }, { status: 404 });
   }
+  if (cr.room_type !== "item_trade") {
+    return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
+  }
   let lastReadId = messageId;
   if (!lastReadId) {
     lastReadId = typeof cr.last_message_id === "string" ? cr.last_message_id : null;

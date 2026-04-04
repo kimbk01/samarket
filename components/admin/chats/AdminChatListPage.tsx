@@ -7,7 +7,6 @@ import { getAdminChatRoomsFromDb } from "@/lib/admin-chats/getAdminChatRoomsFrom
 import {
   fetchAdminChatRoomsApi,
   fetchAdminChatRoomsListApi,
-  fetchAdminMeetingOpenChatRoomsListApi,
 } from "@/lib/admin-chats/fetchAdminChatRoomsApi";
 import {
   filterAndSortChatRooms,
@@ -85,9 +84,8 @@ function mergeChatRoomsForAdmin(
   return [...byTradeKey.values(), ...byOtherId.values()].map(untag);
 }
 
-function storageForBulkDelete(r: AdminChatRoom): "chat_rooms" | "product_chats" | "meeting_open_chat" {
-  if (r.adminChatStorage === "meeting_open_chat") return "meeting_open_chat";
-  if (r.adminChatStorage) return r.adminChatStorage;
+function storageForBulkDelete(r: AdminChatRoom): "chat_rooms" | "product_chats" {
+  if (r.adminChatStorage === "product_chats") return "product_chats";
   return "chat_rooms";
 }
 
@@ -114,9 +112,7 @@ function getInitialFilters(mode: ChatListMode): AdminChatFilters {
 function getTitle(mode: ChatListMode): string {
   if (mode === "trade") return "거래채팅";
   if (mode === "reported") return "신고 채팅";
-  if (mode === "business") return "업체·비즈 채팅";
-  if (mode === "community") return "커뮤니티 채팅";
-  if (mode === "group") return "모임·게시판 채팅";
+  if (mode === "business" || mode === "community" || mode === "group") return "제거된 채팅";
   return "전체 채팅";
 }
 
@@ -151,45 +147,24 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       let fromProductChats: AdminChatRoom[] = [];
       let fromChatRooms: AdminChatRoom[] = [];
 
-      if (mode === "business") {
-        const [legacyBiz, typedBiz] = await Promise.all([
-          fetchAdminChatRoomsListApi({ roomType: "general_chat", contextType: "biz_profile" }).catch(() => []),
-          fetchAdminChatRoomsListApi({ roomType: "business" }).catch(() => []),
-        ]);
-        const seen = new Set<string>();
-        fromChatRooms = [...legacyBiz, ...typedBiz].filter((r) => {
-          if (seen.has(r.id)) return false;
-          seen.add(r.id);
-          return true;
-        });
-      } else if (mode === "community") {
-        fromChatRooms = await fetchAdminChatRoomsListApi({ roomType: "community" }).catch(() => []);
-      } else if (mode === "group") {
-        fromChatRooms = await fetchAdminChatRoomsListApi({ roomType: "group" }).catch(() => []);
-      } else if (mode === "trade") {
+      if (mode === "trade") {
         if (isAdminUser(user)) fromProductChats = await fetchAdminChatRoomsApi().catch(() => []);
         fromChatRooms = await fetchAdminChatRoomsListApi({ roomType: "item_trade" }).catch(() => []);
       } else if (mode === "reported") {
         if (isAdminUser(user)) fromProductChats = await fetchAdminChatRoomsApi().catch(() => []);
         fromChatRooms = await fetchAdminChatRoomsListApi({ hasReport: true }).catch(() => []);
         fromProductChats = fromProductChats.filter((r) => (r.reportCount ?? 0) > 0);
+      } else if (mode === "business" || mode === "community" || mode === "group") {
+        fromChatRooms = [];
       } else {
         if (isAdminUser(user)) fromProductChats = await fetchAdminChatRoomsApi().catch(() => []);
         fromChatRooms = await fetchAdminChatRoomsListApi().catch(() => []);
       }
 
-      let fromMeetingOpen: AdminChatRoom[] = [];
-      if (mode === "all" || mode === "group" || mode === "reported") {
-        fromMeetingOpen = await fetchAdminMeetingOpenChatRoomsListApi({
-          hasReport: mode === "reported",
-        }).catch(() => []);
-      }
-
-      const merged = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms), ...fromMeetingOpen].filter(
+      const merged = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)].filter(
         (r) =>
           (r.messageCount ?? 0) > 0 ||
-          (r.lastMessage ?? "").trim() !== "" ||
-          r.adminChatStorage === "meeting_open_chat"
+          (r.lastMessage ?? "").trim() !== ""
       )
         .sort((a, b) => {
           const ta = new Date(a.lastMessageAt).getTime();
@@ -276,13 +251,12 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         const r = rooms.find((x) => x.id === id);
         if (!r) return null;
         const storage = storageForBulkDelete(r);
-        if (storage === "meeting_open_chat") return null;
         return { id, storage };
       })
       .filter((x): x is { id: string; storage: "chat_rooms" | "product_chats" } => x != null);
 
     if (items.length === 0) {
-      setActionMessage("삭제할 수 있는 방이 없습니다. 모임 오픈채팅은 이 화면의 일괄 삭제 대상이 아닙니다.");
+      setActionMessage("삭제할 수 있는 방이 없습니다.");
       return;
     }
 

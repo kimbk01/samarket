@@ -30,7 +30,6 @@ export function ChatHubTopTabs({
   const scrollRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<ChatHubSegment, HTMLAnchorElement | null>>({
     trade: null,
-    community: null,
     order: null,
   });
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });

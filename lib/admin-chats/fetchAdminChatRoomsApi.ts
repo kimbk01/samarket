@@ -17,7 +17,7 @@ export async function fetchAdminChatRoomsApi(): Promise<AdminChatRoom[]> {
 }
 
 export interface FetchAdminChatRoomsListOptions {
-  roomType?: "item_trade" | "general_chat" | "community" | "group" | "business";
+  roomType?: "item_trade";
   contextType?: string;
   hasReport?: boolean;
 }
@@ -62,18 +62,7 @@ export async function fetchAdminChatRoomsListApi(
     }) => {
       const roomStatus: RoomStatus = r.is_locked ? "archived" : r.is_blocked ? "blocked" : "active";
       const rt = r.room_type ?? "";
-      const roomType =
-        rt === "general_chat"
-          ? "general_chat"
-          : rt === "item_trade"
-            ? "item_trade"
-            : rt === "community"
-              ? "community"
-              : rt === "group"
-                ? "group"
-                : rt === "business"
-                  ? "business"
-                  : "";
+      const roomType = rt === "item_trade" ? "item_trade" : "";
       const trade = rt === "item_trade";
       const leftId = trade ? r.seller_id ?? "" : r.initiator_id ?? r.seller_id ?? "";
       const rightId = trade ? r.buyer_id ?? "" : r.peer_id ?? r.buyer_id ?? "";
@@ -100,59 +89,9 @@ export async function fetchAdminChatRoomsListApi(
   );
 }
 
-/**
- * 모임 오픈채팅 방 목록 — GET /api/admin/chat/meeting-open-rooms
- */
 export async function fetchAdminMeetingOpenChatRoomsListApi(options?: {
   hasReport?: boolean;
 }): Promise<AdminChatRoom[]> {
-  const params = new URLSearchParams({ limit: "100" });
-  if (options?.hasReport === true) params.set("hasReport", "true");
-  const res = await fetch(`/api/admin/chat/meeting-open-rooms?${params.toString()}`, {
-    cache: "no-store",
-    headers: { "Cache-Control": "no-store" },
-  });
-  if (!res.ok) return [];
-  const data = await res.json().catch(() => null);
-  const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
-  return rooms.map(
-    (r: {
-      id: string;
-      meeting_id: string;
-      meetingTitle?: string;
-      title: string;
-      thumbnail_url?: string | null;
-      owner_user_id: string;
-      ownerNickname?: string;
-      last_message_preview?: string | null;
-      last_message_at?: string | null;
-      created_at: string;
-      reportCount?: number;
-      is_active?: boolean;
-      active_member_count?: number;
-    }) => {
-      const roomStatus: RoomStatus = r.is_active === false ? "blocked" : "active";
-      const meetingTitle = (r.meetingTitle ?? "").trim();
-      const productTitle = meetingTitle ? `${r.title} · ${meetingTitle}` : r.title;
-      return {
-        id: r.id,
-        productId: r.meeting_id,
-        productTitle,
-        productThumbnail: (r.thumbnail_url ?? "").trim(),
-        buyerId: "",
-        buyerNickname: `참여 ${r.active_member_count ?? 0}명`,
-        sellerId: r.owner_user_id,
-        sellerNickname: r.ownerNickname ?? r.owner_user_id.slice(0, 8),
-        lastMessage: r.last_message_preview ?? "",
-        lastMessageAt: r.last_message_at ?? r.created_at,
-        messageCount: 0,
-        reportCount: r.reportCount ?? 0,
-        roomStatus,
-        createdAt: r.created_at,
-        roomType: "meeting_open_chat",
-        adminChatStorage: "meeting_open_chat",
-        meetingId: r.meeting_id,
-      } as AdminChatRoom;
-    }
-  );
+  void options;
+  return [];
 }

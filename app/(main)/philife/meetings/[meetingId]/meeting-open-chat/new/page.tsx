@@ -5,10 +5,10 @@ interface Props {
   params: Promise<{ meetingId: string }>;
 }
 
-/** 레거시 URL → `/philife/meetings/.../group-chat/new` */
+/** 레거시 URL → 모임 상세 */
 export default async function MeetingOpenChatNewPageRedirect({ params }: Props) {
   const { meetingId } = await params;
   const id = meetingId?.trim() ?? "";
   if (!id) notFound();
-  permanentRedirect(`${philifeAppPaths.meetingGroupChat(id)}/new`);
+  permanentRedirect(philifeAppPaths.meeting(id));
 }

@@ -15,7 +15,6 @@ import { normalizeSellerListingState } from "@/lib/products/seller-listing-state
 import { applyProductChatTimeTransitions } from "@/lib/trade/apply-product-chat-time-transitions";
 import { applyBuyerAutoConfirmForRoom } from "@/lib/trade/apply-buyer-auto-confirm";
 import { fetchBuyerReviewSubmitted } from "@/lib/mypage/buyer-review-flag";
-import { generalChatKindFromRoomRow } from "@/lib/chat/general-room-mapping";
 import {
   getNeighborhoodDevSampleChatRoom,
   getNeighborhoodDevSamplePost,
@@ -26,7 +25,6 @@ import {
   fetchItemTradeAdminSuspended,
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
-import { buildPhilifeDetailRoom } from "@/lib/chats/philife/room-mappers";
 import {
   resolvePhilifeMeetingAccessMeetingId,
 } from "@/lib/chats/philife/room-access";
@@ -487,68 +485,7 @@ export async function GET(
   }
 
   if (isGeneralChatRoom) {
-    const { data: partRowG } = await sbAny
-      .from("chat_room_participants")
-      .select("unread_count, hidden, left_at, is_active")
-      .eq("room_id", roomId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    const pr = partRowG as {
-      unread_count?: number;
-      hidden?: boolean;
-      left_at?: string | null;
-      is_active?: boolean | null;
-    } | null;
-    if (!pr || pr.hidden || pr.left_at || pr.is_active === false) {
-      return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
-    }
-    const unreadCount = pr.unread_count ?? 0;
-    const ini = crAny.initiator_id ?? "";
-    const peer = crAny.peer_id ?? "";
-    const partnerId2 = userId === ini ? peer : ini;
-    const postIdG = crAny.related_post_id ?? "";
-    const [partnerDispGeneral, postG] = await Promise.all([
-      fetchPartnerDisplayFields(sbAny, partnerId2, partnerId2.slice(0, 8)),
-      postIdG ? fetchPostRowForChat(sbAny, postIdG) : Promise.resolve(null),
-    ]);
-    const kind = generalChatKindFromRoomRow(roomType, crAny.context_type ?? null);
-    const titleFallback =
-      kind === "business"
-        ? "비즈 채팅"
-        : kind === "community"
-          ? "커뮤니티 문의"
-          : "일반 채팅";
-    const postAuthorId = postAuthorUserId(postG);
-    const postNicknameMap = postAuthorId ? await fetchNicknamesForUserIds(sbAny, [postAuthorId]) : null;
-    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, postNicknameMap ?? new Map()) : null;
-    return NextResponse.json(
-      buildPhilifeDetailRoom({
-        id: crAny.id,
-        roomKind: "direct",
-        title: partnerDispGeneral.partnerNickname.trim() || partnerId2.slice(0, 8) || titleFallback,
-        subtitle:
-          kind === "business"
-            ? "비즈 문의 채팅"
-            : kind === "community"
-              ? "커뮤니티 1:1 채팅"
-              : "일반 채팅",
-        lastMessage: crAny.last_message_preview ?? "",
-        lastMessageAt: crAny.last_message_at ?? crAny.created_at,
-        unreadCount,
-        relatedPostId: crAny.related_post_id ?? null,
-        relatedCommentId: crAny.related_comment_id ?? null,
-        relatedGroupId: crAny.related_group_id ?? null,
-        contextType: crAny.context_type ?? null,
-        postRow: enrichedPost,
-        joined: true,
-        canSend: true,
-        hostUserId: ini,
-        partnerIdFallback: partnerId2,
-        buyerId: peer || ini,
-        sellerId: ini,
-      }),
-      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
-    );
+    return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
   }
 
   // item_trade

@@ -33,6 +33,9 @@ export async function GET(
   if (roomErr || !room) {
     return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
+  if ((room as { room_type?: string | null }).room_type !== "item_trade") {
+    return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
+  }
   if (partListErr) {
     return NextResponse.json({ error: partListErr.message }, { status: 500 });
   }

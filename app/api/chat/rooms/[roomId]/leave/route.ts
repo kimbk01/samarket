@@ -28,6 +28,17 @@ export async function POST(
 
   const sbAny = sb;
   const now = new Date().toISOString();
+  const { data: roomRow, error: roomErr } = await sbAny
+    .from("chat_rooms")
+    .select("id, room_type")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (roomErr || !roomRow) {
+    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+  }
+  if ((roomRow as { room_type?: string | null }).room_type !== "item_trade") {
+    return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
+  }
   const { data: part, error: upErr } = await sbAny
     .from("chat_room_participants")
     .update({

@@ -12,95 +12,23 @@ import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-pos
 import {
   enrichPostWithAuthorNickname,
   fetchNicknamesForUserIds,
-  postAuthorUserId,
 } from "@/lib/chats/resolve-author-nickname";
-import { generalChatKindFromRoomRow } from "@/lib/chat/general-room-mapping";
 import type { ChatRoom } from "@/lib/types/chat";
 import { fetchPostRowsForChatIn } from "@/lib/chats/post-select-compat";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, CHAT_ROOM_LIST_PRODUCT_CHATS_LIMIT, chunkIds } from "@/lib/chats/chat-list-limits";
-import { buildPhilifeListRoom } from "@/lib/chats/philife/room-mappers";
 import { participantRowActive } from "@/lib/chat/user-chat-unread-parts";
 
 type ChatRoomListRow = ChatRoom;
-
-/** 비-production: 인메모리 `__samarketNeighborhoodDevSampleState` 문의방만 (스텁 샘플 데이터는 제거됨) */
-function getDevSampleCommunityRooms(userId: string): ChatRoomListRow[] {
-  const state = (globalThis as {
-    __samarketNeighborhoodDevSampleState?: {
-      inquiryRooms?: Array<{
-        id: string;
-        post_id: string;
-        initiator_id: string;
-        peer_id: string;
-        context_type: string;
-        related_comment_id: string | null;
-        created_at: string;
-      }>;
-      chatMessages?: Map<string, Array<{ message: string; createdAt: string }>>;
-    };
-  }).__samarketNeighborhoodDevSampleState;
-  const inquiryRooms = (state?.inquiryRooms ?? [])
-    .filter((room) => room.initiator_id === userId || room.peer_id === userId)
-    .map((room) => {
-      const latest = state?.chatMessages?.get(room.id)?.at(-1);
-      const partnerId = room.initiator_id === userId ? room.peer_id : room.initiator_id;
-      return {
-        id: room.id,
-        productId: room.post_id,
-        buyerId: room.initiator_id,
-        sellerId: room.peer_id,
-        partnerNickname: partnerId.slice(0, 8),
-        partnerAvatar: "",
-        lastMessage: latest?.message ?? "게시글 문의 채팅이 시작되었습니다.",
-        lastMessageAt: latest?.createdAt ?? room.created_at,
-        unreadCount: 0,
-        product: chatProductSummaryFromPostRow(
-          {
-            title: "커뮤니티 문의",
-            status: "active",
-            region_label: "",
-          } as Record<string, unknown>,
-          room.post_id
-        ),
-        source: "chat_room" as const,
-        chatDomain: "philife" as const,
-        roomTitle: "커뮤니티 문의",
-        roomSubtitle: "커뮤니티 1:1 채팅",
-        generalChat: {
-          kind: "community" as const,
-          relatedPostId: room.post_id,
-          relatedCommentId: room.related_comment_id,
-          relatedGroupId: null,
-          relatedBusinessId: null,
-          contextType: room.context_type,
-        },
-      };
-    });
-  return inquiryRooms;
-}
 
 function isStoreOrderRoomRow(r: ChatRoomListRow): boolean {
   return false;
 }
 
-function isPhilifeRoomRow(r: ChatRoomListRow): boolean {
-  return r.generalChat != null && !isStoreOrderRoomRow(r);
-}
-
 function filterRoomsByListSegment(rows: ChatRoomListRow[], segment: string | null): ChatRoomListRow[] {
-  if (segment === "order") {
+  if (segment === "order" || segment === "philife" || segment === "philife_inbox") {
     return [];
   }
-  if (segment === "trade") {
-    return rows.filter((r) => r.generalChat == null);
-  }
-  if (segment === "philife") {
-    return rows.filter(isPhilifeRoomRow);
-  }
-  if (segment === "philife_inbox") {
-    return rows.filter(isPhilifeRoomRow);
-  }
-  return rows;
+  return rows.filter((r) => r.generalChat == null);
 }
 
 function dedupeTradeChatRoomRows(rows: ChatRoomListRow[]): ChatRoomListRow[] {
@@ -155,9 +83,7 @@ async function fetchParticipantChatRoomsChunked(
   const parts = await Promise.all(
     chunks.map(async (ids) => {
       let q = sbAny.from("chat_rooms").select(CHAT_ROOMS_LIST_SELECT).in("id", ids);
-      if (segment === "trade") q = q.eq("room_type", "item_trade");
-      else if (segment === "philife" || segment === "philife_inbox")
-        q = q.in("room_type", ["general_chat", "community", "group", "business"]);
+      q = q.eq("room_type", "item_trade");
       const { data } = await q;
       return (data ?? []) as Record<string, unknown>[];
     })
@@ -260,27 +186,11 @@ export async function GET(req: NextRequest) {
     trade_status?: string;
   }[];
 
-  const genRows = allCrRows.filter((r) =>
-    ["general_chat", "community", "group", "business"].includes(String(r.room_type))
-  ) as {
-    id: string;
-    room_type: string;
-    initiator_id: string;
-    peer_id: string | null;
-    last_message_at: string | null;
-    last_message_preview: string | null;
-    created_at: string;
-    related_post_id: string | null;
-    related_comment_id: string | null;
-    related_group_id: string | null;
-    related_business_id: string | null;
-    context_type: string | null;
-  }[];
+  const genRows: Array<Record<string, never>> = [];
 
   const postIdsFromPc = [...new Set(pcRows.map((r) => r.post_id))];
   const itemIds = [...new Set(crTradeRows.map((r) => r.item_id).filter(Boolean))] as string[];
-  const relPostIds = [...new Set(genRows.map((r) => r.related_post_id).filter(Boolean))] as string[];
-  const allPostIds = [...new Set([...postIdsFromPc, ...itemIds, ...relPostIds])];
+  const allPostIds = [...new Set([...postIdsFromPc, ...itemIds])];
   const posts = allPostIds.length ? await fetchPostRowsForChatIn(sbAny, allPostIds) : [];
   const postMap = new Map((posts ?? []).map((p: Record<string, unknown>) => [p.id as string, p]));
 
@@ -288,22 +198,8 @@ export async function GET(req: NextRequest) {
   const crPartnerIds = [
     ...new Set(crTradeRows.flatMap((r) => [r.seller_id, r.buyer_id]).filter((id) => id !== userId)),
   ];
-  const genPartnerIds = genRows
-    .map((r) => {
-      const ini = r.initiator_id;
-      const peer = r.peer_id;
-      if (userId === ini) return peer;
-      if (userId === peer) return ini;
-      return peer ?? ini;
-    })
-    .filter((id): id is string => !!id);
-  const authorIdsFromPosts = [...new Set(
-    (posts ?? [])
-      .map((p: Record<string, unknown>) => postAuthorUserId(p))
-      .filter((id): id is string => !!id)
-  )];
   const nicknameByUserId = await fetchNicknamesForUserIds(sbAny, [
-    ...new Set([...partnerIdsFromPc, ...crPartnerIds, ...genPartnerIds, ...authorIdsFromPosts]),
+    ...new Set([...partnerIdsFromPc, ...crPartnerIds]),
   ]);
 
   const listFromProductChats: ChatRoomListRow[] = pcRows.map((r) => {
@@ -361,77 +257,15 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  const listFromGeneralChatRooms: ChatRoomListRow[] = genRows
-    .map((r) => {
-    const ini = r.initiator_id;
-    const peer = r.peer_id ?? "";
-    const partnerId = userId === ini ? peer : ini;
-    const part = partByRoomEarly.get(r.id) as { unread_count?: number } | undefined;
-    const unreadCount = part?.unread_count ?? 0;
-    const kind = generalChatKindFromRoomRow(r.room_type, r.context_type);
-    const postIdForCard = r.related_post_id ?? "";
-    const postRow = postIdForCard ? postMap.get(postIdForCard) : undefined;
-    const titleFallback =
-      kind === "group"
-        ? "모임 채팅"
-        : kind === "business"
-          ? "비즈 채팅"
-          : kind === "community"
-            ? "커뮤니티 문의"
-            : "일반 채팅";
-
-    const title = nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8) || titleFallback;
-    const subtitle =
-      kind === "business"
-        ? "비즈 문의 채팅"
-        : kind === "community"
-          ? "커뮤니티 1:1 채팅"
-          : "일반 채팅";
-    return buildPhilifeListRoom({
-      id: r.id,
-      roomKind: "direct",
-      title,
-      subtitle,
-      lastMessage: r.last_message_preview ?? "",
-      lastMessageAt: r.last_message_at ?? r.created_at,
-      unreadCount,
-      relatedPostId: r.related_post_id,
-      relatedCommentId: r.related_comment_id,
-      relatedGroupId: r.related_group_id,
-      contextType: r.context_type,
-      postRow: postRow ? enrichPostWithAuthorNickname(postRow as Record<string, unknown>, nicknameByUserId) : null,
-      joined: true,
-      canSend: true,
-      hostUserId: ini,
-      partnerIdFallback: partnerId,
-    });
-  })
-    .filter((row): row is ChatRoomListRow => row != null);
-
   const mergedRaw = [
     ...listFromProductChats,
     ...listFromChatRooms,
-    ...listFromGeneralChatRooms,
   ];
   const merged = dedupeTradeChatRoomRows(mergedRaw).sort((a, b) => {
     const ta = new Date(a.lastMessageAt).getTime();
     const tb = new Date(b.lastMessageAt).getTime();
     return tb - ta;
   });
-  let filteredRooms = filterRoomsByListSegment(merged, segment);
-  if (
-    process.env.NODE_ENV !== "production" &&
-    (segment === "philife" || segment === "philife_inbox")
-  ) {
-    const sampleRooms = getDevSampleCommunityRooms(userId);
-    const byId = new Map(filteredRooms.map((room) => [room.id, room]));
-    for (const room of sampleRooms) {
-      byId.set(room.id, room);
-    }
-    filteredRooms = [...byId.values()].sort(
-      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
-    );
-    filteredRooms = filterRoomsByListSegment(filteredRooms, segment);
-  }
+  const filteredRooms = filterRoomsByListSegment(merged, segment);
   return NextResponse.json({ rooms: filteredRooms });
 }

@@ -7,19 +7,18 @@ export const philifeAppPaths = {
   writeMeeting: "/philife/write?category=meetup",
   my: "/philife/my",
   /** 1) 거래 채팅 */
-  chats: "/chats/philife?tab=inbox",
+  chats: "/chats",
   post: (id: string) => `/philife/${encodeURIComponent(id)}`,
   meeting: (id: string) => `/philife/meetings/${encodeURIComponent(id)}`,
-  /** 2) 커뮤니티 모임 그룹 채팅 (`meeting_open_chat_*` UI 진입) */
+  /** 제거된 커뮤니티 채팅 경로는 모두 모임 상세로 되돌린다. */
   meetingGroupChat: (meetingId: string) =>
-    `/philife/meetings/${encodeURIComponent(meetingId)}/group-chat`,
-  meetingGroupChatRoom: (meetingId: string, roomId: string) =>
-    `/philife/meetings/${encodeURIComponent(meetingId)}/group-chat/${encodeURIComponent(roomId)}`,
-  /** @deprecated 레거시 URL — 서버 리다이렉트로 `meetingGroupChat*` 로 이어짐 */
+    `/philife/meetings/${encodeURIComponent(meetingId)}`,
+  meetingGroupChatRoom: (meetingId: string, _roomId: string) =>
+    `/philife/meetings/${encodeURIComponent(meetingId)}`,
   meetingOpenChat: (meetingId: string) =>
-    `/philife/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat`,
-  meetingOpenChatRoom: (meetingId: string, roomId: string) =>
-    `/philife/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/${encodeURIComponent(roomId)}`,
+    `/philife/meetings/${encodeURIComponent(meetingId)}`,
+  meetingOpenChatRoom: (meetingId: string, _roomId: string) =>
+    `/philife/meetings/${encodeURIComponent(meetingId)}`,
 } as const;
 
 export const philifeAdminPaths = {
