@@ -154,7 +154,7 @@ export function MeetingJoinButton({
   const joinLabel = isJoined
     ? successSurface === "chat"
       ? "채팅방 들어가기"
-      : "오픈채팅 입장"
+      : "단톡방 입장"
     : entryNorm === "approve" || entryNorm === "invite_only"
       ? effectiveStatus === "pending"
         ? "가입 승인 대기 중"
@@ -163,11 +163,11 @@ export function MeetingJoinButton({
         ? "비밀번호로 참여"
         : requiresApproval === true
           ? "참여 요청"
-          : "오픈채팅 참여";
+          : "단톡방 참여";
 
   const helperText =
     isClosed
-      ? "마감되었거나 종료된 오픈채팅입니다."
+      ? "마감되었거나 종료된 단톡방입니다."
       : effectiveStatus === "pending"
         ? `운영자 승인 후 참여할 수 있어요${pendingCount > 0 ? ` · 현재 대기 ${pendingCount}명` : ""}.`
         : entryNorm === "approve" ||
@@ -540,7 +540,7 @@ export function MeetingJoinButton({
         <button type="button" className="font-medium text-sky-700 underline" onClick={() => router.push("/login")}>
           로그인
         </button>
-        후 오픈채팅에 참여할 수 있어요.
+        후 단톡방에 참여할 수 있어요.
       </p>
     );
   }
@@ -550,8 +550,8 @@ export function MeetingJoinButton({
     busyMode === "leave"
       ? "처리 중…"
       : busyMode === "enter"
-        ? "오픈채팅으로 이동 중…"
-        : "오픈채팅에 연결하는 중…";
+        ? "단톡방으로 이동 중…"
+        : "단톡방에 연결하는 중…";
 
   const round = embedChrome ? "rounded-[4px]" : "rounded-xl";
   const ctaJoin = embedChrome
@@ -711,7 +711,7 @@ export function MeetingJoinButton({
           onClick={() => void onLeave()}
           className={`min-h-12 w-full border-2 border-gray-200 bg-white px-4 py-3 text-[14px] font-medium text-gray-700 ${embedChrome ? round : "rounded-xl"}`}
         >
-          오픈채팅 나가기
+          단톡방 나가기
         </button>
       ) : null}
       {err &&

@@ -480,8 +480,8 @@ export function CommunityDetail({
               <CommentLockIcon className="h-5 w-5 shrink-0 text-gray-400" />
               <span>
                 {!me?.id
-                  ? "로그인 후 오픈채팅에 참여하면 댓글을 작성할 수 있어요."
-                  : "오픈채팅 참여 후 댓글을 작성할 수 있어요."}
+                  ? "로그인 후 단톡방에 참여하면 댓글을 작성할 수 있어요."
+                  : "단톡방 참여 후 댓글을 작성할 수 있어요."}
               </span>
             </div>
           ) : (

@@ -58,7 +58,7 @@ export function MeetingJoinRequestModal({
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
         <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
           <h2 id="join-req-title" className="text-[16px] font-bold text-gray-900">
-            오픈채팅 참여 요청
+            단톡방 참여 요청
           </h2>
           <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-[13px] text-gray-500 hover:bg-gray-100" disabled={busy}>
             닫기

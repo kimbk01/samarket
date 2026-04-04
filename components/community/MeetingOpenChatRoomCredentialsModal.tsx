@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/** 기본 오픈채팅 방 입장 — 비밀번호·승인 입력 후 한 번에 모임 가입 + 방 입장 */
+/** 기본 단톡방 입장 — 비밀번호·승인 입력 후 한 번에 모임 가입 + 방 입장 */
 export function MeetingOpenChatRoomCredentialsModal({
   open,
   onClose,
@@ -51,7 +51,7 @@ export function MeetingOpenChatRoomCredentialsModal({
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
           <h2 id="oc-cred-title" className="text-[16px] font-bold text-gray-900">
-            {showApprovalIntro ? "오픈채팅 입장 신청" : "오픈채팅 입장"}
+            {showApprovalIntro ? "단톡방 입장 신청" : "단톡방 입장"}
           </h2>
           <button
             type="button"
