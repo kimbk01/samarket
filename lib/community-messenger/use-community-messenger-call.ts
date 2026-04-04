@@ -20,6 +20,12 @@ type CallPanelState = {
 
 type CallTransportState = "idle" | "connecting" | "connected" | "disconnected" | "failed";
 type CallQuality = "good" | "normal" | "poor" | null;
+type PendingIncomingAcceptance = {
+  sessionId: string;
+  peerUserId: string;
+  peerLabel: string;
+  callKind: CommunityMessengerCallKind;
+};
 
 const CALL_RING_TIMEOUT_MS = 35_000;
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
@@ -98,6 +104,7 @@ export function useCommunityMessengerCall(args: {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const pendingIncomingAcceptanceRef = useRef<PendingIncomingAcceptance | null>(null);
   const processedSignalIdsRef = useRef<Set<string>>(new Set());
   const activeSinceRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
@@ -113,6 +120,7 @@ export function useCommunityMessengerCall(args: {
     setRemoteStream(null);
     pendingOfferRef.current = null;
     pendingCandidatesRef.current = [];
+    pendingIncomingAcceptanceRef.current = null;
     processedSignalIdsRef.current.clear();
     activeSinceRef.current = null;
     setElapsedSeconds(0);
@@ -340,6 +348,35 @@ export function useCommunityMessengerCall(args: {
     [ensureLocalStream, sendSignal]
   );
 
+  const completeIncomingAcceptance = useCallback(
+    async (pending: PendingIncomingAcceptance, offer: RTCSessionDescriptionInit) => {
+      const connection = await ensurePeerConnection(pending.callKind, pending.sessionId, pending.peerUserId);
+      await connection.setRemoteDescription(offer);
+      await flushPendingCandidates();
+      const answer = await connection.createAnswer();
+      await connection.setLocalDescription(answer);
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pending.sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept" }),
+      });
+      await sendSignal(pending.sessionId, pending.peerUserId, "answer", { sdp: answer.sdp ?? "" });
+      pendingOfferRef.current = null;
+      pendingIncomingAcceptanceRef.current = null;
+      activeSinceRef.current = Date.now();
+      setErrorMessage(null);
+      setTransportState("connecting");
+      setPanel({
+        kind: pending.callKind,
+        mode: "active",
+        sessionId: pending.sessionId,
+        peerLabel: pending.peerLabel,
+      });
+      await args.onRefresh();
+    },
+    [args, ensurePeerConnection, flushPendingCandidates, sendSignal]
+  );
+
   const applySignal = useCallback(
     async (signal: CommunityMessengerCallSignal) => {
       if (signal.toUserId !== args.viewerUserId) return;
@@ -358,6 +395,10 @@ export function useCommunityMessengerCall(args: {
           return;
         }
         pendingOfferRef.current = offer;
+        const pendingAcceptance = pendingIncomingAcceptanceRef.current;
+        if (pendingAcceptance && pendingAcceptance.sessionId === signal.sessionId && pendingAcceptance.peerUserId === signal.fromUserId) {
+          await completeIncomingAcceptance(pendingAcceptance, offer);
+        }
         return;
       }
 
@@ -393,7 +434,7 @@ export function useCommunityMessengerCall(args: {
         await args.onRefresh();
       }
     },
-    [args, cleanupMedia, flushPendingCandidates, panel?.mode, sendSignal]
+    [args, cleanupMedia, completeIncomingAcceptance, flushPendingCandidates, panel?.mode, sendSignal]
   );
 
   useEffect(() => {
@@ -601,7 +642,14 @@ export function useCommunityMessengerCall(args: {
         setErrorMessage("상대방 정보를 불러오지 못했습니다.");
         return;
       }
-      const connection = await ensurePeerConnection(activeCall.callKind, activeCall.id, activeCall.peerUserId);
+      pendingIncomingAcceptanceRef.current = {
+        sessionId: activeCall.id,
+        peerUserId: activeCall.peerUserId,
+        peerLabel: activeCall.peerLabel,
+        callKind: activeCall.callKind,
+      };
+      await ensurePeerConnection(activeCall.callKind, activeCall.id, activeCall.peerUserId);
+      setTransportState("connecting");
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}/signals`, {
         cache: "no-store",
       });
@@ -611,27 +659,18 @@ export function useCommunityMessengerCall(args: {
       }
       const offer = pendingOfferRef.current;
       if (!offer) {
-        setErrorMessage("통화 제안 정보를 아직 받지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        setErrorMessage("상대방 연결 정보를 기다리는 중입니다.");
         return;
       }
-      await connection.setRemoteDescription(offer);
-      await flushPendingCandidates();
-      const answer = await connection.createAnswer();
-      await connection.setLocalDescription(answer);
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "accept" }),
-      });
-      await sendSignal(activeCall.id, activeCall.peerUserId, "answer", { sdp: answer.sdp ?? "" });
-      activeSinceRef.current = Date.now();
-      setPanel({
-        kind: activeCall.callKind,
-        mode: "active",
-        sessionId: activeCall.id,
-        peerLabel: activeCall.peerLabel,
-      });
-      await args.onRefresh();
+      await completeIncomingAcceptance(
+        {
+          sessionId: activeCall.id,
+          peerUserId: activeCall.peerUserId,
+          peerLabel: activeCall.peerLabel,
+          callKind: activeCall.callKind,
+        },
+        offer
+      );
     } catch (error) {
       const errorName =
         typeof error === "object" && error && "name" in error
@@ -644,10 +683,11 @@ export function useCommunityMessengerCall(args: {
             ? getCommunityMessengerMediaErrorMessage(error, activeCall.callKind)
             : "통화 연결을 시작하지 못했습니다."
       );
+      pendingIncomingAcceptanceRef.current = null;
     } finally {
       setBusy(null);
     }
-  }, [applySignal, args, ensurePeerConnection, flushPendingCandidates, sendSignal]);
+  }, [applySignal, args, completeIncomingAcceptance, ensurePeerConnection]);
 
   const cancelOutgoingCall = useCallback(async () => {
     const sessionId = currentSessionId;
