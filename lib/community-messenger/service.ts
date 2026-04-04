@@ -869,6 +869,61 @@ async function listRooms(userId: string): Promise<{
   };
 }
 
+async function loadRoomSummaryMap(
+  userId: string,
+  roomIds: string[]
+): Promise<Map<string, CommunityMessengerRoomSummary>> {
+  const uniqueRoomIds = dedupeIds(roomIds);
+  const result = new Map<string, CommunityMessengerRoomSummary>();
+  if (!uniqueRoomIds.length) return result;
+
+  const sb = getSupabaseOrNull();
+  let roomRows: Array<RoomRow | DevRoom> = [];
+  let participantRows: Array<ParticipantRow | DevParticipant> = [];
+
+  if (sb) {
+    const [{ data: rooms, error: roomsError }, { data: participants }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select(
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+        )
+        .in("id", uniqueRoomIds),
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, joined_at")
+        .in("room_id", uniqueRoomIds),
+    ]);
+    if (!roomsError || !isMissingTableError(roomsError)) {
+      roomRows = (rooms ?? []) as RoomRow[];
+      participantRows = (participants ?? []) as ParticipantRow[];
+    }
+  }
+
+  if (!roomRows.length) {
+    const dev = getDevState();
+    roomRows = dev.rooms.filter((room) => uniqueRoomIds.includes(room.id));
+    participantRows = dev.participants.filter((participant) => uniqueRoomIds.includes(participant.roomId));
+  }
+
+  const participantsByRoom = new Map<string, Array<ParticipantRow | DevParticipant>>();
+  for (const participant of participantRows) {
+    const roomId = "room_id" in participant ? participant.room_id : participant.roomId;
+    const list = participantsByRoom.get(roomId) ?? [];
+    list.push(participant);
+    participantsByRoom.set(roomId, list);
+  }
+
+  const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
+  const summaries = await Promise.all(
+    roomRows.map((room) => mapRoomSummary(userId, room, participantsByRoom.get(room.id) ?? [], roomProfileMap))
+  );
+  for (const summary of summaries) {
+    result.set(summary.id, summary);
+  }
+  return result;
+}
+
 export async function listDiscoverableOpenGroupRooms(
   userId: string,
   query?: string
@@ -1001,12 +1056,15 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
   );
   const peerProfiles = await hydrateProfiles(userId, peerIds);
   const peerMap = new Map(peerProfiles.map((profile) => [profile.id, profile]));
-  const rooms = await listRooms(userId);
   const roomMetaMap = new Map(
-    [...rooms.chats, ...rooms.groups].map((room) => [
-      room.id,
-      { title: room.title, roomType: room.roomType, memberCount: room.memberCount },
-    ])
+    (
+      await loadRoomSummaryMap(
+        userId,
+        rows
+          .map((row) => ("room_id" in row ? row.room_id : row.roomId) ?? "")
+          .filter((value): value is string => Boolean(value))
+      )
+    ).entries()
   );
   const sessionIds = dedupeIds(
     rows
@@ -1391,6 +1449,11 @@ export async function getCommunityMessengerBootstrap(
     discoverableGroups,
     calls,
   };
+}
+
+export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
+  const friendIds = await listAcceptedFriendIds(userId);
+  return hydrateProfiles(userId, friendIds);
 }
 
 export async function searchCommunityMessengerUsers(

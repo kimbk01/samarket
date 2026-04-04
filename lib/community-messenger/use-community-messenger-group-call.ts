@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallParticipant,
@@ -541,8 +542,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
           sessionId: null,
           peerLabel: args.roomLabel,
         });
-      } catch {
-        setErrorMessage("마이크 또는 카메라 권한을 확인해 주세요.");
+      } catch (error) {
+        setErrorMessage(getCommunityMessengerMediaErrorMessage(error, kind));
       } finally {
         setBusy(null);
       }
@@ -607,8 +608,12 @@ export function useCommunityMessengerGroupCall(args: Props) {
         peerLabel: activeCall.peerLabel,
       });
       await args.onRefresh();
-    } catch {
-      setErrorMessage("그룹 통화 참여를 시작하지 못했습니다.");
+    } catch (error) {
+      const errorName =
+        typeof error === "object" && error && "name" in error
+          ? String((error as { name?: unknown }).name ?? "")
+          : "";
+      setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, activeCall.callKind) : "그룹 통화 참여를 시작하지 못했습니다.");
     } finally {
       setBusy(null);
     }

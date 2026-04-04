@@ -6,7 +6,6 @@ import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   fetchIntegratedChatRoomMessages,
   fetchLegacyChatRoomMessages,
@@ -124,7 +123,7 @@ export function ChatRoomScreen({
   });
 
   const viewportClass =
-    embedded && embeddedFill ? "" : embedded ? "" : VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS;
+    embedded && embeddedFill ? "" : embedded ? "" : "min-h-0 flex flex-1 flex-col";
 
   const embeddedEmptyClass =
     embedded && embeddedFill

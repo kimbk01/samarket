@@ -42,10 +42,6 @@ import {
 import { postSellerListingChangeSystemNotice } from "@/lib/chat/postSellerListingChangeNotice";
 import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
-import {
-  BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS,
-  VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS,
-} from "@/lib/main-menu/bottom-nav-config";
 import { ADMIN_CHAT_SUSPENDED_MESSAGE } from "@/lib/chat/chat-room-admin-suspend";
 import {
   bustIntegratedChatMessagesCache,
@@ -137,7 +133,7 @@ export function ChatDetailView({
       : "min-h-[560px]"
     : tradeHubColumnLayout
       ? "min-h-0 flex min-w-0 flex-1 flex-col"
-      : VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS;
+      : "min-h-0 flex flex-1 flex-col";
   void _onListNavigate;
   void _ownerStoreOrderModalChrome;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -195,6 +191,7 @@ export function ChatDetailView({
   const [reportSheetOpen, setReportSheetOpen] = useState(false);
   const [blockSheetOpen, setBlockSheetOpen] = useState(false);
   const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
+  const [roomInfoSheetOpen, setRoomInfoSheetOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [imageSending, setImageSending] = useState(false);
@@ -1073,6 +1070,16 @@ export function ChatDetailView({
                     게시글 보기
                   </Link>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setRoomInfoSheetOpen(true);
+                  }}
+                  className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                >
+                  채팅 정보
+                </button>
                 {reportEnabled && (
                   <button
                     type="button"
@@ -1449,10 +1456,49 @@ export function ChatDetailView({
         />
       ) : null}
 
+      {roomInfoSheetOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-lg sm:max-h-[90vh] sm:rounded-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
+              <div>
+                <h2 className="text-[16px] font-semibold text-gray-900">채팅 정보</h2>
+                <p className="mt-1 text-[12px] text-gray-500">{partnerDisplayNickname}과의 대화 정보를 확인합니다.</p>
+              </div>
+              <button type="button" onClick={() => setRoomInfoSheetOpen(false)} className="text-[14px] text-gray-500">
+                닫기
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <section className="rounded-2xl border border-gray-200 px-4 py-4">
+                <p className="text-[15px] font-semibold text-gray-900">{partnerDisplayNickname}</p>
+                <p className="mt-1 text-[13px] text-gray-500">
+                  {isStoreOrderChat && !isStoreOrderBuyer
+                    ? room.roomSubtitle?.trim() || (amISeller ? "상대방 · 주문 고객" : "상대방 · 매장")
+                    : room.product
+                      ? amISeller
+                        ? "상대방 · 구매자"
+                        : "상대방 · 이 글의 판매자"
+                      : "1:1 채팅"}
+                </p>
+                {partnerTrustSummary ? (
+                  <div className="mt-3">
+                    <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
+                  </div>
+                ) : null}
+              </section>
+              {room.product ? (
+                <section className="rounded-2xl border border-gray-200 bg-[#F8FAF9] p-3">
+                  <p className="mb-3 text-[14px] font-semibold text-gray-900">연결된 상품</p>
+                  <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
+                </section>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
       {reportSheetOpen && (
-        <div
-          className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
-        >
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-t-2xl bg-white">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">신고</h2>
@@ -1475,9 +1521,7 @@ export function ChatDetailView({
       )}
 
       {blockSheetOpen && (
-        <div
-          className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
-        >
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-t-2xl bg-white">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">차단</h2>
@@ -1502,9 +1546,7 @@ export function ChatDetailView({
       )}
 
       {reviewSheetOpen && (
-        <div
-          className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
-        >
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
           <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-lg sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">후기 작성</h2>

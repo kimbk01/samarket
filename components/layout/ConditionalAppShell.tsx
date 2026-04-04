@@ -54,18 +54,19 @@ export function ConditionalAppShell({
    * 본 셸 높이에서만 1단·상단 safe-area 를 빼면 `1단 + 본문` 이 뷰포트에 맞는다.
    * 하단 메인 탭은 fixed 이므로 여기서 높이에서 빼지 않음(`trade` 레이아웃 `pb-24` 로 여백).
    */
-  const appShellRootClass = isMypageTradeChatRoom || isCommunityMessengerRoom
-    ? topTier1RuleSet.showRegionBar
-      ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
-      : "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
-    : "min-h-screen min-w-0 max-w-full overflow-x-clip bg-[#F7F7F7]";
-  const isChatRoomDetail =
+  const isAnyChatRoomDetail =
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
     ((pathname?.match(/^\/chats\/[^/]+$/) &&
       pathname !== "/chats/new" &&
       pathname !== "/chats/order") ??
       false);
+  const appShellRootClass = isAnyChatRoomDetail
+    ? topTier1RuleSet.showRegionBar
+      ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
+      : "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
+    : "min-h-screen min-w-0 max-w-full overflow-x-clip bg-[#F7F7F7]";
+  const isChatRoomDetail = isAnyChatRoomDetail;
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
   /** 필라이프 피드는 전용 FAB·시트 사용 */
@@ -108,6 +109,7 @@ export function ConditionalAppShell({
   const showBottomNav =
     !hideBarAndFloat &&
     !isWritePage &&
+    !isChatRoomDetail &&
     !isPostDetail &&
     !isProductDetail &&
     !isStoreProductDetail;
@@ -155,14 +157,14 @@ export function ConditionalAppShell({
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main
         className={`${mainBottomClass} min-w-0 overflow-x-hidden ${
-          isMypageTradeChatRoom || isCommunityMessengerRoom
+          isChatRoomDetail
             ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden"
             : ""
         }`}
       >
         <div
           className={`${APP_MAIN_COLUMN_CLASS}${
-            isMypageTradeChatRoom || isCommunityMessengerRoom
+            isChatRoomDetail
               ? " flex min-h-0 min-w-0 flex-1 flex-col"
               : ""
           }`}

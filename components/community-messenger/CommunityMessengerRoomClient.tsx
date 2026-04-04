@@ -6,7 +6,6 @@ import { useCommunityMessengerCall } from "@/lib/community-messenger/use-communi
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { useCommunityMessengerRoomRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import type {
-  CommunityMessengerBootstrap,
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
@@ -24,6 +23,7 @@ export function CommunityMessengerRoomClient({
   const autoHandledSessionRef = useRef<string | null>(null);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
+  const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -35,22 +35,16 @@ export function CommunityMessengerRoomClient({
   const [openGroupDiscoverable, setOpenGroupDiscoverable] = useState(true);
   const [openGroupJoinPolicy, setOpenGroupJoinPolicy] = useState<"password" | "free">("password");
   const [openGroupIdentityPolicy, setOpenGroupIdentityPolicy] = useState<"real_name" | "alias_allowed">("alias_allowed");
+  const [activeSheet, setActiveSheet] = useState<null | "menu" | "members" | "info">(null);
 
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [roomRes, bootRes] = await Promise.all([
-        fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, { cache: "no-store" }),
-        fetch("/api/community-messenger/bootstrap", { cache: "no-store" }),
-      ]);
+      const roomRes = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, { cache: "no-store" });
       const roomJson = (await roomRes.json()) as (CommunityMessengerRoomSnapshot & { ok?: boolean }) | {
         ok?: boolean;
       };
-      const bootJson = (await bootRes.json()) as (CommunityMessengerBootstrap & { ok?: boolean }) | {
-        ok?: boolean;
-      };
       setSnapshot(roomRes.ok && roomJson.ok ? (roomJson as CommunityMessengerRoomSnapshot) : null);
-      setFriends(bootRes.ok && bootJson.ok ? ((bootJson as CommunityMessengerBootstrap).friends ?? []) : []);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -72,6 +66,14 @@ export function CommunityMessengerRoomClient({
     const memberIds = new Set((snapshot?.members ?? []).map((member) => member.id));
     return friends.filter((friend) => !memberIds.has(friend.id));
   }, [friends, snapshot?.members]);
+
+  const loadFriends = useCallback(async () => {
+    if (friendsLoaded) return;
+    const res = await fetch("/api/community-messenger/friends", { cache: "no-store" });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; friends?: CommunityMessengerProfileLite[] };
+    setFriends(res.ok && json.ok ? json.friends ?? [] : []);
+    setFriendsLoaded(true);
+  }, [friendsLoaded]);
 
   const directCall = useCommunityMessengerCall({
     roomId,
@@ -99,6 +101,17 @@ export function CommunityMessengerRoomClient({
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
   const isOwner = snapshot?.myRole === "owner";
   const roomTypeLabel = isOpenGroupRoom ? "공개 그룹" : isPrivateGroupRoom ? "비공개 그룹" : "1:1 대화";
+  const roomSubtitle = snapshot?.room.description || (isGroupRoom ? `${snapshot?.room.memberCount ?? 0}명 참여 중인 대화방` : "친구와 나누는 대화");
+  const roomJoinLabel = isOpenGroupRoom
+    ? snapshot?.room.joinPolicy === "password"
+      ? "비밀번호 입장"
+      : "자유 입장"
+    : null;
+  const roomIdentityLabel = isOpenGroupRoom
+    ? snapshot?.room.identityPolicy === "alias_allowed"
+      ? "별칭 허용"
+      : "실명 기반"
+    : null;
 
   const getRoomActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
@@ -151,6 +164,11 @@ export function CommunityMessengerRoomClient({
     setOpenGroupJoinPolicy(snapshot.room.joinPolicy === "free" ? "free" : "password");
     setOpenGroupIdentityPolicy(snapshot.room.identityPolicy === "real_name" ? "real_name" : "alias_allowed");
   }, [isOpenGroupRoom, snapshot]);
+
+  useEffect(() => {
+    if (activeSheet !== "members" || !isPrivateGroupRoom || friendsLoaded) return;
+    void loadFriends();
+  }, [activeSheet, friendsLoaded, isPrivateGroupRoom, loadFriends]);
 
   const saveOpenGroupSettings = useCallback(async () => {
     if (!isOpenGroupRoom || !snapshot) return;
@@ -324,67 +342,39 @@ export function CommunityMessengerRoomClient({
   }
 
   return (
-    <div className="flex h-[100svh] min-h-[100svh] flex-col overflow-hidden bg-[#F4F6F8] supports-[height:100dvh]:h-[100dvh] supports-[height:100dvh]:min-h-[100dvh]">
-      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <button
-              type="button"
-              onClick={() => router.replace(`/community-messenger?tab=${isGroupRoom ? "groups" : "chats"}`)}
-              className="mb-2 rounded-full bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-gray-600"
-            >
-              이전으로
-            </button>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-[#06C755]/10 px-2.5 py-1 text-[11px] font-semibold text-[#06C755]">
-                SAMarket 메신저
-              </span>
-              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-700">
-                {roomTypeLabel}
-              </span>
-              {isOpenGroupRoom ? (
-                <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700">
-                  {snapshot.room.identityPolicy === "alias_allowed" ? "별칭 허용" : "실명 기반"}
-                </span>
-              ) : null}
-            </div>
-            <h1 className="truncate text-[18px] font-semibold text-gray-900">{snapshot.room.title}</h1>
-            <p className="mt-1 truncate text-[12px] text-gray-500">
-              {snapshot.room.description || (isGroupRoom ? `${snapshot.room.memberCount}명 참여 중인 대화방` : "친구와 나누는 대화")}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#F4F6F8]">
+      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/95 px-3 py-2 backdrop-blur">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.replace(`/community-messenger?tab=${isGroupRoom ? "groups" : "chats"}`)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
+            aria-label="뒤로가기"
+          >
+            <BackIcon className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[16px] font-semibold text-gray-900">{snapshot.room.title}</p>
+            <p className="truncate text-[12px] text-gray-500">
+              {roomTypeLabel}
+              {roomSubtitle ? ` · ${roomSubtitle}` : ""}
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => void call.openPreview("video")}
-              disabled={roomUnavailable}
-              className="rounded-full bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-40"
-            >
-              영상 통화
-            </button>
-            <button
-              type="button"
-              onClick={() => void call.openPreview("voice")}
-              disabled={roomUnavailable}
-              className="rounded-full bg-white px-3 py-2 text-[12px] font-semibold text-gray-800 shadow-sm ring-1 ring-gray-200 disabled:opacity-40"
-            >
-              음성
-            </button>
-            <button
-              type="button"
-              onClick={() => void reportTarget({ reportType: "room" })}
-              className="rounded-full bg-white px-3 py-2 text-[12px] font-semibold text-red-600 shadow-sm ring-1 ring-red-200"
-            >
-              신고
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSheet("menu")}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
+            aria-label="채팅방 메뉴"
+          >
+            <MoreIcon className="h-5 w-5" />
+          </button>
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="border-b border-gray-200 bg-white px-4 py-3">
+        <main className="space-y-3 px-4 py-4 pb-6">
           {snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly ? (
-            <div className="mb-3 rounded-2xl bg-amber-50 px-3 py-3 text-[13px] text-amber-800">
+            <div className="rounded-2xl bg-amber-50 px-3 py-3 text-[13px] text-amber-800">
               {snapshot.room.roomStatus === "blocked"
                 ? "이 방은 관리자에 의해 차단되었습니다."
                 : snapshot.room.roomStatus === "archived"
@@ -394,202 +384,31 @@ export function CommunityMessengerRoomClient({
             </div>
           ) : null}
           {call.errorMessage ? (
-            <div className="mb-3 rounded-2xl bg-red-50 px-3 py-3 text-[13px] text-red-700">{call.errorMessage}</div>
+            <div className="rounded-2xl bg-red-50 px-3 py-3 text-[13px] text-red-700">{call.errorMessage}</div>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            {isOpenGroupRoom ? (
-              <>
-                <span className="rounded-full bg-sky-50 px-3 py-1 text-[12px] font-medium text-sky-700">
-                  {snapshot.room.joinPolicy === "password" ? "비밀번호 입장" : "자유 입장"}
-                </span>
-                <span className="rounded-full bg-violet-50 px-3 py-1 text-[12px] font-medium text-violet-700">
-                  {snapshot.room.identityPolicy === "alias_allowed" ? "이 방은 별칭 참여 허용" : "이 방은 실명 기반"}
-                </span>
-                {snapshot.room.myIdentityMode ? (
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
-                    내 표시 방식 {snapshot.room.myIdentityMode === "alias" ? "별칭" : "실명"}
-                  </span>
-                ) : null}
-              </>
-            ) : null}
-            {snapshot.members.map((member) => (
-              <span
-                key={member.id}
-                className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700"
-              >
-                {member.label}
+            <span className="rounded-full bg-[#06C755]/10 px-3 py-1 text-[12px] font-semibold text-[#06C755]">
+              SAMarket 메신저
+            </span>
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
+              {roomTypeLabel}
+            </span>
+            {roomJoinLabel ? (
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-[12px] font-medium text-sky-700">
+                {roomJoinLabel}
               </span>
-            ))}
+            ) : null}
+            {roomIdentityLabel ? (
+              <span className="rounded-full bg-violet-50 px-3 py-1 text-[12px] font-medium text-violet-700">
+                {roomIdentityLabel}
+              </span>
+            ) : null}
+            {snapshot.room.myIdentityMode ? (
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
+                내 표시 {snapshot.room.myIdentityMode === "alias" ? "별칭" : "실명"}
+              </span>
+            ) : null}
           </div>
-
-          {isPrivateGroupRoom ? (
-            <div className="mt-3 rounded-2xl bg-[#F8FAF9] p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-semibold text-gray-900">멤버 초대</p>
-                  <p className="mt-1 text-[12px] text-gray-500">친구 목록에서 그룹방에 새 멤버를 초대합니다.</p>
-                </div>
-                <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
-                  내 역할 {snapshot.myRole}
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {inviteCandidates.length ? (
-                  inviteCandidates.map((friend) => (
-                    <label
-                      key={friend.id}
-                      className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3"
-                    >
-                      <div>
-                        <p className="text-[13px] font-semibold text-gray-900">{friend.label}</p>
-                        <p className="text-[12px] text-gray-500">{friend.subtitle ?? "친구"}</p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={inviteIds.includes(friend.id)}
-                        onChange={(e) => {
-                          setInviteIds((prev) =>
-                            e.target.checked ? [...prev, friend.id] : prev.filter((id) => id !== friend.id)
-                          );
-                        }}
-                        className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
-                      />
-                    </label>
-                  ))
-                ) : (
-                  <p className="text-[12px] text-gray-500">초대 가능한 친구가 없습니다.</p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => void inviteMembers()}
-                disabled={inviteIds.length === 0 || busy === "invite"}
-                className="mt-3 rounded-xl bg-[#06C755] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
-              >
-                선택한 친구 초대
-              </button>
-            </div>
-          ) : null}
-
-          {isOpenGroupRoom ? (
-            <div className="mt-3 rounded-2xl bg-[#F8FAF9] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-semibold text-gray-900">공개 그룹 정보</p>
-                  <p className="mt-1 text-[12px] text-gray-500">
-                    방장 {snapshot.room.ownerLabel} · 현재 {snapshot.room.memberCount}명
-                    {snapshot.room.memberLimit ? ` / 최대 ${snapshot.room.memberLimit}명` : ""}
-                  </p>
-                </div>
-                <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
-                  {isOwner ? "방장" : `내 역할 ${snapshot.myRole}`}
-                </span>
-              </div>
-
-              {isOwner ? (
-                <div className="mt-3 grid gap-3">
-                  <input
-                    value={openGroupTitle}
-                    onChange={(e) => setOpenGroupTitle(e.target.value)}
-                    placeholder="방 제목"
-                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
-                  />
-                  <textarea
-                    value={openGroupSummary}
-                    onChange={(e) => setOpenGroupSummary(e.target.value)}
-                    rows={3}
-                    placeholder="방 소개"
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
-                  />
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2">
-                      <button
-                        type="button"
-                        onClick={() => setOpenGroupJoinPolicy("password")}
-                        className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
-                      >
-                        비밀번호
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenGroupJoinPolicy("free");
-                          setOpenGroupPassword("");
-                        }}
-                        className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
-                      >
-                        자유 입장
-                      </button>
-                    </div>
-                    <input
-                      value={openGroupMemberLimit}
-                      onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="최대 인원"
-                      className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
-                    />
-                  </div>
-                  {openGroupJoinPolicy === "password" ? (
-                    <input
-                      value={openGroupPassword}
-                      onChange={(e) => setOpenGroupPassword(e.target.value)}
-                      placeholder="새 비밀번호"
-                      className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
-                    />
-                  ) : null}
-                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2">
-                    <button
-                      type="button"
-                      onClick={() => setOpenGroupIdentityPolicy("real_name")}
-                      className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
-                    >
-                      실명 기반
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
-                      className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
-                    >
-                      별칭 허용
-                    </button>
-                  </div>
-                  <label className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3">
-                    <div>
-                      <p className="text-[13px] font-semibold text-gray-900">공개 목록 노출</p>
-                      <p className="mt-1 text-[12px] text-gray-500">OFF면 새 참여자는 검색으로 찾을 수 없습니다.</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={openGroupDiscoverable}
-                      onChange={(e) => setOpenGroupDiscoverable(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => void saveOpenGroupSettings()}
-                    disabled={busy === "open-group-settings" || !openGroupTitle.trim()}
-                    className="rounded-xl bg-[#111827] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
-                  >
-                    {busy === "open-group-settings" ? "설정 저장 중..." : "방 설정 저장"}
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => void leaveRoom()}
-                    disabled={busy === "leave-room"}
-                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700 disabled:opacity-40"
-                  >
-                    {busy === "leave-room" ? "나가는 중..." : "그룹방 나가기"}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        <main className="space-y-3 px-4 py-4 pb-6">
           {snapshot.messages.length ? (
             snapshot.messages.map((item) => (
               <div
@@ -663,6 +482,14 @@ export function CommunityMessengerRoomClient({
 
       <footer className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         <div className="flex items-end gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveSheet("menu")}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-700"
+            aria-label="채팅방 액션"
+          >
+            <PlusIcon className="h-5 w-5" />
+          </button>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -689,6 +516,316 @@ export function CommunityMessengerRoomClient({
           </button>
         </div>
       </footer>
+
+      {activeSheet ? (
+        <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 px-4 pb-6" onClick={() => setActiveSheet(null)}>
+          <div
+            className="max-h-[78vh] w-full max-w-[520px] overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {activeSheet === "menu" ? (
+              <>
+                <p className="text-[13px] font-medium text-[#06C755]">채팅방 메뉴</p>
+                <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{snapshot.room.title}</h2>
+                <div className="mt-4 grid gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("members")}
+                    className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-4 text-left"
+                  >
+                    <div>
+                      <p className="text-[15px] font-semibold text-gray-900">참가자 보기</p>
+                      <p className="mt-1 text-[12px] text-gray-500">{snapshot.room.memberCount}명 참여 중</p>
+                    </div>
+                    <span className="text-[18px] text-gray-300">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("info")}
+                    className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-4 text-left"
+                  >
+                    <div>
+                      <p className="text-[15px] font-semibold text-gray-900">방 정보 보기</p>
+                      <p className="mt-1 text-[12px] text-gray-500">정책, 소개, 방장 정보를 확인합니다.</p>
+                    </div>
+                    <span className="text-[18px] text-gray-300">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSheet(null);
+                      void call.openPreview("voice");
+                    }}
+                    disabled={roomUnavailable}
+                    className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+                  >
+                    음성 통화
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSheet(null);
+                      void call.openPreview("video");
+                    }}
+                    disabled={roomUnavailable}
+                    className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+                  >
+                    영상 통화
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSheet(null);
+                      void reportTarget({ reportType: "room" });
+                    }}
+                    className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-left text-[15px] font-semibold text-red-700"
+                  >
+                    신고
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {activeSheet === "members" ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-[#06C755]">참가자</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">참여 멤버</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("menu")}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                  >
+                    이전
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-2">
+                  {snapshot.members.map((member) => (
+                    <div key={member.id} className="rounded-2xl border border-gray-200 px-4 py-3">
+                      <p className="text-[14px] font-semibold text-gray-900">{member.label}</p>
+                      <p className="mt-1 text-[12px] text-gray-500">
+                        {member.subtitle ?? (member.identityMode === "alias" ? "별칭 참여" : "참여 중")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {isPrivateGroupRoom ? (
+                  <div className="mt-4 rounded-2xl bg-[#F8FAF9] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[14px] font-semibold text-gray-900">멤버 초대</p>
+                        <p className="mt-1 text-[12px] text-gray-500">친구 목록에서 그룹방에 새 멤버를 초대합니다.</p>
+                      </div>
+                      <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
+                        내 역할 {snapshot.myRole}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      {inviteCandidates.length ? (
+                        inviteCandidates.map((friend) => (
+                          <label
+                            key={friend.id}
+                            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3"
+                          >
+                            <div>
+                              <p className="text-[13px] font-semibold text-gray-900">{friend.label}</p>
+                              <p className="text-[12px] text-gray-500">{friend.subtitle ?? "친구"}</p>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={inviteIds.includes(friend.id)}
+                              onChange={(e) => {
+                                setInviteIds((prev) =>
+                                  e.target.checked ? [...prev, friend.id] : prev.filter((id) => id !== friend.id)
+                                );
+                              }}
+                              className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                            />
+                          </label>
+                        ))
+                      ) : (
+                        <p className="text-[12px] text-gray-500">초대 가능한 친구가 없습니다.</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void inviteMembers()}
+                      disabled={inviteIds.length === 0 || busy === "invite"}
+                      className="mt-3 rounded-xl bg-[#06C755] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                    >
+                      선택한 친구 초대
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+
+            {activeSheet === "info" ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-[#06C755]">방 정보</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">대화방 상세</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("menu")}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                  >
+                    이전
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl border border-gray-200 p-4">
+                    <p className="text-[14px] font-semibold text-gray-900">{snapshot.room.title}</p>
+                    <p className="mt-2 text-[13px] leading-5 text-gray-600">
+                      {snapshot.room.summary?.trim() || roomSubtitle || "아직 소개가 없는 대화방입니다."}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
+                        {roomTypeLabel}
+                      </span>
+                      {roomJoinLabel ? (
+                        <span className="rounded-full bg-sky-50 px-3 py-1 text-[12px] font-medium text-sky-700">
+                          {roomJoinLabel}
+                        </span>
+                      ) : null}
+                      {roomIdentityLabel ? (
+                        <span className="rounded-full bg-violet-50 px-3 py-1 text-[12px] font-medium text-violet-700">
+                          {roomIdentityLabel}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-3 text-[12px] text-gray-500">
+                      방장 {snapshot.room.ownerLabel} · 현재 {snapshot.room.memberCount}명
+                      {snapshot.room.memberLimit ? ` / 최대 ${snapshot.room.memberLimit}명` : ""}
+                    </p>
+                  </div>
+
+                  {isOpenGroupRoom ? (
+                    <div className="rounded-2xl bg-[#F8FAF9] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[14px] font-semibold text-gray-900">공개 그룹 설정</p>
+                          <p className="mt-1 text-[12px] text-gray-500">
+                            {isOwner ? "방장으로서 입장 정책과 노출 정책을 수정할 수 있습니다." : "현재 공개 그룹 정책을 확인합니다."}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
+                          {isOwner ? "방장" : `내 역할 ${snapshot.myRole}`}
+                        </span>
+                      </div>
+
+                      {isOwner ? (
+                        <div className="mt-3 grid gap-3">
+                          <input
+                            value={openGroupTitle}
+                            onChange={(e) => setOpenGroupTitle(e.target.value)}
+                            placeholder="방 제목"
+                            className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                          />
+                          <textarea
+                            value={openGroupSummary}
+                            onChange={(e) => setOpenGroupSummary(e.target.value)}
+                            rows={3}
+                            placeholder="방 소개"
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
+                          />
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2">
+                              <button
+                                type="button"
+                                onClick={() => setOpenGroupJoinPolicy("password")}
+                                className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
+                              >
+                                비밀번호
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenGroupJoinPolicy("free");
+                                  setOpenGroupPassword("");
+                                }}
+                                className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
+                              >
+                                자유 입장
+                              </button>
+                            </div>
+                            <input
+                              value={openGroupMemberLimit}
+                              onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
+                              placeholder="최대 인원"
+                              className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                            />
+                          </div>
+                          {openGroupJoinPolicy === "password" ? (
+                            <input
+                              value={openGroupPassword}
+                              onChange={(e) => setOpenGroupPassword(e.target.value)}
+                              placeholder="새 비밀번호"
+                              className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                            />
+                          ) : null}
+                          <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2">
+                            <button
+                              type="button"
+                              onClick={() => setOpenGroupIdentityPolicy("real_name")}
+                              className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
+                            >
+                              실명 기반
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
+                              className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
+                            >
+                              별칭 허용
+                            </button>
+                          </div>
+                          <label className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3">
+                            <div>
+                              <p className="text-[13px] font-semibold text-gray-900">공개 목록 노출</p>
+                              <p className="mt-1 text-[12px] text-gray-500">OFF면 새 참여자는 검색으로 찾을 수 없습니다.</p>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={openGroupDiscoverable}
+                              onChange={(e) => setOpenGroupDiscoverable(e.target.checked)}
+                              className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => void saveOpenGroupSettings()}
+                            disabled={busy === "open-group-settings" || !openGroupTitle.trim()}
+                            className="rounded-xl bg-[#111827] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                          >
+                            {busy === "open-group-settings" ? "설정 저장 중..." : "방 설정 저장"}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => void leaveRoom()}
+                            disabled={busy === "leave-room"}
+                            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700 disabled:opacity-40"
+                          >
+                            {busy === "leave-room" ? "나가는 중..." : "그룹방 나가기"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {call.panel ? (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 px-4 pb-6">
@@ -888,4 +1025,28 @@ function formatParticipantStatus(value: "invited" | "joined" | "left" | "rejecte
   if (value === "invited") return "대기";
   if (value === "rejected") return "거절";
   return "종료";
+}
+
+function BackIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MoreIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }

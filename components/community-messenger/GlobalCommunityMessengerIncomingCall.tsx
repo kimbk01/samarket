@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import {
+  COMMUNITY_MESSENGER_PREFERENCE_EVENT,
+  isCommunityMessengerIncomingCallBannerEnabled,
+  isCommunityMessengerIncomingCallSoundEnabled,
+} from "@/lib/community-messenger/preferences";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
@@ -14,12 +19,26 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [userId, setUserId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<CommunityMessengerCallSession[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
+  const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const seenIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
       setUserId(value);
     });
+  }, []);
+
+  useEffect(() => {
+    const syncPreferences = () => {
+      setIncomingCallSoundEnabled(isCommunityMessengerIncomingCallSoundEnabled());
+      setIncomingCallBannerEnabled(isCommunityMessengerIncomingCallBannerEnabled());
+    };
+    syncPreferences();
+    window.addEventListener(COMMUNITY_MESSENGER_PREFERENCE_EVENT, syncPreferences);
+    return () => {
+      window.removeEventListener(COMMUNITY_MESSENGER_PREFERENCE_EVENT, syncPreferences);
+    };
   }, []);
 
   const refresh = useCallback(async () => {
@@ -81,16 +100,18 @@ export function GlobalCommunityMessengerIncomingCall() {
     for (const session of sessions) {
       nextIds.add(session.id);
       if (!seenIdsRef.current.has(session.id)) {
-        if (pathname !== `/community-messenger/rooms/${session.roomId}`) {
+        if (incomingCallSoundEnabled && pathname !== `/community-messenger/rooms/${session.roomId}`) {
           playNotificationSound();
         }
       }
     }
     seenIdsRef.current = nextIds;
-  }, [pathname, sessions]);
+  }, [incomingCallSoundEnabled, pathname, sessions]);
 
   const visibleSession =
-    sessions.find((session) => pathname !== `/community-messenger/rooms/${session.roomId}`) ?? null;
+    incomingCallBannerEnabled
+      ? sessions.find((session) => pathname !== `/community-messenger/rooms/${session.roomId}`) ?? null
+      : null;
 
   const rejectCall = useCallback(async (sessionId: string) => {
     setBusyId(`reject:${sessionId}`);

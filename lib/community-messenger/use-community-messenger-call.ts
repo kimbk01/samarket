@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallSession,
@@ -486,8 +487,8 @@ export function useCommunityMessengerCall(args: {
         sessionId: null,
         peerLabel: args.peerLabel,
       });
-    } catch {
-      setErrorMessage("마이크 또는 카메라 권한을 확인해 주세요.");
+    } catch (error) {
+      setErrorMessage(getCommunityMessengerMediaErrorMessage(error, kind));
     } finally {
       setBusy(null);
     }
@@ -603,8 +604,18 @@ export function useCommunityMessengerCall(args: {
         peerLabel: activeCall.peerLabel,
       });
       await args.onRefresh();
-    } catch {
-      setErrorMessage("통화 연결을 시작하지 못했습니다.");
+    } catch (error) {
+      const errorName =
+        typeof error === "object" && error && "name" in error
+          ? String((error as { name?: unknown }).name ?? "")
+          : "";
+      setErrorMessage(
+        error instanceof Error && error.message === "unmounted"
+          ? "통화 화면을 다시 열어 주세요."
+          : errorName
+            ? getCommunityMessengerMediaErrorMessage(error, activeCall.callKind)
+            : "통화 연결을 시작하지 못했습니다."
+      );
     } finally {
       setBusy(null);
     }

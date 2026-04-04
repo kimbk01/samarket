@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
+import {
+  isCommunityMessengerIncomingCallBannerEnabled,
+  isCommunityMessengerIncomingCallSoundEnabled,
+  setCommunityMessengerIncomingCallBannerEnabled,
+  setCommunityMessengerIncomingCallSoundEnabled,
+} from "@/lib/community-messenger/preferences";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import type {
   CommunityMessengerBootstrap,
@@ -73,6 +79,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const [joinAliasName, setJoinAliasName] = useState("");
   const [joinAliasBio, setJoinAliasBio] = useState("");
   const [joinAliasAvatarUrl, setJoinAliasAvatarUrl] = useState("");
+  const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
+  const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const counts = data?.tabs ?? EMPTY_COUNTS;
   const homeRoomIds = useMemo(
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
@@ -157,6 +165,11 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    setIncomingCallSoundEnabled(isCommunityMessengerIncomingCallSoundEnabled());
+    setIncomingCallBannerEnabled(isCommunityMessengerIncomingCallBannerEnabled());
+  }, []);
 
   useCommunityMessengerHomeRealtime({
     userId: data?.me?.id ?? null,
@@ -533,6 +546,14 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
   }, [data?.discoverableGroups, openGroupSearch]);
   const sortedCalls = useMemo(() => sortCalls(data?.calls ?? []), [data?.calls]);
+  const directCalls = useMemo(
+    () => sortedCalls.filter((call) => call.sessionMode === "direct"),
+    [sortedCalls]
+  );
+  const groupCalls = useMemo(
+    () => sortedCalls.filter((call) => call.sessionMode === "group"),
+    [sortedCalls]
+  );
   const missedCallCount = useMemo(
     () => (data?.calls ?? []).filter((call) => call.status === "missed").length,
     [data?.calls]
@@ -1045,11 +1066,18 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
               최근 그룹 통화가 {groupCallCount}건 있습니다. 참여 인원과 방 기준으로 기록을 확인할 수 있습니다.
             </div>
           ) : null}
-          <InfoSection title="통화 기록" subtitle="실제 WebRTC 연결 기준으로 최근 상태를 표시합니다.">
-            {sortedCalls.length ? (
-              sortedCalls.map((call) => <CallCard key={call.id} call={call} />)
+          <InfoSection title="1:1 통화 내역" subtitle="개인 통화 기록을 최근 순으로 보여줍니다.">
+            {directCalls.length ? (
+              directCalls.map((call) => <CallCard key={call.id} call={call} />)
             ) : (
-              <EmptyCard message="통화 기록이 없습니다." />
+              <EmptyCard message="1:1 통화 기록이 없습니다." />
+            )}
+          </InfoSection>
+          <InfoSection title="그룹 통화 내역" subtitle="그룹방 기준 참여 기록과 상태를 분리해서 보여줍니다.">
+            {groupCalls.length ? (
+              groupCalls.map((call) => <CallCard key={call.id} call={call} />)
+            ) : (
+              <EmptyCard message="그룹 통화 기록이 없습니다." />
             )}
           </InfoSection>
         </div>
@@ -1065,6 +1093,41 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
               <li>통화는 1:1과 최대 4인 그룹 메쉬 WebRTC를 지원하며, 홈 통화 탭에서 상태와 기록을 함께 관리합니다.</li>
             </ul>
           </section>
+
+          <InfoSection title="소리 및 통화 알림" subtitle="수신 통화 배너와 알림음을 여기서 최종 점검할 수 있습니다.">
+            <label className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-4">
+              <div>
+                <p className="text-[14px] font-semibold text-gray-900">수신 통화 알림음</p>
+                <p className="mt-1 text-[12px] text-gray-500">메신저 수신 통화가 올 때 알림음을 재생합니다.</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={incomingCallSoundEnabled}
+                onChange={(event) => {
+                  const next = event.target.checked;
+                  setIncomingCallSoundEnabled(next);
+                  setCommunityMessengerIncomingCallSoundEnabled(next);
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+              />
+            </label>
+            <label className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-4">
+              <div>
+                <p className="text-[14px] font-semibold text-gray-900">수신 통화 배너</p>
+                <p className="mt-1 text-[12px] text-gray-500">화면 상단의 수신 통화 안내 배너 표시를 제어합니다.</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={incomingCallBannerEnabled}
+                onChange={(event) => {
+                  const next = event.target.checked;
+                  setIncomingCallBannerEnabled(next);
+                  setCommunityMessengerIncomingCallBannerEnabled(next);
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+              />
+            </label>
+          </InfoSection>
 
           <InfoSection title="차단 목록" subtitle="차단된 사용자는 친구/검색/채팅 진입에서 제외됩니다.">
             {data?.blocked.length ? (
