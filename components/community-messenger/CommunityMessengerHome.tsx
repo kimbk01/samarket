@@ -51,6 +51,10 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const [groupTitle, setGroupTitle] = useState("");
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const counts = data?.tabs ?? EMPTY_COUNTS;
+  const homeRoomIds = useMemo(
+    () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
+    [data?.chats, data?.groups]
+  );
 
   const getMessengerActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
@@ -58,6 +62,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         return "1:1 채팅 대상을 다시 확인해 주세요.";
       case "blocked_target":
         return "차단 관계에서는 채팅방을 만들 수 없습니다.";
+      case "friend_required":
+        return "그룹방과 그룹 초대는 친구 관계에서만 가능합니다.";
       case "title_required":
         return "그룹방 제목을 입력해 주세요.";
       case "members_required":
@@ -70,6 +76,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       case "group_create_failed":
       case "group_participant_create_failed":
         return "그룹방 생성에 실패했습니다.";
+      case "messenger_storage_unavailable":
+        return "메신저 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
       default:
         return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     }
@@ -114,6 +122,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
 
   useCommunityMessengerHomeRealtime({
     userId: data?.me?.id ?? null,
+    roomIds: homeRoomIds,
     enabled: !loading,
     onRefresh: () => {
       void refresh(true);

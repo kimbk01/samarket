@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallKind,
@@ -290,6 +291,15 @@ function getDevState(): DevState {
     };
   }
   return scope.__samarketCommunityMessengerState;
+}
+
+function allowCommunityMessengerDevFallback(): boolean {
+  return getPublicDeployTier() === "local";
+}
+
+function ensureCommunityMessengerDevFallbackAllowed(error = "messenger_storage_unavailable") {
+  if (allowCommunityMessengerDevFallback()) return { ok: true as const };
+  return { ok: false as const, error };
 }
 
 async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow>> {
@@ -1222,6 +1232,26 @@ async function isFriend(userId: string, targetUserId: string): Promise<boolean> 
   return ids.includes(targetUserId);
 }
 
+async function validateCommunityMessengerGroupTargets(
+  userId: string,
+  memberIds: string[]
+): Promise<{ ok: true; memberIds: string[] } | { ok: false; error: string }> {
+  const peerIds = dedupeIds(memberIds.filter((id) => id && id !== userId));
+  if (!peerIds.length) return { ok: false, error: "members_required" };
+
+  const checks = await Promise.all(
+    peerIds.map(async (memberId) => ({
+      memberId,
+      isFriend: await isFriend(userId, memberId),
+      allowedByBlock: await ensureNoBlockedEitherWay(userId, memberId),
+    }))
+  );
+
+  if (checks.some((item) => !item.allowedByBlock)) return { ok: false, error: "blocked_target" };
+  if (checks.some((item) => !item.isFriend)) return { ok: false, error: "friend_required" };
+  return { ok: true, memberIds: peerIds };
+}
+
 export async function toggleCommunityMessengerFavoriteFriend(
   userId: string,
   targetUserId: string
@@ -1316,6 +1346,7 @@ export async function ensureCommunityMessengerDirectRoom(
 ): Promise<{ ok: boolean; roomId?: string; error?: string }> {
   const peerId = trimText(peerUserId);
   if (!peerId || peerId === userId) return { ok: false, error: "bad_peer" };
+  if (!(await isFriend(userId, peerId))) return { ok: false, error: "friend_required" };
   if (!(await ensureNoBlockedEitherWay(userId, peerId))) {
     return { ok: false, error: "blocked_target" };
   }
@@ -1384,6 +1415,9 @@ export async function ensureCommunityMessengerDirectRoom(
     }
   }
 
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
   const dev = getDevState();
   const existing = dev.rooms.find((room) => room.roomType === "direct" && room.directKey === directKey);
   if (existing) return { ok: true, roomId: existing.id };
@@ -1434,6 +1468,8 @@ export async function createCommunityMessengerGroupRoom(input: {
 }): Promise<{ ok: boolean; roomId?: string; error?: string }> {
   const memberIds = dedupeIds([input.userId, ...input.memberIds]);
   if (memberIds.length < 2) return { ok: false, error: "members_required" };
+  const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
+  if (!memberValidation.ok) return memberValidation;
   const title = await resolveCommunityMessengerGroupTitle(input.userId, memberIds, input.title);
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -1469,6 +1505,9 @@ export async function createCommunityMessengerGroupRoom(input: {
       return { ok: false, error: String(roomError.message ?? "group_create_failed") };
     }
   }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
 
   const dev = getDevState();
   const roomId = randomUUID();
@@ -1511,6 +1550,20 @@ export async function inviteCommunityMessengerGroupMembers(input: {
   if (!roomId || !memberIds.length) return { ok: false, error: "members_required" };
   const sb = getSupabaseOrNull();
   if (sb) {
+    const { data: room, error: roomError } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select("id, room_type, room_status, is_readonly")
+      .eq("id", roomId)
+      .maybeSingle();
+    if (roomError && !isMissingTableError(roomError)) {
+      return { ok: false, error: String(roomError.message ?? "room_lookup_failed") };
+    }
+    if (room && room.room_type !== "group") return { ok: false, error: "not_group_room" };
+    if (room && ((room.room_status ?? "active") !== "active" || room.is_readonly === true)) {
+      return { ok: false, error: "room_unavailable" };
+    }
+    const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
+    if (!memberValidation.ok) return memberValidation;
     const { data: me } = await (sb as any)
       .from("community_messenger_participants")
       .select("id, role")
@@ -1530,7 +1583,15 @@ export async function inviteCommunityMessengerGroupMembers(input: {
     if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "invite_failed") };
   }
 
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
   const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room || room.roomType !== "group") return { ok: false, error: "not_group_room" };
+  if (room.roomStatus !== "active" || room.isReadonly) return { ok: false, error: "room_unavailable" };
+  const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
+  if (!memberValidation.ok) return memberValidation;
   const me = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
   if (!me) return { ok: false, error: "forbidden" };
   for (const memberId of memberIds) {
@@ -1709,6 +1770,9 @@ export async function sendCommunityMessengerMessage(input: {
       return { ok: false, error: String(insertError.message ?? "message_send_failed") };
     }
   }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
 
   const dev = getDevState();
   const createdAt = nowIso();

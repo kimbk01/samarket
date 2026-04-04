@@ -254,32 +254,28 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
     [note, refresh]
   );
 
-  if (loading) {
-    return <div className="py-10 text-center text-[14px] text-gray-500">불러오는 중...</div>;
-  }
-
-  if (!detail) {
-    return <div className="py-10 text-center text-[14px] text-gray-500">메신저 방을 찾을 수 없습니다.</div>;
-  }
-
-  const room = detail.room;
   const filteredCalls = useMemo(() => {
-    return detail.calls.filter((call) => {
+    const calls = detail?.calls ?? [];
+    return calls.filter((call) => {
       if (callStatusFilter && call.status !== callStatusFilter) return false;
       if (callKindFilter && call.callKind !== callKindFilter) return false;
       return true;
     });
-  }, [callKindFilter, callStatusFilter, detail.calls]);
+  }, [callKindFilter, callStatusFilter, detail?.calls]);
+
   const filteredActiveCalls = useMemo(() => {
-    return detail.activeCalls.filter((call) => {
+    const activeCalls = detail?.activeCalls ?? [];
+    return activeCalls.filter((call) => {
       if (activeCallStatusFilter && call.status !== activeCallStatusFilter) return false;
       if (callKindFilter && call.callKind !== callKindFilter) return false;
       return true;
     });
-  }, [activeCallStatusFilter, callKindFilter, detail.activeCalls]);
+  }, [activeCallStatusFilter, callKindFilter, detail?.activeCalls]);
+
   const filteredCallAudits = useMemo(() => {
+    const callAudits = detail?.callAudits ?? [];
     const keyword = auditQuery.trim().toLowerCase();
-    return detail.callAudits.filter((log) => {
+    return callAudits.filter((log) => {
       if (!matchesAuditPeriod(log.createdAt, auditPeriodFilter)) return false;
       if (!keyword) return true;
       const haystack = [
@@ -296,7 +292,17 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         .toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [auditPeriodFilter, auditQuery, detail.callAudits]);
+  }, [auditPeriodFilter, auditQuery, detail?.callAudits]);
+
+  if (loading) {
+    return <div className="py-10 text-center text-[14px] text-gray-500">불러오는 중...</div>;
+  }
+
+  if (!detail) {
+    return <div className="py-10 text-center text-[14px] text-gray-500">메신저 방을 찾을 수 없습니다.</div>;
+  }
+
+  const room = detail.room;
 
   return (
     <div className="space-y-4">

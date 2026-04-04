@@ -86,6 +86,33 @@ export function CommunityMessengerRoomClient({
   const call = snapshot?.room.roomType === "group" ? groupCall : directCall;
   const roomUnavailable = snapshot ? snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly : true;
 
+  const getRoomActionErrorMessage = useCallback((error?: string) => {
+    switch (error) {
+      case "room_not_found":
+        return "채팅방을 찾을 수 없습니다.";
+      case "content_required":
+        return "메시지를 입력해 주세요.";
+      case "room_blocked":
+        return "관리자에 의해 차단된 방입니다.";
+      case "room_archived":
+        return "보관된 방이라 새 메시지를 보낼 수 없습니다.";
+      case "room_readonly":
+        return "읽기 전용 방이라 메시지를 보낼 수 없습니다.";
+      case "friend_required":
+        return "그룹 초대는 친구 관계에서만 가능합니다.";
+      case "not_group_room":
+        return "그룹방에서만 멤버를 초대할 수 있습니다.";
+      case "room_unavailable":
+        return "현재 이 방에서는 초대 또는 통화를 진행할 수 없습니다.";
+      case "forbidden":
+        return "이 작업을 수행할 권한이 없습니다.";
+      case "messenger_storage_unavailable":
+        return "메신저 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+      default:
+        return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    }
+  }, []);
+
   const sendMessage = useCallback(async () => {
     const content = message.trim();
     if (!content) return;
@@ -98,15 +125,7 @@ export function CommunityMessengerRoomClient({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(
-          json.error === "room_blocked"
-            ? "관리자에 의해 차단된 방입니다."
-            : json.error === "room_archived"
-              ? "보관된 방이라 새 메시지를 보낼 수 없습니다."
-              : json.error === "room_readonly"
-                ? "읽기 전용 방이라 메시지를 보낼 수 없습니다."
-                : "메시지 전송에 실패했습니다."
-        );
+        alert(getRoomActionErrorMessage(json.error));
         return;
       }
       setMessage("");
@@ -114,23 +133,28 @@ export function CommunityMessengerRoomClient({
     } finally {
       setBusy(null);
     }
-  }, [message, refresh, roomId]);
+  }, [getRoomActionErrorMessage, message, refresh, roomId]);
 
   const inviteMembers = useCallback(async () => {
     if (inviteIds.length === 0) return;
     setBusy("invite");
     try {
-      await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "invite", memberIds: inviteIds }),
       });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        alert(getRoomActionErrorMessage(json.error));
+        return;
+      }
       setInviteIds([]);
       await refresh();
     } finally {
       setBusy(null);
     }
-  }, [inviteIds, refresh, roomId]);
+  }, [getRoomActionErrorMessage, inviteIds, refresh, roomId]);
 
   const reportTarget = useCallback(
     async (input: { reportType: "room" | "message" | "user"; messageId?: string; reportedUserId?: string }) => {

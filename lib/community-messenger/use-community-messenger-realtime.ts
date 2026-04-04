@@ -15,17 +15,24 @@ function useStableCallback(callback: () => void) {
 
 function createRefreshScheduler(callbackRef: MutableRefObject<() => void>) {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  return () => {
+  const schedule = () => {
     if (timer) return;
     timer = setTimeout(() => {
       timer = null;
       callbackRef.current();
     }, 250);
   };
+  const cancel = () => {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+  };
+  return { schedule, cancel };
 }
 
 export function useCommunityMessengerHomeRealtime(args: {
   userId: string | null;
+  roomIds?: string[];
   enabled: boolean;
   onRefresh: () => void;
 }) {
@@ -37,8 +44,9 @@ export function useCommunityMessengerHomeRealtime(args: {
     if (!sb) return;
 
     let cancelled = false;
-    const scheduleRefresh = createRefreshScheduler(callbackRef);
+    const refreshScheduler = createRefreshScheduler(callbackRef);
     const channels: RealtimeChannel[] = [];
+    const roomIds = [...new Set((args.roomIds ?? []).filter(Boolean))];
 
     const subscribe = (name: string, register: (channel: RealtimeChannel) => RealtimeChannel) => {
       const channel = register(sb.channel(name)).subscribe();
@@ -55,24 +63,27 @@ export function useCommunityMessengerHomeRealtime(args: {
           filter: `user_id=eq.${args.userId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
 
-    subscribe(`community-messenger-home:rooms:${args.userId}`, (channel) =>
-      channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_rooms",
-        },
-        () => {
-          if (!cancelled) scheduleRefresh();
-        }
-      )
-    );
+    for (const roomId of roomIds) {
+      subscribe(`community-messenger-home:rooms:${args.userId}:${roomId}`, (channel) =>
+        channel.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "community_messenger_rooms",
+            filter: `id=eq.${roomId}`,
+          },
+          () => {
+            if (!cancelled) refreshScheduler.schedule();
+          }
+        )
+      );
+    }
 
     subscribe(`community-messenger-home:requests:incoming:${args.userId}`, (channel) =>
       channel.on(
@@ -84,7 +95,7 @@ export function useCommunityMessengerHomeRealtime(args: {
           filter: `addressee_id=eq.${args.userId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
@@ -99,7 +110,7 @@ export function useCommunityMessengerHomeRealtime(args: {
           filter: `requester_id=eq.${args.userId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
@@ -114,7 +125,7 @@ export function useCommunityMessengerHomeRealtime(args: {
           filter: `user_id=eq.${args.userId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
@@ -129,18 +140,49 @@ export function useCommunityMessengerHomeRealtime(args: {
           filter: `user_id=eq.${args.userId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
+        }
+      )
+    );
+
+    subscribe(`community-messenger-home:calls:caller:${args.userId}`, (channel) =>
+      channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_logs",
+          filter: `caller_user_id=eq.${args.userId}`,
+        },
+        () => {
+          if (!cancelled) refreshScheduler.schedule();
+        }
+      )
+    );
+
+    subscribe(`community-messenger-home:calls:peer:${args.userId}`, (channel) =>
+      channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_logs",
+          filter: `peer_user_id=eq.${args.userId}`,
+        },
+        () => {
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
 
     return () => {
       cancelled = true;
+      refreshScheduler.cancel();
       for (const channel of channels) {
         void sb.removeChannel(channel);
       }
     };
-  }, [args.enabled, args.userId, callbackRef]);
+  }, [args.enabled, args.roomIds, args.userId, callbackRef]);
 }
 
 export function useCommunityMessengerRoomRealtime(args: {
@@ -156,7 +198,7 @@ export function useCommunityMessengerRoomRealtime(args: {
     if (!sb) return;
 
     let cancelled = false;
-    const scheduleRefresh = createRefreshScheduler(callbackRef);
+    const refreshScheduler = createRefreshScheduler(callbackRef);
     const channels: RealtimeChannel[] = [];
 
     const subscribe = (name: string, register: (channel: RealtimeChannel) => RealtimeChannel) => {
@@ -174,7 +216,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `room_id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
@@ -189,7 +231,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `room_id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
@@ -204,7 +246,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
@@ -219,7 +261,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `room_id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
@@ -234,13 +276,14 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `room_id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) scheduleRefresh();
+          if (!cancelled) refreshScheduler.schedule();
         }
       )
     );
 
     return () => {
       cancelled = true;
+      refreshScheduler.cancel();
       for (const channel of channels) {
         void sb.removeChannel(channel);
       }
