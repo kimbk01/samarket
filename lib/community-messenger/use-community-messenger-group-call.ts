@@ -303,13 +303,23 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const createOfferForPeer = useCallback(
     async (peer: CommunityMessengerCallParticipant) => {
       if (!currentSessionId || !panel) return;
-      const connection = await ensurePeerConnection(panel.kind, currentSessionId, peer);
-      const offer = await connection.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: panel.kind === "video",
-      });
-      await connection.setLocalDescription(offer);
-      await sendSignal(currentSessionId, peer.userId, "offer", { sdp: offer.sdp ?? "" });
+      try {
+        const connection = await ensurePeerConnection(panel.kind, currentSessionId, peer);
+        const offer = await connection.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: panel.kind === "video",
+        });
+        await connection.setLocalDescription(offer);
+        await sendSignal(currentSessionId, peer.userId, "offer", { sdp: offer.sdp ?? "" });
+      } catch (error) {
+        const errorName =
+          typeof error === "object" && error && "name" in error
+            ? String((error as { name?: unknown }).name ?? "")
+            : "";
+        if (errorName) {
+          setErrorMessage(getCommunityMessengerMediaErrorMessage(error, panel.kind));
+        }
+      }
     },
     [currentSessionId, ensurePeerConnection, panel, sendSignal]
   );
@@ -533,22 +543,14 @@ export function useCommunityMessengerGroupCall(args: Props) {
     async (kind: CommunityMessengerCallKind) => {
       if (!args.enabled) return;
       setErrorMessage(null);
-      setBusy("preview");
-      try {
-        await ensureLocalStream(kind);
-        setPanel({
-          kind,
-          mode: "preview",
-          sessionId: null,
-          peerLabel: args.roomLabel,
-        });
-      } catch (error) {
-        setErrorMessage(getCommunityMessengerMediaErrorMessage(error, kind));
-      } finally {
-        setBusy(null);
-      }
+      setPanel({
+        kind,
+        mode: "preview",
+        sessionId: null,
+        peerLabel: args.roomLabel,
+      });
     },
-    [args.enabled, args.roomLabel, ensureLocalStream]
+    [args.enabled, args.roomLabel]
   );
 
   const closePreview = useCallback(() => {

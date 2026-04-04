@@ -6,6 +6,7 @@ import { useCommunityMessengerCall } from "@/lib/community-messenger/use-communi
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { useCommunityMessengerRoomRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import type {
+  CommunityMessengerMessage,
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
@@ -21,7 +22,9 @@ export function CommunityMessengerRoomClient({
 }) {
   const router = useRouter();
   const autoHandledSessionRef = useRef<string | null>(null);
+  const pendingMessageIdRef = useRef(0);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
+  const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -38,7 +41,8 @@ export function CommunityMessengerRoomClient({
   const [activeSheet, setActiveSheet] = useState<null | "menu" | "members" | "info">(null);
 
   const refresh = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+    const shouldBlock = !silent && !snapshot;
+    if (shouldBlock) setLoading(true);
     try {
       const roomRes = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, { cache: "no-store" });
       const roomJson = (await roomRes.json()) as (CommunityMessengerRoomSnapshot & { ok?: boolean }) | {
@@ -46,9 +50,9 @@ export function CommunityMessengerRoomClient({
       };
       setSnapshot(roomRes.ok && roomJson.ok ? (roomJson as CommunityMessengerRoomSnapshot) : null);
     } finally {
-      if (!silent) setLoading(false);
+      if (shouldBlock) setLoading(false);
     }
-  }, [roomId]);
+  }, [roomId, snapshot]);
 
   useEffect(() => {
     void refresh();
@@ -56,11 +60,19 @@ export function CommunityMessengerRoomClient({
 
   useCommunityMessengerRoomRealtime({
     roomId,
-    enabled: !loading,
+    enabled: Boolean(roomId),
     onRefresh: () => {
       void refresh(true);
     },
   });
+
+  useEffect(() => {
+    if (!snapshot) {
+      setRoomMessages([]);
+      return;
+    }
+    setRoomMessages((prev) => mergeRoomMessages(prev, snapshot.messages));
+  }, [snapshot]);
 
   const inviteCandidates = useMemo(() => {
     const memberIds = new Set((snapshot?.members ?? []).map((member) => member.id));
@@ -83,7 +95,7 @@ export function CommunityMessengerRoomClient({
     peerUserId: snapshot?.activeCall?.peerUserId ?? snapshot?.room.peerUserId ?? null,
     peerLabel: snapshot?.activeCall?.peerLabel ?? snapshot?.room.title ?? "상대",
     activeCall: snapshot?.activeCall ?? null,
-    onRefresh: refresh,
+    onRefresh: () => refresh(true),
   });
   const groupCall = useCommunityMessengerGroupCall({
     enabled: snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group",
@@ -91,7 +103,7 @@ export function CommunityMessengerRoomClient({
     viewerUserId: snapshot?.viewerUserId ?? "",
     roomLabel: snapshot?.room.title ?? "그룹 통화",
     activeCall: snapshot?.activeCall ?? null,
-    onRefresh: refresh,
+    onRefresh: () => refresh(true),
   });
   const call =
     snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group" ? groupCall : directCall;
@@ -193,7 +205,7 @@ export function CommunityMessengerRoomClient({
         return;
       }
       setOpenGroupPassword("");
-      await refresh();
+      await refresh(true);
     } finally {
       setBusy(null);
     }
@@ -232,7 +244,24 @@ export function CommunityMessengerRoomClient({
 
   const sendMessage = useCallback(async () => {
     const content = message.trim();
-    if (!content) return;
+    if (!content || !snapshot) return;
+    const tempId = `pending:${roomId}:${pendingMessageIdRef.current++}`;
+    const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
+      id: tempId,
+      roomId,
+      senderId: snapshot.viewerUserId,
+      senderLabel:
+        snapshot.members.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+      messageType: "text",
+      content,
+      createdAt: new Date().toISOString(),
+      isMine: true,
+      pending: true,
+      callKind: null,
+      callStatus: null,
+    };
+    setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+    setMessage("");
     setBusy("send");
     try {
       const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages`, {
@@ -242,15 +271,16 @@ export function CommunityMessengerRoomClient({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        setMessage(content);
         alert(getRoomActionErrorMessage(json.error));
         return;
       }
-      setMessage("");
-      await refresh();
+      await refresh(true);
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, message, refresh, roomId]);
+  }, [getRoomActionErrorMessage, message, refresh, roomId, snapshot]);
 
   const inviteMembers = useCallback(async () => {
     if (inviteIds.length === 0) return;
@@ -267,7 +297,7 @@ export function CommunityMessengerRoomClient({
         return;
       }
       setInviteIds([]);
-      await refresh();
+      await refresh(true);
     } finally {
       setBusy(null);
     }
@@ -409,8 +439,8 @@ export function CommunityMessengerRoomClient({
               </span>
             ) : null}
           </div>
-          {snapshot.messages.length ? (
-            snapshot.messages.map((item) => (
+          {roomMessages.length ? (
+            roomMessages.map((item) => (
               <div
                 key={item.id}
                 className={`flex ${item.isMine ? "justify-end" : "justify-start"}`}
@@ -434,7 +464,10 @@ export function CommunityMessengerRoomClient({
                         <p className="mt-1 text-[12px]">{item.callStatus ?? "상태 없음"}</p>
                       </div>
                     ) : (
-                      item.content
+                      <div className="flex items-end gap-2">
+                        <span>{item.content}</span>
+                        {item.pending ? <span className="text-[11px] opacity-70">전송 중</span> : null}
+                      </div>
                     )}
                   </div>
                   {!item.isMine && item.messageType !== "system" ? (
@@ -844,13 +877,19 @@ export function CommunityMessengerRoomClient({
               {call.panel.kind === "video" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="overflow-hidden rounded-3xl bg-black">
-                    <video
-                      ref={call.localVideoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="h-40 w-full bg-black object-cover"
-                    />
+                    {call.localStream ? (
+                      <video
+                        ref={call.localVideoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="h-40 w-full bg-black object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-40 w-full items-center justify-center bg-[#111827] px-4 text-center text-[12px] text-white/75">
+                        통화 시작 또는 수락 시 카메라와 마이크 권한을 확인합니다.
+                      </div>
+                    )}
                     <p className="px-3 py-2 text-[12px] font-medium text-white/85">내 화면</p>
                   </div>
                   {isGroupRoom ? (
@@ -1004,6 +1043,25 @@ export function CommunityMessengerRoomClient({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function mergeRoomMessages(
+  prev: Array<CommunityMessengerMessage & { pending?: boolean }>,
+  next: CommunityMessengerMessage[]
+): Array<CommunityMessengerMessage & { pending?: boolean }> {
+  const pending = prev.filter((item) => item.pending);
+  const mergedPending = pending.filter((item) => {
+    return !next.some(
+      (confirmedItem) =>
+        confirmedItem.senderId === item.senderId &&
+        confirmedItem.messageType === item.messageType &&
+        confirmedItem.content === item.content &&
+        Math.abs(new Date(confirmedItem.createdAt).getTime() - new Date(item.createdAt).getTime()) < 15_000
+    );
+  });
+  return [...next, ...mergedPending].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 }
 

@@ -58,6 +58,26 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     if (!userId) return;
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 8000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const onPageShow = () => {
+      void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [refresh, userId]);
+
+  useEffect(() => {
+    if (!userId) return;
     const sb = getSupabaseClient();
     if (!sb) return;
 

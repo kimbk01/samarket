@@ -478,21 +478,13 @@ export function useCommunityMessengerCall(args: {
       setErrorMessage("그룹 통화 실연결은 다음 단계에서 지원합니다.");
       return;
     }
-    setBusy("preview");
-    try {
-      await ensureLocalStream(kind);
-      setPanel({
-        kind,
-        mode: "preview",
-        sessionId: null,
-        peerLabel: args.peerLabel,
-      });
-    } catch (error) {
-      setErrorMessage(getCommunityMessengerMediaErrorMessage(error, kind));
-    } finally {
-      setBusy(null);
-    }
-  }, [args.peerLabel, args.roomType, ensureLocalStream]);
+    setPanel({
+      kind,
+      mode: "preview",
+      sessionId: null,
+      peerLabel: args.peerLabel,
+    });
+  }, [args.peerLabel, args.roomType]);
 
   const closePreview = useCallback(() => {
     cleanupMedia();
@@ -538,6 +530,12 @@ export function useCommunityMessengerCall(args: {
       await connection.setLocalDescription(offer);
       await sendSignal(session.id, session.peerUserId, "offer", { sdp: offer.sdp ?? "" });
       await args.onRefresh();
+    } catch (error) {
+      const errorName =
+        typeof error === "object" && error && "name" in error
+          ? String((error as { name?: unknown }).name ?? "")
+          : "";
+      setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, panel.kind) : "통화 연결을 시작하지 못했습니다.");
     } finally {
       setBusy(null);
     }

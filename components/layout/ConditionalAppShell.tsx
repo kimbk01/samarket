@@ -152,7 +152,7 @@ export function ConditionalAppShell({
       {mountGlobalRealtimeChrome ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
-      {mountGlobalRealtimeChrome ? <GlobalCommunityMessengerIncomingCall /> : null}
+      <GlobalCommunityMessengerIncomingCall />
       {showRegionBar && <RegionBar />}
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main

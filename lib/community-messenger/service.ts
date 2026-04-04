@@ -2530,13 +2530,27 @@ export async function sendCommunityMessengerMessage(input: {
   const roomId = trimText(input.roomId);
   const content = trimText(input.content);
   if (!roomId || !content) return { ok: false, error: "content_required" };
-  const snapshot = await getCommunityMessengerRoomSnapshot(input.userId, roomId);
-  if (!snapshot) return { ok: false, error: "room_not_found" };
-  if (snapshot.room.roomStatus === "blocked") return { ok: false, error: "room_blocked" };
-  if (snapshot.room.roomStatus === "archived") return { ok: false, error: "room_archived" };
-  if (snapshot.room.isReadonly) return { ok: false, error: "room_readonly" };
   const sb = getSupabaseOrNull();
   if (sb) {
+    const [{ data: participant }, { data: roomData }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, room_status, is_readonly")
+        .eq("id", roomId)
+        .maybeSingle(),
+    ]);
+    if (!participant || !roomData) return { ok: false, error: "room_not_found" };
+    const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
+    if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+    if (roomStatus === "archived") return { ok: false, error: "room_archived" };
+    if (isReadonly) return { ok: false, error: "room_readonly" };
     const createdAt = nowIso();
     const { error: insertError } = await (sb as any).from("community_messenger_messages").insert({
       room_id: roomId,
@@ -2584,6 +2598,13 @@ export async function sendCommunityMessengerMessage(input: {
   if (!fallback.ok) return fallback;
 
   const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  const participant = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
+  if (!participant) return { ok: false, error: "room_not_found" };
+  if (room.roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+  if (room.roomStatus === "archived") return { ok: false, error: "room_archived" };
+  if (room.isReadonly) return { ok: false, error: "room_readonly" };
   const createdAt = nowIso();
   dev.messages.push({
     id: randomUUID(),
@@ -2594,7 +2615,6 @@ export async function sendCommunityMessengerMessage(input: {
     metadata: {},
     createdAt,
   });
-  const room = dev.rooms.find((row) => row.id === roomId);
   if (room) {
     room.lastMessage = content;
     room.lastMessageAt = createdAt;
