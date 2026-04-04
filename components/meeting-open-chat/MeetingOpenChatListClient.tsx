@@ -9,7 +9,6 @@ import type {
   MeetingOpenChatJoinAs,
   MeetingOpenChatRoomListEntry,
 } from "@/lib/meeting-open-chat/types";
-import { philifeAppPaths } from "@/lib/philife/paths";
 import { MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 function joinBadge(jt: MeetingOpenChatRoomListEntry["join_type"]) {
@@ -92,6 +91,8 @@ export function MeetingOpenChatListClient({
   variant = "standalone",
   postBackHref,
   initialData,
+  chatApiBasePath,
+  chatRouteBasePath,
 }: {
   meetingId: string;
   /** 모임 상세에 넣을 때: 높이·헤더 축소 */
@@ -99,8 +100,30 @@ export function MeetingOpenChatListClient({
   /** embedded일 때 '← 글' (피드 게시글) */
   postBackHref?: string;
   initialData?: MeetingOpenChatListInitialData | null;
+  /**
+   * 예: `/api/community/meetings/{id}/group-chat` (끝 슬래시 없음).
+   * 생략 시 group-chat API.
+   */
+  chatApiBasePath?: string;
+  /**
+   * 예: `/philife/meetings/{id}/group-chat` (끝 슬래시 없음).
+   * 생략 시 필라이프 group-chat 목록·방 URL.
+   */
+  chatRouteBasePath?: string;
 }) {
   const router = useRouter();
+  const resolvedApiBase = useMemo(
+    () =>
+      (chatApiBasePath?.replace(/\/$/, "") ??
+        `/api/community/meetings/${encodeURIComponent(meetingId)}/group-chat`) as string,
+    [chatApiBasePath, meetingId]
+  );
+  const resolvedRouteBase = useMemo(
+    () =>
+      (chatRouteBasePath?.replace(/\/$/, "") ??
+        `/philife/meetings/${encodeURIComponent(meetingId)}/group-chat`) as string,
+    [chatRouteBasePath, meetingId]
+  );
   const autoEnteredRef = useRef(false);
   const autoPromptedJoinRef = useRef(false);
   useEffect(() => {
@@ -150,10 +173,7 @@ export function MeetingOpenChatListClient({
     }
     try {
       const qs = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : "";
-      const res = await fetch(
-        `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms${qs}`,
-        { credentials: "include", cache: "no-store" }
-      );
+      const res = await fetch(`${resolvedApiBase}/rooms${qs}`, { credentials: "include", cache: "no-store" });
       const json = (await res.json()) as {
         ok?: boolean;
         rooms?: MeetingOpenChatRoomListEntry[];
@@ -193,7 +213,7 @@ export function MeetingOpenChatListClient({
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [meetingId, searchQuery]);
+  }, [resolvedApiBase, searchQuery]);
 
   useEffect(() => {
     void load({ silent: Boolean(initialData) });
@@ -206,8 +226,6 @@ export function MeetingOpenChatListClient({
     }, 45000);
     return () => window.clearInterval(id);
   }, [load]);
-
-  const base = `/philife/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat`;
 
   const sortedRooms = useMemo(() => {
     const list = [...(rooms ?? [])];
@@ -237,8 +255,8 @@ export function MeetingOpenChatListClient({
     autoEnteredRef.current = true;
     const only = sortedRooms[0];
     if (!only?.id || !only.viewerIsChatMember) return;
-    router.replace(`${base}/${encodeURIComponent(only.id)}`);
-  }, [loading, error, searchQuery, sortedRooms, base, router]);
+    router.replace(`${resolvedRouteBase}/${encodeURIComponent(only.id)}`);
+  }, [loading, error, searchQuery, sortedRooms, resolvedRouteBase, router]);
 
   useEffect(() => {
     if (loading || error || searchQuery || sortedRooms.length !== 1 || autoPromptedJoinRef.current) return;
@@ -284,12 +302,12 @@ export function MeetingOpenChatListClient({
   const handleRoomSelect = useCallback(
     (room: MeetingOpenChatRoomListEntry) => {
       if (room.viewerIsChatMember) {
-        router.push(`${base}/${encodeURIComponent(room.id)}`);
+        router.push(`${resolvedRouteBase}/${encodeURIComponent(room.id)}`);
         return;
       }
       openJoinModal(room);
     },
-    [base, openJoinModal, router]
+    [openJoinModal, resolvedRouteBase, router]
   );
 
   const submitJoin = useCallback(async () => {
@@ -297,7 +315,7 @@ export function MeetingOpenChatListClient({
     setJoinBusy(true);
     setJoinErr(null);
     try {
-      const apiJoin = `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(joinRoom.id)}/join`;
+      const apiJoin = `${resolvedApiBase}/rooms/${encodeURIComponent(joinRoom.id)}/join`;
       const needsIntro = joinRoom.join_type === "approval" || joinRoom.join_type === "password_approval";
       const res = await fetch(apiJoin, {
         method: "POST",
@@ -326,11 +344,22 @@ export function MeetingOpenChatListClient({
         void load({ silent: true });
         return;
       }
-      router.push(`${base}/${encodeURIComponent(joinRoom.id)}`);
+      router.push(`${resolvedRouteBase}/${encodeURIComponent(joinRoom.id)}`);
     } finally {
       setJoinBusy(false);
     }
-  }, [base, closeJoinModal, joinAs, joinIntro, joinNick, joinPw, joinRoom, load, meetingId, router]);
+  }, [
+    closeJoinModal,
+    joinAs,
+    joinIntro,
+    joinNick,
+    joinPw,
+    joinRoom,
+    load,
+    resolvedApiBase,
+    resolvedRouteBase,
+    router,
+  ]);
 
   const totalUnread = (rooms ?? []).reduce(
     (s, r) => s + (r.viewerIsChatMember ? r.viewerUnreadCount : 0),
@@ -352,10 +381,7 @@ export function MeetingOpenChatListClient({
       {variant === "standalone" ? (
         <header className="sticky top-0 z-30 border-b border-gray-200/90 bg-[#f7f7f7]/95 backdrop-blur-md">
           <div className="flex h-[52px] items-center gap-2 px-3">
-            <Link
-              href={postBackHref ?? philifeAppPaths.meetingOpenChat(meetingId)}
-              className="text-[15px] text-emerald-700"
-            >
+            <Link href={postBackHref ?? resolvedRouteBase} className="text-[15px] text-emerald-700">
               {postBackHref ? "← 글" : "← 뒤로"}
             </Link>
             <h1 className="flex flex-1 items-center justify-center gap-1.5 text-center text-[16px] font-bold text-gray-900">
@@ -390,7 +416,7 @@ export function MeetingOpenChatListClient({
             )}
           </h2>
           <Link
-            href={base}
+            href={resolvedRouteBase}
             className="shrink-0 text-[12px] font-semibold text-emerald-700"
             title="전체 화면"
           >
@@ -519,7 +545,7 @@ export function MeetingOpenChatListClient({
         {!loading && !error && (sortedRooms.length === 0 || sortedRooms.length > 1) ? (
           <div className="mt-6 flex justify-center">
             <Link
-              href={`${base}/new`}
+              href={`${resolvedRouteBase}/new`}
               className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-md"
             >
               새 채팅방

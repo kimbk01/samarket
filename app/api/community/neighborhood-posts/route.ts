@@ -11,7 +11,7 @@ import { resolveNeighborhoodLocationId } from "@/lib/neighborhood/ensure-locatio
 import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
 import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-topics";
-import { ensureDefaultMeetingOpenChatRoomForNewMeeting } from "@/lib/meeting-open-chat/rooms-service";
+import { ensureDefaultCommunityGroupChatRoomForNewMeeting } from "@/lib/community-group-chat/service";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
@@ -366,7 +366,7 @@ export async function POST(req: NextRequest) {
         return;
       }
       try {
-        const openChatEnsured = await ensureDefaultMeetingOpenChatRoomForNewMeeting(sbDeferred, {
+        const openChatEnsured = await ensureDefaultCommunityGroupChatRoomForNewMeeting(sbDeferred, {
           meetingId: deferredMeetingId,
           hostUserId: deferredHostUserId,
           title: deferredTitle,
@@ -380,7 +380,7 @@ export async function POST(req: NextRequest) {
         });
         if (!openChatEnsured.ok) {
           console.error(
-            "[neighborhood-posts] ensureDefaultMeetingOpenChatRoomForNewMeeting",
+            "[neighborhood-posts] ensureDefaultCommunityGroupChatRoomForNewMeeting",
             openChatEnsured.error
           );
         }

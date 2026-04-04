@@ -12,7 +12,7 @@ export default async function CommunityMeetingPage({ params }: Props) {
   if (!id) redirect("/philife");
   const hub = await loadPhilifeMeetingHubData(id);
   if (hub?.isJoined && hub.defaultOpenChatRoomId) {
-    redirect(philifeAppPaths.meetingOpenChatRoom(id, hub.defaultOpenChatRoomId));
+    redirect(philifeAppPaths.meetingGroupChatRoom(id, hub.defaultOpenChatRoomId));
   }
   redirect(philifeAppPaths.meeting(id));
 }

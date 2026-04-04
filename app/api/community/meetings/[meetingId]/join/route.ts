@@ -5,7 +5,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isMeetingJoinable } from "@/lib/community-engine/visibility";
 import { verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
-import { ensureAndGetDefaultMeetingOpenChatRoomId } from "@/lib/meeting-open-chat/rooms-service";
+import { ensureAndGetDefaultCommunityGroupChatRoomId } from "@/lib/community-group-chat/service";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 
 interface Ctx {
@@ -81,7 +81,7 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   const attachOpenChat = async (payload: Record<string, unknown>) => {
-    const oc = await ensureAndGetDefaultMeetingOpenChatRoomId(sb, id);
+    const oc = await ensureAndGetDefaultCommunityGroupChatRoomId(sb, id);
     return NextResponse.json({ ...payload, meetingOpenChatRoomId: oc.ok ? oc.roomId : null });
   };
 

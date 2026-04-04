@@ -26,8 +26,23 @@ function formatCreateError(code: string | null): string | null {
   }
 }
 
-export function MeetingOpenChatCreateClient({ meetingId }: { meetingId: string }) {
+export function MeetingOpenChatCreateClient({
+  meetingId,
+  chatApiBasePath,
+  chatRouteBasePath,
+}: {
+  meetingId: string;
+  /** 예: `/api/community/meetings/{id}/group-chat` — 생략 시 group-chat API */
+  chatApiBasePath?: string;
+  /** 예: `/philife/meetings/{id}/group-chat` — 생략 시 group-chat 목록 경로 */
+  chatRouteBasePath?: string;
+}) {
   const router = useRouter();
+  const resolvedApiBase =
+    (chatApiBasePath?.trim() ||
+      `/api/community/meetings/${encodeURIComponent(meetingId)}/group-chat`) as string;
+  const resolvedRouteBase =
+    (chatRouteBasePath?.trim() || philifeAppPaths.meetingGroupChat(meetingId)) as string;
   const [title, setTitle] = useState("");
   const [joinType, setJoinType] = useState<MeetingOpenChatJoinType>("free");
   const [identityMode, setIdentityMode] = useState<MeetingOpenChatIdentityMode>("realname");
@@ -42,7 +57,7 @@ export function MeetingOpenChatCreateClient({ meetingId }: { meetingId: string }
     setBusy(true);
     try {
       const res = await fetch(
-        `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms`,
+        `${resolvedApiBase}/rooms`,
         {
           method: "POST",
           credentials: "include",
@@ -63,15 +78,13 @@ export function MeetingOpenChatCreateClient({ meetingId }: { meetingId: string }
         setErr(json.error ?? "생성 실패");
         return;
       }
-      router.replace(
-        `/philife/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/${encodeURIComponent(json.room.id)}`
-      );
+      router.replace(`${resolvedRouteBase}/${encodeURIComponent(json.room.id)}`);
     } finally {
       setBusy(false);
     }
   };
 
-  const listHref = philifeAppPaths.meetingOpenChat(meetingId);
+  const listHref = resolvedRouteBase;
   const joinTypeSummary =
     joinType === "password" ? "목록에서 방을 누르면 비밀번호 팝업으로 바로 입장합니다." : "목록에서 방을 누르면 바로 참여합니다.";
   const identitySummary =

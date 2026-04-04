@@ -63,7 +63,7 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
   if (post.meeting_id && viewerJoinedMeeting) {
     const hub = await loadPhilifeMeetingHubData(post.meeting_id);
     if (hub?.defaultOpenChatRoomId) {
-      redirect(philifeAppPaths.meetingOpenChatRoom(post.meeting_id, hub.defaultOpenChatRoomId));
+      redirect(philifeAppPaths.meetingGroupChatRoom(post.meeting_id, hub.defaultOpenChatRoomId));
     }
     redirect(philifeAppPaths.meeting(post.meeting_id));
   }

@@ -103,7 +103,7 @@ export function MeetupFeedOpenChatLink({
       setRoomPwdOpen(false);
       setUnifiedOpen(false);
       setPlanPayload(null);
-      router.push(philifeAppPaths.meetingOpenChatRoom(mid, roomId));
+      router.push(philifeAppPaths.meetingGroupChatRoom(mid, roomId));
       router.refresh();
     },
     [router, mid]

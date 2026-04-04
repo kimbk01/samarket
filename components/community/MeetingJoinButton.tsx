@@ -92,7 +92,7 @@ export function MeetingJoinButton({
     if (joinModalOpen) setModalSubmitErr("");
   }, [joinModalOpen]);
 
-  const meetingOpenChatHubPath = philifeAppPaths.meetingOpenChat(meetingId);
+  const meetingOpenChatHubPath = philifeAppPaths.meetingGroupChat(meetingId);
 
   useEffect(() => {
     if (!meetingId || isClosed) return;
@@ -201,7 +201,7 @@ export function MeetingJoinButton({
   const goToMeetingChat = (meetingOpenChatRoomId?: string | null): boolean => {
     const openRid = String(meetingOpenChatRoomId ?? "").trim();
     const target = openRid
-      ? `/philife/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/${encodeURIComponent(openRid)}`
+      ? philifeAppPaths.meetingGroupChatRoom(meetingId, openRid)
       : meetingOpenChatHubPath;
     if (pathname === target) {
       router.refresh();
@@ -312,7 +312,7 @@ export function MeetingJoinButton({
       let ocRes: Response;
       try {
         ocRes = await fetch(
-          `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(rid)}/join`,
+          `/api/community/meetings/${encodeURIComponent(meetingId)}/group-chat/rooms/${encodeURIComponent(rid)}/join`,
           {
             method: "POST",
             credentials: "include",
@@ -384,10 +384,10 @@ export function MeetingJoinButton({
       setErr("");
       let holdBusy = false;
       try {
-        const res = await fetch(
-          `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms`,
-          { credentials: "include", cache: "no-store" }
-        );
+        const res = await fetch(`/api/community/meetings/${encodeURIComponent(meetingId)}/group-chat/rooms`, {
+          credentials: "include",
+          cache: "no-store",
+        });
         const jList = (await res.json()) as {
           ok?: boolean;
           rooms?: { id: string; created_at?: string }[];

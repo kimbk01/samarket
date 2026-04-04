@@ -25,7 +25,7 @@ export function ChatButton({
   }
   return (
     <Link
-      href={philifeAppPaths.meeting(mid)}
+      href={philifeAppPaths.meetingGroupChat(mid)}
       className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-signature px-4 text-[16px] font-semibold text-white shadow-md active:opacity-90"
     >
       {children ?? "오픈채팅 입장"}

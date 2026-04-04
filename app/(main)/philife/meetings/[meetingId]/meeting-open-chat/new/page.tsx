@@ -1,12 +1,14 @@
-import { MeetingOpenChatCreateClient } from "@/components/meeting-open-chat/MeetingOpenChatCreateClient";
+import { notFound, permanentRedirect } from "next/navigation";
+import { philifeAppPaths } from "@/lib/philife/paths";
 
 interface Props {
   params: Promise<{ meetingId: string }>;
 }
 
-export default async function MeetingOpenChatNewPage({ params }: Props) {
+/** 레거시 URL → `/philife/meetings/.../group-chat/new` */
+export default async function MeetingOpenChatNewPageRedirect({ params }: Props) {
   const { meetingId } = await params;
   const id = meetingId?.trim() ?? "";
-  if (!id) return null;
-  return <MeetingOpenChatCreateClient meetingId={id} />;
+  if (!id) notFound();
+  permanentRedirect(`${philifeAppPaths.meetingGroupChat(id)}/new`);
 }

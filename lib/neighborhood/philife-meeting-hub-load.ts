@@ -1,7 +1,7 @@
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { isSameUserId, normalizeUserIdForCompare } from "@/lib/auth/same-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { ensureAndGetDefaultMeetingOpenChatRoomId } from "@/lib/meeting-open-chat/rooms-service";
+import { ensureAndGetDefaultCommunityGroupChatRoomId } from "@/lib/community-group-chat/service";
 import { getMeetingDetail } from "@/lib/neighborhood/queries";
 import type { NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 
@@ -160,7 +160,7 @@ export async function loadPhilifeMeetingHubData(
   let openChatAnyPassword = false;
   let openChatAnyApproval = false;
   if (sb) {
-    await ensureAndGetDefaultMeetingOpenChatRoomId(sb, id);
+    await ensureAndGetDefaultCommunityGroupChatRoomId(sb, id);
 
     const { data: ocRows, error: ocErr } = await sb
       .from("meeting_open_chat_rooms")

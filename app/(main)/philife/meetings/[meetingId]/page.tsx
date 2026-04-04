@@ -163,16 +163,16 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
   if (tab === "chat" && isJoined) {
     redirect(
       defaultOpenChatRoomId
-        ? philifeAppPaths.meetingOpenChatRoom(id, defaultOpenChatRoomId)
-        : philifeAppPaths.meetingOpenChat(id)
+        ? philifeAppPaths.meetingGroupChatRoom(id, defaultOpenChatRoomId)
+        : philifeAppPaths.meetingGroupChat(id)
     );
   }
 
   if (isJoined) {
     redirect(
       defaultOpenChatRoomId
-        ? philifeAppPaths.meetingOpenChatRoom(id, defaultOpenChatRoomId)
-        : philifeAppPaths.meetingOpenChat(id)
+        ? philifeAppPaths.meetingGroupChatRoom(id, defaultOpenChatRoomId)
+        : philifeAppPaths.meetingGroupChat(id)
     );
   }
 

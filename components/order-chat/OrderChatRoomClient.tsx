@@ -60,9 +60,11 @@ export function OrderChatRoomClient({
         | ({ ok?: false; error?: string })
         | ({ ok?: true } & Snapshot);
       if (!res.ok || json.ok !== true) {
+        const errorMessage =
+          "error" in json && typeof json.error === "string" ? json.error : "load_failed";
         setState({
           kind: "error",
-          message: typeof json.error === "string" ? json.error : "load_failed",
+          message: errorMessage,
         });
         return;
       }
@@ -112,16 +114,17 @@ export function OrderChatRoomClient({
           setTimeout(() => setToast(null), 2500);
           return;
         }
+        const sentMessage = json.message;
         setState((prev) =>
           prev.kind !== "ready"
             ? prev
             : {
                 ...prev,
-                messages: [...prev.messages, json.message as OrderChatMessagePublic],
+                messages: [...prev.messages, sentMessage],
                 room: {
                   ...prev.room,
-                  last_message: json.message.content.slice(0, 200),
-                  last_message_at: json.message.created_at,
+                  last_message: sentMessage.content.slice(0, 200),
+                  last_message_at: sentMessage.created_at,
                 },
               }
         );

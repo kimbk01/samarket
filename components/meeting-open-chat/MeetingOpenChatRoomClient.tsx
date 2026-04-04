@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MeetingOpenChatJoinDialog } from "@/components/meeting-open-chat/MeetingOpenChatJoinDialog";
 import { LineOpenChatHeader } from "@/components/meeting-open-chat/line/LineOpenChatHeader";
 import { LineOpenChatParticipantSheet } from "@/components/meeting-open-chat/sheets/LineOpenChatParticipantSheet";
@@ -15,7 +15,6 @@ import { LineOpenChatMessageActionSheet } from "@/components/meeting-open-chat/s
 import { meetingOpenChatRoleCanManage } from "@/lib/meeting-open-chat/permissions";
 import { playLoudOpenChatPing } from "@/lib/meeting-open-chat/play-open-chat-ping";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { philifeAppPaths } from "@/lib/philife/paths";
 import type { MeetingOpenChatRoomInitialData } from "@/lib/meeting-open-chat/meeting-open-chat-room-initial-types";
 import type {
   MeetingOpenChatJoinAs,
@@ -130,13 +129,31 @@ export function MeetingOpenChatRoomClient({
   meetingId,
   roomId,
   initialData,
+  chatApiBasePath,
+  chatRouteBasePath,
 }: {
   meetingId: string;
   roomId: string;
   /** RSC에서 내려주면 첫 페인트부터 방·메시지 표시(직접 URL 진입 시 이중 로딩 완화) */
   initialData?: MeetingOpenChatRoomInitialData | null;
+  /** 예: `/api/community/meetings/{id}/group-chat` — 생략 시 group-chat API */
+  chatApiBasePath?: string;
+  /** 예: `/philife/meetings/{id}/group-chat` — 생략 시 필라이프 group-chat 목록 */
+  chatRouteBasePath?: string;
 }) {
   const router = useRouter();
+  const resolvedApiBase = useMemo(
+    () =>
+      (chatApiBasePath?.replace(/\/$/, "") ??
+        `/api/community/meetings/${encodeURIComponent(meetingId)}/group-chat`) as string,
+    [chatApiBasePath, meetingId]
+  );
+  const resolvedRouteBase = useMemo(
+    () =>
+      (chatRouteBasePath?.replace(/\/$/, "") ??
+        `/philife/meetings/${encodeURIComponent(meetingId)}/group-chat`) as string,
+    [chatRouteBasePath, meetingId]
+  );
   const [room, setRoom] = useState<MeetingOpenChatRoomPublic | null>(() => initialData?.room ?? null);
   const [chatMember, setChatMember] = useState<ChatMemberMe | null>(() => initialData?.chatMember ?? null);
   const [messages, setMessages] = useState<MeetingOpenChatMessagePublic[]>(
@@ -174,7 +191,7 @@ export function MeetingOpenChatRoomClient({
   /** 첫 `loadRoom`만 silent(스냅샷이 있을 때 로딩 문구·점프 방지) */
   const silentFirstRoomRefreshRef = useRef(Boolean(initialData?.room));
 
-  const apiRoom = `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(roomId)}`;
+  const apiRoom = `${resolvedApiBase}/rooms/${encodeURIComponent(roomId)}`;
   const apiMessages = `${apiRoom}/messages`;
   const apiJoin = `${apiRoom}/join`;
   const apiMembers = `${apiRoom}/members`;
@@ -628,6 +645,7 @@ export function MeetingOpenChatRoomClient({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file || busy || !chatMember) return;
+    let tempId = "";
     setBusy(true);
     setLoadErr(null);
     try {
@@ -646,7 +664,7 @@ export function MeetingOpenChatRoomClient({
         return;
       }
       const caption = draft.trim();
-      const tempId = `local:${roomId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      tempId = `local:${roomId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
       const optimisticMessage: MeetingOpenChatMessagePublic = {
         id: tempId,
         room_id: roomId,
@@ -713,16 +731,18 @@ export function MeetingOpenChatRoomClient({
       setMessages(merged);
       scrollToBottomAndMarkLastRead();
     } catch {
-      const rolledBack = messagesRef.current.filter((message) => message.id !== tempId);
-      messagesRef.current = rolledBack;
-      setMessages(rolledBack);
+      if (tempId) {
+        const rolledBack = messagesRef.current.filter((message) => message.id !== tempId);
+        messagesRef.current = rolledBack;
+        setMessages(rolledBack);
+      }
       alert("사진 전송에 실패했습니다.");
     } finally {
       setBusy(false);
     }
   };
 
-  const backHref = philifeAppPaths.meetingOpenChat(meetingId);
+  const backHref = resolvedRouteBase;
 
   const onLeaveRoom = async () => {
     if (!chatMember || busy) return;
@@ -1173,6 +1193,7 @@ export function MeetingOpenChatRoomClient({
           <LineOpenChatMemberProfileSheet
             meetingId={meetingId}
             roomId={roomId}
+            apiRoomBase={apiRoom}
             memberId={previewMemberId}
             initial={previewInitial}
             open={previewMemberId !== null}
@@ -1195,6 +1216,7 @@ export function MeetingOpenChatRoomClient({
               onClose={() => setOperatorOpen(false)}
               meetingId={meetingId}
               roomId={roomId}
+              apiRoomBase={apiRoom}
               room={room}
               viewerRole={(chatMember.role ?? "member") as MeetingOpenChatMemberRole}
               onRefreshAll={refreshAll}

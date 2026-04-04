@@ -178,16 +178,16 @@ export function ChatDetailView({
         }
       })();
     };
-    const idleId =
+    const idleId: number | ReturnType<typeof globalThis.setTimeout> =
       typeof window !== "undefined" && "requestIdleCallback" in window
         ? window.requestIdleCallback(run, { timeout: 1200 })
-        : window.setTimeout(run, 180);
+        : globalThis.setTimeout(run, 180);
     return () => {
       cancelled = true;
       if (typeof window !== "undefined" && "cancelIdleCallback" in window && typeof idleId === "number") {
         window.cancelIdleCallback(idleId);
       } else {
-        window.clearTimeout(idleId as number);
+        globalThis.clearTimeout(idleId);
       }
     };
   }, [partnerId]);

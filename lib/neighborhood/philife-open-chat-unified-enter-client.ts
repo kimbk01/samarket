@@ -101,7 +101,7 @@ export async function philifeOpenChatUnifiedEnterClient(
   let ocRes: Response;
   try {
     ocRes = await fetch(
-      `/api/community/meetings/${encodeURIComponent(input.meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(rid)}/join`,
+      `/api/community/meetings/${encodeURIComponent(input.meetingId)}/group-chat/rooms/${encodeURIComponent(rid)}/join`,
       {
         method: "POST",
         credentials: "include",

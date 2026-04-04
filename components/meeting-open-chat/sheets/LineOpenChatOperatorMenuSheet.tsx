@@ -41,6 +41,7 @@ export function LineOpenChatOperatorMenuSheet({
   onClose,
   meetingId,
   roomId,
+  apiRoomBase,
   room,
   viewerRole,
   onRefreshAll,
@@ -49,6 +50,8 @@ export function LineOpenChatOperatorMenuSheet({
   onClose: () => void;
   meetingId: string;
   roomId: string;
+  /** 예: `/api/.../rooms/{roomId}` — 생략 시 meeting-open-chat API */
+  apiRoomBase?: string;
   room: MeetingOpenChatRoomPublic;
   viewerRole: MeetingOpenChatMemberRole;
   onRefreshAll: () => void;
@@ -84,7 +87,9 @@ export function LineOpenChatOperatorMenuSheet({
   const [noticeEditContent, setNoticeEditContent] = useState("");
   const [noticeEditPin, setNoticeEditPin] = useState(false);
 
-  const base = `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(roomId)}`;
+  const base =
+    (apiRoomBase?.replace(/\/$/, "") ??
+      `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(roomId)}`) as string;
 
   useEffect(() => {
     if (!open) return;

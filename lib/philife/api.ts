@@ -68,28 +68,3 @@ export function philifeMeetingApi(meetingId: string) {
     events: (query: string) => `${b}/events?${query}`,
   };
 }
-
-export function philifeOpenChatRoomsUrl(searchParams?: string): string {
-  return searchParams ? `${PHILIFE_API}/open-chat/rooms?${searchParams}` : `${PHILIFE_API}/open-chat/rooms`;
-}
-
-export function philifeOpenChatRoomApi(roomId: string) {
-  const b = `${PHILIFE_API}/open-chat/rooms/${encodeURIComponent(roomId)}`;
-  return {
-    detail: () => b,
-    join: () => `${b}/join`,
-    leave: () => `${b}/leave`,
-    nickname: () => `${b}/nickname`,
-    moderator: () => `${b}/moderator`,
-    unmoderator: () => `${b}/unmoderator`,
-    approve: () => `${b}/approve`,
-    reject: () => `${b}/reject`,
-    notice: () => `${b}/notice`,
-    noticeItem: (noticeId: string) => `${b}/notice/${encodeURIComponent(noticeId)}`,
-    kick: () => `${b}/kick`,
-    ban: () => `${b}/ban`,
-    blind: () => `${b}/blind`,
-    unblind: () => `${b}/unblind`,
-    unban: () => `${b}/unban`,
-  };
-}

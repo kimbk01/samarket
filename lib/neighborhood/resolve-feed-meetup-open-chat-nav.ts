@@ -24,8 +24,8 @@ export type FeedMeetupOpenChatNavPlan =
 export function resolveFeedMeetupOpenChatNavPlan(hub: PhilifeMeetingHubData): FeedMeetupOpenChatNavPlan {
   const meetingId = hub.meeting.id;
   const rid = hub.defaultOpenChatRoomId?.trim() ?? "";
-  const hubPath = philifeAppPaths.meetingOpenChat(meetingId);
-  const roomPath = rid ? philifeAppPaths.meetingOpenChatRoom(meetingId, rid) : hubPath;
+  const hubPath = philifeAppPaths.meetingGroupChat(meetingId);
+  const roomPath = rid ? philifeAppPaths.meetingGroupChatRoom(meetingId, rid) : hubPath;
 
   if (hub.isPending || hub.isRestricted) {
     return { action: "navigate", path: hubPath };

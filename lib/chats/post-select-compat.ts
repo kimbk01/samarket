@@ -30,7 +30,7 @@ export async function fetchPostRowForChat(
     .maybeSingle();
   if (error && isMissingSellerListingColumnError(error.message)) {
     const r2 = await sbAny.from("posts").select(POST_COLUMNS_CHAT_SAFE).eq("id", pid).maybeSingle();
-    data = r2.data;
+    data = (r2.data ?? null) as unknown as typeof data;
     error = r2.error;
   }
   if (error) return null;
@@ -47,7 +47,7 @@ export async function fetchPostRowsForChatIn(
   let { data, error } = await sbAny.from("posts").select(POST_COLUMNS_CHAT_PREFERRED).in("id", ids);
   if (error && isMissingSellerListingColumnError(error.message)) {
     const r2 = await sbAny.from("posts").select(POST_COLUMNS_CHAT_SAFE).in("id", ids);
-    data = r2.data;
+    data = (r2.data ?? null) as unknown as typeof data;
     error = r2.error;
   }
   if (error || !Array.isArray(data)) return [];

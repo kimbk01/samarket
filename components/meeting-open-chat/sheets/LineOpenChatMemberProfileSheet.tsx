@@ -42,6 +42,7 @@ const REPORT_OPTIONS: { value: MeetingOpenChatReportReason; label: string }[] = 
 export function LineOpenChatMemberProfileSheet({
   meetingId,
   roomId,
+  apiRoomBase,
   memberId,
   initial,
   viewerMemberId,
@@ -52,6 +53,8 @@ export function LineOpenChatMemberProfileSheet({
 }: {
   meetingId: string;
   roomId: string;
+  /** 예: `/api/.../rooms/{roomId}` — 생략 시 meeting-open-chat API */
+  apiRoomBase?: string;
   memberId: string | null;
   initial: MeetingOpenChatParticipantPublic | null;
   viewerMemberId: string | null;
@@ -68,7 +71,9 @@ export function LineOpenChatMemberProfileSheet({
   const [reportReason, setReportReason] = useState<MeetingOpenChatReportReason>("spam");
   const [reportDetail, setReportDetail] = useState("");
 
-  const base = `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(roomId)}`;
+  const base =
+    (apiRoomBase?.replace(/\/$/, "") ??
+      `/api/community/meetings/${encodeURIComponent(meetingId)}/meeting-open-chat/rooms/${encodeURIComponent(roomId)}`) as string;
 
   const loadProfile = useCallback(async () => {
     if (!memberId) return;
