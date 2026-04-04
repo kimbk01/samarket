@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import type {
@@ -40,6 +40,9 @@ function normalizeTab(value: string | null): CommunityMessengerTab {
 
 export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) {
   const router = useRouter();
+  const friendSearchRef = useRef<HTMLInputElement | null>(null);
+  const discoverableGroupsRef = useRef<HTMLElement | null>(null);
+  const callHistoryRef = useRef<HTMLElement | null>(null);
   const [activeTab, setActiveTab] = useState<CommunityMessengerTab>(normalizeTab(initialTab ?? null));
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(null);
   const [loading, setLoading] = useState(true);
@@ -546,6 +549,66 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     () => (data?.calls ?? []).filter((call) => call.status === "ended").length,
     [data?.calls]
   );
+  const heroContent = useMemo(() => {
+    switch (activeTab) {
+      case "groups":
+        return {
+          eyebrow: "그룹 허브",
+          title: "그룹방 생성과 입장을 한곳에서 처리하세요",
+          description: "상단 CTA에서 바로 만들고, 아래 목록에서 공개 그룹 탐색과 입장까지 이어집니다.",
+          primaryLabel: "그룹방 만들기",
+          secondaryLabel: "공개 그룹 찾기",
+          onPrimary: () => setGroupCreateStep("select"),
+          onSecondary: () => discoverableGroupsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        };
+      case "friends":
+        return {
+          eyebrow: "친구 허브",
+          title: "친구를 찾고 바로 대화로 연결하세요",
+          description: "검색, 요청, 팔로우를 한 흐름에 두고 실제 시작 행동이 바로 이어지도록 정리했습니다.",
+          primaryLabel: "친구 찾기",
+          secondaryLabel: "그룹 만들기",
+          onPrimary: () => friendSearchRef.current?.focus(),
+          onSecondary: () => {
+            setTab("groups");
+            requestAnimationFrame(() => setGroupCreateStep("select"));
+          },
+        };
+      case "calls":
+        return {
+          eyebrow: "통화 허브",
+          title: "통화 상태와 기록을 빠르게 확인하세요",
+          description: "부재중, 그룹 통화, 최근 완료 내역을 보고 바로 기록 목록으로 이어집니다.",
+          primaryLabel: "통화 기록 보기",
+          secondaryLabel: "그룹 탭 가기",
+          onPrimary: () => callHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          onSecondary: () => setTab("groups"),
+        };
+      case "chats":
+        return {
+          eyebrow: "1:1 채팅",
+          title: "친구와 바로 대화를 시작하세요",
+          description: "대화 목록은 유지하고, 새 대화는 친구 탭 CTA로 이어지게 구성했습니다.",
+          primaryLabel: "친구 목록 열기",
+          secondaryLabel: "그룹 탭 가기",
+          onPrimary: () => setTab("friends"),
+          onSecondary: () => setTab("groups"),
+        };
+      default:
+        return {
+          eyebrow: "SAMarket 메신저",
+          title: "친구, 그룹, 통화를 한곳에서 관리하세요",
+          description: "거래 채팅과 주문 채팅은 분리 유지하고, 커뮤니티 메신저만 별도 축으로 운영합니다.",
+          primaryLabel: "친구 찾기",
+          secondaryLabel: "그룹 만들기",
+          onPrimary: () => friendSearchRef.current?.focus(),
+          onSecondary: () => {
+            setTab("groups");
+            requestAnimationFrame(() => setGroupCreateStep("select"));
+          },
+        };
+    }
+  }, [activeTab, setTab]);
 
   const removeFriend = useCallback(
     async (friendUserId: string) => {
@@ -569,17 +632,33 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       <section className="rounded-[24px] bg-[#06C755] px-5 py-5 text-white shadow-[0_18px_44px_rgba(6,199,85,0.22)]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[13px] font-medium text-white/80">SAMarket 메신저</p>
-            <h1 className="mt-1 text-[24px] font-semibold leading-tight">친구, 그룹, 통화를 한곳에서 관리하세요</h1>
-            <p className="mt-2 text-[13px] leading-5 text-white/85">
-              거래 채팅과 주문 채팅은 분리 유지하고, 커뮤니티 메신저만 별도 축으로 운영합니다.
-            </p>
+            <p className="text-[13px] font-medium text-white/80">{heroContent.eyebrow}</p>
+            <h1 className="mt-1 text-[24px] font-semibold leading-tight">{heroContent.title}</h1>
+            <p className="mt-2 text-[13px] leading-5 text-white/85">{heroContent.description}</p>
           </div>
           <div className="rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold">
             {data?.me?.label ?? "메신저"}
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={heroContent.onPrimary}
+            className="rounded-2xl bg-white px-4 py-3 text-left text-[#06C755] transition hover:bg-white/90"
+          >
+            <p className="text-[11px] text-[#06C755]/70">바로 실행</p>
+            <p className="mt-1 text-[15px] font-semibold">{heroContent.primaryLabel}</p>
+          </button>
+          <button
+            type="button"
+            onClick={heroContent.onSecondary}
+            className="rounded-2xl bg-white/14 px-4 py-3 text-left transition hover:bg-white/20"
+          >
+            <p className="text-[11px] text-white/70">빠른 이동</p>
+            <p className="mt-1 text-[15px] font-semibold">{heroContent.secondaryLabel}</p>
+          </button>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <Link
             href="/mypage/trade/chat"
             className="rounded-2xl bg-white/14 px-4 py-3 text-left transition hover:bg-white/20"
@@ -650,6 +729,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
             <div className="flex gap-2">
               <input
+                ref={friendSearchRef}
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
                 placeholder="닉네임 또는 아이디로 친구 찾기"
@@ -870,19 +950,28 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
 
       {!loading && data && activeTab === "groups" ? (
         <div className="space-y-4">
-          <section className="rounded-2xl border border-gray-200 bg-white p-4">
+          <section className="sticky top-[72px] z-[5] rounded-2xl border border-gray-200 bg-white/95 p-4 backdrop-blur">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-[16px] font-semibold text-gray-900">그룹방 만들기</h2>
-                <p className="mt-1 text-[13px] text-gray-500">카카오톡/라인처럼 상단 버튼에서 바로 생성 플로우를 시작합니다.</p>
+                <p className="mt-1 text-[13px] text-gray-500">생성 CTA와 탐색 CTA를 같은 헤드 톤에서 바로 실행할 수 있게 정리했습니다.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setGroupCreateStep("select")}
-                className="shrink-0 rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
-              >
-                그룹방 만들기
-              </button>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => discoverableGroupsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  className="rounded-xl border border-gray-200 px-4 py-3 text-[13px] font-semibold text-gray-700"
+                >
+                  공개 그룹 찾기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupCreateStep("select")}
+                  className="rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+                >
+                  그룹방 만들기
+                </button>
+              </div>
             </div>
           </section>
 
@@ -911,7 +1000,11 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
             )}
           </InfoSection>
 
-          <InfoSection title="공개 그룹 찾기" subtitle="방 정책을 보고 입장 전에 미리보기, 실명/별칭 선택, 비밀번호 입력까지 처리합니다.">
+          <InfoSection
+            title="공개 그룹 찾기"
+            subtitle="방 정책을 보고 입장 전에 미리보기, 실명/별칭 선택, 비밀번호 입력까지 처리합니다."
+            sectionRef={discoverableGroupsRef}
+          >
             <input
               value={openGroupSearch}
               onChange={(e) => setOpenGroupSearch(e.target.value)}
@@ -936,7 +1029,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
 
       {!loading && data && activeTab === "calls" ? (
         <div className="space-y-4">
-          <section className="grid grid-cols-2 gap-2">
+          <section ref={callHistoryRef} className="grid grid-cols-2 gap-2">
             <CallSummaryCard label="부재중" value={missedCallCount} tone="red" />
             <CallSummaryCard label="그룹 통화" value={groupCallCount} tone="sky" />
             <CallSummaryCard label="1:1 통화" value={directCallCount} tone="slate" />
@@ -1435,14 +1528,16 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
 function InfoSection({
   title,
   subtitle,
+  sectionRef,
   children,
 }: {
   title: string;
   subtitle: string;
+  sectionRef?: { current: HTMLElement | null };
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-4">
+    <section ref={sectionRef} className="rounded-2xl border border-gray-200 bg-white p-4">
       <div className="mb-3">
         <h2 className="text-[16px] font-semibold text-gray-900">{title}</h2>
         <p className="mt-1 text-[13px] text-gray-500">{subtitle}</p>
@@ -1634,7 +1729,7 @@ function DiscoverableOpenGroupCard({
             disabled={busy}
             className="mt-3 rounded-xl bg-[#06C755] px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
           >
-            {busy ? "입장 중..." : group.isJoined ? "다시 입장" : "입장"}
+            {busy ? "확인 중..." : group.isJoined ? "다시 입장" : "입장 설정 확인"}
           </button>
         </div>
       </div>

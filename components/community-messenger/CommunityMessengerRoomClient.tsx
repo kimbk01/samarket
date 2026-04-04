@@ -98,6 +98,7 @@ export function CommunityMessengerRoomClient({
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
   const isOwner = snapshot?.myRole === "owner";
+  const roomTypeLabel = isOpenGroupRoom ? "공개 그룹" : isPrivateGroupRoom ? "비공개 그룹" : "1:1 대화";
 
   const getRoomActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
@@ -330,20 +331,36 @@ export function CommunityMessengerRoomClient({
             <button
               type="button"
               onClick={() => router.replace(`/community-messenger?tab=${isGroupRoom ? "groups" : "chats"}`)}
-              className="mb-2 text-[12px] text-gray-500"
+              className="mb-2 rounded-full bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-gray-600"
             >
               이전으로
             </button>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[#06C755]/10 px-2.5 py-1 text-[11px] font-semibold text-[#06C755]">
+                SAMarket 메신저
+              </span>
+              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-700">
+                {roomTypeLabel}
+              </span>
+              {isOpenGroupRoom ? (
+                <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700">
+                  {snapshot.room.identityPolicy === "alias_allowed" ? "별칭 허용" : "실명 기반"}
+                </span>
+              ) : null}
+            </div>
             <h1 className="truncate text-[18px] font-semibold text-gray-900">{snapshot.room.title}</h1>
-            <p className="mt-1 truncate text-[12px] text-gray-500">{snapshot.room.description}</p>
+            <p className="mt-1 truncate text-[12px] text-gray-500">
+              {snapshot.room.description || (isGroupRoom ? `${snapshot.room.memberCount}명 참여 중인 대화방` : "친구와 나누는 대화")}
+            </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <button
               type="button"
-              onClick={() => void reportTarget({ reportType: "room" })}
-              className="rounded-full bg-white px-3 py-2 text-[12px] font-semibold text-red-600 shadow-sm ring-1 ring-red-200"
+              onClick={() => void call.openPreview("video")}
+              disabled={roomUnavailable}
+              className="rounded-full bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-40"
             >
-              신고
+              영상 통화
             </button>
             <button
               type="button"
@@ -355,11 +372,10 @@ export function CommunityMessengerRoomClient({
             </button>
             <button
               type="button"
-              onClick={() => void call.openPreview("video")}
-              disabled={roomUnavailable}
-              className="rounded-full bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
+              onClick={() => void reportTarget({ reportType: "room" })}
+              className="rounded-full bg-white px-3 py-2 text-[12px] font-semibold text-red-600 shadow-sm ring-1 ring-red-200"
             >
-              영상
+              신고
             </button>
           </div>
         </div>
