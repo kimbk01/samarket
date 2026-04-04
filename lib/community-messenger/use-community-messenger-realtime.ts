@@ -30,6 +30,40 @@ function createRefreshScheduler(callbackRef: MutableRefObject<() => void>) {
   return { schedule, cancel };
 }
 
+type CommunityMessengerRoomRealtimeMessageRow = {
+  id: string;
+  roomId: string;
+  senderId: string | null;
+  messageType: "text" | "image" | "system" | "call_stub";
+  content: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
+type CommunityMessengerRoomRealtimeMessageEvent = {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  message: CommunityMessengerRoomRealtimeMessageRow;
+};
+
+function mapRealtimeMessageRow(row: Record<string, unknown> | undefined): CommunityMessengerRoomRealtimeMessageRow | null {
+  if (!row) return null;
+  const id = typeof row.id === "string" ? row.id : "";
+  const roomId = typeof row.room_id === "string" ? row.room_id : "";
+  if (!id || !roomId) return null;
+  return {
+    id,
+    roomId,
+    senderId: typeof row.sender_id === "string" ? row.sender_id : null,
+    messageType:
+      row.message_type === "image" || row.message_type === "system" || row.message_type === "call_stub"
+        ? row.message_type
+        : "text",
+    content: typeof row.content === "string" ? row.content : "",
+    metadata: typeof row.metadata === "object" && row.metadata !== null ? (row.metadata as Record<string, unknown>) : {},
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
+  };
+}
+
 export function useCommunityMessengerHomeRealtime(args: {
   userId: string | null;
   roomIds?: string[];
@@ -189,8 +223,14 @@ export function useCommunityMessengerRoomRealtime(args: {
   roomId: string | null;
   enabled: boolean;
   onRefresh: () => void;
+  onMessageEvent?: (event: CommunityMessengerRoomRealtimeMessageEvent) => void;
 }) {
   const callbackRef = useStableCallback(args.onRefresh);
+  const messageCallbackRef = useRef(args.onMessageEvent);
+
+  useEffect(() => {
+    messageCallbackRef.current = args.onMessageEvent;
+  }, [args.onMessageEvent]);
 
   useEffect(() => {
     if (!args.enabled || !args.roomId) return;
@@ -215,7 +255,19 @@ export function useCommunityMessengerRoomRealtime(args: {
           table: "community_messenger_messages",
           filter: `room_id=eq.${args.roomId}`,
         },
-        () => {
+        (payload) => {
+          const eventType = payload.eventType;
+          const nextMessage =
+            eventType === "DELETE"
+              ? mapRealtimeMessageRow(payload.old as Record<string, unknown> | undefined)
+              : mapRealtimeMessageRow(payload.new as Record<string, unknown> | undefined);
+          if (nextMessage && messageCallbackRef.current) {
+            messageCallbackRef.current({
+              eventType,
+              message: nextMessage,
+            });
+            return;
+          }
           if (!cancelled) refreshScheduler.schedule();
         }
       )

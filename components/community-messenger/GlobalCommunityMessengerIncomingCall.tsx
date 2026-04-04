@@ -9,12 +9,7 @@ import {
   isCommunityMessengerIncomingCallBannerEnabled,
   isCommunityMessengerIncomingCallSoundEnabled,
 } from "@/lib/community-messenger/preferences";
-import {
-  getCommunityMessengerPermissionGuide,
-  primeCommunityMessengerDevicePermission,
-} from "@/lib/community-messenger/call-permission";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
-import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -190,13 +185,6 @@ export function GlobalCommunityMessengerIncomingCall() {
   const acceptCall = useCallback(async (session: CommunityMessengerCallSession) => {
     setBusyId(`accept:${session.id}`);
     try {
-      try {
-        await primeCommunityMessengerDevicePermission(session.callKind);
-      } catch (error) {
-        alert(
-          `${getCommunityMessengerMediaErrorMessage(error, session.callKind)}\n\n${getCommunityMessengerPermissionGuide(session.callKind).description}`
-        );
-      }
       router.push(
         `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`
       );

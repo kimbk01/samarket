@@ -126,6 +126,7 @@ export function useCommunityMessengerCall(args: {
   const sessionCleanupTimerRef = useRef<number | null>(null);
   const autoRetryTimerRef = useRef<number | null>(null);
   const autoRetryAttemptRef = useRef(0);
+  const locallyClosedSessionIdRef = useRef<string | null>(null);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
 
@@ -214,16 +215,23 @@ export function useCommunityMessengerCall(args: {
     const activeCall = args.activeCall;
     if (!activeCall) {
       if (panel?.sessionId) {
+        if (locallyClosedSessionIdRef.current === panel.sessionId) {
+          locallyClosedSessionIdRef.current = null;
+          cleanupMedia();
+          setPanel(null);
+          return;
+        }
         clearPendingSessionCleanup();
         sessionCleanupTimerRef.current = window.setTimeout(() => {
           cleanupMedia();
           setPanel(null);
           sessionCleanupTimerRef.current = null;
-        }, 2500);
+        }, 350);
       }
       return;
     }
 
+    locallyClosedSessionIdRef.current = null;
     clearPendingSessionCleanup();
 
     if (activeCall.status === "ringing") {
@@ -646,6 +654,18 @@ export function useCommunityMessengerCall(args: {
     setErrorMessage(null);
   }, [cleanupMedia]);
 
+  const closeSessionImmediately = useCallback(
+    (sessionId: string | null) => {
+      if (sessionId) {
+        locallyClosedSessionIdRef.current = sessionId;
+      }
+      cleanupMedia();
+      setPanel(null);
+      setErrorMessage(null);
+    },
+    [cleanupMedia]
+  );
+
   const startOutgoingCall = useCallback(async (kind: CommunityMessengerCallKind) => {
     if (!args.peerUserId) return;
     setBusy("call-start");
@@ -704,23 +724,23 @@ export function useCommunityMessengerCall(args: {
 
   const rejectIncomingCall = useCallback(async () => {
     if (!args.activeCall?.id) return;
+    const sessionId = args.activeCall.id;
     setBusy("call-reject");
+    closeSessionImmediately(sessionId);
     try {
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(args.activeCall.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
-      });
-      if (args.peerUserId) {
-        await sendSignal(args.activeCall.id, args.peerUserId, "hangup", { reason: "reject" });
-      }
-      cleanupMedia();
-      setPanel(null);
+      await Promise.allSettled([
+        fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reject" }),
+        }),
+        args.peerUserId ? sendSignal(sessionId, args.peerUserId, "hangup", { reason: "reject" }) : Promise.resolve(),
+      ]);
       await args.onRefresh();
     } finally {
       setBusy(null);
     }
-  }, [args, cleanupMedia, sendSignal]);
+  }, [args, closeSessionImmediately, sendSignal]);
 
   const acceptIncomingCall = useCallback(async () => {
     const activeCall = args.activeCall;
@@ -787,42 +807,44 @@ export function useCommunityMessengerCall(args: {
     const sessionId = currentSessionId;
     if (!sessionId || !args.peerUserId) return;
     setBusy("call-cancel");
+    closeSessionImmediately(sessionId);
     try {
-      await sendSignal(sessionId, args.peerUserId, "hangup", { reason: "cancel" });
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
-      });
-      cleanupMedia();
-      setPanel(null);
+      await Promise.allSettled([
+        sendSignal(sessionId, args.peerUserId, "hangup", { reason: "cancel" }),
+        fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "cancel" }),
+        }),
+      ]);
       await args.onRefresh();
     } finally {
       setBusy(null);
     }
-  }, [args.onRefresh, args.peerUserId, cleanupMedia, currentSessionId, sendSignal]);
+  }, [args.onRefresh, args.peerUserId, closeSessionImmediately, currentSessionId, sendSignal]);
 
   const endActiveCall = useCallback(async () => {
     const sessionId = currentSessionId;
     if (!sessionId || !args.peerUserId) return;
     setBusy("call-end");
+    closeSessionImmediately(sessionId);
     try {
-      await sendSignal(sessionId, args.peerUserId, "hangup", { reason: "end" });
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "end",
-          durationSeconds: elapsedSeconds,
+      await Promise.allSettled([
+        sendSignal(sessionId, args.peerUserId, "hangup", { reason: "end" }),
+        fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "end",
+            durationSeconds: elapsedSeconds,
+          }),
         }),
-      });
-      cleanupMedia();
-      setPanel(null);
+      ]);
       await args.onRefresh();
     } finally {
       setBusy(null);
     }
-  }, [args.onRefresh, args.peerUserId, cleanupMedia, currentSessionId, elapsedSeconds, sendSignal]);
+  }, [args.onRefresh, args.peerUserId, closeSessionImmediately, currentSessionId, elapsedSeconds, sendSignal]);
 
   const retryConnection = useCallback(async () => {
     const sessionId = currentSessionId;
@@ -909,6 +931,7 @@ export function useCommunityMessengerCall(args: {
     connectionBadge,
     prepareDevices,
     dismissPanel,
+    closeSessionImmediately,
     startOutgoingCall,
     acceptIncomingCall,
     rejectIncomingCall,

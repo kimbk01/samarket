@@ -2609,7 +2609,7 @@ export async function sendCommunityMessengerMessage(input: {
   userId: string;
   roomId: string;
   content: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
   const roomId = trimText(input.roomId);
   const content = trimText(input.content);
   if (!roomId || !content) return { ok: false, error: "content_required" };
@@ -2635,15 +2635,19 @@ export async function sendCommunityMessengerMessage(input: {
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
     const createdAt = nowIso();
-    const { error: insertError } = await (sb as any).from("community_messenger_messages").insert({
-      room_id: roomId,
-      sender_id: input.userId,
-      message_type: "text",
-      content,
-      metadata: {},
-      created_at: createdAt,
-    });
-    if (!insertError) {
+    const { data: insertedMessage, error: insertError } = await (sb as any)
+      .from("community_messenger_messages")
+      .insert({
+        room_id: roomId,
+        sender_id: input.userId,
+        message_type: "text",
+        content,
+        metadata: {},
+        created_at: createdAt,
+      })
+      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+      .single();
+    if (!insertError && insertedMessage) {
       await (sb as any)
         .from("community_messenger_rooms")
         .update({
@@ -2672,7 +2676,21 @@ export async function sendCommunityMessengerMessage(input: {
             .eq("id", participant.id)
         )
       );
-      return { ok: true };
+      return {
+        ok: true,
+        message: {
+          id: String((insertedMessage as { id?: unknown }).id ?? ""),
+          roomId,
+          senderId: input.userId,
+          senderLabel: "나",
+          messageType: "text",
+          content,
+          createdAt,
+          isMine: true,
+          callKind: null,
+          callStatus: null,
+        },
+      };
     }
     if (!isMissingTableError(insertError)) {
       return { ok: false, error: String(insertError.message ?? "message_send_failed") };
@@ -2691,8 +2709,9 @@ export async function sendCommunityMessengerMessage(input: {
   if (room.roomStatus === "archived") return { ok: false, error: "room_archived" };
   if (room.isReadonly) return { ok: false, error: "room_readonly" };
   const createdAt = nowIso();
+  const messageId = randomUUID();
   dev.messages.push({
-    id: randomUUID(),
+    id: messageId,
     roomId,
     senderId: input.userId,
     messageType: "text",
@@ -2708,7 +2727,21 @@ export async function sendCommunityMessengerMessage(input: {
   for (const participant of dev.participants.filter((row) => row.roomId === roomId)) {
     participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
   }
-  return { ok: true };
+  return {
+    ok: true,
+    message: {
+      id: messageId,
+      roomId,
+      senderId: input.userId,
+      senderLabel: "나",
+      messageType: "text",
+      content,
+      createdAt,
+      isMine: true,
+      callKind: null,
+      callStatus: null,
+    },
+  };
 }
 
 export async function createCommunityMessengerCallLog(input: {

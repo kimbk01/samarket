@@ -68,12 +68,36 @@ export function CommunityMessengerRoomClient({
     void refresh();
   }, [refresh]);
 
+  const handleRealtimeMessageEvent = useCallback(
+    (event: {
+      eventType: "INSERT" | "UPDATE" | "DELETE";
+      message: {
+        id: string;
+        roomId: string;
+        senderId: string | null;
+        messageType: "text" | "image" | "system" | "call_stub";
+        content: string;
+        metadata: Record<string, unknown>;
+        createdAt: string;
+      };
+    }) => {
+      if (!snapshot) return;
+      if (event.eventType === "DELETE") {
+        setRoomMessages((prev) => prev.filter((item) => item.id !== event.message.id));
+        return;
+      }
+      setRoomMessages((prev) => mergeRoomMessages(prev, [mapRealtimeRoomMessage(snapshot, event.message)]));
+    },
+    [snapshot]
+  );
+
   useCommunityMessengerRoomRealtime({
     roomId,
     enabled: Boolean(roomId),
     onRefresh: () => {
       void refresh(true);
     },
+    onMessageEvent: handleRealtimeMessageEvent,
   });
 
   useEffect(() => {
@@ -316,16 +340,28 @@ export function CommunityMessengerRoomClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        message?: CommunityMessengerMessage;
+      };
       if (!res.ok || !json.ok) {
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         setMessage(content);
         alert(getRoomActionErrorMessage(json.error));
         return;
       }
-      setRoomMessages((prev) =>
-        prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item))
-      );
+      if (json.message) {
+        const confirmedMessage = json.message;
+        setRoomMessages((prev) =>
+          mergeRoomMessages(
+            prev.filter((item) => item.id !== tempId),
+            [confirmedMessage]
+          )
+        );
+        return;
+      }
+      setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
     } finally {
       setBusy(null);
     }
@@ -1189,6 +1225,18 @@ function mergeRoomMessages(
   prev: Array<CommunityMessengerMessage & { pending?: boolean }>,
   next: CommunityMessengerMessage[]
 ): Array<CommunityMessengerMessage & { pending?: boolean }> {
+  const mergedConfirmed = new Map<string, CommunityMessengerMessage & { pending?: boolean }>();
+  for (const item of prev) {
+    if (item.pending) continue;
+    mergedConfirmed.set(item.id, item);
+  }
+  for (const item of next) {
+    mergedConfirmed.set(item.id, {
+      ...mergedConfirmed.get(item.id),
+      ...item,
+      pending: false,
+    });
+  }
   const pending = prev.filter((item) => item.pending);
   const mergedPending = pending.filter((item) => {
     return !next.some(
@@ -1199,9 +1247,49 @@ function mergeRoomMessages(
         Math.abs(new Date(confirmedItem.createdAt).getTime() - new Date(item.createdAt).getTime()) < 15_000
     );
   });
-  return [...next, ...mergedPending].sort(
+  return [...mergedConfirmed.values(), ...mergedPending].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
+}
+
+function mapRealtimeRoomMessage(
+  snapshot: CommunityMessengerRoomSnapshot,
+  message: {
+    id: string;
+    roomId: string;
+    senderId: string | null;
+    messageType: "text" | "image" | "system" | "call_stub";
+    content: string;
+    metadata: Record<string, unknown>;
+    createdAt: string;
+  }
+): CommunityMessengerMessage {
+  const sender = message.senderId ? snapshot.members.find((member) => member.id === message.senderId) : null;
+  const callKind =
+    message.metadata.callKind === "video" || message.metadata.callKind === "voice"
+      ? message.metadata.callKind
+      : null;
+  const callStatus =
+    message.metadata.callStatus === "missed" ||
+    message.metadata.callStatus === "rejected" ||
+    message.metadata.callStatus === "cancelled" ||
+    message.metadata.callStatus === "ended" ||
+    message.metadata.callStatus === "incoming" ||
+    message.metadata.callStatus === "dialing"
+      ? message.metadata.callStatus
+      : null;
+  return {
+    id: message.id,
+    roomId: message.roomId,
+    senderId: message.senderId,
+    senderLabel: sender?.label ?? (message.senderId === snapshot.viewerUserId ? "나" : "상대"),
+    messageType: message.messageType,
+    content: message.content,
+    createdAt: message.createdAt,
+    isMine: message.senderId === snapshot.viewerUserId,
+    callKind,
+    callStatus,
+  };
 }
 
 function formatTime(value: string): string {
