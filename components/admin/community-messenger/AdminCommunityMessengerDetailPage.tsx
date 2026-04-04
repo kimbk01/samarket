@@ -316,12 +316,22 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         <div className="grid gap-3 md:grid-cols-2">
           <Info label="방 제목" value={room.title} />
           <Info label="방 ID" value={room.id} mono />
-          <Info label="유형" value={room.roomType === "group" ? "그룹" : "1:1"} />
+          <Info
+            label="유형"
+            value={room.roomType === "open_group" ? "공개 그룹" : room.roomType === "private_group" ? "비공개 그룹" : "1:1"}
+          />
           <Info label="상태" value={room.roomStatus} />
+          <Info label="공개 여부" value={room.visibility === "public" ? "public" : "private"} />
+          <Info label="입장 정책" value={room.joinPolicy} />
           <Info label="읽기 전용" value={room.isReadonly ? "ON" : "OFF"} />
           <Info label="생성자" value={room.createdByLabel} />
+          <Info label="방장" value={room.ownerLabel} />
           <Info label="참여자 수" value={`${room.memberCount}명`} />
+          <Info label="최대 인원" value={room.memberLimit ? `${room.memberLimit}명` : "-"} />
+          <Info label="목록 노출" value={room.isDiscoverable ? "ON" : "OFF"} />
+          <Info label="비밀번호 설정" value={room.requiresPassword ? "설정됨" : "없음"} />
           <Info label="최근 메시지 시간" value={formatDateTime(room.lastMessageAt)} />
+          <Info label="방 소개" value={room.summary || "-"} full />
           <Info label="최근 메시지" value={room.lastMessage} full />
           <Info label="운영 메모" value={room.adminNote || "-"} full />
           <Info label="최근 조치 관리자" value={room.moderatedByLabel} />

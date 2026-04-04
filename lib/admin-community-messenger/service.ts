@@ -31,10 +31,17 @@ type RoomRow = {
   id: string;
   room_type: CommunityMessengerRoomType;
   room_status: CommunityMessengerRoomStatus | null;
+  visibility?: "private" | "public" | null;
+  join_policy?: "invite_only" | "password" | null;
   is_readonly: boolean | null;
   title: string | null;
+  summary?: string | null;
   avatar_url: string | null;
   created_by: string | null;
+  owner_user_id?: string | null;
+  member_limit?: number | null;
+  is_discoverable?: boolean | null;
+  password_hash?: string | null;
   last_message: string | null;
   last_message_at: string | null;
   last_message_type: string | null;
@@ -152,11 +159,18 @@ export type AdminCommunityMessengerRoomSummary = {
   id: string;
   roomType: CommunityMessengerRoomType;
   roomStatus: CommunityMessengerRoomStatus;
+  visibility: "private" | "public";
+  joinPolicy: "invite_only" | "password";
   isReadonly: boolean;
   title: string;
+  summary: string;
   createdByLabel: string;
+  ownerLabel: string;
   memberCount: number;
   memberLabels: string[];
+  memberLimit: number | null;
+  isDiscoverable: boolean;
+  requiresPassword: boolean;
   lastMessage: string;
   lastMessageAt: string;
   lastMessageType: string;
@@ -292,6 +306,8 @@ export type AdminCommunityMessengerDashboard = {
     readonlyRooms: number;
     directRooms: number;
     groupRooms: number;
+    privateGroupRooms: number;
+    openGroupRooms: number;
     pendingRequests: number;
     totalCalls: number;
     activeCallSessions: number;
@@ -356,7 +372,7 @@ async function getRoomsAndParticipants(limit = 200): Promise<{
   const { data: rooms } = await (sb() as any)
     .from("community_messenger_rooms")
     .select(
-      "id, room_type, room_status, is_readonly, title, avatar_url, created_by, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at"
+      "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, password_hash, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at"
     )
     .order("last_message_at", { ascending: false })
     .limit(limit);
@@ -381,15 +397,26 @@ function mapRoomSummary(
     labelForProfile(profileMap.get(participant.user_id), participant.user_id)
   );
   const directTitle = room.room_type === "direct" ? memberLabels.slice(0, 2).join(", ") || "1:1 채팅" : "";
+  const ownerUserId = t(room.owner_user_id) || t(room.created_by) || "";
   return {
     id: room.id,
     roomType: room.room_type,
     roomStatus: roomStatus(room.room_status),
+    visibility: room.visibility === "public" ? "public" : "private",
+    joinPolicy: room.join_policy === "password" ? "password" : "invite_only",
     isReadonly: room.is_readonly === true,
-    title: t(room.title) || directTitle || `그룹 ${participants.length}명`,
+    title:
+      t(room.title) ||
+      directTitle ||
+      (room.room_type === "open_group" ? "공개 그룹" : room.room_type === "private_group" ? `비공개 그룹 ${participants.length}명` : "1:1 채팅"),
+    summary: t(room.summary),
     createdByLabel: room.created_by ? labelForProfile(profileMap.get(room.created_by), room.created_by) : "-",
+    ownerLabel: ownerUserId ? labelForProfile(profileMap.get(ownerUserId), ownerUserId) : "-",
     memberCount: participants.length,
     memberLabels,
+    memberLimit: room.member_limit ?? null,
+    isDiscoverable: room.is_discoverable === true,
+    requiresPassword: t(room.password_hash).length > 0,
     lastMessage: t(room.last_message) || "-",
     lastMessageAt: t(room.last_message_at) || t(room.created_at),
     lastMessageType: t(room.last_message_type) || "system",
@@ -686,7 +713,9 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
       archivedRooms: roomSummaries.filter((room) => room.roomStatus === "archived").length,
       readonlyRooms: roomSummaries.filter((room) => room.isReadonly).length,
       directRooms: roomSummaries.filter((room) => room.roomType === "direct").length,
-      groupRooms: roomSummaries.filter((room) => room.roomType === "group").length,
+      groupRooms: roomSummaries.filter((room) => room.roomType !== "direct").length,
+      privateGroupRooms: roomSummaries.filter((room) => room.roomType === "private_group").length,
+      openGroupRooms: roomSummaries.filter((room) => room.roomType === "open_group").length,
       pendingRequests: requests.filter((request) => request.status === "pending").length,
       totalCalls: calls.length,
       activeCallSessions: activeCalls.length,
@@ -712,7 +741,7 @@ export async function getAdminCommunityMessengerRoomDetail(
   const { data: roomData } = await (sb() as any)
     .from("community_messenger_rooms")
     .select(
-      "id, room_type, room_status, is_readonly, title, avatar_url, created_by, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at"
+      "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, password_hash, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at"
     )
     .eq("id", roomId)
     .maybeSingle();

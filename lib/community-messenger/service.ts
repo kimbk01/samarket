@@ -1,17 +1,21 @@
 import { randomUUID } from "crypto";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
+import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallKind,
   CommunityMessengerCallLog,
   CommunityMessengerCallParticipant,
   CommunityMessengerCallParticipantStatus,
+  CommunityMessengerDiscoverableGroupSummary,
   CommunityMessengerCallSessionMode,
   CommunityMessengerCallSession,
   CommunityMessengerCallSessionStatus,
   CommunityMessengerCallSignal,
   CommunityMessengerCallSignalType,
+  CommunityMessengerRoomJoinPolicy,
   CommunityMessengerCallStatus,
   CommunityMessengerFriendRequest,
   CommunityMessengerFriendRequestStatus,
@@ -21,6 +25,7 @@ import type {
   CommunityMessengerRoomStatus,
   CommunityMessengerRoomSummary,
   CommunityMessengerRoomType,
+  CommunityMessengerRoomVisibility,
 } from "@/lib/community-messenger/types";
 
 type SupabaseLike = ReturnType<typeof getSupabaseServer>;
@@ -44,10 +49,18 @@ type RoomRow = {
   id: string;
   room_type: CommunityMessengerRoomType;
   room_status?: CommunityMessengerRoomStatus | null;
+  visibility?: CommunityMessengerRoomVisibility | null;
+  join_policy?: CommunityMessengerRoomJoinPolicy | null;
   is_readonly?: boolean | null;
   title: string | null;
+  summary?: string | null;
   avatar_url: string | null;
   created_by: string | null;
+  owner_user_id?: string | null;
+  member_limit?: number | null;
+  is_discoverable?: boolean | null;
+  allow_member_invite?: boolean | null;
+  password_hash?: string | null;
   last_message: string | null;
   last_message_at: string | null;
   last_message_type: string | null;
@@ -133,10 +146,18 @@ type DevRoom = {
   id: string;
   roomType: CommunityMessengerRoomType;
   roomStatus: CommunityMessengerRoomStatus;
+  visibility: CommunityMessengerRoomVisibility;
+  joinPolicy: CommunityMessengerRoomJoinPolicy;
   isReadonly: boolean;
   title: string;
+  summary: string;
   avatarUrl: string | null;
   createdBy: string;
+  ownerUserId: string;
+  memberLimit: number | null;
+  isDiscoverable: boolean;
+  allowMemberInvite: boolean;
+  passwordHash: string | null;
   directKey: string | null;
   lastMessage: string;
   lastMessageAt: string;
@@ -268,6 +289,16 @@ function dedupeIds(values: Iterable<string>): string[] {
 
 function normalizeRoomStatus(value: unknown): CommunityMessengerRoomStatus {
   return value === "blocked" || value === "archived" ? value : "active";
+}
+
+function normalizeRoomVisibility(value: unknown, roomType: CommunityMessengerRoomType): CommunityMessengerRoomVisibility {
+  if (value === "public") return "public";
+  return roomType === "open_group" ? "public" : "private";
+}
+
+function normalizeRoomJoinPolicy(value: unknown, roomType: CommunityMessengerRoomType): CommunityMessengerRoomJoinPolicy {
+  if (value === "password") return "password";
+  return roomType === "open_group" ? "password" : "invite_only";
 }
 
 function isTerminalCallSessionStatus(value: unknown): value is Exclude<CommunityMessengerCallSessionStatus, "ringing" | "active"> {
@@ -550,35 +581,64 @@ async function mapRoomSummary(
   const isDbRoom = "room_type" in room;
   const roomType = (isDbRoom ? room.room_type : room.roomType) as CommunityMessengerRoomType;
   const roomStatus = normalizeRoomStatus(isDbRoom ? room.room_status : room.roomStatus);
+  const visibility = normalizeRoomVisibility(isDbRoom ? room.visibility : room.visibility, roomType);
+  const joinPolicy = normalizeRoomJoinPolicy(isDbRoom ? room.join_policy : room.joinPolicy, roomType);
   const isReadonly = isDbRoom ? room.is_readonly === true : room.isReadonly;
   const roomTitle = trimText(isDbRoom ? room.title : room.title);
+  const roomSummary = trimText(isDbRoom ? room.summary : room.summary);
   const roomAvatar = trimText(isDbRoom ? room.avatar_url : room.avatarUrl) || null;
   const roomLastMessage = trimText(isDbRoom ? room.last_message : room.lastMessage);
   const roomLastAt = trimText(isDbRoom ? room.last_message_at : room.lastMessageAt) || nowIso();
+  const ownerUserId = trimText(isDbRoom ? room.owner_user_id : room.ownerUserId) || trimText(isDbRoom ? room.created_by : room.createdBy) || null;
+  const memberLimitRaw = isDbRoom ? room.member_limit : room.memberLimit;
+  const memberLimit = typeof memberLimitRaw === "number" && Number.isFinite(memberLimitRaw) ? memberLimitRaw : null;
+  const isDiscoverable = isDbRoom ? room.is_discoverable === true : room.isDiscoverable;
+  const allowMemberInvite = isDbRoom ? room.allow_member_invite !== false : room.allowMemberInvite;
+  const requiresPassword =
+    joinPolicy === "password" &&
+    trimText(isDbRoom ? room.password_hash : room.passwordHash).length > 0;
   const me = participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === userId);
   const memberIds = dedupeIds(
     participants.map((item) => ("user_id" in item ? item.user_id : item.userId))
   );
   const peers = memberIds.filter((id) => id !== userId);
   const peerProfiles = await hydrateProfiles(userId, peers);
+  const memberProfiles = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+  const ownerLabel =
+    (ownerUserId ? memberProfiles.find((profile) => profile.id === ownerUserId)?.label : "") ||
+    (ownerUserId ? profileLabel(null, ownerUserId) : "-");
   const defaultDirectTitle = peerProfiles[0]?.label ?? "새 대화";
-  const title = roomType === "direct" ? defaultDirectTitle : roomTitle || `그룹 ${memberIds.length}명`;
+  const title =
+    roomType === "direct"
+      ? defaultDirectTitle
+      : roomTitle || (roomType === "open_group" ? "공개 그룹방" : `그룹 ${memberIds.length}명`);
   const subtitle =
     roomType === "direct"
       ? peerProfiles[0]?.subtitle ?? "친구와 나누는 대화"
-      : `${memberIds.length}명 참여 중`;
+      : roomType === "open_group"
+        ? `공개 그룹 · ${memberIds.length}명 참여 중`
+        : `${memberIds.length}명 참여 중`;
   return {
     id: roomId,
     roomType,
     roomStatus,
+    visibility,
+    joinPolicy,
     isReadonly,
     title,
     subtitle,
+    summary: roomSummary,
     avatarUrl: roomAvatar || peerProfiles[0]?.avatarUrl || null,
     unreadCount: Math.max(0, Number(("unread_count" in (me ?? {}) ? (me as ParticipantRow).unread_count : (me as DevParticipant | undefined)?.unreadCount) ?? 0)),
-    lastMessage: roomLastMessage || (roomType === "group" ? "그룹 대화를 시작해 보세요." : "메시지를 보내 보세요."),
+    lastMessage: roomLastMessage || (roomType === "direct" ? "메시지를 보내 보세요." : "그룹 대화를 시작해 보세요."),
     lastMessageAt: roomLastAt,
     memberCount: memberIds.length,
+    ownerUserId,
+    ownerLabel,
+    memberLimit,
+    isDiscoverable,
+    requiresPassword,
+    allowMemberInvite,
     peerUserId: roomType === "direct" ? peers[0] ?? null : null,
   };
 }
@@ -602,7 +662,9 @@ async function listRooms(userId: string): Promise<{
         const [{ data: rooms }, { data: participants }] = await Promise.all([
           (sb as any)
             .from("community_messenger_rooms")
-            .select("id, room_type, room_status, is_readonly, title, avatar_url, created_by, last_message, last_message_at, last_message_type")
+            .select(
+              "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+            )
             .in("id", roomIds)
             .order("last_message_at", { ascending: false }),
           (sb as any)
@@ -638,8 +700,103 @@ async function listRooms(userId: string): Promise<{
   );
   return {
     chats: summaries.filter((room) => room.roomType === "direct"),
-    groups: summaries.filter((room) => room.roomType === "group"),
+    groups: summaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType)),
   };
+}
+
+export async function listDiscoverableOpenGroupRooms(
+  userId: string,
+  query?: string
+): Promise<CommunityMessengerDiscoverableGroupSummary[]> {
+  const keyword = trimText(query).toLowerCase();
+  const sb = getSupabaseOrNull();
+  let roomRows: Array<RoomRow | DevRoom> = [];
+  let participantRows: Array<ParticipantRow | DevParticipant> = [];
+  let joinedRoomIds = new Set<string>();
+
+  if (sb) {
+    const [{ data: rooms, error: roomsError }, { data: participants }, { data: myParticipants }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select(
+          "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+        )
+        .eq("room_type", "open_group")
+        .eq("is_discoverable", true)
+        .order("last_message_at", { ascending: false })
+        .limit(50),
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, joined_at")
+        .limit(2000),
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("room_id")
+        .eq("user_id", userId),
+    ]);
+    if (!roomsError || !isMissingTableError(roomsError)) {
+      roomRows = (rooms ?? []) as RoomRow[];
+      const roomIds = new Set(roomRows.map((room) => room.id));
+      participantRows = ((participants ?? []) as ParticipantRow[]).filter((row) => roomIds.has(row.room_id));
+      joinedRoomIds = new Set(
+        ((myParticipants ?? []) as Array<{ room_id?: string | null }>)
+          .map((row) => trimText(row.room_id))
+          .filter(Boolean)
+      );
+    }
+  }
+
+  if (!roomRows.length) {
+    const dev = getDevState();
+    roomRows = dev.rooms
+      .filter((room) => room.roomType === "open_group" && room.isDiscoverable)
+      .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+    participantRows = dev.participants.filter((participant) =>
+      roomRows.some((room) => room.id === participant.roomId)
+    );
+    joinedRoomIds = new Set(
+      dev.participants.filter((participant) => participant.userId === userId).map((participant) => participant.roomId)
+    );
+  }
+
+  const byRoomId = new Map<string, Array<ParticipantRow | DevParticipant>>();
+  for (const participant of participantRows) {
+    const roomId = "room_id" in participant ? participant.room_id : participant.roomId;
+    const list = byRoomId.get(roomId) ?? [];
+    list.push(participant);
+    byRoomId.set(roomId, list);
+  }
+
+  const summaries = await Promise.all(
+    roomRows.map(async (room) => {
+      const summary = await mapRoomSummary(userId, room, byRoomId.get(room.id) ?? []);
+      if (summary.roomType !== "open_group") return null;
+      if (keyword) {
+        const haystack = [summary.title, summary.summary, summary.ownerLabel].join(" ").toLowerCase();
+        if (!haystack.includes(keyword)) return null;
+      }
+      return {
+        id: summary.id,
+        roomType: "open_group" as const,
+        roomStatus: summary.roomStatus,
+        visibility: "public" as const,
+        joinPolicy: "password" as const,
+        title: summary.title,
+        summary: summary.summary,
+        ownerUserId: summary.ownerUserId,
+        ownerLabel: summary.ownerLabel,
+        memberCount: summary.memberCount,
+        memberLimit: summary.memberLimit,
+        isDiscoverable: summary.isDiscoverable,
+        requiresPassword: summary.requiresPassword,
+        lastMessage: summary.lastMessage,
+        lastMessageAt: summary.lastMessageAt,
+        isJoined: joinedRoomIds.has(summary.id),
+      };
+    })
+  );
+
+  return summaries.filter(Boolean) as CommunityMessengerDiscoverableGroupSummary[];
 }
 
 async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
@@ -748,7 +905,9 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
         ? (session.session_mode ?? "direct")
         : session
           ? session.sessionMode
-          : (roomMeta?.roomType ?? "direct");
+          : roomMeta?.roomType && roomMeta.roomType !== "direct"
+            ? "group"
+            : "direct";
     const participants = sessionId ? participantsBySession.get(sessionId) ?? [] : [];
     const participantLabels = participants
       .filter((participant) => !participant.isMe)
@@ -1020,13 +1179,14 @@ async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): P
 export async function getCommunityMessengerBootstrap(
   userId: string
 ): Promise<CommunityMessengerBootstrap> {
-  const [me, friendIds, followingIds, blockedIds, requests, rooms, calls] = await Promise.all([
+  const [me, friendIds, followingIds, blockedIds, requests, rooms, discoverableGroups, calls] = await Promise.all([
     hydrateSelfProfile(userId),
     listAcceptedFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
     listFollowingIds(userId, "blocked"),
     listFriendRequests(userId),
     listRooms(userId),
+    listDiscoverableOpenGroupRooms(userId),
     listCalls(userId),
   ]);
 
@@ -1051,6 +1211,7 @@ export async function getCommunityMessengerBootstrap(
     requests,
     chats: rooms.chats,
     groups: rooms.groups,
+    discoverableGroups,
     calls,
   };
 }
@@ -1427,10 +1588,18 @@ export async function ensureCommunityMessengerDirectRoom(
     id: roomId,
     roomType: "direct",
     roomStatus: "active",
+    visibility: "private",
+    joinPolicy: "invite_only",
     isReadonly: false,
     title: "",
+    summary: "",
     avatarUrl: null,
     createdBy: userId,
+    ownerUserId: userId,
+    memberLimit: 2,
+    isDiscoverable: false,
+    allowMemberInvite: false,
+    passwordHash: null,
     directKey,
     lastMessage: "",
     lastMessageAt: createdAt,
@@ -1461,7 +1630,7 @@ export async function ensureCommunityMessengerDirectRoom(
   return { ok: true, roomId };
 }
 
-export async function createCommunityMessengerGroupRoom(input: {
+export async function createPrivateGroupRoom(input: {
   userId: string;
   title: string;
   memberIds: string[];
@@ -1476,11 +1645,17 @@ export async function createCommunityMessengerGroupRoom(input: {
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
       .insert({
-        room_type: "group",
-          room_status: "active",
-          is_readonly: false,
+        room_type: "private_group",
+        room_status: "active",
+        visibility: "private",
+        join_policy: "invite_only",
+        is_readonly: false,
         created_by: input.userId,
+        owner_user_id: input.userId,
         title,
+        summary: "",
+        is_discoverable: false,
+        allow_member_invite: true,
         last_message: "",
         last_message_type: "system",
       })
@@ -1514,12 +1689,20 @@ export async function createCommunityMessengerGroupRoom(input: {
   const createdAt = nowIso();
   dev.rooms.unshift({
     id: roomId,
-    roomType: "group",
+    roomType: "private_group",
     roomStatus: "active",
+    visibility: "private",
+    joinPolicy: "invite_only",
     isReadonly: false,
     title,
+    summary: "",
     avatarUrl: null,
     createdBy: input.userId,
+    ownerUserId: input.userId,
+    memberLimit: memberIds.length,
+    isDiscoverable: false,
+    allowMemberInvite: true,
+    passwordHash: null,
     directKey: null,
     lastMessage: "",
     lastMessageAt: createdAt,
@@ -1540,6 +1723,109 @@ export async function createCommunityMessengerGroupRoom(input: {
   return { ok: true, roomId };
 }
 
+export async function createOpenGroupRoom(input: {
+  userId: string;
+  title: string;
+  summary?: string;
+  password: string;
+  memberLimit?: number;
+  isDiscoverable?: boolean;
+}): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+  const title = trimText(input.title);
+  const summary = trimText(input.summary);
+  const password = trimText(input.password);
+  const memberLimit = Math.min(1000, Math.max(2, Math.floor(Number(input.memberLimit ?? 200) || 200)));
+  const isDiscoverable = input.isDiscoverable !== false;
+  if (!title) return { ok: false, error: "title_required" };
+  if (!password) return { ok: false, error: "password_required" };
+  const passwordHash = hashMeetingPassword(password);
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: room, error: roomError } = await (sb as any)
+      .from("community_messenger_rooms")
+      .insert({
+        room_type: "open_group",
+        room_status: "active",
+        visibility: "public",
+        join_policy: "password",
+        is_readonly: false,
+        created_by: input.userId,
+        owner_user_id: input.userId,
+        title,
+        summary,
+        password_hash: passwordHash,
+        member_limit: memberLimit,
+        is_discoverable: isDiscoverable,
+        allow_member_invite: false,
+        last_message: "",
+        last_message_type: "system",
+      })
+      .select("id")
+      .single();
+    if (!roomError) {
+      const roomId = room.id as string;
+      const { error: participantError } = await (sb as any).from("community_messenger_participants").insert({
+        room_id: roomId,
+        user_id: input.userId,
+        role: "owner",
+      });
+      if (!participantError) return { ok: true, roomId };
+      await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
+      return { ok: false, error: String(participantError.message ?? "open_group_participant_create_failed") };
+    }
+    if (!isMissingTableError(roomError)) {
+      return { ok: false, error: String(roomError.message ?? "open_group_create_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const roomId = randomUUID();
+  const createdAt = nowIso();
+  dev.rooms.unshift({
+    id: roomId,
+    roomType: "open_group",
+    roomStatus: "active",
+    visibility: "public",
+    joinPolicy: "password",
+    isReadonly: false,
+    title,
+    summary,
+    avatarUrl: null,
+    createdBy: input.userId,
+    ownerUserId: input.userId,
+    memberLimit,
+    isDiscoverable,
+    allowMemberInvite: false,
+    passwordHash,
+    directKey: null,
+    lastMessage: "",
+    lastMessageAt: createdAt,
+    lastMessageType: "system",
+  });
+  dev.participants.push({
+    id: randomUUID(),
+    roomId,
+    userId: input.userId,
+    role: "owner",
+    unreadCount: 0,
+    isMuted: false,
+    isPinned: false,
+    joinedAt: createdAt,
+  });
+  return { ok: true, roomId };
+}
+
+export async function createCommunityMessengerGroupRoom(input: {
+  userId: string;
+  title: string;
+  memberIds: string[];
+}): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+  return createPrivateGroupRoom(input);
+}
+
 export async function inviteCommunityMessengerGroupMembers(input: {
   userId: string;
   roomId: string;
@@ -1552,16 +1838,17 @@ export async function inviteCommunityMessengerGroupMembers(input: {
   if (sb) {
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_type, room_status, is_readonly")
+      .select("id, room_type, room_status, is_readonly, allow_member_invite")
       .eq("id", roomId)
       .maybeSingle();
     if (roomError && !isMissingTableError(roomError)) {
       return { ok: false, error: String(roomError.message ?? "room_lookup_failed") };
     }
-    if (room && room.room_type !== "group") return { ok: false, error: "not_group_room" };
+    if (room && room.room_type !== "private_group") return { ok: false, error: "not_group_room" };
     if (room && ((room.room_status ?? "active") !== "active" || room.is_readonly === true)) {
       return { ok: false, error: "room_unavailable" };
     }
+    if (room && room.allow_member_invite === false) return { ok: false, error: "forbidden" };
     const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
     if (!memberValidation.ok) return memberValidation;
     const { data: me } = await (sb as any)
@@ -1588,8 +1875,9 @@ export async function inviteCommunityMessengerGroupMembers(input: {
 
   const dev = getDevState();
   const room = dev.rooms.find((row) => row.id === roomId);
-  if (!room || room.roomType !== "group") return { ok: false, error: "not_group_room" };
+  if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
   if (room.roomStatus !== "active" || room.isReadonly) return { ok: false, error: "room_unavailable" };
+  if (!room.allowMemberInvite) return { ok: false, error: "forbidden" };
   const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
   if (!memberValidation.ok) return memberValidation;
   const me = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
@@ -1607,6 +1895,175 @@ export async function inviteCommunityMessengerGroupMembers(input: {
       joinedAt: nowIso(),
     });
   }
+  return { ok: true };
+}
+
+export async function joinOpenGroupRoomWithPassword(input: {
+  userId: string;
+  roomId: string;
+  password: string;
+}): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const password = trimText(input.password);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  if (!password) return { ok: false, error: "password_required" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: room, error: roomError } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select(
+        "id, room_type, room_status, is_readonly, title, summary, owner_user_id, member_limit, is_discoverable, password_hash"
+      )
+      .eq("id", roomId)
+      .maybeSingle();
+    if (roomError && !isMissingTableError(roomError)) {
+      return { ok: false, error: String(roomError.message ?? "room_lookup_failed") };
+    }
+    if (room) {
+      if (room.room_type !== "open_group") return { ok: false, error: "not_open_group_room" };
+      if ((room.room_status ?? "active") !== "active" || room.is_readonly === true) return { ok: false, error: "room_unavailable" };
+      if (!verifyMeetingPassword(password, room.password_hash)) return { ok: false, error: "invalid_password" };
+      const { count } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("id", { count: "exact", head: true })
+        .eq("room_id", roomId);
+      const memberLimit = Number(room.member_limit ?? 0);
+      if (memberLimit > 0 && Number(count ?? 0) >= memberLimit) return { ok: false, error: "room_full" };
+      const { error } = await (sb as any).from("community_messenger_participants").upsert(
+        {
+          room_id: roomId,
+          user_id: input.userId,
+          role: input.userId === room.owner_user_id ? "owner" : "member",
+        },
+        { onConflict: "room_id,user_id" }
+      );
+      if (!error) return { ok: true, roomId };
+      if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "join_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  if (!room || room.roomType !== "open_group") return { ok: false, error: "not_open_group_room" };
+  if (room.roomStatus !== "active" || room.isReadonly) return { ok: false, error: "room_unavailable" };
+  if (!verifyMeetingPassword(password, room.passwordHash)) return { ok: false, error: "invalid_password" };
+  const memberCount = dev.participants.filter((participant) => participant.roomId === roomId).length;
+  if (room.memberLimit && memberCount >= room.memberLimit) return { ok: false, error: "room_full" };
+  if (!dev.participants.some((participant) => participant.roomId === roomId && participant.userId === input.userId)) {
+    dev.participants.push({
+      id: randomUUID(),
+      roomId,
+      userId: input.userId,
+      role: input.userId === room.ownerUserId ? "owner" : "member",
+      unreadCount: 0,
+      isMuted: false,
+      isPinned: false,
+      joinedAt: nowIso(),
+    });
+  }
+  return { ok: true, roomId };
+}
+
+export async function updateOpenGroupRoomSettings(input: {
+  userId: string;
+  roomId: string;
+  title?: string;
+  summary?: string;
+  password?: string;
+  memberLimit?: number;
+  isDiscoverable?: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const title = trimText(input.title);
+  const summary = trimText(input.summary);
+  const password = trimText(input.password);
+  const sb = getSupabaseOrNull();
+  const patch: Record<string, unknown> = {
+    updated_at: nowIso(),
+  };
+  if (title) patch.title = title;
+  if (typeof input.summary === "string") patch.summary = summary;
+  if (password) patch.password_hash = hashMeetingPassword(password);
+  if (typeof input.memberLimit === "number" && Number.isFinite(input.memberLimit)) {
+    patch.member_limit = Math.min(1000, Math.max(2, Math.floor(input.memberLimit)));
+  }
+  if (typeof input.isDiscoverable === "boolean") patch.is_discoverable = input.isDiscoverable;
+
+  if (sb) {
+    const { data: room, error: roomError } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select("id, room_type, owner_user_id")
+      .eq("id", roomId)
+      .maybeSingle();
+    if (roomError && !isMissingTableError(roomError)) {
+      return { ok: false, error: String(roomError.message ?? "room_lookup_failed") };
+    }
+    if (room) {
+      if (room.room_type !== "open_group") return { ok: false, error: "not_open_group_room" };
+      if (trimText(room.owner_user_id) !== input.userId) return { ok: false, error: "forbidden" };
+      const { error } = await (sb as any).from("community_messenger_rooms").update(patch).eq("id", roomId);
+      if (!error) return { ok: true };
+      if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  if (!room || room.roomType !== "open_group") return { ok: false, error: "not_open_group_room" };
+  if (room.ownerUserId !== input.userId) return { ok: false, error: "forbidden" };
+  if (title) room.title = title;
+  if (typeof input.summary === "string") room.summary = summary;
+  if (password) room.passwordHash = hashMeetingPassword(password);
+  if (typeof input.memberLimit === "number" && Number.isFinite(input.memberLimit)) {
+    room.memberLimit = Math.min(1000, Math.max(2, Math.floor(input.memberLimit)));
+  }
+  if (typeof input.isDiscoverable === "boolean") room.isDiscoverable = input.isDiscoverable;
+  return { ok: true };
+}
+
+export async function leaveCommunityMessengerRoom(input: {
+  userId: string;
+  roomId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: room, error: roomError } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select("id, room_type, owner_user_id")
+      .eq("id", roomId)
+      .maybeSingle();
+    if (roomError && !isMissingTableError(roomError)) {
+      return { ok: false, error: String(roomError.message ?? "room_lookup_failed") };
+    }
+    if (room) {
+      if (trimText(room.owner_user_id) === input.userId) return { ok: false, error: "owner_cannot_leave" };
+      const { error } = await (sb as any)
+        .from("community_messenger_participants")
+        .delete()
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId);
+      if (!error) return { ok: true };
+      if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "leave_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  if (room.ownerUserId === input.userId) return { ok: false, error: "owner_cannot_leave" };
+  dev.participants = dev.participants.filter((participant) => !(participant.roomId === roomId && participant.userId === input.userId));
   return { ok: true };
 }
 
@@ -1631,7 +2088,9 @@ export async function getCommunityMessengerRoomSnapshot(
       const [{ data: roomData }, { data: participantData }, { data: messageData }] = await Promise.all([
         (sb as any)
           .from("community_messenger_rooms")
-          .select("id, room_type, room_status, is_readonly, title, avatar_url, created_by, last_message, last_message_at, last_message_type")
+          .select(
+            "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+          )
           .eq("id", id)
           .maybeSingle(),
         (sb as any)
@@ -1702,9 +2161,9 @@ export async function getCommunityMessengerRoomSnapshot(
     room: {
       ...summary,
       description:
-        summary.roomType === "group"
-          ? `${members.length}명이 함께 있는 라인 스타일 그룹 채팅`
-          : "친구와 1:1로 대화하는 메신저 방",
+        summary.roomType === "direct"
+          ? "친구와 1:1로 대화하는 메신저 방"
+          : summary.summary || `${members.length}명이 함께 있는 ${summary.roomType === "open_group" ? "공개" : "비공개"} 그룹 채팅`,
     },
     members,
     messages: mappedMessages,
@@ -1873,7 +2332,7 @@ export async function startCommunityMessengerCallSession(input: {
   if (snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
     return { ok: true, session: snapshot.activeCall };
   }
-  const isGroupRoom = snapshot.room.roomType === "group";
+  const isGroupRoom = isCommunityMessengerGroupRoomType(snapshot.room.roomType);
   const peerUserId = isGroupRoom
     ? null
     : trimText(snapshot.room.peerUserId ?? "") || snapshot.members.find((item) => item.id !== input.userId)?.id || null;

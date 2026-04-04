@@ -28,6 +28,11 @@ export function CommunityMessengerRoomClient({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [inviteIds, setInviteIds] = useState<string[]>([]);
+  const [openGroupTitle, setOpenGroupTitle] = useState("");
+  const [openGroupSummary, setOpenGroupSummary] = useState("");
+  const [openGroupPassword, setOpenGroupPassword] = useState("");
+  const [openGroupMemberLimit, setOpenGroupMemberLimit] = useState("200");
+  const [openGroupDiscoverable, setOpenGroupDiscoverable] = useState(true);
 
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -68,7 +73,8 @@ export function CommunityMessengerRoomClient({
 
   const directCall = useCommunityMessengerCall({
     roomId,
-    roomType: snapshot?.room.roomType ?? "direct",
+    roomType:
+      snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group" ? "group" : "direct",
     viewerUserId: snapshot?.viewerUserId ?? "",
     peerUserId: snapshot?.activeCall?.peerUserId ?? snapshot?.room.peerUserId ?? null,
     peerLabel: snapshot?.activeCall?.peerLabel ?? snapshot?.room.title ?? "상대",
@@ -76,15 +82,20 @@ export function CommunityMessengerRoomClient({
     onRefresh: refresh,
   });
   const groupCall = useCommunityMessengerGroupCall({
-    enabled: snapshot?.room.roomType === "group",
+    enabled: snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group",
     roomId,
     viewerUserId: snapshot?.viewerUserId ?? "",
     roomLabel: snapshot?.room.title ?? "그룹 통화",
     activeCall: snapshot?.activeCall ?? null,
     onRefresh: refresh,
   });
-  const call = snapshot?.room.roomType === "group" ? groupCall : directCall;
+  const call =
+    snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group" ? groupCall : directCall;
   const roomUnavailable = snapshot ? snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly : true;
+  const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
+  const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
+  const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
+  const isOwner = snapshot?.myRole === "owner";
 
   const getRoomActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
@@ -102,6 +113,16 @@ export function CommunityMessengerRoomClient({
         return "그룹 초대는 친구 관계에서만 가능합니다.";
       case "not_group_room":
         return "그룹방에서만 멤버를 초대할 수 있습니다.";
+      case "not_open_group_room":
+        return "공개 그룹방에서만 사용할 수 있는 기능입니다.";
+      case "password_required":
+        return "비밀번호를 입력해 주세요.";
+      case "invalid_password":
+        return "비밀번호가 맞지 않습니다.";
+      case "room_full":
+        return "정원이 가득 찬 방입니다.";
+      case "owner_cannot_leave":
+        return "방장은 이 방을 바로 나갈 수 없습니다.";
       case "room_unavailable":
         return "현재 이 방에서는 초대 또는 통화를 진행할 수 없습니다.";
       case "forbidden":
@@ -112,6 +133,71 @@ export function CommunityMessengerRoomClient({
         return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     }
   }, []);
+
+  useEffect(() => {
+    if (!snapshot || !isOpenGroupRoom) return;
+    setOpenGroupTitle(snapshot.room.title);
+    setOpenGroupSummary(snapshot.room.summary ?? "");
+    setOpenGroupPassword("");
+    setOpenGroupMemberLimit(String(snapshot.room.memberLimit ?? 200));
+    setOpenGroupDiscoverable(snapshot.room.isDiscoverable);
+  }, [isOpenGroupRoom, snapshot]);
+
+  const saveOpenGroupSettings = useCallback(async () => {
+    if (!isOpenGroupRoom || !snapshot) return;
+    setBusy("open-group-settings");
+    try {
+      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: openGroupTitle,
+          summary: openGroupSummary,
+          password: openGroupPassword,
+          memberLimit: Number(openGroupMemberLimit || "200"),
+          isDiscoverable: openGroupDiscoverable,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        alert(getRoomActionErrorMessage(json.error));
+        return;
+      }
+      setOpenGroupPassword("");
+      await refresh();
+    } finally {
+      setBusy(null);
+    }
+  }, [
+    getRoomActionErrorMessage,
+    isOpenGroupRoom,
+    openGroupDiscoverable,
+    openGroupMemberLimit,
+    openGroupPassword,
+    openGroupSummary,
+    openGroupTitle,
+    refresh,
+    roomId,
+    snapshot,
+  ]);
+
+  const leaveRoom = useCallback(async () => {
+    if (!window.confirm("이 그룹방에서 나가시겠습니까?")) return;
+    setBusy("leave-room");
+    try {
+      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/leave`, {
+        method: "POST",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        alert(getRoomActionErrorMessage(json.error));
+        return;
+      }
+      router.replace("/community-messenger?tab=groups");
+    } finally {
+      setBusy(null);
+    }
+  }, [getRoomActionErrorMessage, roomId, router]);
 
   const sendMessage = useCallback(async () => {
     const content = message.trim();
@@ -231,7 +317,7 @@ export function CommunityMessengerRoomClient({
           <div className="min-w-0">
             <button
               type="button"
-              onClick={() => router.replace(`/community-messenger?tab=${snapshot.room.roomType === "group" ? "groups" : "chats"}`)}
+              onClick={() => router.replace(`/community-messenger?tab=${isGroupRoom ? "groups" : "chats"}`)}
               className="mb-2 text-[12px] text-gray-500"
             >
               이전으로
@@ -292,7 +378,7 @@ export function CommunityMessengerRoomClient({
           ))}
         </div>
 
-        {snapshot.room.roomType === "group" ? (
+        {isPrivateGroupRoom ? (
           <div className="mt-3 rounded-2xl bg-[#F8FAF9] p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -338,6 +424,86 @@ export function CommunityMessengerRoomClient({
             >
               선택한 친구 초대
             </button>
+          </div>
+        ) : null}
+
+        {isOpenGroupRoom ? (
+          <div className="mt-3 rounded-2xl bg-[#F8FAF9] p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">공개 그룹 정보</p>
+                <p className="mt-1 text-[12px] text-gray-500">
+                  방장 {snapshot.room.ownerLabel} · 현재 {snapshot.room.memberCount}명
+                  {snapshot.room.memberLimit ? ` / 최대 ${snapshot.room.memberLimit}명` : ""}
+                </p>
+              </div>
+              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
+                {isOwner ? "방장" : `내 역할 ${snapshot.myRole}`}
+              </span>
+            </div>
+
+            {isOwner ? (
+              <div className="mt-3 grid gap-3">
+                <input
+                  value={openGroupTitle}
+                  onChange={(e) => setOpenGroupTitle(e.target.value)}
+                  placeholder="방 제목"
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                />
+                <textarea
+                  value={openGroupSummary}
+                  onChange={(e) => setOpenGroupSummary(e.target.value)}
+                  rows={3}
+                  placeholder="방 소개"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input
+                    value={openGroupPassword}
+                    onChange={(e) => setOpenGroupPassword(e.target.value)}
+                    placeholder="새 비밀번호(선택)"
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                  />
+                  <input
+                    value={openGroupMemberLimit}
+                    onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="최대 인원"
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                  />
+                </div>
+                <label className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3">
+                  <div>
+                    <p className="text-[13px] font-semibold text-gray-900">공개 목록 노출</p>
+                    <p className="mt-1 text-[12px] text-gray-500">OFF면 새 참여자는 검색으로 찾을 수 없습니다.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={openGroupDiscoverable}
+                    onChange={(e) => setOpenGroupDiscoverable(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void saveOpenGroupSettings()}
+                  disabled={busy === "open-group-settings" || !openGroupTitle.trim()}
+                  className="rounded-xl bg-[#111827] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                >
+                  {busy === "open-group-settings" ? "설정 저장 중..." : "방 설정 저장"}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void leaveRoom()}
+                  disabled={busy === "leave-room"}
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700 disabled:opacity-40"
+                >
+                  {busy === "leave-room" ? "나가는 중..." : "그룹방 나가기"}
+                </button>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
@@ -450,7 +616,7 @@ export function CommunityMessengerRoomClient({
             </p>
             <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{call.panel.peerLabel}</h2>
             <p className="mt-2 text-[13px] leading-5 text-gray-500">
-              {snapshot.room.roomType === "group"
+              {isGroupRoom
                 ? "그룹 메신저 방에서 최대 4인 메쉬 WebRTC 연결을 시도합니다. 마이크 및 카메라 권한이 필요할 수 있습니다."
                 : "1:1 메신저 방에서 실제 WebRTC 연결을 시도합니다. 마이크 및 카메라 권한이 필요할 수 있습니다."}
             </p>
@@ -468,7 +634,7 @@ export function CommunityMessengerRoomClient({
                     />
                     <p className="px-3 py-2 text-[12px] font-medium text-white/85">내 화면</p>
                   </div>
-                  {snapshot.room.roomType === "group" ? (
+                  {isGroupRoom ? (
                     groupCall.remotePeers.length ? (
                       groupCall.remotePeers.map((peer) => (
                         <div key={peer.userId} className="overflow-hidden rounded-3xl bg-black">
@@ -507,7 +673,7 @@ export function CommunityMessengerRoomClient({
               )}
               <p className="mt-4 text-[18px] font-semibold text-gray-900">{call.panel.peerLabel}</p>
               <p className="mt-1 text-[13px] text-gray-500">{call.callStatusLabel}</p>
-              {snapshot.room.roomType === "group" && groupCall.participants.length ? (
+              {isGroupRoom && groupCall.participants.length ? (
                 <div className="mt-3 flex flex-wrap justify-center gap-2">
                   {groupCall.participants.map((participant) => (
                     <span

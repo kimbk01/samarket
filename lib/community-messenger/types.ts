@@ -1,7 +1,9 @@
 export type CommunityMessengerTab = "friends" | "chats" | "groups" | "calls" | "settings";
 
-export type CommunityMessengerRoomType = "direct" | "group";
+export type CommunityMessengerRoomType = "direct" | "private_group" | "open_group";
 export type CommunityMessengerRoomStatus = "active" | "blocked" | "archived";
+export type CommunityMessengerRoomVisibility = "private" | "public";
+export type CommunityMessengerRoomJoinPolicy = "invite_only" | "password";
 export type CommunityMessengerMessageType = "text" | "image" | "system" | "call_stub";
 export type CommunityMessengerCallKind = "voice" | "video";
 export type CommunityMessengerCallStatus =
@@ -54,15 +56,43 @@ export type CommunityMessengerRoomSummary = {
   id: string;
   roomType: CommunityMessengerRoomType;
   roomStatus: CommunityMessengerRoomStatus;
+  visibility: CommunityMessengerRoomVisibility;
+  joinPolicy: CommunityMessengerRoomJoinPolicy;
   isReadonly: boolean;
   title: string;
   subtitle: string;
+  summary: string;
   avatarUrl: string | null;
   unreadCount: number;
   lastMessage: string;
   lastMessageAt: string;
   memberCount: number;
+  ownerUserId: string | null;
+  ownerLabel: string;
+  memberLimit: number | null;
+  isDiscoverable: boolean;
+  requiresPassword: boolean;
+  allowMemberInvite: boolean;
   peerUserId?: string | null;
+};
+
+export type CommunityMessengerDiscoverableGroupSummary = {
+  id: string;
+  roomType: "open_group";
+  roomStatus: CommunityMessengerRoomStatus;
+  visibility: "public";
+  joinPolicy: "password";
+  title: string;
+  summary: string;
+  ownerUserId: string | null;
+  ownerLabel: string;
+  memberCount: number;
+  memberLimit: number | null;
+  isDiscoverable: boolean;
+  requiresPassword: boolean;
+  lastMessage: string;
+  lastMessageAt: string;
+  isJoined: boolean;
 };
 
 export type CommunityMessengerMessage = {
@@ -150,5 +180,10 @@ export type CommunityMessengerBootstrap = {
   requests: CommunityMessengerFriendRequest[];
   chats: CommunityMessengerRoomSummary[];
   groups: CommunityMessengerRoomSummary[];
+  discoverableGroups: CommunityMessengerDiscoverableGroupSummary[];
   calls: CommunityMessengerCallLog[];
 };
+
+export function isCommunityMessengerGroupRoomType(roomType: CommunityMessengerRoomType): boolean {
+  return roomType === "private_group" || roomType === "open_group";
+}

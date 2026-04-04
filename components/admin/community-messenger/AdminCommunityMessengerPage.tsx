@@ -29,7 +29,7 @@ export function AdminCommunityMessengerPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roomStatusFilter, setRoomStatusFilter] = useState<CommunityMessengerRoomStatus | "">("");
-  const [roomTypeFilter, setRoomTypeFilter] = useState<"direct" | "group" | "">("");
+  const [roomTypeFilter, setRoomTypeFilter] = useState<"direct" | "private_group" | "open_group" | "">("");
   const [requestStatusFilter, setRequestStatusFilter] = useState<CommunityMessengerFriendRequestStatus | "">("");
   const [callQuery, setCallQuery] = useState("");
   const [callModeFilter, setCallModeFilter] = useState<"direct" | "group" | "">("");
@@ -311,10 +311,12 @@ export function AdminCommunityMessengerPage() {
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <StatCard label="전체 메신저 방" value={data?.stats.totalRooms ?? 0} helper="직접 + 그룹" />
+        <StatCard label="전체 메신저 방" value={data?.stats.totalRooms ?? 0} helper="1:1 + 비공개 + 공개" />
         <StatCard label="활성 방" value={data?.stats.activeRooms ?? 0} helper="정상 운영 중" />
         <StatCard label="운영 차단/보관" value={(data?.stats.blockedRooms ?? 0) + (data?.stats.archivedRooms ?? 0)} helper="blocked + archived" />
         <StatCard label="대기 친구 요청" value={data?.stats.pendingRequests ?? 0} helper="관리 검토 가능" />
+        <StatCard label="비공개 그룹" value={data?.stats.privateGroupRooms ?? 0} helper="friend invite" />
+        <StatCard label="공개 그룹" value={data?.stats.openGroupRooms ?? 0} helper="password join" />
         <StatCard label="활성 통화 세션" value={data?.stats.activeCallSessions ?? 0} helper="ringing + active" />
         <StatCard label="활성 그룹 통화" value={data?.stats.activeGroupCallSessions ?? 0} helper="group sessions" />
         <StatCard label="미처리 신고" value={data?.stats.openReports ?? 0} helper="received + reviewing" />
@@ -598,12 +600,13 @@ export function AdminCommunityMessengerPage() {
           </select>
           <select
             value={roomTypeFilter}
-            onChange={(e) => setRoomTypeFilter(e.target.value as "direct" | "group" | "")}
+            onChange={(e) => setRoomTypeFilter(e.target.value as "direct" | "private_group" | "open_group" | "")}
             className="rounded border border-gray-200 px-3 py-2 text-[14px]"
           >
             <option value="">모든 유형</option>
             <option value="direct">1:1</option>
-            <option value="group">그룹</option>
+            <option value="private_group">비공개 그룹</option>
+            <option value="open_group">공개 그룹</option>
           </select>
           <button
             type="button"
@@ -1320,12 +1323,22 @@ function RoomRow({ room }: { room: AdminCommunityMessengerRoomSummary }) {
         <div className="mt-1 font-mono text-[12px] text-gray-400">{room.id}</div>
         {room.adminNote ? <div className="mt-1 text-[12px] text-amber-700">메모: {room.adminNote}</div> : null}
       </td>
-      <td className="px-3 py-3 text-gray-700">{room.roomType === "group" ? "그룹" : "1:1"}</td>
+      <td className="px-3 py-3 text-gray-700">
+        {room.roomType === "open_group" ? "공개 그룹" : room.roomType === "private_group" ? "비공개 그룹" : "1:1"}
+      </td>
       <td className="px-3 py-3">
         <div className="flex flex-wrap gap-1">
           <span className="rounded bg-gray-100 px-2 py-1 text-[12px] text-gray-700">{room.roomStatus}</span>
           {room.isReadonly ? (
             <span className="rounded bg-amber-50 px-2 py-1 text-[12px] text-amber-700">readonly</span>
+          ) : null}
+          {room.roomType === "open_group" ? (
+            <span className="rounded bg-sky-50 px-2 py-1 text-[12px] text-sky-700">
+              {room.isDiscoverable ? "discoverable" : "hidden"}
+            </span>
+          ) : null}
+          {room.requiresPassword ? (
+            <span className="rounded bg-gray-100 px-2 py-1 text-[12px] text-gray-700">password</span>
           ) : null}
         </div>
       </td>
@@ -1645,12 +1658,13 @@ function buildForceEndAdminStats(callAudits: AdminCommunityMessengerCallAuditLog
 
 function buildForceEndRoomTypeStats(
   callAudits: AdminCommunityMessengerCallAuditLog[],
-  roomTypeByRoomId: Map<string, "direct" | "group">
+  roomTypeByRoomId: Map<string, "direct" | "private_group" | "open_group">
 ) {
   const total = callAudits.length;
   const countMap = new Map<string, number>([
     ["direct", 0],
-    ["group", 0],
+    ["private_group", 0],
+    ["open_group", 0],
     ["unknown", 0],
   ]);
 
@@ -1661,7 +1675,8 @@ function buildForceEndRoomTypeStats(
 
   return [
     { key: "direct", label: "1:1", count: countMap.get("direct") ?? 0 },
-    { key: "group", label: "그룹", count: countMap.get("group") ?? 0 },
+    { key: "private_group", label: "비공개 그룹", count: countMap.get("private_group") ?? 0 },
+    { key: "open_group", label: "공개 그룹", count: countMap.get("open_group") ?? 0 },
     { key: "unknown", label: "미확인", count: countMap.get("unknown") ?? 0 },
   ].map((item) => ({
     ...item,

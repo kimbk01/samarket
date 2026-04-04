@@ -8,6 +8,7 @@ import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallLog,
+  CommunityMessengerDiscoverableGroupSummary,
   CommunityMessengerFriendRequest,
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSummary,
@@ -50,6 +51,14 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const [searchResults, setSearchResults] = useState<CommunityMessengerProfileLite[]>([]);
   const [groupTitle, setGroupTitle] = useState("");
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  const [openGroupTitle, setOpenGroupTitle] = useState("");
+  const [openGroupSummary, setOpenGroupSummary] = useState("");
+  const [openGroupPassword, setOpenGroupPassword] = useState("");
+  const [openGroupMemberLimit, setOpenGroupMemberLimit] = useState("200");
+  const [openGroupDiscoverable, setOpenGroupDiscoverable] = useState(true);
+  const [openGroupSearch, setOpenGroupSearch] = useState("");
+  const [joinTargetGroup, setJoinTargetGroup] = useState<CommunityMessengerDiscoverableGroupSummary | null>(null);
+  const [joinPassword, setJoinPassword] = useState("");
   const counts = data?.tabs ?? EMPTY_COUNTS;
   const homeRoomIds = useMemo(
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
@@ -66,8 +75,18 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         return "그룹방과 그룹 초대는 친구 관계에서만 가능합니다.";
       case "title_required":
         return "그룹방 제목을 입력해 주세요.";
+      case "password_required":
+        return "비밀번호를 입력해 주세요.";
       case "members_required":
         return "그룹방에 초대할 친구를 1명 이상 선택해 주세요.";
+      case "invalid_password":
+        return "비밀번호가 맞지 않습니다.";
+      case "room_full":
+        return "정원이 가득 찬 그룹방입니다.";
+      case "not_open_group_room":
+        return "공개 그룹방만 비밀번호 입장이 가능합니다.";
+      case "owner_cannot_leave":
+        return "방장은 방을 나갈 수 없습니다. 필요하면 다른 방장을 지정하는 기능을 후속으로 연결해야 합니다.";
       case "room_lookup_failed":
         return "기존 채팅방 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.";
       case "room_create_failed":
@@ -100,6 +119,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           requests: json.requests ?? [],
           chats: json.chats ?? [],
           groups: json.groups ?? [],
+          discoverableGroups: json.discoverableGroups ?? [],
           calls: json.calls ?? [],
         });
       } else {
@@ -269,17 +289,17 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     [refresh, searchUsers]
   );
 
-  const createGroup = useCallback(async () => {
+  const createPrivateGroup = useCallback(async () => {
     const memberIds = groupMembers.filter(Boolean);
-    if (!groupTitle.trim() || memberIds.length === 0) return;
+    if (memberIds.length === 0) return;
     setActionError(null);
-    setBusyId("create-group");
+    setBusyId("create-private-group");
     try {
       const res = await fetch("/api/community-messenger/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          roomType: "group",
+          roomType: "private_group",
           title: groupTitle,
           memberIds,
         }),
@@ -302,6 +322,78 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       setBusyId(null);
     }
   }, [getMessengerActionErrorMessage, groupMembers, groupTitle, refresh, router]);
+
+  const createOpenGroup = useCallback(async () => {
+    if (!openGroupTitle.trim() || !openGroupPassword.trim()) return;
+    setActionError(null);
+    setBusyId("create-open-group");
+    try {
+      const res = await fetch("/api/community-messenger/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomType: "open_group",
+          title: openGroupTitle,
+          summary: openGroupSummary,
+          password: openGroupPassword,
+          memberLimit: Number(openGroupMemberLimit || "200"),
+          isDiscoverable: openGroupDiscoverable,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
+      await refresh();
+      if (res.ok && json.ok && json.roomId) {
+        setOpenGroupTitle("");
+        setOpenGroupSummary("");
+        setOpenGroupPassword("");
+        setOpenGroupMemberLimit("200");
+        setOpenGroupDiscoverable(true);
+        router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
+        return;
+      }
+      if (res.status === 401 || res.status === 403) {
+        setAuthRequired(true);
+        setPageError("로그인 후 메신저를 사용할 수 있습니다.");
+        return;
+      }
+      setActionError(getMessengerActionErrorMessage(json.error));
+    } finally {
+      setBusyId(null);
+    }
+  }, [
+    getMessengerActionErrorMessage,
+    openGroupDiscoverable,
+    openGroupMemberLimit,
+    openGroupPassword,
+    openGroupSummary,
+    openGroupTitle,
+    refresh,
+    router,
+  ]);
+
+  const joinOpenGroup = useCallback(async () => {
+    if (!joinTargetGroup) return;
+    setActionError(null);
+    setBusyId(`join-open-group:${joinTargetGroup.id}`);
+    try {
+      const res = await fetch(`/api/community-messenger/open-groups/${encodeURIComponent(joinTargetGroup.id)}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: joinPassword }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
+      await refresh();
+      if (res.ok && json.ok && json.roomId) {
+        setJoinPassword("");
+        setJoinTargetGroup(null);
+        router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
+        return;
+      }
+      setActionError(getMessengerActionErrorMessage(json.error));
+    } finally {
+      setBusyId(null);
+    }
+  }, [getMessengerActionErrorMessage, joinPassword, joinTargetGroup, refresh, router]);
 
   const favoriteFriends = useMemo(
     () => (data?.friends ?? []).filter((friend) => friend.isFavoriteFriend),
@@ -329,6 +421,24 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
 
   const sortedChats = useMemo(() => sortRooms(data?.chats ?? []), [data?.chats]);
   const sortedGroups = useMemo(() => sortRooms(data?.groups ?? []), [data?.groups]);
+  const myPrivateGroups = useMemo(
+    () => sortedGroups.filter((room) => room.roomType === "private_group"),
+    [sortedGroups]
+  );
+  const myOpenGroups = useMemo(
+    () => sortedGroups.filter((room) => room.roomType === "open_group"),
+    [sortedGroups]
+  );
+  const filteredDiscoverableGroups = useMemo(() => {
+    const keyword = openGroupSearch.trim().toLowerCase();
+    return [...(data?.discoverableGroups ?? [])]
+      .filter((group) => {
+        if (!keyword) return true;
+        const haystack = [group.title, group.summary, group.ownerLabel].join(" ").toLowerCase();
+        return haystack.includes(keyword);
+      })
+      .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }, [data?.discoverableGroups, openGroupSearch]);
   const sortedCalls = useMemo(() => sortCalls(data?.calls ?? []), [data?.calls]);
   const missedCallCount = useMemo(
     () => (data?.calls ?? []).filter((call) => call.status === "missed").length,
@@ -671,8 +781,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       {!loading && data && activeTab === "groups" ? (
         <div className="space-y-4">
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
-            <h2 className="text-[16px] font-semibold text-gray-900">새 그룹 만들기</h2>
-            <p className="mt-1 text-[13px] text-gray-500">제목은 선택 입력입니다. 비워두면 선택한 친구 이름으로 자동 생성됩니다.</p>
+            <h2 className="text-[16px] font-semibold text-gray-900">새 비공개 그룹 만들기</h2>
+            <p className="mt-1 text-[13px] text-gray-500">기존처럼 친구 기반 초대형 그룹입니다. 제목은 비워두면 자동 생성됩니다.</p>
             <input
               value={groupTitle}
               onChange={(e) => setGroupTitle(e.target.value)}
@@ -726,17 +836,17 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                 </div>
                 <button
                   type="button"
-                  onClick={() => void createGroup()}
-                  disabled={busyId === "create-group" || groupMembers.length === 0}
+                  onClick={() => void createPrivateGroup()}
+                  disabled={busyId === "create-private-group" || groupMembers.length === 0}
                   className="mt-4 w-full rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                 >
-                  {busyId === "create-group" ? "그룹 생성 중..." : "그룹 생성"}
+                  {busyId === "create-private-group" ? "비공개 그룹 생성 중..." : "비공개 그룹 생성"}
                 </button>
               </>
             ) : (
               <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center">
-                <p className="text-[14px] font-semibold text-gray-900">그룹에 초대할 친구가 아직 없습니다.</p>
-                <p className="mt-1 text-[12px] text-gray-500">친구를 먼저 추가하면 그룹방 생성이 바로 활성화됩니다.</p>
+                <p className="text-[14px] font-semibold text-gray-900">비공개 그룹에 초대할 친구가 아직 없습니다.</p>
+                <p className="mt-1 text-[12px] text-gray-500">친구를 먼저 추가하면 바로 비공개 그룹을 만들 수 있습니다.</p>
                 <button
                   type="button"
                   onClick={() => setTab("friends")}
@@ -748,11 +858,106 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
             )}
           </section>
 
-          <InfoSection title="그룹 채팅방" subtitle="운영 공지, 동호회, 지역 모임 메신저를 별도 축으로 운영합니다.">
+          <section className="rounded-2xl border border-gray-200 bg-white p-4">
+            <h2 className="text-[16px] font-semibold text-gray-900">새 공개 그룹 만들기</h2>
+            <p className="mt-1 text-[13px] text-gray-500">방장이 생성하고 목록에 노출되는 공개 그룹입니다. 입장은 비밀번호로 제어합니다.</p>
+            <div className="mt-3 grid gap-3">
+              <input
+                value={openGroupTitle}
+                onChange={(e) => setOpenGroupTitle(e.target.value)}
+                placeholder="공개 그룹 제목"
+                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
+              />
+              <textarea
+                value={openGroupSummary}
+                onChange={(e) => setOpenGroupSummary(e.target.value)}
+                rows={3}
+                placeholder="방 소개를 입력하세요"
+                className="w-full rounded-xl border border-gray-200 px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
+              />
+              <div className="grid gap-3 md:grid-cols-2">
+                <input
+                  value={openGroupPassword}
+                  onChange={(e) => setOpenGroupPassword(e.target.value)}
+                  placeholder="입장 비밀번호"
+                  className="h-11 w-full rounded-xl border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
+                />
+                <input
+                  value={openGroupMemberLimit}
+                  onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="최대 인원"
+                  className="h-11 w-full rounded-xl border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
+                />
+              </div>
+              <label className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-3">
+                <div>
+                  <p className="text-[14px] font-medium text-gray-900">목록에 공개</p>
+                  <p className="text-[12px] text-gray-500">OFF면 내 그룹에는 남지만 공개 그룹 찾기에는 노출되지 않습니다.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={openGroupDiscoverable}
+                  onChange={(e) => setOpenGroupDiscoverable(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={() => void createOpenGroup()}
+              disabled={busyId === "create-open-group" || !openGroupTitle.trim() || !openGroupPassword.trim()}
+              className="mt-4 w-full rounded-xl bg-[#111827] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+            >
+              {busyId === "create-open-group" ? "공개 그룹 생성 중..." : "공개 그룹 생성"}
+            </button>
+          </section>
+
+          <InfoSection title="내 그룹방" subtitle="비공개 그룹과 내가 참여 중인 공개 그룹을 함께 봅니다.">
             {sortedGroups.length ? (
-              sortedGroups.map((room) => <RoomCard key={room.id} room={room} href={`/community-messenger/rooms/${room.id}`} />)
+              <>
+                {myPrivateGroups.length ? (
+                  <div className="space-y-2">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">비공개 그룹</p>
+                    {myPrivateGroups.map((room) => (
+                      <RoomCard key={room.id} room={room} href={`/community-messenger/rooms/${room.id}`} />
+                    ))}
+                  </div>
+                ) : null}
+                {myOpenGroups.length ? (
+                  <div className="space-y-2">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">참여 중인 공개 그룹</p>
+                    {myOpenGroups.map((room) => (
+                      <RoomCard key={room.id} room={room} href={`/community-messenger/rooms/${room.id}`} />
+                    ))}
+                  </div>
+                ) : null}
+              </>
             ) : (
-              <EmptyCard message="아직 그룹 채팅방이 없습니다." />
+              <EmptyCard message="아직 참여 중인 그룹방이 없습니다." />
+            )}
+          </InfoSection>
+
+          <InfoSection title="공개 그룹 찾기" subtitle="방 목록에서 찾고 비밀번호를 입력해 입장합니다.">
+            <input
+              value={openGroupSearch}
+              onChange={(e) => setOpenGroupSearch(e.target.value)}
+              placeholder="제목, 소개, 방장으로 검색"
+              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
+            />
+            {filteredDiscoverableGroups.length ? (
+              filteredDiscoverableGroups.map((group) => (
+                <DiscoverableOpenGroupCard
+                  key={group.id}
+                  group={group}
+                  busy={busyId === `join-open-group:${group.id}`}
+                  onJoin={() => {
+                    setJoinTargetGroup(group);
+                    setJoinPassword("");
+                  }}
+                />
+              ))
+            ) : (
+              <EmptyCard message="노출 중인 공개 그룹이 없습니다." />
             )}
           </InfoSection>
         </div>
@@ -845,6 +1050,48 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
               <EmptyCard message="즐겨찾기 친구가 없습니다." />
             )}
           </InfoSection>
+        </div>
+      ) : null}
+
+      {joinTargetGroup ? (
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 px-4 pb-6 pt-10">
+          <div className="w-full max-w-[440px] rounded-[28px] bg-white p-5 shadow-2xl">
+            <p className="text-[13px] font-medium text-[#06C755]">공개 그룹 입장</p>
+            <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{joinTargetGroup.title}</h2>
+            <p className="mt-2 text-[13px] leading-5 text-gray-500">
+              {joinTargetGroup.summary || "방장이 설정한 비밀번호를 입력하면 입장할 수 있습니다."}
+            </p>
+            <div className="mt-4 rounded-2xl bg-gray-50 px-4 py-3 text-[12px] text-gray-600">
+              방장 {joinTargetGroup.ownerLabel} · 현재 {joinTargetGroup.memberCount}명
+              {joinTargetGroup.memberLimit ? ` / 최대 ${joinTargetGroup.memberLimit}명` : ""}
+            </div>
+            <input
+              value={joinPassword}
+              onChange={(e) => setJoinPassword(e.target.value)}
+              placeholder="비밀번호 입력"
+              className="mt-4 h-11 w-full rounded-xl border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setJoinTargetGroup(null);
+                  setJoinPassword("");
+                }}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => void joinOpenGroup()}
+                disabled={!joinPassword.trim() || busyId === `join-open-group:${joinTargetGroup.id}`}
+                className="flex-1 rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+              >
+                {busyId === `join-open-group:${joinTargetGroup.id}` ? "입장 중..." : "비밀번호로 입장"}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
@@ -970,6 +1217,13 @@ function RoomCard({ room, href }: { room: CommunityMessengerRoomSummary; href: s
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="truncate text-[14px] font-semibold text-gray-900">{room.title}</p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                room.roomType === "open_group" ? "bg-sky-50 text-sky-700" : "bg-gray-100 text-gray-700"
+              }`}
+            >
+              {room.roomType === "open_group" ? "공개 그룹" : room.roomType === "private_group" ? "비공개 그룹" : "1:1"}
+            </span>
             {room.roomStatus !== "active" ? (
               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                 {room.roomStatus === "blocked" ? "차단됨" : "보관됨"}
@@ -987,11 +1241,54 @@ function RoomCard({ room, href }: { room: CommunityMessengerRoomSummary; href: s
             ) : null}
           </div>
           <p className="mt-1 truncate text-[12px] text-gray-500">{room.subtitle}</p>
-          <p className="mt-1 truncate text-[13px] text-gray-700">{room.lastMessage}</p>
+          <p className="mt-1 truncate text-[13px] text-gray-700">{room.summary || room.lastMessage}</p>
         </div>
         <div className="shrink-0 text-[11px] text-gray-400">{formatRelative(room.lastMessageAt)}</div>
       </div>
     </Link>
+  );
+}
+
+function DiscoverableOpenGroupCard({
+  group,
+  busy,
+  onJoin,
+}: {
+  group: CommunityMessengerDiscoverableGroupSummary;
+  busy: boolean;
+  onJoin: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-100 px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-[14px] font-semibold text-gray-900">{group.title}</p>
+            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">공개 그룹</span>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-700">비밀번호</span>
+            {group.isJoined ? (
+              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">참여 중</span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-[12px] text-gray-500">{group.summary || "방 소개가 아직 없습니다."}</p>
+          <p className="mt-2 text-[12px] text-gray-600">
+            방장 {group.ownerLabel} · 현재 {group.memberCount}명
+            {group.memberLimit ? ` / 최대 ${group.memberLimit}명` : ""}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] text-gray-400">{formatRelative(group.lastMessageAt)}</p>
+          <button
+            type="button"
+            onClick={onJoin}
+            disabled={busy}
+            className="mt-3 rounded-xl bg-[#06C755] px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
+          >
+            {busy ? "입장 중..." : group.isJoined ? "다시 입장" : "입장"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
