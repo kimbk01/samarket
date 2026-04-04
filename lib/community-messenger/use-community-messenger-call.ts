@@ -367,12 +367,12 @@ export function useCommunityMessengerCall(args: {
       await flushPendingCandidates();
       const answer = await connection.createAnswer();
       await connection.setLocalDescription(answer);
+      await sendSignal(pending.sessionId, pending.peerUserId, "answer", { sdp: answer.sdp ?? "" });
       await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pending.sessionId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept" }),
       });
-      await sendSignal(pending.sessionId, pending.peerUserId, "answer", { sdp: answer.sdp ?? "" });
       pendingOfferRef.current = null;
       pendingIncomingAcceptanceRef.current = null;
       activeSinceRef.current = Date.now();
@@ -668,18 +668,16 @@ export function useCommunityMessengerCall(args: {
       for (const signal of json.signals ?? []) {
         await applySignal(signal);
       }
+      const pendingAcceptance = pendingIncomingAcceptanceRef.current;
+      if (!pendingAcceptance || pendingAcceptance.sessionId !== activeCall.id) {
+        return;
+      }
       const offer = pendingOfferRef.current;
       if (!offer) {
-        setErrorMessage("상대방 연결 정보를 기다리는 중입니다.");
         return;
       }
       await completeIncomingAcceptance(
-        {
-          sessionId: activeCall.id,
-          peerUserId: activeCall.peerUserId,
-          peerLabel: activeCall.peerLabel,
-          callKind: activeCall.callKind,
-        },
+        pendingAcceptance,
         offer
       );
     } catch (error) {

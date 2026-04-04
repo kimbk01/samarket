@@ -373,10 +373,27 @@ export function CommunityMessengerRoomClient({
         : activeCall.status === "ringing";
     if (!shouldAutoAccept) return;
     autoHandledSessionRef.current = activeCall.id;
-    void call.acceptIncomingCall().finally(() => {
-      router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
-    });
+    void call.acceptIncomingCall();
   }, [call, initialCallAction, initialCallSessionId, roomId, router, snapshot?.activeCall]);
+
+  useEffect(() => {
+    if (initialCallAction !== "accept" || !initialCallSessionId) return;
+    const samePanelSession =
+      call.panel?.sessionId === initialCallSessionId && call.panel.mode !== "incoming";
+    const sameActiveSession =
+      snapshot?.activeCall?.id === initialCallSessionId && snapshot.activeCall.status === "active";
+    if (!samePanelSession && !sameActiveSession) return;
+    router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
+  }, [
+    call.panel?.mode,
+    call.panel?.sessionId,
+    initialCallAction,
+    initialCallSessionId,
+    roomId,
+    router,
+    snapshot?.activeCall?.id,
+    snapshot?.activeCall?.status,
+  ]);
 
   useEffect(() => {
     if (!call.panel || (call.panel.mode !== "incoming" && call.panel.mode !== "dialing")) return;

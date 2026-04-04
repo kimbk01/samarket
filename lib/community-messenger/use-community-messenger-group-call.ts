@@ -421,6 +421,9 @@ export function useCommunityMessengerGroupCall(args: Props) {
     }
 
     if (activeCall.status === "ringing") {
+      if (panel?.sessionId === activeCall.id && (panel.mode === "connecting" || panel.mode === "active")) {
+        return;
+      }
       if (myParticipant?.status === "joined" && activeCall.isMineInitiator) {
         setPanel({
           kind: activeCall.callKind,
@@ -442,6 +445,9 @@ export function useCommunityMessengerGroupCall(args: Props) {
     }
 
     if (activeCall.status === "active") {
+      if (panel?.sessionId === activeCall.id && (panel.mode === "connecting" || panel.mode === "active")) {
+        return;
+      }
       if (myParticipant?.status === "joined") {
         activeSinceRef.current = new Date(activeCall.answeredAt ?? activeCall.startedAt).getTime();
         setPanel({

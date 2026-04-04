@@ -1710,7 +1710,16 @@ function RequestCard({
   );
 }
 
+function getRoomPreviewText(room: CommunityMessengerRoomSummary): string {
+  const lastMessage = room.lastMessage?.trim();
+  if (lastMessage) return lastMessage;
+  const summary = room.summary?.trim();
+  if (summary) return summary;
+  return "최근 메시지가 아직 없습니다.";
+}
+
 function RoomCard({ room, href }: { room: CommunityMessengerRoomSummary; href: string }) {
+  const previewText = getRoomPreviewText(room);
   return (
     <Link href={href} className="block rounded-xl border border-gray-100 px-4 py-3 transition hover:bg-gray-50">
       <div className="flex items-center justify-between gap-3">
@@ -1751,7 +1760,13 @@ function RoomCard({ room, href }: { room: CommunityMessengerRoomSummary; href: s
             ) : null}
           </div>
           <p className="mt-1 truncate text-[12px] text-gray-500">{room.subtitle}</p>
-          <p className="mt-1 truncate text-[13px] text-gray-700">{room.summary || room.lastMessage}</p>
+          <p
+            className={`mt-1 truncate text-[13px] ${
+              room.unreadCount > 0 ? "font-semibold text-gray-900" : "text-gray-700"
+            }`}
+          >
+            {previewText}
+          </p>
         </div>
         <div className="shrink-0 text-[11px] text-gray-400">{formatRelative(room.lastMessageAt)}</div>
       </div>
