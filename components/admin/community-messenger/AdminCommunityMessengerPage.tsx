@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import type {
+  AdminCommunityMessengerActiveCallSession,
+  AdminCommunityMessengerCallAuditLog,
   AdminCommunityMessengerCallLog,
   AdminCommunityMessengerDashboard,
   AdminCommunityMessengerFriendRequest,
@@ -23,30 +27,105 @@ export function AdminCommunityMessengerPage() {
   const [roomStatusFilter, setRoomStatusFilter] = useState<CommunityMessengerRoomStatus | "">("");
   const [roomTypeFilter, setRoomTypeFilter] = useState<"direct" | "group" | "">("");
   const [requestStatusFilter, setRequestStatusFilter] = useState<CommunityMessengerFriendRequestStatus | "">("");
+  const [callQuery, setCallQuery] = useState("");
+  const [callModeFilter, setCallModeFilter] = useState<"direct" | "group" | "">("");
+  const [callStatusFilter, setCallStatusFilter] = useState<
+    "missed" | "rejected" | "cancelled" | "ended" | "incoming" | "dialing" | ""
+  >("");
+  const [callKindFilter, setCallKindFilter] = useState<"voice" | "video" | "">("");
+  const [activeCallStatusFilter, setActiveCallStatusFilter] = useState<"ringing" | "active" | "">("");
+  const [auditQuery, setAuditQuery] = useState("");
+  const [auditPeriodFilter, setAuditPeriodFilter] = useState<"24h" | "7d" | "30d" | "">("");
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const refresh = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch("/api/admin/community-messenger/overview", { cache: "no-store" });
       const json = (await res.json()) as DashboardResponse;
       if (res.ok && json.ok) {
         setData({
           stats: json.stats,
+          forceEndReasonStats: json.forceEndReasonStats ?? [],
           rooms: json.rooms ?? [],
           requests: json.requests ?? [],
           calls: json.calls ?? [],
+          activeCalls: json.activeCalls ?? [],
+          callAudits: json.callAudits ?? [],
           reports: json.reports ?? [],
         });
       } else {
         setData(null);
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    if (!sb) return;
+
+    const scheduleRefresh = () => {
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = setTimeout(() => {
+        void refresh(true);
+      }, 300);
+    };
+
+    const channel: RealtimeChannel = sb
+      .channel("admin-community-messenger-overview")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_messenger_rooms" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_messenger_participants" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_friend_requests" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_messenger_call_logs" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_messenger_call_sessions" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_messenger_call_session_participants" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "audit_logs" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_messenger_reports" },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+      void sb.removeChannel(channel);
+    };
   }, [refresh]);
 
   const filteredRooms = useMemo(() => {
@@ -73,6 +152,63 @@ export function AdminCommunityMessengerPage() {
       requestStatusFilter ? request.status === requestStatusFilter : true
     );
   }, [data?.requests, requestStatusFilter]);
+
+  const filteredCalls = useMemo(() => {
+    const keyword = callQuery.trim().toLowerCase();
+    return (data?.calls ?? []).filter((call) => {
+      if (callModeFilter && call.sessionMode !== callModeFilter) return false;
+      if (callStatusFilter && call.status !== callStatusFilter) return false;
+      if (callKindFilter && call.callKind !== callKindFilter) return false;
+      if (!keyword) return true;
+      const haystack = [call.roomTitle, call.callerLabel, call.peerLabel, call.status, call.callKind]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [callKindFilter, callModeFilter, callQuery, callStatusFilter, data?.calls]);
+
+  const filteredActiveCalls = useMemo(() => {
+    const keyword = callQuery.trim().toLowerCase();
+    return (data?.activeCalls ?? []).filter((call) => {
+      if (callModeFilter && call.sessionMode !== callModeFilter) return false;
+      if (activeCallStatusFilter && call.status !== activeCallStatusFilter) return false;
+      if (callKindFilter && call.callKind !== callKindFilter) return false;
+      if (!keyword) return true;
+      const haystack = [
+        call.roomTitle,
+        call.initiatorLabel,
+        call.callKind,
+        call.status,
+        ...call.participants.map((participant) => participant.label),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [activeCallStatusFilter, callKindFilter, callModeFilter, callQuery, data?.activeCalls]);
+
+  const filteredCallAudits = useMemo(() => {
+    const keyword = auditQuery.trim().toLowerCase();
+    return (data?.callAudits ?? []).filter((log) => {
+      if (!matchesAuditPeriod(log.createdAt, auditPeriodFilter)) return false;
+      if (!keyword) return true;
+      const haystack = [
+        log.roomTitle,
+        log.actorLabel,
+        log.reasonCode,
+        log.reasonLabel,
+        log.note,
+        log.sessionId,
+        log.roomId,
+        log.action,
+        log.beforeStatus,
+        log.afterStatus,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [auditPeriodFilter, auditQuery, data?.callAudits]);
 
   const handleRequestAction = useCallback(
     async (requestId: string, status: CommunityMessengerFriendRequestStatus) => {
@@ -103,8 +239,19 @@ export function AdminCommunityMessengerPage() {
         <StatCard label="활성 방" value={data?.stats.activeRooms ?? 0} helper="정상 운영 중" />
         <StatCard label="운영 차단/보관" value={(data?.stats.blockedRooms ?? 0) + (data?.stats.archivedRooms ?? 0)} helper="blocked + archived" />
         <StatCard label="대기 친구 요청" value={data?.stats.pendingRequests ?? 0} helper="관리 검토 가능" />
+        <StatCard label="활성 통화 세션" value={data?.stats.activeCallSessions ?? 0} helper="ringing + active" />
+        <StatCard label="활성 그룹 통화" value={data?.stats.activeGroupCallSessions ?? 0} helper="group sessions" />
         <StatCard label="미처리 신고" value={data?.stats.openReports ?? 0} helper="received + reviewing" />
+        <StatCard label="강제 종료 누적" value={data?.stats.forceEndTotal ?? 0} helper="감사 로그 기준" />
       </div>
+
+      <AdminCard title="강제 종료 사유 KPI">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {(data?.forceEndReasonStats ?? []).map((item) => (
+            <ForceEndReasonKpiCard key={item.code} label={item.label} code={item.code} count={item.count} share={item.share} />
+          ))}
+        </div>
+      </AdminCard>
 
       <AdminCard title="메신저 방 목록">
         <div className="mb-3 flex flex-wrap gap-2">
@@ -172,6 +319,51 @@ export function AdminCommunityMessengerPage() {
       </AdminCard>
 
       <div className="grid gap-4 xl:grid-cols-2">
+        <AdminCard title="활성 통화 세션">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <input
+              value={callQuery}
+              onChange={(e) => setCallQuery(e.target.value)}
+              placeholder="통화방, 시작자, 참여자 검색"
+              className="min-w-[220px] rounded border border-gray-200 px-3 py-2 text-[14px]"
+            />
+            <select
+              value={callModeFilter}
+              onChange={(e) => setCallModeFilter(e.target.value as "direct" | "group" | "")}
+              className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            >
+              <option value="">모든 통화 유형</option>
+              <option value="direct">1:1</option>
+              <option value="group">그룹</option>
+            </select>
+            <select
+              value={activeCallStatusFilter}
+              onChange={(e) => setActiveCallStatusFilter(e.target.value as "ringing" | "active" | "")}
+              className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            >
+              <option value="">모든 활성 상태</option>
+              <option value="ringing">ringing</option>
+              <option value="active">active</option>
+            </select>
+            <select
+              value={callKindFilter}
+              onChange={(e) => setCallKindFilter(e.target.value as "voice" | "video" | "")}
+              className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            >
+              <option value="">모든 통화 종류</option>
+              <option value="voice">voice</option>
+              <option value="video">video</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            {filteredActiveCalls.length === 0 ? (
+              <div className="py-8 text-center text-[14px] text-gray-500">활성 통화 세션이 없습니다.</div>
+            ) : (
+              filteredActiveCalls.map((call) => <ActiveCallRow key={call.id} call={call} />)
+            )}
+          </div>
+        </AdminCard>
+
         <AdminCard title="친구 요청 관리">
           <div className="mb-3 flex items-center gap-2">
             <select
@@ -206,15 +398,63 @@ export function AdminCommunityMessengerPage() {
         </AdminCard>
 
         <AdminCard title="최근 통화 기록">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <select
+              value={callStatusFilter}
+              onChange={(e) =>
+                setCallStatusFilter(
+                  e.target.value as "missed" | "rejected" | "cancelled" | "ended" | "incoming" | "dialing" | ""
+                )
+              }
+              className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            >
+              <option value="">모든 기록 상태</option>
+              <option value="missed">missed</option>
+              <option value="rejected">rejected</option>
+              <option value="cancelled">cancelled</option>
+              <option value="ended">ended</option>
+              <option value="incoming">incoming</option>
+              <option value="dialing">dialing</option>
+            </select>
+          </div>
           <div className="space-y-2">
-            {(data?.calls ?? []).length === 0 ? (
+            {filteredCalls.length === 0 ? (
               <div className="py-8 text-center text-[14px] text-gray-500">통화 기록이 없습니다.</div>
             ) : (
-              (data?.calls ?? []).map((call) => <CallRow key={call.id} call={call} />)
+              filteredCalls.map((call) => <CallRow key={call.id} call={call} />)
             )}
           </div>
         </AdminCard>
       </div>
+
+      <AdminCard title="강제 종료 감사 로그">
+        <div className="mb-3 flex flex-wrap gap-2">
+          <input
+            value={auditQuery}
+            onChange={(e) => setAuditQuery(e.target.value)}
+            placeholder="방 제목, 관리자, 세션 ID, 메모 검색"
+            className="min-w-[220px] rounded border border-gray-200 px-3 py-2 text-[14px]"
+          />
+          <select
+            value={auditPeriodFilter}
+            onChange={(e) => setAuditPeriodFilter(e.target.value as "24h" | "7d" | "30d" | "")}
+            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          >
+            <option value="">전체 기간</option>
+            <option value="24h">최근 24시간</option>
+            <option value="7d">최근 7일</option>
+            <option value="30d">최근 30일</option>
+          </select>
+          <div className="flex items-center text-[12px] text-gray-500">결과 {filteredCallAudits.length}건</div>
+        </div>
+        <div className="space-y-2">
+          {filteredCallAudits.length === 0 ? (
+            <div className="py-8 text-center text-[14px] text-gray-500">강제 종료 감사 로그가 없습니다.</div>
+          ) : (
+            filteredCallAudits.map((log) => <CallAuditRow key={log.id} log={log} />)
+          )}
+        </div>
+      </AdminCard>
 
       <AdminCard title="최근 메신저 신고">
         <div className="space-y-2">
@@ -237,6 +477,35 @@ function StatCard({ label, value, helper }: { label: string; value: number; help
       <p className="text-[13px] text-gray-500">{label}</p>
       <p className="mt-2 text-[28px] font-semibold text-gray-900">{value}</p>
       <p className="mt-1 text-[12px] text-gray-400">{helper}</p>
+    </div>
+  );
+}
+
+function ForceEndReasonKpiCard({
+  label,
+  code,
+  count,
+  share,
+}: {
+  label: string;
+  code: string;
+  count: number;
+  share: number;
+}) {
+  const percent = Math.round(share * 100);
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[13px] text-gray-500">{label}</p>
+          <p className="mt-1 font-mono text-[11px] text-gray-400">{code}</p>
+        </div>
+        <p className="text-[24px] font-semibold text-gray-900">{count}</p>
+      </div>
+      <div className="mt-3 h-2 rounded-full bg-gray-100">
+        <div className="h-2 rounded-full bg-red-500" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
+      </div>
+      <p className="mt-2 text-[12px] text-gray-500">전체 강제 종료 중 {percent}%</p>
     </div>
   );
 }
@@ -337,15 +606,93 @@ function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
     <div className="rounded-lg border border-gray-100 px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-gray-900">{call.roomTitle}</p>
+          <p className="text-[14px] font-medium text-gray-900">
+            {call.roomTitle}
+            <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-700">
+              {call.sessionMode === "group" ? "그룹" : "1:1"}
+            </span>
+          </p>
           <p className="mt-1 text-[12px] text-gray-500">
             {call.callerLabel} {"->"} {call.peerLabel}
           </p>
           <p className="mt-1 text-[12px] text-gray-700">
-            {call.callKind} · {call.status} · {call.durationSeconds}초
+            {call.callKind} · {call.status} · {call.durationSeconds}초 · 참여 {call.participantCount}명
           </p>
         </div>
         <div className="text-[12px] text-gray-400">{formatDateTime(call.startedAt)}</div>
+      </div>
+    </div>
+  );
+}
+
+function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSession }) {
+  return (
+    <div className="rounded-lg border border-gray-100 px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[14px] font-medium text-gray-900">
+            {call.roomTitle}
+            <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] text-sky-700">
+              {call.sessionMode === "group" ? "그룹" : "1:1"}
+            </span>
+          </p>
+          <p className="mt-1 text-[12px] text-gray-500">
+            시작자 {call.initiatorLabel} · {call.callKind} · {call.status}
+          </p>
+          <p className="mt-1 text-[12px] text-gray-700">
+            참여 {call.joinedCount}명 · 대기 {call.invitedCount}명 · 전체 {call.participantCount}명
+          </p>
+          <p className="mt-1 text-[12px] text-gray-500">
+            {call.participants.map((participant) => `${participant.label}(${participant.status})`).join(", ")}
+          </p>
+        </div>
+        <div className="text-right text-[12px] text-gray-400">
+          <div>{formatDateTime(call.startedAt)}</div>
+          <div className="mt-1">
+            <Link
+              href={`/admin/chats/messenger/${encodeURIComponent(call.roomId)}`}
+              className="text-signature hover:underline"
+            >
+              방 상세
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CallAuditRow({ log }: { log: AdminCommunityMessengerCallAuditLog }) {
+  return (
+    <div className="rounded-lg border border-gray-100 px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[14px] font-medium text-gray-900">
+            {log.roomTitle}
+            <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-[11px] text-red-700">강제 종료</span>
+          </p>
+          <p className="mt-1 text-[12px] text-gray-500">
+            관리자 {log.actorLabel} · {log.beforeStatus} {"->"} {log.afterStatus}
+          </p>
+          {log.reasonCode ? (
+            <p className="mt-1 text-[12px] text-sky-700">
+              사유 코드: {log.reasonLabel} ({log.reasonCode})
+            </p>
+          ) : null}
+          <p className="mt-1 text-[12px] text-gray-700 font-mono">{log.sessionId}</p>
+          {log.note ? <p className="mt-1 text-[12px] text-amber-700">메모: {log.note}</p> : null}
+        </div>
+        <div className="text-right text-[12px] text-gray-400">
+          <div>{formatDateTime(log.createdAt)}</div>
+          <div className="mt-1">
+            <Link
+              href={`/admin/chats/messenger/${encodeURIComponent(log.roomId)}`}
+              className="text-signature hover:underline"
+            >
+              방 상세
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -439,4 +786,19 @@ function formatDateTime(value: string) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return value;
   return date.toLocaleString("ko-KR");
+}
+
+function matchesAuditPeriod(value: string, period: "24h" | "7d" | "30d" | "") {
+  if (!period) return true;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  const now = Date.now();
+  const diff = now - date.getTime();
+  const windowMs =
+    period === "24h"
+      ? 24 * 60 * 60 * 1000
+      : period === "7d"
+        ? 7 * 24 * 60 * 60 * 1000
+        : 30 * 24 * 60 * 60 * 1000;
+  return diff >= 0 && diff <= windowMs;
 }

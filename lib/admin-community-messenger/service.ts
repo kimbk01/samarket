@@ -1,8 +1,19 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { createCommunityMessengerCallLog } from "@/lib/community-messenger/service";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import {
+  COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS,
+  getCommunityMessengerCallForceEndReasonLabel,
+  isCommunityMessengerCallForceEndReasonCode,
+  type CommunityMessengerCallForceEndReasonCode,
+} from "@/lib/admin-community-messenger/call-force-end-reasons";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallStatus,
   CommunityMessengerFriendRequestStatus,
+  CommunityMessengerCallParticipantStatus,
+  CommunityMessengerCallSessionMode,
+  CommunityMessengerCallSessionStatus,
   CommunityMessengerRoomStatus,
   CommunityMessengerRoomType,
 } from "@/lib/community-messenger/types";
@@ -70,6 +81,7 @@ type MessageRow = {
 
 type CallRow = {
   id: string;
+  session_id?: string | null;
   room_id: string | null;
   caller_user_id: string;
   peer_user_id: string | null;
@@ -79,6 +91,31 @@ type CallRow = {
   started_at: string | null;
   ended_at?: string | null;
   created_at?: string | null;
+};
+
+type CallSessionRow = {
+  id: string;
+  room_id: string;
+  initiator_user_id: string;
+  recipient_user_id: string | null;
+  session_mode: CommunityMessengerCallSessionMode | null;
+  call_kind: CommunityMessengerCallKind;
+  status: CommunityMessengerCallSessionStatus;
+  started_at: string | null;
+  answered_at: string | null;
+  ended_at: string | null;
+  created_at: string | null;
+};
+
+type CallSessionParticipantRow = {
+  id: string;
+  session_id: string;
+  room_id: string;
+  user_id: string;
+  participation_status: CommunityMessengerCallParticipantStatus;
+  joined_at: string | null;
+  left_at: string | null;
+  created_at: string | null;
 };
 
 type ReportRow = {
@@ -96,6 +133,19 @@ type ReportRow = {
   handled_at?: string | null;
   created_at: string;
   updated_at?: string | null;
+};
+
+type AuditRow = {
+  id: string;
+  actor_type: string;
+  actor_id: string | null;
+  target_type: string;
+  target_id: string;
+  action: string;
+  before_json: Record<string, unknown> | null;
+  after_json: Record<string, unknown> | null;
+  ip: string | null;
+  created_at: string;
 };
 
 export type AdminCommunityMessengerRoomSummary = {
@@ -133,14 +183,39 @@ export type AdminCommunityMessengerFriendRequest = {
 
 export type AdminCommunityMessengerCallLog = {
   id: string;
+  sessionId: string | null;
   roomId: string | null;
   roomTitle: string;
+  sessionMode: CommunityMessengerCallSessionMode;
   callerLabel: string;
   peerLabel: string;
+  participantCount: number;
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallStatus;
   durationSeconds: number;
   startedAt: string;
+};
+
+export type AdminCommunityMessengerActiveCallSession = {
+  id: string;
+  roomId: string;
+  roomTitle: string;
+  sessionMode: CommunityMessengerCallSessionMode;
+  callKind: CommunityMessengerCallKind;
+  status: CommunityMessengerCallSessionStatus;
+  initiatorLabel: string;
+  startedAt: string;
+  answeredAt: string | null;
+  participantCount: number;
+  joinedCount: number;
+  invitedCount: number;
+  participants: Array<{
+    userId: string;
+    label: string;
+    status: CommunityMessengerCallParticipantStatus;
+    joinedAt: string | null;
+    leftAt: string | null;
+  }>;
 };
 
 export type AdminCommunityMessengerReport = {
@@ -161,6 +236,21 @@ export type AdminCommunityMessengerReport = {
   assignedAdminLabel: string;
   handledAt: string | null;
   createdAt: string;
+};
+
+export type AdminCommunityMessengerCallAuditLog = {
+  id: string;
+  sessionId: string;
+  roomId: string;
+  roomTitle: string;
+  actorLabel: string;
+  action: string;
+  reasonCode: string;
+  reasonLabel: string;
+  note: string;
+  createdAt: string;
+  beforeStatus: string;
+  afterStatus: string;
 };
 
 export type AdminCommunityMessengerRoomDetail = {
@@ -188,6 +278,8 @@ export type AdminCommunityMessengerRoomDetail = {
     reportCount: number;
   }>;
   calls: AdminCommunityMessengerCallLog[];
+  activeCalls: AdminCommunityMessengerActiveCallSession[];
+  callAudits: AdminCommunityMessengerCallAuditLog[];
   reports: AdminCommunityMessengerReport[];
 };
 
@@ -202,11 +294,22 @@ export type AdminCommunityMessengerDashboard = {
     groupRooms: number;
     pendingRequests: number;
     totalCalls: number;
+    activeCallSessions: number;
+    activeGroupCallSessions: number;
     openReports: number;
+    forceEndTotal: number;
   };
+  forceEndReasonStats: Array<{
+    code: string;
+    label: string;
+    count: number;
+    share: number;
+  }>;
   rooms: AdminCommunityMessengerRoomSummary[];
   requests: AdminCommunityMessengerFriendRequest[];
   calls: AdminCommunityMessengerCallLog[];
+  activeCalls: AdminCommunityMessengerActiveCallSession[];
+  callAudits: AdminCommunityMessengerCallAuditLog[];
   reports: AdminCommunityMessengerReport[];
 };
 
@@ -286,18 +389,84 @@ function mapRoomSummary(
 function mapCallLog(
   row: CallRow,
   roomMap: Map<string, AdminCommunityMessengerRoomSummary>,
-  profileMap: Map<string, ProfileRow>
+  profileMap: Map<string, ProfileRow>,
+  sessionMap: Map<string, CallSessionRow>,
+  participantsBySession: Map<string, CallSessionParticipantRow[]>
 ): AdminCommunityMessengerCallLog {
+  const session = row.session_id ? sessionMap.get(row.session_id) : undefined;
+  const sessionMode = (session?.session_mode ?? "direct") as CommunityMessengerCallSessionMode;
+  const participantRows = row.session_id ? participantsBySession.get(row.session_id) ?? [] : [];
   return {
     id: row.id,
+    sessionId: row.session_id ?? null,
     roomId: row.room_id,
     roomTitle: row.room_id ? roomMap.get(row.room_id)?.title ?? "메신저 방" : "메신저 방",
+    sessionMode,
     callerLabel: labelForProfile(profileMap.get(row.caller_user_id), row.caller_user_id),
     peerLabel: row.peer_user_id ? labelForProfile(profileMap.get(row.peer_user_id), row.peer_user_id) : "-",
+    participantCount: sessionMode === "group" ? Math.max(participantRows.length, 2) : 2,
     callKind: row.call_kind,
     status: row.status,
     durationSeconds: Number(row.duration_seconds ?? 0),
     startedAt: t(row.started_at),
+  };
+}
+
+function mapActiveCallSession(
+  row: CallSessionRow,
+  roomMap: Map<string, AdminCommunityMessengerRoomSummary>,
+  profileMap: Map<string, ProfileRow>,
+  participants: CallSessionParticipantRow[]
+): AdminCommunityMessengerActiveCallSession {
+  const roomTitle = roomMap.get(row.room_id)?.title ?? "메신저 방";
+  const mappedParticipants = participants.map((participant) => ({
+    userId: participant.user_id,
+    label: labelForProfile(profileMap.get(participant.user_id), participant.user_id),
+    status: participant.participation_status,
+    joinedAt: participant.joined_at ?? null,
+    leftAt: participant.left_at ?? null,
+  }));
+  return {
+    id: row.id,
+    roomId: row.room_id,
+    roomTitle,
+    sessionMode: (row.session_mode ?? "direct") as CommunityMessengerCallSessionMode,
+    callKind: row.call_kind,
+    status: row.status,
+    initiatorLabel: labelForProfile(profileMap.get(row.initiator_user_id), row.initiator_user_id),
+    startedAt: t(row.started_at),
+    answeredAt: row.answered_at ?? null,
+    participantCount: mappedParticipants.length,
+    joinedCount: mappedParticipants.filter((participant) => participant.status === "joined").length,
+    invitedCount: mappedParticipants.filter((participant) => participant.status === "invited").length,
+    participants: mappedParticipants,
+  };
+}
+
+function mapCallAuditLog(
+  row: AuditRow,
+  roomMap: Map<string, AdminCommunityMessengerRoomSummary>,
+  profileMap: Map<string, ProfileRow>
+): AdminCommunityMessengerCallAuditLog {
+  const beforeJson = row.before_json ?? {};
+  const afterJson = row.after_json ?? {};
+  const roomId = t(afterJson.roomId) || t(beforeJson.roomId) || t(row.target_id);
+  const sessionId = t(afterJson.sessionId) || t(beforeJson.sessionId) || t(row.target_id);
+  const actorId = t(row.actor_id);
+  const reasonCode = t(afterJson.reasonCode) || t(beforeJson.reasonCode);
+  return {
+    id: row.id,
+    sessionId,
+    roomId,
+    roomTitle: roomId ? roomMap.get(roomId)?.title ?? "메신저 방" : "메신저 방",
+    actorLabel: actorId ? labelForProfile(profileMap.get(actorId), actorId) : row.actor_type,
+    action: row.action,
+    reasonCode,
+    reasonLabel: getCommunityMessengerCallForceEndReasonLabel(reasonCode),
+    note: t(afterJson.adminNote) || t(beforeJson.adminNote),
+    createdAt: row.created_at,
+    beforeStatus: t(beforeJson.status) || "-",
+    afterStatus: t(afterJson.status) || "-",
   };
 }
 
@@ -332,7 +501,7 @@ function mapReport(
 }
 
 export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommunityMessengerDashboard> {
-  const [{ rooms, participants }, requestData, callData, reportData] = await Promise.all([
+  const [{ rooms, participants }, requestData, callData, reportData, sessionData, sessionParticipantData, auditData] = await Promise.all([
     getRoomsAndParticipants(),
     (sb() as any)
       .from("community_friend_requests")
@@ -341,7 +510,7 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
       .limit(100),
     (sb() as any)
       .from("community_messenger_call_logs")
-      .select("id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at, ended_at, created_at")
+      .select("id, session_id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at, ended_at, created_at")
       .order("started_at", { ascending: false })
       .limit(100),
     (sb() as any)
@@ -349,6 +518,24 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
       .select("id, report_type, room_id, message_id, reported_user_id, reporter_user_id, reason_type, reason_detail, status, admin_note, assigned_admin_id, handled_at, created_at, updated_at")
       .order("created_at", { ascending: false })
       .limit(100),
+    (sb() as any)
+      .from("community_messenger_call_sessions")
+      .select("id, room_id, initiator_user_id, recipient_user_id, session_mode, call_kind, status, started_at, answered_at, ended_at, created_at")
+      .in("status", ["ringing", "active"])
+      .order("created_at", { ascending: false })
+      .limit(40),
+    (sb() as any)
+      .from("community_messenger_call_session_participants")
+      .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    (sb() as any)
+      .from("audit_logs")
+      .select("id, actor_type, actor_id, target_type, target_id, action, before_json, after_json, ip, created_at")
+      .eq("target_type", "community_messenger_call_session")
+      .eq("action", "admin.force_end_call_session")
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   const roomIds = rooms.map((room) => room.id);
@@ -362,12 +549,18 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
   const requestRows = (requestData.data ?? []) as RequestRow[];
   const callRows = (callData.data ?? []) as CallRow[];
   const reportRows = (reportData.data ?? []) as ReportRow[];
+  const sessionRows = (sessionData.data ?? []) as CallSessionRow[];
+  const sessionParticipantRows = (sessionParticipantData.data ?? []) as CallSessionParticipantRow[];
+  const auditRows = (auditData.data ?? []) as AuditRow[];
   const userIds = [
     ...rooms.flatMap((room) => [room.created_by ?? ""]),
     ...participants.map((participant) => participant.user_id),
     ...requestRows.flatMap((row) => [row.requester_id, row.addressee_id, row.handled_by_admin_id ?? ""]),
     ...callRows.flatMap((row) => [row.caller_user_id, row.peer_user_id ?? ""]),
+    ...sessionRows.flatMap((row) => [row.initiator_user_id, row.recipient_user_id ?? ""]),
+    ...sessionParticipantRows.map((row) => row.user_id),
     ...reportRows.flatMap((row) => [row.reported_user_id ?? "", row.reporter_user_id, row.assigned_admin_id ?? ""]),
+    ...auditRows.map((row) => row.actor_id ?? ""),
   ];
   const profileMap = await getProfileMap(userIds);
 
@@ -375,6 +568,13 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
     mapRoomSummary(room, participantsByRoom.get(room.id) ?? [], profileMap)
   );
   const roomMap = new Map(roomSummaries.map((room) => [room.id, room]));
+  const sessionMap = new Map(sessionRows.map((session) => [session.id, session]));
+  const participantsBySession = new Map<string, CallSessionParticipantRow[]>();
+  for (const participant of sessionParticipantRows) {
+    const list = participantsBySession.get(participant.session_id) ?? [];
+    list.push(participant);
+    participantsBySession.set(participant.session_id, list);
+  }
 
   const requests = requestRows.map((row) => ({
     id: row.id,
@@ -394,8 +594,27 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
     handledAt: row.handled_at ?? null,
   }));
 
-  const calls = callRows.map((row) => mapCallLog(row, roomMap, profileMap));
+  const calls = callRows.map((row) => mapCallLog(row, roomMap, profileMap, sessionMap, participantsBySession));
+  const activeCalls = sessionRows.map((row) =>
+    mapActiveCallSession(row, roomMap, profileMap, participantsBySession.get(row.id) ?? [])
+  );
+  const callAudits = auditRows.map((row) => mapCallAuditLog(row, roomMap, profileMap));
   const reports = reportRows.map((row) => mapReport(row, roomMap, profileMap));
+  const forceEndTotal = callAudits.length;
+  const forceEndReasonCounts = new Map<string, number>();
+  for (const audit of callAudits) {
+    const reasonCode = t(audit.reasonCode) || "other";
+    forceEndReasonCounts.set(reasonCode, (forceEndReasonCounts.get(reasonCode) ?? 0) + 1);
+  }
+  const forceEndReasonStats = COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS.map((reason) => {
+    const count = forceEndReasonCounts.get(reason.code) ?? 0;
+    return {
+      code: reason.code,
+      label: reason.label,
+      count,
+      share: forceEndTotal > 0 ? count / forceEndTotal : 0,
+    };
+  }).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, "ko-KR"));
 
   return {
     stats: {
@@ -408,11 +627,17 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
       groupRooms: roomSummaries.filter((room) => room.roomType === "group").length,
       pendingRequests: requests.filter((request) => request.status === "pending").length,
       totalCalls: calls.length,
+      activeCallSessions: activeCalls.length,
+      activeGroupCallSessions: activeCalls.filter((call) => call.sessionMode === "group").length,
       openReports: reports.filter((report) => report.status === "received" || report.status === "reviewing").length,
+      forceEndTotal,
     },
+    forceEndReasonStats,
     rooms: roomSummaries,
     requests,
     calls,
+    activeCalls,
+    callAudits,
     reports,
   };
 }
@@ -430,7 +655,7 @@ export async function getAdminCommunityMessengerRoomDetail(
   const room = roomData as RoomRow | null;
   if (!room) return null;
 
-  const [{ data: participantData }, { data: messageData }, { data: callData }, { data: reportData }] = await Promise.all([
+  const [{ data: participantData }, { data: messageData }, { data: callData }, { data: reportData }, { data: sessionData }, { data: sessionParticipantData }, { data: auditData }] = await Promise.all([
     (sb() as any)
       .from("community_messenger_participants")
       .select("id, room_id, user_id, role, unread_count, joined_at, last_read_at")
@@ -443,7 +668,7 @@ export async function getAdminCommunityMessengerRoomDetail(
       .limit(300),
     (sb() as any)
       .from("community_messenger_call_logs")
-      .select("id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at, ended_at, created_at")
+      .select("id, session_id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at, ended_at, created_at")
       .eq("room_id", roomId)
       .order("started_at", { ascending: false })
       .limit(80),
@@ -453,23 +678,60 @@ export async function getAdminCommunityMessengerRoomDetail(
       .eq("room_id", roomId)
       .order("created_at", { ascending: false })
       .limit(120),
+    (sb() as any)
+      .from("community_messenger_call_sessions")
+      .select("id, room_id, initiator_user_id, recipient_user_id, session_mode, call_kind, status, started_at, answered_at, ended_at, created_at")
+      .eq("room_id", roomId)
+      .in("status", ["ringing", "active"])
+      .order("created_at", { ascending: false })
+      .limit(20),
+    (sb() as any)
+      .from("community_messenger_call_session_participants")
+      .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
+      .eq("room_id", roomId)
+      .order("created_at", { ascending: false })
+      .limit(80),
+    (sb() as any)
+      .from("audit_logs")
+      .select("id, actor_type, actor_id, target_type, target_id, action, before_json, after_json, ip, created_at")
+      .eq("target_type", "community_messenger_call_session")
+      .eq("action", "admin.force_end_call_session")
+      .order("created_at", { ascending: false })
+      .limit(80),
   ]);
 
   const participants = (participantData ?? []) as ParticipantRow[];
   const messages = (messageData ?? []) as MessageRow[];
   const calls = (callData ?? []) as CallRow[];
   const reports = (reportData ?? []) as ReportRow[];
+  const sessions = (sessionData ?? []) as CallSessionRow[];
+  const sessionParticipants = (sessionParticipantData ?? []) as CallSessionParticipantRow[];
+  const auditRows = ((auditData ?? []) as AuditRow[]).filter((row) => {
+    const beforeRoomId = t(row.before_json?.roomId);
+    const afterRoomId = t(row.after_json?.roomId);
+    return beforeRoomId === roomId || afterRoomId === roomId;
+  });
   const profileIds = [
     room.created_by ?? "",
     room.moderated_by ?? "",
     ...participants.map((participant) => participant.user_id),
     ...messages.map((message) => message.sender_id ?? ""),
     ...calls.flatMap((call) => [call.caller_user_id, call.peer_user_id ?? ""]),
+    ...sessions.flatMap((session) => [session.initiator_user_id, session.recipient_user_id ?? ""]),
+    ...sessionParticipants.map((participant) => participant.user_id),
     ...reports.flatMap((report) => [report.reported_user_id ?? "", report.reporter_user_id, report.assigned_admin_id ?? ""]),
+    ...auditRows.map((row) => row.actor_id ?? ""),
   ];
   const profileMap = await getProfileMap(profileIds);
   const summary = mapRoomSummary(room, participants, profileMap);
   const roomMap = new Map([[room.id, summary]]);
+  const sessionMap = new Map(sessions.map((session) => [session.id, session]));
+  const participantsBySession = new Map<string, CallSessionParticipantRow[]>();
+  for (const participant of sessionParticipants) {
+    const list = participantsBySession.get(participant.session_id) ?? [];
+    list.push(participant);
+    participantsBySession.set(participant.session_id, list);
+  }
   const reportCountByMessageId = new Map<string, number>();
   for (const report of reports) {
     if (!report.message_id) continue;
@@ -505,7 +767,11 @@ export async function getAdminCommunityMessengerRoomDetail(
       isHiddenByAdmin: message.is_hidden_by_admin === true,
       reportCount: reportCountByMessageId.get(message.id) ?? 0,
     })),
-    calls: calls.map((call) => mapCallLog(call, roomMap, profileMap)),
+    calls: calls.map((call) => mapCallLog(call, roomMap, profileMap, sessionMap, participantsBySession)),
+    activeCalls: sessions.map((session) =>
+      mapActiveCallSession(session, roomMap, profileMap, participantsBySession.get(session.id) ?? [])
+    ),
+    callAudits: auditRows.map((row) => mapCallAuditLog(row, roomMap, profileMap)),
     reports: reports.map((report) => mapReport(report, roomMap, profileMap)),
   };
 }
@@ -536,6 +802,128 @@ export async function runAdminCommunityMessengerRoomAction(input: {
     .update(patch)
     .eq("id", input.roomId);
   if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function runAdminCommunityMessengerCallSessionAction(input: {
+  sessionId: string;
+  adminUserId: string;
+  action: "force_end";
+  reasonCode?: CommunityMessengerCallForceEndReasonCode;
+  adminNote?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const now = new Date().toISOString();
+  const note = t(input.adminNote);
+  const reasonCode = t(input.reasonCode);
+  if (!note) {
+    return { ok: false, error: "admin_note_required" };
+  }
+  if (!isCommunityMessengerCallForceEndReasonCode(reasonCode)) {
+    return { ok: false, error: "reason_code_required" };
+  }
+  const { data: sessionData, error: sessionError } = await (sb() as any)
+    .from("community_messenger_call_sessions")
+    .select("id, room_id, initiator_user_id, recipient_user_id, session_mode, call_kind, status, started_at, answered_at, ended_at, created_at")
+    .eq("id", input.sessionId)
+    .maybeSingle();
+  if (sessionError) return { ok: false, error: sessionError.message };
+  if (!sessionData) return { ok: false, error: "session_not_found" };
+  const session = sessionData as CallSessionRow;
+  const { data: participantData } = await (sb() as any)
+    .from("community_messenger_call_session_participants")
+    .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
+    .eq("session_id", input.sessionId);
+  const participants = (participantData ?? []) as CallSessionParticipantRow[];
+  if (session.status === "ended" || session.status === "rejected" || session.status === "missed" || session.status === "cancelled") {
+    return { ok: false, error: "already_finished" };
+  }
+
+  const { error: updateSessionError } = await (sb() as any)
+    .from("community_messenger_call_sessions")
+    .update({
+      status: "ended",
+      ended_at: now,
+      updated_at: now,
+    })
+    .eq("id", input.sessionId);
+  if (updateSessionError) return { ok: false, error: updateSessionError.message };
+
+  const { error: participantError } = await (sb() as any)
+    .from("community_messenger_call_session_participants")
+    .update({
+      participation_status: "left",
+      left_at: now,
+    })
+    .eq("session_id", input.sessionId)
+    .in("participation_status", ["invited", "joined"]);
+  if (participantError) return { ok: false, error: participantError.message };
+
+  const { data: existingLog } = await (sb() as any)
+    .from("community_messenger_call_logs")
+    .select("id")
+    .eq("session_id", input.sessionId)
+    .maybeSingle();
+  if (!existingLog) {
+    const logResult = await createCommunityMessengerCallLog({
+      userId: session.initiator_user_id,
+      roomId: session.room_id,
+      sessionId: session.id,
+      peerUserId: (session.session_mode ?? "direct") === "direct" ? session.recipient_user_id : null,
+      callKind: session.call_kind,
+      status: "ended",
+      durationSeconds: 0,
+    });
+    if (!logResult.ok) return logResult;
+  }
+
+  if (note) {
+    await (sb() as any)
+      .from("community_messenger_rooms")
+      .update({
+        admin_note: note,
+        moderated_by: input.adminUserId,
+        moderated_at: now,
+        updated_at: now,
+      })
+      .eq("id", session.room_id);
+  }
+  await appendAuditLog(sb() as any, {
+    actor_type: "admin",
+    actor_id: input.adminUserId,
+    target_type: "community_messenger_call_session",
+    target_id: session.id,
+    action: "admin.force_end_call_session",
+    before_json: {
+      sessionId: session.id,
+      roomId: session.room_id,
+      status: session.status,
+      callKind: session.call_kind,
+      sessionMode: session.session_mode ?? "direct",
+      participantCount: participants.length,
+      participantStatuses: participants.map((item) => ({
+        userId: item.user_id,
+        status: item.participation_status,
+      })),
+      reasonCode,
+      adminNote: note || null,
+    },
+    after_json: {
+      sessionId: session.id,
+      roomId: session.room_id,
+      status: "ended",
+      callKind: session.call_kind,
+      sessionMode: session.session_mode ?? "direct",
+      participantCount: participants.length,
+      participantStatuses: participants.map((item) => ({
+        userId: item.user_id,
+        status: item.participation_status === "rejected" ? "rejected" : "left",
+      })),
+      reasonCode,
+      reasonLabel: getCommunityMessengerCallForceEndReasonLabel(reasonCode),
+      adminNote: note || null,
+      forcedEndedAt: now,
+    },
+  });
   return { ok: true };
 }
 
