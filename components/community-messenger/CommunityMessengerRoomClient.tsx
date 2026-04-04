@@ -516,7 +516,7 @@ export function CommunityMessengerRoomClient({
                         <p className="font-semibold">
                           {item.callKind === "video" ? "영상 통화" : "음성 통화"}
                         </p>
-                        <p className="mt-1 text-[12px]">{item.callStatus ?? "상태 없음"}</p>
+                        <p className="mt-1 text-[12px]">{formatRoomCallStatus(item.callStatus)}</p>
                       </div>
                     ) : (
                       <div className="flex items-end gap-2">
@@ -1188,6 +1188,16 @@ function formatTime(value: string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function formatRoomCallStatus(status?: string | null): string {
+  if (status === "missed") return "부재중";
+  if (status === "rejected") return "거절됨";
+  if (status === "cancelled") return "취소됨";
+  if (status === "ended") return "통화 종료";
+  if (status === "incoming") return "수신 중";
+  if (status === "dialing") return "발신 중";
+  return "상태 확인 중";
 }
 
 function formatDuration(value: number): string {

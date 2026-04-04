@@ -1,5 +1,13 @@
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
+type PrimedDeviceStreamState = {
+  kind: CommunityMessengerCallKind;
+  stream: MediaStream;
+  timeoutId: number;
+} | null;
+
+let primedDeviceStreamState: PrimedDeviceStreamState = null;
+
 function isIosSafari(): boolean {
   if (typeof window === "undefined") return false;
   const ua = window.navigator.userAgent;
@@ -76,13 +84,52 @@ export function openCommunityMessengerPermissionSettings(): boolean {
   return false;
 }
 
+function clearPrimedDeviceStream(stopTracks: boolean) {
+  if (!primedDeviceStreamState) return;
+  window.clearTimeout(primedDeviceStreamState.timeoutId);
+  if (stopTracks) {
+    for (const track of primedDeviceStreamState.stream.getTracks()) {
+      track.stop();
+    }
+  }
+  primedDeviceStreamState = null;
+}
+
 export async function primeCommunityMessengerDevicePermission(kind: CommunityMessengerCallKind): Promise<void> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
+  if (typeof window !== "undefined") {
+    clearPrimedDeviceStream(true);
+  }
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: true,
     video: kind === "video",
   });
-  for (const track of stream.getTracks()) {
-    track.stop();
+  if (typeof window === "undefined") {
+    for (const track of stream.getTracks()) {
+      track.stop();
+    }
+    return;
   }
+  primedDeviceStreamState = {
+    kind,
+    stream,
+    timeoutId: window.setTimeout(() => {
+      clearPrimedDeviceStream(true);
+    }, 20_000),
+  };
+}
+
+export function consumePrimedCommunityMessengerDevicePermission(
+  kind: CommunityMessengerCallKind
+): MediaStream | null {
+  if (typeof window === "undefined" || !primedDeviceStreamState) return null;
+  if (primedDeviceStreamState.kind !== kind) return null;
+  const stream = primedDeviceStreamState.stream;
+  clearPrimedDeviceStream(false);
+  return stream;
+}
+
+export function discardPrimedCommunityMessengerDevicePermission() {
+  if (typeof window === "undefined") return;
+  clearPrimedDeviceStream(true);
 }

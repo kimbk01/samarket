@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import {
+  consumePrimedCommunityMessengerDevicePermission,
+  discardPrimedCommunityMessengerDevicePermission,
+} from "@/lib/community-messenger/call-permission";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
@@ -108,14 +112,23 @@ export function useCommunityMessengerCall(args: {
   const processedSignalIdsRef = useRef<Set<string>>(new Set());
   const activeSinceRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
+  const sessionCleanupTimerRef = useRef<number | null>(null);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
 
+  const clearPendingSessionCleanup = useCallback(() => {
+    if (sessionCleanupTimerRef.current === null) return;
+    window.clearTimeout(sessionCleanupTimerRef.current);
+    sessionCleanupTimerRef.current = null;
+  }, []);
+
   const cleanupMedia = useCallback(() => {
+    clearPendingSessionCleanup();
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
     for (const track of localStream?.getTracks() ?? []) track.stop();
     for (const track of remoteStream?.getTracks() ?? []) track.stop();
+    discardPrimedCommunityMessengerDevicePermission();
     setLocalStream(null);
     setRemoteStream(null);
     pendingOfferRef.current = null;
@@ -126,15 +139,16 @@ export function useCommunityMessengerCall(args: {
     setElapsedSeconds(0);
     setTransportState("idle");
     setCallQuality(null);
-  }, [localStream, remoteStream]);
+  }, [clearPendingSessionCleanup, localStream, remoteStream]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      clearPendingSessionCleanup();
       cleanupMedia();
     };
-  }, [cleanupMedia]);
+  }, [cleanupMedia, clearPendingSessionCleanup]);
 
   useEffect(() => {
     const node = localVideoRef.current;
@@ -178,11 +192,17 @@ export function useCommunityMessengerCall(args: {
     const activeCall = args.activeCall;
     if (!activeCall) {
       if (panel?.sessionId) {
-        cleanupMedia();
-        setPanel(null);
+        clearPendingSessionCleanup();
+        sessionCleanupTimerRef.current = window.setTimeout(() => {
+          cleanupMedia();
+          setPanel(null);
+          sessionCleanupTimerRef.current = null;
+        }, 2500);
       }
       return;
     }
+
+    clearPendingSessionCleanup();
 
     if (activeCall.status === "ringing") {
       setPanel((prev) => {
@@ -206,10 +226,19 @@ export function useCommunityMessengerCall(args: {
         peerLabel: activeCall.peerLabel,
       });
     }
-  }, [args.activeCall, cleanupMedia, panel?.sessionId, transportState]);
+  }, [args.activeCall, cleanupMedia, clearPendingSessionCleanup, panel?.sessionId, transportState]);
 
   const ensureLocalStream = useCallback(async (kind: CommunityMessengerCallKind) => {
     if (localStream) return localStream;
+    const primedStream = consumePrimedCommunityMessengerDevicePermission(kind);
+    if (primedStream) {
+      if (!mountedRef.current) {
+        for (const track of primedStream.getTracks()) track.stop();
+        throw new Error("unmounted");
+      }
+      setLocalStream(primedStream);
+      return primedStream;
+    }
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
       video: kind === "video",
@@ -223,11 +252,15 @@ export function useCommunityMessengerCall(args: {
   }, [localStream]);
 
   const sendSignal = useCallback(async (sessionId: string, toUserId: string, signalType: "offer" | "answer" | "ice-candidate" | "hangup", payload: Record<string, unknown>) => {
-    await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
+    const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ toUserId, signalType, payload }),
     });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!res.ok || !json.ok) {
+      throw new Error(json.error ?? `${signalType}_signal_failed`);
+    }
   }, []);
 
   useEffect(() => {
@@ -298,6 +331,8 @@ export function useCommunityMessengerCall(args: {
         if (!event.candidate) return;
         void sendSignal(sessionId, peerUserId, "ice-candidate", {
           candidate: event.candidate.toJSON(),
+        }).catch(() => {
+          /* ignore transient ICE signal delivery failure */
         });
       };
       connection.onconnectionstatechange = () => {

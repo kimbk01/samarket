@@ -1327,27 +1327,89 @@ async function getActiveCallSessionForRoom(
   return session ? mapCallSession(userId, session) : null;
 }
 
+function formatCommunityMessengerCallStubStatus(status: CommunityMessengerCallStatus): string {
+  if (status === "missed") return "부재중";
+  if (status === "rejected") return "거절됨";
+  if (status === "cancelled") return "취소됨";
+  if (status === "ended") return "통화 종료";
+  if (status === "incoming") return "수신 중";
+  return "발신 중";
+}
+
+function buildCommunityMessengerCallStubLabel(
+  callKind: CommunityMessengerCallKind,
+  status: CommunityMessengerCallStatus
+): string {
+  return `${callKind === "video" ? "영상 통화" : "음성 통화"} · ${formatCommunityMessengerCallStubStatus(status)}`;
+}
+
+function isCallStubRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function hasMatchingCallStubSessionId(metadata: unknown, sessionId: string | null | undefined): boolean {
+  if (!sessionId || !isCallStubRecord(metadata)) return false;
+  return trimText(metadata.sessionId) === sessionId;
+}
+
 async function appendCallStubMessage(input: {
   userId: string;
   roomId: string | null;
+  sessionId?: string | null;
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallStatus;
   createdAt: string;
+  replaceExisting?: boolean;
+  incrementUnread?: boolean;
 }) {
   if (!input.roomId) return;
-  const label =
-    input.callKind === "video" ? `영상 통화 · ${input.status}` : `음성 통화 · ${input.status}`;
+  const label = buildCommunityMessengerCallStubLabel(input.callKind, input.status);
+  const metadata = {
+    callKind: input.callKind,
+    callStatus: input.status,
+    sessionId: trimText(input.sessionId ?? "") || null,
+  };
+  const shouldIncrementUnread = input.incrementUnread ?? true;
   const sb = getSupabaseOrNull();
   if (sb) {
+    if (input.replaceExisting && input.sessionId) {
+      const { data: existingRows } = await (sb as any)
+        .from("community_messenger_messages")
+        .select("id, metadata")
+        .eq("room_id", input.roomId)
+        .eq("message_type", "call_stub")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      const existingRow = ((existingRows ?? []) as Array<{ id: string; metadata?: unknown }>).find((row) =>
+        hasMatchingCallStubSessionId(row.metadata, input.sessionId)
+      );
+      if (existingRow) {
+        await (sb as any)
+          .from("community_messenger_messages")
+          .update({
+            content: label,
+            metadata,
+            created_at: input.createdAt,
+          })
+          .eq("id", existingRow.id);
+        await (sb as any)
+          .from("community_messenger_rooms")
+          .update({
+            last_message: label,
+            last_message_at: input.createdAt,
+            last_message_type: "call_stub",
+            updated_at: input.createdAt,
+          })
+          .eq("id", input.roomId);
+        return;
+      }
+    }
     await (sb as any).from("community_messenger_messages").insert({
       room_id: input.roomId,
       sender_id: input.userId,
       message_type: "call_stub",
       content: label,
-      metadata: {
-        callKind: input.callKind,
-        callStatus: input.status,
-      },
+      metadata,
       created_at: input.createdAt,
     });
     await (sb as any)
@@ -1363,6 +1425,7 @@ async function appendCallStubMessage(input: {
       .from("community_messenger_participants")
       .select("id, user_id, unread_count")
       .eq("room_id", input.roomId);
+    if (!shouldIncrementUnread) return;
     for (const participant of (participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>) {
       await (sb as any)
         .from("community_messenger_participants")
@@ -1376,16 +1439,35 @@ async function appendCallStubMessage(input: {
   }
 
   const dev = getDevState();
+  if (input.replaceExisting && input.sessionId) {
+    const existingMessage = [...dev.messages]
+      .reverse()
+      .find(
+        (item) =>
+          item.roomId === input.roomId &&
+          item.messageType === "call_stub" &&
+          hasMatchingCallStubSessionId(item.metadata, input.sessionId)
+      );
+    if (existingMessage) {
+      existingMessage.content = label;
+      existingMessage.metadata = metadata;
+      existingMessage.createdAt = input.createdAt;
+      const room = dev.rooms.find((item) => item.id === input.roomId);
+      if (room) {
+        room.lastMessage = label;
+        room.lastMessageAt = input.createdAt;
+        room.lastMessageType = "call_stub";
+      }
+      return;
+    }
+  }
   dev.messages.push({
     id: randomUUID(),
     roomId: input.roomId,
     senderId: input.userId,
     messageType: "call_stub",
     content: label,
-    metadata: {
-      callKind: input.callKind,
-      callStatus: input.status,
-    },
+    metadata,
     createdAt: input.createdAt,
   });
   const room = dev.rooms.find((item) => item.id === input.roomId);
@@ -1394,6 +1476,7 @@ async function appendCallStubMessage(input: {
     room.lastMessageAt = input.createdAt;
     room.lastMessageType = "call_stub";
   }
+  if (!shouldIncrementUnread) return;
   for (const participant of dev.participants.filter((item) => item.roomId === input.roomId)) {
     participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
   }
@@ -2636,6 +2719,7 @@ export async function createCommunityMessengerCallLog(input: {
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallStatus;
   durationSeconds?: number;
+  replaceExistingStub?: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
   const roomId = trimText(input.roomId ?? "") || null;
   const sessionId = trimText(input.sessionId ?? "") || null;
@@ -2658,9 +2742,12 @@ export async function createCommunityMessengerCallLog(input: {
       await appendCallStubMessage({
         userId: input.userId,
         roomId,
+        sessionId,
         callKind: input.callKind,
         status: input.status,
         createdAt: startedAt,
+        replaceExisting: input.replaceExistingStub,
+        incrementUnread: !input.replaceExistingStub,
       });
       return { ok: true };
     }
@@ -2682,9 +2769,12 @@ export async function createCommunityMessengerCallLog(input: {
   await appendCallStubMessage({
     userId: input.userId,
     roomId,
+    sessionId,
     callKind: input.callKind,
     status: input.status,
     createdAt: startedAt,
+    replaceExisting: input.replaceExistingStub,
+    incrementUnread: !input.replaceExistingStub,
   });
   return { ok: true };
 }
@@ -2766,6 +2856,16 @@ export async function startCommunityMessengerCallSession(input: {
             },
           ];
       await (sb as any).from("community_messenger_call_session_participants").insert(participantRows);
+      if (!isGroupRoom) {
+        await appendCallStubMessage({
+          userId: input.userId,
+          roomId,
+          sessionId: inserted.id,
+          callKind: input.callKind,
+          status: "dialing",
+          createdAt: startedAt,
+        });
+      }
       return { ok: true, session: await mapCallSession(input.userId, data as CallSessionRow) };
     }
     if (!isMissingTableError(error)) {
@@ -2801,6 +2901,16 @@ export async function startCommunityMessengerCallSession(input: {
   };
   session.participants = session.participants.map((item) => ({ ...item, sessionId: session.id }));
   dev.callSessions.unshift(session);
+  if (!isGroupRoom) {
+    await appendCallStubMessage({
+      userId: input.userId,
+      roomId,
+      sessionId: session.id,
+      callKind: input.callKind,
+      status: "dialing",
+      createdAt: startedAt,
+    });
+  }
   return { ok: true, session: await mapCallSession(input.userId, session) };
 }
 
@@ -2830,6 +2940,7 @@ export async function updateCommunityMessengerCallSession(input: {
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
       status,
       durationSeconds,
+      replaceExistingStub: mapped.sessionMode === "direct",
     });
   };
 

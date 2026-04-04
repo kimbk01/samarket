@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import {
@@ -20,7 +20,6 @@ import { playNotificationSound } from "@/lib/notifications/play-notification-sou
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 export function GlobalCommunityMessengerIncomingCall() {
-  const pathname = usePathname();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<CommunityMessengerCallSession[]>([]);
@@ -157,23 +156,14 @@ export function GlobalCommunityMessengerIncomingCall() {
     const nextIds = new Set<string>();
     for (const session of sessions) {
       nextIds.add(session.id);
-      if (!seenIdsRef.current.has(session.id)) {
-        if (
-          incomingCallSoundEnabled &&
-          !incomingCallBannerEnabled &&
-          pathname !== `/community-messenger/rooms/${session.roomId}`
-        ) {
-          playNotificationSound();
-        }
+      if (!seenIdsRef.current.has(session.id) && incomingCallSoundEnabled && !incomingCallBannerEnabled) {
+        playNotificationSound();
       }
     }
     seenIdsRef.current = nextIds;
-  }, [incomingCallBannerEnabled, incomingCallSoundEnabled, pathname, sessions]);
+  }, [incomingCallBannerEnabled, incomingCallSoundEnabled, sessions]);
 
-  const visibleSession =
-    incomingCallBannerEnabled
-      ? sessions.find((session) => pathname !== `/community-messenger/rooms/${session.roomId}`) ?? null
-      : null;
+  const visibleSession = incomingCallBannerEnabled ? sessions[0] ?? null : null;
 
   useEffect(() => {
     if (!visibleSession) return;
