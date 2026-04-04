@@ -28,6 +28,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  const refreshTimerIdsRef = useRef<number[]>([]);
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
@@ -58,29 +59,51 @@ export function GlobalCommunityMessengerIncomingCall() {
     setSessions(res.ok && json.ok ? json.sessions ?? [] : []);
   }, []);
 
-  useEffect(() => {
+  const queueRefreshBurst = useCallback(() => {
     void refresh();
+    for (const timerId of refreshTimerIdsRef.current) {
+      window.clearTimeout(timerId);
+    }
+    refreshTimerIdsRef.current = [250, 900, 1800].map((delay) =>
+      window.setTimeout(() => {
+        void refresh();
+      }, delay)
+    );
   }, [refresh]);
+
+  useEffect(() => {
+    queueRefreshBurst();
+  }, [queueRefreshBurst]);
 
   useEffect(() => {
     if (!userId) return;
     const timer = window.setInterval(() => {
       void refresh();
-    }, 8000);
+    }, 2500);
     const onVisible = () => {
-      if (document.visibilityState === "visible") void refresh();
+      if (document.visibilityState === "visible") queueRefreshBurst();
     };
     const onPageShow = () => {
-      void refresh();
+      queueRefreshBurst();
+    };
+    const onFocus = () => {
+      queueRefreshBurst();
+    };
+    const onOnline = () => {
+      queueRefreshBurst();
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
     };
-  }, [refresh, userId]);
+  }, [queueRefreshBurst, refresh, userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -99,7 +122,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           filter: `recipient_user_id=eq.${userId}`,
         },
         () => {
-          void refresh();
+          queueRefreshBurst();
         }
       )
       .on(
@@ -111,7 +134,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           filter: `user_id=eq.${userId}`,
         },
         () => {
-          void refresh();
+          queueRefreshBurst();
         }
       )
       .subscribe();
@@ -119,7 +142,16 @@ export function GlobalCommunityMessengerIncomingCall() {
     return () => {
       if (channel) void sb.removeChannel(channel);
     };
-  }, [refresh, userId]);
+  }, [queueRefreshBurst, userId]);
+
+  useEffect(() => {
+    return () => {
+      for (const timerId of refreshTimerIdsRef.current) {
+        window.clearTimeout(timerId);
+      }
+      refreshTimerIdsRef.current = [];
+    };
+  }, []);
 
   useEffect(() => {
     const nextIds = new Set<string>();

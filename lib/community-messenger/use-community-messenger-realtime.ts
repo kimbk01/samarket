@@ -281,6 +281,21 @@ export function useCommunityMessengerRoomRealtime(args: {
       )
     );
 
+    subscribe(`community-messenger-room:call-session-participants:${args.roomId}`, (channel) =>
+      channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_session_participants",
+          filter: `room_id=eq.${args.roomId}`,
+        },
+        () => {
+          if (!cancelled) refreshScheduler.schedule();
+        }
+      )
+    );
+
     return () => {
       cancelled = true;
       refreshScheduler.cancel();
