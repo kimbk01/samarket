@@ -103,3 +103,8 @@ export async function closeCommunityMessengerAgoraTracks(tracks: CommunityMessen
     tracks.videoTrack.close();
   }
 }
+
+/** 영상 통화에서 전후면·외장 캠 전환 시 사용 */
+export async function listCommunityMessengerCameras(): Promise<MediaDeviceInfo[]> {
+  return AgoraRTC.getCameras();
+}

@@ -1,6 +1,12 @@
 "use client";
 
-import type { IAgoraRTCClient, IAgoraRTCRemoteUser, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
+import type {
+  ICameraVideoTrack,
+  IAgoraRTCClient,
+  IAgoraRTCRemoteUser,
+  ILocalVideoTrack,
+  IRemoteVideoTrack,
+} from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +15,7 @@ import {
   createCommunityMessengerAgoraClient,
   createCommunityMessengerAgoraLocalTracks,
   joinCommunityMessengerAgoraChannel,
+  listCommunityMessengerCameras,
   publishCommunityMessengerAgoraTracks,
   type CommunityMessengerAgoraLocalTracks,
 } from "@/lib/community-messenger/call-provider/client";
@@ -29,6 +36,10 @@ type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallC
 
 function isTerminalCallSessionStatus(status: CommunityMessengerCallSession["status"]): boolean {
   return status === "ended" || status === "cancelled" || status === "rejected" || status === "missed";
+}
+
+function isCameraVideoTrackWithDevice(track: ILocalVideoTrack | null): track is ICameraVideoTrack {
+  return !!track && typeof (track as ICameraVideoTrack).setDevice === "function";
 }
 
 /** 폴링으로 객체 참조만 바뀌는 경우 effect·리렌더 난사를 막는다 */
@@ -74,8 +85,15 @@ export function CommunityMessengerCallClient({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [localVideoReady, setLocalVideoReady] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
-  const localVideoRef = useRef<HTMLDivElement | null>(null);
-  const remoteVideoRef = useRef<HTMLDivElement | null>(null);
+  const [layoutSwapped, setLayoutSwapped] = useState(false);
+  const [camOff, setCamOff] = useState(false);
+  const [micMuted, setMicMuted] = useState(false);
+  const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
+  const largeVideoRef = useRef<HTMLDivElement | null>(null);
+  const smallVideoRef = useRef<HTMLDivElement | null>(null);
+  const layoutSwappedRef = useRef(false);
+  const useRearFacingRef = useRef(false);
+  layoutSwappedRef.current = layoutSwapped;
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const localTracksRef = useRef<CommunityMessengerAgoraLocalTracks | null>(null);
   const remoteVideoTrackRef = useRef<IRemoteVideoTrack | null>(null);
@@ -123,8 +141,12 @@ export function CommunityMessengerCallClient({
     setRemoteVideoReady(false);
     remoteVideoTrackRef.current?.stop();
     remoteVideoTrackRef.current = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.innerHTML = "";
-    if (localVideoRef.current) localVideoRef.current.innerHTML = "";
+    if (largeVideoRef.current) largeVideoRef.current.innerHTML = "";
+    if (smallVideoRef.current) smallVideoRef.current.innerHTML = "";
+    setLayoutSwapped(false);
+    setCamOff(false);
+    setMicMuted(false);
+    useRearFacingRef.current = false;
     await closeCommunityMessengerAgoraTracks(localTracksRef.current);
     localTracksRef.current = null;
     if (client) {
@@ -173,9 +195,11 @@ export function CommunityMessengerCallClient({
   const bindRemoteVideoTrack = useCallback((track: IRemoteVideoTrack | null) => {
     remoteVideoTrackRef.current?.stop();
     remoteVideoTrackRef.current = track;
-    if (remoteVideoRef.current) remoteVideoRef.current.innerHTML = "";
-    if (track && remoteVideoRef.current) {
-      track.play(remoteVideoRef.current, { fit: "contain", mirror: false });
+    const swapped = layoutSwappedRef.current;
+    const remoteEl = swapped ? smallVideoRef.current : largeVideoRef.current;
+    if (remoteEl) remoteEl.innerHTML = "";
+    if (track && remoteEl) {
+      track.play(remoteEl, { fit: "contain", mirror: false });
       setRemoteVideoReady(true);
       return;
     }
@@ -183,22 +207,102 @@ export function CommunityMessengerCallClient({
   }, []);
 
   const bindLocalVideoTrack = useCallback(() => {
-    if (!localVideoRef.current) return;
-    localVideoRef.current.innerHTML = "";
     const videoTrack = localTracksRef.current?.videoTrack ?? null;
-    if (!videoTrack) {
+    const swapped = layoutSwappedRef.current;
+    const localEl = swapped ? largeVideoRef.current : smallVideoRef.current;
+    if (localEl) localEl.innerHTML = "";
+    if (!videoTrack || !localEl) {
       setLocalVideoReady(false);
       return;
     }
-    videoTrack.play(localVideoRef.current, { fit: "cover", mirror: true });
+    /* setEnabled(false) 직후에도 play 하면 마지막 프레임이 남을 수 있어 enabled 일 때만 붙인다 */
+    if (!videoTrack.enabled) {
+      setLocalVideoReady(false);
+      return;
+    }
+    videoTrack.play(localEl, { fit: "cover", mirror: true });
     setLocalVideoReady(true);
   }, []);
 
-  /* 영상 통화: join 직후 ref 가 붙기 전일 수 있어 iOS 등에서 로컬 미리보기가 비는 경우 보정 */
+  /* 레이아웃 전환·join 직후: 양쪽 슬롯에 트랙을 다시 붙인다 */
   useLayoutEffect(() => {
     if (!session || session.callKind !== "video" || !joined) return;
-    bindLocalVideoTrack();
-  }, [bindLocalVideoTrack, joined, session?.callKind, session?.id]);
+    const remote = remoteVideoTrackRef.current;
+    const local = localTracksRef.current?.videoTrack ?? null;
+    remote?.stop();
+    local?.stop();
+    const remoteEl = layoutSwapped ? smallVideoRef.current : largeVideoRef.current;
+    const localEl = layoutSwapped ? largeVideoRef.current : smallVideoRef.current;
+    if (remoteEl) remoteEl.innerHTML = "";
+    if (localEl) localEl.innerHTML = "";
+    if (remote && remoteEl) {
+      remote.play(remoteEl, { fit: "contain", mirror: false });
+      setRemoteVideoReady(true);
+    } else {
+      setRemoteVideoReady(false);
+    }
+    if (local && localEl) {
+      if (local.enabled) {
+        local.play(localEl, { fit: "cover", mirror: true });
+        setLocalVideoReady(true);
+      } else {
+        setLocalVideoReady(false);
+      }
+    } else {
+      setLocalVideoReady(false);
+    }
+  }, [layoutSwapped, joined, session?.callKind, session?.id]);
+
+  const switchCameraFacing = useCallback(async () => {
+    const v = localTracksRef.current?.videoTrack;
+    if (!v || !isCameraVideoTrackWithDevice(v)) return;
+    setBusy("camera");
+    try {
+      useRearFacingRef.current = !useRearFacingRef.current;
+      await v.setDevice({ facingMode: useRearFacingRef.current ? "environment" : "user" });
+    } catch {
+      useRearFacingRef.current = !useRearFacingRef.current;
+      try {
+        const list = await listCommunityMessengerCameras();
+        if (list.length < 2) return;
+        const cur = v.getMediaStreamTrack().getSettings().deviceId;
+        const next = list.find((d) => d.deviceId !== cur) ?? list[1];
+        await v.setDevice(next.deviceId);
+        /* deviceId 로 전환되면 실제 전후면과 facing 추적이 어긋날 수 있어 다음 번은 목록 기준으로만 맞춘다 */
+        useRearFacingRef.current = false;
+      } catch {
+        /* ignore */
+      }
+    } finally {
+      bindLocalVideoTrack();
+      setBusy(null);
+    }
+  }, [bindLocalVideoTrack]);
+
+  const toggleCamEnabled = useCallback(async () => {
+    const v = localTracksRef.current?.videoTrack;
+    if (!v) return;
+    const nextOff = !camOff;
+    setCamOff(nextOff);
+    try {
+      await v.setEnabled(!nextOff);
+      bindLocalVideoTrack();
+    } catch {
+      setCamOff(!nextOff);
+    }
+  }, [bindLocalVideoTrack, camOff]);
+
+  const toggleMicEnabled = useCallback(async () => {
+    const a = localTracksRef.current?.audioTrack;
+    if (!a) return;
+    const nextMuted = !micMuted;
+    setMicMuted(nextMuted);
+    try {
+      await a.setEnabled(!nextMuted);
+    } catch {
+      setMicMuted(!nextMuted);
+    }
+  }, [micMuted]);
 
   const joinCall = useCallback(
     async (targetSession: CommunityMessengerCallSession) => {
@@ -248,7 +352,6 @@ export function CommunityMessengerCallClient({
         });
         const tracks = await createCommunityMessengerAgoraLocalTracks(targetSession.callKind);
         localTracksRef.current = tracks;
-        bindLocalVideoTrack();
         await publishCommunityMessengerAgoraTracks({
           client,
           tracks,
@@ -268,7 +371,7 @@ export function CommunityMessengerCallClient({
         setBusy(null);
       }
     },
-    [bindLocalVideoTrack, bindRemoteVideoTrack, cleanupClient, fetchConnection, refreshSession]
+    [bindRemoteVideoTrack, cleanupClient, fetchConnection, refreshSession]
   );
 
   const acceptIncoming = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
@@ -460,6 +563,14 @@ export function CommunityMessengerCallClient({
   }, [joined, session?.answeredAt]);
 
   useEffect(() => {
+    if (!joined || !session || session.callKind !== "video") {
+      setCameraSwitchSupported(false);
+      return;
+    }
+    setCameraSwitchSupported(isCameraVideoTrackWithDevice(localTracksRef.current?.videoTrack ?? null));
+  }, [joined, session?.callKind, session?.id, localVideoReady]);
+
+  useEffect(() => {
     if (!session) return;
     let ms = 2000;
     if (session.sessionMode === "direct") {
@@ -483,6 +594,14 @@ export function CommunityMessengerCallClient({
     if (joined) return "연결 중";
     return "통화 준비 중";
   }, [joined, remoteJoined, session]);
+
+  const largeShowsRemote = !layoutSwapped;
+  const showLargeVideoOverlay =
+    session?.callKind === "video" &&
+    (largeShowsRemote ? !remoteVideoReady : !localVideoReady || camOff);
+  const showSmallVideoOverlay =
+    session?.callKind === "video" &&
+    (largeShowsRemote ? !localVideoReady || camOff : !remoteVideoReady);
 
   if (loading && !session) {
     return (
@@ -532,22 +651,58 @@ export function CommunityMessengerCallClient({
           ) : null}
         </div>
 
-        <div className="mx-auto flex w-full max-w-[420px] flex-1 items-center justify-center py-4 sm:py-6">
+        <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col py-4 sm:py-6">
           {session.callKind === "video" ? (
-            <div className="grid w-full gap-3">
-              <div className="overflow-hidden rounded-[28px] bg-black">
-                <div ref={remoteVideoRef} className="h-[280px] w-full bg-black" />
-                {!remoteVideoReady ? (
-                  <div className="-mt-[280px] flex h-[280px] items-center justify-center bg-[radial-gradient(circle_at_top,#1f2937,#020617)] text-[13px] text-white/70">
-                    {remoteJoined ? "상대 영상 연결 중..." : "상대방 참여를 기다리는 중입니다."}
+            <div className="relative flex min-h-[min(58vh,420px)] w-full flex-1 overflow-hidden rounded-[28px] bg-black shadow-lg ring-1 ring-white/10">
+              <div className="absolute inset-0">
+                <div ref={largeVideoRef} className="h-full w-full bg-black" />
+                {showLargeVideoOverlay ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-4 text-center text-[13px] text-white/75">
+                    {largeShowsRemote ? (
+                      <>
+                        <p>{remoteJoined ? "상대 영상 연결 중…" : "상대방 참여를 기다리는 중입니다."}</p>
+                        <p className="text-[11px] text-white/45">큰 화면 · 상대</p>
+                      </>
+                    ) : camOff ? (
+                      <>
+                        <p>카메라가 꺼져 있습니다</p>
+                        <p className="text-[11px] text-white/45">큰 화면 · 나</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>내 카메라 준비 중</p>
+                        <p className="text-[11px] text-white/45">큰 화면 · 나</p>
+                      </>
+                    )}
                   </div>
                 ) : null}
               </div>
-              <div className="overflow-hidden rounded-[24px] bg-black">
-                <div ref={localVideoRef} className="h-[120px] w-full bg-black" />
-                {!localVideoReady ? (
-                  <div className="-mt-[120px] flex h-[120px] items-center justify-center bg-[radial-gradient(circle_at_top,#1f2937,#020617)] text-[12px] text-white/65">
-                    내 카메라 준비 중
+              <div
+                className="absolute bottom-[4.5rem] right-3 z-[1] w-[31%] max-w-[148px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black shadow-xl ring-1 ring-black/40 sm:bottom-[5rem]"
+                style={{ aspectRatio: "9 / 16" }}
+              >
+                <div ref={smallVideoRef} className="h-full w-full bg-black" />
+                {showSmallVideoOverlay ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-2 text-center text-[11px] leading-snug text-white/72">
+                    {largeShowsRemote ? (
+                      camOff ? (
+                        <>
+                          <CamOffSmallIcon className="mx-auto h-6 w-6 text-white/50" />
+                          <span>카메라 꺼짐</span>
+                          <span className="text-[10px] text-white/40">작은 화면 · 나</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>내 카메라 준비 중</span>
+                          <span className="text-[10px] text-white/40">작은 화면 · 나</span>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <span>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기"}</span>
+                        <span className="text-[10px] text-white/40">작은 화면 · 상대</span>
+                      </>
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -597,6 +752,50 @@ export function CommunityMessengerCallClient({
           </div>
         ) : null}
 
+        {session.callKind === "video" && joined ? (
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setLayoutSwapped((v) => !v)}
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/15"
+              aria-label="큰 화면과 작은 화면 바꾸기"
+              title="내 화면·상대 화면 크기 전환"
+            >
+              <SwapVideoLayoutIcon className="h-6 w-6" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void switchCameraFacing()}
+              disabled={!cameraSwitchSupported || busy === "camera"}
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/15 disabled:opacity-35"
+              aria-label="카메라 전환"
+              title={cameraSwitchSupported ? "전면·후면 카메라 전환" : "이 연결에서는 카메라 전환이 지원되지 않습니다"}
+            >
+              <SwitchCameraIcon className="h-6 w-6" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void toggleCamEnabled()}
+              className={`flex h-12 w-12 items-center justify-center rounded-full border text-white transition ${
+                camOff ? "border-amber-400/60 bg-amber-500/25 hover:bg-amber-500/35" : "border-white/20 bg-white/10 hover:bg-white/15"
+              }`}
+              aria-label={camOff ? "카메라 켜기" : "카메라 끄기"}
+            >
+              {camOff ? <CamOffToolbarIcon className="h-6 w-6" /> : <CamOnToolbarIcon className="h-6 w-6" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => void toggleMicEnabled()}
+              className={`flex h-12 w-12 items-center justify-center rounded-full border text-white transition ${
+                micMuted ? "border-rose-400/60 bg-rose-500/25 hover:bg-rose-500/35" : "border-white/20 bg-white/10 hover:bg-white/15"
+              }`}
+              aria-label={micMuted ? "마이크 켜기" : "마이크 끄기"}
+            >
+              {micMuted ? <MicOffToolbarIcon className="h-6 w-6" /> : <MicOnToolbarIcon className="h-6 w-6" />}
+            </button>
+          </div>
+        ) : null}
+
         <div className="flex gap-2">
           {!session.isMineInitiator && session.status === "ringing" && !joined ? (
             <>
@@ -638,6 +837,75 @@ export function CommunityMessengerCallClient({
       </div>
       </div>
     </div>
+  );
+}
+
+function SwapVideoLayoutIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M7 16V4M7 4L3 8M7 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 8v12m0 0l4-4m-4 4l-4-4" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="8" y="10" width="8" height="6" rx="1" opacity="0.35" />
+    </svg>
+  );
+}
+
+function SwitchCameraIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path
+        d="M4 10a2 2 0 0 1 2-2h2l1.5-2h5L16 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"
+        strokeLinejoin="round"
+      />
+      <path d="M12 14a3 3 0 1 0 0 .01" strokeLinecap="round" />
+      <path d="M20 6l2-2M20 6l-2-2M20 6h-3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CamOffSmallIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M4 8h4l2-2h4l2 2h4v10H4V8z" strokeLinejoin="round" />
+      <path d="M2 22L20 4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CamOnToolbarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M4 9a2 2 0 0 1 2-2h3l2-2h4l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9z" strokeLinejoin="round" />
+      <circle cx="12" cy="13" r="3.25" />
+    </svg>
+  );
+}
+
+function CamOffToolbarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M4 9a2 2 0 0 1 2-2h3l2-2h4l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9z" strokeLinejoin="round" opacity="0.5" />
+      <path d="M3 21L18 6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MicOnToolbarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3z" strokeLinejoin="round" />
+      <path d="M8 11v1a4 4 0 0 0 8 0v-1M12 18v3M9 21h6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MicOffToolbarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3z" strokeLinejoin="round" opacity="0.45" />
+      <path d="M8 11v1a4 4 0 0 0 8 0v-1M12 18v3M9 21h6" strokeLinecap="round" strokeLinejoin="round" opacity="0.45" />
+      <path d="M3 3l18 18" strokeLinecap="round" />
+    </svg>
   );
 }
 
