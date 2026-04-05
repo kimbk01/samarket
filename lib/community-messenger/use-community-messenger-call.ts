@@ -863,7 +863,6 @@ export function useCommunityMessengerCall(args: {
         peerLabel: activeCall.peerLabel,
         callKind: activeCall.callKind,
       };
-      await ensurePeerConnection(activeCall.callKind, activeCall.id, activeCall.peerUserId);
       setTransportState("connecting");
       setPanel({
         kind: activeCall.callKind,
@@ -871,6 +870,7 @@ export function useCommunityMessengerCall(args: {
         sessionId: activeCall.id,
         peerLabel: activeCall.peerLabel,
       });
+      await ensurePeerConnection(activeCall.callKind, activeCall.id, activeCall.peerUserId);
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}/signals`, {
         cache: "no-store",
       });
