@@ -198,41 +198,39 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [refresh, sessions]);
 
-  const acceptCall = useCallback(
-    (session: CommunityMessengerCallSession) => {
-      if (session.sessionMode === "group") {
-        window.alert("그룹 통화는 현재 준비 중입니다. 다음 단계에서 다시 연결하겠습니다.");
-        return;
-      }
-      setBusyId(`accept:${session.id}`);
-      setSessions((prev) => prev.filter((item) => item.id !== session.id));
-      const url = `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`;
-      void (async () => {
-        let permissionFailed = false;
-        try {
-          await Promise.race([
-            primeCommunityMessengerDevicePermissionFromUserGesture(session.callKind),
-            new Promise<never>((_, reject) => {
-              window.setTimeout(() => reject(new Error("prime_timeout")), 5_000);
-            }),
-          ]);
-        } catch {
-          permissionFailed = true;
-        } finally {
-          setBusyId(null);
-          if (permissionFailed) {
-            window.alert(
-              session.callKind === "video"
-                ? "카메라/마이크 권한 확인이 지연되어 통화방으로 먼저 이동합니다. 방 안에서 다시 수락하면 바로 연결됩니다."
-                : "마이크 권한 확인이 지연되어 통화방으로 먼저 이동합니다. 방 안에서 다시 수락하면 바로 연결됩니다."
-            );
-          }
-          window.location.assign(url);
+  const acceptCall = useCallback((session: CommunityMessengerCallSession) => {
+    if (session.sessionMode === "group") {
+      window.alert("그룹 통화는 현재 준비 중입니다. 다음 단계에서 다시 연결하겠습니다.");
+      return;
+    }
+    setBusyId(`accept:${session.id}`);
+    setSessions((prev) => prev.filter((item) => item.id !== session.id));
+    const url = `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`;
+    /*
+     * getUserMedia 는 클릭과 같은 동기 스택에서 시작해야 한다.
+     * async IIFE 안에서만 prime 을 호출하면 제스처가 끊겨 NotAllowedError·여러 번 수락이 필요해진다.
+     * 권한 팝업 대기 시간은 제한하지 않는다(5초 race 제거).
+     */
+    const primePromise = primeCommunityMessengerDevicePermissionFromUserGesture(session.callKind);
+    void (async () => {
+      let permissionFailed = false;
+      try {
+        await primePromise;
+      } catch {
+        permissionFailed = true;
+      } finally {
+        setBusyId(null);
+        if (permissionFailed) {
+          window.alert(
+            session.callKind === "video"
+              ? "카메라/마이크 권한을 허용하지 못했습니다. 통화 화면에서 「수락」을 한 번 더 눌러 주세요."
+              : "마이크 권한을 허용하지 못했습니다. 통화 화면에서 「수락」을 한 번 더 눌러 주세요."
+          );
         }
-      })();
-    },
-    []
-  );
+        window.location.assign(url);
+      }
+    })();
+  }, []);
 
   if (!visibleSession) return null;
 

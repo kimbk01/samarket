@@ -9,7 +9,15 @@ import type {
 } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   closeCommunityMessengerAgoraTracks,
   createCommunityMessengerAgoraClient,
@@ -89,8 +97,19 @@ export function CommunityMessengerCallClient({
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
+  /** PiP 드래그 후 픽셀 위치(null 이면 우하단 기본 배치) */
+  const [pipPixelPosition, setPipPixelPosition] = useState<{ left: number; top: number } | null>(null);
   const largeVideoRef = useRef<HTMLDivElement | null>(null);
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
+  const videoStageRef = useRef<HTMLDivElement | null>(null);
+  const pipWrapRef = useRef<HTMLDivElement | null>(null);
+  const pipDragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startLeft: number;
+    startTop: number;
+  } | null>(null);
   const layoutSwappedRef = useRef(false);
   const useRearFacingRef = useRef(false);
   layoutSwappedRef.current = layoutSwapped;
@@ -146,6 +165,7 @@ export function CommunityMessengerCallClient({
     setLayoutSwapped(false);
     setCamOff(false);
     setMicMuted(false);
+    setPipPixelPosition(null);
     useRearFacingRef.current = false;
     await closeCommunityMessengerAgoraTracks(localTracksRef.current);
     localTracksRef.current = null;
@@ -303,6 +323,102 @@ export function CommunityMessengerCallClient({
       setMicMuted(!nextMuted);
     }
   }, [micMuted]);
+
+  useEffect(() => {
+    setPipPixelPosition(null);
+  }, [sessionId]);
+
+  const clampPipToStage = useCallback(() => {
+    const stage = videoStageRef.current;
+    const pip = pipWrapRef.current;
+    if (!stage || !pip) return;
+    const pad = 8;
+    const sw = stage.clientWidth;
+    const sh = stage.clientHeight;
+    const pw = pip.offsetWidth;
+    const ph = pip.offsetHeight;
+    if (pw <= 0 || ph <= 0) return;
+    const maxL = Math.max(pad, sw - pw - pad);
+    const maxT = Math.max(pad, sh - ph - pad);
+    setPipPixelPosition((prev) => {
+      if (!prev) return prev;
+      return {
+        left: Math.min(maxL, Math.max(pad, prev.left)),
+        top: Math.min(maxT, Math.max(pad, prev.top)),
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (pipPixelPosition === null) return;
+    const onResize = () => clampPipToStage();
+    window.addEventListener("resize", onResize);
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null;
+    const el = videoStageRef.current;
+    if (el && ro) ro.observe(el);
+    onResize();
+    return () => {
+      window.removeEventListener("resize", onResize);
+      ro?.disconnect();
+    };
+  }, [pipPixelPosition, clampPipToStage]);
+
+  const onPipPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      const stage = videoStageRef.current;
+      const pip = pipWrapRef.current;
+      if (!stage || !pip) return;
+      e.preventDefault();
+      const stageRect = stage.getBoundingClientRect();
+      const pipRect = pip.getBoundingClientRect();
+      const left = pipPixelPosition?.left ?? pipRect.left - stageRect.left;
+      const top = pipPixelPosition?.top ?? pipRect.top - stageRect.top;
+      pipDragRef.current = {
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startLeft: left,
+        startTop: top,
+      };
+      setPipPixelPosition({ left, top });
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [pipPixelPosition]
+  );
+
+  const onPipPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = pipDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    const stage = videoStageRef.current;
+    const pip = pipWrapRef.current;
+    if (!stage || !pip) return;
+    e.preventDefault();
+    const dx = e.clientX - d.startClientX;
+    const dy = e.clientY - d.startClientY;
+    const pad = 8;
+    const sw = stage.clientWidth;
+    const sh = stage.clientHeight;
+    const pw = pip.offsetWidth;
+    const ph = pip.offsetHeight;
+    if (pw <= 0 || ph <= 0) return;
+    let left = d.startLeft + dx;
+    let top = d.startTop + dy;
+    left = Math.min(Math.max(pad, left), Math.max(pad, sw - pw - pad));
+    top = Math.min(Math.max(pad, top), Math.max(pad, sh - ph - pad));
+    setPipPixelPosition({ left, top });
+  }, []);
+
+  const onPipPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = pipDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    pipDragRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+  }, []);
 
   const joinCall = useCallback(
     async (targetSession: CommunityMessengerCallSession) => {
@@ -534,7 +650,10 @@ export function CommunityMessengerCallClient({
       void acceptIncoming().then((nextSession) => {
         if (nextSession) {
           void joinCall(nextSession);
+          return;
         }
+        /* 수락 API 실패 시 한 번만 막아 둔 플래그를 풀어, 화면에서 「수락」 재시도가 가능하게 한다 */
+        autoAcceptRef.current = false;
       });
       return;
     }
@@ -626,10 +745,18 @@ export function CommunityMessengerCallClient({
     );
   }
 
+  const videoCall = session.callKind === "video";
+
   return (
     <div className="flex min-h-full min-h-0 flex-1 flex-col bg-[#020617] text-white">
-      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+12px)]">
-      <header className="flex shrink-0 items-center justify-between py-4">
+      <div
+        className={
+          videoCall
+            ? "mx-auto flex min-h-0 w-full max-w-[min(100%,960px)] flex-1 flex-col px-2 pt-[calc(env(safe-area-inset-top)+8px)] sm:px-4"
+            : "mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+12px)]"
+        }
+      >
+      <header className={`flex shrink-0 items-center justify-between ${videoCall ? "py-2 sm:py-3" : "py-4"}`}>
         <button
           type="button"
           onClick={() => router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`)}
@@ -642,18 +769,31 @@ export function CommunityMessengerCallClient({
         </span>
       </header>
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        <div className="shrink-0 pt-4 text-center">
-          <p className="text-[30px] font-semibold">{session.peerLabel}</p>
-          <p className="mt-2 text-[14px] text-white/70">{statusLabel}</p>
+      <main className={`flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden" : "overflow-y-auto"}`}>
+        <div className={`shrink-0 text-center ${videoCall ? "pt-1 pb-2 sm:pt-2" : "pt-4"}`}>
+          <p className={videoCall ? "text-[clamp(20px,5vw,28px)] font-semibold" : "text-[30px] font-semibold"}>
+            {session.peerLabel}
+          </p>
+          <p className={`text-white/70 ${videoCall ? "mt-1 text-[13px]" : "mt-2 text-[14px]"}`}>{statusLabel}</p>
           {joined && session.status === "active" ? (
-            <p className="mt-3 text-[13px] font-semibold text-[#86EFAC]">{formatDuration(elapsedSeconds)}</p>
+            <p className={`font-semibold text-[#86EFAC] ${videoCall ? "mt-1.5 text-[12px]" : "mt-3 text-[13px]"}`}>
+              {formatDuration(elapsedSeconds)}
+            </p>
           ) : null}
         </div>
 
-        <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col py-4 sm:py-6">
+        <div
+          className={
+            videoCall
+              ? "mx-auto flex min-h-0 w-full flex-1 flex-col py-2 sm:py-4"
+              : "mx-auto flex w-full max-w-[420px] flex-1 flex-col py-4 sm:py-6"
+          }
+        >
           {session.callKind === "video" ? (
-            <div className="relative flex min-h-[min(58vh,420px)] w-full flex-1 overflow-hidden rounded-[28px] bg-black shadow-lg ring-1 ring-white/10">
+            <div
+              ref={videoStageRef}
+              className="relative flex min-h-[min(56dvh,480px)] w-full flex-1 overflow-hidden rounded-[22px] bg-black shadow-lg ring-1 ring-white/10 sm:min-h-[min(68dvh,760px)] sm:rounded-[28px]"
+            >
               <div className="absolute inset-0">
                 <div ref={largeVideoRef} className="h-full w-full bg-black" />
                 {showLargeVideoOverlay ? (
@@ -678,8 +818,25 @@ export function CommunityMessengerCallClient({
                 ) : null}
               </div>
               <div
-                className="absolute bottom-[4.5rem] right-3 z-[1] w-[31%] max-w-[148px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black shadow-xl ring-1 ring-black/40 sm:bottom-[5rem]"
-                style={{ aspectRatio: "9 / 16" }}
+                ref={pipWrapRef}
+                className={`absolute z-[1] w-[34%] max-w-[200px] cursor-grab overflow-hidden rounded-2xl border-2 border-white/25 bg-black shadow-xl ring-1 ring-black/40 active:cursor-grabbing touch-none select-none ${
+                  pipPixelPosition ? "right-auto bottom-auto" : "bottom-[6.25rem] right-2 sm:bottom-[6.75rem] sm:right-3"
+                }`}
+                style={{
+                  aspectRatio: "9 / 16",
+                  ...(pipPixelPosition
+                    ? { left: pipPixelPosition.left, top: pipPixelPosition.top }
+                    : undefined),
+                }}
+                onPointerDown={onPipPointerDown}
+                onPointerMove={onPipPointerMove}
+                onPointerUp={onPipPointerUp}
+                onPointerCancel={onPipPointerUp}
+                onLostPointerCapture={() => {
+                  pipDragRef.current = null;
+                }}
+                aria-label="작은 화면 — 드래그하여 위치 이동"
+                role="presentation"
               >
                 <div ref={smallVideoRef} className="h-full w-full bg-black" />
                 {showSmallVideoOverlay ? (
@@ -715,7 +872,13 @@ export function CommunityMessengerCallClient({
         </div>
       </main>
 
-      <div className="mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.06] bg-[#020617] pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))] pt-3">
+      <div
+        className={
+          videoCall
+            ? "mx-auto w-full max-w-[min(100%,960px)] shrink-0 border-t border-white/[0.06] bg-[#020617] px-2 pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))] pt-3 sm:px-4"
+            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.06] bg-[#020617] pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))] pt-3"
+        }
+      >
         {errorMessage ? (
           <div className="mb-4 rounded-3xl bg-white/10 p-4">
             <p className="text-[13px] font-semibold text-[#FECACA]">{errorMessage}</p>
