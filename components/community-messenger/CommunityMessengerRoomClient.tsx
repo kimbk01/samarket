@@ -1002,7 +1002,7 @@ export function CommunityMessengerRoomClient({
       </div>
 
       <footer className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-        <div className="flex items-end gap-2">
+        <div className="flex min-w-0 items-end gap-2">
           <button
             type="button"
             onClick={() => setActiveSheet("menu")}
@@ -1023,33 +1023,39 @@ export function CommunityMessengerRoomClient({
                   : snapshot.room.roomStatus === "blocked"
                     ? "차단된 방입니다"
                     : "보관된 방입니다"
-                : "메시지를 입력하세요"
+                : "메시지 입력 · 오른쪽 마이크를 길게 눌러 음성"
             }
-            className="max-h-28 min-h-[44px] flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
+            className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
           />
-          {message.trim() ? (
-            <button
-              type="button"
-              onClick={() => void sendMessage()}
-              disabled={roomUnavailable || busy === "send" || busy === "send-voice"}
-              className="rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-            >
-              전송
-            </button>
-          ) : (
+          <div className="flex shrink-0 items-end gap-1.5">
             <button
               type="button"
               onPointerDown={onVoiceMicPointerDown}
               onPointerMove={onVoiceMicPointerMove}
               onPointerUp={onVoiceMicPointerUp}
               onPointerCancel={onVoiceMicPointerCancel}
-              disabled={roomUnavailable || busy === "send" || busy === "send-voice"}
-              className="flex h-11 w-11 shrink-0 touch-none select-none items-center justify-center rounded-2xl border border-gray-200 bg-white text-[#06C755] disabled:opacity-40"
+              disabled={
+                roomUnavailable || busy === "send" || busy === "send-voice" || Boolean(message.trim())
+              }
+              className="flex h-11 w-11 touch-none select-none items-center justify-center rounded-full bg-[#06C755]/12 text-[#06C755] ring-2 ring-[#06C755]/25 transition active:scale-95 disabled:opacity-35"
               aria-label="음성 메시지 — 누른 채로 녹음, 손을 떼면 전송, 위로 밀면 취소"
+              title={
+                message.trim()
+                  ? "글자를 지우면 음성 녹음을 사용할 수 있습니다"
+                  : "길게 눌러 녹음 · 손 떼면 전송 · 위로 밀면 취소"
+              }
             >
               <MicHoldIcon className="h-6 w-6" />
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => void sendMessage()}
+              disabled={roomUnavailable || !message.trim() || busy === "send" || busy === "send-voice"}
+              className="rounded-2xl bg-[#06C755] px-3.5 py-3 text-[14px] font-semibold text-white disabled:opacity-40 sm:px-4"
+            >
+              전송
+            </button>
+          </div>
         </div>
       </footer>
 
@@ -1742,12 +1748,9 @@ function PlusIcon({ className }: { className?: string }) {
 
 function MicHoldIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <path
-        d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3z"
-        strokeLinejoin="round"
-      />
-      <path d="M19 11a7 7 0 0 1-14 0M12 18v3M8 21h8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
     </svg>
   );
 }
