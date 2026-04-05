@@ -249,10 +249,16 @@ export function CommunityMessengerRoomClient({
       });
   }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId]);
 
-  const handleAcceptIncomingCall = useCallback((): Promise<boolean> => {
+  const handleAcceptIncomingCall = useCallback(async (): Promise<boolean> => {
     const kind = call.panel?.kind ?? snapshot?.activeCall?.callKind;
-    if (!kind) return Promise.resolve(false);
-    return primeCommunityMessengerDevicePermissionFromUserGesture(kind).then(() => call.acceptIncomingCall());
+    if (!kind) return false;
+    try {
+      await primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+    } catch {
+      /* 프라임 실패해도 수락 로직으로 진행한다.
+       * 실제 권한 오류는 acceptIncomingCall 내부에서 사용자 메시지로 안내한다. */
+    }
+    return call.acceptIncomingCall();
   }, [call, call.panel?.kind, snapshot?.activeCall?.callKind]);
 
   useEffect(() => {

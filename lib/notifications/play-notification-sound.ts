@@ -91,7 +91,6 @@ export function primeNotificationSoundAudio(): void {
 
 export function playNotificationSound(): void {
   if (typeof window === "undefined") return;
-  void getOrCreateAudioContext()?.resume();
   try {
     const audio = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
     audio.volume = 0.55;
