@@ -87,6 +87,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     userId: auth.userId,
     roomId,
     audioPublicUrl: publicUrl,
+    storagePath: path,
     durationSeconds,
     mimeType: mimeBase || "audio/webm",
   });

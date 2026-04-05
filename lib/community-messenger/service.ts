@@ -2808,19 +2808,86 @@ export async function sendCommunityMessengerMessage(input: {
 
 const VOICE_LAST_PREVIEW = "음성 메시지";
 
+function legacyPostImagesPathFromPublicUrl(url: string): string | null {
+  const raw = trimText(url);
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    const key = "/storage/v1/object/public/post-images/";
+    const i = u.pathname.indexOf(key);
+    if (i === -1) return null;
+    return decodeURIComponent(u.pathname.slice(i + key.length));
+  } catch {
+    return null;
+  }
+}
+
+/** 방 멤버만 스트리밍 재생 — Storage 비공개·CORS 이슈 회피 */
+export async function fetchCommunityMessengerVoicePlaybackBytes(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+}): Promise<
+  | { ok: true; data: Uint8Array; contentType: string }
+  | { ok: false; status: number; error: string }
+> {
+  const roomId = trimText(input.roomId);
+  const messageId = trimText(input.messageId);
+  if (!roomId || !messageId) return { ok: false, status: 400, error: "bad_request" };
+
+  const sb = getSupabaseServer();
+  const { data: msg, error: msgErr } = await sb
+    .from("community_messenger_messages")
+    .select("id, room_id, message_type, content, metadata")
+    .eq("id", messageId)
+    .maybeSingle();
+  if (msgErr || !msg || trimText((msg as { room_id?: string }).room_id) !== roomId) {
+    return { ok: false, status: 404, error: "not_found" };
+  }
+  if (trimText((msg as { message_type?: string }).message_type) !== "voice") {
+    return { ok: false, status: 404, error: "not_found" };
+  }
+  const { data: part } = await sb
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (!part) return { ok: false, status: 403, error: "forbidden" };
+
+  const metadata = (
+    (msg as { metadata?: unknown }).metadata && typeof (msg as { metadata?: unknown }).metadata === "object"
+      ? ((msg as { metadata?: unknown }).metadata as Record<string, unknown>)
+      : {}
+  ) as Record<string, unknown>;
+  const content = trimText((msg as { content?: string }).content);
+  let storagePath = trimText(metadata.storagePath as string);
+  if (!storagePath) storagePath = legacyPostImagesPathFromPublicUrl(content) ?? "";
+  if (!storagePath) return { ok: false, status: 404, error: "no_audio_path" };
+
+  const { data: file, error: dlErr } = await sb.storage.from("post-images").download(storagePath);
+  if (dlErr || !file) return { ok: false, status: 502, error: "download_failed" };
+
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const contentType = trimText(metadata.mimeType as string) || "application/octet-stream";
+  return { ok: true, data: buf, contentType };
+}
+
 export async function sendCommunityMessengerVoiceMessage(input: {
   userId: string;
   roomId: string;
   audioPublicUrl: string;
+  storagePath: string;
   durationSeconds: number;
   mimeType: string;
 }): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
   const roomId = trimText(input.roomId);
   const audioPublicUrl = trimText(input.audioPublicUrl);
-  if (!roomId || !audioPublicUrl) return { ok: false, error: "content_required" };
+  const storagePath = trimText(input.storagePath);
+  if (!roomId || !audioPublicUrl || !storagePath) return { ok: false, error: "content_required" };
   const durationSeconds = Math.max(0, Math.min(600, Math.floor(Number(input.durationSeconds) || 0)));
   const mimeType = trimText(input.mimeType) || "audio/webm";
-  const metadata = { durationSeconds, mimeType };
+  const metadata = { durationSeconds, mimeType, storagePath };
   const sb = getSupabaseOrNull();
   if (sb) {
     const [{ data: participant }, { data: roomData }] = await Promise.all([

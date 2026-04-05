@@ -55,6 +55,8 @@ export function CommunityMessengerRoomClient({
   const voiceMimeRef = useRef<{ mimeType: string; fileExtension: string } | null>(null);
   const voiceTickRef = useRef<number | null>(null);
   const voiceMaxTimerRef = useRef<number | null>(null);
+  const voiceSessionIdRef = useRef(0);
+  const voicePointerDownRef = useRef(false);
   const loadedRef = useRef(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
@@ -495,9 +497,17 @@ export function CommunityMessengerRoomClient({
         return;
       }
 
-      const mime = voiceMimeRef.current?.mimeType || "audio/webm";
-      const ext = voiceMimeRef.current?.fileExtension || "webm";
-      const blob = new Blob(chunks, { type: mime });
+      const blobMime =
+        (chunks[0] && chunks[0].type && chunks[0].type.length > 0 ? chunks[0].type : null) ||
+        voiceMimeRef.current?.mimeType ||
+        "audio/webm";
+      const ext =
+        blobMime.includes("mp4") || blobMime.includes("m4a")
+          ? "m4a"
+          : blobMime.includes("ogg")
+            ? "ogg"
+            : "webm";
+      const blob = new Blob(chunks, { type: blobMime });
       if (blob.size < 400) {
         voiceFinalizingRef.current = false;
         window.alert("녹음이 너무 짧습니다.");
@@ -529,7 +539,8 @@ export function CommunityMessengerRoomClient({
       setBusy("send-voice");
       try {
         const form = new FormData();
-        form.append("file", blob, `voice.${ext}`);
+        const fileForUpload = new File([blob], `voice.${ext}`, { type: blobMime });
+        form.append("file", fileForUpload);
         form.append("durationSeconds", String(roundedDur));
         const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/voice`, {
           method: "POST",
@@ -567,29 +578,79 @@ export function CommunityMessengerRoomClient({
     [getRoomActionErrorMessage, roomId, snapshot]
   );
 
+  const abortVoiceArmOnly = useCallback(() => {
+    voicePointerDownRef.current = false;
+    voiceSessionIdRef.current += 1;
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {
+      /* ignore */
+    }
+    mediaRecorderRef.current = null;
+    recordStreamRef.current?.getTracks().forEach((t) => t.stop());
+    recordStreamRef.current = null;
+    setVoiceRecording(false);
+    setVoiceCancelHint(false);
+  }, []);
+
   const onVoiceMicPointerDown = useCallback(
     async (e: ReactPointerEvent<HTMLButtonElement>) => {
       if (roomUnavailable || !snapshot || message.trim() || busy === "send" || busy === "send-voice") return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       e.preventDefault();
+      const session = ++voiceSessionIdRef.current;
+      voicePointerDownRef.current = true;
       voiceCancelledRef.current = false;
       voiceStartYRef.current = e.clientY;
+
       const picked = pickCommunityMessengerVoiceRecorderMime();
-      if (!picked) {
-        window.alert("이 브라우저에서는 음성 녹음을 지원하지 않습니다.");
-        return;
-      }
       voiceMimeRef.current = picked;
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        recordStreamRef.current = stream;
-        const rec = new MediaRecorder(stream, { mimeType: picked.mimeType });
+        if (session !== voiceSessionIdRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        if (!voicePointerDownRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        const rec = picked.mimeType
+          ? new MediaRecorder(stream, { mimeType: picked.mimeType })
+          : new MediaRecorder(stream);
         mediaChunksRef.current = [];
         rec.ondataavailable = (ev) => {
           if (ev.data.size > 0) mediaChunksRef.current.push(ev.data);
         };
-        rec.start(200);
+
         mediaRecorderRef.current = rec;
+        recordStreamRef.current = stream;
+        try {
+          rec.start(200);
+        } catch {
+          mediaRecorderRef.current = null;
+          recordStreamRef.current = null;
+          stream.getTracks().forEach((t) => t.stop());
+          if (session === voiceSessionIdRef.current) {
+            window.alert("녹음을 시작하지 못했습니다. 다른 앱에서 마이크를 쓰는지 확인해 주세요.");
+          }
+          return;
+        }
+
+        if (session !== voiceSessionIdRef.current || !voicePointerDownRef.current) {
+          try {
+            rec.stop();
+          } catch {
+            /* ignore */
+          }
+          stream.getTracks().forEach((t) => t.stop());
+          mediaRecorderRef.current = null;
+          recordStreamRef.current = null;
+          return;
+        }
+
         recordStartMsRef.current = Date.now();
         setVoiceRecording(true);
         setVoiceRecordSeconds(0);
@@ -607,9 +668,12 @@ export function CommunityMessengerRoomClient({
           /* ignore */
         }
       } catch {
-        window.alert(
-          getCommunityMessengerPermissionGuide("voice")?.description ?? "마이크 권한을 허용한 뒤 다시 시도해 주세요."
-        );
+        if (session === voiceSessionIdRef.current) {
+          window.alert(
+            getCommunityMessengerPermissionGuide("voice")?.description ??
+              "마이크 권한을 허용한 뒤 다시 시도해 주세요."
+          );
+        }
       }
     },
     [busy, finalizeVoiceRecording, message, roomUnavailable, snapshot]
@@ -628,27 +692,38 @@ export function CommunityMessengerRoomClient({
 
   const onVoiceMicPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!mediaRecorderRef.current && !recordStreamRef.current) return;
+      voicePointerDownRef.current = false;
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
-      void finalizeVoiceRecording(!voiceCancelledRef.current);
+      const rec = mediaRecorderRef.current;
+      if (rec && rec.state !== "inactive") {
+        void finalizeVoiceRecording(!voiceCancelledRef.current);
+        return;
+      }
+      abortVoiceArmOnly();
     },
-    [finalizeVoiceRecording]
+    [abortVoiceArmOnly, finalizeVoiceRecording]
   );
 
   const onVoiceMicPointerCancel = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
+      voicePointerDownRef.current = false;
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
-      void finalizeVoiceRecording(false);
+      const rec = mediaRecorderRef.current;
+      if (rec && rec.state !== "inactive") {
+        void finalizeVoiceRecording(false);
+        return;
+      }
+      abortVoiceArmOnly();
     },
-    [finalizeVoiceRecording]
+    [abortVoiceArmOnly, finalizeVoiceRecording]
   );
 
   useEffect(() => {
@@ -938,7 +1013,7 @@ export function CommunityMessengerRoomClient({
                   >
                     {item.messageType === "voice" ? (
                       <VoiceMessageBubble
-                        src={item.content}
+                        src={communityMessengerVoiceAudioSrc(roomId, item)}
                         durationSeconds={item.voiceDurationSeconds ?? 0}
                         isMine={item.isMine}
                         pending={item.pending}
@@ -1613,6 +1688,16 @@ export function CommunityMessengerRoomClient({
       ) : null}
     </div>
   );
+}
+
+function communityMessengerVoiceAudioSrc(
+  roomId: string,
+  item: CommunityMessengerMessage & { pending?: boolean }
+): string {
+  if (item.pending && item.content.startsWith("blob:")) {
+    return item.content;
+  }
+  return `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(item.id)}/audio`;
 }
 
 function mergeRoomMessages(

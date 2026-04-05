@@ -23,6 +23,7 @@ export function VoiceMessageBubble({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [loadError, setLoadError] = useState(false);
 
   const onTimeUpdate = useCallback(() => {
     const el = audioRef.current;
@@ -44,11 +45,12 @@ export function VoiceMessageBubble({
     el.currentTime = 0;
     setPlaying(false);
     setProgress(0);
+    setLoadError(false);
   }, [src]);
 
   const toggle = useCallback(() => {
     const el = audioRef.current;
-    if (!el) return;
+    if (!el || loadError) return;
     if (playing) {
       el.pause();
       setPlaying(false);
@@ -58,7 +60,7 @@ export function VoiceMessageBubble({
       () => setPlaying(true),
       () => setPlaying(false)
     );
-  }, [playing]);
+  }, [loadError, playing]);
 
   const barClass = isMine ? "bg-white/35" : "bg-gray-200";
   const fillClass = isMine ? "bg-white" : "bg-[#06C755]";
@@ -69,7 +71,7 @@ export function VoiceMessageBubble({
         <button
           type="button"
           onClick={toggle}
-          disabled={pending}
+          disabled={pending || loadError}
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 disabled:opacity-50 ${
             isMine ? "bg-white/20 text-white" : "bg-[#06C755]/15 text-[#06C755]"
           }`}
@@ -97,13 +99,20 @@ export function VoiceMessageBubble({
       </div>
       <audio
         ref={audioRef}
+        key={src}
         src={src}
-        preload="metadata"
+        preload="auto"
         className="hidden"
         onTimeUpdate={onTimeUpdate}
         onEnded={onEnded}
+        onError={() => setLoadError(true)}
         playsInline
       />
+      {loadError ? (
+        <span className={`text-[11px] ${isMine ? "text-white/85" : "text-red-600"}`}>
+          재생할 수 없습니다. 새로고침 후 다시 시도해 주세요.
+        </span>
+      ) : null}
       {pending ? <span className={`text-[11px] ${isMine ? "text-white/80" : "text-gray-500"}`}>전송 중</span> : null}
     </div>
   );
