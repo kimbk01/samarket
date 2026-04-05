@@ -119,6 +119,8 @@ export type CommunityMessengerMessage = {
   callStatus?: CommunityMessengerCallStatus | null;
   /** messageType === "voice" 일 때 재생 URL(보통 content 와 동일) */
   voiceDurationSeconds?: number | null;
+  /** messageType === "voice" 일 때 0–1 막대 높이 (텔레그램 스타일 파형) */
+  voiceWaveformPeaks?: number[] | null;
 };
 
 export type CommunityMessengerRoomSnapshot = {

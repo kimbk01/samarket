@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 function formatVoiceDuration(totalSec: number): string {
   const s = Math.max(0, Math.floor(totalSec));
@@ -9,21 +9,37 @@ function formatVoiceDuration(totalSec: number): string {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+const PLACEHOLDER_BARS = 40;
+
+function placeholderPeaks(): number[] {
+  return Array.from({ length: PLACEHOLDER_BARS }, () => 0.12);
+}
+
 export function VoiceMessageBubble({
   src,
   durationSeconds,
   isMine,
   pending,
+  waveformPeaks,
+  sentTimeLabel,
 }: {
   src: string;
   durationSeconds: number;
   isMine: boolean;
   pending?: boolean;
+  waveformPeaks?: number[] | null;
+  /** 버블 안 오른쪽 하단 시각 (텔레그램 스타일) */
+  sentTimeLabel?: string;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [loadError, setLoadError] = useState(false);
+
+  const bars = useMemo(() => {
+    if (waveformPeaks && waveformPeaks.length > 0) return waveformPeaks;
+    return placeholderPeaks();
+  }, [waveformPeaks]);
 
   const onTimeUpdate = useCallback(() => {
     const el = audioRef.current;
@@ -62,40 +78,55 @@ export function VoiceMessageBubble({
     );
   }, [loadError, playing]);
 
-  const barClass = isMine ? "bg-white/35" : "bg-gray-200";
-  const fillClass = isMine ? "bg-white" : "bg-[#06C755]";
+  const inactiveBar = isMine ? "bg-white/30" : "bg-gray-200";
+  const activeBar = isMine ? "bg-white" : "bg-[#06C755]";
 
   return (
-    <div className="flex min-w-[200px] max-w-[min(280px,78vw)] flex-col gap-1.5">
-      <div className="flex items-center gap-2">
+    <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">
+      <div className="flex items-stretch gap-2.5">
         <button
           type="button"
           onClick={toggle}
           disabled={pending || loadError}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 disabled:opacity-50 ${
-            isMine ? "bg-white/20 text-white" : "bg-[#06C755]/15 text-[#06C755]"
+          className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
+            isMine ? "bg-white/25 text-white ring-2 ring-white/35" : "bg-[#06C755] text-white ring-2 ring-[#06C755]/25"
           }`}
           aria-label={playing ? "일시정지" : "재생"}
         >
           {playing ? (
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <rect x="6" y="5" width="4" height="14" rx="1" />
               <rect x="14" y="5" width="4" height="14" rx="1" />
             </svg>
           ) : (
-            <svg className="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="ml-0.5 h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
         </button>
-        <div className="min-w-0 flex-1">
-          <div className={`h-1.5 w-full overflow-hidden rounded-full ${barClass}`}>
-            <div className={`h-full rounded-full transition-[width] duration-100 ${fillClass}`} style={{ width: `${progress}%` }} />
+        <div className="flex min-h-[36px] min-w-0 flex-1 flex-col justify-center gap-1">
+          <div className="flex h-8 w-full items-end justify-between gap-[1.5px]">
+            {bars.map((peak, i) => {
+              const t = bars.length > 1 ? i / (bars.length - 1) : 0;
+              const played = progress / 100;
+              const isPlayed = t <= played + 0.02;
+              const h = 4 + Math.round(peak * 26);
+              return (
+                <div
+                  key={i}
+                  className={`w-[2px] shrink-0 rounded-full transition-colors duration-100 ${isPlayed ? activeBar : inactiveBar}`}
+                  style={{ height: `${h}px`, maxHeight: "100%" }}
+                />
+              );
+            })}
+          </div>
+          <div className={`flex items-baseline justify-between gap-2 text-[11px] leading-tight ${isMine ? "text-white/90" : "text-gray-500"}`}>
+            <span className="shrink-0 tabular-nums font-medium">{formatVoiceDuration(durationSeconds)}</span>
+            {sentTimeLabel ? (
+              <span className="min-w-0 truncate tabular-nums opacity-80">{sentTimeLabel}</span>
+            ) : null}
           </div>
         </div>
-        <span className={`shrink-0 tabular-nums text-[12px] font-medium ${isMine ? "text-white/90" : "text-gray-600"}`}>
-          {formatVoiceDuration(durationSeconds)}
-        </span>
       </div>
       <audio
         ref={audioRef}

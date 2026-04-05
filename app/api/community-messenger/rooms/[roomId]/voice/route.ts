@@ -65,6 +65,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   if (!Number.isFinite(durationSeconds) || durationSeconds < 0) durationSeconds = 0;
   if (durationSeconds > 600) durationSeconds = 600;
 
+  let waveformPeaks: number[] | undefined;
+  const rawWaveform = form.get("waveformPeaks");
+  if (typeof rawWaveform === "string" && rawWaveform.trim()) {
+    try {
+      const parsed = JSON.parse(rawWaveform) as unknown;
+      if (Array.isArray(parsed)) {
+        waveformPeaks = parsed
+          .map((n) => Number(n))
+          .filter((n) => Number.isFinite(n))
+          .map((n) => Math.min(1, Math.max(0, n)));
+      }
+    } catch {
+      /* ignore invalid waveform */
+    }
+  }
+
   const ext = extForMime(rawMime);
   /** `post-images` 정책이 보통 `{uid}/community/*` 만 허용하므로 동일 접두 사용 */
   const path = `${auth.userId}/community/messenger-voice/${roomId}/${randomUUID()}.${ext}`;
@@ -90,6 +106,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     storagePath: path,
     durationSeconds,
     mimeType: mimeBase || "audio/webm",
+    waveformPeaks,
   });
 
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });

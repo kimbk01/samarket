@@ -3,6 +3,11 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import {
+  COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
+  downsampleVoiceWaveformPeaks,
+  parseVoiceWaveformPeaksFromMetadata,
+} from "@/lib/community-messenger/voice-waveform";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import type {
   CommunityMessengerBootstrap,
@@ -2646,6 +2651,7 @@ export async function getCommunityMessengerRoomSnapshot(
       ...((isDbMessage ? message.message_type : message.messageType) === "voice"
         ? {
             voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+            voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
           }
         : {}),
     };
@@ -2880,6 +2886,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
   storagePath: string;
   durationSeconds: number;
   mimeType: string;
+  waveformPeaks?: number[] | null;
 }): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
   const roomId = trimText(input.roomId);
   const audioPublicUrl = trimText(input.audioPublicUrl);
@@ -2887,7 +2894,22 @@ export async function sendCommunityMessengerVoiceMessage(input: {
   if (!roomId || !audioPublicUrl || !storagePath) return { ok: false, error: "content_required" };
   const durationSeconds = Math.max(0, Math.min(600, Math.floor(Number(input.durationSeconds) || 0)));
   const mimeType = trimText(input.mimeType) || "audio/webm";
-  const metadata = { durationSeconds, mimeType, storagePath };
+  const rawPeaks = Array.isArray(input.waveformPeaks)
+    ? input.waveformPeaks
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n))
+        .map((n) => Math.min(1, Math.max(0, n)))
+    : [];
+  const waveformPeaksStored =
+    rawPeaks.length > 0
+      ? rawPeaks.length === COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS
+        ? rawPeaks
+        : downsampleVoiceWaveformPeaks(rawPeaks, COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS)
+      : undefined;
+  const metadata: Record<string, unknown> = { durationSeconds, mimeType, storagePath };
+  if (waveformPeaksStored && waveformPeaksStored.length > 0) {
+    metadata.waveformPeaks = waveformPeaksStored;
+  }
   const sb = getSupabaseOrNull();
   if (sb) {
     const [{ data: participant }, { data: roomData }] = await Promise.all([
@@ -2965,6 +2987,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
           callKind: null,
           callStatus: null,
           voiceDurationSeconds: durationSeconds,
+          voiceWaveformPeaks: waveformPeaksStored ?? null,
         },
       };
     }
@@ -3015,6 +3038,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       callKind: null,
       callStatus: null,
       voiceDurationSeconds: durationSeconds,
+      voiceWaveformPeaks: waveformPeaksStored ?? null,
     },
   };
 }

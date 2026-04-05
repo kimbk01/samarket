@@ -26,6 +26,11 @@ import type {
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
 import { VoiceMessageBubble } from "@/components/community-messenger/VoiceMessageBubble";
+import {
+  COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
+  downsampleVoiceWaveformPeaks,
+  parseVoiceWaveformPeaksFromMetadata,
+} from "@/lib/community-messenger/voice-waveform";
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
 
 export function CommunityMessengerRoomClient({
@@ -50,8 +55,14 @@ export function CommunityMessengerRoomClient({
   const mediaChunksRef = useRef<Blob[]>([]);
   const recordStreamRef = useRef<MediaStream | null>(null);
   const recordStartMsRef = useRef(0);
-  const voiceStartYRef = useRef(0);
+  const voicePointerOriginXRef = useRef(0);
+  const voicePointerOriginYRef = useRef(0);
+  const voiceHasLockedGestureRef = useRef(false);
   const voiceCancelledRef = useRef(false);
+  const voiceAudioContextRef = useRef<AudioContext | null>(null);
+  const voiceAnalyserRef = useRef<AnalyserNode | null>(null);
+  const voiceWaveformSamplesRef = useRef<number[]>([]);
+  const voiceSampleRafRef = useRef<number | null>(null);
   const voiceMimeRef = useRef<{ mimeType: string; fileExtension: string } | null>(null);
   const voiceTickRef = useRef<number | null>(null);
   const voiceMaxTimerRef = useRef<number | null>(null);
@@ -67,8 +78,10 @@ export function CommunityMessengerRoomClient({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [voiceRecording, setVoiceRecording] = useState(false);
+  const [voiceHandsFree, setVoiceHandsFree] = useState(false);
   const [voiceRecordSeconds, setVoiceRecordSeconds] = useState(0);
   const [voiceCancelHint, setVoiceCancelHint] = useState(false);
+  const [voiceLockHint, setVoiceLockHint] = useState(false);
   const [inviteIds, setInviteIds] = useState<string[]>([]);
   const [openGroupTitle, setOpenGroupTitle] = useState("");
   const [openGroupSummary, setOpenGroupSummary] = useState("");
@@ -459,6 +472,19 @@ export function CommunityMessengerRoomClient({
     async (shouldUpload: boolean) => {
       if (voiceFinalizingRef.current) return;
       voiceFinalizingRef.current = true;
+      setVoiceHandsFree(false);
+      setVoiceLockHint(false);
+      voiceHasLockedGestureRef.current = false;
+      if (voiceSampleRafRef.current != null) {
+        cancelAnimationFrame(voiceSampleRafRef.current);
+        voiceSampleRafRef.current = null;
+      }
+      const waveformSnapshot = [...voiceWaveformSamplesRef.current];
+      voiceWaveformSamplesRef.current = [];
+      voiceAnalyserRef.current = null;
+      void voiceAudioContextRef.current?.close().catch(() => {});
+      voiceAudioContextRef.current = null;
+
       if (voiceTickRef.current) {
         clearInterval(voiceTickRef.current);
         voiceTickRef.current = null;
@@ -497,6 +523,11 @@ export function CommunityMessengerRoomClient({
         return;
       }
 
+      const waveformPeaks =
+        waveformSnapshot.length > 0
+          ? downsampleVoiceWaveformPeaks(waveformSnapshot, COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS)
+          : [];
+
       const blobMime =
         (chunks[0] && chunks[0].type && chunks[0].type.length > 0 ? chunks[0].type : null) ||
         voiceMimeRef.current?.mimeType ||
@@ -534,6 +565,7 @@ export function CommunityMessengerRoomClient({
         callKind: null,
         callStatus: null,
         voiceDurationSeconds: roundedDur,
+        ...(waveformPeaks.length > 0 ? { voiceWaveformPeaks: waveformPeaks } : {}),
       };
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       setBusy("send-voice");
@@ -542,6 +574,9 @@ export function CommunityMessengerRoomClient({
         const fileForUpload = new File([blob], `voice.${ext}`, { type: blobMime });
         form.append("file", fileForUpload);
         form.append("durationSeconds", String(roundedDur));
+        if (waveformPeaks.length > 0) {
+          form.append("waveformPeaks", JSON.stringify(waveformPeaks));
+        }
         const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/voice`, {
           method: "POST",
           body: form,
@@ -581,6 +616,17 @@ export function CommunityMessengerRoomClient({
   const abortVoiceArmOnly = useCallback(() => {
     voicePointerDownRef.current = false;
     voiceSessionIdRef.current += 1;
+    setVoiceHandsFree(false);
+    setVoiceLockHint(false);
+    voiceHasLockedGestureRef.current = false;
+    if (voiceSampleRafRef.current != null) {
+      cancelAnimationFrame(voiceSampleRafRef.current);
+      voiceSampleRafRef.current = null;
+    }
+    voiceWaveformSamplesRef.current = [];
+    voiceAnalyserRef.current = null;
+    void voiceAudioContextRef.current?.close().catch(() => {});
+    voiceAudioContextRef.current = null;
     try {
       mediaRecorderRef.current?.stop();
     } catch {
@@ -601,7 +647,12 @@ export function CommunityMessengerRoomClient({
       const session = ++voiceSessionIdRef.current;
       voicePointerDownRef.current = true;
       voiceCancelledRef.current = false;
-      voiceStartYRef.current = e.clientY;
+      voiceHasLockedGestureRef.current = false;
+      voicePointerOriginXRef.current = e.clientX;
+      voicePointerOriginYRef.current = e.clientY;
+      setVoiceCancelHint(false);
+      setVoiceLockHint(false);
+      setVoiceHandsFree(false);
 
       const picked = pickCommunityMessengerVoiceRecorderMime();
       voiceMimeRef.current = picked;
@@ -654,6 +705,48 @@ export function CommunityMessengerRoomClient({
         recordStartMsRef.current = Date.now();
         setVoiceRecording(true);
         setVoiceRecordSeconds(0);
+        voiceWaveformSamplesRef.current = [];
+        if (voiceSampleRafRef.current != null) {
+          cancelAnimationFrame(voiceSampleRafRef.current);
+          voiceSampleRafRef.current = null;
+        }
+        void voiceAudioContextRef.current?.close().catch(() => {});
+        voiceAudioContextRef.current = null;
+        voiceAnalyserRef.current = null;
+        try {
+          const AC =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          const ctx = new AC();
+          voiceAudioContextRef.current = ctx;
+          const srcNode = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 512;
+          analyser.smoothingTimeConstant = 0.42;
+          srcNode.connect(analyser);
+          voiceAnalyserRef.current = analyser;
+          const tick = () => {
+            if (session !== voiceSessionIdRef.current || !voiceAnalyserRef.current) return;
+            const a = voiceAnalyserRef.current;
+            const buf = new Uint8Array(a.frequencyBinCount);
+            a.getByteTimeDomainData(buf);
+            let sum = 0;
+            for (let i = 0; i < buf.length; i++) {
+              const v = (buf[i]! - 128) / 128;
+              sum += v * v;
+            }
+            const rms = Math.sqrt(sum / buf.length);
+            voiceWaveformSamplesRef.current.push(Math.min(1, rms * 5.5));
+            voiceSampleRafRef.current = requestAnimationFrame(tick);
+          };
+          void ctx.resume().then(() => {
+            if (session === voiceSessionIdRef.current && voiceAnalyserRef.current) {
+              voiceSampleRafRef.current = requestAnimationFrame(tick);
+            }
+          });
+        } catch {
+          /* 파형 미터는 선택 사항 */
+        }
         if (voiceTickRef.current) clearInterval(voiceTickRef.current);
         voiceTickRef.current = window.setInterval(() => {
           setVoiceRecordSeconds(Math.floor((Date.now() - recordStartMsRef.current) / 1000));
@@ -679,16 +772,33 @@ export function CommunityMessengerRoomClient({
     [busy, finalizeVoiceRecording, message, roomUnavailable, snapshot]
   );
 
-  const onVoiceMicPointerMove = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!mediaRecorderRef.current) return;
-    if (e.clientY - voiceStartYRef.current < -72) {
-      voiceCancelledRef.current = true;
-      setVoiceCancelHint(true);
-    } else {
+  const onVoiceMicPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!mediaRecorderRef.current || voiceHandsFree) return;
+      const ox = voicePointerOriginXRef.current;
+      const oy = voicePointerOriginYRef.current;
+      const dx = e.clientX - ox;
+      const dy = e.clientY - oy;
+      if (dx < -52) {
+        voiceHasLockedGestureRef.current = false;
+        voiceCancelledRef.current = true;
+        setVoiceCancelHint(true);
+        setVoiceLockHint(false);
+        return;
+      }
+      if (dy < -58) {
+        voiceHasLockedGestureRef.current = true;
+        voiceCancelledRef.current = false;
+        setVoiceLockHint(true);
+        setVoiceCancelHint(false);
+        return;
+      }
       voiceCancelledRef.current = false;
       setVoiceCancelHint(false);
-    }
-  }, []);
+      if (!voiceHasLockedGestureRef.current) setVoiceLockHint(false);
+    },
+    [voiceHandsFree]
+  );
 
   const onVoiceMicPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -700,6 +810,13 @@ export function CommunityMessengerRoomClient({
       }
       const rec = mediaRecorderRef.current;
       if (rec && rec.state !== "inactive") {
+        if (voiceHasLockedGestureRef.current && !voiceCancelledRef.current) {
+          setVoiceHandsFree(true);
+          voiceHasLockedGestureRef.current = false;
+          setVoiceCancelHint(false);
+          setVoiceLockHint(false);
+          return;
+        }
         void finalizeVoiceRecording(!voiceCancelledRef.current);
         return;
       }
@@ -730,6 +847,8 @@ export function CommunityMessengerRoomClient({
     return () => {
       if (voiceTickRef.current) clearInterval(voiceTickRef.current);
       if (voiceMaxTimerRef.current) clearTimeout(voiceMaxTimerRef.current);
+      if (voiceSampleRafRef.current != null) cancelAnimationFrame(voiceSampleRafRef.current);
+      void voiceAudioContextRef.current?.close().catch(() => {});
       try {
         mediaRecorderRef.current?.stop();
       } catch {
@@ -1017,6 +1136,8 @@ export function CommunityMessengerRoomClient({
                         durationSeconds={item.voiceDurationSeconds ?? 0}
                         isMine={item.isMine}
                         pending={item.pending}
+                        waveformPeaks={item.voiceWaveformPeaks ?? null}
+                        sentTimeLabel={formatTime(item.createdAt)}
                       />
                     ) : item.messageType === "call_stub" ? (
                       <div>
@@ -1063,7 +1184,9 @@ export function CommunityMessengerRoomClient({
                       ) : null}
                     </div>
                   ) : null}
-                  <span className="text-[11px] text-gray-400">{formatTime(item.createdAt)}</span>
+                  {item.messageType === "voice" ? null : (
+                    <span className="text-[11px] text-gray-400">{formatTime(item.createdAt)}</span>
+                  )}
                 </div>
               </div>
             ))
@@ -1078,50 +1201,122 @@ export function CommunityMessengerRoomClient({
 
       <footer className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         <div className="flex min-w-0 items-end gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveSheet("menu")}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-700"
-            aria-label="채팅방 액션"
-          >
-            <PlusIcon className="h-5 w-5" />
-          </button>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={1}
-            disabled={roomUnavailable || voiceRecording}
-            placeholder={
-              roomUnavailable
-                ? snapshot.room.isReadonly
-                  ? "읽기 전용 방입니다"
-                  : snapshot.room.roomStatus === "blocked"
-                    ? "차단된 방입니다"
-                    : "보관된 방입니다"
-                : "메시지 입력 · 오른쪽 마이크를 길게 눌러 음성"
-            }
-            className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
-          />
-          <div className="flex shrink-0 items-end gap-1.5">
+          {!voiceRecording ? (
             <button
               type="button"
-              onPointerDown={onVoiceMicPointerDown}
-              onPointerMove={onVoiceMicPointerMove}
-              onPointerUp={onVoiceMicPointerUp}
-              onPointerCancel={onVoiceMicPointerCancel}
-              disabled={
-                roomUnavailable || busy === "send" || busy === "send-voice" || Boolean(message.trim())
-              }
-              className="flex h-11 w-11 touch-none select-none items-center justify-center rounded-full bg-[#06C755]/12 text-[#06C755] ring-2 ring-[#06C755]/25 transition active:scale-95 disabled:opacity-35"
-              aria-label="음성 메시지 — 누른 채로 녹음, 손을 떼면 전송, 위로 밀면 취소"
-              title={
-                message.trim()
-                  ? "글자를 지우면 음성 녹음을 사용할 수 있습니다"
-                  : "길게 눌러 녹음 · 손 떼면 전송 · 위로 밀면 취소"
-              }
+              onClick={() => setActiveSheet("menu")}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-700"
+              aria-label="채팅방 액션"
             >
-              <MicHoldIcon className="h-6 w-6" />
+              <PlusIcon className="h-5 w-5" />
             </button>
+          ) : null}
+          {!voiceRecording ? (
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={1}
+              disabled={roomUnavailable}
+              placeholder={
+                roomUnavailable
+                  ? snapshot.room.isReadonly
+                    ? "읽기 전용 방입니다"
+                    : snapshot.room.roomStatus === "blocked"
+                      ? "차단된 방입니다"
+                      : "보관된 방입니다"
+                  : "메시지"
+              }
+              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
+            />
+          ) : null}
+
+          {voiceRecording && voiceHandsFree ? (
+            <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-[#f4f4f5] px-3 py-2">
+              <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[15px] font-semibold text-gray-900">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                {formatDuration(voiceRecordSeconds)}
+              </span>
+              <span className="min-w-0 flex-1 text-center text-[12px] text-gray-500">잠금 녹음 중</span>
+              <button
+                type="button"
+                onClick={() => void finalizeVoiceRecording(false)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm ring-1 ring-gray-200"
+                aria-label="녹음 삭제"
+              >
+                <TrashVoiceIcon className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => void finalizeVoiceRecording(true)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white shadow-md"
+                aria-label="음성 전송"
+              >
+                <SendVoiceArrowIcon className="h-5 w-5 text-white" />
+              </button>
+            </div>
+          ) : null}
+
+          {voiceRecording && !voiceHandsFree ? (
+            <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-[#f4f4f5] px-3 py-2">
+              <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[15px] font-semibold text-gray-800">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                {formatDuration(voiceRecordSeconds)}
+              </span>
+              <span
+                className={`min-w-0 flex-1 text-center text-[13px] ${
+                  voiceCancelHint ? "font-semibold text-red-600" : "text-gray-500"
+                }`}
+              >
+                ‹ 밀어서 취소
+              </span>
+            </div>
+          ) : null}
+
+          {!voiceHandsFree ? (
+            <div className="relative shrink-0">
+              {voiceRecording && !voiceHandsFree ? (
+                <div
+                  className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-2xl px-2.5 py-2 shadow-md ${
+                    voiceLockHint ? "bg-[#2AABEE] text-white" : "bg-gray-700/88 text-white/75"
+                  }`}
+                >
+                  <span className="text-base leading-none">⌃</span>
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M12 1a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V6a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V6a3 3 0 0 0-3-3z" />
+                  </svg>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onPointerDown={onVoiceMicPointerDown}
+                onPointerMove={onVoiceMicPointerMove}
+                onPointerUp={onVoiceMicPointerUp}
+                onPointerCancel={onVoiceMicPointerCancel}
+                disabled={
+                  roomUnavailable ||
+                  busy === "send" ||
+                  busy === "send-voice" ||
+                  Boolean(message.trim()) ||
+                  (voiceRecording && voiceHandsFree)
+                }
+                className={`touch-none select-none items-center justify-center rounded-full shadow-md transition active:scale-95 disabled:opacity-35 ${
+                  voiceRecording && !voiceHandsFree
+                    ? "flex h-[52px] w-[52px] bg-[#2AABEE] text-white ring-2 ring-[#2AABEE]/40"
+                    : "flex h-11 w-11 bg-[#06C755]/12 text-[#06C755] ring-2 ring-[#06C755]/25"
+                }`}
+                aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
+                title={
+                  message.trim()
+                    ? "글자를 지우면 음성 녹음을 사용할 수 있습니다"
+                    : "길게 눌러 녹음 · 손 떼면 전송 · 왼쪽 밀면 취소 · 위로 밀면 잠금"
+                }
+              >
+                <MicHoldIcon className={voiceRecording && !voiceHandsFree ? "h-7 w-7" : "h-6 w-6"} />
+              </button>
+            </div>
+          ) : null}
+
+          {!voiceRecording ? (
             <button
               type="button"
               onClick={() => void sendMessage()}
@@ -1130,23 +1325,9 @@ export function CommunityMessengerRoomClient({
             >
               전송
             </button>
-          </div>
+          ) : null}
         </div>
       </footer>
-
-      {voiceRecording ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)]">
-          <div
-            className={`max-w-md rounded-2xl px-4 py-3 text-center text-[14px] font-semibold shadow-lg ${
-              voiceCancelHint ? "bg-red-600 text-white" : "bg-gray-900/92 text-white"
-            }`}
-          >
-            {voiceCancelHint
-              ? "위로 밀었습니다 · 손을 떼면 녹음이 취소됩니다"
-              : `녹음 중 ${formatDuration(voiceRecordSeconds)} · 손을 떼면 전송 · 위로 밀면 취소`}
-          </div>
-        </div>
-      ) : null}
 
       {activeSheet ? (
         <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 px-4 pb-6" onClick={() => setActiveSheet(null)}>
@@ -1762,6 +1943,10 @@ function mapRealtimeRoomMessage(
     message.messageType === "voice"
       ? Math.max(0, Math.floor(Number(message.metadata.durationSeconds ?? 0)) || 0)
       : undefined;
+  const voiceWaveformPeaks =
+    message.messageType === "voice"
+      ? parseVoiceWaveformPeaksFromMetadata(message.metadata.waveformPeaks) ?? null
+      : undefined;
   return {
     id: message.id,
     roomId: message.roomId,
@@ -1774,6 +1959,7 @@ function mapRealtimeRoomMessage(
     callKind,
     callStatus,
     ...(voiceDurationSeconds !== undefined ? { voiceDurationSeconds } : {}),
+    ...(voiceWaveformPeaks !== undefined ? { voiceWaveformPeaks } : {}),
   };
 }
 
@@ -1836,6 +2022,23 @@ function MicHoldIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
       <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+    </svg>
+  );
+}
+
+function TrashVoiceIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 11v6M14 11v6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SendVoiceArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
     </svg>
   );
 }
