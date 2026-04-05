@@ -268,11 +268,10 @@ export function useCommunityMessengerRoomRealtime(args: {
               message: nextMessage,
             });
             /* 통화 세션은 스냅샷의 activeCall 로만 오버레이·수락이 열린다. call_stub 만 로컬 병합하고
-             * refresh 를 생략하면 수신 측이 채팅 줄만 갱신되고 통화 UI 가 안 뜨는 경우가 있다. */
-            if (
-              (nextMessage.messageType === "call_stub" || nextMessage.messageType === "voice") &&
-              !cancelled
-            ) {
+             * refresh 를 생략하면 수신 측이 채팅 줄만 갱신되고 통화 UI 가 안 뜨는 경우가 있다.
+             * 음성 메시지는 INSERT 시 이미 onMessageEvent 로 목록에 병합되므로 즉시 refresh 하지 않는다.
+             * (바로 GET 스냅샷이 뒤처지면 목록이 잠깐 비거나 순서가 꼬이는 현상을 막기 위함) */
+            if (nextMessage.messageType === "call_stub" && !cancelled) {
               callRefreshScheduler.schedule();
             }
             return;

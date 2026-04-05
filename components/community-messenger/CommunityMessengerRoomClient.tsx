@@ -55,6 +55,7 @@ export function CommunityMessengerRoomClient({
   const mediaChunksRef = useRef<Blob[]>([]);
   const recordStreamRef = useRef<MediaStream | null>(null);
   const recordStartMsRef = useRef(0);
+  const recordStartPerfRef = useRef(0);
   const voicePointerOriginXRef = useRef(0);
   const voicePointerOriginYRef = useRef(0);
   const voiceHasLockedGestureRef = useRef(false);
@@ -64,7 +65,7 @@ export function CommunityMessengerRoomClient({
   const voiceWaveformSamplesRef = useRef<number[]>([]);
   const voiceSampleRafRef = useRef<number | null>(null);
   const voiceMimeRef = useRef<{ mimeType: string; fileExtension: string } | null>(null);
-  const voiceTickRef = useRef<number | null>(null);
+  const voiceUiRafRef = useRef<number | null>(null);
   const voiceMaxTimerRef = useRef<number | null>(null);
   const voiceSessionIdRef = useRef(0);
   const voicePointerDownRef = useRef(false);
@@ -486,9 +487,9 @@ export function CommunityMessengerRoomClient({
       void voiceAudioContextRef.current?.close().catch(() => {});
       voiceAudioContextRef.current = null;
 
-      if (voiceTickRef.current) {
-        clearInterval(voiceTickRef.current);
-        voiceTickRef.current = null;
+      if (voiceUiRafRef.current != null) {
+        cancelAnimationFrame(voiceUiRafRef.current);
+        voiceUiRafRef.current = null;
       }
       if (voiceMaxTimerRef.current) {
         clearTimeout(voiceMaxTimerRef.current);
@@ -518,7 +519,10 @@ export function CommunityMessengerRoomClient({
 
       const chunks = [...mediaChunksRef.current];
       mediaChunksRef.current = [];
-      const durationSeconds = startedAt ? (Date.now() - startedAt) / 1000 : 0;
+      const durationSeconds =
+        recordStartPerfRef.current > 0 ? (performance.now() - recordStartPerfRef.current) / 1000 : startedAt
+          ? (Date.now() - startedAt) / 1000
+          : 0;
 
       if (!shouldUpload) {
         voiceFinalizingRef.current = false;
@@ -618,6 +622,10 @@ export function CommunityMessengerRoomClient({
 
   const abortVoiceArmOnly = useCallback(() => {
     voicePointerDownRef.current = false;
+    if (voiceUiRafRef.current != null) {
+      cancelAnimationFrame(voiceUiRafRef.current);
+      voiceUiRafRef.current = null;
+    }
     voiceSessionIdRef.current += 1;
     setVoiceHandsFree(false);
     setVoiceLockHint(false);
@@ -708,6 +716,7 @@ export function CommunityMessengerRoomClient({
         }
 
         recordStartMsRef.current = Date.now();
+        recordStartPerfRef.current = performance.now();
         setVoiceRecording(true);
         setVoiceRecordElapsedMs(0);
         setVoiceLivePreviewBars([]);
@@ -753,17 +762,20 @@ export function CommunityMessengerRoomClient({
         } catch {
           /* 파형 미터는 선택 사항 */
         }
-        if (voiceTickRef.current) clearInterval(voiceTickRef.current);
-        voiceTickRef.current = window.setInterval(() => {
-          const elapsed = Date.now() - recordStartMsRef.current;
-          setVoiceRecordElapsedMs(elapsed);
+        if (voiceUiRafRef.current != null) cancelAnimationFrame(voiceUiRafRef.current);
+        const uiSession = voiceSessionIdRef.current;
+        const loopVoiceRecordingUi = () => {
+          if (voiceSessionIdRef.current !== uiSession || !mediaRecorderRef.current) return;
+          setVoiceRecordElapsedMs(performance.now() - recordStartPerfRef.current);
           const snap = voiceWaveformSamplesRef.current;
           if (snap.length > 0) {
             setVoiceLivePreviewBars(downsampleVoiceWaveformPeaks([...snap], 36));
           } else {
             setVoiceLivePreviewBars([]);
           }
-        }, 50);
+          voiceUiRafRef.current = requestAnimationFrame(loopVoiceRecordingUi);
+        };
+        voiceUiRafRef.current = requestAnimationFrame(loopVoiceRecordingUi);
         if (voiceMaxTimerRef.current) clearTimeout(voiceMaxTimerRef.current);
         voiceMaxTimerRef.current = window.setTimeout(() => {
           void finalizeVoiceRecording(true);
@@ -858,7 +870,10 @@ export function CommunityMessengerRoomClient({
 
   useEffect(() => {
     return () => {
-      if (voiceTickRef.current) clearInterval(voiceTickRef.current);
+      if (voiceUiRafRef.current != null) {
+        cancelAnimationFrame(voiceUiRafRef.current);
+        voiceUiRafRef.current = null;
+      }
       if (voiceMaxTimerRef.current) clearTimeout(voiceMaxTimerRef.current);
       if (voiceSampleRafRef.current != null) cancelAnimationFrame(voiceSampleRafRef.current);
       void voiceAudioContextRef.current?.close().catch(() => {});
@@ -1231,7 +1246,9 @@ export function CommunityMessengerRoomClient({
             >
               <PlusIcon className="h-5 w-5" />
             </button>
-          ) : null}
+          ) : (
+            <div className="h-11 w-11 shrink-0" aria-hidden />
+          )}
           {!voiceRecording ? (
             <textarea
               value={message}
@@ -1253,9 +1270,9 @@ export function CommunityMessengerRoomClient({
 
           {voiceRecording && voiceHandsFree ? (
             <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-[#f4f4f5] px-3 py-2">
-              <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[15px] font-semibold text-gray-900">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                {formatVoiceRecordCentiseconds(voiceRecordElapsedMs)}
+              <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-900 sm:text-[14px]">
+                <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+                {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
               </span>
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
@@ -1282,9 +1299,9 @@ export function CommunityMessengerRoomClient({
 
           {voiceRecording && !voiceHandsFree ? (
             <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-[#f4f4f5] px-3 py-2">
-              <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[15px] font-semibold text-gray-800">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                {formatVoiceRecordCentiseconds(voiceRecordElapsedMs)}
+              <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-800 sm:text-[14px]">
+                <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+                {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
               </span>
               <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
               <span
@@ -1324,10 +1341,10 @@ export function CommunityMessengerRoomClient({
                   Boolean(message.trim()) ||
                   (voiceRecording && voiceHandsFree)
                 }
-                className={`touch-none select-none items-center justify-center rounded-full shadow-md transition active:scale-95 disabled:opacity-35 ${
+                className={`touch-none flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full shadow-md transition active:scale-95 disabled:opacity-35 ${
                   voiceRecording && !voiceHandsFree
-                    ? "flex h-[52px] w-[52px] bg-[#2AABEE] text-white ring-2 ring-[#2AABEE]/40"
-                    : "flex h-11 w-11 bg-[#06C755]/12 text-[#06C755] ring-2 ring-[#06C755]/25"
+                    ? "bg-[#2AABEE] text-white ring-2 ring-[#2AABEE]/40"
+                    : "bg-[#06C755]/12 text-[#06C755] ring-2 ring-[#06C755]/25"
                 }`}
                 aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
                 title={
@@ -1336,7 +1353,7 @@ export function CommunityMessengerRoomClient({
                     : "길게 눌러 녹음 · 손 떼면 전송 · 왼쪽 밀면 취소 · 위로 밀면 잠금"
                 }
               >
-                <MicHoldIcon className={voiceRecording && !voiceHandsFree ? "h-7 w-7" : "h-6 w-6"} />
+                <MicHoldIcon className="h-6 w-6" />
               </button>
             </div>
           ) : null}
@@ -1350,6 +1367,8 @@ export function CommunityMessengerRoomClient({
             >
               전송
             </button>
+          ) : voiceRecording && !voiceHandsFree ? (
+            <div className="h-11 min-w-[4.75rem] shrink-0" aria-hidden />
           ) : null}
         </div>
       </footer>
@@ -1896,13 +1915,23 @@ export function CommunityMessengerRoomClient({
   );
 }
 
-function formatVoiceRecordCentiseconds(ms: number): string {
-  const totalMs = Math.max(0, ms);
-  const totalSec = Math.floor(totalMs / 1000);
-  const centi = Math.floor((totalMs % 1000) / 10);
+/** 녹음 경과 시간 — 1/10000초(0.0001s) 단위까지 표시 */
+function formatVoiceRecordTenThousandths(ms: number): string {
+  const totalSec = Math.max(0, ms) / 1000;
   const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${String(s).padStart(2, "0")},${String(centi).padStart(2, "0")}`;
+  let rem = totalSec - m * 60;
+  if (rem >= 60) rem = 59.9999;
+  let s = Math.floor(rem);
+  const frac = rem - s;
+  let tenK = Math.round(frac * 10000);
+  if (tenK >= 10000) {
+    tenK = 0;
+    s += 1;
+  }
+  if (s >= 60) {
+    return `${m + 1}:00.0000`;
+  }
+  return `${m}:${String(s).padStart(2, "0")}.${String(tenK).padStart(4, "0")}`;
 }
 
 function VoiceRecordingLiveWaveform({ peaks, className }: { peaks: number[]; className?: string }) {
