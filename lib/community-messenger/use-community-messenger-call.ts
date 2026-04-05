@@ -494,7 +494,7 @@ export function useCommunityMessengerCall(args: {
         const pendingAcceptance = pendingIncomingAcceptanceRef.current;
         if (
           pendingAcceptance &&
-          pendingAcceptance.sessionId === signal.sessionId &&
+          messengerUserIdsEqual(pendingAcceptance.sessionId, signal.sessionId) &&
           messengerUserIdsEqual(pendingAcceptance.peerUserId, signal.fromUserId)
         ) {
           try {
@@ -629,12 +629,12 @@ export function useCommunityMessengerCall(args: {
   // Realtime 이 없거나 초기 GET 이 레이스로 비었을 때 offer/answer/ICE 가 빠져 연결이 멈추는 것을 막는다.
   useEffect(() => {
     const sessionId = currentSessionId;
-    if (!sessionId || !panel || transportState === "connected") return;
+    if (!sessionId || !panel) return;
 
     const needsSignalPoll =
       panel.mode === "dialing" ||
       panel.mode === "connecting" ||
-      (panel.mode === "incoming" && args.activeCall?.status === "ringing") ||
+      panel.mode === "incoming" ||
       panel.mode === "active";
 
     if (!needsSignalPoll) return;
@@ -668,14 +668,7 @@ export function useCommunityMessengerCall(args: {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [
-    applySignal,
-    args.activeCall?.status,
-    currentSessionId,
-    panel?.mode,
-    panel?.sessionId,
-    transportState,
-  ]);
+  }, [applySignal, args.activeCall?.status, currentSessionId, panel?.mode, panel?.sessionId]);
 
   useEffect(() => {
     if (!currentSessionId) return;

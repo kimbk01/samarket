@@ -233,7 +233,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             type="button"
             onClick={() => void rejectCall(visibleSession.id)}
             disabled={busyId === `reject:${visibleSession.id}`}
-            className="rounded-2xl border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700"
+            className="cursor-pointer touch-manipulation rounded-2xl border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/40 focus-visible:ring-offset-2"
           >
             거절
           </button>
@@ -241,7 +241,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             type="button"
             onClick={() => void acceptCall(visibleSession)}
             disabled={busyId === `accept:${visibleSession.id}`}
-            className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+            className="flex-1 cursor-pointer touch-manipulation select-none rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/50 focus-visible:ring-offset-2"
           >
             {busyId === `accept:${visibleSession.id}` ? "준비 중..." : "수락"}
           </button>

@@ -1177,7 +1177,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void call.rejectIncomingCall()}
                     disabled={call.busy === "call-reject"}
-                    className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] text-white/80"
+                    className="cursor-pointer touch-manipulation rounded-2xl border border-white/15 px-4 py-3 text-[14px] text-white/80 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white active:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
                   >
                     거절
                   </button>
@@ -1185,7 +1185,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void handleAcceptIncomingCall()}
                     disabled={call.busy === "call-accept"}
-                    className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+                    className="flex-1 cursor-pointer touch-manipulation select-none rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
                   >
                     수락
                   </button>
