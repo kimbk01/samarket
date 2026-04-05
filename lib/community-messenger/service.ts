@@ -2652,6 +2652,7 @@ export async function getCommunityMessengerRoomSnapshot(
         ? {
             voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
             voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
+            voiceMimeType: trimText(metadata.mimeType as string) || null,
           }
         : {}),
     };
@@ -2834,7 +2835,7 @@ export async function fetchCommunityMessengerVoicePlaybackBytes(input: {
   roomId: string;
   messageId: string;
 }): Promise<
-  | { ok: true; data: Uint8Array; contentType: string }
+  | { ok: true; data: Uint8Array; contentType: string; storagePath: string }
   | { ok: false; status: number; error: string }
 > {
   const roomId = trimText(input.roomId);
@@ -2876,7 +2877,7 @@ export async function fetchCommunityMessengerVoicePlaybackBytes(input: {
 
   const buf = new Uint8Array(await file.arrayBuffer());
   const contentType = trimText(metadata.mimeType as string) || "application/octet-stream";
-  return { ok: true, data: buf, contentType };
+  return { ok: true, data: buf, contentType, storagePath };
 }
 
 export async function sendCommunityMessengerVoiceMessage(input: {
@@ -2988,6 +2989,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
           callStatus: null,
           voiceDurationSeconds: durationSeconds,
           voiceWaveformPeaks: waveformPeaksStored ?? null,
+          voiceMimeType: mimeType,
         },
       };
     }
@@ -3039,6 +3041,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       callStatus: null,
       voiceDurationSeconds: durationSeconds,
       voiceWaveformPeaks: waveformPeaksStored ?? null,
+      voiceMimeType: mimeType,
     },
   };
 }

@@ -79,7 +79,8 @@ export function CommunityMessengerRoomClient({
   const [message, setMessage] = useState("");
   const [voiceRecording, setVoiceRecording] = useState(false);
   const [voiceHandsFree, setVoiceHandsFree] = useState(false);
-  const [voiceRecordSeconds, setVoiceRecordSeconds] = useState(0);
+  const [voiceRecordElapsedMs, setVoiceRecordElapsedMs] = useState(0);
+  const [voiceLivePreviewBars, setVoiceLivePreviewBars] = useState<number[]>([]);
   const [voiceCancelHint, setVoiceCancelHint] = useState(false);
   const [voiceLockHint, setVoiceLockHint] = useState(false);
   const [inviteIds, setInviteIds] = useState<string[]>([]);
@@ -499,7 +500,8 @@ export function CommunityMessengerRoomClient({
       const startedAt = recordStartMsRef.current;
       setVoiceRecording(false);
       setVoiceCancelHint(false);
-      setVoiceRecordSeconds(0);
+      setVoiceRecordElapsedMs(0);
+      setVoiceLivePreviewBars([]);
 
       if (rec && rec.state !== "inactive") {
         await new Promise<void>((resolve) => {
@@ -565,6 +567,7 @@ export function CommunityMessengerRoomClient({
         callKind: null,
         callStatus: null,
         voiceDurationSeconds: roundedDur,
+        voiceMimeType: blobMime,
         ...(waveformPeaks.length > 0 ? { voiceWaveformPeaks: waveformPeaks } : {}),
       };
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
@@ -637,6 +640,8 @@ export function CommunityMessengerRoomClient({
     recordStreamRef.current = null;
     setVoiceRecording(false);
     setVoiceCancelHint(false);
+    setVoiceRecordElapsedMs(0);
+    setVoiceLivePreviewBars([]);
   }, []);
 
   const onVoiceMicPointerDown = useCallback(
@@ -704,7 +709,8 @@ export function CommunityMessengerRoomClient({
 
         recordStartMsRef.current = Date.now();
         setVoiceRecording(true);
-        setVoiceRecordSeconds(0);
+        setVoiceRecordElapsedMs(0);
+        setVoiceLivePreviewBars([]);
         voiceWaveformSamplesRef.current = [];
         if (voiceSampleRafRef.current != null) {
           cancelAnimationFrame(voiceSampleRafRef.current);
@@ -749,8 +755,15 @@ export function CommunityMessengerRoomClient({
         }
         if (voiceTickRef.current) clearInterval(voiceTickRef.current);
         voiceTickRef.current = window.setInterval(() => {
-          setVoiceRecordSeconds(Math.floor((Date.now() - recordStartMsRef.current) / 1000));
-        }, 250);
+          const elapsed = Date.now() - recordStartMsRef.current;
+          setVoiceRecordElapsedMs(elapsed);
+          const snap = voiceWaveformSamplesRef.current;
+          if (snap.length > 0) {
+            setVoiceLivePreviewBars(downsampleVoiceWaveformPeaks([...snap], 36));
+          } else {
+            setVoiceLivePreviewBars([]);
+          }
+        }, 50);
         if (voiceMaxTimerRef.current) clearTimeout(voiceMaxTimerRef.current);
         voiceMaxTimerRef.current = window.setTimeout(() => {
           void finalizeVoiceRecording(true);
@@ -1138,6 +1151,14 @@ export function CommunityMessengerRoomClient({
                         pending={item.pending}
                         waveformPeaks={item.voiceWaveformPeaks ?? null}
                         sentTimeLabel={formatTime(item.createdAt)}
+                        fallbackSrc={
+                          item.pending
+                            ? null
+                            : /^https?:\/\//i.test(item.content.trim())
+                              ? item.content.trim()
+                              : null
+                        }
+                        mediaType={item.voiceMimeType ?? null}
                       />
                     ) : item.messageType === "call_stub" ? (
                       <div>
@@ -1234,9 +1255,12 @@ export function CommunityMessengerRoomClient({
             <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-[#f4f4f5] px-3 py-2">
               <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[15px] font-semibold text-gray-900">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                {formatDuration(voiceRecordSeconds)}
+                {formatVoiceRecordCentiseconds(voiceRecordElapsedMs)}
               </span>
-              <span className="min-w-0 flex-1 text-center text-[12px] text-gray-500">잠금 녹음 중</span>
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
+                <span className="shrink-0 text-center text-[12px] text-gray-500">잠금 녹음 중</span>
+              </div>
               <button
                 type="button"
                 onClick={() => void finalizeVoiceRecording(false)}
@@ -1260,10 +1284,11 @@ export function CommunityMessengerRoomClient({
             <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-[#f4f4f5] px-3 py-2">
               <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[15px] font-semibold text-gray-800">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                {formatDuration(voiceRecordSeconds)}
+                {formatVoiceRecordCentiseconds(voiceRecordElapsedMs)}
               </span>
+              <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
               <span
-                className={`min-w-0 flex-1 text-center text-[13px] ${
+                className={`min-w-0 shrink-0 text-center text-[13px] ${
                   voiceCancelHint ? "font-semibold text-red-600" : "text-gray-500"
                 }`}
               >
@@ -1871,6 +1896,35 @@ export function CommunityMessengerRoomClient({
   );
 }
 
+function formatVoiceRecordCentiseconds(ms: number): string {
+  const totalMs = Math.max(0, ms);
+  const totalSec = Math.floor(totalMs / 1000);
+  const centi = Math.floor((totalMs % 1000) / 10);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")},${String(centi).padStart(2, "0")}`;
+}
+
+function VoiceRecordingLiveWaveform({ peaks, className }: { peaks: number[]; className?: string }) {
+  const bars = peaks.length > 0 ? peaks : Array.from({ length: 36 }, () => 0.08);
+  return (
+    <div
+      className={`flex h-7 min-w-0 flex-1 items-end justify-between gap-[1px] px-0.5 ${className ?? ""}`}
+    >
+      {bars.map((p, i) => {
+        const h = 4 + Math.round(Math.min(1, p) * 22);
+        return (
+          <div
+            key={i}
+            className="w-[2px] max-w-[2px] shrink-0 rounded-full bg-gray-500/55"
+            style={{ height: `${h}px` }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function communityMessengerVoiceAudioSrc(
   roomId: string,
   item: CommunityMessengerMessage & { pending?: boolean }
@@ -1947,6 +2001,8 @@ function mapRealtimeRoomMessage(
     message.messageType === "voice"
       ? parseVoiceWaveformPeaksFromMetadata(message.metadata.waveformPeaks) ?? null
       : undefined;
+  const voiceMimeType =
+    message.messageType === "voice" ? (String(message.metadata.mimeType ?? "").trim() || null) : undefined;
   return {
     id: message.id,
     roomId: message.roomId,
@@ -1960,6 +2016,7 @@ function mapRealtimeRoomMessage(
     callStatus,
     ...(voiceDurationSeconds !== undefined ? { voiceDurationSeconds } : {}),
     ...(voiceWaveformPeaks !== undefined ? { voiceWaveformPeaks } : {}),
+    ...(voiceMimeType !== undefined ? { voiceMimeType } : {}),
   };
 }
 

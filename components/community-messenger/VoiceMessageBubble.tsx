@@ -22,24 +22,48 @@ export function VoiceMessageBubble({
   pending,
   waveformPeaks,
   sentTimeLabel,
+  fallbackSrc,
+  mediaType,
 }: {
   src: string;
   durationSeconds: number;
   isMine: boolean;
   pending?: boolean;
   waveformPeaks?: number[] | null;
-  /** 버블 안 오른쪽 하단 시각 (텔레그램 스타일) */
   sentTimeLabel?: string;
+  /** API 스트림 실패 시 재생용 (공개 Storage URL 등) */
+  fallbackSrc?: string | null;
+  /** `<source type>` — blob/브라우저별 디코딩 안정화 */
+  mediaType?: string | null;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playIntentRef = useRef(false);
+  const [activeSrc, setActiveSrc] = useState(src);
+  const [usedFallback, setUsedFallback] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    setActiveSrc(src);
+    setUsedFallback(false);
+    setLoadError(false);
+    setPlaying(false);
+    setProgress(0);
+    playIntentRef.current = false;
+  }, [src]);
 
   const bars = useMemo(() => {
     if (waveformPeaks && waveformPeaks.length > 0) return waveformPeaks;
     return placeholderPeaks();
   }, [waveformPeaks]);
+
+  const sourceType = useMemo(() => {
+    const t = (mediaType ?? "").split(";")[0]!.trim();
+    if (!t) return undefined;
+    if (t.startsWith("audio/")) return mediaType!.trim();
+    return undefined;
+  }, [mediaType]);
 
   const onTimeUpdate = useCallback(() => {
     const el = audioRef.current;
@@ -54,29 +78,50 @@ export function VoiceMessageBubble({
     if (el) el.currentTime = 0;
   }, []);
 
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-    el.pause();
-    el.currentTime = 0;
+  const onAudioError = useCallback(() => {
+    if (!usedFallback && fallbackSrc && fallbackSrc !== activeSrc && /^https?:\/\//i.test(fallbackSrc)) {
+      setUsedFallback(true);
+      setActiveSrc(fallbackSrc);
+      setLoadError(false);
+      return;
+    }
+    setLoadError(true);
     setPlaying(false);
-    setProgress(0);
-    setLoadError(false);
-  }, [src]);
+  }, [activeSrc, fallbackSrc, usedFallback]);
 
   const toggle = useCallback(() => {
     const el = audioRef.current;
     if (!el || loadError) return;
     if (playing) {
+      playIntentRef.current = false;
       el.pause();
       setPlaying(false);
       return;
     }
-    void el.play().then(
-      () => setPlaying(true),
-      () => setPlaying(false)
-    );
+    playIntentRef.current = true;
+    void el
+      .play()
+      .then(() => {
+        playIntentRef.current = false;
+        setPlaying(true);
+      })
+      .catch(() => {
+        playIntentRef.current = false;
+        setPlaying(false);
+      });
   }, [loadError, playing]);
+
+  const onCanPlay = useCallback(() => {
+    const el = audioRef.current;
+    if (!el || pending || loadError || !playIntentRef.current) return;
+    void el.play().then(() => {
+      playIntentRef.current = false;
+      setPlaying(true);
+    }).catch(() => {
+      playIntentRef.current = false;
+      setPlaying(false);
+    });
+  }, [loadError, pending]);
 
   const inactiveBar = isMine ? "bg-white/30" : "bg-gray-200";
   const activeBar = isMine ? "bg-white" : "bg-[#06C755]";
@@ -130,15 +175,17 @@ export function VoiceMessageBubble({
       </div>
       <audio
         ref={audioRef}
-        key={src}
-        src={src}
+        key={`${activeSrc}|${sourceType ?? ""}`}
         preload="auto"
         className="hidden"
         onTimeUpdate={onTimeUpdate}
         onEnded={onEnded}
-        onError={() => setLoadError(true)}
+        onError={onAudioError}
+        onCanPlay={onCanPlay}
         playsInline
-      />
+      >
+        <source src={activeSrc} type={sourceType} />
+      </audio>
       {loadError ? (
         <span className={`text-[11px] ${isMine ? "text-white/85" : "text-red-600"}`}>
           재생할 수 없습니다. 새로고침 후 다시 시도해 주세요.

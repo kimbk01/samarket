@@ -1,18 +1,31 @@
+function isAppleTouchDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+}
+
 /**
  * 브라우저별로 지원하는 음성 녹음 MIME 을 고릅니다 (MediaRecorder).
  * 빈 mimeType 이면 `new MediaRecorder(stream)` 기본값을 씁니다(iOS Safari 등).
+ * Apple 기기는 재생 호환을 위해 MP4(AAC) 계열을 WebM 보다 우선합니다.
  */
 export function pickCommunityMessengerVoiceRecorderMime(): { mimeType: string; fileExtension: string } {
   if (typeof MediaRecorder === "undefined") {
     return { mimeType: "", fileExtension: "webm" };
   }
-  const candidates: Array<{ mime: string; ext: string }> = [
+  const appleFirst: Array<{ mime: string; ext: string }> = [
+    { mime: "audio/mp4", ext: "m4a" },
+    { mime: "audio/mp4;codecs=mp4a.40.2", ext: "m4a" },
+  ];
+  const desktopFirst: Array<{ mime: string; ext: string }> = [
     { mime: "audio/webm;codecs=opus", ext: "webm" },
     { mime: "audio/webm", ext: "webm" },
     { mime: "audio/mp4", ext: "m4a" },
     { mime: "audio/ogg;codecs=opus", ext: "ogg" },
     { mime: "audio/ogg", ext: "ogg" },
   ];
+  const candidates = isAppleTouchDevice() ? [...appleFirst, ...desktopFirst] : desktopFirst;
   for (const { mime, ext } of candidates) {
     try {
       if (MediaRecorder.isTypeSupported(mime)) return { mimeType: mime, fileExtension: ext };

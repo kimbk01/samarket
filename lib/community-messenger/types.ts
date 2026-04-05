@@ -121,6 +121,8 @@ export type CommunityMessengerMessage = {
   voiceDurationSeconds?: number | null;
   /** messageType === "voice" 일 때 0–1 막대 높이 (텔레그램 스타일 파형) */
   voiceWaveformPeaks?: number[] | null;
+  /** 클라이언트 전용: 전송 대기(blob) 음성의 MIME — `<audio type>`·재생 호환용 */
+  voiceMimeType?: string | null;
 };
 
 export type CommunityMessengerRoomSnapshot = {
