@@ -854,15 +854,15 @@ export function useCommunityMessengerCall(args: {
     }
   }, [args, closeSessionImmediately, sendSignal]);
 
-  const acceptIncomingCall = useCallback(async () => {
+  const acceptIncomingCall = useCallback(async (): Promise<boolean> => {
     const activeCall = args.activeCall;
-    if (!activeCall) return;
+    if (!activeCall) return false;
     setBusy("call-accept");
     setErrorMessage(null);
     try {
       if (!activeCall.peerUserId) {
         setErrorMessage("상대방 정보를 불러오지 못했습니다.");
-        return;
+        return false;
       }
       pendingIncomingAcceptanceRef.current = {
         sessionId: activeCall.id,
@@ -886,20 +886,21 @@ export function useCommunityMessengerCall(args: {
         await applySignal(signal);
       }
       const pendingAcceptance = pendingIncomingAcceptanceRef.current;
-      if (!pendingAcceptance || pendingAcceptance.sessionId !== activeCall.id) {
-        return;
+      if (!pendingAcceptance || !messengerUserIdsEqual(pendingAcceptance.sessionId, activeCall.id)) {
+        return false;
       }
       const offer = pendingOfferRef.current;
       if (!offer) {
         setErrorMessage(
           "발신 측 연결 정보(offer)를 아직 받지 못했습니다. 잠시 후 다시 「수락」을 눌러 주세요."
         );
-        return;
+        return false;
       }
       await completeIncomingAcceptance(
         pendingAcceptance,
         offer
       );
+      return true;
     } catch (error) {
       peerConnectionRef.current?.close();
       peerConnectionRef.current = null;
@@ -921,6 +922,7 @@ export function useCommunityMessengerCall(args: {
               : "통화 연결을 시작하지 못했습니다."
       );
       pendingIncomingAcceptanceRef.current = null;
+      return false;
     } finally {
       setBusy(null);
     }

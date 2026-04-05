@@ -690,18 +690,23 @@ export function useCommunityMessengerGroupCall(args: Props) {
     }
   }, [args, ensureLocalStream]);
 
-  const acceptIncomingCall = useCallback(async () => {
+  const acceptIncomingCall = useCallback(async (): Promise<boolean> => {
     const activeCall = args.activeCall;
-    if (!args.enabled || !activeCall) return;
+    if (!args.enabled || !activeCall) return false;
     setBusy("call-accept");
     setErrorMessage(null);
     try {
       await ensureLocalStream(activeCall.callKind);
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
+      const acceptRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept" }),
       });
+      const acceptJson = (await acceptRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!acceptRes.ok || !acceptJson.ok) {
+        setErrorMessage("그룹 통화 수락에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        return false;
+      }
       activeSinceRef.current = Date.now();
       setPanel({
         kind: activeCall.callKind,
@@ -710,12 +715,14 @@ export function useCommunityMessengerGroupCall(args: Props) {
         peerLabel: activeCall.peerLabel,
       });
       await args.onRefresh();
+      return true;
     } catch (error) {
       const errorName =
         typeof error === "object" && error && "name" in error
           ? String((error as { name?: unknown }).name ?? "")
           : "";
       setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, activeCall.callKind) : "그룹 통화 참여를 시작하지 못했습니다.");
+      return false;
     } finally {
       setBusy(null);
     }

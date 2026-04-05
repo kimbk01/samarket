@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getCommunityMessengerPermissionGuide,
@@ -11,6 +11,7 @@ import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { useCommunityMessengerCall } from "@/lib/community-messenger/use-community-messenger-call";
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { useCommunityMessengerRoomRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import type {
   CommunityMessengerMessage,
@@ -28,7 +29,12 @@ export function CommunityMessengerRoomClient({
   initialCallSessionId?: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  /** 같은 방에 머문 채 전역 배너에서 수락할 때도 반응하도록 URL 을 구독한다(RSC initial props 만으론 갱신이 안 될 수 있음). */
+  const callActionFromUrl = searchParams.get("callAction") ?? initialCallAction ?? undefined;
+  const sessionIdFromUrl = searchParams.get("sessionId") ?? initialCallSessionId ?? undefined;
   const autoHandledSessionRef = useRef<string | null>(null);
+  const autoAcceptInFlightRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
   const loadedRef = useRef(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -237,15 +243,15 @@ export function CommunityMessengerRoomClient({
     }
   }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId]);
 
-  const handleAcceptIncomingCall = useCallback(async () => {
+  const handleAcceptIncomingCall = useCallback(async (): Promise<boolean> => {
     const kind = call.panel?.kind ?? snapshot?.activeCall?.callKind;
-    if (!kind) return;
+    if (!kind) return false;
     try {
       await primeCommunityMessengerDevicePermission(kind);
     } catch {
       /* ignore and fall through so the hook can still surface its own media error */
     }
-    await call.acceptIncomingCall();
+    return await call.acceptIncomingCall();
   }, [call, call.panel?.kind, snapshot?.activeCall?.callKind]);
 
   useEffect(() => {
@@ -428,9 +434,10 @@ export function CommunityMessengerRoomClient({
   useEffect(() => {
     const activeCall = snapshot?.activeCall;
     if (!activeCall) return;
-    if (initialCallAction !== "accept") return;
-    if (initialCallSessionId && activeCall.id !== initialCallSessionId) return;
-    if (autoHandledSessionRef.current === activeCall.id) return;
+    if (callActionFromUrl !== "accept") return;
+    if (sessionIdFromUrl && !messengerUserIdsEqual(sessionIdFromUrl, activeCall.id)) return;
+    if (autoHandledSessionRef.current && messengerUserIdsEqual(autoHandledSessionRef.current, activeCall.id)) return;
+    if (autoAcceptInFlightRef.current && messengerUserIdsEqual(autoAcceptInFlightRef.current, activeCall.id)) return;
     if (activeCall.isMineInitiator) return;
     const shouldAutoAccept =
       activeCall.sessionMode === "group"
@@ -438,23 +445,40 @@ export function CommunityMessengerRoomClient({
           activeCall.participants.some((participant) => participant.isMe && participant.status === "invited")
         : activeCall.status === "ringing";
     if (!shouldAutoAccept) return;
-    autoHandledSessionRef.current = activeCall.id;
-    void handleAcceptIncomingCall();
-  }, [handleAcceptIncomingCall, initialCallAction, initialCallSessionId, roomId, router, snapshot?.activeCall]);
+
+    const sessionKey = activeCall.id;
+    autoAcceptInFlightRef.current = sessionKey;
+    void (async () => {
+      try {
+        const ok = await handleAcceptIncomingCall();
+        if (ok) {
+          autoHandledSessionRef.current = sessionKey;
+        }
+      } finally {
+        if (messengerUserIdsEqual(autoAcceptInFlightRef.current, sessionKey)) {
+          autoAcceptInFlightRef.current = null;
+        }
+      }
+    })();
+  }, [callActionFromUrl, handleAcceptIncomingCall, roomId, router, sessionIdFromUrl, snapshot?.activeCall]);
 
   useEffect(() => {
-    if (initialCallAction !== "accept" || !initialCallSessionId) return;
+    if (callActionFromUrl !== "accept" || !sessionIdFromUrl) return;
     const samePanelSession =
-      call.panel?.sessionId === initialCallSessionId && call.panel.mode !== "incoming";
+      call.panel?.sessionId &&
+      messengerUserIdsEqual(call.panel.sessionId, sessionIdFromUrl) &&
+      call.panel.mode !== "incoming";
     const sameActiveSession =
-      snapshot?.activeCall?.id === initialCallSessionId && snapshot.activeCall.status === "active";
+      snapshot?.activeCall?.id &&
+      messengerUserIdsEqual(snapshot.activeCall.id, sessionIdFromUrl) &&
+      snapshot.activeCall.status === "active";
     if (!samePanelSession && !sameActiveSession) return;
     router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
   }, [
     call.panel?.mode,
     call.panel?.sessionId,
-    initialCallAction,
-    initialCallSessionId,
+    callActionFromUrl,
+    sessionIdFromUrl,
     roomId,
     router,
     snapshot?.activeCall?.id,
