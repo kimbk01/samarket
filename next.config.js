@@ -54,9 +54,11 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // mic/camera: 빈 allowlist `()` 는 1인칭 페이지에서도 getUserMedia 가 막혀
+          // 통화가 불가능함. 동일 출처(self)만 허용하고 geolocation 은 기존처럼 끔.
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(self), microphone=(self), geolocation=()",
           },
           // 클릭재킹 이중 방어
           { key: "X-XSS-Protection", value: "1; mode=block" },
