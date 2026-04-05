@@ -878,8 +878,18 @@ export function useCommunityMessengerCall(args: {
       for (const signal of json.signals ?? []) {
         await applySignal(signal);
       }
+      /* offer 처리 시 applySignal → completeIncomingAcceptance 가 루프 안에서 끝나면
+       * pendingIncomingAcceptanceRef 가 비워진다. 그때 아래 `!pendingAcceptance` 분기로 가면
+       * 성공인데도 false 를 반환해 자동 수락·후속 로직이 꼬인다. */
+      if (!pendingIncomingAcceptanceRef.current) {
+        const pc = peerConnectionRef.current;
+        if (pc?.remoteDescription && pc.localDescription) {
+          return true;
+        }
+        return false;
+      }
       const pendingAcceptance = pendingIncomingAcceptanceRef.current;
-      if (!pendingAcceptance || !messengerUserIdsEqual(pendingAcceptance.sessionId, activeCall.id)) {
+      if (!messengerUserIdsEqual(pendingAcceptance.sessionId, activeCall.id)) {
         return false;
       }
       const offer = pendingOfferRef.current;
@@ -889,10 +899,7 @@ export function useCommunityMessengerCall(args: {
         );
         return false;
       }
-      await completeIncomingAcceptance(
-        pendingAcceptance,
-        offer
-      );
+      await completeIncomingAcceptance(pendingAcceptance, offer);
       return true;
     } catch (error) {
       peerConnectionRef.current?.close();

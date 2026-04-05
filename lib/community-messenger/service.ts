@@ -3320,7 +3320,27 @@ export async function listCommunityMessengerCallSignals(
         .map((item) => item.user_id)
         .filter((value): value is string => typeof value === "string" && value.length > 0)
     );
-    if (!callSessionParticipantsContain(sessionParticipants, userId)) return [];
+    if (!callSessionParticipantsContain(sessionParticipants, userId)) {
+      /* 참가자 행 삽입 레이스·구 데이터 등으로 participant 가 비어 있어도 1:1 이면 세션 행으로 허용 */
+      const { data: sessionRow } = await (sb as any)
+        .from("community_messenger_call_sessions")
+        .select("initiator_user_id, recipient_user_id, session_mode")
+        .eq("id", id)
+        .maybeSingle();
+      const row = sessionRow as {
+        initiator_user_id?: string;
+        recipient_user_id?: string | null;
+        session_mode?: string | null;
+      } | null;
+      if (!row) return [];
+      const mode = trimText(row.session_mode ?? "") || "direct";
+      if (mode !== "direct") return [];
+      const init = trimText(row.initiator_user_id ?? "");
+      const recip = trimText(row.recipient_user_id ?? "");
+      const isDirectParty =
+        messengerUserIdsEqual(init, userId) || (recip.length > 0 && messengerUserIdsEqual(recip, userId));
+      if (!isDirectParty) return [];
+    }
 
     const { data, error } = await (sb as any)
       .from("community_messenger_call_signals")
