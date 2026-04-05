@@ -237,6 +237,17 @@ export function CommunityMessengerRoomClient({
     }
   }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId]);
 
+  const handleAcceptIncomingCall = useCallback(async () => {
+    const kind = call.panel?.kind;
+    if (!kind) return;
+    try {
+      await primeCommunityMessengerDevicePermission(kind);
+    } catch {
+      /* ignore and fall through so the hook can still surface its own media error */
+    }
+    await call.acceptIncomingCall();
+  }, [call, call.panel?.kind]);
+
   useEffect(() => {
     if (!snapshot || !isOpenGroupRoom) return;
     setOpenGroupTitle(snapshot.room.title);
@@ -1152,7 +1163,7 @@ export function CommunityMessengerRoomClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void call.acceptIncomingCall()}
+                    onClick={() => void handleAcceptIncomingCall()}
                     disabled={call.busy === "call-accept"}
                     className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
                   >
