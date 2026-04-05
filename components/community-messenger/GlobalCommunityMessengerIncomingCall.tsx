@@ -202,16 +202,16 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh, sessions]);
 
   const acceptCall = useCallback(async (session: CommunityMessengerCallSession) => {
+    try {
+      await primeCommunityMessengerDevicePermission(session.callKind);
+    } catch (error) {
+      alert(
+        `${getCommunityMessengerMediaErrorMessage(error, session.callKind)}\n\n${getCommunityMessengerPermissionGuide(session.callKind).description}`
+      );
+      return;
+    }
     setBusyId(`accept:${session.id}`);
     try {
-      try {
-        await primeCommunityMessengerDevicePermission(session.callKind);
-      } catch (error) {
-        alert(
-          `${getCommunityMessengerMediaErrorMessage(error, session.callKind)}\n\n${getCommunityMessengerPermissionGuide(session.callKind).description}`
-        );
-        return;
-      }
       router.push(
         `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`
       );
