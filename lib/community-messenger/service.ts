@@ -1268,7 +1268,7 @@ async function mapCallSession(
   const participants = await loadCallSessionParticipants(userId, session);
   const peerUserId =
     sessionMode === "direct"
-      ? initiatorUserId === userId
+      ? messengerUserIdsEqual(initiatorUserId, userId)
         ? recipientUserId
         : initiatorUserId
       : null;
@@ -1295,7 +1295,7 @@ async function mapCallSession(
     startedAt: trimText(isDbSession ? session.started_at : session.startedAt) || nowIso(),
     answeredAt: trimText(isDbSession ? session.answered_at : session.answeredAt) || null,
     endedAt: trimText(isDbSession ? session.ended_at : session.endedAt) || null,
-    isMineInitiator: initiatorUserId === userId,
+    isMineInitiator: messengerUserIdsEqual(initiatorUserId, userId),
     participants,
   };
 }
@@ -2889,7 +2889,13 @@ export async function startCommunityMessengerCallSession(input: {
               created_at: startedAt,
             },
           ];
-      await (sb as any).from("community_messenger_call_session_participants").insert(participantRows);
+      const { error: participantInsertError } = await (sb as any)
+        .from("community_messenger_call_session_participants")
+        .insert(participantRows);
+      if (participantInsertError) {
+        await (sb as any).from("community_messenger_call_sessions").delete().eq("id", inserted.id);
+        return { ok: false, error: String(participantInsertError.message ?? "call_session_participants_insert_failed") };
+      }
       if (!isGroupRoom) {
         await appendCallStubMessage({
           userId: input.userId,
@@ -2987,7 +2993,7 @@ export async function updateCommunityMessengerCallSession(input: {
     const status = (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus;
 
     if (input.action === "accept") {
-      if (recipientUserId !== input.userId) return null;
+      if (!messengerUserIdsEqual(recipientUserId, input.userId)) return null;
       // 이미 active 면 수락 재시도·SDP 재전송 시에도 성공해야 한다 (WebRTC 단계 실패 후 재시도).
       if (status === "active") {
         return { nextStatus: "active", answeredAt: trimText(isDbSession ? session.answered_at : session.answeredAt) || nowIso() };
@@ -2996,20 +3002,20 @@ export async function updateCommunityMessengerCallSession(input: {
       return { nextStatus: "active", answeredAt: nowIso() };
     }
     if (input.action === "reject") {
-      if (recipientUserId !== input.userId || status !== "ringing") return null;
+      if (!messengerUserIdsEqual(recipientUserId, input.userId) || status !== "ringing") return null;
       return { nextStatus: "rejected", endedAt: nowIso() };
     }
     if (input.action === "cancel") {
-      if (initiatorUserId !== input.userId || status !== "ringing") return null;
+      if (!messengerUserIdsEqual(initiatorUserId, input.userId) || status !== "ringing") return null;
       return { nextStatus: "cancelled", endedAt: nowIso() };
     }
     if (input.action === "missed") {
       if (status !== "ringing") return null;
-      if (initiatorUserId !== input.userId && recipientUserId !== input.userId) return null;
+      if (!messengerUserIdsEqual(initiatorUserId, input.userId) && !messengerUserIdsEqual(recipientUserId, input.userId)) return null;
       return { nextStatus: "missed", endedAt: nowIso() };
     }
     if (status !== "active") return null;
-    if (initiatorUserId !== input.userId && recipientUserId !== input.userId) return null;
+    if (!messengerUserIdsEqual(initiatorUserId, input.userId) && !messengerUserIdsEqual(recipientUserId, input.userId)) return null;
     return { nextStatus: "ended", endedAt: nowIso() };
   };
 
@@ -3031,7 +3037,7 @@ export async function updateCommunityMessengerCallSession(input: {
           .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
           .eq("session_id", sessionId);
         const participants = (participantRows ?? []) as CallSessionParticipantRow[];
-        const mine = participants.find((item) => item.user_id === input.userId);
+        const mine = participants.find((item) => messengerUserIdsEqual(item.user_id, input.userId));
         if (!mine) return { ok: false, error: "forbidden" };
 
         if (input.action === "cancel") {
@@ -3152,7 +3158,7 @@ export async function updateCommunityMessengerCallSession(input: {
       const alreadyActiveRecipient =
         input.action === "accept" &&
         session.status === "active" &&
-        session.recipient_user_id === input.userId;
+        messengerUserIdsEqual(session.recipient_user_id, input.userId);
       let updated: CallSessionRow | null = null;
       let error: unknown = null;
       if (alreadyActiveRecipient) {
@@ -3219,7 +3225,7 @@ export async function updateCommunityMessengerCallSession(input: {
   if (!session) return { ok: false, error: "not_found" };
 
   if (session.sessionMode === "group") {
-    const mine = session.participants.find((item) => item.userId === input.userId);
+    const mine = session.participants.find((item) => messengerUserIdsEqual(item.userId, input.userId));
     if (!mine) return { ok: false, error: "forbidden" };
     const now = nowIso();
     if (input.action === "accept") {
@@ -3235,7 +3241,7 @@ export async function updateCommunityMessengerCallSession(input: {
       mine.participationStatus = "left";
       mine.leftAt = now;
     } else if (input.action === "cancel") {
-      if (session.initiatorUserId !== input.userId) return { ok: false, error: "bad_action" };
+      if (!messengerUserIdsEqual(session.initiatorUserId, input.userId)) return { ok: false, error: "bad_action" };
       session.status = "cancelled";
       session.endedAt = now;
       for (const participant of session.participants) {
@@ -3275,7 +3281,7 @@ export async function updateCommunityMessengerCallSession(input: {
   if (typeof next.answeredAt !== "undefined") session.answeredAt = next.answeredAt;
   if (typeof next.endedAt !== "undefined") session.endedAt = next.endedAt;
   for (const participant of session.participants) {
-    if (participant.userId !== input.userId) continue;
+    if (!messengerUserIdsEqual(participant.userId, input.userId)) continue;
     participant.participationStatus =
       next.nextStatus === "active"
         ? "joined"
@@ -3492,8 +3498,25 @@ export async function createCommunityMessengerCallSignal(input: {
         .map((item) => item.user_id)
         .filter((value): value is string => typeof value === "string" && value.length > 0)
     );
-    const canonicalFrom = resolveCallSessionCanonicalUserId(participants, input.userId);
-    const canonicalTo = resolveCallSessionCanonicalUserId(participants, toUserId);
+    const directFallbackParticipants =
+      (row.session_mode ?? "direct") === "direct"
+        ? dedupeIds([trimText(row.initiator_user_id), trimText(row.recipient_user_id)])
+        : [];
+    const canonicalPool = participants.length > 0 ? participants : directFallbackParticipants;
+    const canonicalFrom =
+      resolveCallSessionCanonicalUserId(canonicalPool, input.userId) ??
+      (messengerUserIdsEqual(row.initiator_user_id, input.userId)
+        ? trimText(row.initiator_user_id)
+        : messengerUserIdsEqual(row.recipient_user_id, input.userId)
+          ? trimText(row.recipient_user_id)
+          : null);
+    const canonicalTo =
+      resolveCallSessionCanonicalUserId(canonicalPool, toUserId) ??
+      (messengerUserIdsEqual(row.initiator_user_id, toUserId)
+        ? trimText(row.initiator_user_id)
+        : messengerUserIdsEqual(row.recipient_user_id, toUserId)
+          ? trimText(row.recipient_user_id)
+          : null);
     if (!canonicalFrom || !canonicalTo || messengerUserIdsEqual(canonicalFrom, canonicalTo)) {
       return { ok: false, error: "forbidden" };
     }
