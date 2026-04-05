@@ -64,7 +64,7 @@ export function primeNotificationSoundAudio(): void {
   if (typeof window === "undefined" || primed) return;
   primed = true;
   try {
-    void getOrCreateAudioContext()?.resume();
+    /* 제스처 없이 AudioContext.resume() 하면 크롬이 경고를 띄운다. 비프는 재생 시점에만 컨텍스트 생성. */
 
     const a = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
     a.preload = "auto";

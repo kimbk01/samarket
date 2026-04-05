@@ -204,10 +204,16 @@ export function GlobalCommunityMessengerIncomingCall() {
       setBusyId(`accept:${session.id}`);
       const url = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
       void primeCommunityMessengerDevicePermissionFromUserGesture(session.callKind)
-        .catch(() => undefined)
         .then(() => {
           router.push(url);
           router.refresh();
+        })
+        .catch(() => {
+          window.alert(
+            session.callKind === "video"
+              ? "통화를 받으려면 카메라와 마이크 사용을 허용해 주세요."
+              : "통화를 받으려면 마이크 사용을 허용해 주세요."
+          );
         })
         .finally(() => {
           setBusyId(null);

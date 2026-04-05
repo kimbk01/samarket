@@ -101,6 +101,11 @@ function primedStreamIsUsableForKind(kind: CommunityMessengerCallKind): boolean 
   return tracks.length > 0 && tracks.every((t) => t.readyState === "live");
 }
 
+/** 전역 수락 직후 방으로 이동했을 때 자동 수락 effect 가 getUserMedia 를 호출해도 되는지(프라임 성공 여부) */
+export function hasUsablePrimedCommunityMessengerDeviceStream(kind: CommunityMessengerCallKind): boolean {
+  return primedStreamIsUsableForKind(kind);
+}
+
 function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream) {
   if (typeof window === "undefined") return;
   primedDeviceStreamState = {

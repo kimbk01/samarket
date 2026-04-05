@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getCommunityMessengerPermissionGuide,
+  hasUsablePrimedCommunityMessengerDeviceStream,
   primeCommunityMessengerDevicePermissionFromUserGesture,
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
@@ -229,7 +230,6 @@ export function CommunityMessengerRoomClient({
     const kind = call.panel?.kind;
     if (!kind) return;
     void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
-      .catch(() => undefined)
       .then(async () => {
         await call.prepareDevices();
         if (call.panel?.mode === "dialing" && !call.panel.sessionId) {
@@ -239,15 +239,20 @@ export function CommunityMessengerRoomClient({
         if (call.panel?.mode === "incoming") {
           await call.acceptIncomingCall();
         }
+      })
+      .catch(() => {
+        alert(
+          kind === "video"
+            ? "카메라·마이크 권한을 허용한 뒤 다시 시도해 주세요."
+            : "마이크 권한을 허용한 뒤 다시 시도해 주세요."
+        );
       });
   }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId]);
 
   const handleAcceptIncomingCall = useCallback((): Promise<boolean> => {
     const kind = call.panel?.kind ?? snapshot?.activeCall?.callKind;
     if (!kind) return Promise.resolve(false);
-    return primeCommunityMessengerDevicePermissionFromUserGesture(kind)
-      .catch(() => undefined)
-      .then(() => call.acceptIncomingCall());
+    return primeCommunityMessengerDevicePermissionFromUserGesture(kind).then(() => call.acceptIncomingCall());
   }, [call, call.panel?.kind, snapshot?.activeCall?.callKind]);
 
   useEffect(() => {
@@ -441,6 +446,9 @@ export function CommunityMessengerRoomClient({
           activeCall.participants.some((participant) => participant.isMe && participant.status === "invited")
         : activeCall.status === "ringing";
     if (!shouldAutoAccept) return;
+    /* URL 자동 수락은 useEffect 라서 브라우저가 사용자 제스처로 보지 않는다.
+     * 전역 배너에서 프라임된 스트림이 있을 때만 자동으로 이어가고, 없으면 방 안 「수락」 한 번 필요. */
+    if (!hasUsablePrimedCommunityMessengerDeviceStream(activeCall.callKind)) return;
 
     const sessionKey = activeCall.id;
     autoAcceptInFlightRef.current = sessionKey;
@@ -450,6 +458,8 @@ export function CommunityMessengerRoomClient({
         if (ok) {
           autoHandledSessionRef.current = sessionKey;
         }
+      } catch {
+        /* 프라임 실패·수락 API 실패 등 — 방 안에서 다시 「수락」 가능 */
       } finally {
         if (messengerUserIdsEqual(autoAcceptInFlightRef.current, sessionKey)) {
           autoAcceptInFlightRef.current = null;
