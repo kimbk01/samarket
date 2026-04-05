@@ -65,6 +65,18 @@ export function VoiceMessageBubble({
     return undefined;
   }, [mediaType]);
 
+  /** 상대·잘못된 `src` 가 `/audio` 등으로 요청되는 것을 막음 */
+  const safePlaybackSrc = useMemo(() => {
+    const s = activeSrc.trim();
+    if (!s) return null;
+    if (s.startsWith("blob:")) return s;
+    if (s.startsWith("/api/")) return s;
+    if (/^https?:\/\//i.test(s)) return s;
+    return null;
+  }, [activeSrc]);
+
+  const playbackBlocked = !pending && !safePlaybackSrc;
+
   const onTimeUpdate = useCallback(() => {
     const el = audioRef.current;
     if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
@@ -91,7 +103,7 @@ export function VoiceMessageBubble({
 
   const toggle = useCallback(() => {
     const el = audioRef.current;
-    if (!el || loadError) return;
+    if (!el || loadError || playbackBlocked) return;
     if (playing) {
       playIntentRef.current = false;
       el.pause();
@@ -109,7 +121,7 @@ export function VoiceMessageBubble({
         playIntentRef.current = false;
         setPlaying(false);
       });
-  }, [loadError, playing]);
+  }, [loadError, playbackBlocked, playing]);
 
   const onCanPlay = useCallback(() => {
     const el = audioRef.current;
@@ -132,7 +144,7 @@ export function VoiceMessageBubble({
         <button
           type="button"
           onClick={toggle}
-          disabled={pending || loadError}
+          disabled={pending || loadError || playbackBlocked}
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
             isMine ? "bg-white/25 text-white ring-2 ring-white/35" : "bg-[#06C755] text-white ring-2 ring-[#06C755]/25"
           }`}
@@ -173,20 +185,22 @@ export function VoiceMessageBubble({
           </div>
         </div>
       </div>
-      <audio
-        ref={audioRef}
-        key={`${activeSrc}|${sourceType ?? ""}`}
-        preload="auto"
-        className="hidden"
-        onTimeUpdate={onTimeUpdate}
-        onEnded={onEnded}
-        onError={onAudioError}
-        onCanPlay={onCanPlay}
-        playsInline
-      >
-        <source src={activeSrc} type={sourceType} />
-      </audio>
-      {loadError ? (
+      {safePlaybackSrc ? (
+        <audio
+          ref={audioRef}
+          key={`${safePlaybackSrc}|${sourceType ?? ""}`}
+          preload="auto"
+          className="hidden"
+          onTimeUpdate={onTimeUpdate}
+          onEnded={onEnded}
+          onError={onAudioError}
+          onCanPlay={onCanPlay}
+          playsInline
+        >
+          <source src={safePlaybackSrc} type={sourceType} />
+        </audio>
+      ) : null}
+      {loadError || playbackBlocked ? (
         <span className={`text-[11px] ${isMine ? "text-white/85" : "text-red-600"}`}>
           재생할 수 없습니다. 새로고침 후 다시 시도해 주세요.
         </span>

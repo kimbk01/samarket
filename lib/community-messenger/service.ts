@@ -2815,6 +2815,138 @@ export async function sendCommunityMessengerMessage(input: {
 
 const VOICE_LAST_PREVIEW = "음성 메시지";
 
+function messengerLastPreviewFromRow(row: {
+  message_type?: string;
+  content?: string;
+  metadata?: unknown;
+}): { preview: string; messageType: string } {
+  const mt = trimText(row.message_type);
+  if (mt === "voice") return { preview: VOICE_LAST_PREVIEW, messageType: "voice" };
+  if (mt === "call_stub") return { preview: trimText(row.content) || "통화", messageType: "call_stub" };
+  if (mt === "image") return { preview: trimText(row.content) || "사진", messageType: "image" };
+  if (mt === "system") return { preview: trimText(row.content) || "알림", messageType: "system" };
+  const c = trimText(row.content);
+  const preview = c.length > 120 ? `${c.slice(0, 117)}…` : c || "메시지";
+  return { preview, messageType: mt || "text" };
+}
+
+async function recomputeCommunityMessengerRoomLastMessage(sb: SupabaseLike, roomId: string) {
+  const { data: rows } = await (sb as any)
+    .from("community_messenger_messages")
+    .select("content, created_at, message_type, metadata")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const latest = (rows ?? [])[0] as
+    | { content?: string; created_at?: string; message_type?: string; metadata?: unknown }
+    | undefined;
+  const now = nowIso();
+  if (!latest) {
+    await (sb as any)
+      .from("community_messenger_rooms")
+      .update({
+        last_message: "",
+        last_message_at: now,
+        last_message_type: "text",
+        updated_at: now,
+      })
+      .eq("id", roomId);
+    return;
+  }
+  const { preview, messageType } = messengerLastPreviewFromRow(latest);
+  const at = trimText(latest.created_at) || now;
+  await (sb as any)
+    .from("community_messenger_rooms")
+    .update({
+      last_message: preview,
+      last_message_at: at,
+      last_message_type: messageType,
+      updated_at: now,
+    })
+    .eq("id", roomId);
+}
+
+/** 보낸 사람만 — 음성 메시지 삭제(스토리지 파일 포함) 후 방 미리보기 갱신 */
+export async function deleteCommunityMessengerVoiceMessage(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const messageId = trimText(input.messageId);
+  if (!roomId || !messageId) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: part } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    if (!part) return { ok: false, error: "forbidden" };
+
+    const { data: msg, error: msgErr } = await (sb as any)
+      .from("community_messenger_messages")
+      .select("id, room_id, sender_id, message_type, content, metadata")
+      .eq("id", messageId)
+      .maybeSingle();
+    if (msgErr || !msg) return { ok: false, error: "not_found" };
+    if (trimText((msg as { room_id?: string }).room_id) !== roomId) return { ok: false, error: "not_found" };
+    if (trimText((msg as { sender_id?: string }).sender_id) !== input.userId) return { ok: false, error: "forbidden" };
+    if (trimText((msg as { message_type?: string }).message_type) !== "voice") {
+      return { ok: false, error: "unsupported_type" };
+    }
+
+    const metadata = (
+      (msg as { metadata?: unknown }).metadata && typeof (msg as { metadata?: unknown }).metadata === "object"
+        ? ((msg as { metadata?: unknown }).metadata as Record<string, unknown>)
+        : {}
+    ) as Record<string, unknown>;
+    const content = trimText((msg as { content?: string }).content);
+    let storagePath = trimText(metadata.storagePath as string);
+    if (!storagePath) storagePath = legacyPostImagesPathFromPublicUrl(content) ?? "";
+    if (storagePath) {
+      await (sb as any).storage.from("post-images").remove([storagePath]);
+    }
+
+    const { error: delErr } = await (sb as any).from("community_messenger_messages").delete().eq("id", messageId);
+    if (delErr) return { ok: false, error: "delete_failed" };
+
+    await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
+    return { ok: true };
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  const idx = dev.messages.findIndex((row) => row.id === messageId && row.roomId === roomId);
+  if (idx === -1) return { ok: false, error: "not_found" };
+  const row = dev.messages[idx]!;
+  if (row.senderId !== input.userId) return { ok: false, error: "forbidden" };
+  if (row.messageType !== "voice") return { ok: false, error: "unsupported_type" };
+  dev.messages.splice(idx, 1);
+  const latest = [...dev.messages].filter((m) => m.roomId === roomId).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).pop();
+  if (latest) {
+    const { preview, messageType } = messengerLastPreviewFromRow({
+      message_type: latest.messageType,
+      content: latest.content,
+      metadata: latest.metadata,
+    });
+    room.lastMessage = preview;
+    room.lastMessageAt = latest.createdAt;
+    room.lastMessageType = messageType as (typeof room)["lastMessageType"];
+  } else {
+    room.lastMessage = "";
+    room.lastMessageAt = nowIso();
+    room.lastMessageType = "text";
+  }
+  return { ok: true };
+}
+
 function legacyPostImagesPathFromPublicUrl(url: string): string | null {
   const raw = trimText(url);
   if (!raw) return null;

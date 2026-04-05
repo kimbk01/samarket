@@ -240,6 +240,8 @@ export function useCommunityMessengerRoomRealtime(args: {
     let cancelled = false;
     const refreshScheduler = createRefreshScheduler(callbackRef, 250);
     const callRefreshScheduler = createRefreshScheduler(callbackRef, 0);
+    /** 음성 INSERT 직후 GET 이 비는 경우 대비 — 지연 refresh 로 채팅 목록·스냅샷을 한 번 더 맞춤 */
+    const voiceRefreshScheduler = createRefreshScheduler(callbackRef, 500);
     const channels: RealtimeChannel[] = [];
 
     const subscribe = (name: string, register: (channel: RealtimeChannel) => RealtimeChannel) => {
@@ -269,10 +271,12 @@ export function useCommunityMessengerRoomRealtime(args: {
             });
             /* 통화 세션은 스냅샷의 activeCall 로만 오버레이·수락이 열린다. call_stub 만 로컬 병합하고
              * refresh 를 생략하면 수신 측이 채팅 줄만 갱신되고 통화 UI 가 안 뜨는 경우가 있다.
-             * 음성 메시지는 INSERT 시 이미 onMessageEvent 로 목록에 병합되므로 즉시 refresh 하지 않는다.
-             * (바로 GET 스냅샷이 뒤처지면 목록이 잠깐 비거나 순서가 꼬이는 현상을 막기 위함) */
+             * 음성은 먼저 로컬 병합 후, 짧은 지연으로 refresh 해 상대·채팅 목록이 비지 않게 보조한다. */
             if (nextMessage.messageType === "call_stub" && !cancelled) {
               callRefreshScheduler.schedule();
+            }
+            if (nextMessage.messageType === "voice" && eventType === "INSERT" && !cancelled) {
+              voiceRefreshScheduler.schedule();
             }
             return;
           }
@@ -360,6 +364,7 @@ export function useCommunityMessengerRoomRealtime(args: {
       cancelled = true;
       refreshScheduler.cancel();
       callRefreshScheduler.cancel();
+      voiceRefreshScheduler.cancel();
       for (const channel of channels) {
         void sb.removeChannel(channel);
       }

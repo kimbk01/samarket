@@ -71,6 +71,7 @@ export function CommunityMessengerRoomClient({
   const voicePointerDownRef = useRef(false);
   const loadedRef = useRef(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesViewportRef = useRef<HTMLDivElement | null>(null);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
@@ -154,14 +155,19 @@ export function CommunityMessengerRoomClient({
     setRoomMessages((prev) => mergeRoomMessages(prev, snapshot.messages));
   }, [snapshot]);
 
-  useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
-      messageEndRef.current?.scrollIntoView({ block: "end" });
+  const scrollMessengerToBottom = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const vp = messagesViewportRef.current;
+        if (vp) vp.scrollTop = vp.scrollHeight;
+        messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+      });
     });
-    return () => {
-      window.cancelAnimationFrame(frameId);
-    };
-  }, [roomMessages]);
+  }, []);
+
+  useEffect(() => {
+    scrollMessengerToBottom();
+  }, [roomMessages, scrollMessengerToBottom]);
 
   const inviteCandidates = useMemo(() => {
     const memberIds = new Set((snapshot?.members ?? []).map((member) => member.id));
@@ -257,6 +263,12 @@ export function CommunityMessengerRoomClient({
       case "upload_failed":
       case "server_config":
         return "음성 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+      case "not_found":
+        return "메시지를 찾을 수 없습니다.";
+      case "unsupported_type":
+        return "이 유형의 메시지는 삭제할 수 없습니다.";
+      case "delete_failed":
+        return "메시지를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.";
       default:
         return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     }
@@ -435,6 +447,7 @@ export function CommunityMessengerRoomClient({
       callStatus: null,
     };
     setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+    scrollMessengerToBottom();
     setMessage("");
     setBusy("send");
     try {
@@ -462,13 +475,14 @@ export function CommunityMessengerRoomClient({
             [confirmedMessage]
           )
         );
+        scrollMessengerToBottom();
         return;
       }
       setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, message, roomId, snapshot]);
+  }, [getRoomActionErrorMessage, message, roomId, scrollMessengerToBottom, snapshot]);
 
   const finalizeVoiceRecording = useCallback(
     async (shouldUpload: boolean) => {
@@ -575,6 +589,7 @@ export function CommunityMessengerRoomClient({
         ...(waveformPeaks.length > 0 ? { voiceWaveformPeaks: waveformPeaks } : {}),
       };
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      scrollMessengerToBottom();
       setBusy("send-voice");
       try {
         const form = new FormData();
@@ -608,6 +623,7 @@ export function CommunityMessengerRoomClient({
               [confirmedVoice]
             )
           );
+          scrollMessengerToBottom();
           return;
         }
         URL.revokeObjectURL(blobUrl);
@@ -617,7 +633,30 @@ export function CommunityMessengerRoomClient({
         voiceFinalizingRef.current = false;
       }
     },
-    [getRoomActionErrorMessage, roomId, snapshot]
+    [getRoomActionErrorMessage, roomId, scrollMessengerToBottom, snapshot]
+  );
+
+  const deleteVoiceMessage = useCallback(
+    async (messageId: string) => {
+      if (!window.confirm("이 음성 메시지를 삭제할까요?")) return;
+      setBusy("delete-voice");
+      try {
+        const res = await fetch(
+          `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}`,
+          { method: "DELETE" }
+        );
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          window.alert(getRoomActionErrorMessage(json.error));
+          return;
+        }
+        setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
+        void refresh(true);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [getRoomActionErrorMessage, refresh, roomId]
   );
 
   const abortVoiceArmOnly = useCallback(() => {
@@ -654,7 +693,15 @@ export function CommunityMessengerRoomClient({
 
   const onVoiceMicPointerDown = useCallback(
     async (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (roomUnavailable || !snapshot || message.trim() || busy === "send" || busy === "send-voice") return;
+      if (
+        roomUnavailable ||
+        !snapshot ||
+        message.trim() ||
+        busy === "send" ||
+        busy === "send-voice" ||
+        busy === "delete-voice"
+      )
+        return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       e.preventDefault();
       const session = ++voiceSessionIdRef.current;
@@ -1101,7 +1148,7 @@ export function CommunityMessengerRoomClient({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={messagesViewportRef} className="min-h-0 flex-1 overflow-y-auto">
         <main className="space-y-3 px-4 py-4 pb-6">
           {snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly ? (
             <div className="rounded-2xl bg-amber-50 px-3 py-3 text-[13px] text-amber-800">
@@ -1189,6 +1236,18 @@ export function CommunityMessengerRoomClient({
                       </div>
                     )}
                   </div>
+                  {item.isMine && item.messageType === "voice" && !item.pending ? (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => void deleteVoiceMessage(item.id)}
+                        disabled={busy === "delete-voice" || roomUnavailable}
+                        className="text-[11px] text-gray-400 underline decoration-gray-300 underline-offset-2 hover:text-red-600 disabled:opacity-40"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  ) : null}
                   {!item.isMine && item.messageType !== "system" ? (
                     <div className="flex gap-2 text-[11px] text-gray-400">
                       <button
@@ -1235,8 +1294,14 @@ export function CommunityMessengerRoomClient({
         </main>
       </div>
 
-      <footer className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-        <div className="flex min-w-0 items-end gap-2">
+      <footer
+        className={`shrink-0 border-t px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] transition-[background-color,box-shadow,border-color] duration-300 ${
+          voiceRecording
+            ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white shadow-[0_-12px_44px_rgba(42,171,238,0.16)]"
+            : "border-gray-200 bg-white"
+        }`}
+      >
+        <div className="grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_auto] items-end gap-2">
           {!voiceRecording ? (
             <button
               type="button"
@@ -1249,73 +1314,71 @@ export function CommunityMessengerRoomClient({
           ) : (
             <div className="h-11 w-11 shrink-0" aria-hidden />
           )}
-          {!voiceRecording ? (
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={1}
-              disabled={roomUnavailable}
-              placeholder={
-                roomUnavailable
-                  ? snapshot.room.isReadonly
-                    ? "읽기 전용 방입니다"
-                    : snapshot.room.roomStatus === "blocked"
-                      ? "차단된 방입니다"
-                      : "보관된 방입니다"
-                  : "메시지"
-              }
-              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
-            />
-          ) : null}
-
-          {voiceRecording && voiceHandsFree ? (
-            <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-[#f4f4f5] px-3 py-2">
-              <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-900 sm:text-[14px]">
-                <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
-                {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
-              </span>
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
-                <span className="shrink-0 text-center text-[12px] text-gray-500">잠금 녹음 중</span>
+          <div className="col-start-2 min-w-0">
+            {!voiceRecording ? (
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={1}
+                disabled={roomUnavailable || busy === "delete-voice"}
+                placeholder={
+                  roomUnavailable
+                    ? snapshot.room.isReadonly
+                      ? "읽기 전용 방입니다"
+                      : snapshot.room.roomStatus === "blocked"
+                        ? "차단된 방입니다"
+                        : "보관된 방입니다"
+                    : "메시지"
+                }
+                className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
+              />
+            ) : voiceHandsFree ? (
+              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-2xl border-2 border-sky-300/70 bg-[#eef6ff] px-3 py-2 shadow-inner ring-1 ring-sky-200/50">
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-900 sm:text-[14px]">
+                  <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+                  {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
+                </span>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
+                  <span className="shrink-0 text-center text-[12px] font-medium text-sky-800/90">잠금 녹음 중</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void finalizeVoiceRecording(false)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm ring-1 ring-gray-200"
+                  aria-label="녹음 삭제"
+                >
+                  <TrashVoiceIcon className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void finalizeVoiceRecording(true)}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white shadow-md"
+                  aria-label="음성 전송"
+                >
+                  <SendVoiceArrowIcon className="h-5 w-5 text-white" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => void finalizeVoiceRecording(false)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm ring-1 ring-gray-200"
-                aria-label="녹음 삭제"
-              >
-                <TrashVoiceIcon className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => void finalizeVoiceRecording(true)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white shadow-md"
-                aria-label="음성 전송"
-              >
-                <SendVoiceArrowIcon className="h-5 w-5 text-white" />
-              </button>
-            </div>
-          ) : null}
-
-          {voiceRecording && !voiceHandsFree ? (
-            <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-[#f4f4f5] px-3 py-2">
-              <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-800 sm:text-[14px]">
-                <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
-                {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
-              </span>
-              <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
-              <span
-                className={`min-w-0 shrink-0 text-center text-[13px] ${
-                  voiceCancelHint ? "font-semibold text-red-600" : "text-gray-500"
-                }`}
-              >
-                ‹ 밀어서 취소
-              </span>
-            </div>
-          ) : null}
+            ) : (
+              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-2xl border-2 border-sky-300/70 bg-[#eef6ff] px-3 py-2 shadow-inner ring-1 ring-sky-200/50">
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-800 sm:text-[14px]">
+                  <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+                  {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
+                </span>
+                <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
+                <span
+                  className={`min-w-0 shrink-0 text-center text-[13px] ${
+                    voiceCancelHint ? "font-semibold text-red-600" : "text-sky-900/70"
+                  }`}
+                >
+                  ‹ 밀어서 취소
+                </span>
+              </div>
+            )}
+          </div>
 
           {!voiceHandsFree ? (
-            <div className="relative shrink-0">
+            <div className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center overflow-visible">
               {voiceRecording && !voiceHandsFree ? (
                 <div
                   className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-2xl px-2.5 py-2 shadow-md ${
@@ -1338,12 +1401,13 @@ export function CommunityMessengerRoomClient({
                   roomUnavailable ||
                   busy === "send" ||
                   busy === "send-voice" ||
+                  busy === "delete-voice" ||
                   Boolean(message.trim()) ||
                   (voiceRecording && voiceHandsFree)
                 }
-                className={`touch-none flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full shadow-md transition active:scale-95 disabled:opacity-35 ${
+                className={`touch-none flex h-11 w-11 shrink-0 origin-center select-none items-center justify-center rounded-full shadow-md transition-transform duration-200 active:scale-95 disabled:opacity-35 ${
                   voiceRecording && !voiceHandsFree
-                    ? "bg-[#2AABEE] text-white ring-2 ring-[#2AABEE]/40"
+                    ? "scale-110 bg-[#2AABEE] text-white ring-4 ring-sky-200/90 shadow-lg"
                     : "bg-[#06C755]/12 text-[#06C755] ring-2 ring-[#06C755]/25"
                 }`}
                 aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
@@ -1356,20 +1420,30 @@ export function CommunityMessengerRoomClient({
                 <MicHoldIcon className="h-6 w-6" />
               </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="h-11 w-11 shrink-0" aria-hidden />
+          )}
 
           {!voiceRecording ? (
             <button
               type="button"
               onClick={() => void sendMessage()}
-              disabled={roomUnavailable || !message.trim() || busy === "send" || busy === "send-voice"}
+              disabled={
+                roomUnavailable ||
+                !message.trim() ||
+                busy === "send" ||
+                busy === "send-voice" ||
+                busy === "delete-voice"
+              }
               className="rounded-2xl bg-[#06C755] px-3.5 py-3 text-[14px] font-semibold text-white disabled:opacity-40 sm:px-4"
             >
               전송
             </button>
           ) : voiceRecording && !voiceHandsFree ? (
             <div className="h-11 min-w-[4.75rem] shrink-0" aria-hidden />
-          ) : null}
+          ) : (
+            <div className="h-11 w-0 min-w-0 max-w-0 shrink-0 overflow-hidden p-0" aria-hidden />
+          )}
         </div>
       </footer>
 
@@ -1958,10 +2032,15 @@ function communityMessengerVoiceAudioSrc(
   roomId: string,
   item: CommunityMessengerMessage & { pending?: boolean }
 ): string {
-  if (item.pending && item.content.startsWith("blob:")) {
-    return item.content;
+  const content = item.content.trim();
+  if (item.pending && content.startsWith("blob:")) {
+    return content;
   }
-  return `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(item.id)}/audio`;
+  const id = String(item.id ?? "").trim();
+  if (!id || id.startsWith("pending:")) {
+    return "";
+  }
+  return `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(id)}/audio`;
 }
 
 function mergeRoomMessages(
