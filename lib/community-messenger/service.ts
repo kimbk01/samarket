@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import type {
@@ -3293,6 +3294,15 @@ export async function updateCommunityMessengerCallSession(input: {
   return { ok: true, session: mapped };
 }
 
+function callSessionParticipantsContain(participants: string[], userId: string): boolean {
+  return participants.some((item) => messengerUserIdsEqual(item, userId));
+}
+
+function resolveCallSessionCanonicalUserId(participants: string[], userId: string): string | null {
+  const hit = participants.find((item) => messengerUserIdsEqual(item, userId));
+  return hit ? trimText(hit) || null : null;
+}
+
 export async function listCommunityMessengerCallSignals(
   userId: string,
   sessionId: string
@@ -3301,6 +3311,17 @@ export async function listCommunityMessengerCallSignals(
   if (!id) return [];
   const sb = getSupabaseOrNull();
   if (sb) {
+    const { data: participantRows } = await (sb as any)
+      .from("community_messenger_call_session_participants")
+      .select("user_id")
+      .eq("session_id", id);
+    const sessionParticipants = dedupeIds(
+      ((participantRows ?? []) as Array<{ user_id?: string | null }>)
+        .map((item) => item.user_id)
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+    );
+    if (!callSessionParticipantsContain(sessionParticipants, userId)) return [];
+
     const { data, error } = await (sb as any)
       .from("community_messenger_call_signals")
       .select("id, session_id, room_id, from_user_id, to_user_id, signal_type, payload, created_at")
@@ -3308,16 +3329,21 @@ export async function listCommunityMessengerCallSignals(
       .order("created_at", { ascending: true })
       .limit(200);
     if (data && !error) {
-      return (data as CallSignalRow[]).map((row) => ({
-        id: row.id,
-        sessionId: row.session_id,
-        roomId: row.room_id,
-        fromUserId: row.from_user_id,
-        toUserId: row.to_user_id,
-        signalType: row.signal_type,
-        payload: (row.payload ?? {}) as Record<string, unknown>,
-        createdAt: trimText(row.created_at) || nowIso(),
-      }));
+      return (data as CallSignalRow[])
+        .filter(
+          (row) =>
+            messengerUserIdsEqual(row.to_user_id, userId) || messengerUserIdsEqual(row.from_user_id, userId)
+        )
+        .map((row) => ({
+          id: row.id,
+          sessionId: row.session_id,
+          roomId: row.room_id,
+          fromUserId: row.from_user_id,
+          toUserId: row.to_user_id,
+          signalType: row.signal_type,
+          payload: (row.payload ?? {}) as Record<string, unknown>,
+          createdAt: trimText(row.created_at) || nowIso(),
+        }));
     }
   }
   return getDevState().callSignals
@@ -3446,7 +3472,9 @@ export async function createCommunityMessengerCallSignal(input: {
         .map((item) => item.user_id)
         .filter((value): value is string => typeof value === "string" && value.length > 0)
     );
-    if (!participants.includes(input.userId) || !participants.includes(toUserId) || input.userId === toUserId) {
+    const canonicalFrom = resolveCallSessionCanonicalUserId(participants, input.userId);
+    const canonicalTo = resolveCallSessionCanonicalUserId(participants, toUserId);
+    if (!canonicalFrom || !canonicalTo || messengerUserIdsEqual(canonicalFrom, canonicalTo)) {
       return { ok: false, error: "forbidden" };
     }
     const { data, error } = await (sb as any)
@@ -3454,8 +3482,8 @@ export async function createCommunityMessengerCallSignal(input: {
       .insert({
         session_id: sessionId,
         room_id: row.room_id,
-        from_user_id: input.userId,
-        to_user_id: toUserId,
+        from_user_id: canonicalFrom,
+        to_user_id: canonicalTo,
         signal_type: input.signalType,
         payload: input.payload,
       })
@@ -3469,15 +3497,17 @@ export async function createCommunityMessengerCallSignal(input: {
   const session = dev.callSessions.find((item) => item.id === sessionId);
   if (!session) return { ok: false, error: "session_not_found" };
   const participants = dedupeIds(session.participants.map((item) => item.userId));
-  if (!participants.includes(input.userId) || !participants.includes(toUserId) || input.userId === toUserId) {
+  const canonicalFrom = resolveCallSessionCanonicalUserId(participants, input.userId);
+  const canonicalTo = resolveCallSessionCanonicalUserId(participants, toUserId);
+  if (!canonicalFrom || !canonicalTo || messengerUserIdsEqual(canonicalFrom, canonicalTo)) {
     return { ok: false, error: "forbidden" };
   }
   const row: DevCallSignal = {
     id: randomUUID(),
     sessionId,
     roomId: session.roomId,
-    fromUserId: input.userId,
-    toUserId,
+    fromUserId: canonicalFrom,
+    toUserId: canonicalTo,
     signalType: input.signalType,
     payload: input.payload,
     createdAt: nowIso(),

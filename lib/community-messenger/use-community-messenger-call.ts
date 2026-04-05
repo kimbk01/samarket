@@ -486,23 +486,11 @@ export function useCommunityMessengerCall(args: {
       if (!messengerUserIdsEqual(signal.toUserId, args.viewerUserId)) return;
 
       if (signal.signalType === "offer") {
-        if (processedSignalIdsRef.current.has(signal.id)) return;
         const offer = readSessionDescription(signal.payload, "offer");
         if (!offer) return;
-        if (peerConnectionRef.current && panel?.mode === "active" && args.peerUserId) {
-          try {
-            await peerConnectionRef.current.setRemoteDescription(offer);
-            await flushPendingCandidates();
-            const answer = await peerConnectionRef.current.createAnswer();
-            await peerConnectionRef.current.setLocalDescription(answer);
-            await sendSignal(signal.sessionId, String(args.peerUserId), "answer", { sdp: answer.sdp ?? "" });
-            processedSignalIdsRef.current.add(signal.id);
-          } catch {
-            /* answer 실패 시 동일 offer 재시도 */
-          }
-          return;
-        }
-        pendingOfferRef.current = offer;
+
+        // 수락 직후 시그널 목록을 돌 때, 폴링으로 이미 본 offer는 processed 에 들어가 있다.
+        // 그 경우에도 아래 분기가 먼저 실행되어야 하며, pendingOfferRef 에만 의존하지 않는다.
         const pendingAcceptance = pendingIncomingAcceptanceRef.current;
         if (
           pendingAcceptance &&
@@ -517,6 +505,23 @@ export function useCommunityMessengerCall(args: {
           }
           return;
         }
+
+        if (processedSignalIdsRef.current.has(signal.id)) return;
+
+        if (peerConnectionRef.current && panel?.mode === "active" && args.peerUserId) {
+          try {
+            await peerConnectionRef.current.setRemoteDescription(offer);
+            await flushPendingCandidates();
+            const answer = await peerConnectionRef.current.createAnswer();
+            await peerConnectionRef.current.setLocalDescription(answer);
+            await sendSignal(signal.sessionId, String(args.peerUserId), "answer", { sdp: answer.sdp ?? "" });
+            processedSignalIdsRef.current.add(signal.id);
+          } catch {
+            /* answer 실패 시 동일 offer 재시도 */
+          }
+          return;
+        }
+        pendingOfferRef.current = offer;
         processedSignalIdsRef.current.add(signal.id);
         return;
       }
