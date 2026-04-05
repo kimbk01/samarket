@@ -50,6 +50,7 @@ export function ConditionalAppShell({
   /** 거래 허브 안 채팅방 상세 — 메시지 영역만 스크롤되게 뷰포트 높이 고정. 목록·구매·판매 등은 문서 스크롤 */
   const isMypageTradeChatRoom = pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/) ?? false;
   const isCommunityMessengerRoom = pathname?.match(/^\/community-messenger\/rooms\/[^/]+$/) ?? false;
+  const isCommunityMessengerCallPage = pathname?.match(/^\/community-messenger\/calls\/[^/]+$/) ?? false;
   /**
    * 거래 채팅방: AppStickyHeader(1단)은 플로우 상단에 따로 있으므로,
    * 본 셸 높이에서만 1단·상단 safe-area 를 빼면 `1단 + 본문` 이 뷰포트에 맞는다.
@@ -58,6 +59,7 @@ export function ConditionalAppShell({
   const isAnyChatRoomDetail =
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
+    isCommunityMessengerCallPage ||
     ((pathname?.match(/^\/chats\/[^/]+$/) &&
       pathname !== "/chats/new" &&
       pathname !== "/chats/order") ??
@@ -136,7 +138,7 @@ export function ConditionalAppShell({
     !isCommunityApp &&
     !isPersonalProductComposerPage;
   const mountGlobalRealtimeChrome =
-    showBottomNav || isMyTab || isStoreSection || isOrdersHub;
+    (showBottomNav || isMyTab || isStoreSection || isOrdersHub) && !isCommunityMessengerCallPage;
 
   const mainBottomClass =
     showBottomNav || isPostDetail
@@ -153,8 +155,8 @@ export function ConditionalAppShell({
       {mountGlobalRealtimeChrome ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
-      <GlobalCommunityMessengerUnreadSound />
-      <GlobalCommunityMessengerIncomingCall />
+      {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerUnreadSound /> : null}
+      {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerIncomingCall /> : null}
       {showRegionBar && <RegionBar />}
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main

@@ -182,6 +182,16 @@ export type CommunityMessengerCallSignal = {
   createdAt: string;
 };
 
+export type CommunityMessengerManagedCallConnection = {
+  provider: "agora";
+  appId: string;
+  channelName: string;
+  uid: string;
+  token: string | null;
+  expiresAt: string | null;
+  callKind: CommunityMessengerCallKind;
+};
+
 export type CommunityMessengerBootstrap = {
   me: CommunityMessengerProfileLite | null;
   tabs: Record<CommunityMessengerTab, number>;

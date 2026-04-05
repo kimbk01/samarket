@@ -199,9 +199,13 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   const acceptCall = useCallback(
     (session: CommunityMessengerCallSession) => {
+      if (session.sessionMode === "group") {
+        window.alert("그룹 통화는 현재 준비 중입니다. 다음 단계에서 다시 연결하겠습니다.");
+        return;
+      }
       setBusyId(`accept:${session.id}`);
       setSessions((prev) => prev.filter((item) => item.id !== session.id));
-      const url = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
+      const url = `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`;
       void (async () => {
         let permissionFailed = false;
         try {
@@ -253,10 +257,14 @@ export function GlobalCommunityMessengerIncomingCall() {
           <button
             type="button"
             onClick={() => void acceptCall(visibleSession)}
-            disabled={busyId === `accept:${visibleSession.id}`}
+            disabled={busyId === `accept:${visibleSession.id}` || visibleSession.sessionMode === "group"}
             className="flex-1 cursor-pointer touch-manipulation select-none rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/50 focus-visible:ring-offset-2"
           >
-            {busyId === `accept:${visibleSession.id}` ? "준비 중..." : "수락"}
+            {visibleSession.sessionMode === "group"
+              ? "그룹 통화 준비 중"
+              : busyId === `accept:${visibleSession.id}`
+                ? "준비 중..."
+                : "수락"}
           </button>
         </div>
       </div>

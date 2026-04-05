@@ -55,6 +55,7 @@ export function CommunityMessengerRoomClient({
   const [openGroupJoinPolicy, setOpenGroupJoinPolicy] = useState<"password" | "free">("password");
   const [openGroupIdentityPolicy, setOpenGroupIdentityPolicy] = useState<"real_name" | "alias_allowed">("alias_allowed");
   const [activeSheet, setActiveSheet] = useState<null | "menu" | "members" | "info">(null);
+  const [managedDirectCallError, setManagedDirectCallError] = useState<string | null>(null);
 
   const refresh = useCallback(async (silent = false) => {
     const shouldBlock = !silent && !loadedRef.current;
@@ -142,24 +143,26 @@ export function CommunityMessengerRoomClient({
     roomType:
       snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group" ? "group" : "direct",
     viewerUserId: snapshot?.viewerUserId ?? "",
-    peerUserId: snapshot?.activeCall?.peerUserId ?? snapshot?.room.peerUserId ?? null,
-    peerLabel: snapshot?.activeCall?.peerLabel ?? snapshot?.room.title ?? "상대",
-    activeCall: snapshot?.activeCall ?? null,
+    peerUserId: snapshot?.room.peerUserId ?? null,
+    peerLabel: snapshot?.room.title ?? "상대",
+    activeCall: null,
     onRefresh: () => refresh(true),
   });
   const groupCall = useCommunityMessengerGroupCall({
-    enabled: snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group",
+    enabled: false,
     roomId,
     viewerUserId: snapshot?.viewerUserId ?? "",
     roomLabel: snapshot?.room.title ?? "그룹 통화",
-    activeCall: snapshot?.activeCall ?? null,
+    activeCall: null,
     onRefresh: () => refresh(true),
   });
   const call =
     snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group" ? groupCall : directCall;
-  const permissionGuide = call.panel ? getCommunityMessengerPermissionGuide(call.panel.kind) : null;
   const roomUnavailable = snapshot ? snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly : true;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
+  const directIncomingCall =
+    !isGroupRoom && snapshot?.activeCall?.sessionMode === "direct" ? snapshot.activeCall : null;
+  const permissionGuide = call.panel ? getCommunityMessengerPermissionGuide(call.panel.kind) : null;
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
   const isOwner = snapshot?.myRole === "owner";
@@ -206,8 +209,15 @@ export function CommunityMessengerRoomClient({
         return "방장은 이 방을 바로 나갈 수 없습니다.";
       case "room_unavailable":
         return "현재 이 방에서는 초대 또는 통화를 진행할 수 없습니다.";
+      case "peer_not_found":
+        return "상대방 정보를 찾지 못했습니다.";
       case "forbidden":
         return "이 작업을 수행할 권한이 없습니다.";
+      case "call_provider_not_configured":
+        return "통화 서비스 설정이 아직 완료되지 않았습니다.";
+      case "call_session_start_failed":
+      case "call_session_participants_insert_failed":
+        return "통화 세션을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.";
       case "messenger_storage_unavailable":
         return "메신저 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
       case "messenger_migration_required":
@@ -252,6 +262,62 @@ export function CommunityMessengerRoomClient({
   const handleAcceptIncomingCall = useCallback((): Promise<boolean> => {
     return call.acceptIncomingCall();
   }, [call]);
+
+  const openDirectCallPage = useCallback(
+    (nextSessionId: string, action?: "accept") => {
+      const suffix = action ? `?action=${encodeURIComponent(action)}` : "";
+      router.push(`/community-messenger/calls/${encodeURIComponent(nextSessionId)}${suffix}`);
+    },
+    [router]
+  );
+
+  const startManagedDirectCall = useCallback(
+    async (kind: "voice" | "video") => {
+      if (roomUnavailable || isGroupRoom) return;
+      setManagedDirectCallError(null);
+      setBusy(`managed-call:${kind}`);
+      try {
+        const existingSession = snapshot?.activeCall;
+        if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
+          openDirectCallPage(existingSession.id);
+          return;
+        }
+        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/calls`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ callKind: kind }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          session?: { id?: string };
+        };
+        if (!res.ok || !json.ok || !json.session?.id) {
+          setManagedDirectCallError(getRoomActionErrorMessage(json.error));
+          return;
+        }
+        openDirectCallPage(String(json.session.id));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [getRoomActionErrorMessage, isGroupRoom, openDirectCallPage, roomId, roomUnavailable, snapshot?.activeCall]
+  );
+
+  const rejectManagedDirectIncomingCall = useCallback(async () => {
+    if (!directIncomingCall) return;
+    setBusy("managed-direct-call-reject");
+    try {
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(directIncomingCall.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      await refresh(true);
+    } finally {
+      setBusy(null);
+    }
+  }, [directIncomingCall, refresh]);
 
   useEffect(() => {
     if (!snapshot || !isOpenGroupRoom) return;
@@ -431,6 +497,7 @@ export function CommunityMessengerRoomClient({
   );
 
   useEffect(() => {
+    if (!isGroupRoom) return;
     const activeCall = snapshot?.activeCall;
     if (!activeCall) return;
     if (callActionFromUrl !== "accept") return;
@@ -464,9 +531,10 @@ export function CommunityMessengerRoomClient({
         }
       }
     })();
-  }, [callActionFromUrl, handleAcceptIncomingCall, roomId, router, sessionIdFromUrl, snapshot?.activeCall]);
+  }, [callActionFromUrl, handleAcceptIncomingCall, isGroupRoom, roomId, router, sessionIdFromUrl, snapshot?.activeCall]);
 
   useEffect(() => {
+    if (!isGroupRoom) return;
     if (callActionFromUrl !== "accept" || !sessionIdFromUrl) return;
     if (snapshot?.activeCall?.id && messengerUserIdsEqual(snapshot.activeCall.id, sessionIdFromUrl)) return;
     let cancelled = false;
@@ -484,9 +552,10 @@ export function CommunityMessengerRoomClient({
       window.clearInterval(timer);
       window.clearTimeout(stopTimer);
     };
-  }, [callActionFromUrl, refresh, sessionIdFromUrl, snapshot?.activeCall?.id]);
+  }, [callActionFromUrl, isGroupRoom, refresh, sessionIdFromUrl, snapshot?.activeCall?.id]);
 
   useEffect(() => {
+    if (!isGroupRoom) return;
     if (callActionFromUrl !== "accept" || !sessionIdFromUrl) return;
     const samePanelSession =
       call.panel?.sessionId &&
@@ -507,6 +576,7 @@ export function CommunityMessengerRoomClient({
     router,
     snapshot?.activeCall?.id,
     snapshot?.activeCall?.status,
+    isGroupRoom,
   ]);
 
   useEffect(() => {
@@ -582,8 +652,36 @@ export function CommunityMessengerRoomClient({
               {snapshot.room.isReadonly ? " 현재 읽기 전용 상태입니다." : ""}
             </div>
           ) : null}
-          {call.errorMessage && !call.panel ? (
-            <div className="rounded-2xl bg-red-50 px-3 py-3 text-[13px] text-red-700">{call.errorMessage}</div>
+          {(managedDirectCallError || (call.errorMessage && !call.panel)) ? (
+            <div className="rounded-2xl bg-red-50 px-3 py-3 text-[13px] text-red-700">
+              {managedDirectCallError ?? call.errorMessage}
+            </div>
+          ) : null}
+          {directIncomingCall && !directIncomingCall.isMineInitiator && directIncomingCall.status === "ringing" ? (
+            <div className="rounded-[28px] border border-[#06C755]/20 bg-white p-4 shadow-sm">
+              <p className="text-[12px] font-semibold text-[#06C755]">수신 통화</p>
+              <h2 className="mt-1 text-[18px] font-semibold text-gray-900">{directIncomingCall.peerLabel}</h2>
+              <p className="mt-1 text-[13px] text-gray-500">
+                {directIncomingCall.callKind === "video" ? "영상 통화" : "음성 통화"}가 왔습니다.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void rejectManagedDirectIncomingCall()}
+                  disabled={busy === "managed-direct-call-reject"}
+                  className="rounded-2xl border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700 disabled:opacity-40"
+                >
+                  거절
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openDirectCallPage(directIncomingCall.id, "accept")}
+                  className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+                >
+                  수락
+                </button>
+              </div>
+            </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full bg-[#06C755]/10 px-3 py-1 text-[12px] font-semibold text-[#06C755]">
@@ -757,23 +855,25 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => {
                       setActiveSheet(null);
-                      void call.startOutgoingCall("voice");
+                      if (isGroupRoom) return;
+                      void startManagedDirectCall("voice");
                     }}
-                    disabled={roomUnavailable}
+                    disabled={roomUnavailable || isGroupRoom || busy === "managed-call:voice"}
                     className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
                   >
-                    음성 통화
+                    {isGroupRoom ? "1:1 통화 준비 중" : "음성 통화"}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setActiveSheet(null);
-                      void call.startOutgoingCall("video");
+                      if (isGroupRoom) return;
+                      void startManagedDirectCall("video");
                     }}
-                    disabled={roomUnavailable}
+                    disabled={roomUnavailable || isGroupRoom || busy === "managed-call:video"}
                     className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
                   >
-                    영상 통화
+                    {isGroupRoom ? "그룹 통화 준비 중" : "영상 통화"}
                   </button>
                   <button
                     type="button"
@@ -1030,7 +1130,7 @@ export function CommunityMessengerRoomClient({
         </div>
       ) : null}
 
-      {call.panel ? (
+      {isGroupRoom && call.panel ? (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/70 px-4 pb-4 sm:items-center sm:pb-0">
           <div className="w-full max-w-[420px] rounded-[32px] bg-[#111827] px-5 pb-5 pt-6 text-white shadow-2xl">
             <div className="flex items-center justify-between gap-3">

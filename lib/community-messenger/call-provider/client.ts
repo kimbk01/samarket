@@ -1,0 +1,69 @@
+"use client";
+
+import AgoraRTC, {
+  type IAgoraRTCClient,
+  type ICameraVideoTrack,
+  type ILocalAudioTrack,
+  type IMicrophoneAudioTrack,
+} from "agora-rtc-sdk-ng";
+import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+
+export type CommunityMessengerAgoraLocalTracks = {
+  audioTrack: IMicrophoneAudioTrack;
+  videoTrack: ICameraVideoTrack | null;
+};
+
+export function createCommunityMessengerAgoraClient(): IAgoraRTCClient {
+  return AgoraRTC.createClient({ codec: "vp8", mode: "rtc" });
+}
+
+export async function createCommunityMessengerAgoraLocalTracks(
+  kind: CommunityMessengerCallKind
+): Promise<CommunityMessengerAgoraLocalTracks> {
+  const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+    encoderConfig: "music_standard",
+  });
+  if (kind !== "video") {
+    return { audioTrack, videoTrack: null };
+  }
+  try {
+    const videoTrack = await AgoraRTC.createCameraVideoTrack({
+      encoderConfig: "720p_2",
+      optimizationMode: "motion",
+    });
+    return { audioTrack, videoTrack };
+  } catch (error) {
+    await audioTrack.close();
+    throw error;
+  }
+}
+
+export async function joinCommunityMessengerAgoraChannel(args: {
+  client: IAgoraRTCClient;
+  appId: string;
+  channelName: string;
+  token: string | null;
+  uid: string;
+}) {
+  return args.client.join(args.appId, args.channelName, args.token, args.uid);
+}
+
+export async function publishCommunityMessengerAgoraTracks(args: {
+  client: IAgoraRTCClient;
+  tracks: CommunityMessengerAgoraLocalTracks;
+}) {
+  const tracks: Array<ILocalAudioTrack | ICameraVideoTrack> = args.tracks.videoTrack
+    ? [args.tracks.audioTrack, args.tracks.videoTrack]
+    : [args.tracks.audioTrack];
+  await args.client.publish(tracks);
+}
+
+export async function closeCommunityMessengerAgoraTracks(tracks: CommunityMessengerAgoraLocalTracks | null) {
+  if (!tracks) return;
+  tracks.audioTrack.stop();
+  tracks.audioTrack.close();
+  if (tracks.videoTrack) {
+    tracks.videoTrack.stop();
+    tracks.videoTrack.close();
+  }
+}

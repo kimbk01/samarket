@@ -1328,6 +1328,56 @@ async function getActiveCallSessionForRoom(
   return session ? mapCallSession(userId, session) : null;
 }
 
+export async function getCommunityMessengerCallSessionById(
+  userId: string,
+  sessionId: string
+): Promise<CommunityMessengerCallSession | null> {
+  const id = trimText(sessionId);
+  if (!id) return null;
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data, error } = await (sb as any)
+      .from("community_messenger_call_sessions")
+      .select(
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+      )
+      .eq("id", id)
+      .maybeSingle();
+    if (data && !error) {
+      const row = data as CallSessionRow;
+      const { data: participantRows } = await (sb as any)
+        .from("community_messenger_call_session_participants")
+        .select("user_id")
+        .eq("session_id", id);
+      const participants = dedupeIds(
+        ((participantRows ?? []) as Array<{ user_id?: string | null }>)
+          .map((item) => item.user_id)
+          .filter((value): value is string => typeof value === "string" && value.length > 0)
+      );
+      const mode = trimText(row.session_mode ?? "") || "direct";
+      const canRead =
+        callSessionParticipantsContain(participants, userId) ||
+        (mode === "direct" &&
+          (messengerUserIdsEqual(row.initiator_user_id, userId) ||
+            messengerUserIdsEqual(row.recipient_user_id, userId)));
+      if (!canRead) return null;
+      return mapCallSession(userId, row);
+    }
+  }
+
+  const dev = getDevState();
+  const session = dev.callSessions.find((item) => item.id === id);
+  if (!session) return null;
+  const participants = dedupeIds(session.participants.map((item) => item.userId));
+  const canRead =
+    callSessionParticipantsContain(participants, userId) ||
+    (session.sessionMode === "direct" &&
+      (messengerUserIdsEqual(session.initiatorUserId, userId) ||
+        messengerUserIdsEqual(session.recipientUserId, userId)));
+  if (!canRead) return null;
+  return mapCallSession(userId, session);
+}
+
 function formatCommunityMessengerCallStubStatus(status: CommunityMessengerCallStatus): string {
   if (status === "missed") return "부재중";
   if (status === "rejected") return "거절됨";
