@@ -601,14 +601,38 @@ export function CommunityMessengerRoomClient({
               {roomSubtitle ? ` · ${roomSubtitle}` : ""}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveSheet("menu")}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
-            aria-label="채팅방 메뉴"
-          >
-            <MoreIcon className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {!isGroupRoom && snapshot.room.roomStatus === "active" && !snapshot.room.isReadonly ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void startManagedDirectCall("voice")}
+                  disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-[#06C755] transition hover:bg-[#06C755]/10 disabled:opacity-35"
+                  aria-label="음성 통화"
+                >
+                  <VoiceCallIcon className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void startManagedDirectCall("video")}
+                  disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-[#06C755] transition hover:bg-[#06C755]/10 disabled:opacity-35"
+                  aria-label="영상 통화"
+                >
+                  <VideoCallIcon className="h-5 w-5" />
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setActiveSheet("menu")}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
+              aria-label="채팅방 메뉴"
+            >
+              <MoreIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1427,6 +1451,27 @@ function PlusIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function VoiceCallIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path
+        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function VideoCallIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <rect x="2" y="6" width="14" height="12" rx="2" strokeLinejoin="round" />
+      <path d="M22 8v8l-5-3.2V11.2L22 8z" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -3,7 +3,7 @@
 import type { IAgoraRTCClient, IAgoraRTCRemoteUser, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   closeCommunityMessengerAgoraTracks,
   createCommunityMessengerAgoraClient,
@@ -175,7 +175,7 @@ export function CommunityMessengerCallClient({
     remoteVideoTrackRef.current = track;
     if (remoteVideoRef.current) remoteVideoRef.current.innerHTML = "";
     if (track && remoteVideoRef.current) {
-      track.play(remoteVideoRef.current);
+      track.play(remoteVideoRef.current, { fit: "contain", mirror: false });
       setRemoteVideoReady(true);
       return;
     }
@@ -190,9 +190,15 @@ export function CommunityMessengerCallClient({
       setLocalVideoReady(false);
       return;
     }
-    videoTrack.play(localVideoRef.current);
+    videoTrack.play(localVideoRef.current, { fit: "cover", mirror: true });
     setLocalVideoReady(true);
   }, []);
+
+  /* 영상 통화: join 직후 ref 가 붙기 전일 수 있어 iOS 등에서 로컬 미리보기가 비는 경우 보정 */
+  useLayoutEffect(() => {
+    if (!session || session.callKind !== "video" || !joined) return;
+    bindLocalVideoTrack();
+  }, [bindLocalVideoTrack, joined, session?.callKind, session?.id]);
 
   const joinCall = useCallback(
     async (targetSession: CommunityMessengerCallSession) => {
