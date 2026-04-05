@@ -56,19 +56,23 @@ export function ConditionalAppShell({
    * 본 셸 높이에서만 1단·상단 safe-area 를 빼면 `1단 + 본문` 이 뷰포트에 맞는다.
    * 하단 메인 탭은 fixed 이므로 여기서 높이에서 빼지 않음(`trade` 레이아웃 `pb-24` 로 여백).
    */
-  const isAnyChatRoomDetail =
+  /** 채팅방 상세만 뷰포트에 맞춰 높이 고정(메시지 영역 스크롤). 통화 전용 화면은 제외 — 전체 높이를 쓰면 하단이 잘림 */
+  const isViewportLockedChatDetail =
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
-    isCommunityMessengerCallPage ||
     ((pathname?.match(/^\/chats\/[^/]+$/) &&
       pathname !== "/chats/new" &&
       pathname !== "/chats/order") ??
       false);
-  const appShellRootClass = isAnyChatRoomDetail
+  const isAnyChatRoomDetail =
+    isViewportLockedChatDetail || isCommunityMessengerCallPage;
+  const appShellRootClass = isViewportLockedChatDetail
     ? topTier1RuleSet.showRegionBar
       ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
       : "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
-    : "min-h-screen min-w-0 max-w-full overflow-x-clip bg-[#F7F7F7]";
+    : isCommunityMessengerCallPage
+      ? "flex min-h-[100dvh] min-w-0 max-w-full flex-col overflow-x-clip bg-[#F7F7F7]"
+      : "min-h-screen min-w-0 max-w-full overflow-x-clip bg-[#F7F7F7]";
   const isChatRoomDetail = isAnyChatRoomDetail;
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
@@ -139,6 +143,9 @@ export function ConditionalAppShell({
     !isPersonalProductComposerPage;
   const mountGlobalRealtimeChrome =
     (showBottomNav || isMyTab || isStoreSection || isOrdersHub) && !isCommunityMessengerCallPage;
+  /** 메신저 방 등에서는 하단 탭이 없어 기존 블록에 안 걸림 — 첫 터치로 알림/통화 톤 잠금 해제 */
+  const mountNotificationSoundPrime =
+    mountGlobalRealtimeChrome || (isCommunityMessengerSurface && !isCommunityMessengerCallPage);
 
   const mainBottomClass =
     showBottomNav || isPostDetail
@@ -152,7 +159,7 @@ export function ConditionalAppShell({
   return (
     <div className={appShellRootClass}>
       <PhilifeFeedWarmPrefetch />
-      {mountGlobalRealtimeChrome ? <NotificationSoundPrime /> : null}
+      {mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
       {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerUnreadSound /> : null}
@@ -162,7 +169,9 @@ export function ConditionalAppShell({
       <main
         className={`${mainBottomClass} min-w-0 overflow-x-hidden ${
           isChatRoomDetail
-            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden"
+            ? isCommunityMessengerCallPage
+              ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
+              : "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden"
             : ""
         }`}
       >

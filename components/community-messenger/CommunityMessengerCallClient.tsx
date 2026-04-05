@@ -341,9 +341,9 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
   }
 
   return (
-    <div className="min-h-[100svh] bg-[#020617] text-white">
-      <div className="mx-auto flex min-h-[100svh] max-w-[520px] flex-col overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+104px)] pt-[calc(env(safe-area-inset-top)+12px)]">
-      <header className="flex items-center justify-between py-4">
+    <div className="flex min-h-full min-h-0 flex-1 flex-col bg-[#020617] text-white">
+      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+12px)]">
+      <header className="flex shrink-0 items-center justify-between py-4">
         <button
           type="button"
           onClick={() => router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`)}
@@ -356,8 +356,8 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
         </span>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col">
-        <div className="pt-4 text-center">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="shrink-0 pt-4 text-center">
           <p className="text-[30px] font-semibold">{session.peerLabel}</p>
           <p className="mt-2 text-[14px] text-white/70">{statusLabel}</p>
           {joined && session.status === "active" ? (
@@ -365,7 +365,7 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
           ) : null}
         </div>
 
-        <div className="mx-auto flex w-full max-w-[420px] flex-1 items-center justify-center py-6 sm:py-8">
+        <div className="mx-auto flex w-full max-w-[420px] flex-1 items-center justify-center py-4 sm:py-6">
           {session.callKind === "video" ? (
             <div className="grid w-full gap-3">
               <div className="overflow-hidden rounded-[28px] bg-black">
@@ -386,87 +386,87 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
               </div>
             </div>
           ) : (
-            <div className="flex h-[min(58vw,320px)] w-[min(58vw,320px)] min-h-[220px] min-w-[220px] items-center justify-center rounded-full bg-[#06C755]/20 text-[44px] font-semibold text-[#86EFAC]">
+            <div className="flex h-[min(52vw,280px)] w-[min(52vw,280px)] min-h-[200px] min-w-[200px] items-center justify-center rounded-full bg-[#06C755]/20 text-[clamp(28px,9vw,44px)] font-semibold text-[#86EFAC]">
               MIC
             </div>
           )}
         </div>
+      </main>
 
-        <div className="mx-auto mt-auto w-full max-w-[420px] pb-[calc(env(safe-area-inset-bottom)+72px)]">
-          {errorMessage ? (
-            <div className="mb-4 rounded-3xl bg-white/10 p-4">
-              <p className="text-[13px] font-semibold text-[#FECACA]">{errorMessage}</p>
-              <p className="mt-2 text-[12px] leading-5 text-white/70">{permissionGuide?.description}</p>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!session) return;
-                    void acceptIncoming().then((nextSession) => {
-                      if (nextSession) {
-                        void joinCall(nextSession);
-                      }
-                    });
-                  }}
-                  disabled={busy === "accept" || busy === "join"}
-                  className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
-                >
-                  다시 시도
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!openCommunityMessengerPermissionSettings()) {
-                      window.alert("브라우저 주소창 왼쪽 사이트 설정에서 카메라/마이크 권한을 허용해 주세요.");
-                    }
-                  }}
-                  className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
-                >
-                  권한 안내
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="flex gap-2">
-            {!session.isMineInitiator && session.status === "ringing" && !joined ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void rejectIncoming()}
-                  disabled={busy === "reject"}
-                  className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
-                >
-                  거절
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void acceptIncoming().then((nextSession) => {
-                      if (nextSession) {
-                        void joinCall(nextSession);
-                      }
-                    });
-                  }}
-                  disabled={busy === "accept" || busy === "join"}
-                  className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-                >
-                  {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
-                </button>
-              </>
-            ) : (
+      <div className="mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.06] bg-[#020617] pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))] pt-3">
+        {errorMessage ? (
+          <div className="mb-4 rounded-3xl bg-white/10 p-4">
+            <p className="text-[13px] font-semibold text-[#FECACA]">{errorMessage}</p>
+            <p className="mt-2 text-[12px] leading-5 text-white/70">{permissionGuide?.description}</p>
+            <div className="mt-3 flex gap-2">
               <button
                 type="button"
-                onClick={() => void endCall()}
-                disabled={busy === "end"}
-                className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                onClick={() => {
+                  if (!session) return;
+                  void acceptIncoming().then((nextSession) => {
+                    if (nextSession) {
+                      void joinCall(nextSession);
+                    }
+                  });
+                }}
+                disabled={busy === "accept" || busy === "join"}
+                className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
               >
-                통화 종료
+                다시 시도
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!openCommunityMessengerPermissionSettings()) {
+                    window.alert("브라우저 주소창 왼쪽 사이트 설정에서 카메라/마이크 권한을 허용해 주세요.");
+                  }
+                }}
+                className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
+              >
+                권한 안내
+              </button>
+            </div>
           </div>
+        ) : null}
+
+        <div className="flex gap-2">
+          {!session.isMineInitiator && session.status === "ringing" && !joined ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void rejectIncoming()}
+                disabled={busy === "reject"}
+                className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
+              >
+                거절
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void acceptIncoming().then((nextSession) => {
+                    if (nextSession) {
+                      void joinCall(nextSession);
+                    }
+                  });
+                }}
+                disabled={busy === "accept" || busy === "join"}
+                className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+              >
+                {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void endCall()}
+              disabled={busy === "end"}
+              className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+            >
+              통화 종료
+            </button>
+          )}
         </div>
-      </main>
+      </div>
       </div>
     </div>
   );

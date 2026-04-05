@@ -18,16 +18,13 @@ export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneCon
     return { stop() {} };
   }
 
-  primeNotificationSoundAudio();
-
   let stopped = false;
   let intervalId: number | null = null;
   let audio: HTMLAudioElement | null = null;
 
   activeToneStopper?.();
 
-  const stop = () => {
-    stopped = true;
+  const clearLoopAudio = () => {
     if (intervalId) {
       window.clearInterval(intervalId);
       intervalId = null;
@@ -37,36 +34,62 @@ export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneCon
       audio.currentTime = 0;
       audio = null;
     }
+  };
+
+  const tryStart = () => {
+    if (stopped) return;
+    clearLoopAudio();
+    primeNotificationSoundAudio();
+    try {
+      const next = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
+      next.preload = "auto";
+      next.loop = true;
+      next.volume = mode === "incoming" ? 0.72 : 0.45;
+      next.playbackRate = mode === "incoming" ? 1 : 0.94;
+      audio = next;
+      const result = next.play();
+      if (result && typeof result.catch === "function") {
+        void result.catch(() => {
+          if (stopped) return;
+          audio = null;
+          playNotificationSound();
+          intervalId = window.setInterval(() => {
+            playNotificationSound();
+          }, TONE_INTERVAL_MS[mode]);
+        });
+      }
+    } catch {
+      playNotificationSound();
+      intervalId = window.setInterval(() => {
+        playNotificationSound();
+      }, TONE_INTERVAL_MS[mode]);
+    }
+  };
+
+  const onFirstGesture = () => {
+    window.removeEventListener("pointerdown", onFirstGesture);
+    window.removeEventListener("touchstart", onFirstGesture);
+    if (stopped) return;
+    /* 수신은 fetch 이후에 시작되어 자동재생이 막히는 경우가 많음 — 첫 터치 후 다시 시도 */
+    tryStart();
+  };
+
+  window.addEventListener("pointerdown", onFirstGesture, { passive: true });
+  window.addEventListener("touchstart", onFirstGesture, { passive: true });
+
+  tryStart();
+
+  const stop = () => {
+    stopped = true;
+    window.removeEventListener("pointerdown", onFirstGesture);
+    window.removeEventListener("touchstart", onFirstGesture);
+    clearLoopAudio();
     if (activeToneStopper === stop) {
       activeToneStopper = null;
     }
   };
 
   activeToneStopper = stop;
-
-  try {
-    audio = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
-    audio.preload = "auto";
-    audio.loop = true;
-    audio.volume = mode === "incoming" ? 0.72 : 0.45;
-    audio.playbackRate = mode === "incoming" ? 1 : 0.94;
-    const result = audio.play();
-    if (result && typeof result.catch === "function") {
-      void result.catch(() => {
-        if (stopped) return;
-        audio = null;
-        playNotificationSound();
-        intervalId = window.setInterval(() => {
-          playNotificationSound();
-        }, TONE_INTERVAL_MS[mode]);
-      });
-    }
-  } catch {
-    playNotificationSound();
-    intervalId = window.setInterval(() => {
-      playNotificationSound();
-    }, TONE_INTERVAL_MS[mode]);
-  }
 
   return { stop };
 }
