@@ -14,7 +14,14 @@ export function getSupabaseClient(): SupabaseClient | null {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   if (!client) {
-    client = createBrowserClient(url, key);
+    const secure = window.location.protocol === "https:";
+    client = createBrowserClient(url, key, {
+      cookieOptions: {
+        path: "/",
+        sameSite: "lax",
+        secure,
+      },
+    });
   }
   return client;
 }

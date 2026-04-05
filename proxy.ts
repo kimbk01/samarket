@@ -19,7 +19,13 @@ function isPublicPath(pathname: string): boolean {
 
 function requestHasSupabaseAuthCookies(request: NextRequest): boolean {
   for (const { name } of request.cookies.getAll()) {
-    if (name.startsWith("sb-") && name.includes("auth-token")) return true;
+    // 현재: `sb-<ref>-auth-token` · 청크 `….auth-token.0` · PKCE `….auth-token-code-verifier`
+    if (
+      name.startsWith("sb-") &&
+      (name.includes("auth-token") || name.includes("code-verifier"))
+    ) {
+      return true;
+    }
     // @supabase/ssr·구버전 등 비표준 저장 키(청크: `…token.0`)
     if (name === "supabase.auth.token" || name.startsWith("supabase.auth.token.")) return true;
   }
@@ -90,7 +96,13 @@ export async function proxy(request: NextRequest) {
 
   let response = NextResponse.next({ request });
 
+  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
   const supabase = createServerClient(url, anon, {
+    cookieOptions: {
+      path: "/",
+      sameSite: "lax",
+      secure: cookieSecure,
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();

@@ -67,6 +67,12 @@ function LoginPageContent() {
       setLoading(false);
       return;
     }
+    /** Supabase 로그인 전에만 테스트용 HttpOnly 쿠키 제거 — 성공 직후 호출하면 쿠키 플러시와 겹칠 수 있음 */
+    try {
+      await fetch("/api/test-logout", { method: "POST", credentials: "include" });
+    } catch {
+      /* ignore */
+    }
     let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
     try {
       signInResult = await withTimeout(
@@ -79,17 +85,25 @@ function LoginPageContent() {
       setError(e instanceof Error ? e.message : AUTH_TIMEOUT_MESSAGE);
       return;
     }
-    setLoading(false);
     const err = signInResult.error;
     if (err) {
+      setLoading(false);
       setError(err.message || "로그인에 실패했습니다.");
       return;
     }
-    try {
-      await fetch("/api/test-logout", { method: "POST", credentials: "include" });
-    } catch {
-      /* ignore */
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      setLoading(false);
+      setError("세션이 저장되지 않았습니다. 쿠키·시크릿 모드를 확인한 뒤 다시 시도해 주세요.");
+      return;
     }
+    /** `document.cookie` 반영 후 이동 — 없으면 첫 보호 경로 요청에 sb 쿠키가 비는 경우가 있음 */
+    await new Promise<void>((r) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => r()));
+    });
+    setLoading(false);
     /**
      * `router.push` 만 쓰면 로그인 직후 RSC/프록시가 쿠키 없이 돌고 `/login` 으로 튕기는 경우가 있음.
      * 전체 네비게이션으로 `sb-*-auth-token` 이 다음 요청에 반드시 실리게 함.

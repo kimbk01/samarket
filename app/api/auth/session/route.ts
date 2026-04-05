@@ -28,7 +28,13 @@ export async function GET(request: NextRequest) {
     request: { headers: request.headers },
   });
 
+  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
   const supabase = createServerClient(url, anon, {
+    cookieOptions: {
+      path: "/",
+      sameSite: "lax",
+      secure: cookieSecure,
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();

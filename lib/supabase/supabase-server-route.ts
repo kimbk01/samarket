@@ -7,8 +7,14 @@ export async function createSupabaseRouteHandlerClient() {
   if (!url || !anon) return null;
 
   const cookieStore = await cookies();
+  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 
   return createServerClient(url, anon, {
+    cookieOptions: {
+      path: "/",
+      sameSite: "lax",
+      secure: cookieSecure,
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();

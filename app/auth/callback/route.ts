@@ -30,7 +30,13 @@ export async function GET(req: NextRequest) {
    * (마지막에 새 `NextResponse.redirect`를 만들면 세션 쿠키가 유실되어 프록시가 /login 으로 보냄.)
    */
   let response = NextResponse.redirect(redirectUrl);
+  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
   const supabase = createServerClient(url, anon, {
+    cookieOptions: {
+      path: "/",
+      sameSite: "lax",
+      secure: cookieSecure,
+    },
     cookies: {
       getAll() {
         return req.cookies.getAll();
