@@ -1,6 +1,7 @@
 "use client";
 
 import type { IAgoraRTCClient, IAgoraRTCRemoteUser, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -21,16 +22,24 @@ import type {
   CommunityMessengerCallSession,
   CommunityMessengerManagedCallConnection,
 } from "@/lib/community-messenger/types";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
 
-export function CommunityMessengerCallClient({ sessionId }: { sessionId: string }) {
+export function CommunityMessengerCallClient({
+  sessionId,
+  initialSession = null,
+}: {
+  sessionId: string;
+  /** RSC에서 미리 조회해 첫 페인트·클라이언트 중복 요청을 줄인다 */
+  initialSession?: CommunityMessengerCallSession | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
-  const [session, setSession] = useState<CommunityMessengerCallSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<CommunityMessengerCallSession | null>(() => initialSession ?? null);
+  const [loading, setLoading] = useState(() => initialSession == null);
   const [busy, setBusy] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
@@ -47,6 +56,8 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
   const joiningRef = useRef(false);
   const autoAcceptRef = useRef(false);
   const prefetchedConnectionRef = useRef<CommunityMessengerManagedCallConnection | null>(null);
+  const initialSessionRef = useRef(initialSession);
+  initialSessionRef.current = initialSession;
 
   const permissionGuide = session ? getCommunityMessengerPermissionGuide(session.callKind) : null;
 
@@ -189,6 +200,7 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
         client.on("user-left", () => {
           bindRemoteVideoTrack(null);
           setRemoteJoined(false);
+          void refreshSession(true);
         });
 
         await joinCommunityMessengerAgoraChannel({
@@ -219,7 +231,7 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
         setBusy(null);
       }
     },
-    [bindLocalVideoTrack, bindRemoteVideoTrack, cleanupClient, fetchConnection]
+    [bindLocalVideoTrack, bindRemoteVideoTrack, cleanupClient, fetchConnection, refreshSession]
   );
 
   const acceptIncoming = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
@@ -282,16 +294,85 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
   }, [cleanupClient, elapsedSeconds, router, session]);
 
   useEffect(() => {
-    void refreshSession();
+    let cancelled = false;
+    const bootstrap = async () => {
+      const fromServer = initialSessionRef.current;
+      const sessionUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`;
+      const tokenUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/token`;
+
+      const storeToken = async (res: Response) => {
+        const json = (await res.json().catch(() => ({}))) as TokenResponse;
+        if (res.ok && json.ok && json.connection) {
+          prefetchedConnectionRef.current = json.connection;
+        }
+      };
+
+      if (fromServer != null) {
+        setSession(fromServer);
+        setLoading(false);
+        void fetch(tokenUrl, { cache: "no-store" }).then((r) => {
+          if (!cancelled) void storeToken(r);
+        });
+        await refreshSession(true);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const [sessionRes, tokenRes] = await Promise.all([
+          fetch(sessionUrl, { cache: "no-store" }),
+          fetch(tokenUrl, { cache: "no-store" }),
+        ]);
+        if (cancelled) return;
+        const json = (await sessionRes.json().catch(() => ({}))) as SessionResponse;
+        const nextSession = sessionRes.ok && json.ok && json.session ? json.session : null;
+        setSession(nextSession);
+        if (!nextSession) {
+          setErrorMessage("통화 세션을 찾지 못했습니다.");
+        }
+        await storeToken(tokenRes);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void bootstrap();
     return () => {
+      cancelled = true;
       void cleanupClient();
     };
-  }, [cleanupClient, refreshSession]);
+  }, [cleanupClient, refreshSession, sessionId]);
+
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    if (!sb || !sessionId) return;
+    let channel: RealtimeChannel | null = null;
+    channel = sb
+      .channel(`community-messenger-call-session:${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_sessions",
+          filter: `id=eq.${sessionId}`,
+        },
+        () => {
+          void refreshSession(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channel) void sb.removeChannel(channel);
+    };
+  }, [refreshSession, sessionId]);
 
   useEffect(() => {
     if (!session) return;
     if (session.status === "ended" || session.status === "cancelled" || session.status === "rejected" || session.status === "missed") {
       void cleanupClient();
+      router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
       return;
     }
     if (session.sessionMode !== "direct") {
@@ -311,7 +392,7 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
     if (session.isMineInitiator || session.status === "active") {
       void joinCall(session);
     }
-  }, [acceptIncoming, cleanupClient, joinCall, requestedAction, session]);
+  }, [acceptIncoming, cleanupClient, joinCall, requestedAction, router, session]);
 
   useEffect(() => {
     if (!session || !joined || !session.answeredAt) return;
@@ -325,15 +406,17 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
 
   useEffect(() => {
     if (!session) return;
-    const fastPoll =
-      session.sessionMode === "direct" &&
-      (session.status === "ringing" || (session.status === "active" && !remoteJoined));
-    const ms = fastPoll ? 650 : 2000;
+    let ms = 2000;
+    if (session.sessionMode === "direct") {
+      if (session.status === "ringing") ms = 500;
+      else if (session.status === "active" && joined) ms = 400;
+      else if (session.status === "active") ms = 650;
+    }
     const timer = window.setInterval(() => {
       void refreshSession(true);
     }, ms);
     return () => window.clearInterval(timer);
-  }, [refreshSession, remoteJoined, session?.id, session?.sessionMode, session?.status]);
+  }, [joined, refreshSession, session?.id, session?.sessionMode, session?.status]);
 
   const statusLabel = useMemo(() => {
     if (!session) return "통화 준비 중";
@@ -346,7 +429,11 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
   }, [joined, remoteJoined, session]);
 
   if (loading && !session) {
-    return <div className="flex min-h-[70vh] items-center justify-center px-4 text-[14px] text-gray-500">통화 정보를 준비하는 중입니다.</div>;
+    return (
+      <div className="flex min-h-full min-h-0 flex-1 flex-col items-center justify-center bg-[#020617] px-4 text-[14px] text-white/55">
+        통화방을 여는 중입니다…
+      </div>
+    );
   }
 
   if (!session) {
