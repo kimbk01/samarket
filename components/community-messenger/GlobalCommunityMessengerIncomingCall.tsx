@@ -203,21 +203,30 @@ export function GlobalCommunityMessengerIncomingCall() {
     (session: CommunityMessengerCallSession) => {
       setBusyId(`accept:${session.id}`);
       const url = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
-      void primeCommunityMessengerDevicePermissionFromUserGesture(session.callKind)
-        .then(() => {
+      void (async () => {
+        let permissionFailed = false;
+        try {
+          await Promise.race([
+            primeCommunityMessengerDevicePermissionFromUserGesture(session.callKind),
+            new Promise<never>((_, reject) => {
+              window.setTimeout(() => reject(new Error("prime_timeout")), 5_000);
+            }),
+          ]);
+        } catch {
+          permissionFailed = true;
+        } finally {
           router.push(url);
           router.refresh();
-        })
-        .catch(() => {
-          window.alert(
-            session.callKind === "video"
-              ? "통화를 받으려면 카메라와 마이크 사용을 허용해 주세요."
-              : "통화를 받으려면 마이크 사용을 허용해 주세요."
-          );
-        })
-        .finally(() => {
           setBusyId(null);
-        });
+          if (permissionFailed) {
+            window.alert(
+              session.callKind === "video"
+                ? "카메라/마이크 권한 확인이 지연되어 통화방으로 먼저 이동합니다. 방 안에서 다시 수락하면 바로 연결됩니다."
+                : "마이크 권한 확인이 지연되어 통화방으로 먼저 이동합니다. 방 안에서 다시 수락하면 바로 연결됩니다."
+            );
+          }
+        }
+      })();
     },
     [router]
   );

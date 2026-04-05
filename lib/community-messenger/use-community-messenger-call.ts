@@ -888,19 +888,38 @@ export function useCommunityMessengerCall(args: {
         }
         return false;
       }
-      const pendingAcceptance = pendingIncomingAcceptanceRef.current;
-      if (!messengerUserIdsEqual(pendingAcceptance.sessionId, activeCall.id)) {
-        return false;
+      const waitUntil = Date.now() + 4_500;
+      while (Date.now() < waitUntil) {
+        const pendingAcceptance = pendingIncomingAcceptanceRef.current;
+        if (!pendingAcceptance) {
+          const pc = peerConnectionRef.current;
+          return Boolean(pc?.remoteDescription && pc.localDescription);
+        }
+        if (!messengerUserIdsEqual(pendingAcceptance.sessionId, activeCall.id)) {
+          return false;
+        }
+        const offer = pendingOfferRef.current;
+        if (offer) {
+          await completeIncomingAcceptance(pendingAcceptance, offer);
+          return true;
+        }
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 250);
+        });
+        const retryRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}/signals`, {
+          cache: "no-store",
+        });
+        const retryJson = (await retryRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          signals?: CommunityMessengerCallSignal[];
+        };
+        for (const signal of retryJson.signals ?? []) {
+          await applySignal(signal);
+        }
       }
-      const offer = pendingOfferRef.current;
-      if (!offer) {
-        setErrorMessage(
-          "발신 측 연결 정보(offer)를 아직 받지 못했습니다. 잠시 후 다시 「수락」을 눌러 주세요."
-        );
-        return false;
-      }
-      await completeIncomingAcceptance(pendingAcceptance, offer);
-      return true;
+
+      setErrorMessage("발신 측 연결 정보를 기다리는 중입니다. 자동으로 재시도합니다.");
+      return false;
     } catch (error) {
       peerConnectionRef.current?.close();
       peerConnectionRef.current = null;
