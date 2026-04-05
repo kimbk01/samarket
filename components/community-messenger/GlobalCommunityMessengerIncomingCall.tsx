@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
@@ -16,7 +15,6 @@ import { playNotificationSound } from "@/lib/notifications/play-notification-sou
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 export function GlobalCommunityMessengerIncomingCall() {
-  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<CommunityMessengerCallSession[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -202,6 +200,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const acceptCall = useCallback(
     (session: CommunityMessengerCallSession) => {
       setBusyId(`accept:${session.id}`);
+      setSessions((prev) => prev.filter((item) => item.id !== session.id));
       const url = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
       void (async () => {
         let permissionFailed = false;
@@ -215,8 +214,6 @@ export function GlobalCommunityMessengerIncomingCall() {
         } catch {
           permissionFailed = true;
         } finally {
-          router.push(url);
-          router.refresh();
           setBusyId(null);
           if (permissionFailed) {
             window.alert(
@@ -225,10 +222,11 @@ export function GlobalCommunityMessengerIncomingCall() {
                 : "마이크 권한 확인이 지연되어 통화방으로 먼저 이동합니다. 방 안에서 다시 수락하면 바로 연결됩니다."
             );
           }
+          window.location.assign(url);
         }
       })();
     },
-    [router]
+    []
   );
 
   if (!visibleSession) return null;
