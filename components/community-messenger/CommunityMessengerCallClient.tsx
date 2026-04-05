@@ -97,7 +97,7 @@ export function CommunityMessengerCallClient({
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
-  /** PiP 드래그 후 픽셀 위치(null 이면 우하단 기본 배치) */
+  /** PiP 드래그 후 픽셀 위치(null 이면 좌하단 기본 배치) */
   const [pipPixelPosition, setPipPixelPosition] = useState<{ left: number; top: number } | null>(null);
   const largeVideoRef = useRef<HTMLDivElement | null>(null);
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
@@ -327,6 +327,10 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     setPipPixelPosition(null);
   }, [sessionId]);
+
+  useEffect(() => {
+    setPipPixelPosition(null);
+  }, [layoutSwapped]);
 
   const clampPipToStage = useCallback(() => {
     const stage = videoStageRef.current;
@@ -746,54 +750,115 @@ export function CommunityMessengerCallClient({
   }
 
   const videoCall = session.callKind === "video";
+  const pipLabelSmall = largeShowsRemote ? "나" : session.peerLabel;
 
   return (
-    <div className="flex min-h-full min-h-0 flex-1 flex-col bg-[#020617] text-white">
+    <div
+      className={`flex min-h-full min-h-0 flex-1 flex-col text-white ${videoCall ? "bg-black" : "bg-[#020617]"}`}
+    >
       <div
         className={
           videoCall
-            ? "mx-auto flex min-h-0 w-full max-w-[min(100%,960px)] flex-1 flex-col px-2 pt-[calc(env(safe-area-inset-top)+8px)] sm:px-4"
+            ? "mx-auto flex min-h-0 w-full max-w-[440px] flex-1 flex-col px-3 sm:max-w-[480px]"
             : "mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+12px)]"
         }
       >
-      <header className={`flex shrink-0 items-center justify-between ${videoCall ? "py-2 sm:py-3" : "py-4"}`}>
-        <button
-          type="button"
-          onClick={() => router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`)}
-          className="rounded-full border border-white/15 px-3 py-2 text-[12px] font-medium text-white/85"
-        >
-          채팅으로
-        </button>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold">
-          {session.callKind === "video" ? "영상 통화" : "음성 통화"}
-        </span>
-      </header>
+        {!videoCall ? (
+          <header className="flex shrink-0 items-center justify-between py-4">
+            <button
+              type="button"
+              onClick={() => router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`)}
+              className="rounded-full border border-white/15 px-3 py-2 text-[12px] font-medium text-white/85"
+            >
+              채팅으로
+            </button>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold">음성 통화</span>
+          </header>
+        ) : null}
 
-      <main className={`flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden" : "overflow-y-auto"}`}>
-        <div className={`shrink-0 text-center ${videoCall ? "pt-1 pb-2 sm:pt-2" : "pt-4"}`}>
-          <p className={videoCall ? "text-[clamp(20px,5vw,28px)] font-semibold" : "text-[30px] font-semibold"}>
-            {session.peerLabel}
-          </p>
-          <p className={`text-white/70 ${videoCall ? "mt-1 text-[13px]" : "mt-2 text-[14px]"}`}>{statusLabel}</p>
-          {joined && session.status === "active" ? (
-            <p className={`font-semibold text-[#86EFAC] ${videoCall ? "mt-1.5 text-[12px]" : "mt-3 text-[13px]"}`}>
-              {formatDuration(elapsedSeconds)}
-            </p>
+        <main className={`flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden pt-2" : "overflow-y-auto"}`}>
+          {!videoCall ? (
+            <div className="shrink-0 pt-4 text-center">
+              <p className="text-[30px] font-semibold">{session.peerLabel}</p>
+              <p className="mt-2 text-[14px] text-white/70">{statusLabel}</p>
+              {joined && session.status === "active" ? (
+                <p className="mt-3 text-[13px] font-semibold text-[#86EFAC]">{formatDuration(elapsedSeconds)}</p>
+              ) : null}
+            </div>
           ) : null}
-        </div>
 
-        <div
-          className={
-            videoCall
-              ? "mx-auto flex min-h-0 w-full flex-1 flex-col py-2 sm:py-4"
-              : "mx-auto flex w-full max-w-[420px] flex-1 flex-col py-4 sm:py-6"
-          }
-        >
+          <div
+            className={
+              videoCall
+                ? "flex min-h-0 w-full flex-1 flex-col"
+                : "mx-auto flex w-full max-w-[420px] flex-1 flex-col py-4 sm:py-6"
+            }
+          >
           {session.callKind === "video" ? (
             <div
               ref={videoStageRef}
-              className="relative flex min-h-[min(56dvh,480px)] w-full flex-1 overflow-hidden rounded-[22px] bg-black shadow-lg ring-1 ring-white/10 sm:min-h-[min(68dvh,760px)] sm:rounded-[28px]"
+              className="relative min-h-[min(58dvh,520px)] w-full flex-1 overflow-hidden rounded-2xl bg-neutral-950 shadow-[0_8px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.08] sm:min-h-[min(64dvh,600px)] sm:rounded-[20px]"
             >
+              {/* 카카오 페이스톤형 상단 정보 오버레이 */}
+              <div className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 bg-gradient-to-b from-black/75 via-black/35 to-transparent px-3 pb-10 pt-[max(0.25rem,env(safe-area-inset-top))]">
+                <div className="pointer-events-none min-w-0 flex-1 pt-1">
+                  <p className="truncate text-[15px] font-semibold leading-tight tracking-tight text-white drop-shadow-md">
+                    {session.peerLabel}
+                  </p>
+                  <p className="mt-0.5 text-[12px] tabular-nums text-white/90">
+                    {joined && session.status === "active" ? formatDuration(elapsedSeconds) : statusLabel}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-white/65">1:1 · 참여 2</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!openCommunityMessengerPermissionSettings()) {
+                        window.alert(permissionGuide?.description ?? "브라우저 설정에서 카메라·마이크를 허용해 주세요.");
+                      }
+                    }}
+                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.96]"
+                    aria-label="통화 설정·권한"
+                    title="카메라·마이크 권한"
+                  >
+                    <SettingsGearIcon className="h-[18px] w-[18px]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.alert(
+                        "스피커·이어폰 전환은 기기(휴대폰·PC)의 볼륨·오디오 출력 설정에서 조절할 수 있습니다."
+                      )
+                    }
+                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.96]"
+                    aria-label="스피커 안내"
+                    title="출력 음량·스피커"
+                  >
+                    <SpeakerIcon className="h-[18px] w-[18px]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`)}
+                    className="pointer-events-auto rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-medium text-white/95 backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.97]"
+                  >
+                    채팅
+                  </button>
+                </div>
+              </div>
+
+              {joined ? (
+                <button
+                  type="button"
+                  onClick={() => setLayoutSwapped((v) => !v)}
+                  className="pointer-events-auto absolute right-2 top-[3.25rem] z-[28] flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white/95 shadow-md backdrop-blur-md ring-1 ring-white/12 transition active:scale-95 sm:top-[3.5rem]"
+                  aria-label="큰 화면과 작은 화면 바꾸기"
+                  title="화면 전환"
+                >
+                  <ExpandSwapCornerIcon className="h-[17px] w-[17px]" />
+                </button>
+              ) : null}
+
               <div className="absolute inset-0">
                 <div ref={largeVideoRef} className="h-full w-full bg-black" />
                 {showLargeVideoOverlay ? (
@@ -817,10 +882,21 @@ export function CommunityMessengerCallClient({
                   </div>
                 ) : null}
               </div>
+
+              {joined && largeShowsRemote && remoteVideoReady && !showLargeVideoOverlay ? (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pb-3 pt-14 text-center sm:pb-4">
+                  <p className="truncate text-[13px] font-medium text-white drop-shadow-sm">{session.peerLabel}</p>
+                </div>
+              ) : null}
+
               <div
                 ref={pipWrapRef}
-                className={`absolute z-20 w-[34%] max-w-[200px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black shadow-xl ring-1 ring-black/40 ${
-                  pipPixelPosition ? "right-auto bottom-auto" : "bottom-[6.25rem] right-2 sm:bottom-[6.75rem] sm:right-3"
+                className={`absolute z-20 w-[20%] min-w-[76px] max-w-[124px] overflow-hidden rounded-[14px] border border-white/20 bg-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] sm:w-[21%] sm:min-w-[84px] sm:max-w-[136px] sm:rounded-2xl ${
+                  pipPixelPosition
+                    ? "right-auto bottom-auto"
+                    : joined
+                      ? "bottom-[6.5rem] left-3 sm:bottom-[7rem] sm:left-4"
+                      : "bottom-[4.25rem] left-3 sm:bottom-[4.5rem] sm:left-4"
                 }`}
                 style={{
                   aspectRatio: "9 / 16",
@@ -831,34 +907,29 @@ export function CommunityMessengerCallClient({
                 aria-label="작은 화면 — 드래그하여 위치 이동"
                 role="group"
               >
-                {/* Agora 가 넣는 video 가 포인터를 먹어 부모로 이벤트가 안 올라오는 경우가 많음 → video 는 비포인터 + 위에 투명 드래그 레이어 */}
                 <div
                   ref={smallVideoRef}
                   className="pointer-events-none h-full w-full bg-black [&_video]:pointer-events-none"
                 />
                 {showSmallVideoOverlay ? (
-                  <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0.5 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-2 text-center text-[11px] leading-snug text-white/72">
+                  <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0.5 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-2 pb-6 text-center text-[11px] leading-snug text-white/72">
                     {largeShowsRemote ? (
                       camOff ? (
                         <>
                           <CamOffSmallIcon className="mx-auto h-6 w-6 text-white/50" />
                           <span>카메라 꺼짐</span>
-                          <span className="text-[10px] text-white/40">작은 화면 · 나</span>
                         </>
                       ) : (
-                        <>
-                          <span>내 카메라 준비 중</span>
-                          <span className="text-[10px] text-white/40">작은 화면 · 나</span>
-                        </>
+                        <span>내 카메라 준비 중</span>
                       )
                     ) : (
-                      <>
-                        <span>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기"}</span>
-                        <span className="text-[10px] text-white/40">작은 화면 · 상대</span>
-                      </>
+                      <span>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기"}</span>
                     )}
                   </div>
                 ) : null}
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[1] bg-black/60 py-1 text-center text-[10px] font-medium text-white/95 backdrop-blur-[2px]">
+                  <span className="block truncate px-1">{pipLabelSmall}</span>
+                </div>
                 <div
                   className="absolute inset-0 z-[2] cursor-grab touch-none select-none active:cursor-grabbing"
                   onPointerDown={onPipPointerDown}
@@ -883,7 +954,7 @@ export function CommunityMessengerCallClient({
       <div
         className={
           videoCall
-            ? "mx-auto w-full max-w-[min(100%,960px)] shrink-0 border-t border-white/[0.06] bg-[#020617] px-2 pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))] pt-3 sm:px-4"
+            ? "mx-auto w-full max-w-[440px] shrink-0 border-t border-white/[0.08] bg-black/85 px-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom,0px)+0.35rem))] pt-2 backdrop-blur-md sm:max-w-[480px]"
             : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.06] bg-[#020617] pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))] pt-3"
         }
       >
@@ -924,90 +995,143 @@ export function CommunityMessengerCallClient({
         ) : null}
 
         {session.callKind === "video" && joined ? (
-          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+          <div className="mb-1 flex items-end justify-center gap-3 sm:gap-4">
             <button
               type="button"
               onClick={() => setLayoutSwapped((v) => !v)}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/15"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/50 text-white shadow-md ring-1 ring-white/12 backdrop-blur-md transition active:scale-95"
               aria-label="큰 화면과 작은 화면 바꾸기"
-              title="내 화면·상대 화면 크기 전환"
+              title="화면 크기 전환"
             >
-              <SwapVideoLayoutIcon className="h-6 w-6" />
+              <SwapVideoLayoutIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void toggleMicEnabled()}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-1 backdrop-blur-md transition active:scale-95 ${
+                micMuted
+                  ? "bg-rose-500/35 text-white ring-rose-400/40"
+                  : "bg-black/50 text-white ring-white/12"
+              }`}
+              aria-label={micMuted ? "마이크 켜기" : "마이크 끄기"}
+            >
+              {micMuted ? <MicOffToolbarIcon className="h-5 w-5" /> : <MicOnToolbarIcon className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => void endCall()}
+              disabled={busy === "end"}
+              className="flex h-[3.7rem] w-[3.7rem] shrink-0 items-center justify-center rounded-full bg-[#ea3838] text-white shadow-lg shadow-red-900/40 transition active:scale-95 disabled:opacity-45 sm:h-16 sm:w-16"
+              aria-label="통화 종료"
+            >
+              <HangUpToolbarIcon className="h-7 w-7 sm:h-8 sm:w-8" />
             </button>
             <button
               type="button"
               onClick={() => void switchCameraFacing()}
               disabled={!cameraSwitchSupported || busy === "camera"}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/15 disabled:opacity-35"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/50 text-white shadow-md ring-1 ring-white/12 backdrop-blur-md transition active:scale-95 disabled:opacity-35"
               aria-label="카메라 전환"
               title={cameraSwitchSupported ? "전면·후면 카메라 전환" : "이 연결에서는 카메라 전환이 지원되지 않습니다"}
             >
-              <SwitchCameraIcon className="h-6 w-6" />
+              <SwitchCameraIcon className="h-5 w-5" />
             </button>
             <button
               type="button"
               onClick={() => void toggleCamEnabled()}
-              className={`flex h-12 w-12 items-center justify-center rounded-full border text-white transition ${
-                camOff ? "border-amber-400/60 bg-amber-500/25 hover:bg-amber-500/35" : "border-white/20 bg-white/10 hover:bg-white/15"
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-1 backdrop-blur-md transition active:scale-95 ${
+                camOff ? "bg-amber-500/30 text-white ring-amber-400/35" : "bg-black/50 text-white ring-white/12"
               }`}
               aria-label={camOff ? "카메라 켜기" : "카메라 끄기"}
             >
-              {camOff ? <CamOffToolbarIcon className="h-6 w-6" /> : <CamOnToolbarIcon className="h-6 w-6" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => void toggleMicEnabled()}
-              className={`flex h-12 w-12 items-center justify-center rounded-full border text-white transition ${
-                micMuted ? "border-rose-400/60 bg-rose-500/25 hover:bg-rose-500/35" : "border-white/20 bg-white/10 hover:bg-white/15"
-              }`}
-              aria-label={micMuted ? "마이크 켜기" : "마이크 끄기"}
-            >
-              {micMuted ? <MicOffToolbarIcon className="h-6 w-6" /> : <MicOnToolbarIcon className="h-6 w-6" />}
+              {camOff ? <CamOffToolbarIcon className="h-5 w-5" /> : <CamOnToolbarIcon className="h-5 w-5" />}
             </button>
           </div>
         ) : null}
 
-        <div className="flex gap-2">
-          {!session.isMineInitiator && session.status === "ringing" && !joined ? (
-            <>
+        {!(session.callKind === "video" && joined) ? (
+          <div className="flex gap-2">
+            {!session.isMineInitiator && session.status === "ringing" && !joined ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void rejectIncoming()}
+                  disabled={busy === "reject"}
+                  className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
+                >
+                  거절
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    autoJoinBlockedRef.current = false;
+                    void acceptIncoming().then((nextSession) => {
+                      if (nextSession) {
+                        void joinCall(nextSession);
+                      }
+                    });
+                  }}
+                  disabled={busy === "accept" || busy === "join"}
+                  className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                >
+                  {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
+                </button>
+              </>
+            ) : (
               <button
                 type="button"
-                onClick={() => void rejectIncoming()}
-                disabled={busy === "reject"}
-                className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
+                onClick={() => void endCall()}
+                disabled={busy === "end"}
+                className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
               >
-                거절
+                통화 종료
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  autoJoinBlockedRef.current = false;
-                  void acceptIncoming().then((nextSession) => {
-                    if (nextSession) {
-                      void joinCall(nextSession);
-                    }
-                  });
-                }}
-                disabled={busy === "accept" || busy === "join"}
-                className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-              >
-                {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void endCall()}
-              disabled={busy === "end"}
-              className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-            >
-              통화 종료
-            </button>
-          )}
-        </div>
+            )}
+          </div>
+        ) : null}
       </div>
       </div>
     </div>
+  );
+}
+
+function SettingsGearIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <circle cx="12" cy="12" r="3" strokeLinecap="round" />
+      <path
+        d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SpeakerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path
+        d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a9 9 0 0 1 0 14.14"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ExpandSwapCornerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" aria-hidden>
+      <path d="M9 3H3v6M15 21h6v-6M21 3l-6 6M3 21l6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function HangUpToolbarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-4.41 3.59-8 8-8s8 3.59 8 8c0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.51-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
+    </svg>
   );
 }
 
