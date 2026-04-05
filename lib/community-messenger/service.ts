@@ -1190,7 +1190,9 @@ async function loadRoomTitleMap(roomIds: string[], userId: string): Promise<Map<
 
 async function loadCallSessionParticipants(
   userId: string,
-  session: CallSessionRow | DevCallSession
+  session: CallSessionRow | DevCallSession,
+  /** 방금 insert 직후에는 DB 재조회 없이 메모리 행으로 매핑해 발신 API 지연을 줄인다 */
+  preloadedDbRows?: CallSessionParticipantRow[] | null
 ): Promise<CommunityMessengerCallParticipant[]> {
   const isDbSession = "initiator_user_id" in session;
   const sessionId = session.id;
@@ -1202,8 +1204,11 @@ async function loadCallSessionParticipants(
   );
 
   let rows: Array<CallSessionParticipantRow | DevCallSessionParticipant> = [];
+  if (preloadedDbRows && preloadedDbRows.length > 0) {
+    rows = preloadedDbRows;
+  }
   const sb = getSupabaseOrNull();
-  if (isDbSession && sb) {
+  if (!rows.length && isDbSession && sb) {
     const { data, error } = await (sb as any)
       .from("community_messenger_call_session_participants")
       .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
@@ -1259,13 +1264,14 @@ async function loadCallSessionParticipants(
 
 async function mapCallSession(
   userId: string,
-  session: CallSessionRow | DevCallSession
+  session: CallSessionRow | DevCallSession,
+  preloadedParticipantRows?: CallSessionParticipantRow[] | null
 ): Promise<CommunityMessengerCallSession> {
   const isDbSession = "initiator_user_id" in session;
   const initiatorUserId = isDbSession ? session.initiator_user_id : session.initiatorUserId;
   const recipientUserId = isDbSession ? session.recipient_user_id : session.recipientUserId;
   const sessionMode = ((isDbSession ? session.session_mode : session.sessionMode) ?? "direct") as CommunityMessengerCallSessionMode;
-  const participants = await loadCallSessionParticipants(userId, session);
+  const participants = await loadCallSessionParticipants(userId, session, preloadedParticipantRows);
   const peerUserId =
     sessionMode === "direct"
       ? messengerUserIdsEqual(initiatorUserId, userId)
@@ -2947,7 +2953,8 @@ export async function startCommunityMessengerCallSession(input: {
         return { ok: false, error: String(participantInsertError.message ?? "call_session_participants_insert_failed") };
       }
       if (!isGroupRoom) {
-        await appendCallStubMessage({
+        /* 채팅 스텁은 수신 실시간보다 늦어도 되므로 발신 응답을 막지 않는다 */
+        void appendCallStubMessage({
           userId: input.userId,
           roomId,
           sessionId: inserted.id,
@@ -2956,7 +2963,19 @@ export async function startCommunityMessengerCallSession(input: {
           createdAt: startedAt,
         });
       }
-      return { ok: true, session: await mapCallSession(input.userId, data as CallSessionRow) };
+      const syntheticParticipantRows: CallSessionParticipantRow[] = participantRows
+        .filter((row): row is typeof row & { user_id: string } => typeof row.user_id === "string" && row.user_id.length > 0)
+        .map((row) => ({
+          id: `local:${inserted.id}:${row.user_id}`,
+          session_id: inserted.id,
+          room_id: row.room_id,
+          user_id: row.user_id,
+          participation_status: row.participation_status as CommunityMessengerCallParticipantStatus,
+          joined_at: row.joined_at,
+          left_at: row.left_at,
+          created_at: row.created_at,
+        }));
+      return { ok: true, session: await mapCallSession(input.userId, inserted as CallSessionRow, syntheticParticipantRows) };
     }
     if (!isMissingTableError(error)) {
       return { ok: false, error: String(error.message ?? "call_session_start_failed") };
@@ -3438,10 +3457,28 @@ export async function listCommunityMessengerCallSignals(
 }
 
 export async function listIncomingCommunityMessengerCallSessions(
-  userId: string
+  userId: string,
+  options?: { directOnly?: boolean }
 ): Promise<CommunityMessengerCallSession[]> {
   const sb = getSupabaseOrNull();
   if (sb) {
+    if (options?.directOnly) {
+      const { data: directRows, error: directError } = await (sb as any)
+        .from("community_messenger_call_sessions")
+        .select(
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+        )
+        .eq("recipient_user_id", userId)
+        .eq("session_mode", "direct")
+        .eq("status", "ringing")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (!directError && (directRows ?? []).length) {
+        return Promise.all(((directRows ?? []) as CallSessionRow[]).map((row) => mapCallSession(userId, row)));
+      }
+      return [];
+    }
+
     const [{ data: directRows, error: directError }, { data: groupParticipantRows, error: groupError }] =
       await Promise.all([
         (sb as any)

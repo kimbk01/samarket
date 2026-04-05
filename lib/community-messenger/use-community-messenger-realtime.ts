@@ -13,14 +13,14 @@ function useStableCallback(callback: () => void) {
   return ref;
 }
 
-function createRefreshScheduler(callbackRef: MutableRefObject<() => void>) {
+function createRefreshScheduler(callbackRef: MutableRefObject<() => void>, delayMs: number) {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const schedule = () => {
     if (timer) return;
     timer = setTimeout(() => {
       timer = null;
       callbackRef.current();
-    }, 250);
+    }, delayMs);
   };
   const cancel = () => {
     if (!timer) return;
@@ -78,7 +78,7 @@ export function useCommunityMessengerHomeRealtime(args: {
     if (!sb) return;
 
     let cancelled = false;
-    const refreshScheduler = createRefreshScheduler(callbackRef);
+    const refreshScheduler = createRefreshScheduler(callbackRef, 250);
     const channels: RealtimeChannel[] = [];
     const roomIds = [...new Set((args.roomIds ?? []).filter(Boolean))];
 
@@ -238,7 +238,8 @@ export function useCommunityMessengerRoomRealtime(args: {
     if (!sb) return;
 
     let cancelled = false;
-    const refreshScheduler = createRefreshScheduler(callbackRef);
+    const refreshScheduler = createRefreshScheduler(callbackRef, 250);
+    const callRefreshScheduler = createRefreshScheduler(callbackRef, 0);
     const channels: RealtimeChannel[] = [];
 
     const subscribe = (name: string, register: (channel: RealtimeChannel) => RealtimeChannel) => {
@@ -269,7 +270,7 @@ export function useCommunityMessengerRoomRealtime(args: {
             /* 통화 세션은 스냅샷의 activeCall 로만 오버레이·수락이 열린다. call_stub 만 로컬 병합하고
              * refresh 를 생략하면 수신 측이 채팅 줄만 갱신되고 통화 UI 가 안 뜨는 경우가 있다. */
             if (nextMessage.messageType === "call_stub" && !cancelled) {
-              refreshScheduler.schedule();
+              callRefreshScheduler.schedule();
             }
             return;
           }
@@ -318,7 +319,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `room_id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) refreshScheduler.schedule();
+          if (!cancelled) callRefreshScheduler.schedule();
         }
       )
     );
@@ -333,7 +334,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `room_id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) refreshScheduler.schedule();
+          if (!cancelled) callRefreshScheduler.schedule();
         }
       )
     );
@@ -348,7 +349,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `room_id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) refreshScheduler.schedule();
+          if (!cancelled) callRefreshScheduler.schedule();
         }
       )
     );
@@ -356,6 +357,7 @@ export function useCommunityMessengerRoomRealtime(args: {
     return () => {
       cancelled = true;
       refreshScheduler.cancel();
+      callRefreshScheduler.cancel();
       for (const channel of channels) {
         void sb.removeChannel(channel);
       }

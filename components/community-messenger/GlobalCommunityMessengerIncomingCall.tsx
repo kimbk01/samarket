@@ -42,7 +42,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, []);
 
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/community-messenger/calls/sessions/incoming", {
+    const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
       cache: "no-store",
     });
     const json = (await res.json().catch(() => ({}))) as {
@@ -57,7 +57,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     for (const timerId of refreshTimerIdsRef.current) {
       window.clearTimeout(timerId);
     }
-    refreshTimerIdsRef.current = [150, 500, 1000].map((delay) =>
+    refreshTimerIdsRef.current = [0, 50, 150, 400].map((delay) =>
       window.setTimeout(() => {
         void refresh();
       }, delay)
@@ -71,8 +71,9 @@ export function GlobalCommunityMessengerIncomingCall() {
   useEffect(() => {
     if (!userId) return;
     const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       void refresh();
-    }, 1000);
+    }, 500);
     const onVisible = () => {
       if (document.visibilityState === "visible") queueRefreshBurst();
     };

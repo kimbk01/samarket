@@ -46,6 +46,7 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
   const joinedRef = useRef(false);
   const joiningRef = useRef(false);
   const autoAcceptRef = useRef(false);
+  const prefetchedConnectionRef = useRef<CommunityMessengerManagedCallConnection | null>(null);
 
   const permissionGuide = session ? getCommunityMessengerPermissionGuide(session.callKind) : null;
 
@@ -110,6 +111,24 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
     return json.connection;
   }, [sessionId]);
 
+  useEffect(() => {
+    prefetchedConnectionRef.current = null;
+    if (!session) return;
+    if (session.sessionMode !== "direct" || !session.isMineInitiator) return;
+    if (session.status !== "ringing" && session.status !== "active") return;
+    let cancelled = false;
+    void fetchConnection()
+      .then((connection) => {
+        if (!cancelled) prefetchedConnectionRef.current = connection;
+      })
+      .catch(() => {
+        if (!cancelled) prefetchedConnectionRef.current = null;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchConnection, session?.id, session?.isMineInitiator, session?.sessionMode, session?.status]);
+
   const bindRemoteVideoTrack = useCallback((track: IRemoteVideoTrack | null) => {
     remoteVideoTrackRef.current?.stop();
     remoteVideoTrackRef.current = track;
@@ -141,7 +160,8 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
       setBusy("join");
       setErrorMessage(null);
       try {
-        const connection = await fetchConnection();
+        const connection = prefetchedConnectionRef.current ?? (await fetchConnection());
+        prefetchedConnectionRef.current = null;
         const client = createCommunityMessengerAgoraClient();
         clientRef.current = client;
         client.on("user-published", async (user: IAgoraRTCRemoteUser, mediaType) => {
@@ -305,11 +325,15 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
 
   useEffect(() => {
     if (!session) return;
+    const fastPoll =
+      session.sessionMode === "direct" &&
+      (session.status === "ringing" || (session.status === "active" && !remoteJoined));
+    const ms = fastPoll ? 650 : 2000;
     const timer = window.setInterval(() => {
       void refreshSession(true);
-    }, 1500);
+    }, ms);
     return () => window.clearInterval(timer);
-  }, [refreshSession, session?.id, session?.status]);
+  }, [refreshSession, remoteJoined, session?.id, session?.sessionMode, session?.status]);
 
   const statusLabel = useMemo(() => {
     if (!session) return "통화 준비 중";
