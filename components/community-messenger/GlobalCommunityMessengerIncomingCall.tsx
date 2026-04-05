@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
-import { primeCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
+import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
   isCommunityMessengerIncomingCallBannerEnabled,
@@ -199,21 +199,22 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [refresh, sessions]);
 
-  const acceptCall = useCallback(async (session: CommunityMessengerCallSession) => {
-    try {
-      await primeCommunityMessengerDevicePermission(session.callKind);
-    } catch {
-      /* 방으로 이동한 뒤 방 화면에서 권한·수락을 다시 시도 (여기서 alert 만 띄우면 수락이 안 되는 것처럼 보임) */
-    }
-    setBusyId(`accept:${session.id}`);
-    try {
+  const acceptCall = useCallback(
+    (session: CommunityMessengerCallSession) => {
+      setBusyId(`accept:${session.id}`);
       const url = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
-      router.push(url);
-      router.refresh();
-    } finally {
-      setBusyId(null);
-    }
-  }, [router]);
+      void primeCommunityMessengerDevicePermissionFromUserGesture(session.callKind)
+        .catch(() => undefined)
+        .then(() => {
+          router.push(url);
+          router.refresh();
+        })
+        .finally(() => {
+          setBusyId(null);
+        });
+    },
+    [router]
+  );
 
   if (!visibleSession) return null;
 

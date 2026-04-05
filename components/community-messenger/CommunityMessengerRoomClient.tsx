@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getCommunityMessengerPermissionGuide,
-  primeCommunityMessengerDevicePermission,
+  primeCommunityMessengerDevicePermissionFromUserGesture,
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
@@ -225,33 +225,29 @@ export function CommunityMessengerRoomClient({
     );
   }, [call.panel?.kind]);
 
-  const retryCallDevicePermission = useCallback(async () => {
+  const retryCallDevicePermission = useCallback(() => {
     const kind = call.panel?.kind;
     if (!kind) return;
-    try {
-      await primeCommunityMessengerDevicePermission(kind);
-    } catch {
-      /* ignore and fall through to hook-level prepare */
-    }
-    await call.prepareDevices();
-    if (call.panel?.mode === "dialing" && !call.panel.sessionId) {
-      await call.startOutgoingCall(kind);
-      return;
-    }
-    if (call.panel?.mode === "incoming") {
-      await call.acceptIncomingCall();
-    }
+    void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
+      .catch(() => undefined)
+      .then(async () => {
+        await call.prepareDevices();
+        if (call.panel?.mode === "dialing" && !call.panel.sessionId) {
+          await call.startOutgoingCall(kind);
+          return;
+        }
+        if (call.panel?.mode === "incoming") {
+          await call.acceptIncomingCall();
+        }
+      });
   }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId]);
 
-  const handleAcceptIncomingCall = useCallback(async (): Promise<boolean> => {
+  const handleAcceptIncomingCall = useCallback((): Promise<boolean> => {
     const kind = call.panel?.kind ?? snapshot?.activeCall?.callKind;
-    if (!kind) return false;
-    try {
-      await primeCommunityMessengerDevicePermission(kind);
-    } catch {
-      /* ignore and fall through so the hook can still surface its own media error */
-    }
-    return await call.acceptIncomingCall();
+    if (!kind) return Promise.resolve(false);
+    return primeCommunityMessengerDevicePermissionFromUserGesture(kind)
+      .catch(() => undefined)
+      .then(() => call.acceptIncomingCall());
   }, [call, call.panel?.kind, snapshot?.activeCall?.callKind]);
 
   useEffect(() => {

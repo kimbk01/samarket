@@ -101,29 +101,8 @@ function primedStreamIsUsableForKind(kind: CommunityMessengerCallKind): boolean 
   return tracks.length > 0 && tracks.every((t) => t.readyState === "live");
 }
 
-/**
- * 전역 수신 배너에서 클릭으로 프라임한 뒤 방으로 이동하면, 자동 수락이 `useEffect`에서
- * 돌아 사용자 제스처가 없다. 이 경우 다시 `getUserMedia`를 호출하면 Chrome 등에서
- * NotAllowedError가 난다. 같은 종류의 프라임 스트림이 살아 있으면 덮어쓰지 않는다.
- */
-export async function primeCommunityMessengerDevicePermission(kind: CommunityMessengerCallKind): Promise<void> {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
-  if (typeof window !== "undefined") {
-    if (primedStreamIsUsableForKind(kind)) {
-      return;
-    }
-    clearPrimedDeviceStream(true);
-  }
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: kind === "video",
-  });
-  if (typeof window === "undefined") {
-    for (const track of stream.getTracks()) {
-      track.stop();
-    }
-    return;
-  }
+function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream) {
+  if (typeof window === "undefined") return;
   primedDeviceStreamState = {
     kind,
     stream,
@@ -131,6 +110,47 @@ export async function primeCommunityMessengerDevicePermission(kind: CommunityMes
       clearPrimedDeviceStream(true);
     }, 20_000),
   };
+}
+
+/**
+ * 전역 수신 배너에서 클릭으로 프라임한 뒤 방으로 이동하면, 자동 수락이 `useEffect`에서
+ * 돌아 사용자 제스처가 없다. 이 경우 다시 `getUserMedia`를 호출하면 Chrome 등에서
+ * NotAllowedError가 난다. 같은 종류의 프라임 스트림이 살아 있으면 덮어쓰지 않는다.
+ *
+ * 버튼 `onClick` 에서는 **`primeCommunityMessengerDevicePermissionFromUserGesture`** 를 쓴다.
+ * `async` 핸들러에서 다른 `await` 뒤에 이 함수를 호출하면, 맥 크롬 등에서 제스처가 끊겨
+ * `getUserMedia` 가 NotAllowedError 로 실패할 수 있다.
+ */
+export function primeCommunityMessengerDevicePermissionFromUserGesture(
+  kind: CommunityMessengerCallKind
+): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return Promise.resolve();
+  }
+  if (typeof window !== "undefined") {
+    if (primedStreamIsUsableForKind(kind)) {
+      return Promise.resolve();
+    }
+    clearPrimedDeviceStream(true);
+  }
+  return navigator.mediaDevices
+    .getUserMedia({
+      audio: true,
+      video: kind === "video",
+    })
+    .then((stream) => {
+      if (typeof window === "undefined") {
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+        return;
+      }
+      storePrimedStream(kind, stream);
+    });
+}
+
+export async function primeCommunityMessengerDevicePermission(kind: CommunityMessengerCallKind): Promise<void> {
+  await primeCommunityMessengerDevicePermissionFromUserGesture(kind);
 }
 
 export function consumePrimedCommunityMessengerDevicePermission(
