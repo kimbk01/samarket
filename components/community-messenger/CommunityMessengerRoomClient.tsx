@@ -238,7 +238,7 @@ export function CommunityMessengerRoomClient({
   }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId]);
 
   const handleAcceptIncomingCall = useCallback(async () => {
-    const kind = call.panel?.kind;
+    const kind = call.panel?.kind ?? snapshot?.activeCall?.callKind;
     if (!kind) return;
     try {
       await primeCommunityMessengerDevicePermission(kind);
@@ -246,7 +246,7 @@ export function CommunityMessengerRoomClient({
       /* ignore and fall through so the hook can still surface its own media error */
     }
     await call.acceptIncomingCall();
-  }, [call, call.panel?.kind]);
+  }, [call, call.panel?.kind, snapshot?.activeCall?.callKind]);
 
   useEffect(() => {
     if (!snapshot || !isOpenGroupRoom) return;
@@ -439,8 +439,8 @@ export function CommunityMessengerRoomClient({
         : activeCall.status === "ringing";
     if (!shouldAutoAccept) return;
     autoHandledSessionRef.current = activeCall.id;
-    void call.acceptIncomingCall();
-  }, [call, initialCallAction, initialCallSessionId, roomId, router, snapshot?.activeCall]);
+    void handleAcceptIncomingCall();
+  }, [handleAcceptIncomingCall, initialCallAction, initialCallSessionId, roomId, router, snapshot?.activeCall]);
 
   useEffect(() => {
     if (initialCallAction !== "accept" || !initialCallSessionId) return;

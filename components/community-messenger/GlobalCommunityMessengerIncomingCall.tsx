@@ -174,18 +174,32 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [visibleSession?.id]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
+    const session = sessions.find((item) => item.id === sessionId) ?? null;
     setBusyId(`reject:${sessionId}`);
     try {
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
-      });
+      await Promise.allSettled([
+        fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reject" }),
+        }),
+        session?.peerUserId
+          ? fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                toUserId: session.peerUserId,
+                signalType: "hangup",
+                payload: { reason: "reject" },
+              }),
+            })
+          : Promise.resolve(),
+      ]);
       await refresh();
     } finally {
       setBusyId(null);
     }
-  }, [refresh]);
+  }, [refresh, sessions]);
 
   const acceptCall = useCallback(async (session: CommunityMessengerCallSession) => {
     setBusyId(`accept:${session.id}`);
