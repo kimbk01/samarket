@@ -365,7 +365,7 @@ export function CommunityMessengerCallClient({
 
   const onPipPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
       const stage = videoStageRef.current;
       const pip = pipWrapRef.current;
       if (!stage || !pip) return;
@@ -819,7 +819,7 @@ export function CommunityMessengerCallClient({
               </div>
               <div
                 ref={pipWrapRef}
-                className={`absolute z-[1] w-[34%] max-w-[200px] cursor-grab overflow-hidden rounded-2xl border-2 border-white/25 bg-black shadow-xl ring-1 ring-black/40 active:cursor-grabbing touch-none select-none ${
+                className={`absolute z-20 w-[34%] max-w-[200px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black shadow-xl ring-1 ring-black/40 ${
                   pipPixelPosition ? "right-auto bottom-auto" : "bottom-[6.25rem] right-2 sm:bottom-[6.75rem] sm:right-3"
                 }`}
                 style={{
@@ -828,19 +828,16 @@ export function CommunityMessengerCallClient({
                     ? { left: pipPixelPosition.left, top: pipPixelPosition.top }
                     : undefined),
                 }}
-                onPointerDown={onPipPointerDown}
-                onPointerMove={onPipPointerMove}
-                onPointerUp={onPipPointerUp}
-                onPointerCancel={onPipPointerUp}
-                onLostPointerCapture={() => {
-                  pipDragRef.current = null;
-                }}
                 aria-label="작은 화면 — 드래그하여 위치 이동"
-                role="presentation"
+                role="group"
               >
-                <div ref={smallVideoRef} className="h-full w-full bg-black" />
+                {/* Agora 가 넣는 video 가 포인터를 먹어 부모로 이벤트가 안 올라오는 경우가 많음 → video 는 비포인터 + 위에 투명 드래그 레이어 */}
+                <div
+                  ref={smallVideoRef}
+                  className="pointer-events-none h-full w-full bg-black [&_video]:pointer-events-none"
+                />
                 {showSmallVideoOverlay ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-2 text-center text-[11px] leading-snug text-white/72">
+                  <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0.5 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-2 text-center text-[11px] leading-snug text-white/72">
                     {largeShowsRemote ? (
                       camOff ? (
                         <>
@@ -862,6 +859,17 @@ export function CommunityMessengerCallClient({
                     )}
                   </div>
                 ) : null}
+                <div
+                  className="absolute inset-0 z-[2] cursor-grab touch-none select-none active:cursor-grabbing"
+                  onPointerDown={onPipPointerDown}
+                  onPointerMove={onPipPointerMove}
+                  onPointerUp={onPipPointerUp}
+                  onPointerCancel={onPipPointerUp}
+                  onLostPointerCapture={() => {
+                    pipDragRef.current = null;
+                  }}
+                  aria-hidden
+                />
               </div>
             </div>
           ) : (
