@@ -127,6 +127,7 @@ export function useCommunityMessengerCall(args: {
   const autoRetryTimerRef = useRef<number | null>(null);
   const autoRetryAttemptRef = useRef(0);
   const locallyClosedSessionIdRef = useRef<string | null>(null);
+  const pendingCallActionIdRef = useRef(0);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
 
@@ -142,9 +143,14 @@ export function useCommunityMessengerCall(args: {
     autoRetryTimerRef.current = null;
   }, []);
 
+  const invalidatePendingCallActions = useCallback(() => {
+    pendingCallActionIdRef.current += 1;
+  }, []);
+
   const cleanupMedia = useCallback(() => {
     clearPendingSessionCleanup();
     clearPendingAutoRetry();
+    invalidatePendingCallActions();
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
     for (const track of localStream?.getTracks() ?? []) track.stop();
@@ -161,7 +167,7 @@ export function useCommunityMessengerCall(args: {
     setElapsedSeconds(0);
     setTransportState("idle");
     setCallQuality(null);
-  }, [clearPendingAutoRetry, clearPendingSessionCleanup, localStream, remoteStream]);
+  }, [clearPendingAutoRetry, clearPendingSessionCleanup, invalidatePendingCallActions, localStream, remoteStream]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -231,6 +237,9 @@ export function useCommunityMessengerCall(args: {
       return;
     }
 
+    if (locallyClosedSessionIdRef.current === activeCall.id) {
+      return;
+    }
     locallyClosedSessionIdRef.current = null;
     clearPendingSessionCleanup();
 
@@ -649,13 +658,15 @@ export function useCommunityMessengerCall(args: {
   }, [args.activeCall?.callKind, ensureLocalStream, panel?.kind]);
 
   const dismissPanel = useCallback(() => {
+    invalidatePendingCallActions();
     cleanupMedia();
     setPanel(null);
     setErrorMessage(null);
-  }, [cleanupMedia]);
+  }, [cleanupMedia, invalidatePendingCallActions]);
 
   const closeSessionImmediately = useCallback(
     (sessionId: string | null) => {
+      invalidatePendingCallActions();
       if (sessionId) {
         locallyClosedSessionIdRef.current = sessionId;
       }
@@ -663,11 +674,13 @@ export function useCommunityMessengerCall(args: {
       setPanel(null);
       setErrorMessage(null);
     },
-    [cleanupMedia]
+    [cleanupMedia, invalidatePendingCallActions]
   );
 
   const startOutgoingCall = useCallback(async (kind: CommunityMessengerCallKind) => {
     if (!args.peerUserId) return;
+    const actionId = pendingCallActionIdRef.current + 1;
+    pendingCallActionIdRef.current = actionId;
     setBusy("call-start");
     setErrorMessage(null);
     setPanel({
@@ -678,11 +691,13 @@ export function useCommunityMessengerCall(args: {
     });
     try {
       await ensureLocalStream(kind);
+      if (pendingCallActionIdRef.current !== actionId) return;
       const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(args.roomId)}/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ callKind: kind }),
       });
+      if (pendingCallActionIdRef.current !== actionId) return;
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; session?: CommunityMessengerCallSession };
       if (!res.ok || !json.ok || !json.session) {
         setErrorMessage(
@@ -697,6 +712,7 @@ export function useCommunityMessengerCall(args: {
         setErrorMessage("상대방 정보를 불러오지 못했습니다.");
         return;
       }
+      if (pendingCallActionIdRef.current !== actionId) return;
       setPanel({
         kind: session.callKind,
         mode: "dialing",
@@ -704,11 +720,13 @@ export function useCommunityMessengerCall(args: {
         peerLabel: session.peerLabel,
       });
       const connection = await ensurePeerConnection(session.callKind, session.id, session.peerUserId);
+      if (pendingCallActionIdRef.current !== actionId) return;
       const offer = await connection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: session.callKind === "video",
       });
       await connection.setLocalDescription(offer);
+      if (pendingCallActionIdRef.current !== actionId) return;
       await sendSignal(session.id, session.peerUserId, "offer", { sdp: offer.sdp ?? "" });
       await args.onRefresh();
     } catch (error) {
