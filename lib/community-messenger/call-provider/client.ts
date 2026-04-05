@@ -2,15 +2,15 @@
 
 import AgoraRTC, {
   type IAgoraRTCClient,
-  type ICameraVideoTrack,
   type ILocalAudioTrack,
-  type IMicrophoneAudioTrack,
+  type ILocalVideoTrack,
 } from "agora-rtc-sdk-ng";
+import { consumePrimedCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 export type CommunityMessengerAgoraLocalTracks = {
-  audioTrack: IMicrophoneAudioTrack;
-  videoTrack: ICameraVideoTrack | null;
+  audioTrack: ILocalAudioTrack;
+  videoTrack: ILocalVideoTrack | null;
 };
 
 export function createCommunityMessengerAgoraClient(): IAgoraRTCClient {
@@ -20,6 +20,42 @@ export function createCommunityMessengerAgoraClient(): IAgoraRTCClient {
 export async function createCommunityMessengerAgoraLocalTracks(
   kind: CommunityMessengerCallKind
 ): Promise<CommunityMessengerAgoraLocalTracks> {
+  const primed = consumePrimedCommunityMessengerDevicePermission(kind);
+  if (primed) {
+    const audioMedia = primed.getAudioTracks().find((t) => t.readyState === "live") ?? null;
+    if (audioMedia) {
+      const audioTrack = AgoraRTC.createCustomAudioTrack({
+        mediaStreamTrack: audioMedia,
+        encoderConfig: "music_standard",
+      });
+      if (kind !== "video") {
+        return { audioTrack, videoTrack: null };
+      }
+      const videoMedia = primed.getVideoTracks().find((t) => t.readyState === "live") ?? null;
+      if (videoMedia) {
+        try {
+          const videoTrack = AgoraRTC.createCustomVideoTrack({
+            mediaStreamTrack: videoMedia,
+          });
+          return { audioTrack, videoTrack };
+        } catch (error) {
+          await audioTrack.close();
+          throw error;
+        }
+      }
+      try {
+        const videoTrack = await AgoraRTC.createCameraVideoTrack({
+          encoderConfig: "720p_2",
+          optimizationMode: "motion",
+        });
+        return { audioTrack, videoTrack };
+      } catch (error) {
+        await audioTrack.close();
+        throw error;
+      }
+    }
+  }
+
   const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
     encoderConfig: "music_standard",
   });
@@ -52,7 +88,7 @@ export async function publishCommunityMessengerAgoraTracks(args: {
   client: IAgoraRTCClient;
   tracks: CommunityMessengerAgoraLocalTracks;
 }) {
-  const tracks: Array<ILocalAudioTrack | ICameraVideoTrack> = args.tracks.videoTrack
+  const tracks: Array<ILocalAudioTrack | ILocalVideoTrack> = args.tracks.videoTrack
     ? [args.tracks.audioTrack, args.tracks.videoTrack]
     : [args.tracks.audioTrack];
   await args.client.publish(tracks);

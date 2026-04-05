@@ -27,6 +27,33 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
 
+function isTerminalCallSessionStatus(status: CommunityMessengerCallSession["status"]): boolean {
+  return status === "ended" || status === "cancelled" || status === "rejected" || status === "missed";
+}
+
+/** 폴링으로 객체 참조만 바뀌는 경우 effect·리렌더 난사를 막는다 */
+function sessionsMeaningfullyEqual(
+  a: CommunityMessengerCallSession | null,
+  b: CommunityMessengerCallSession | null
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.id === b.id &&
+    a.status === b.status &&
+    a.answeredAt === b.answeredAt &&
+    a.endedAt === b.endedAt &&
+    a.startedAt === b.startedAt &&
+    a.callKind === b.callKind &&
+    a.roomId === b.roomId &&
+    a.peerLabel === b.peerLabel &&
+    a.isMineInitiator === b.isMineInitiator &&
+    a.sessionMode === b.sessionMode &&
+    a.initiatorUserId === b.initiatorUserId &&
+    a.recipientUserId === b.recipientUserId
+  );
+}
+
 export function CommunityMessengerCallClient({
   sessionId,
   initialSession = null,
@@ -58,6 +85,9 @@ export function CommunityMessengerCallClient({
   const prefetchedConnectionRef = useRef<CommunityMessengerManagedCallConnection | null>(null);
   const initialSessionRef = useRef(initialSession);
   initialSessionRef.current = initialSession;
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const autoJoinBlockedRef = useRef(false);
 
   const permissionGuide = session ? getCommunityMessengerPermissionGuide(session.callKind) : null;
 
@@ -70,7 +100,7 @@ export function CommunityMessengerCallClient({
         });
         const json = (await res.json().catch(() => ({}))) as SessionResponse;
         const nextSession = res.ok && json.ok && json.session ? json.session : null;
-        setSession(nextSession);
+        setSession((prev) => (sessionsMeaningfullyEqual(prev, nextSession) ? prev : nextSession));
         if (!nextSession && !silent) {
           setErrorMessage("통화 세션을 찾지 못했습니다.");
         }
@@ -186,21 +216,21 @@ export function CommunityMessengerCallClient({
             setRemoteJoined(true);
           }
         });
-        client.on("user-unpublished", (user, mediaType) => {
+        /* iOS 등에서 일시 unpublish 가 오면 '통화 중' 이 깜빡이며 join 재시도·권한 루프가 난다 — 영상 UI 만 정리 */
+        client.on("user-unpublished", (_user, mediaType) => {
           if (mediaType === "video") {
             bindRemoteVideoTrack(null);
-          }
-          if (mediaType === "audio" || mediaType === "video") {
-            setRemoteJoined(false);
-          }
-          if (user.audioTrack) {
-            user.audioTrack.stop();
           }
         });
         client.on("user-left", () => {
           bindRemoteVideoTrack(null);
           setRemoteJoined(false);
           void refreshSession(true);
+        });
+        client.on("connection-state-change", (cur) => {
+          if (cur === "DISCONNECTED" || cur === "DISCONNECTING") {
+            void refreshSession(true);
+          }
         });
 
         await joinCommunityMessengerAgoraChannel({
@@ -220,6 +250,7 @@ export function CommunityMessengerCallClient({
         joinedRef.current = true;
         setJoined(true);
       } catch (error) {
+        autoJoinBlockedRef.current = true;
         await cleanupClient();
         setErrorMessage(
           error instanceof Error && error.message.includes("Agora 설정")
@@ -235,16 +266,17 @@ export function CommunityMessengerCallClient({
   );
 
   const acceptIncoming = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
-    if (!session) return null;
+    const s = sessionRef.current;
+    if (!s) return null;
     setBusy("accept");
     setErrorMessage(null);
     try {
       try {
-        await primeCommunityMessengerDevicePermissionFromUserGesture(session.callKind);
+        await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
       } catch {
         /* continue and let Agora/local device path report the real media error */
       }
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept" }),
@@ -259,7 +291,7 @@ export function CommunityMessengerCallClient({
     } finally {
       setBusy(null);
     }
-  }, [session]);
+  }, []);
 
   const rejectIncoming = useCallback(async () => {
     if (!session) return;
@@ -369,17 +401,25 @@ export function CommunityMessengerCallClient({
   }, [refreshSession, sessionId]);
 
   useEffect(() => {
+    autoJoinBlockedRef.current = false;
+  }, [sessionId]);
+
+  useEffect(() => {
     if (!session) return;
-    if (session.status === "ended" || session.status === "cancelled" || session.status === "rejected" || session.status === "missed") {
-      void cleanupClient();
-      router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
-      return;
-    }
-    if (session.sessionMode !== "direct") {
+    if (!isTerminalCallSessionStatus(session.status)) return;
+    void cleanupClient();
+    router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
+  }, [cleanupClient, router, session?.id, session?.roomId, session?.status]);
+
+  useEffect(() => {
+    const s = sessionRef.current;
+    if (!s) return;
+    if (isTerminalCallSessionStatus(s.status)) return;
+    if (s.sessionMode !== "direct") {
       setErrorMessage("그룹 통화는 현재 준비 중입니다.");
       return;
     }
-    const shouldAutoAccept = requestedAction === "accept" && !session.isMineInitiator && session.status === "ringing";
+    const shouldAutoAccept = requestedAction === "accept" && !s.isMineInitiator && s.status === "ringing";
     if (shouldAutoAccept && !autoAcceptRef.current) {
       autoAcceptRef.current = true;
       void acceptIncoming().then((nextSession) => {
@@ -389,10 +429,19 @@ export function CommunityMessengerCallClient({
       });
       return;
     }
-    if (session.isMineInitiator || session.status === "active") {
-      void joinCall(session);
+    if (autoJoinBlockedRef.current) return;
+    if (s.isMineInitiator || s.status === "active") {
+      void joinCall(s);
     }
-  }, [acceptIncoming, cleanupClient, joinCall, requestedAction, router, session]);
+  }, [
+    acceptIncoming,
+    joinCall,
+    requestedAction,
+    session?.id,
+    session?.isMineInitiator,
+    session?.sessionMode,
+    session?.status,
+  ]);
 
   useEffect(() => {
     if (!session || !joined || !session.answeredAt) return;
@@ -409,14 +458,15 @@ export function CommunityMessengerCallClient({
     let ms = 2000;
     if (session.sessionMode === "direct") {
       if (session.status === "ringing") ms = 500;
-      else if (session.status === "active" && joined) ms = 400;
+      else if (session.status === "active" && joined && remoteJoined) ms = 2800;
+      else if (session.status === "active" && joined) ms = 500;
       else if (session.status === "active") ms = 650;
     }
     const timer = window.setInterval(() => {
       void refreshSession(true);
     }, ms);
     return () => window.clearInterval(timer);
-  }, [joined, refreshSession, session?.id, session?.sessionMode, session?.status]);
+  }, [joined, refreshSession, remoteJoined, session?.id, session?.sessionMode, session?.status]);
 
   const statusLabel = useMemo(() => {
     if (!session) return "통화 준비 중";
@@ -514,6 +564,7 @@ export function CommunityMessengerCallClient({
                 type="button"
                 onClick={() => {
                   if (!session) return;
+                  autoJoinBlockedRef.current = false;
                   void acceptIncoming().then((nextSession) => {
                     if (nextSession) {
                       void joinCall(nextSession);
@@ -554,6 +605,7 @@ export function CommunityMessengerCallClient({
               <button
                 type="button"
                 onClick={() => {
+                  autoJoinBlockedRef.current = false;
                   void acceptIncoming().then((nextSession) => {
                     if (nextSession) {
                       void joinCall(nextSession);

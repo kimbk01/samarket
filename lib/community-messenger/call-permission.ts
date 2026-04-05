@@ -17,6 +17,11 @@ function isIosSafari(): boolean {
   return isIos && isWebkit && !isCriOS;
 }
 
+function isIosChrome(): boolean {
+  if (typeof window === "undefined") return false;
+  return /iPhone|iPad|iPod/i.test(window.navigator.userAgent) && /CriOS/i.test(window.navigator.userAgent);
+}
+
 function isAndroid(): boolean {
   if (typeof window === "undefined") return false;
   return /Android/i.test(window.navigator.userAgent);
@@ -49,6 +54,10 @@ export function getCommunityMessengerPermissionGuide(kind: CommunityMessengerCal
       ? kind === "video"
         ? "아이폰 Safari에서는 주소창의 `aA` 또는 페이지 왼쪽 사이트 설정에서 카메라와 마이크를 허용하고, 필요하면 `설정 > Safari > 카메라/마이크`에서도 허용해 주세요."
         : "아이폰 Safari에서는 주소창의 `aA` 또는 페이지 왼쪽 사이트 설정에서 마이크를 허용하고, 필요하면 `설정 > Safari > 마이크`에서도 허용해 주세요."
+      : isIosChrome()
+        ? kind === "video"
+          ? "아이폰 Chrome에서는 통화 시작 시 뜨는 시스템 팝업에서 마이크(·카메라)를 허용해 주세요. `설정 > Chrome > 마이크`에서도 허용할 수 있습니다. 같은 탭에서 통화·채팅을 오갈 때 팝업이 다시 뜰 수 있으니, 한 번 허용한 뒤에는 탭을 유지해 주세요."
+          : "아이폰 Chrome에서는 통화 시작 시 뜨는 시스템 팝업에서 마이크를 허용해 주세요. `설정 > Chrome > 마이크`에서도 허용할 수 있습니다. 연결에 실패하면 아래 「다시 시도」를 눌러 주세요."
       : isAndroid()
         ? androidDescription
         : isWindows()
