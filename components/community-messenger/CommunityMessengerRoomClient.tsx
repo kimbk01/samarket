@@ -468,6 +468,26 @@ export function CommunityMessengerRoomClient({
 
   useEffect(() => {
     if (callActionFromUrl !== "accept" || !sessionIdFromUrl) return;
+    if (snapshot?.activeCall?.id && messengerUserIdsEqual(snapshot.activeCall.id, sessionIdFromUrl)) return;
+    let cancelled = false;
+    const refreshNow = () => {
+      if (cancelled) return;
+      void refresh(true);
+    };
+    refreshNow();
+    const timer = window.setInterval(refreshNow, 500);
+    const stopTimer = window.setTimeout(() => {
+      window.clearInterval(timer);
+    }, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.clearTimeout(stopTimer);
+    };
+  }, [callActionFromUrl, refresh, sessionIdFromUrl, snapshot?.activeCall?.id]);
+
+  useEffect(() => {
+    if (callActionFromUrl !== "accept" || !sessionIdFromUrl) return;
     const samePanelSession =
       call.panel?.sessionId &&
       messengerUserIdsEqual(call.panel.sessionId, sessionIdFromUrl) &&
