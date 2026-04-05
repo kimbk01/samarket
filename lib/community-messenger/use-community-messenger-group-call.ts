@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import {
+  consumePrimedCommunityMessengerDevicePermission,
+  discardPrimedCommunityMessengerDevicePermission,
+} from "@/lib/community-messenger/call-permission";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
@@ -151,6 +155,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   );
 
   const cleanupMedia = useCallback(() => {
+    discardPrimedCommunityMessengerDevicePermission();
     for (const userId of [...peerConnectionsRef.current.keys()]) {
       cleanupPeer(userId);
     }
@@ -213,6 +218,15 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const ensureLocalStream = useCallback(
     async (kind: CommunityMessengerCallKind) => {
       if (localStream) return localStream;
+      const primed = consumePrimedCommunityMessengerDevicePermission(kind);
+      if (primed) {
+        if (!mountedRef.current) {
+          for (const track of primed.getTracks()) track.stop();
+          throw new Error("unmounted");
+        }
+        setLocalStream(primed);
+        return primed;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: kind === "video",
@@ -552,6 +566,53 @@ export function useCommunityMessengerGroupCall(args: Props) {
       if (sb && channel) void sb.removeChannel(channel);
     };
   }, [applySignal, args.enabled, args.viewerUserId, currentSessionId]);
+
+  useEffect(() => {
+    if (!args.enabled || !currentSessionId || !panel) return;
+
+    const anyPeerStillNegotiating =
+      Object.keys(peerStates).length === 0 ||
+      Object.values(peerStates).some((state) => state !== "connected");
+
+    const needsSignalPoll =
+      panel.mode === "dialing" ||
+      panel.mode === "connecting" ||
+      (panel.mode === "incoming" &&
+        (args.activeCall?.status === "ringing" || args.activeCall?.status === "active")) ||
+      (panel.mode === "active" && joinedParticipants.length > 0 && anyPeerStillNegotiating);
+
+    if (!needsSignalPoll) return;
+
+    const sessionId = currentSessionId;
+    let cancelled = false;
+
+    async function pollSignals() {
+      if (cancelled) return;
+      try {
+        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
+        if (!res.ok || !json.ok) return;
+        for (const signal of json.signals ?? []) {
+          if (cancelled) break;
+          await applySignal(signal);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    void pollSignals();
+    const timer = window.setInterval(() => {
+      void pollSignals();
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [applySignal, args.activeCall?.status, args.enabled, currentSessionId, joinedParticipants.length, panel, peerStates]);
 
   useEffect(() => {
     if (!args.enabled || !args.activeCall || args.activeCall.sessionMode !== "group") return;

@@ -588,6 +588,57 @@ export function useCommunityMessengerCall(args: {
     };
   }, [args, panel?.mode, panel?.sessionId, transportState]);
 
+  // Realtime 이 없거나 초기 GET 이 레이스로 비었을 때 offer/answer/ICE 가 빠져 연결이 멈추는 것을 막는다.
+  useEffect(() => {
+    const sessionId = currentSessionId;
+    if (!sessionId || !panel || transportState === "connected") return;
+
+    const needsSignalPoll =
+      panel.mode === "dialing" ||
+      panel.mode === "connecting" ||
+      (panel.mode === "incoming" && args.activeCall?.status === "ringing") ||
+      panel.mode === "active";
+
+    if (!needsSignalPoll) return;
+
+    const pollSessionId = sessionId;
+    let cancelled = false;
+
+    async function pollSignals() {
+      if (cancelled) return;
+      try {
+        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pollSessionId)}/signals`, {
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
+        if (!res.ok || !json.ok) return;
+        for (const signal of json.signals ?? []) {
+          if (cancelled) break;
+          await applySignal(signal);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    void pollSignals();
+    const timer = window.setInterval(() => {
+      void pollSignals();
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [
+    applySignal,
+    args.activeCall?.status,
+    currentSessionId,
+    panel?.mode,
+    panel?.sessionId,
+    transportState,
+  ]);
+
   useEffect(() => {
     if (!currentSessionId) return;
     const sessionId = currentSessionId;
