@@ -341,8 +341,9 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[#020617] text-white">
-      <header className="flex items-center justify-between px-4 py-4">
+    <div className="min-h-[100svh] bg-[#020617] text-white">
+      <div className="mx-auto flex min-h-[100svh] max-w-[520px] flex-col overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+104px)] pt-[calc(env(safe-area-inset-top)+12px)]">
+      <header className="flex items-center justify-between py-4">
         <button
           type="button"
           onClick={() => router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`)}
@@ -355,7 +356,7 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
         </span>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col justify-between px-4 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+      <main className="flex min-h-0 flex-1 flex-col">
         <div className="pt-4 text-center">
           <p className="text-[30px] font-semibold">{session.peerLabel}</p>
           <p className="mt-2 text-[14px] text-white/70">{statusLabel}</p>
@@ -364,7 +365,7 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
           ) : null}
         </div>
 
-        <div className="mx-auto flex w-full max-w-[420px] flex-1 items-center justify-center py-8">
+        <div className="mx-auto flex w-full max-w-[420px] flex-1 items-center justify-center py-6 sm:py-8">
           {session.callKind === "video" ? (
             <div className="grid w-full gap-3">
               <div className="overflow-hidden rounded-[28px] bg-black">
@@ -385,13 +386,13 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
               </div>
             </div>
           ) : (
-            <div className="flex h-[320px] w-[320px] items-center justify-center rounded-full bg-[#06C755]/20 text-[44px] font-semibold text-[#86EFAC]">
+            <div className="flex h-[min(58vw,320px)] w-[min(58vw,320px)] min-h-[220px] min-w-[220px] items-center justify-center rounded-full bg-[#06C755]/20 text-[44px] font-semibold text-[#86EFAC]">
               MIC
             </div>
           )}
         </div>
 
-        <div className="mx-auto w-full max-w-[420px]">
+        <div className="mx-auto mt-auto w-full max-w-[420px] pb-[calc(env(safe-area-inset-bottom)+72px)]">
           {errorMessage ? (
             <div className="mb-4 rounded-3xl bg-white/10 p-4">
               <p className="text-[13px] font-semibold text-[#FECACA]">{errorMessage}</p>
@@ -466,6 +467,7 @@ export function CommunityMessengerCallClient({ sessionId }: { sessionId: string 
           </div>
         </div>
       </main>
+      </div>
     </div>
   );
 }

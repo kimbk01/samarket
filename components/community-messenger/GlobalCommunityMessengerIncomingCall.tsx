@@ -57,7 +57,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     for (const timerId of refreshTimerIdsRef.current) {
       window.clearTimeout(timerId);
     }
-    refreshTimerIdsRef.current = [250, 900, 1800].map((delay) =>
+    refreshTimerIdsRef.current = [150, 500, 1000].map((delay) =>
       window.setTimeout(() => {
         void refresh();
       }, delay)
@@ -72,7 +72,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (!userId) return;
     const timer = window.setInterval(() => {
       void refresh();
-    }, 2500);
+    }, 1000);
     const onVisible = () => {
       if (document.visibilityState === "visible") queueRefreshBurst();
     };

@@ -148,8 +148,6 @@ export function CommunityMessengerRoomClient({
   const call = groupCall;
   const roomUnavailable = snapshot ? snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly : true;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
-  const directIncomingCall =
-    !isGroupRoom && snapshot?.activeCall?.sessionMode === "direct" ? snapshot.activeCall : null;
   const permissionGuide = call.panel ? getCommunityMessengerPermissionGuide(call.panel.kind) : null;
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
@@ -265,6 +263,7 @@ export function CommunityMessengerRoomClient({
       setManagedDirectCallError(null);
       setBusy(`managed-call:${kind}`);
       try {
+        void primeCommunityMessengerDevicePermissionFromUserGesture(kind).catch(() => null);
         const existingSession = snapshot?.activeCall;
         if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
           openDirectCallPage(existingSession.id);
@@ -291,21 +290,6 @@ export function CommunityMessengerRoomClient({
     },
     [getRoomActionErrorMessage, isGroupRoom, openDirectCallPage, roomId, roomUnavailable, snapshot?.activeCall]
   );
-
-  const rejectManagedDirectIncomingCall = useCallback(async () => {
-    if (!directIncomingCall) return;
-    setBusy("managed-direct-call-reject");
-    try {
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(directIncomingCall.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
-      });
-      await refresh(true);
-    } finally {
-      setBusy(null);
-    }
-  }, [directIncomingCall, refresh]);
 
   useEffect(() => {
     if (!snapshot || !isOpenGroupRoom) return;
@@ -643,32 +627,6 @@ export function CommunityMessengerRoomClient({
           {(managedDirectCallError || (call.errorMessage && !call.panel)) ? (
             <div className="rounded-2xl bg-red-50 px-3 py-3 text-[13px] text-red-700">
               {managedDirectCallError ?? call.errorMessage}
-            </div>
-          ) : null}
-          {directIncomingCall && !directIncomingCall.isMineInitiator && directIncomingCall.status === "ringing" ? (
-            <div className="rounded-[28px] border border-[#06C755]/20 bg-white p-4 shadow-sm">
-              <p className="text-[12px] font-semibold text-[#06C755]">수신 통화</p>
-              <h2 className="mt-1 text-[18px] font-semibold text-gray-900">{directIncomingCall.peerLabel}</h2>
-              <p className="mt-1 text-[13px] text-gray-500">
-                {directIncomingCall.callKind === "video" ? "영상 통화" : "음성 통화"}가 왔습니다.
-              </p>
-              <div className="mt-4 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => void rejectManagedDirectIncomingCall()}
-                  disabled={busy === "managed-direct-call-reject"}
-                  className="rounded-2xl border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700 disabled:opacity-40"
-                >
-                  거절
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openDirectCallPage(directIncomingCall.id, "accept")}
-                  className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
-                >
-                  수락
-                </button>
-              </div>
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
