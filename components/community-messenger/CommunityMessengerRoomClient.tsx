@@ -10,7 +10,6 @@ import {
 } from "@/lib/community-messenger/call-permission";
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
-import { useCommunityMessengerCall } from "@/lib/community-messenger/use-community-messenger-call";
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { useCommunityMessengerRoomRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
@@ -138,16 +137,6 @@ export function CommunityMessengerRoomClient({
     setFriendsLoaded(true);
   }, [friendsLoaded]);
 
-  const directCall = useCommunityMessengerCall({
-    roomId,
-    roomType:
-      snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group" ? "group" : "direct",
-    viewerUserId: snapshot?.viewerUserId ?? "",
-    peerUserId: snapshot?.room.peerUserId ?? null,
-    peerLabel: snapshot?.room.title ?? "상대",
-    activeCall: null,
-    onRefresh: () => refresh(true),
-  });
   const groupCall = useCommunityMessengerGroupCall({
     enabled: false,
     roomId,
@@ -156,8 +145,7 @@ export function CommunityMessengerRoomClient({
     activeCall: null,
     onRefresh: () => refresh(true),
   });
-  const call =
-    snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group" ? groupCall : directCall;
+  const call = groupCall;
   const roomUnavailable = snapshot ? snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly : true;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   const directIncomingCall =
@@ -1148,14 +1136,7 @@ export function CommunityMessengerRoomClient({
             <div className="mt-5 overflow-hidden rounded-[28px] bg-black">
               {call.panel.kind === "video" ? (
                 <div className="relative min-h-[250px] bg-black">
-                  {!isGroupRoom && directCall.remoteStream ? (
-                    <video
-                      ref={directCall.remoteVideoRef}
-                      autoPlay
-                      playsInline
-                      className="h-[250px] w-full bg-black object-cover"
-                    />
-                  ) : call.localStream ? (
+                  {call.localStream ? (
                     <video
                       ref={call.localVideoRef}
                       autoPlay
@@ -1175,17 +1156,6 @@ export function CommunityMessengerRoomClient({
                       </p>
                     </div>
                   )}
-                  {call.localStream && !isGroupRoom && directCall.remoteStream ? (
-                    <div className="absolute bottom-3 right-3 overflow-hidden rounded-2xl border border-white/15 bg-black shadow-lg">
-                      <video
-                        ref={call.localVideoRef}
-                        autoPlay
-                        muted
-                        playsInline
-                        className="h-24 w-20 bg-black object-cover"
-                      />
-                    </div>
-                  ) : null}
                 </div>
               ) : (
                 <div className="flex h-[250px] flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,#1f2937,#020617)]">
@@ -1358,9 +1328,7 @@ export function CommunityMessengerRoomClient({
                 </>
               )}
             </div>
-            {!isGroupRoom ? (
-              <audio ref={directCall.remoteAudioRef} autoPlay playsInline className="hidden" />
-            ) : call.panel.kind !== "video" ? (
+            {call.panel.kind !== "video" ? (
               groupCall.remotePeers.map((peer) => (
                 <audio
                   key={`audio:${peer.userId}`}

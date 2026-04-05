@@ -155,8 +155,8 @@ export function ConditionalAppShell({
       {mountGlobalRealtimeChrome ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
-      {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerUnreadSound /> : null}
-      {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerIncomingCall /> : null}
+      {!isCommunityMessengerRoom && !isCommunityMessengerCallPage ? <GlobalCommunityMessengerUnreadSound /> : null}
+      {!isCommunityMessengerRoom && !isCommunityMessengerCallPage ? <GlobalCommunityMessengerIncomingCall /> : null}
       {showRegionBar && <RegionBar />}
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main
