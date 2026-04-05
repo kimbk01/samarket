@@ -9,6 +9,7 @@ import {
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallParticipant,
@@ -63,7 +64,7 @@ function readSessionDescription(
   payload: Record<string, unknown>,
   expectedType: "offer" | "answer"
 ): RTCSessionDescriptionInit | null {
-  const sdp = typeof payload.sdp === "string" ? payload.sdp : "";
+  const sdp = typeof payload.sdp === "string" ? payload.sdp.trim() : "";
   if (!sdp) return null;
   return { type: expectedType, sdp };
 }
@@ -358,12 +359,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
   const applySignal = useCallback(
     async (signal: CommunityMessengerCallSignal) => {
-      if (signal.toUserId !== args.viewerUserId) return;
+      if (!String(args.viewerUserId ?? "").trim()) return;
+      if (!messengerUserIdsEqual(signal.toUserId, args.viewerUserId)) return;
       if (processedSignalIdsRef.current.has(signal.id)) return;
       processedSignalIdsRef.current.add(signal.id);
 
       const peer =
-        participants.find((item) => item.userId === signal.fromUserId) ??
+        participants.find((item) => messengerUserIdsEqual(item.userId, signal.fromUserId)) ??
         ({
           userId: signal.fromUserId,
           label: signal.fromUserId,

@@ -177,24 +177,26 @@ export function GlobalCommunityMessengerIncomingCall() {
     const session = sessions.find((item) => item.id === sessionId) ?? null;
     setBusyId(`reject:${sessionId}`);
     try {
-      await Promise.allSettled([
-        fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "reject" }),
-        }),
-        session?.peerUserId
-          ? fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                toUserId: session.peerUserId,
-                signalType: "hangup",
-                payload: { reason: "reject" },
-              }),
-            })
-          : Promise.resolve(),
-      ]);
+      if (session?.peerUserId) {
+        try {
+          await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              toUserId: session.peerUserId,
+              signalType: "hangup",
+              payload: { reason: "reject" },
+            }),
+          });
+        } catch {
+          /* hangup 실패 시에도 PATCH 로 세션 종료 */
+        }
+      }
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
       await refresh();
     } finally {
       setBusyId(null);

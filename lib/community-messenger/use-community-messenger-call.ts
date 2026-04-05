@@ -9,6 +9,7 @@ import {
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallSession,
@@ -53,7 +54,7 @@ function readSessionDescription(
   payload: Record<string, unknown>,
   expectedType: "offer" | "answer"
 ): RTCSessionDescriptionInit | null {
-  const sdp = typeof payload.sdp === "string" ? payload.sdp : "";
+  const sdp = typeof payload.sdp === "string" ? payload.sdp.trim() : "";
   if (!sdp) return null;
   return { type: expectedType, sdp };
 }
@@ -228,11 +229,12 @@ export function useCommunityMessengerCall(args: {
           return;
         }
         clearPendingSessionCleanup();
+        const dismissMs = panel.mode === "dialing" || panel.mode === "incoming" ? 0 : 350;
         sessionCleanupTimerRef.current = window.setTimeout(() => {
           cleanupMedia();
           setPanel(null);
           sessionCleanupTimerRef.current = null;
-        }, 350);
+        }, dismissMs);
       }
       return;
     }
@@ -265,7 +267,7 @@ export function useCommunityMessengerCall(args: {
         peerLabel: activeCall.peerLabel,
       });
     }
-  }, [args.activeCall, cleanupMedia, clearPendingSessionCleanup, panel?.sessionId, transportState]);
+  }, [args.activeCall, cleanupMedia, clearPendingSessionCleanup, panel?.mode, panel?.sessionId, transportState]);
 
   const ensureLocalStream = useCallback(async (kind: CommunityMessengerCallKind) => {
     if (localStream) return localStream;
@@ -480,7 +482,8 @@ export function useCommunityMessengerCall(args: {
 
   const applySignal = useCallback(
     async (signal: CommunityMessengerCallSignal) => {
-      if (signal.toUserId !== args.viewerUserId) return;
+      if (!String(args.viewerUserId ?? "").trim()) return;
+      if (!messengerUserIdsEqual(signal.toUserId, args.viewerUserId)) return;
 
       if (signal.signalType === "offer") {
         if (processedSignalIdsRef.current.has(signal.id)) return;
@@ -492,7 +495,7 @@ export function useCommunityMessengerCall(args: {
             await flushPendingCandidates();
             const answer = await peerConnectionRef.current.createAnswer();
             await peerConnectionRef.current.setLocalDescription(answer);
-            await sendSignal(signal.sessionId, args.peerUserId, "answer", { sdp: answer.sdp ?? "" });
+            await sendSignal(signal.sessionId, String(args.peerUserId), "answer", { sdp: answer.sdp ?? "" });
             processedSignalIdsRef.current.add(signal.id);
           } catch {
             /* answer 실패 시 동일 offer 재시도 */
@@ -501,7 +504,11 @@ export function useCommunityMessengerCall(args: {
         }
         pendingOfferRef.current = offer;
         const pendingAcceptance = pendingIncomingAcceptanceRef.current;
-        if (pendingAcceptance && pendingAcceptance.sessionId === signal.sessionId && pendingAcceptance.peerUserId === signal.fromUserId) {
+        if (
+          pendingAcceptance &&
+          pendingAcceptance.sessionId === signal.sessionId &&
+          messengerUserIdsEqual(pendingAcceptance.peerUserId, signal.fromUserId)
+        ) {
           try {
             await completeIncomingAcceptance(pendingAcceptance, offer);
             processedSignalIdsRef.current.add(signal.id);
@@ -543,9 +550,18 @@ export function useCommunityMessengerCall(args: {
       }
 
       if (signal.signalType === "hangup") {
+        const reason = typeof signal.payload.reason === "string" ? signal.payload.reason : "";
+        const message =
+          reason === "reject"
+            ? "상대방이 통화를 거절했습니다."
+            : reason === "cancel"
+              ? "상대방이 통화 걸기를 취소했습니다."
+              : reason === "missed"
+                ? "상대방이 받지 않아 통화가 종료되었습니다."
+                : "상대방이 통화를 종료했습니다.";
         cleanupMedia();
         setPanel(null);
-        setErrorMessage("상대방이 통화를 종료했습니다.");
+        setErrorMessage(message);
         await args.onRefresh();
       }
     },
@@ -811,19 +827,24 @@ export function useCommunityMessengerCall(args: {
   const rejectIncomingCall = useCallback(async () => {
     if (!args.activeCall?.id) return;
     const sessionId = args.activeCall.id;
+    const peerId = args.activeCall.peerUserId;
     setBusy("call-reject");
-    closeSessionImmediately(sessionId);
     try {
-      await Promise.allSettled([
-        fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "reject" }),
-        }),
-        args.peerUserId ? sendSignal(sessionId, args.peerUserId, "hangup", { reason: "reject" }) : Promise.resolve(),
-      ]);
+      if (peerId) {
+        try {
+          await sendSignal(sessionId, peerId, "hangup", { reason: "reject" });
+        } catch {
+          /* hangup 실패 시에도 PATCH 로 세션 종료 */
+        }
+      }
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
       await args.onRefresh();
     } finally {
+      closeSessionImmediately(sessionId);
       setBusy(null);
     }
   }, [args, closeSessionImmediately, sendSignal]);
@@ -865,6 +886,9 @@ export function useCommunityMessengerCall(args: {
       }
       const offer = pendingOfferRef.current;
       if (!offer) {
+        setErrorMessage(
+          "발신 측 연결 정보(offer)를 아직 받지 못했습니다. 잠시 후 다시 「수락」을 눌러 주세요."
+        );
         return;
       }
       await completeIncomingAcceptance(
