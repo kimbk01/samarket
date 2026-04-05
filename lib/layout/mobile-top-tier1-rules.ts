@@ -54,6 +54,7 @@ export function getMobileTopTier1RuleSet(pathname: string | null | undefined): M
 
   const isMypageTradeChatRoom = /^\/mypage\/trade\/chat\/[^/]+$/.test(pathNoQuery);
   const isCommunityMessengerRoom = /^\/community-messenger\/rooms\/[^/]+$/.test(pathNoQuery);
+  const isCommunityMessengerCallPage = /^\/community-messenger\/calls\/[^/]+$/.test(pathNoQuery);
   const isLegacyChatRoomDetail =
     CHAT_ROOM_DETAIL_RE.test(pathNoQuery) &&
     pathNoQuery !== "/chats/new" &&
@@ -87,6 +88,7 @@ export function getMobileTopTier1RuleSet(pathname: string | null | undefined): M
   const suppressMainTier1 =
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
+    isCommunityMessengerCallPage ||
     isLegacyChatRoomDetail ||
     suppressStoresTier1ForLocalChrome ||
     isMyBusinessOwnerHubSurface ||
