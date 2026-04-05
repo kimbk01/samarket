@@ -219,8 +219,8 @@ export function CommunityMessengerCallClient({
     const remoteEl = swapped ? smallVideoRef.current : largeVideoRef.current;
     if (remoteEl) remoteEl.innerHTML = "";
     if (track && remoteEl) {
-      /* 큰 슬롯: 세로 기준 맞춤(contain). PiP: 작은 프레임 채우기(cover) */
-      track.play(remoteEl, { fit: swapped ? "cover" : "contain", mirror: false });
+      /* 큰·작은 슬롯 모두 영역을 꽉 채움(상하 우선 시 좌우 크롭). */
+      track.play(remoteEl, { fit: "cover", mirror: false });
       setRemoteVideoReady(true);
       return;
     }
@@ -241,7 +241,7 @@ export function CommunityMessengerCallClient({
       setLocalVideoReady(false);
       return;
     }
-    videoTrack.play(localEl, { fit: swapped ? "contain" : "cover", mirror: true });
+    videoTrack.play(localEl, { fit: "cover", mirror: true });
     setLocalVideoReady(true);
   }, []);
 
@@ -257,14 +257,14 @@ export function CommunityMessengerCallClient({
     if (remoteEl) remoteEl.innerHTML = "";
     if (localEl) localEl.innerHTML = "";
     if (remote && remoteEl) {
-      remote.play(remoteEl, { fit: layoutSwapped ? "cover" : "contain", mirror: false });
+      remote.play(remoteEl, { fit: "cover", mirror: false });
       setRemoteVideoReady(true);
     } else {
       setRemoteVideoReady(false);
     }
     if (local && localEl) {
       if (local.enabled) {
-        local.play(localEl, { fit: layoutSwapped ? "contain" : "cover", mirror: true });
+        local.play(localEl, { fit: "cover", mirror: true });
         setLocalVideoReady(true);
       } else {
         setLocalVideoReady(false);
@@ -760,7 +760,7 @@ export function CommunityMessengerCallClient({
       <div
         className={
           videoCall
-            ? "mx-auto flex min-h-0 w-full max-w-[440px] flex-1 flex-col px-3 sm:max-w-[480px]"
+            ? "mx-auto flex min-h-0 w-full max-w-[440px] flex-1 flex-col px-2 sm:max-w-[480px] sm:px-3"
             : "mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+12px)]"
         }
       >
@@ -777,7 +777,9 @@ export function CommunityMessengerCallClient({
           </header>
         ) : null}
 
-        <main className={`flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden pt-2" : "overflow-y-auto"}`}>
+        <main
+          className={`flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden pt-0 sm:pt-2" : "overflow-y-auto"}`}
+        >
           {!videoCall ? (
             <div className="shrink-0 pt-4 text-center">
               <p className="text-[30px] font-semibold">{session.peerLabel}</p>
@@ -798,7 +800,7 @@ export function CommunityMessengerCallClient({
           {session.callKind === "video" ? (
             <div
               ref={videoStageRef}
-              className="relative flex w-full min-h-[min(52dvh,480px)] flex-1 flex-col overflow-hidden rounded-2xl bg-neutral-950 shadow-[0_8px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.08] sm:min-h-[min(64dvh,600px)] sm:rounded-[20px]"
+              className="relative flex w-full min-h-[min(66dvh,620px)] flex-1 flex-col overflow-hidden rounded-2xl bg-neutral-950 shadow-[0_8px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.08] sm:min-h-[min(64dvh,600px)] sm:rounded-[20px]"
             >
               {/* 카카오 페이스톤형 상단 정보 오버레이 */}
               <div className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 bg-gradient-to-b from-black/75 via-black/35 to-transparent px-3 pb-10 pt-[max(0.25rem,env(safe-area-inset-top))]">
@@ -860,11 +862,10 @@ export function CommunityMessengerCallClient({
                 </button>
               ) : null}
 
-              {/* 모바일: 세로(스테이지 높이) 기준 9:16 프레임을 가운데 두어 상하 크롭을 줄임(카카오톡형) */}
-              <div className="absolute inset-0 flex items-center justify-center bg-black">
+              <div className="absolute inset-0 bg-black">
                 <div
                   ref={largeVideoRef}
-                  className="aspect-[9/16] h-full max-h-full w-auto max-w-full bg-black sm:aspect-auto sm:h-full sm:w-full sm:max-w-none [&_video]:pointer-events-none [&_video]:object-contain"
+                  className="h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
                 />
                 {showLargeVideoOverlay ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-4 text-center text-[13px] text-white/75">
