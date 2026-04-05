@@ -1,7 +1,14 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   getCommunityMessengerPermissionGuide,
   hasUsablePrimedCommunityMessengerDeviceStream,
@@ -18,6 +25,8 @@ import type {
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
+import { VoiceMessageBubble } from "@/components/community-messenger/VoiceMessageBubble";
+import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
 
 export function CommunityMessengerRoomClient({
   roomId,
@@ -36,6 +45,16 @@ export function CommunityMessengerRoomClient({
   const autoHandledSessionRef = useRef<string | null>(null);
   const autoAcceptInFlightRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
+  const voiceFinalizingRef = useRef(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
+  const recordStreamRef = useRef<MediaStream | null>(null);
+  const recordStartMsRef = useRef(0);
+  const voiceStartYRef = useRef(0);
+  const voiceCancelledRef = useRef(false);
+  const voiceMimeRef = useRef<{ mimeType: string; fileExtension: string } | null>(null);
+  const voiceTickRef = useRef<number | null>(null);
+  const voiceMaxTimerRef = useRef<number | null>(null);
   const loadedRef = useRef(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
@@ -45,6 +64,9 @@ export function CommunityMessengerRoomClient({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [voiceRecording, setVoiceRecording] = useState(false);
+  const [voiceRecordSeconds, setVoiceRecordSeconds] = useState(0);
+  const [voiceCancelHint, setVoiceCancelHint] = useState(false);
   const [inviteIds, setInviteIds] = useState<string[]>([]);
   const [openGroupTitle, setOpenGroupTitle] = useState("");
   const [openGroupSummary, setOpenGroupSummary] = useState("");
@@ -82,7 +104,7 @@ export function CommunityMessengerRoomClient({
         id: string;
         roomId: string;
         senderId: string | null;
-        messageType: "text" | "image" | "system" | "call_stub";
+        messageType: "text" | "image" | "system" | "call_stub" | "voice";
         content: string;
         metadata: Record<string, unknown>;
         createdAt: string;
@@ -208,6 +230,16 @@ export function CommunityMessengerRoomClient({
         return "메신저 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
       case "messenger_migration_required":
         return "메신저 저장소 마이그레이션이 아직 반영되지 않았습니다. DB 스키마를 먼저 업데이트해 주세요.";
+      case "file_too_large":
+        return "음성 파일이 너무 큽니다. 2MB 이하로 녹음해 주세요.";
+      case "unsupported_audio":
+        return "이 기기에서 녹음된 형식은 전송할 수 없습니다.";
+      case "file_required":
+      case "multipart_required":
+        return "음성 데이터를 확인할 수 없습니다.";
+      case "upload_failed":
+      case "server_config":
+        return "음성 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.";
       default:
         return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     }
@@ -420,6 +452,217 @@ export function CommunityMessengerRoomClient({
       setBusy(null);
     }
   }, [getRoomActionErrorMessage, message, roomId, snapshot]);
+
+  const finalizeVoiceRecording = useCallback(
+    async (shouldUpload: boolean) => {
+      if (voiceFinalizingRef.current) return;
+      voiceFinalizingRef.current = true;
+      if (voiceTickRef.current) {
+        clearInterval(voiceTickRef.current);
+        voiceTickRef.current = null;
+      }
+      if (voiceMaxTimerRef.current) {
+        clearTimeout(voiceMaxTimerRef.current);
+        voiceMaxTimerRef.current = null;
+      }
+      const rec = mediaRecorderRef.current;
+      mediaRecorderRef.current = null;
+      const stream = recordStreamRef.current;
+      const startedAt = recordStartMsRef.current;
+      setVoiceRecording(false);
+      setVoiceCancelHint(false);
+      setVoiceRecordSeconds(0);
+
+      if (rec && rec.state !== "inactive") {
+        await new Promise<void>((resolve) => {
+          rec.addEventListener("stop", () => resolve(), { once: true });
+          try {
+            rec.stop();
+          } catch {
+            resolve();
+          }
+        });
+      }
+      stream?.getTracks().forEach((t) => t.stop());
+      recordStreamRef.current = null;
+
+      const chunks = [...mediaChunksRef.current];
+      mediaChunksRef.current = [];
+      const durationSeconds = startedAt ? (Date.now() - startedAt) / 1000 : 0;
+
+      if (!shouldUpload) {
+        voiceFinalizingRef.current = false;
+        return;
+      }
+
+      const mime = voiceMimeRef.current?.mimeType || "audio/webm";
+      const ext = voiceMimeRef.current?.fileExtension || "webm";
+      const blob = new Blob(chunks, { type: mime });
+      if (blob.size < 400) {
+        voiceFinalizingRef.current = false;
+        window.alert("녹음이 너무 짧습니다.");
+        return;
+      }
+      if (!snapshot) {
+        voiceFinalizingRef.current = false;
+        return;
+      }
+
+      const roundedDur = Math.max(1, Math.min(600, Math.round(durationSeconds)));
+      const blobUrl = URL.createObjectURL(blob);
+      const tempId = `pending:${roomId}:voice:${pendingMessageIdRef.current++}`;
+      const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
+        id: tempId,
+        roomId,
+        senderId: snapshot.viewerUserId,
+        senderLabel: snapshot.members.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        messageType: "voice",
+        content: blobUrl,
+        createdAt: new Date().toISOString(),
+        isMine: true,
+        pending: true,
+        callKind: null,
+        callStatus: null,
+        voiceDurationSeconds: roundedDur,
+      };
+      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      setBusy("send-voice");
+      try {
+        const form = new FormData();
+        form.append("file", blob, `voice.${ext}`);
+        form.append("durationSeconds", String(roundedDur));
+        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/voice`, {
+          method: "POST",
+          body: form,
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          message?: CommunityMessengerMessage;
+        };
+        if (!res.ok || !json.ok) {
+          URL.revokeObjectURL(blobUrl);
+          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          window.alert(getRoomActionErrorMessage(json.error));
+          return;
+        }
+        const confirmedVoice = json.message;
+        if (confirmedVoice) {
+          URL.revokeObjectURL(blobUrl);
+          setRoomMessages((prev) =>
+            mergeRoomMessages(
+              prev.filter((item) => item.id !== tempId),
+              [confirmedVoice]
+            )
+          );
+          return;
+        }
+        URL.revokeObjectURL(blobUrl);
+        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+      } finally {
+        setBusy(null);
+        voiceFinalizingRef.current = false;
+      }
+    },
+    [getRoomActionErrorMessage, roomId, snapshot]
+  );
+
+  const onVoiceMicPointerDown = useCallback(
+    async (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (roomUnavailable || !snapshot || message.trim() || busy === "send" || busy === "send-voice") return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      e.preventDefault();
+      voiceCancelledRef.current = false;
+      voiceStartYRef.current = e.clientY;
+      const picked = pickCommunityMessengerVoiceRecorderMime();
+      if (!picked) {
+        window.alert("이 브라우저에서는 음성 녹음을 지원하지 않습니다.");
+        return;
+      }
+      voiceMimeRef.current = picked;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordStreamRef.current = stream;
+        const rec = new MediaRecorder(stream, { mimeType: picked.mimeType });
+        mediaChunksRef.current = [];
+        rec.ondataavailable = (ev) => {
+          if (ev.data.size > 0) mediaChunksRef.current.push(ev.data);
+        };
+        rec.start(200);
+        mediaRecorderRef.current = rec;
+        recordStartMsRef.current = Date.now();
+        setVoiceRecording(true);
+        setVoiceRecordSeconds(0);
+        if (voiceTickRef.current) clearInterval(voiceTickRef.current);
+        voiceTickRef.current = window.setInterval(() => {
+          setVoiceRecordSeconds(Math.floor((Date.now() - recordStartMsRef.current) / 1000));
+        }, 250);
+        if (voiceMaxTimerRef.current) clearTimeout(voiceMaxTimerRef.current);
+        voiceMaxTimerRef.current = window.setTimeout(() => {
+          void finalizeVoiceRecording(true);
+        }, 120_000);
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+      } catch {
+        window.alert(
+          getCommunityMessengerPermissionGuide("voice")?.description ?? "마이크 권한을 허용한 뒤 다시 시도해 주세요."
+        );
+      }
+    },
+    [busy, finalizeVoiceRecording, message, roomUnavailable, snapshot]
+  );
+
+  const onVoiceMicPointerMove = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!mediaRecorderRef.current) return;
+    if (e.clientY - voiceStartYRef.current < -72) {
+      voiceCancelledRef.current = true;
+      setVoiceCancelHint(true);
+    } else {
+      voiceCancelledRef.current = false;
+      setVoiceCancelHint(false);
+    }
+  }, []);
+
+  const onVoiceMicPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!mediaRecorderRef.current && !recordStreamRef.current) return;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      void finalizeVoiceRecording(!voiceCancelledRef.current);
+    },
+    [finalizeVoiceRecording]
+  );
+
+  const onVoiceMicPointerCancel = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      void finalizeVoiceRecording(false);
+    },
+    [finalizeVoiceRecording]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (voiceTickRef.current) clearInterval(voiceTickRef.current);
+      if (voiceMaxTimerRef.current) clearTimeout(voiceMaxTimerRef.current);
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+      recordStreamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   const inviteMembers = useCallback(async () => {
     if (inviteIds.length === 0) return;
@@ -693,7 +936,14 @@ export function CommunityMessengerRoomClient({
                           : "bg-white text-gray-900"
                     }`}
                   >
-                    {item.messageType === "call_stub" ? (
+                    {item.messageType === "voice" ? (
+                      <VoiceMessageBubble
+                        src={item.content}
+                        durationSeconds={item.voiceDurationSeconds ?? 0}
+                        isMine={item.isMine}
+                        pending={item.pending}
+                      />
+                    ) : item.messageType === "call_stub" ? (
                       <div>
                         <p className="font-semibold">
                           {item.callKind === "video" ? "영상 통화" : "음성 통화"}
@@ -765,7 +1015,7 @@ export function CommunityMessengerRoomClient({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             rows={1}
-            disabled={roomUnavailable}
+            disabled={roomUnavailable || voiceRecording}
             placeholder={
               roomUnavailable
                 ? snapshot.room.isReadonly
@@ -777,16 +1027,45 @@ export function CommunityMessengerRoomClient({
             }
             className="max-h-28 min-h-[44px] flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
           />
-          <button
-            type="button"
-            onClick={() => void sendMessage()}
-            disabled={roomUnavailable || !message.trim() || busy === "send"}
-            className="rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-          >
-            전송
-          </button>
+          {message.trim() ? (
+            <button
+              type="button"
+              onClick={() => void sendMessage()}
+              disabled={roomUnavailable || busy === "send" || busy === "send-voice"}
+              className="rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+            >
+              전송
+            </button>
+          ) : (
+            <button
+              type="button"
+              onPointerDown={onVoiceMicPointerDown}
+              onPointerMove={onVoiceMicPointerMove}
+              onPointerUp={onVoiceMicPointerUp}
+              onPointerCancel={onVoiceMicPointerCancel}
+              disabled={roomUnavailable || busy === "send" || busy === "send-voice"}
+              className="flex h-11 w-11 shrink-0 touch-none select-none items-center justify-center rounded-2xl border border-gray-200 bg-white text-[#06C755] disabled:opacity-40"
+              aria-label="음성 메시지 — 누른 채로 녹음, 손을 떼면 전송, 위로 밀면 취소"
+            >
+              <MicHoldIcon className="h-6 w-6" />
+            </button>
+          )}
         </div>
       </footer>
+
+      {voiceRecording ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)]">
+          <div
+            className={`max-w-md rounded-2xl px-4 py-3 text-center text-[14px] font-semibold shadow-lg ${
+              voiceCancelHint ? "bg-red-600 text-white" : "bg-gray-900/92 text-white"
+            }`}
+          >
+            {voiceCancelHint
+              ? "위로 밀었습니다 · 손을 떼면 녹음이 취소됩니다"
+              : `녹음 중 ${formatDuration(voiceRecordSeconds)} · 손을 떼면 전송 · 위로 밀면 취소`}
+          </div>
+        </div>
+      ) : null}
 
       {activeSheet ? (
         <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 px-4 pb-6" onClick={() => setActiveSheet(null)}>
@@ -1348,13 +1627,14 @@ function mergeRoomMessages(
   }
   const pending = prev.filter((item) => item.pending);
   const mergedPending = pending.filter((item) => {
-    return !next.some(
-      (confirmedItem) =>
-        confirmedItem.senderId === item.senderId &&
-        confirmedItem.messageType === item.messageType &&
-        confirmedItem.content === item.content &&
-        Math.abs(new Date(confirmedItem.createdAt).getTime() - new Date(item.createdAt).getTime()) < 15_000
-    );
+    return !next.some((confirmedItem) => {
+      if (confirmedItem.senderId !== item.senderId || confirmedItem.messageType !== item.messageType) return false;
+      const dt = Math.abs(new Date(confirmedItem.createdAt).getTime() - new Date(item.createdAt).getTime());
+      if (item.messageType === "voice" && item.pending) {
+        return dt < 15_000;
+      }
+      return confirmedItem.content === item.content && dt < 15_000;
+    });
   });
   return [...mergedConfirmed.values(), ...mergedPending].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -1367,7 +1647,7 @@ function mapRealtimeRoomMessage(
     id: string;
     roomId: string;
     senderId: string | null;
-    messageType: "text" | "image" | "system" | "call_stub";
+    messageType: "text" | "image" | "system" | "call_stub" | "voice";
     content: string;
     metadata: Record<string, unknown>;
     createdAt: string;
@@ -1387,6 +1667,10 @@ function mapRealtimeRoomMessage(
     message.metadata.callStatus === "dialing"
       ? message.metadata.callStatus
       : null;
+  const voiceDurationSeconds =
+    message.messageType === "voice"
+      ? Math.max(0, Math.floor(Number(message.metadata.durationSeconds ?? 0)) || 0)
+      : undefined;
   return {
     id: message.id,
     roomId: message.roomId,
@@ -1398,6 +1682,7 @@ function mapRealtimeRoomMessage(
     isMine: message.senderId === snapshot.viewerUserId,
     callKind,
     callStatus,
+    ...(voiceDurationSeconds !== undefined ? { voiceDurationSeconds } : {}),
   };
 }
 
@@ -1451,6 +1736,18 @@ function PlusIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MicHoldIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path
+        d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3z"
+        strokeLinejoin="round"
+      />
+      <path d="M19 11a7 7 0 0 1-14 0M12 18v3M8 21h8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

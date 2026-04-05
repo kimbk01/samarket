@@ -79,7 +79,7 @@ type MessageRow = {
   id: string;
   room_id: string;
   sender_id: string | null;
-  message_type: "text" | "image" | "system" | "call_stub";
+  message_type: "text" | "image" | "system" | "call_stub" | "voice";
   content: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;

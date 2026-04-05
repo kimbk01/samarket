@@ -6,7 +6,7 @@ export type CommunityMessengerRoomVisibility = "private" | "public";
 export type CommunityMessengerRoomJoinPolicy = "invite_only" | "password" | "free";
 export type CommunityMessengerIdentityMode = "real_name" | "alias";
 export type CommunityMessengerRoomIdentityPolicy = "real_name" | "alias_allowed";
-export type CommunityMessengerMessageType = "text" | "image" | "system" | "call_stub";
+export type CommunityMessengerMessageType = "text" | "image" | "system" | "call_stub" | "voice";
 export type CommunityMessengerCallKind = "voice" | "video";
 export type CommunityMessengerCallStatus =
   | "dialing"
@@ -117,6 +117,8 @@ export type CommunityMessengerMessage = {
   isMine: boolean;
   callKind?: CommunityMessengerCallKind | null;
   callStatus?: CommunityMessengerCallStatus | null;
+  /** messageType === "voice" 일 때 재생 URL(보통 content 와 동일) */
+  voiceDurationSeconds?: number | null;
 };
 
 export type CommunityMessengerRoomSnapshot = {

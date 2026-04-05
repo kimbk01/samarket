@@ -96,7 +96,7 @@ type MessageRow = {
   id: string;
   room_id: string;
   sender_id: string | null;
-  message_type: "text" | "image" | "system" | "call_stub";
+  message_type: "text" | "image" | "system" | "call_stub" | "voice";
   content: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -177,7 +177,7 @@ type DevRoom = {
   directKey: string | null;
   lastMessage: string;
   lastMessageAt: string;
-  lastMessageType: "text" | "image" | "system" | "call_stub";
+  lastMessageType: "text" | "image" | "system" | "call_stub" | "voice";
 };
 
 type DevParticipant = {
@@ -205,7 +205,7 @@ type DevMessage = {
   id: string;
   roomId: string;
   senderId: string | null;
-  messageType: "text" | "image" | "system" | "call_stub";
+  messageType: "text" | "image" | "system" | "call_stub" | "voice";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -2643,6 +2643,11 @@ export async function getCommunityMessengerRoomSnapshot(
       isMine: senderId === userId,
       callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
       callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+      ...((isDbMessage ? message.message_type : message.messageType) === "voice"
+        ? {
+            voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+          }
+        : {}),
     };
   });
 
@@ -2797,6 +2802,152 @@ export async function sendCommunityMessengerMessage(input: {
       isMine: true,
       callKind: null,
       callStatus: null,
+    },
+  };
+}
+
+const VOICE_LAST_PREVIEW = "음성 메시지";
+
+export async function sendCommunityMessengerVoiceMessage(input: {
+  userId: string;
+  roomId: string;
+  audioPublicUrl: string;
+  durationSeconds: number;
+  mimeType: string;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const audioPublicUrl = trimText(input.audioPublicUrl);
+  if (!roomId || !audioPublicUrl) return { ok: false, error: "content_required" };
+  const durationSeconds = Math.max(0, Math.min(600, Math.floor(Number(input.durationSeconds) || 0)));
+  const mimeType = trimText(input.mimeType) || "audio/webm";
+  const metadata = { durationSeconds, mimeType };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const [{ data: participant }, { data: roomData }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, room_status, is_readonly")
+        .eq("id", roomId)
+        .maybeSingle(),
+    ]);
+    if (!participant || !roomData) return { ok: false, error: "room_not_found" };
+    const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
+    if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+    if (roomStatus === "archived") return { ok: false, error: "room_archived" };
+    if (isReadonly) return { ok: false, error: "room_readonly" };
+    const createdAt = nowIso();
+    const { data: insertedMessage, error: insertError } = await (sb as any)
+      .from("community_messenger_messages")
+      .insert({
+        room_id: roomId,
+        sender_id: input.userId,
+        message_type: "voice",
+        content: audioPublicUrl,
+        metadata,
+        created_at: createdAt,
+      })
+      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+      .single();
+    if (!insertError && insertedMessage) {
+      await (sb as any)
+        .from("community_messenger_rooms")
+        .update({
+          last_message: VOICE_LAST_PREVIEW,
+          last_message_at: createdAt,
+          last_message_type: "voice",
+          updated_at: createdAt,
+        })
+        .eq("id", roomId);
+      const { data: participants } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("id, user_id, unread_count")
+        .eq("room_id", roomId);
+      await Promise.all(
+        ((participants ?? []) as Array<{
+          id: string;
+          user_id: string;
+          unread_count?: number | null;
+        }>).map((participantRow) =>
+          (sb as any)
+            .from("community_messenger_participants")
+            .update({
+              unread_count: participantRow.user_id === input.userId ? 0 : Number(participantRow.unread_count ?? 0) + 1,
+              last_read_at: participantRow.user_id === input.userId ? createdAt : null,
+            })
+            .eq("id", participantRow.id)
+        )
+      );
+      return {
+        ok: true,
+        message: {
+          id: String((insertedMessage as { id?: unknown }).id ?? ""),
+          roomId,
+          senderId: input.userId,
+          senderLabel: "나",
+          messageType: "voice",
+          content: audioPublicUrl,
+          createdAt,
+          isMine: true,
+          callKind: null,
+          callStatus: null,
+          voiceDurationSeconds: durationSeconds,
+        },
+      };
+    }
+    if (!isMissingTableError(insertError)) {
+      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  const participant = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
+  if (!participant) return { ok: false, error: "room_not_found" };
+  if (room.roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+  if (room.roomStatus === "archived") return { ok: false, error: "room_archived" };
+  if (room.isReadonly) return { ok: false, error: "room_readonly" };
+  const createdAt = nowIso();
+  const messageId = randomUUID();
+  dev.messages.push({
+    id: messageId,
+    roomId,
+    senderId: input.userId,
+    messageType: "voice",
+    content: audioPublicUrl,
+    metadata,
+    createdAt,
+  });
+  room.lastMessage = VOICE_LAST_PREVIEW;
+  room.lastMessageAt = createdAt;
+  room.lastMessageType = "voice";
+  for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
+    p.unreadCount = p.userId === input.userId ? 0 : p.unreadCount + 1;
+  }
+  return {
+    ok: true,
+    message: {
+      id: messageId,
+      roomId,
+      senderId: input.userId,
+      senderLabel: "나",
+      messageType: "voice",
+      content: audioPublicUrl,
+      createdAt,
+      isMine: true,
+      callKind: null,
+      callStatus: null,
+      voiceDurationSeconds: durationSeconds,
     },
   };
 }
