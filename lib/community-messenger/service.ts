@@ -2986,7 +2986,12 @@ export async function updateCommunityMessengerCallSession(input: {
     const status = (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus;
 
     if (input.action === "accept") {
-      if (recipientUserId !== input.userId || status !== "ringing") return null;
+      if (recipientUserId !== input.userId) return null;
+      // 이미 active 면 수락 재시도·SDP 재전송 시에도 성공해야 한다 (WebRTC 단계 실패 후 재시도).
+      if (status === "active") {
+        return { nextStatus: "active", answeredAt: trimText(isDbSession ? session.answered_at : session.answeredAt) || nowIso() };
+      }
+      if (status !== "ringing") return null;
       return { nextStatus: "active", answeredAt: nowIso() };
     }
     if (input.action === "reject") {
@@ -3143,20 +3148,32 @@ export async function updateCommunityMessengerCallSession(input: {
 
       const next = resolveDirectNextStatus(session);
       if (!next) return { ok: false, error: "bad_action" };
-      const updatePayload: Record<string, unknown> = {
-        status: next.nextStatus,
-        updated_at: nowIso(),
-      };
-      if (next.answeredAt) updatePayload.answered_at = next.answeredAt;
-      if (next.endedAt) updatePayload.ended_at = next.endedAt;
-      const { data: updated, error } = await (sb as any)
-        .from("community_messenger_call_sessions")
-        .update(updatePayload)
-        .eq("id", sessionId)
-        .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
-        )
-        .single();
+      const alreadyActiveRecipient =
+        input.action === "accept" &&
+        session.status === "active" &&
+        session.recipient_user_id === input.userId;
+      let updated: CallSessionRow | null = null;
+      let error: unknown = null;
+      if (alreadyActiveRecipient) {
+        updated = session;
+      } else {
+        const updatePayload: Record<string, unknown> = {
+          status: next.nextStatus,
+          updated_at: nowIso(),
+        };
+        if (next.answeredAt) updatePayload.answered_at = next.answeredAt;
+        if (next.endedAt) updatePayload.ended_at = next.endedAt;
+        const result = await (sb as any)
+          .from("community_messenger_call_sessions")
+          .update(updatePayload)
+          .eq("id", sessionId)
+          .select(
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+          )
+          .single();
+        updated = (result.data as CallSessionRow | null) ?? null;
+        error = result.error;
+      }
       if (!error && updated) {
         const participantStatus =
           next.nextStatus === "active"
@@ -3187,7 +3204,11 @@ export async function updateCommunityMessengerCallSession(input: {
         return { ok: true, session: mapped };
       }
       if (!isMissingTableError(error)) {
-        return { ok: false, error: String(error.message ?? "call_session_update_failed") };
+        const message =
+          typeof error === "object" && error && "message" in error
+            ? String((error as { message?: unknown }).message ?? "")
+            : "";
+        return { ok: false, error: message || "call_session_update_failed" };
       }
     }
   }

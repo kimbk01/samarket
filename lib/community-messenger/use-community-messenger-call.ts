@@ -445,11 +445,6 @@ export function useCommunityMessengerCall(args: {
   const completeIncomingAcceptance = useCallback(
     async (pending: PendingIncomingAcceptance, offer: RTCSessionDescriptionInit) => {
       const connection = await ensurePeerConnection(pending.callKind, pending.sessionId, pending.peerUserId);
-      await connection.setRemoteDescription(offer);
-      await flushPendingCandidates();
-      const answer = await connection.createAnswer();
-      await connection.setLocalDescription(answer);
-      await sendSignal(pending.sessionId, pending.peerUserId, "answer", { sdp: answer.sdp ?? "" });
       const acceptRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pending.sessionId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -459,6 +454,14 @@ export function useCommunityMessengerCall(args: {
       if (!acceptRes.ok || !acceptJson.ok) {
         throw new Error(acceptJson.error ?? "call_accept_failed");
       }
+      await args.onRefresh();
+
+      await connection.setRemoteDescription(offer);
+      await flushPendingCandidates();
+      const answer = await connection.createAnswer();
+      await connection.setLocalDescription(answer);
+      await sendSignal(pending.sessionId, pending.peerUserId, "answer", { sdp: answer.sdp ?? "" });
+
       pendingOfferRef.current = null;
       pendingIncomingAcceptanceRef.current = null;
       activeSinceRef.current = Date.now();
@@ -478,27 +481,41 @@ export function useCommunityMessengerCall(args: {
   const applySignal = useCallback(
     async (signal: CommunityMessengerCallSignal) => {
       if (signal.toUserId !== args.viewerUserId) return;
-      if (processedSignalIdsRef.current.has(signal.id)) return;
-      processedSignalIdsRef.current.add(signal.id);
 
       if (signal.signalType === "offer") {
+        if (processedSignalIdsRef.current.has(signal.id)) return;
         const offer = readSessionDescription(signal.payload, "offer");
         if (!offer) return;
         if (peerConnectionRef.current && panel?.mode === "active" && args.peerUserId) {
-          await peerConnectionRef.current.setRemoteDescription(offer);
-          await flushPendingCandidates();
-          const answer = await peerConnectionRef.current.createAnswer();
-          await peerConnectionRef.current.setLocalDescription(answer);
-          await sendSignal(signal.sessionId, args.peerUserId, "answer", { sdp: answer.sdp ?? "" });
+          try {
+            await peerConnectionRef.current.setRemoteDescription(offer);
+            await flushPendingCandidates();
+            const answer = await peerConnectionRef.current.createAnswer();
+            await peerConnectionRef.current.setLocalDescription(answer);
+            await sendSignal(signal.sessionId, args.peerUserId, "answer", { sdp: answer.sdp ?? "" });
+            processedSignalIdsRef.current.add(signal.id);
+          } catch {
+            /* answer 실패 시 동일 offer 재시도 */
+          }
           return;
         }
         pendingOfferRef.current = offer;
         const pendingAcceptance = pendingIncomingAcceptanceRef.current;
         if (pendingAcceptance && pendingAcceptance.sessionId === signal.sessionId && pendingAcceptance.peerUserId === signal.fromUserId) {
-          await completeIncomingAcceptance(pendingAcceptance, offer);
+          try {
+            await completeIncomingAcceptance(pendingAcceptance, offer);
+            processedSignalIdsRef.current.add(signal.id);
+          } catch {
+            /* completeIncomingAcceptance 실패 시 id 미등록 → 폴링으로 재시도 */
+          }
+          return;
         }
+        processedSignalIdsRef.current.add(signal.id);
         return;
       }
+
+      if (processedSignalIdsRef.current.has(signal.id)) return;
+      processedSignalIdsRef.current.add(signal.id);
 
       if (signal.signalType === "answer") {
         const answer = readSessionDescription(signal.payload, "answer");
@@ -855,6 +872,9 @@ export function useCommunityMessengerCall(args: {
         offer
       );
     } catch (error) {
+      peerConnectionRef.current?.close();
+      peerConnectionRef.current = null;
+      pendingCandidatesRef.current = [];
       const errorName =
         typeof error === "object" && error && "name" in error
           ? String((error as { name?: unknown }).name ?? "")
@@ -862,9 +882,14 @@ export function useCommunityMessengerCall(args: {
       setErrorMessage(
         error instanceof Error && error.message === "unmounted"
           ? "통화 화면을 다시 열어 주세요."
-          : errorName
-            ? getCommunityMessengerMediaErrorMessage(error, activeCall.callKind)
-            : "통화 연결을 시작하지 못했습니다."
+          : error instanceof Error &&
+              (error.message === "call_accept_failed" ||
+                error.message === "bad_action" ||
+                error.message === "forbidden")
+            ? "통화 수락 처리에 실패했습니다. 잠시 후 다시 수락해 주세요."
+            : errorName
+              ? getCommunityMessengerMediaErrorMessage(error, activeCall.callKind)
+              : "통화 연결을 시작하지 못했습니다."
       );
       pendingIncomingAcceptanceRef.current = null;
     } finally {
