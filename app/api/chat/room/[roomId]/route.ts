@@ -15,21 +15,31 @@ import { normalizeSellerListingState } from "@/lib/products/seller-listing-state
 import { applyProductChatTimeTransitions } from "@/lib/trade/apply-product-chat-time-transitions";
 import { applyBuyerAutoConfirmForRoom } from "@/lib/trade/apply-buyer-auto-confirm";
 import { fetchBuyerReviewSubmitted } from "@/lib/mypage/buyer-review-flag";
+import { generalChatKindFromRoomRow } from "@/lib/chat/general-room-mapping";
 import {
   getNeighborhoodDevSampleChatRoom,
   getNeighborhoodDevSamplePost,
 } from "@/lib/neighborhood/dev-sample-data";
+import type { GeneralChatMeta } from "@/lib/types/chat";
 import { reservedBuyerIdFromPost } from "@/lib/trade/reserved-item-chat";
 import { fetchPostRowForChat } from "@/lib/chats/post-select-compat";
 import {
   fetchItemTradeAdminSuspended,
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
+import { buildPhilifeDetailRoom } from "@/lib/chats/philife/room-mappers";
 import {
+  getPhilifeMeetingAccessState,
   resolvePhilifeMeetingAccessMeetingId,
 } from "@/lib/chats/philife/room-access";
 import type { ChatRoomActiveNotice } from "@/lib/types/chat";
+import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
+import { ensureStoreOrderChatRoomAccessForUser } from "@/lib/chat/store-order-chat-db";
+
+type RoomDetailCacheEntry = { at: number; payload: unknown };
+const ROOM_DETAIL_CACHE_TTL_MS = 2500;
+const roomDetailCache = new Map<string, RoomDetailCacheEntry>();
 
 type PartnerDisplayFields = {
   partnerNickname: string;
@@ -92,15 +102,7 @@ async function chatProductFromPostEnriched(
   post: Record<string, unknown> | null | undefined,
   postId: string
 ) {
-  const existingAuthorNickname =
-    post && typeof post.author_nickname === "string" ? post.author_nickname.trim() : "";
-  if (!post || existingAuthorNickname) {
-    return chatProductSummaryFromPostRow(post ?? undefined, postId);
-  }
   const aid = postAuthorUserId(post ?? undefined);
-  if (!aid) {
-    return chatProductSummaryFromPostRow(post ?? undefined, postId);
-  }
   const map = await fetchNicknamesForUserIds(sbAny, aid ? [aid] : []);
   return chatProductSummaryFromPostRow(enrichPostWithAuthorNickname(post ?? undefined, map), postId);
 }
@@ -126,29 +128,8 @@ async function tradeFieldsAfterTimeTransitions(
   basePcRow: Record<string, unknown>,
   post: Record<string, unknown> | null | undefined
 ) {
-  const flow = String(basePcRow.trade_flow_status ?? "chatting");
-  const mode = String(basePcRow.chat_mode ?? "open");
-  const sellerCompletedAt =
-    typeof basePcRow.seller_completed_at === "string" ? basePcRow.seller_completed_at : null;
-  const reviewDeadlineAt =
-    typeof basePcRow.review_deadline_at === "string" ? basePcRow.review_deadline_at : null;
-  const updatedAt = typeof basePcRow.updated_at === "string" ? basePcRow.updated_at : null;
-
-  const shouldRunAutoConfirm = flow === "seller_marked_done" && !!sellerCompletedAt;
-  const shouldRunTimeTransition =
-    ((flow === "buyer_confirmed" || flow === "review_pending") && mode === "open" && !!reviewDeadlineAt) ||
-    (flow === "review_completed" && mode === "limited" && !!updatedAt);
-
-  if (!shouldRunAutoConfirm && !shouldRunTimeTransition) {
-    return tradeFieldsFromRows(basePcRow, post);
-  }
-
-  if (shouldRunAutoConfirm) {
-    await applyBuyerAutoConfirmForRoom(sbAny, productChatId);
-  }
-  if (shouldRunTimeTransition) {
-    await applyProductChatTimeTransitions(sbAny, productChatId);
-  }
+  await applyBuyerAutoConfirmForRoom(sbAny, productChatId);
+  await applyProductChatTimeTransitions(sbAny, productChatId);
   const { data: fresh } = await sbAny
     .from("product_chats")
     .select("id, trade_flow_status, chat_mode, buyer_confirm_source")
@@ -156,6 +137,24 @@ async function tradeFieldsAfterTimeTransitions(
     .maybeSingle();
   const merged = { ...basePcRow, ...(fresh ?? {}) } as Record<string, unknown>;
   return tradeFieldsFromRows(merged, post);
+}
+
+const tradeTransitionCooldownByProductChatId = new Map<string, number>();
+const TRADE_TRANSITION_COOLDOWN_MS = 15000;
+
+async function tradeFieldsWithCooldown(
+  sbAny: SupabaseClient<any>,
+  productChatId: string,
+  basePcRow: Record<string, unknown>,
+  post: Record<string, unknown> | null | undefined
+) {
+  const now = Date.now();
+  const lastAt = tradeTransitionCooldownByProductChatId.get(productChatId) ?? 0;
+  if (now - lastAt < TRADE_TRANSITION_COOLDOWN_MS) {
+    return tradeFieldsFromRows(basePcRow, post);
+  }
+  tradeTransitionCooldownByProductChatId.set(productChatId, now);
+  return tradeFieldsAfterTimeTransitions(sbAny, productChatId, basePcRow, post);
 }
 
 export const dynamic = "force-dynamic";
@@ -244,10 +243,50 @@ function getDevSampleChatRoomPayload(roomId: string, userId: string) {
   return null;
 }
 
+type OpenChatActiveNoticeRow = {
+  id: string;
+  title: string;
+  body: string;
+  visibility: "members" | "public";
+  created_at: string;
+};
+
+async function fetchOpenChatActiveNotice(
+  sbAny: SupabaseClient<any>,
+  openChatRoomId: string,
+  allowMembersOnlyNotice: boolean
+): Promise<ChatRoomActiveNotice | null> {
+  let query = sbAny
+    .from("open_chat_notices")
+    .select("id, title, body, visibility, created_at")
+    .eq("room_id", openChatRoomId)
+    .eq("is_active", true)
+    .order("is_pinned", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (!allowMembersOnlyNotice) {
+    query = query.eq("visibility", "public");
+  }
+
+  const { data } = await query.maybeSingle();
+  const notice = data as OpenChatActiveNoticeRow | null;
+  if (!notice) return null;
+
+  return {
+    id: notice.id,
+    title: notice.title,
+    body: notice.body,
+    visibility: notice.visibility,
+    createdAt: notice.created_at,
+  };
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
+  const startedAt = Date.now();
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
@@ -261,26 +300,22 @@ export async function GET(
   if (!roomId) {
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
+  const cacheKey = `${userId}:${roomId}`;
+  const cached = roomDetailCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < ROOM_DETAIL_CACHE_TTL_MS) {
+    return NextResponse.json(cached.payload, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "X-Chat-Room-Cache": "HIT",
+      },
+    });
+  }
 
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const PRODUCT_CHAT_DETAIL_SELECT =
-    "id, post_id, seller_id, buyer_id, unread_count_seller, unread_count_buyer, created_at, updated_at, last_message_preview, last_message_at, trade_flow_status, chat_mode, buyer_confirm_source, seller_completed_at, review_deadline_at";
-  const CHAT_ROOM_DETAIL_SELECT =
-    "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked";
-
-  /** 레거시 product_chats id 와 통합 chat_rooms id 를 동시에 조회 — 순차 왕복 1회 이상 절감 */
-  const [pcRes, crRes] = await Promise.all([
-    sbAny.from("product_chats").select(PRODUCT_CHAT_DETAIL_SELECT).eq("id", roomId).maybeSingle(),
-    sbAny.from("chat_rooms").select(CHAT_ROOM_DETAIL_SELECT).eq("id", roomId).maybeSingle(),
-  ]);
-  const r = pcRes.data;
-  const pcErr = pcRes.error;
-  const cr = crRes.data;
-  const crErr = crRes.error;
-
-  const hasDbChatRoomDetail = !!(cr && (cr as { id?: string }).id);
+  const { data: dbRoomProbeDetail } = await sbAny.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
+  const hasDbChatRoomDetail = !!dbRoomProbeDetail?.id;
 
   if (!hasDbChatRoomDetail && process.env.NODE_ENV !== "production") {
     const sampleRoom = getDevSampleChatRoomPayload(roomId, userId);
@@ -291,7 +326,13 @@ export async function GET(
     }
   }
 
-  if (!pcErr && r && (r.seller_id === userId || r.buyer_id === userId)) {
+  const { data: r, error } = await sbAny
+    .from("product_chats")
+    .select("*")
+    .eq("id", roomId)
+    .maybeSingle();
+
+  if (!error && r && (r.seller_id === userId || r.buyer_id === userId)) {
     // 같은 대화에 chat_rooms(item_trade)가 있으면 그걸 반환 — 구매자도 tradeStatus 갱신 보이도록
     const { data: crSameRows } = await sbAny
       .from("chat_rooms")
@@ -320,18 +361,19 @@ export async function GET(
         const itemId = (crSame as { item_id: string | null }).item_id ?? "";
         const amISeller2 = crRow.seller_id === userId;
         const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
-        const partnerId2Str = String(partnerId2 ?? "");
         const [post2, partnerDisp2] = await Promise.all([
           fetchPostRowForChat(sbAny, itemId),
-          fetchPartnerDisplayFields(sbAny, partnerId2Str, partnerId2Str.slice(0, 8) || "?"),
+          fetchPartnerDisplayFields(sbAny, partnerId2 ?? "", (partnerId2 ?? "").slice(0, 8)),
         ]);
         const partnerNickname2 = partnerDisp2.partnerNickname;
         const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
         const rowPc = r as Record<string, unknown>;
-        const [tradeExtras, productPayloadCr] = await Promise.all([
-          tradeFieldsAfterTimeTransitions(sbAny, r.id as string, rowPc, post2 ?? undefined),
-          chatProductFromPostEnriched(sbAny, post2 ?? undefined, itemId),
-        ]);
+        const tradeExtras = await tradeFieldsWithCooldown(
+          sbAny,
+          r.id as string,
+          rowPc,
+          post2 ?? undefined
+        );
         const buyerReviewSubmitted = await fetchBuyerReviewSubmitted(
           sbAny,
           (tradeExtras.productChatRoomId as string | null) ?? (r.id as string),
@@ -341,8 +383,7 @@ export async function GET(
         const adminChatSuspended = resolveAdminChatSuspension(
           crSame as Parameters<typeof resolveAdminChatSuspension>[0]
         ).suspended;
-        return NextResponse.json(
-          {
+        const payload = {
             id: roomIdCr,
             productId: itemId,
             buyerId: crRow.buyer_id ?? "",
@@ -354,7 +395,7 @@ export async function GET(
             lastMessageAt: (crSame as { last_message_at: string | null }).last_message_at ?? (crSame as { created_at: string }).created_at,
             unreadCount,
             tradeStatus: listing,
-            product: productPayloadCr,
+            product: await chatProductFromPostEnriched(sbAny, post2 ?? undefined, itemId),
             source: "chat_room",
             chatDomain: "trade",
             roomTitle: partnerNickname2.trim() || (partnerId2 ?? "").slice(0, 8),
@@ -362,7 +403,13 @@ export async function GET(
             buyerReviewSubmitted,
             adminChatSuspended,
             ...tradeExtras,
-          },
+          };
+        roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+        if (process.env.CHAT_PERF_LOG === "1") {
+          console.info("[chat.room.detail]", { roomId, userId, branch: "trade-crsame", elapsedMs: Date.now() - startedAt });
+        }
+        return NextResponse.json(
+          payload,
           { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
         );
       }
@@ -372,10 +419,9 @@ export async function GET(
     const row = r as Record<string, unknown>;
     const unreadCount = amISeller ? (row.unread_count_seller ?? 0) : (row.unread_count_buyer ?? 0);
     const partnerId = amISeller ? r.buyer_id : r.seller_id;
-    const partnerIdStr = String(partnerId ?? "");
     const [post, partnerDispPc, crRowsLegacyRes] = await Promise.all([
       fetchPostRowForChat(sbAny, r.post_id as string),
-      fetchPartnerDisplayFields(sbAny, partnerIdStr, partnerIdStr.slice(0, 8) || "?"),
+      fetchPartnerDisplayFields(sbAny, partnerId, partnerId.slice(0, 8)),
       sbAny
         .from("chat_rooms")
         .select("id, seller_id, buyer_id, updated_at")
@@ -393,43 +439,43 @@ export async function GET(
       ].filter((x) => typeof x === "string" && x.length > 0)
     );
     let linkedChatRoomId: string | undefined;
-    const crRowsLegacy = (crRowsLegacyRes.error ? [] : crRowsLegacyRes.data) ?? [];
+    const crRowsLegacy = crRowsLegacyRes.data;
     const crLinked =
-      crRowsLegacy.find((crow: { seller_id: string }) => postSellerCandidates.has(crow.seller_id)) ?? null;
+      (crRowsLegacy ?? []).find((row: { seller_id: string }) => postSellerCandidates.has(row.seller_id)) ?? null;
     if (crLinked) {
       linkedChatRoomId = (crLinked as { id: string }).id;
     }
     const listing = normalizeSellerListingState(post?.seller_listing_state, post?.status as string);
-    const [tradeExtrasPc, adminChatSuspendedPc] = await Promise.all([
-      tradeFieldsAfterTimeTransitions(sbAny, r.id as string, row, post ?? undefined),
-      fetchItemTradeAdminSuspended(
-        sbAny,
-        String(r.post_id),
-        String(r.seller_id),
-        String(r.buyer_id)
-      ),
-    ]);
-    const [buyerReviewSubmittedPc, productPayloadPc] = await Promise.all([
-      fetchBuyerReviewSubmitted(
-        sbAny,
-        (tradeExtrasPc.productChatRoomId as string | null) ?? (r.id as string),
-        userId,
-        r.buyer_id as string
-      ),
-      chatProductFromPostEnriched(sbAny, post ?? undefined, r.post_id as string),
-    ]);
-    return NextResponse.json({
+    const tradeExtrasPc = await tradeFieldsWithCooldown(
+      sbAny,
+      r.id as string,
+      row,
+      post ?? undefined
+    );
+    const buyerReviewSubmittedPc = await fetchBuyerReviewSubmitted(
+      sbAny,
+      (tradeExtrasPc.productChatRoomId as string | null) ?? (r.id as string),
+      userId,
+      r.buyer_id as string
+    );
+    const adminChatSuspendedPc = await fetchItemTradeAdminSuspended(
+      sbAny,
+      String(r.post_id),
+      String(r.seller_id),
+      String(r.buyer_id)
+    );
+    const payload = {
       id: r.id,
       productId: r.post_id,
       buyerId: r.buyer_id,
       sellerId: r.seller_id,
-      partnerNickname: partnerNickname.trim() || partnerIdStr.slice(0, 8),
+      partnerNickname: partnerNickname.trim() || partnerId.slice(0, 8),
       partnerAvatar: partnerDispPc.partnerAvatar,
       partnerTrustScore: partnerDispPc.partnerTrustScore,
       lastMessage: (row.last_message_preview as string) ?? "",
       lastMessageAt: (row.last_message_at as string) ?? r.created_at,
       unreadCount: Number(unreadCount),
-      product: productPayloadPc,
+      product: await chatProductFromPostEnriched(sbAny, post ?? undefined, r.post_id),
       source: "product_chat",
       chatDomain: "trade",
       roomTitle: partnerNickname.trim() || partnerId.slice(0, 8),
@@ -439,10 +485,22 @@ export async function GET(
       adminChatSuspended: adminChatSuspendedPc,
       ...(linkedChatRoomId ? { chatRoomId: linkedChatRoomId } : {}),
       ...tradeExtrasPc,
-    });
+    };
+    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    if (process.env.CHAT_PERF_LOG === "1") {
+      console.info("[chat.room.detail]", { roomId, userId, branch: "trade-legacy", elapsedMs: Date.now() - startedAt });
+    }
+    return NextResponse.json(payload);
   }
 
-  // 당근형: chat_rooms (item_trade | 일반 community/group/business/general_chat) — 위에서 병렬 로드됨
+  // 당근형: chat_rooms (item_trade | 일반 community/group/business/general_chat)
+  const { data: cr, error: crErr } = await sbAny
+    .from("chat_rooms")
+    .select(
+      "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked"
+    )
+    .eq("id", roomId)
+    .maybeSingle();
   if (crErr || !cr) {
     return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
@@ -471,21 +529,365 @@ export async function GET(
   };
 
   const roomType = crAny.room_type ?? "";
-  const isGeneralChatRoom =
-    roomType === "general_chat" || roomType === "community" || roomType === "group" || roomType === "business";
+
+  const { data: openChatMeta } = await sbAny
+    .from("open_chat_rooms")
+    .select("id, title, description, owner_user_id, status, joined_count, linked_chat_room_id")
+    .eq("linked_chat_room_id", roomId)
+    .maybeSingle();
+  const openChat = openChatMeta as {
+    id?: string;
+    title?: string | null;
+    description?: string | null;
+    owner_user_id?: string | null;
+    status?: string | null;
+    joined_count?: number | null;
+    linked_chat_room_id?: string | null;
+  } | null;
+
+  if (openChat?.id) {
+    const { data: partRowOpenChat } = await sbAny
+      .from("chat_room_participants")
+      .select("unread_count, hidden, left_at, is_active")
+      .eq("room_id", roomId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const participant = partRowOpenChat as {
+      unread_count?: number;
+      hidden?: boolean;
+      left_at?: string | null;
+      is_active?: boolean | null;
+    } | null;
+    if (!participant || participant.hidden || participant.left_at || participant.is_active === false) {
+      return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
+    }
+
+    const { data: memberRowOpenChat } = await sbAny
+      .from("open_chat_members")
+      .select("id, nickname, role, status")
+      .eq("room_id", String(openChat.id))
+      .eq("user_id", userId)
+      .maybeSingle();
+    const member = memberRowOpenChat as {
+      id?: string;
+      nickname?: string | null;
+      role?: string | null;
+      status?: string | null;
+    } | null;
+    if (!member?.id || member.status !== "joined") {
+      return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
+    }
+
+    const canSend = String(openChat.status ?? "active") === "active";
+    const canManage = member.role === "owner" || member.role === "moderator";
+    const activeNotice = await fetchOpenChatActiveNotice(
+      sbAny,
+      String(openChat.id),
+      true
+    );
+    const payload = {
+        ...buildPhilifeDetailRoom({
+          id: crAny.id,
+          roomKind: "open_chat",
+          title: String(openChat.title ?? "오픈채팅"),
+          subtitle: canSend
+            ? `오픈채팅 멤버 ${Number(openChat.joined_count ?? 0)}명`
+            : "읽기 전용 오픈채팅",
+          lastMessage: crAny.last_message_preview ?? "",
+          lastMessageAt: crAny.last_message_at ?? crAny.created_at,
+          unreadCount: participant.unread_count ?? 0,
+          relatedPostId: null,
+          relatedCommentId: null,
+          relatedGroupId: String(openChat.id),
+          contextType: "open_chat",
+          postRow: null,
+          memberCount: Number(openChat.joined_count ?? 0),
+          joined: true,
+          canSend,
+          canManage,
+          hostUserId: String(openChat.owner_user_id ?? ""),
+          partnerIdFallback: String(openChat.owner_user_id ?? ""),
+          buyerId: userId,
+          sellerId: String(openChat.owner_user_id ?? ""),
+        }),
+        activeNotice,
+      };
+    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    return NextResponse.json(
+      payload,
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
+  }
 
   if (roomType === "store_order") {
-    return NextResponse.json({ error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
+    const crSo = cr as {
+      id: string;
+      seller_id: string | null;
+      buyer_id: string | null;
+      store_order_id: string | null;
+      last_message_preview: string | null;
+      last_message_at: string | null;
+      created_at: string;
+    };
+    const accessSo = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, userId);
+    if (!accessSo.ok) {
+      return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
+    }
+    const sRow = accessSo.sellerId;
+    const bRow = accessSo.buyerId;
+    const prSo = { unread_count: accessSo.unreadCount };
+    const amISellerSo = sRow === userId;
+    const partnerIdSo = amISellerSo ? bRow : sRow;
+    const partnerPromise = fetchPartnerDisplayFields(sbAny, partnerIdSo, partnerIdSo.slice(0, 8));
+    const oid = crSo.store_order_id ?? "";
+    let titleSo = "배달 주문";
+    let storeIdForRoom: string | null = null;
+    let partnerDispSo: Awaited<ReturnType<typeof fetchPartnerDisplayFields>> | null = null;
+    let partnerNickSo = partnerIdSo.slice(0, 8);
+    if (oid) {
+      const { data: ordRow } = await sbAny
+        .from("store_orders")
+        .select("order_no, store_id, order_status")
+        .eq("id", oid)
+        .maybeSingle();
+      if (ordRow) {
+        storeIdForRoom = (ordRow as { store_id: string }).store_id;
+        const { data: stRow } = await sbAny
+          .from("stores")
+          .select("store_name")
+          .eq("id", (ordRow as { store_id: string }).store_id)
+          .maybeSingle();
+        const sn = (stRow as { store_name?: string } | null)?.store_name ?? "";
+        titleSo = sn
+          ? `${sn} · 주문 ${(ordRow as { order_no: string }).order_no}`
+          : `주문 ${(ordRow as { order_no: string }).order_no}`;
+      }
+      const statusLabel =
+        ordRow && typeof (ordRow as { order_status?: string }).order_status === "string"
+          ? BUYER_ORDER_STATUS_LABEL[(ordRow as { order_status: string }).order_status] ??
+            (ordRow as { order_status: string }).order_status
+          : "";
+      partnerDispSo = await partnerPromise;
+      partnerNickSo = partnerDispSo.partnerNickname;
+      const payload = {
+          id: crSo.id,
+          productId: oid || crSo.id,
+          buyerId: bRow,
+          sellerId: sRow,
+          partnerNickname: partnerNickSo.trim() || partnerIdSo.slice(0, 8),
+          partnerAvatar: partnerDispSo.partnerAvatar,
+          partnerTrustScore: partnerDispSo.partnerTrustScore,
+          lastMessage: crSo.last_message_preview ?? "",
+          lastMessageAt: crSo.last_message_at ?? crSo.created_at,
+          unreadCount: prSo.unread_count ?? 0,
+          tradeStatus: "inquiry",
+          product: await chatProductFromPostEnriched(
+            sbAny,
+            { title: titleSo, status: "active" } as Record<string, unknown>,
+            oid || crSo.id
+          ),
+          source: "chat_room",
+          chatDomain: "store",
+          roomTitle: titleSo,
+          roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
+          buyerReviewSubmitted: false,
+          productChatRoomId: null,
+          tradeFlowStatus: "chatting",
+          chatMode: "open",
+          soldBuyerId: null,
+          reservedBuyerId: null,
+          buyerConfirmSource: null,
+          generalChat: {
+            kind: "store_order",
+            storeOrderId: oid || null,
+            storeId: storeIdForRoom,
+            relatedPostId: null,
+            relatedCommentId: null,
+            relatedGroupId: null,
+            relatedBusinessId: null,
+            contextType: null,
+          } satisfies GeneralChatMeta,
+        };
+      roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+      return NextResponse.json(
+        payload,
+        { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+      );
+    }
+    partnerDispSo = await partnerPromise;
+    partnerNickSo = partnerDispSo.partnerNickname;
+    const payload = {
+        id: crSo.id,
+        productId: oid || crSo.id,
+        buyerId: bRow,
+        sellerId: sRow,
+        partnerNickname: partnerNickSo.trim() || partnerIdSo.slice(0, 8),
+        partnerAvatar: partnerDispSo.partnerAvatar,
+        partnerTrustScore: partnerDispSo.partnerTrustScore,
+        lastMessage: crSo.last_message_preview ?? "",
+        lastMessageAt: crSo.last_message_at ?? crSo.created_at,
+        unreadCount: prSo.unread_count ?? 0,
+        tradeStatus: "inquiry",
+        product: await chatProductFromPostEnriched(
+          sbAny,
+          { title: titleSo, status: "active" } as Record<string, unknown>,
+          oid || crSo.id
+        ),
+        source: "chat_room",
+        chatDomain: "store",
+        roomTitle: titleSo,
+        roomSubtitle: "배달채팅",
+        buyerReviewSubmitted: false,
+        productChatRoomId: null,
+        tradeFlowStatus: "chatting",
+        chatMode: "open",
+        soldBuyerId: null,
+        reservedBuyerId: null,
+        buyerConfirmSource: null,
+        generalChat: {
+          kind: "store_order",
+          storeOrderId: oid || null,
+          storeId: storeIdForRoom,
+          relatedPostId: null,
+          relatedCommentId: null,
+          relatedGroupId: null,
+          relatedBusinessId: null,
+          contextType: null,
+        } satisfies GeneralChatMeta,
+      };
+    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    return NextResponse.json(
+      payload,
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   }
 
   /** 커뮤니티 모임 전용 — `group_meeting` 이 아니어도 meetings.chat_room_id 연결이면 동일 검증 */
   const philifeMeetingId = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, crAny);
   if (philifeMeetingId) {
-    return NextResponse.json({ error: "삭제된 모임 채팅입니다." }, { status: 404 });
+    const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
+      meeting_id: philifeMeetingId,
+      related_group_id: philifeMeetingId,
+    });
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.statusCode });
+    }
+
+    const ini = crAny.initiator_id ?? "";
+    const peer = crAny.peer_id ?? "";
+    const partnerId2 = userId === ini ? peer : ini;
+    const postIdG = crAny.related_post_id ?? "";
+    const postG = postIdG ? await fetchPostRowForChat(sbAny, postIdG) : null;
+    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, await fetchNicknamesForUserIds(sbAny, [postAuthorUserId(postG) ?? ""].filter(Boolean))) : null;
+    const roomTitle =
+      (postG && typeof postG.title === "string" ? String(postG.title).trim() : "") ||
+      access.title ||
+      "모임 채팅";
+    const payload = buildPhilifeDetailRoom({
+        id: crAny.id,
+        roomKind: "meeting",
+        title: roomTitle,
+        subtitle: access.canSend ? `참여 멤버 ${access.memberCount}명` : "종료된 모임 채팅",
+        lastMessage: crAny.last_message_preview ?? "",
+        lastMessageAt: crAny.last_message_at ?? crAny.created_at,
+        unreadCount: access.unreadCount,
+        relatedPostId: crAny.related_post_id ?? null,
+        relatedCommentId: crAny.related_comment_id ?? null,
+        relatedGroupId: access.meetingId,
+        contextType: "meeting",
+        postRow: enrichedPost,
+        memberCount: access.memberCount,
+        joined: access.joined,
+        canSend: access.canSend,
+        hostUserId: ini,
+        partnerIdFallback: partnerId2,
+        buyerId: peer || ini,
+        sellerId: ini,
+      });
+    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    return NextResponse.json(
+      payload,
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   }
 
+  const isGeneralChatRoom =
+    roomType === "general_chat" || roomType === "community" || roomType === "group" || roomType === "business";
+
   if (isGeneralChatRoom) {
-    return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
+    const { data: partRowG } = await sbAny
+      .from("chat_room_participants")
+      .select("unread_count, hidden, left_at, is_active")
+      .eq("room_id", roomId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const pr = partRowG as {
+      unread_count?: number;
+      hidden?: boolean;
+      left_at?: string | null;
+      is_active?: boolean | null;
+    } | null;
+    if (!pr || pr.hidden || pr.left_at || pr.is_active === false) {
+      return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
+    }
+    const unreadCount = pr.unread_count ?? 0;
+    const ini = crAny.initiator_id ?? "";
+    const peer = crAny.peer_id ?? "";
+    const partnerId2 = userId === ini ? peer : ini;
+    let partnerNickname2 = partnerId2.slice(0, 8);
+    if (partnerId2) {
+      const { data: profileRow2 } = await sbAny.from("profiles").select("nickname, username").eq("id", partnerId2).maybeSingle();
+      if (profileRow2) {
+        const p = profileRow2 as Record<string, unknown>;
+        partnerNickname2 = (p.nickname ?? p.username ?? partnerNickname2) as string;
+      } else {
+        const { data: testRow2 } = await sbAny.from("test_users").select("display_name, username").eq("id", partnerId2).maybeSingle();
+        if (testRow2) {
+          const t = testRow2 as Record<string, unknown>;
+          partnerNickname2 = (t.display_name ?? t.username ?? partnerNickname2) as string;
+        }
+      }
+    }
+    const postIdG = crAny.related_post_id ?? "";
+    const postG = postIdG ? await fetchPostRowForChat(sbAny, postIdG) : null;
+    const kind = generalChatKindFromRoomRow(roomType, crAny.context_type ?? null);
+    const titleFallback =
+      kind === "business"
+        ? "비즈 채팅"
+        : kind === "community"
+          ? "커뮤니티 문의"
+          : "일반 채팅";
+    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, await fetchNicknamesForUserIds(sbAny, [postAuthorUserId(postG) ?? ""].filter(Boolean))) : null;
+    const payload = buildPhilifeDetailRoom({
+        id: crAny.id,
+        roomKind: "direct",
+        title: partnerNickname2.trim() || partnerId2.slice(0, 8) || titleFallback,
+        subtitle:
+          kind === "business"
+            ? "비즈 문의 채팅"
+            : kind === "community"
+              ? "커뮤니티 1:1 채팅"
+              : "일반 채팅",
+        lastMessage: crAny.last_message_preview ?? "",
+        lastMessageAt: crAny.last_message_at ?? crAny.created_at,
+        unreadCount,
+        relatedPostId: crAny.related_post_id ?? null,
+        relatedCommentId: crAny.related_comment_id ?? null,
+        relatedGroupId: crAny.related_group_id ?? null,
+        contextType: crAny.context_type ?? null,
+        postRow: enrichedPost,
+        joined: true,
+        canSend: true,
+        hostUserId: ini,
+        partnerIdFallback: partnerId2,
+        buyerId: peer || ini,
+        sellerId: ini,
+      });
+    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    return NextResponse.json(
+      payload,
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   }
 
   // item_trade
@@ -514,7 +916,7 @@ export async function GET(
   const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
   const { data: pcFallback } = await sbAny
     .from("product_chats")
-    .select(PRODUCT_CHAT_DETAIL_SELECT)
+    .select("*")
     .eq("post_id", itemId)
     .eq("seller_id", crRow.seller_id ?? "")
     .eq("buyer_id", crRow.buyer_id ?? "")
@@ -522,7 +924,7 @@ export async function GET(
   const pcFb = pcFallback as Record<string, unknown> | null;
   const tradeExtrasFb =
     pcFb?.id != null
-      ? await tradeFieldsAfterTimeTransitions(sbAny, String(pcFb.id), pcFb, post2 ?? undefined)
+      ? await tradeFieldsWithCooldown(sbAny, String(pcFb.id), pcFb, post2 ?? undefined)
       : tradeFieldsFromRows(pcFb, post2);
   const pcIdForReview = (tradeExtrasFb.productChatRoomId as string | null) ?? (pcFb?.id != null ? String(pcFb.id) : null);
   const buyerReviewSubmittedFb = await fetchBuyerReviewSubmitted(
@@ -540,8 +942,7 @@ export async function GET(
     initiator_id: crAny.initiator_id,
     peer_id: crAny.peer_id,
   }).suspended;
-  return NextResponse.json(
-    {
+  const payload = {
       id: cr.id,
       productId: itemId,
       buyerId: crRow.buyer_id ?? "",
@@ -561,7 +962,13 @@ export async function GET(
       buyerReviewSubmitted: buyerReviewSubmittedFb,
       adminChatSuspended: adminChatSuspendedTrade,
       ...tradeExtrasFb,
-    },
+    };
+  roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+  if (process.env.CHAT_PERF_LOG === "1") {
+    console.info("[chat.room.detail]", { roomId, userId, branch: "trade-item", elapsedMs: Date.now() - startedAt });
+  }
+  return NextResponse.json(
+    payload,
     { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
   );
 }

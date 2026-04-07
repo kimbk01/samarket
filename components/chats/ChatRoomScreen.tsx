@@ -1,26 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import {
-  fetchIntegratedChatRoomMessages,
-  fetchLegacyChatRoomMessages,
-} from "@/lib/chats/fetch-chat-room-messages-api";
-
-function isChatRoomPayload(j: unknown): j is ChatRoom {
-  if (!j || typeof j !== "object") return false;
-  const o = j as Record<string, unknown>;
-  return (
-    typeof o.id === "string" &&
-    typeof o.buyerId === "string" &&
-    typeof o.sellerId === "string" &&
-    !("error" in o && o.error != null)
-  );
-}
+import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
 
 export function ChatRoomScreen({
   roomId,
@@ -46,15 +33,12 @@ export function ChatRoomScreen({
   /** 매장 주문 관리 모달 — 상단 탭(채팅·주문)만 표시 */
   ownerStoreOrderModalChrome?: boolean;
 }) {
-  const [[authReady, currentUserId], setAuth] = useState<[boolean, string | null]>(() => [false, null]);
+  const [mounted, setMounted] = useState(false);
+  const currentUserId = mounted ? (getCurrentUser()?.id ?? null) : null;
 
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-
-  useLayoutEffect(() => {
-    setAuth([true, getCurrentUser()?.id?.trim() ?? null]);
-  }, []);
 
   const reload = useCallback(async () => {
     if (!roomId) {
@@ -71,59 +55,50 @@ export function ChatRoomScreen({
     }
     setLoading(true);
     setErr(null);
-    const controller = new AbortController();
-    const tid = window.setTimeout(() => controller.abort(), 28_000);
     try {
-      const res = await fetch(`/api/chat/room/${encodeURIComponent(roomId)}`, {
-        credentials: "include",
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      const j: unknown = await res.json().catch(() => null);
-      if (res.status === 404) {
-        setErr("not_found");
+      const result = await fetchChatRoomDetailApi(roomId);
+      if (!result.ok) {
+        if (result.code === "not_found") {
+          setErr("not_found");
+          setRoom(null);
+          return;
+        }
+        if (result.code === "auth") {
+          setErr("auth");
+          setRoom(null);
+          return;
+        }
+        if (result.code === "load_failed") {
+          setErr("load_failed");
+          setRoom(null);
+          return;
+        }
+        setErr("network");
         setRoom(null);
         return;
       }
-      if (res.status === 401 || res.status === 403) {
-        setErr("auth");
-        setRoom(null);
-        return;
-      }
-      if (!res.ok || !isChatRoomPayload(j)) {
-        setErr("load_failed");
-        setRoom(null);
-        return;
-      }
-      if (j.source === "chat_room") {
-        void fetchIntegratedChatRoomMessages(j.id);
-      } else {
-        void fetchLegacyChatRoomMessages(j.id);
-      }
-      setRoom(j);
-    } catch {
-      setErr("network");
-      setRoom(null);
+      setRoom(result.room);
     } finally {
-      window.clearTimeout(tid);
       setLoading(false);
     }
   }, [roomId, currentUserId]);
 
   useEffect(() => {
-    if (!authReady) return;
-    void reload();
-  }, [authReady, reload]);
+    setMounted(true);
+  }, []);
 
-  const authReadyRef = useRef(authReady);
-  authReadyRef.current = authReady;
+  useEffect(() => {
+    if (!mounted) return;
+    void reload();
+  }, [mounted, reload]);
+
   useRefetchOnPageShowRestore(() => {
-    if (!authReadyRef.current) return;
+    if (!mounted) return;
     void reload();
   });
 
   const viewportClass =
-    embedded && embeddedFill ? "" : embedded ? "" : "min-h-0 flex flex-1 flex-col";
+    embedded && embeddedFill ? "" : embedded ? "" : VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS;
 
   const embeddedEmptyClass =
     embedded && embeddedFill
@@ -149,7 +124,7 @@ export function ChatRoomScreen({
     );
   }
 
-  if (!authReady) {
+  if (!mounted) {
     return (
       <div className={`flex items-center justify-center text-sm text-[#8E8E8E] ${embeddedEmptyClass}`}>불러오는 중…</div>
     );

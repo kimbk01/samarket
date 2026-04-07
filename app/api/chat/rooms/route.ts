@@ -12,23 +12,103 @@ import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-pos
 import {
   enrichPostWithAuthorNickname,
   fetchNicknamesForUserIds,
+  postAuthorUserId,
 } from "@/lib/chats/resolve-author-nickname";
-import type { ChatRoom } from "@/lib/types/chat";
+import { generalChatKindFromRoomRow } from "@/lib/chat/general-room-mapping";
+import type { ChatRoom, GeneralChatMeta } from "@/lib/types/chat";
 import { fetchPostRowsForChatIn } from "@/lib/chats/post-select-compat";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, CHAT_ROOM_LIST_PRODUCT_CHATS_LIMIT, chunkIds } from "@/lib/chats/chat-list-limits";
+import { buildPhilifeListRoom } from "@/lib/chats/philife/room-mappers";
+import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { participantRowActive } from "@/lib/chat/user-chat-unread-parts";
+
+type ChatRoomsListCacheEntry = { at: number; payload: unknown };
+const CHAT_ROOMS_LIST_CACHE_TTL_MS = 2000;
+const chatRoomsListCache = new Map<string, ChatRoomsListCacheEntry>();
 
 type ChatRoomListRow = ChatRoom;
 
+/** 비-production: 인메모리 `__samarketNeighborhoodDevSampleState` 문의방만 (스텁 샘플 데이터는 제거됨) */
+function getDevSampleCommunityRooms(userId: string): ChatRoomListRow[] {
+  const state = (globalThis as {
+    __samarketNeighborhoodDevSampleState?: {
+      inquiryRooms?: Array<{
+        id: string;
+        post_id: string;
+        initiator_id: string;
+        peer_id: string;
+        context_type: string;
+        related_comment_id: string | null;
+        created_at: string;
+      }>;
+      chatMessages?: Map<string, Array<{ message: string; createdAt: string }>>;
+    };
+  }).__samarketNeighborhoodDevSampleState;
+  const inquiryRooms = (state?.inquiryRooms ?? [])
+    .filter((room) => room.initiator_id === userId || room.peer_id === userId)
+    .map((room) => {
+      const latest = state?.chatMessages?.get(room.id)?.at(-1);
+      const partnerId = room.initiator_id === userId ? room.peer_id : room.initiator_id;
+      return {
+        id: room.id,
+        productId: room.post_id,
+        buyerId: room.initiator_id,
+        sellerId: room.peer_id,
+        partnerNickname: partnerId.slice(0, 8),
+        partnerAvatar: "",
+        lastMessage: latest?.message ?? "게시글 문의 채팅이 시작되었습니다.",
+        lastMessageAt: latest?.createdAt ?? room.created_at,
+        unreadCount: 0,
+        product: chatProductSummaryFromPostRow(
+          {
+            title: "커뮤니티 문의",
+            status: "active",
+            region_label: "",
+          } as Record<string, unknown>,
+          room.post_id
+        ),
+        source: "chat_room" as const,
+        chatDomain: "philife" as const,
+        roomTitle: "커뮤니티 문의",
+        roomSubtitle: "커뮤니티 1:1 채팅",
+        generalChat: {
+          kind: "community" as const,
+          relatedPostId: room.post_id,
+          relatedCommentId: room.related_comment_id,
+          relatedGroupId: null,
+          relatedBusinessId: null,
+          contextType: room.context_type,
+        },
+      };
+    });
+  return inquiryRooms;
+}
+
 function isStoreOrderRoomRow(r: ChatRoomListRow): boolean {
-  return false;
+  return r.generalChat?.kind === "store_order";
+}
+
+function isPhilifeRoomRow(r: ChatRoomListRow): boolean {
+  return r.generalChat != null && !isStoreOrderRoomRow(r);
 }
 
 function filterRoomsByListSegment(rows: ChatRoomListRow[], segment: string | null): ChatRoomListRow[] {
   if (segment === "order") {
-    return [];
+    return rows.filter(isStoreOrderRoomRow);
   }
-  return rows.filter((r) => r.generalChat == null);
+  if (segment === "trade") {
+    return rows.filter((r) => r.generalChat == null);
+  }
+  if (segment === "philife") {
+    return rows.filter(isPhilifeRoomRow);
+  }
+  if (segment === "philife_open") {
+    return rows.filter((r) => isPhilifeRoomRow(r) && r.generalChat?.kind === "open_chat");
+  }
+  if (segment === "philife_inbox") {
+    return rows.filter((r) => isPhilifeRoomRow(r) && r.generalChat?.kind !== "open_chat");
+  }
+  return rows;
 }
 
 function dedupeTradeChatRoomRows(rows: ChatRoomListRow[]): ChatRoomListRow[] {
@@ -83,7 +163,14 @@ async function fetchParticipantChatRoomsChunked(
   const parts = await Promise.all(
     chunks.map(async (ids) => {
       let q = sbAny.from("chat_rooms").select(CHAT_ROOMS_LIST_SELECT).in("id", ids);
-      q = q.eq("room_type", "item_trade");
+      if (segment === "trade") q = q.eq("room_type", "item_trade");
+      else if (
+        segment === "philife" ||
+        segment === "philife_open" ||
+        segment === "philife_inbox"
+      )
+        q = q.in("room_type", ["general_chat", "community", "group", "business", "group_meeting"]);
+      else if (segment === "order") q = q.eq("room_type", "store_order");
       const { data } = await q;
       return (data ?? []) as Record<string, unknown>[];
     })
@@ -92,11 +179,32 @@ async function fetchParticipantChatRoomsChunked(
 }
 
 export async function GET(req: NextRequest) {
+  const startedAt = Date.now();
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
   const rawSeg = req.nextUrl.searchParams.get("segment")?.trim().toLowerCase() ?? null;
-  const segment = rawSeg === "trade" ? "trade" : rawSeg === "order" ? "order" : null;
+  const segment =
+    rawSeg === "trade"
+      ? "trade"
+      : rawSeg === "philife" || rawSeg === "community"
+        ? "philife"
+        : rawSeg === "philife_open"
+          ? "philife_open"
+          : rawSeg === "philife_inbox"
+            ? "philife_inbox"
+            : rawSeg === "order"
+              ? "order"
+              : null;
+  const cacheKey = `${userId}:${segment ?? "all"}`;
+  const cached = chatRoomsListCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < CHAT_ROOMS_LIST_CACHE_TTL_MS) {
+    return NextResponse.json(cached.payload, {
+      headers: {
+        "X-Chat-Rooms-Cache": "HIT",
+      },
+    });
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
@@ -179,11 +287,38 @@ export async function GET(req: NextRequest) {
     trade_status?: string;
   }[];
 
-  const genRows: Array<Record<string, never>> = [];
+  const genRows = allCrRows.filter((r) =>
+    ["general_chat", "community", "group", "business", "group_meeting"].includes(String(r.room_type))
+  ) as {
+    id: string;
+    room_type: string;
+    initiator_id: string;
+    peer_id: string | null;
+    last_message_at: string | null;
+    last_message_preview: string | null;
+    created_at: string;
+    related_post_id: string | null;
+    related_comment_id: string | null;
+    related_group_id: string | null;
+    related_business_id: string | null;
+    context_type: string | null;
+    meeting_id?: string | null;
+  }[];
+
+  const soRoomRows = allCrRows.filter((r) => String(r.room_type) === "store_order") as {
+    id: string;
+    seller_id: string;
+    buyer_id: string;
+    store_order_id: string | null;
+    last_message_at: string | null;
+    last_message_preview: string | null;
+    created_at: string;
+  }[];
 
   const postIdsFromPc = [...new Set(pcRows.map((r) => r.post_id))];
   const itemIds = [...new Set(crTradeRows.map((r) => r.item_id).filter(Boolean))] as string[];
-  const allPostIds = [...new Set([...postIdsFromPc, ...itemIds])];
+  const relPostIds = [...new Set(genRows.map((r) => r.related_post_id).filter(Boolean))] as string[];
+  const allPostIds = [...new Set([...postIdsFromPc, ...itemIds, ...relPostIds])];
   const posts = allPostIds.length ? await fetchPostRowsForChatIn(sbAny, allPostIds) : [];
   const postMap = new Map((posts ?? []).map((p: Record<string, unknown>) => [p.id as string, p]));
 
@@ -191,9 +326,109 @@ export async function GET(req: NextRequest) {
   const crPartnerIds = [
     ...new Set(crTradeRows.flatMap((r) => [r.seller_id, r.buyer_id]).filter((id) => id !== userId)),
   ];
+  const genPartnerIds = genRows
+    .map((r) => {
+      const ini = r.initiator_id;
+      const peer = r.peer_id;
+      if (userId === ini) return peer;
+      if (userId === peer) return ini;
+      return peer ?? ini;
+    })
+    .filter((id): id is string => !!id);
+  const partnerIdsSo =
+    soRoomRows.length > 0
+      ? [
+          ...new Set(
+            soRoomRows.flatMap((r) => [r.seller_id, r.buyer_id]).filter((id) => id && id !== userId) as string[]
+          ),
+        ]
+      : [];
+
+  const authorIdsFromPosts = [...new Set(
+    (posts ?? [])
+      .map((p: Record<string, unknown>) => postAuthorUserId(p))
+      .filter((id): id is string => !!id)
+  )];
   const nicknameByUserId = await fetchNicknamesForUserIds(sbAny, [
-    ...new Set([...partnerIdsFromPc, ...crPartnerIds]),
+    ...new Set([...partnerIdsFromPc, ...crPartnerIds, ...genPartnerIds, ...partnerIdsSo, ...authorIdsFromPosts]),
   ]);
+
+  const genRoomIds = [...new Set(genRows.map((r) => String(r.id).trim()).filter(Boolean))];
+  const chatRoomIdToMeetingId = new Map<string, string>();
+  if (genRoomIds.length) {
+    const { data: mlink } = await sbAny.from("meetings").select("id, chat_room_id").in("chat_room_id", genRoomIds);
+    for (const raw of mlink ?? []) {
+      const m = raw as { id?: string; chat_room_id?: string | null };
+      const cid = String(m.chat_room_id ?? "").trim();
+      const mid = String(m.id ?? "").trim();
+      if (cid && mid) chatRoomIdToMeetingId.set(cid, mid);
+    }
+  }
+
+  const meetingIds = [
+    ...new Set([
+      ...chatRoomIdToMeetingId.values(),
+      ...genRows
+        .filter((row) => row.room_type === "group_meeting")
+        .map((row) => String(row.related_group_id ?? "").trim())
+        .filter(Boolean),
+      ...genRows.map((row) => String(row.meeting_id ?? "").trim()).filter(Boolean),
+    ]),
+  ];
+  const { data: meetingRows } = meetingIds.length
+    ? await sbAny
+        .from("meetings")
+        .select("id, title, host_user_id")
+        .in("id", meetingIds)
+    : { data: [] as { id: string; title?: string | null; host_user_id?: string | null }[] };
+  const { data: meetingMemberRows } = meetingIds.length
+    ? await sbAny
+        .from("meeting_members")
+        .select("meeting_id, user_id, status")
+        .in("meeting_id", meetingIds)
+        .eq("status", "joined")
+    : { data: [] as { meeting_id: string; user_id: string; status: string }[] };
+  const meetingMetaById = new Map(
+    (meetingRows ?? []).map((row) => [
+      row.id,
+      {
+        title: row.title ?? null,
+        hostUserId: row.host_user_id ?? null,
+      },
+    ])
+  );
+  const meetingMemberCountById = new Map<string, number>();
+  for (const row of (meetingMemberRows ?? []) as { meeting_id?: string | null }[]) {
+    const meetingId = String(row.meeting_id ?? "").trim();
+    if (!meetingId) continue;
+    meetingMemberCountById.set(meetingId, (meetingMemberCountById.get(meetingId) ?? 0) + 1);
+  }
+
+  const openChatLinkedRoomIds = [
+    ...new Set(
+      genRows
+        .map((row) => String(row.id ?? "").trim())
+        .filter(Boolean)
+    ),
+  ];
+  const { data: openChatRoomRows } = openChatLinkedRoomIds.length
+    ? await sbAny
+        .from("open_chat_rooms")
+        .select("id, title, owner_user_id, linked_chat_room_id, joined_count, status")
+        .in("linked_chat_room_id", openChatLinkedRoomIds)
+    : { data: [] as { id: string; title?: string | null; owner_user_id?: string | null; linked_chat_room_id: string; joined_count?: number | null; status?: string | null }[] };
+  const openChatByLinkedRoomId = new Map(
+    (openChatRoomRows ?? []).map((row) => [
+      row.linked_chat_room_id,
+      {
+        id: row.id,
+        title: row.title ?? null,
+        ownerUserId: row.owner_user_id ?? null,
+        joinedCount: Number(row.joined_count ?? 0),
+        status: row.status ?? "active",
+      },
+    ])
+  );
 
   const listFromProductChats: ChatRoomListRow[] = pcRows.map((r) => {
     const post = postMap.get(r.post_id) as Record<string, unknown> | undefined;
@@ -250,15 +485,207 @@ export async function GET(req: NextRequest) {
     };
   });
 
+  const listFromGeneralChatRooms: ChatRoomListRow[] = genRows.map((r) => {
+    const ini = r.initiator_id;
+    const peer = r.peer_id ?? "";
+    const partnerId = userId === ini ? peer : ini;
+    const part = partByRoomEarly.get(r.id) as { unread_count?: number } | undefined;
+    const unreadCount = part?.unread_count ?? 0;
+    const kind = generalChatKindFromRoomRow(r.room_type, r.context_type);
+    const postIdForCard = r.related_post_id ?? "";
+    const postRow = postIdForCard ? postMap.get(postIdForCard) : undefined;
+    const titleFallback =
+      kind === "group"
+        ? "모임 채팅"
+        : kind === "business"
+          ? "비즈 채팅"
+          : kind === "community"
+            ? "커뮤니티 문의"
+            : "일반 채팅";
+
+    const openChatMeta = openChatByLinkedRoomId.get(r.id);
+    if (openChatMeta) {
+      const openChatTitle = String(openChatMeta.title ?? "").trim() || "오픈채팅";
+      return buildPhilifeListRoom({
+        id: r.id,
+        roomKind: "open_chat",
+        title: openChatTitle,
+        subtitle:
+          openChatMeta.status === "active"
+            ? `오픈채팅 인원 ${openChatMeta.joinedCount}명`
+            : "읽기 전용 오픈채팅",
+        lastMessage: r.last_message_preview ?? "",
+        lastMessageAt: r.last_message_at ?? r.created_at,
+        unreadCount,
+        relatedPostId: null,
+        relatedCommentId: null,
+        relatedGroupId: openChatMeta.id,
+        contextType: "open_chat",
+        postRow: null,
+        memberCount: openChatMeta.joinedCount,
+        joined: true,
+        canSend: openChatMeta.status === "active",
+        hostUserId: openChatMeta.ownerUserId ?? ini,
+        partnerIdFallback: partnerId,
+      });
+    }
+
+    const meetingIdForList =
+      chatRoomIdToMeetingId.get(r.id) ??
+      (r.room_type === "group_meeting"
+        ? String(r.related_group_id ?? r.meeting_id ?? "").trim()
+        : "");
+    if (
+      meetingIdForList &&
+      (r.room_type === "group_meeting" || chatRoomIdToMeetingId.has(r.id))
+    ) {
+      const meetingId = meetingIdForList;
+      const meetingMeta = meetingMetaById.get(meetingId);
+      const meetingTitle =
+        (postRow && typeof (postRow as Record<string, unknown>).title === "string"
+          ? String((postRow as Record<string, unknown>).title)
+          : "") ||
+        String(meetingMeta?.title ?? "").trim() ||
+        titleFallback;
+      return buildPhilifeListRoom({
+        id: r.id,
+        roomKind: "meeting",
+        title: meetingTitle,
+        subtitle: `참여 멤버 ${meetingMemberCountById.get(meetingId) ?? 0}명`,
+        lastMessage: r.last_message_preview ?? "",
+        lastMessageAt: r.last_message_at ?? r.created_at,
+        unreadCount,
+        relatedPostId: r.related_post_id,
+        relatedCommentId: r.related_comment_id,
+        relatedGroupId: meetingId || null,
+        contextType: "meeting",
+        postRow: postRow ? enrichPostWithAuthorNickname(postRow as Record<string, unknown>, nicknameByUserId) : null,
+        memberCount: meetingMemberCountById.get(meetingId) ?? 0,
+        joined: true,
+        canSend: true,
+        hostUserId: meetingMeta?.hostUserId ?? ini,
+        partnerIdFallback: partnerId,
+      });
+    }
+
+    const title = nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8) || titleFallback;
+    const subtitle =
+      kind === "business"
+        ? "비즈 문의 채팅"
+        : kind === "community"
+          ? "커뮤니티 1:1 채팅"
+          : "일반 채팅";
+    return buildPhilifeListRoom({
+      id: r.id,
+      roomKind: "direct",
+      title,
+      subtitle,
+      lastMessage: r.last_message_preview ?? "",
+      lastMessageAt: r.last_message_at ?? r.created_at,
+      unreadCount,
+      relatedPostId: r.related_post_id,
+      relatedCommentId: r.related_comment_id,
+      relatedGroupId: r.related_group_id,
+      contextType: r.context_type,
+      postRow: postRow ? enrichPostWithAuthorNickname(postRow as Record<string, unknown>, nicknameByUserId) : null,
+      joined: true,
+      canSend: true,
+      hostUserId: ini,
+      partnerIdFallback: partnerId,
+    });
+  });
+
+  let listFromStoreOrderRooms: ChatRoomListRow[] = [];
+  if (soRoomRows.length > 0) {
+    const oids = [...new Set(soRoomRows.map((x) => x.store_order_id).filter(Boolean))] as string[];
+    const { data: orows } = oids.length
+      ? await sbAny.from("store_orders").select("id, order_no, store_id, order_status").in("id", oids)
+      : { data: [] as { id: string; order_no: string; store_id: string; order_status?: string }[] };
+    const stids = [...new Set((orows ?? []).map((o) => o.store_id))];
+    const { data: sts } = stids.length
+      ? await sbAny.from("stores").select("id, store_name").in("id", stids)
+      : { data: [] as { id: string; store_name: string }[] };
+    const orderMap = new Map((orows ?? []).map((o) => [o.id, o]));
+    const storeMap = new Map((sts ?? []).map((s) => [s.id, s]));
+
+    listFromStoreOrderRooms = soRoomRows.map((r) => {
+      const amISeller = r.seller_id === userId;
+      const partnerId = amISeller ? r.buyer_id : r.seller_id;
+      const part = partByRoomEarly.get(r.id) as { unread_count?: number } | undefined;
+      const unreadCount = part?.unread_count ?? 0;
+      const oid = r.store_order_id ?? "";
+      const ord = oid ? orderMap.get(oid) : undefined;
+      const st = ord ? storeMap.get(ord.store_id) : undefined;
+      const statusLabel =
+        ord && typeof ord.order_status === "string"
+          ? BUYER_ORDER_STATUS_LABEL[ord.order_status] ?? ord.order_status
+          : "";
+      const title =
+        ord && st ? `${(st as { store_name: string }).store_name} · 주문 ${ord.order_no}` : "배달 주문";
+      const generalChat: GeneralChatMeta = {
+        kind: "store_order",
+        storeOrderId: r.store_order_id,
+        relatedPostId: null,
+        relatedCommentId: null,
+        relatedGroupId: null,
+        relatedBusinessId: null,
+        contextType: null,
+      };
+      return {
+        id: r.id,
+        productId: oid || r.id,
+        buyerId: r.buyer_id,
+        sellerId: r.seller_id,
+        partnerNickname: nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8),
+        partnerAvatar: "",
+        lastMessage: r.last_message_preview ?? "",
+        lastMessageAt: r.last_message_at ?? r.created_at,
+        unreadCount,
+        product: chatProductSummaryFromPostRow({ title, status: "active" } as Record<string, unknown>, oid || r.id),
+        source: "chat_room" as const,
+        generalChat,
+        chatDomain: "store" as const,
+        roomTitle: title,
+        roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
+      };
+    });
+  }
+
   const mergedRaw = [
     ...listFromProductChats,
     ...listFromChatRooms,
+    ...listFromGeneralChatRooms,
+    ...listFromStoreOrderRooms,
   ];
   const merged = dedupeTradeChatRoomRows(mergedRaw).sort((a, b) => {
     const ta = new Date(a.lastMessageAt).getTime();
     const tb = new Date(b.lastMessageAt).getTime();
     return tb - ta;
   });
-  const filteredRooms = filterRoomsByListSegment(merged, segment);
-  return NextResponse.json({ rooms: filteredRooms });
+  let filteredRooms = filterRoomsByListSegment(merged, segment);
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (segment === "philife" || segment === "philife_inbox")
+  ) {
+    const sampleRooms = getDevSampleCommunityRooms(userId);
+    const byId = new Map(filteredRooms.map((room) => [room.id, room]));
+    for (const room of sampleRooms) {
+      byId.set(room.id, room);
+    }
+    filteredRooms = [...byId.values()].sort(
+      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    );
+    filteredRooms = filterRoomsByListSegment(filteredRooms, segment);
+  }
+  const payload = { rooms: filteredRooms };
+  chatRoomsListCache.set(cacheKey, { at: Date.now(), payload });
+  if (process.env.CHAT_PERF_LOG === "1") {
+    console.info("[chat.rooms.list]", {
+      userId,
+      segment: segment ?? "all",
+      roomCount: filteredRooms.length,
+      elapsedMs: Date.now() - startedAt,
+    });
+  }
+  return NextResponse.json(payload);
 }
