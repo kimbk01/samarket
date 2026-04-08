@@ -27,6 +27,7 @@ import {
 import { StoreOrderSellerHamburger } from "@/components/chats/StoreOrderSellerHamburger";
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
+import type { OrderChatMessagePublic } from "@/lib/order-chat/types";
 import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
@@ -41,7 +42,10 @@ import {
 } from "@/lib/products/seller-listing-state";
 import { postSellerListingChangeSystemNotice } from "@/lib/chat/postSellerListingChangeNotice";
 import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
-import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
+import {
+  KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH,
+  KASAMA_TRADE_CHAT_UNREAD_UPDATED,
+} from "@/lib/chats/chat-channel-events";
 import { ADMIN_CHAT_SUSPENDED_MESSAGE } from "@/lib/chat/chat-room-admin-suspend";
 import {
   bustIntegratedChatMessagesCache,
@@ -52,6 +56,11 @@ import {
   updateIntegratedChatRoomMessagesCache,
   updateLegacyChatRoomMessagesCache,
 } from "@/lib/chats/fetch-chat-room-messages-api";
+import {
+  bustOrderChatMessagesSingleFlight,
+  fetchOrderChatMessagesForUnifiedRoom,
+  mapOrderChatMessageToChatMessage,
+} from "@/lib/chats/fetch-order-chat-messages-api";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
 import {
   useChatRoomRealtime,
@@ -358,9 +367,10 @@ export function ChatDetailView({
   }, []);
 
   useChatRoomRealtime({
-    roomId: isChatRoom ? room.id : null,
+    roomId: isChatRoom && !isStoreOrderChat ? room.id : null,
     mode: "integrated",
-    enabled: isChatRoom && !!currentUserId?.trim(),
+    /** store_order 는 order_chat_messages 축 — chat_messages Realtime 과 불일치 */
+    enabled: isChatRoom && !isStoreOrderChat && !!currentUserId?.trim(),
     onMessage: onIntegratedRealtimeMessage,
     onMessageRemoved: onIntegratedRealtimeRemoved,
     onConnectionState: onIntegratedRealtimeConnectionState,
@@ -368,8 +378,10 @@ export function ChatDetailView({
 
   useEffect(() => {
     setChatRealtimeLive(false);
-    setChatRealtimeConnState(isChatRoom ? "connecting" : "disabled");
-  }, [room.id, isChatRoom]);
+    setChatRealtimeConnState(
+      isChatRoom && !isStoreOrderChat ? "connecting" : "disabled"
+    );
+  }, [room.id, isChatRoom, isStoreOrderChat]);
 
   useEffect(() => {
     setPinnedListing(null);
@@ -471,6 +483,14 @@ export function ChatDetailView({
   }, [menuOpen]);
 
   const fetchMessages = useCallback(async () => {
+    if (isStoreOrderChat && isChatRoom && storeOrderId) {
+      return fetchOrderChatMessagesForUnifiedRoom(
+        storeOrderId,
+        room.id,
+        room.buyerId,
+        currentUserId
+      );
+    }
     if (isChatRoom) {
       return fetchIntegratedChatRoomMessages(room.id);
     }
@@ -481,15 +501,23 @@ export function ChatDetailView({
     } catch {
       return allowMockChatMessageFallback() ? getMessages(room.id) : [];
     }
-  }, [room.id, currentUserId, isChatRoom]);
+  }, [room.id, room.buyerId, currentUserId, isChatRoom, isStoreOrderChat, storeOrderId]);
 
   /** 폴링용: API만 호출 (실패 시 빈 배열 — 기존 메시지 유지). 동시 요청은 single-flight 로 합류 */
   const fetchMessagesForPolling = useCallback(async (): Promise<ChatMessage[]> => {
+    if (isStoreOrderChat && isChatRoom && storeOrderId) {
+      return fetchOrderChatMessagesForUnifiedRoom(
+        storeOrderId,
+        room.id,
+        room.buyerId,
+        currentUserId
+      );
+    }
     if (isChatRoom) {
       return fetchIntegratedChatRoomMessages(room.id);
     }
     return fetchLegacyChatRoomMessages(room.id);
-  }, [room.id, isChatRoom]);
+  }, [room.id, room.buyerId, currentUserId, isChatRoom, isStoreOrderChat, storeOrderId]);
 
   // 초기 로드: API 우선 (테스트 로그인·RLS 시 판매자도 동일하게 메시지 수신)
   useEffect(() => {
@@ -587,7 +615,7 @@ export function ChatDetailView({
     const pollMs = isStoreOrderChat
       ? chatRealtimeLive
         ? 90_000
-        : 22_000
+        : 7_000
       : isChatRoom && chatRealtimeLive
         ? 120_000
         : 10_000;
@@ -621,6 +649,18 @@ export function ChatDetailView({
 
   // 읽음 처리: API 호출(테스트 로그인 포함) 후 상단 편지 숫자 갱신 이벤트
   useEffect(() => {
+    if (isStoreOrderChat && isChatRoom && storeOrderId) {
+      void fetch(`/api/order-chat/orders/${encodeURIComponent(storeOrderId)}/read`, {
+        method: "POST",
+        credentials: "include",
+      }).finally(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
+          window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
+        }
+      });
+      return;
+    }
     if (isChatRoom) {
       fetch(`/api/chat/rooms/${room.id}/read`, {
         method: "POST",
@@ -648,7 +688,7 @@ export function ChatDetailView({
         window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
       }
     });
-  }, [room.id, currentUserId, isChatRoom]);
+  }, [room.id, currentUserId, isChatRoom, isStoreOrderChat, storeOrderId]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -671,6 +711,50 @@ export function ChatDetailView({
         createdAt: new Date().toISOString(),
         isRead: false,
       });
+      if (isStoreOrderChat && isChatRoom && storeOrderId) {
+        try {
+          const res = await fetch(
+            `/api/order-chat/orders/${encodeURIComponent(storeOrderId)}/messages`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: message }),
+              credentials: "include",
+            }
+          );
+          const data = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            message?: OrderChatMessagePublic;
+            error?: string;
+          };
+          if (data?.ok && data?.message?.id) {
+            bustOrderChatMessagesSingleFlight(storeOrderId);
+            bustIntegratedChatMessagesCache(room.id);
+            confirmOptimisticMessage(
+              optimistic.id,
+              mapOrderChatMessageToChatMessage(data.message, room.id, room.buyerId, currentUserId)
+            );
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
+            }
+            return { ok: true };
+          }
+          dropOptimisticMessage(optimistic.id);
+          const apiErr = typeof data?.error === "string" ? data.error.trim() : "";
+          if (apiErr) return { ok: false, error: apiErr };
+          if (res.status === 401) return { ok: false, error: "로그인이 필요합니다." };
+          if (res.status === 403) {
+            return { ok: false, error: "접근이 제한되었거나 권한이 없습니다. 서버 안내를 확인해 주세요." };
+          }
+          if (res.status >= 500) return { ok: false, error: "서버 오류로 전송하지 못했습니다. 잠시 후 다시 시도해 주세요." };
+        } catch {
+          dropOptimisticMessage(optimistic.id);
+          return { ok: false, error: "네트워크 오류로 전송하지 못했습니다." };
+        }
+        dropOptimisticMessage(optimistic.id);
+        return { ok: false, error: "전송에 실패했습니다. 다시 시도해 주세요." };
+      }
+
       if (isChatRoom) {
         try {
           const res = await fetch(`/api/chat/rooms/${room.id}/messages`, {
@@ -734,7 +818,18 @@ export function ChatDetailView({
         return { ok: false, error: "네트워크 오류로 전송하지 못했습니다." };
       }
     },
-    [room.id, currentUserId, isChatRoom, canWriteTradeMessage, appendOptimisticMessage, confirmOptimisticMessage, dropOptimisticMessage]
+    [
+      room.id,
+      room.buyerId,
+      currentUserId,
+      isChatRoom,
+      isStoreOrderChat,
+      storeOrderId,
+      canWriteTradeMessage,
+      appendOptimisticMessage,
+      confirmOptimisticMessage,
+      dropOptimisticMessage,
+    ]
   );
 
   const postChatTextForSellerPanel = useCallback(
@@ -771,6 +866,10 @@ export function ChatDetailView({
       setSendError(null);
       if (!canWriteTradeMessage) {
         setSendError("이 채팅에서는 메시지를 보낼 수 없습니다.");
+        return;
+      }
+      if (isStoreOrderChat && isChatRoom) {
+        setSendError("주문 채팅 통합 화면에서는 아직 사진 전송이 연결되지 않았습니다. 텍스트로 먼저 보내 주세요.");
         return;
       }
       const maxBytes = 10 * 1024 * 1024;
@@ -860,7 +959,16 @@ export function ChatDetailView({
         setImageSending(false);
       }
     },
-    [room.id, currentUserId, isChatRoom, canWriteTradeMessage, appendOptimisticMessage, confirmOptimisticMessage, dropOptimisticMessage]
+    [
+      room.id,
+      currentUserId,
+      isChatRoom,
+      isStoreOrderChat,
+      canWriteTradeMessage,
+      appendOptimisticMessage,
+      confirmOptimisticMessage,
+      dropOptimisticMessage,
+    ]
   );
 
   const loadStoreOrderDetail = useCallback(async () => {
