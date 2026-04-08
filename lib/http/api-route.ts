@@ -88,9 +88,14 @@ export function enforceRateLimit(options: {
   const store = getRateLimitStore();
   const now = Date.now();
 
-  for (const [entryKey, entry] of store) {
-    if (entry.resetAt <= now) {
-      store.delete(entryKey);
+  const currentBefore = store.get(options.key);
+  if (currentBefore && currentBefore.resetAt <= now) {
+    store.delete(options.key);
+  }
+  /** IP/유저 키가 많아질 때만 만료 항목 일괄 정리(매 요청 전체 순회 방지) */
+  if (store.size > 2_000 && Math.random() < 0.02) {
+    for (const [entryKey, entry] of store) {
+      if (entry.resetAt <= now) store.delete(entryKey);
     }
   }
 

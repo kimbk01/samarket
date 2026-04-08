@@ -70,15 +70,27 @@ function getSupabaseAuthCookieCacheKey(request: NextRequest): string | null {
   return authCookies.join("|");
 }
 
+function pruneExpiredProxyAuthCache(cache: ProxyAuthCacheStore, now: number): void {
+  for (const [cacheKey, expiresAt] of cache) {
+    if (expiresAt <= now) cache.delete(cacheKey);
+  }
+}
+
 function hasFreshProxyAuthVerification(request: NextRequest): boolean {
   const key = getSupabaseAuthCookieCacheKey(request);
   if (!key) return false;
   const now = Date.now();
   const cache = getProxyAuthCache();
-  for (const [cacheKey, expiresAt] of cache) {
-    if (expiresAt <= now) cache.delete(cacheKey);
+  const expiresAt = cache.get(key);
+  if (expiresAt != null && expiresAt <= now) {
+    cache.delete(key);
   }
-  return (cache.get(key) ?? 0) > now;
+  if ((cache.get(key) ?? 0) > now) return true;
+  /** 전체 순회는 HTML 요청마다 하지 않음(트래픽 시 CPU·락 비용). 맵이 커질 때만 확률적으로 만료 정리 */
+  if (cache.size > 400 && Math.random() < 0.04) {
+    pruneExpiredProxyAuthCache(cache, now);
+  }
+  return false;
 }
 
 function rememberProxyAuthVerification(request: NextRequest): void {

@@ -18,6 +18,7 @@ import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getUserSettings } from "@/lib/settings/user-settings-store";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 
 type OverviewCounts = {
   purchases: number | null;
@@ -259,7 +260,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     return (
       <div className="min-h-screen bg-background">
         <MyPageHeader notificationUnreadCount={notificationUnreadCount} />
-        <div className="mx-auto max-w-lg space-y-4 px-4 pt-4 pb-8">
+        <div className={`${APP_MAIN_COLUMN_CLASS} space-y-4 px-4 pt-4 pb-8`}>
           <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)]">
             내정보를 불러오는 중이에요.
           </div>
@@ -272,7 +273,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     return (
       <div className="min-h-screen bg-background">
         <MyPageHeader notificationUnreadCount={notificationUnreadCount} />
-        <div className="mx-auto max-w-lg space-y-4 px-4 pt-4 pb-8">
+        <div className={`${APP_MAIN_COLUMN_CLASS} space-y-4 px-4 pt-4 pb-8`}>
           <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)]">
             로그인이 필요합니다.
           </div>
@@ -310,7 +311,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   return (
     <div className="min-h-screen bg-background pb-8">
       <MyPageHeader notificationUnreadCount={notificationUnreadCount} centerTitle={headerCenterTitle} />
-      <div className="mx-auto max-w-lg">
+      <div className={APP_MAIN_COLUMN_CLASS}>
         {showBanner ? (
           <div className="px-4 pt-4">
             <MyTopBanner banner={banner} onDismiss={load} />
@@ -336,7 +337,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
             services={services}
           />
         ) : (
-          <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)]">
+          <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)] sm:mx-0">
             프로필을 불러오지 못했어요. 다시 로그인해 주세요.
           </div>
         )}
