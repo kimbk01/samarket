@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -115,6 +116,7 @@ export function StoreProductPublic({
   storeSlug: string;
   productId: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const commerceCart = useStoreCommerceCartOptional();
   const [product, setProduct] = useState<PublicProduct | null>(null);
@@ -284,7 +286,7 @@ export function StoreProductPublic({
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F7F7F7] px-4 py-8">
-        <p className="text-sm text-gray-500">불러오는 중…</p>
+        <p className="text-sm text-gray-500">{t("common_loading")}</p>
       </div>
     );
   }
@@ -292,9 +294,9 @@ export function StoreProductPublic({
   if (notFound) {
     return (
       <div className="min-h-screen bg-[#F7F7F7] px-4 py-8">
-        <p className="text-sm text-gray-600">상품을 찾을 수 없습니다.</p>
+        <p className="text-sm text-gray-600">{t("common_product_not_found")}</p>
         <Link href={`/stores/${encodeURIComponent(storeSlug)}`} className="mt-4 inline-block text-sm text-signature">
-          매장으로
+          {t("common_back_to_store")}
         </Link>
       </div>
     );
@@ -326,7 +328,7 @@ export function StoreProductPublic({
   const capQty = trackInv ? Math.min(maxQ, product.stock_qty) : maxQ;
   const fulfillmentOptions: { value: Fulfillment; label: string }[] = [];
   if (product.pickup_available) {
-    fulfillmentOptions.push({ value: "pickup", label: "포장 픽업" });
+    fulfillmentOptions.push({ value: "pickup", label: t("common_pickup_label") });
   }
   const productDeliveryMode: Fulfillment | null =
     product.local_delivery_available || store?.delivery_available === true
@@ -335,7 +337,7 @@ export function StoreProductPublic({
         ? "shipping"
         : null;
   if (productDeliveryMode != null) {
-    fulfillmentOptions.push({ value: productDeliveryMode, label: "배달" });
+    fulfillmentOptions.push({ value: productDeliveryMode, label: t("common_delivery_label") });
   }
 
   async function submitOrder() {
@@ -344,23 +346,23 @@ export function StoreProductPublic({
     if (!st || !pr) return;
     if (commerce.inBreak) {
       setOrderErr(
-        `준비중 · Break time: ${commerce.breakRangeLabel}. 쉬는 시간에는 주문할 수 없습니다.`
+        t("common_break_time_order_blocked", { time: commerce.breakRangeLabel })
       );
       return;
     }
     if (!commerce.isOpenForCommerce) {
-      setOrderErr("지금은 준비 중이라 주문할 수 없습니다.");
+      setOrderErr(t("common_preparing_order_blocked"));
       return;
     }
     if (!optionValidation.ok) {
-      setOrderErr("옵션 선택을 확인해 주세요.");
+      setOrderErr(t("common_check_option_selection"));
       return;
     }
     if (
       (fulfillment === "local_delivery" || fulfillment === "shipping") &&
       !isCompletePhMobile(buyerPhone)
     ) {
-      setOrderErr(`연락처(${PH_LOCAL_09_PLACEHOLDER})를 입력해 주세요.`);
+      setOrderErr(t("common_enter_contact", { placeholder: PH_LOCAL_09_PLACEHOLDER }));
       return;
     }
     if (
@@ -368,7 +370,7 @@ export function StoreProductPublic({
       parsePhMobileInput(buyerPhone) &&
       !isCompletePhMobile(buyerPhone)
     ) {
-      setOrderErr("연락처 형식을 확인해 주세요. (09 xx xxx xxxx)");
+      setOrderErr(t("common_check_contact_format"));
       return;
     }
     const uwo = baseUnitPhp + (optionValidation.ok ? optionValidation.unitDelta : 0);
@@ -408,7 +410,7 @@ export function StoreProductPublic({
       });
       const json = await res.json();
       if (res.status === 401) {
-        setOrderErr("로그인이 필요합니다. 마이페이지에서 로그인 후 다시 시도해 주세요.");
+        setOrderErr(t("common_login_required"));
         return;
       }
       if (!json?.ok) {
@@ -451,11 +453,11 @@ export function StoreProductPublic({
         router.replace("/my/store-orders");
         return;
       }
-      setOrderOk(`주문이 접수되었습니다. 주문번호 ${json.order?.order_no ?? ""}`);
+      setOrderOk(`${t("notify_order_received_message")} ${json.order?.order_no ?? ""}`.trim());
       setLastPlacedOrderId(null);
       await reloadProduct();
     } catch {
-      setOrderErr("네트워크 오류가 발생했습니다.");
+      setOrderErr(t("common_network_error_generic"));
     } finally {
       setOrderBusy(false);
     }
@@ -477,16 +479,16 @@ export function StoreProductPublic({
     if (!st || !pr || !commerceCart) return;
     if (commerce.inBreak) {
       setOrderErr(
-        `준비중 · Break time: ${commerce.breakRangeLabel}. 쉬는 시간에는 담을 수 없습니다.`
+        t("common_break_time_cart_blocked", { time: commerce.breakRangeLabel })
       );
       return;
     }
     if (!commerce.isOpenForCommerce) {
-      setOrderErr("지금은 준비 중이라 담을 수 없습니다.");
+      setOrderErr(t("common_preparing_cart_blocked"));
       return;
     }
     if (!optionValidation.ok) {
-      setOrderErr("옵션 선택을 확인해 주세요.");
+      setOrderErr(t("common_check_option_selection"));
       return;
     }
     setOrderErr(null);
@@ -548,7 +550,7 @@ export function StoreProductPublic({
       minOrderQty: minQ,
       maxOrderQty: maxForCart,
     });
-    setOrderOk("장바구니에 담았습니다. 하단 장바구니에서 합계를 확인한 뒤 주문할 수 있어요.");
+    setOrderOk(t("common_add_to_cart"));
   }
 
   const menuGroup =
@@ -556,13 +558,13 @@ export function StoreProductPublic({
     categoryNameFromEmbed(product.store_product_categories);
   const itemTypeLabel = itemTypeShortLabel(product.item_type);
   const badges = [
-    product.is_featured ? "대표" : null,
+    product.is_featured ? t("common_representative") : null,
     itemTypeLabel,
-    product.pickup_available ? "포장 픽업" : null,
+    product.pickup_available ? t("common_pickup_label") : null,
     product.local_delivery_available ||
     product.shipping_available ||
     store?.delivery_available === true
-      ? "배달"
+      ? t("common_delivery_label")
       : null,
   ].filter(Boolean) as string[];
 
@@ -592,7 +594,7 @@ export function StoreProductPublic({
         <h1 className="truncate text-center text-[15px] font-semibold text-gray-900">{product.title}</h1>
       </header>
 
-      <nav className="border-b border-gray-100 bg-white px-4 py-2 text-[12px] text-gray-500" aria-label="위치">
+      <nav className="border-b border-gray-100 bg-white px-4 py-2 text-[12px] text-gray-500" aria-label={t("common_location")}>
         <Link href={`/stores/${encodeURIComponent(store.slug)}`} className="text-signature">
           {store.store_name}
         </Link>
@@ -629,14 +631,14 @@ export function StoreProductPublic({
           )}
           {product.is_featured ? (
             <span className="absolute bottom-3 left-3 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
-              대표 메뉴
+              {t("common_representative")}
             </span>
           ) : null}
         </div>
         {galleryUrls.length > 1 ? (
           <HorizontalDragScroll
             className="flex gap-2 overflow-x-auto border-b border-gray-100 px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            aria-label="상품 이미지"
+            aria-label={t("common_image")}
           >
             {galleryUrls.map((u, i) => (
               <button
@@ -689,7 +691,7 @@ export function StoreProductPublic({
 
       {safeHtml ? (
         <div className="mt-2 border-t border-gray-100 bg-white px-4 py-4">
-          <h2 className="text-sm font-semibold text-gray-800">상세 설명</h2>
+          <h2 className="text-sm font-semibold text-gray-800">{t("common_detail_description")}</h2>
           <div
             className="mt-2 max-w-none text-[14px] leading-relaxed text-gray-800 [&_img]:max-w-full [&_p]:my-2"
             dangerouslySetInnerHTML={{ __html: safeHtml }}
@@ -697,7 +699,7 @@ export function StoreProductPublic({
         </div>
       ) : product.summary?.trim() ? (
         <div className="mt-2 border-t border-gray-100 bg-white px-4 py-4">
-          <h2 className="text-sm font-semibold text-gray-800">상세 설명</h2>
+          <h2 className="text-sm font-semibold text-gray-800">{t("common_detail_description")}</h2>
           <p className="mt-2 text-[14px] leading-relaxed text-gray-800">{product.summary.trim()}</p>
         </div>
       ) : null}
@@ -710,11 +712,11 @@ export function StoreProductPublic({
         ) : null}
         {commerce.inBreak ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
-            준비중 · Break time: {commerce.breakRangeLabel}. 쉬는 시간에는 메뉴를 담거나 주문할 수 없습니다.
+            {t("common_break_time_menu_blocked", { time: commerce.breakRangeLabel })}
           </p>
         ) : !commerce.isOpenForCommerce ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
-            지금은 준비 중이라 주문·장바구니 담기를 할 수 없습니다.
+            {t("common_preparing_order_cart_blocked")}
           </p>
         ) : null}
         <div>
@@ -723,7 +725,7 @@ export function StoreProductPublic({
             href={`/stores/${encodeURIComponent(store.slug)}`}
             className="mt-2 inline-block text-sm text-signature"
           >
-            매장 보기
+            {t("common_view_store")}
           </Link>
           {store.phone ? (
             <p className="mt-2 text-sm text-gray-600">
@@ -744,9 +746,9 @@ export function StoreProductPublic({
         </div>
 
         {fulfillmentOptions.length === 0 ? (
-          <p className="text-sm text-gray-500">수령 방식이 설정되지 않아 주문할 수 없습니다.</p>
+          <p className="text-sm text-gray-500">{t("common_preparing_order_blocked")}</p>
         ) : trackInv && product.stock_qty <= 0 ? (
-          <p className="text-sm text-gray-500">품절된 상품입니다.</p>
+          <p className="text-sm text-gray-500">{t("common_sold_out_product")}</p>
         ) : trackInv && product.stock_qty < minQ ? (
           <p className="text-sm text-amber-800">
             재고가 최소 주문 수량({minQ}개)보다 적어 주문할 수 없습니다.
@@ -966,7 +968,7 @@ export function StoreProductPublic({
                   commerceCart ? "flex-1" : "w-full"
                 }`}
               >
-                {orderBusy ? "처리 중…" : "바로 주문"}
+                {orderBusy ? t("common_processing") : t("common_order_now")}
               </button>
             </div>
             <p className="text-center text-[11px] text-gray-400">

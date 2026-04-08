@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 /** 구매자 매장 주문 알림의 바로가기 — 주문 내역 목록으로 통일 */
@@ -9,6 +11,28 @@ const BUYER_STORE_ORDERS_NOTIFICATION_HREF = "/my/store-orders";
 async function loadStoreName(sb: SupabaseClient, storeId: string): Promise<string> {
   const { data } = await sb.from("stores").select("store_name").eq("id", storeId.trim()).maybeSingle();
   return String((data?.store_name as string) ?? "").trim();
+}
+
+async function loadUserLanguage(
+  sb: SupabaseClient,
+  userId: string
+): Promise<AppLanguageCode> {
+  const uid = userId.trim();
+  if (!uid) return DEFAULT_APP_LANGUAGE;
+  const { data } = await sb
+    .from("profiles")
+    .select("preferred_language")
+    .eq("id", uid)
+    .maybeSingle();
+  return normalizeAppLanguage((data as { preferred_language?: unknown } | null)?.preferred_language);
+}
+
+function nt(
+  language: AppLanguageCode,
+  key: Parameters<typeof translate>[1],
+  vars?: Record<string, string | number>
+): string {
+  return translate(language, key, vars);
 }
 
 /** 신규 주문 접수 시 매장 오너에게 인앱 알림 */
@@ -46,6 +70,7 @@ export async function notifyStoreOwnerNewOrder(
   if (error || !store?.owner_user_id) return;
 
   const ownerId = store.owner_user_id as string;
+  const language = await loadUserLanguage(sb, ownerId);
   const name = (opts.storeName ?? (store.store_name as string) ?? "").trim();
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
   const amt = formatMoneyPhp(opts.paymentAmount);
@@ -53,17 +78,28 @@ export async function notifyStoreOwnerNewOrder(
   const pay = (opts.paymentLabel ?? "").trim();
   const note = truncateNote(opts.buyerNote, 80);
   const extras: string[] = [];
-  if (pay && pay !== "—") extras.push(`결제 ${pay}`);
-  if (note) extras.push(`요청 ${note}`);
+  if (pay && pay !== "—") extras.push(nt(language, "notify_commerce_payment_prefix", { payment: pay }));
+  if (note) extras.push(nt(language, "notify_commerce_request_prefix", { note }));
   const extraSeg = extras.length ? ` · ${extras.join(" · ")}` : "";
 
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
-    title: "새 매장 주문",
+    title: nt(language, "notify_commerce_new_order_title"),
     body: name
-      ? `「${name}」 ${orderNo} · ${amt} · 품목 ${lines}종${extraSeg} — 접수·채팅에서 확인해 주세요.`
-      : `${orderNo} · ${amt} · 품목 ${lines}종${extraSeg} — 접수·채팅에서 확인해 주세요.`,
+      ? nt(language, "notify_commerce_new_order_body_named", {
+          store: name,
+          orderNo,
+          amount: amt,
+          lineCount: lines,
+          extra: extraSeg,
+        })
+      : nt(language, "notify_commerce_new_order_body", {
+          orderNo,
+          amount: amt,
+          lineCount: lines,
+          extra: extraSeg,
+        }),
     link_url: buildStoreOrdersHref({
       storeId: sid,
       orderId: oid,
@@ -96,15 +132,16 @@ export async function notifyBuyerStorePaymentCompleted(
   const oid = opts.orderId.trim();
   if (!bid || !oid) return;
 
+  const language = await loadUserLanguage(sb, bid);
   const storeName = await loadStoreName(sb, opts.storeId);
-  const label = storeName || "매장";
+  const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
-    title: "결제가 완료됐어요",
-    body: `「${label}」 ${orderNo} — 매장이 확인·접수하면 채팅과 알림으로 단계가 안내돼요.`,
+    title: nt(language, "notify_commerce_payment_done_title"),
+    body: nt(language, "notify_commerce_payment_done_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: {
       kind: "store_order_payment_completed_buyer",
@@ -139,6 +176,7 @@ export async function notifyStoreOwnerPaymentCompleted(
   if (error || !store?.owner_user_id) return;
 
   const ownerId = store.owner_user_id as string;
+  const language = await loadUserLanguage(sb, ownerId);
   const name = (opts.storeName ?? (store.store_name as string) ?? "").trim();
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
   const amt = formatMoneyPhp(opts.paymentAmount);
@@ -146,10 +184,17 @@ export async function notifyStoreOwnerPaymentCompleted(
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
-    title: "매장 주문 결제 완료",
+    title: nt(language, "notify_commerce_owner_payment_done_title"),
     body: name
-      ? `「${name}」 ${orderNo} · ${amt} — 결제가 완료되었습니다. 주문을 접수할 수 있어요.`
-      : `${orderNo} · ${amt} — 결제가 완료되었습니다. 주문을 접수할 수 있어요.`,
+      ? nt(language, "notify_commerce_owner_payment_done_body_named", {
+          store: name,
+          orderNo,
+          amount: amt,
+        })
+      : nt(language, "notify_commerce_owner_payment_done_body", {
+          orderNo,
+          amount: amt,
+        }),
     link_url: buildStoreOrdersHref({
       storeId: sid,
       orderId: oid,
@@ -182,14 +227,17 @@ export async function notifyStoreOwnerBuyerCancelled(
   if (error || !store?.owner_user_id) return;
 
   const ownerId = store.owner_user_id as string;
+  const language = await loadUserLanguage(sb, ownerId);
   const name = (opts.storeName ?? (store.store_name as string) ?? "").trim();
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
-    title: "고객이 주문을 취소했습니다",
-    body: name ? `「${name}」 ${orderNo} — 접수 전 취소되었습니다.` : `${orderNo} — 접수 전 취소되었습니다.`,
+    title: nt(language, "notify_commerce_buyer_cancelled_title"),
+    body: name
+      ? nt(language, "notify_commerce_buyer_cancelled_body_named", { store: name, orderNo })
+      : nt(language, "notify_commerce_buyer_cancelled_body", { orderNo }),
     link_url: buildStoreOrdersHref({
       storeId: sid,
       orderId: oid,
@@ -217,16 +265,17 @@ export async function notifyStoreOwnerRefundRequested(
   if (error || !store?.owner_user_id) return;
 
   const ownerId = store.owner_user_id as string;
+  const language = await loadUserLanguage(sb, ownerId);
   const name = (opts.storeName ?? (store.store_name as string) ?? "").trim();
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
-    title: "매장 주문 환불 요청",
+    title: nt(language, "notify_commerce_refund_requested_title"),
     body: name
-      ? `「${name}」 주문 ${orderNo} — 고객이 환불을 요청했습니다.`
-      : `주문 ${orderNo} — 고객이 환불을 요청했습니다.`,
+      ? nt(language, "notify_commerce_refund_requested_body_named", { store: name, orderNo })
+      : nt(language, "notify_commerce_refund_requested_body", { orderNo }),
     link_url: buildStoreOrdersHref({
       storeId: sid,
       orderId: oid,
@@ -253,38 +302,48 @@ const OWNER_STATUS_NOTIFY = new Set([
 ]);
 
 function buyerCopyForOwnerStatus(
+  language: AppLanguageCode,
   nextStatus: string,
   storeLabel: string,
   orderNo: string
 ): { title: string; body: string } | null {
-  const s = storeLabel || "매장";
+  const s = storeLabel || nt(language, "notify_commerce_store_fallback");
   const no = orderNo;
   switch (nextStatus) {
     case "accepted":
       return {
-        title: "주문이 접수되었어요",
-        body: `「${s}」 ${no} 주문을 매장이 접수했습니다.`,
+        title: nt(language, "notify_commerce_owner_status_accepted_title"),
+        body: nt(language, "notify_commerce_owner_status_accepted_body", { store: s, orderNo: no }),
       };
     case "preparing":
-      return { title: "상품 준비 중이에요", body: `「${s}」 ${no} 주문을 준비하고 있어요.` };
+      return {
+        title: nt(language, "notify_commerce_owner_status_preparing_title"),
+        body: nt(language, "notify_commerce_owner_status_preparing_body", { store: s, orderNo: no }),
+      };
     case "ready_for_pickup":
       return {
-        title: "픽업 준비됐어요",
-        body: `「${s}」 ${no} 주문 — 픽업·출고 준비 단계입니다.`,
+        title: nt(language, "notify_commerce_owner_status_ready_title"),
+        body: nt(language, "notify_commerce_owner_status_ready_body", { store: s, orderNo: no }),
       };
     case "delivering":
-      return { title: "배송 중이에요", body: `「${s}」 ${no} 주문이 배송 중이에요.` };
+      return {
+        title: nt(language, "notify_commerce_owner_status_delivering_title"),
+        body: nt(language, "notify_commerce_owner_status_delivering_body", { store: s, orderNo: no }),
+      };
     case "arrived":
       return {
-        title: "배송지에 도착했어요",
-        body: `「${s}」 ${no} 주문이 배송지에 도착했습니다.`,
+        title: nt(language, "notify_commerce_owner_status_arrived_title"),
+        body: nt(language, "notify_commerce_owner_status_arrived_body", { store: s, orderNo: no }),
       };
     case "completed":
-      return { title: "주문이 완료됐어요", body: `「${s}」 ${no} 주문이 완료 처리되었습니다.` };
+      return {
+        title: nt(language, "notify_commerce_owner_status_completed_title"),
+        body: nt(language, "notify_commerce_owner_status_completed_body", { store: s, orderNo: no }),
+      };
     case "cancelled":
       return {
-        title: "주문이 취소됐어요",
-        body: `「${s}」 ${no} 주문이 매장에 의해 취소되었습니다.`,
+        title: nt(language, "notify_commerce_owner_status_cancelled_title"),
+        body: nt(language, "notify_commerce_owner_status_cancelled_body", { store: s, orderNo: no }),
       };
     default:
       return null;
@@ -307,10 +366,11 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   if (!bid || !oid) return;
   if (!OWNER_STATUS_NOTIFY.has(opts.nextStatus)) return;
 
+  const language = await loadUserLanguage(sb, bid);
   const storeName = await loadStoreName(sb, opts.storeId);
-  const label = storeName || "매장";
+  const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
-  const copy = buyerCopyForOwnerStatus(opts.nextStatus, label, orderNo);
+  const copy = buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo);
   if (!copy) return;
 
   await appendUserNotification(sb, {
@@ -338,15 +398,16 @@ export async function notifyBuyerStorePaymentFailed(
   const oid = opts.orderId.trim();
   if (!bid || !oid) return;
 
+  const language = await loadUserLanguage(sb, bid);
   const storeName = await loadStoreName(sb, opts.storeId);
-  const label = storeName || "매장";
+  const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
-    title: "결제에 실패했어요",
-    body: `「${label}」 ${orderNo} 주문 — 결제가 완료되지 않았습니다. 다시 시도하거나 주문을 취소할 수 있어요.`,
+    title: nt(language, "notify_commerce_payment_failed_title"),
+    body: nt(language, "notify_commerce_payment_failed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: { kind: "store_order_payment_failed", order_id: oid, order_no: orderNo, store_id: opts.storeId },
   });
@@ -361,15 +422,16 @@ export async function notifyBuyerStoreRefundApproved(
   const oid = opts.orderId.trim();
   if (!bid || !oid) return;
 
+  const language = await loadUserLanguage(sb, bid);
   const storeName = await loadStoreName(sb, opts.storeId);
-  const label = storeName || "매장";
+  const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
-    title: "환불이 처리되었어요",
-    body: `「${label}」 ${orderNo} 주문이 환불 처리되었습니다. 실제 금액 반환은 매장과 직접 확인해 주세요.`,
+    title: nt(language, "notify_commerce_refund_processed_title"),
+    body: nt(language, "notify_commerce_refund_processed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: { kind: "store_order_refund_approved", order_id: oid, order_no: orderNo, store_id: opts.storeId },
   });
@@ -384,15 +446,16 @@ export async function notifyBuyerStoreOrderAutoCompleted(
   const oid = opts.orderId.trim();
   if (!bid || !oid) return;
 
+  const language = await loadUserLanguage(sb, bid);
   const storeName = await loadStoreName(sb, opts.storeId);
-  const label = storeName || "매장";
+  const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
-    title: "주문이 자동 완료됐어요",
-    body: `「${label}」 ${orderNo} 주문이 기한에 따라 자동으로 완료 처리되었습니다.`,
+    title: nt(language, "notify_commerce_auto_completed_title"),
+    body: nt(language, "notify_commerce_auto_completed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: { kind: "store_order_auto_completed", order_id: oid, order_no: orderNo, store_id: opts.storeId },
   });

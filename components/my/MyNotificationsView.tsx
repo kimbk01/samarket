@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -47,6 +48,7 @@ type Row = {
 };
 
 export function MyNotificationsView() {
+  const { language, t } = useI18n();
   const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,19 +222,19 @@ export function MyNotificationsView() {
             onClick={() => void markAllRead()}
             className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-800 disabled:opacity-50"
           >
-            {busy ? "처리 중…" : "모두 읽음"}
+            {busy ? t("common_processing") : t("common_mark_all_read")}
           </button>
         ) : null}
       </div>
       {error ? <p className="text-sm text-red-600">({error})</p> : null}
       {rows.length === 0 ? (
-        <p className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm">알림이 없습니다.</p>
+        <p className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm">{t("common_notifications_empty")}</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => {
-            const typeLbl = notificationTypeLabel(r.notification_type);
+            const typeLbl = notificationTypeLabel(r.notification_type, language);
             const kindLbl =
-              r.notification_type === "commerce" ? commerceMetaKindLabel(r.meta?.kind) : null;
+              r.notification_type === "commerce" ? commerceMetaKindLabel(r.meta?.kind, language) : null;
             return (
               <li
                 key={r.id}

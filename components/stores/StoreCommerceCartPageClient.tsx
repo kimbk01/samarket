@@ -1,6 +1,7 @@
 "use client";
 
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -94,6 +95,7 @@ function deliveryEntryMatchesProfile(e: DeliveryAddressBookEntry, p: ProfileCont
 }
 
 export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const cart = useStoreCommerceCart();
@@ -582,8 +584,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     if (frontCommerce && !frontCommerce.isOpenForCommerce) {
       setErr(
         frontCommerce.inBreak
-          ? `준비중 · Break time: ${frontCommerce.breakRangeLabel}. 쉬는 시간에는 주문할 수 없습니다.`
-          : "지금은 준비 중이라 주문할 수 없습니다."
+          ? t("common_break_time_order_blocked", { time: frontCommerce.breakRangeLabel })
+          : t("common_preparing_order_blocked")
       );
       return;
     }
@@ -610,7 +612,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       return;
     }
     if (needsAddressAndPhone && !isCompletePhMobile(buyerPhone)) {
-      setErr(`연락처(${PH_LOCAL_09_PLACEHOLDER})를 입력해 주세요.`);
+      setErr(t("common_enter_contact", { placeholder: PH_LOCAL_09_PLACEHOLDER }));
       return;
     }
     if (needsAddressAndPhone && !resolvedDelivery) {
@@ -630,7 +632,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       parsePhMobileInput(buyerPhone) &&
       !isCompletePhMobile(buyerPhone)
     ) {
-      setErr("연락처 형식을 확인해 주세요. (09 xx xxx xxxx)");
+      setErr(t("common_check_contact_format"));
       return;
     }
 
@@ -685,10 +687,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       });
       const json = await res.json();
       if (res.status === 401) {
-        if (redirectForBlockedAction(router, "로그인이 필요합니다.", pathname || `/stores/${storeSlug}/cart`)) {
+        if (redirectForBlockedAction(router, t("common_login_required"), pathname || `/stores/${storeSlug}/cart`)) {
           return;
         }
-        setErr("로그인이 필요합니다.");
+        setErr(t("common_login_required"));
         return;
       }
       if (!json?.ok) {
@@ -732,7 +734,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         router.replace("/my/store-orders");
       }
     } catch {
-      setErr("네트워크 오류가 발생했습니다.");
+      setErr(t("common_network_error_generic"));
     } finally {
       setBusy(false);
     }
@@ -740,23 +742,23 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (!cart.hydrated) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-gray-500">불러오는 중…</div>
+      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-gray-500">{t("common_loading")}</div>
     );
   }
 
   if (storeLoading) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-gray-500">불러오는 중…</div>
+      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-gray-500">{t("common_loading")}</div>
     );
   }
 
   if (storeLoadFailed || !store) {
     return (
       <div className="min-h-screen bg-[#F7F7F7]">
-        <p className="px-4 py-12 text-center text-sm text-gray-600">매장 정보를 불러올 수 없습니다.</p>
+        <p className="px-4 py-12 text-center text-sm text-gray-600">{t("common_store_info_load_failed")}</p>
         <div className="px-4 text-center">
           <Link href="/stores" className="text-sm font-medium text-signature">
-            매장 목록
+            {t("common_store")}
           </Link>
         </div>
       </div>
@@ -873,9 +875,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }
 
   const fulfillmentOptions: { value: Fulfillment; label: string }[] = [];
-  if (offerPickup) fulfillmentOptions.push({ value: "pickup", label: "포장 픽업" });
+  if (offerPickup) fulfillmentOptions.push({ value: "pickup", label: t("common_pickup_label") });
   if (deliveryFulfillmentMode) {
-    fulfillmentOptions.push({ value: deliveryFulfillmentMode, label: "배달" });
+    fulfillmentOptions.push({ value: deliveryFulfillmentMode, label: t("common_delivery_label") });
   }
 
   const displayGrand =
@@ -886,7 +888,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
         <div className="w-full border-b border-gray-100 bg-white">
           <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-            <h1 className="py-3 text-center text-[16px] font-semibold text-gray-900">장바구니</h1>
+            <h1 className="py-3 text-center text-[16px] font-semibold text-gray-900">{t("common_cart")}</h1>
           </div>
         </div>
       </div>
@@ -932,12 +934,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-semibold text-gray-900">{line.title}</p>
                 <p className="mt-0.5 text-[12px] text-gray-500">
-                  <span className="font-medium text-gray-600">옵션</span>{" "}
-                  {line.optionsSummary?.trim() ? line.optionsSummary.trim() : "없음"}
+                  <span className="font-medium text-gray-600">{t("common_option")}</span>{" "}
+                  {line.optionsSummary?.trim() ? line.optionsSummary.trim() : t("common_none")}
                 </p>
                 {line.lineNote?.trim() ? (
                   <p className="mt-0.5 text-[12px] text-amber-900/90">
-                    <span className="font-medium">요청</span> {line.lineNote.trim()}
+                    <span className="font-medium">{t("common_request")}</span> {line.lineNote.trim()}
                   </p>
                 ) : null}
                 <div className="mt-1 flex flex-wrap items-baseline gap-2">
@@ -987,7 +989,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   onClick={() => cart.removeLine(line.lineId)}
                   className="text-[13px] font-medium text-red-600"
                 >
-                  삭제
+                  {t("common_delete")}
                 </button>
               </div>
             </div>
@@ -1000,7 +1002,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           href={`/stores/${encodeURIComponent(store.slug)}`}
           className="inline-flex w-full items-center justify-center rounded border border-stone-300 bg-white py-3 text-[14px] font-semibold text-signature shadow-sm active:bg-stone-50"
         >
-          메뉴 더 담으러 가기
+          {t("common_menu_more")}
         </Link>
       </div>
 
@@ -1390,7 +1392,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           onClick={() => void submitOrder()}
           className="w-full rounded bg-signature py-3.5 text-[15px] font-bold text-white shadow-sm disabled:bg-gray-300 disabled:text-gray-600"
         >
-          {busy ? "처리 중…" : "주문하기"}
+          {busy ? t("common_processing") : t("common_order_action")}
         </button>
       </div>
 
@@ -1410,7 +1412,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="cart-addr-modal-title" className="text-base font-bold text-gray-900">
-              배송지 추가
+              {`${t("common_delivery_label")}지 추가`}
             </h2>
             <p className="mt-1 text-[12px] leading-snug text-gray-500">
               저장하면 목록에 배달주소 {addressBook.length + (profileSnap ? 2 : 1)}로 추가됩니다. 라디오로
@@ -1432,7 +1434,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   setModalCity(id);
                   setModalLocationError(undefined);
                 }}
-                label="거래 지역"
+                label={t("common_location")}
               />
               <div className="space-y-2">
                 <p className="text-[12px] leading-snug text-gray-500">{STORE_ADDRESS_STREET_HINT}</p>
