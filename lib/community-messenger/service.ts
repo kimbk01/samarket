@@ -823,17 +823,30 @@ function buildRoomSummaryFromHydratedMembers(
   };
 }
 
-async function mapRoomSummary(
+/** 방 목록용: 참가자 전원에 대해 hydrateProfiles 1회만 호출 (방마다 호출 시 N배 지연). */
+async function summarizeRoomsBatch(
   userId: string,
-  room: RoomRow | DevRoom,
-  participants: Array<ParticipantRow | DevParticipant>,
-  roomProfileMap?: Map<string, RoomProfileRow | DevRoomProfile>
-): Promise<CommunityMessengerRoomSummary> {
-  const memberIds = dedupeIds(
-    participants.map((item) => ("user_id" in item ? item.user_id : item.userId))
+  roomRows: Array<RoomRow | DevRoom>,
+  participantRows: Array<ParticipantRow | DevParticipant>,
+  roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>,
+  participantsByRoom: Map<string, Array<ParticipantRow | DevParticipant>>
+): Promise<CommunityMessengerRoomSummary[]> {
+  const allMemberIds = dedupeIds(
+    participantRows.map((item) => ("user_id" in item ? item.user_id : item.userId))
   );
-  const memberProfilesRaw = await hydrateProfiles(userId, memberIds, { includeSelf: true });
-  return buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, memberProfilesRaw);
+  const allMemberProfiles = await hydrateProfiles(userId, allMemberIds, { includeSelf: true });
+  const profileById = new Map(allMemberProfiles.map((profile) => [profile.id, profile]));
+
+  return roomRows.map((room) => {
+    const participants = participantsByRoom.get(room.id) ?? [];
+    const memberIds = dedupeIds(
+      participants.map((item) => ("user_id" in item ? item.user_id : item.userId))
+    );
+    const memberProfilesForRoom = memberIds
+      .map((id) => profileById.get(id))
+      .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+    return buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, memberProfilesForRoom);
+  });
 }
 
 async function listRooms(userId: string): Promise<{
@@ -889,9 +902,7 @@ async function listRooms(userId: string): Promise<{
   }
 
   const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
-  const summaries = await Promise.all(
-    roomRows.map((room) => mapRoomSummary(userId, room, byRoomId.get(room.id) ?? [], roomProfileMap))
-  );
+  const summaries = await summarizeRoomsBatch(userId, roomRows, participantRows, roomProfileMap, byRoomId);
   return {
     chats: summaries.filter((room) => room.roomType === "direct"),
     groups: summaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType)),
@@ -944,9 +955,7 @@ async function loadRoomSummaryMap(
   }
 
   const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
-  const summaries = await Promise.all(
-    roomRows.map((room) => mapRoomSummary(userId, room, participantsByRoom.get(room.id) ?? [], roomProfileMap))
-  );
+  const summaries = await summarizeRoomsBatch(userId, roomRows, participantRows, roomProfileMap, participantsByRoom);
   for (const summary of summaries) {
     result.set(summary.id, summary);
   }
@@ -1017,9 +1026,9 @@ export async function listDiscoverableOpenGroupRooms(
   }
 
   const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
-  const summaries = await Promise.all(
-    roomRows.map(async (room) => {
-      const summary = await mapRoomSummary(userId, room, byRoomId.get(room.id) ?? [], roomProfileMap);
+  const baseSummaries = await summarizeRoomsBatch(userId, roomRows, participantRows, roomProfileMap, byRoomId);
+  const summaries = baseSummaries
+    .map((summary) => {
       if (summary.roomType !== "open_group") return null;
       if (keyword) {
         const haystack = [summary.title, summary.summary, summary.ownerLabel].join(" ").toLowerCase();
@@ -1045,9 +1054,9 @@ export async function listDiscoverableOpenGroupRooms(
         isJoined: joinedRoomIds.has(summary.id),
       };
     })
-  );
+    .filter(Boolean);
 
-  return summaries.filter(Boolean) as CommunityMessengerDiscoverableGroupSummary[];
+  return summaries as CommunityMessengerDiscoverableGroupSummary[];
 }
 
 export async function getOpenGroupJoinPreview(

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import {
   isCommunityMessengerIncomingCallBannerEnabled,
@@ -138,6 +138,15 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       default:
         return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     }
+  }, []);
+
+  useLayoutEffect(() => {
+    const stale = peekBootstrapCache();
+    if (!stale) return;
+    setData(stale);
+    setAuthRequired(false);
+    setPageError(null);
+    setLoading(false);
   }, []);
 
   const refresh = useCallback(async (silent = false) => {
