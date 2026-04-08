@@ -2,7 +2,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { getUserProfile } from "@/lib/users/getUserProfile";
 import type { ChatRoom } from "@/lib/types/chat";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import { fetchPostRowsForChatIn } from "@/lib/chats/post-select-compat";
@@ -131,11 +130,7 @@ export async function getRoomByIdFromDb(
     r.post_id
   );
   const unreadCount = amISeller ? (row.unread_count_seller ?? 0) : (row.unread_count_buyer ?? 0);
-  const partnerProfile = await getUserProfile(partnerId);
-  const partnerNickname =
-    nicknameByUserId.get(partnerId)?.trim() ||
-    partnerProfile?.nickname?.trim() ||
-    partnerId.slice(0, 8);
+  const partnerNickname = nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8);
 
   return {
     id: r.id,

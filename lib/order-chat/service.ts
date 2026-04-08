@@ -7,6 +7,7 @@ import {
   systemChatLineForOrderStatus,
 } from "@/lib/shared-order-chat/chat-message-builder";
 import { storeOrderStatusToShared } from "@/lib/store-commerce/map-order-status";
+import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import type {
   OrderChatMessagePublic,
   OrderChatRole,
@@ -33,14 +34,6 @@ function fallbackDisplayName(userId: string, label: string) {
   return label.trim() || userId.replace(/-/g, "").slice(0, 8) || "사용자";
 }
 
-async function resolveProfileNickname(sb: SupabaseClient<any>, userId: string): Promise<string | null> {
-  const uid = userId.trim();
-  if (!uid) return null;
-  const { data } = await sb.from("profiles").select("nickname").eq("id", uid).maybeSingle();
-  const nick = String((data as { nickname?: string } | null)?.nickname ?? "").trim();
-  return nick || null;
-}
-
 async function resolveOrderChatIdentity(
   sb: SupabaseClient<any>,
   input: {
@@ -49,10 +42,9 @@ async function resolveOrderChatIdentity(
     storeName: string;
   }
 ) {
-  const [buyerNick, ownerNick] = await Promise.all([
-    resolveProfileNickname(sb, input.buyerUserId),
-    resolveProfileNickname(sb, input.ownerUserId),
-  ]);
+  const nickMap = await fetchNicknamesForUserIds(sb, [input.buyerUserId, input.ownerUserId]);
+  const buyerNick = nickMap.get(input.buyerUserId)?.trim() ?? null;
+  const ownerNick = nickMap.get(input.ownerUserId)?.trim() ?? null;
   return {
     buyerName: fallbackDisplayName(input.buyerUserId, buyerNick ?? ""),
     ownerName: fallbackDisplayName(input.ownerUserId, input.storeName || ownerNick || ""),

@@ -34,76 +34,31 @@ import {
 } from "@/lib/chats/philife/room-access";
 import type { ChatRoomActiveNotice } from "@/lib/types/chat";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
-import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
+import {
+  fetchPartnerDisplayFieldsMap,
+  nicknameMapFromPartnerDisplayMap,
+  partnerDisplayFromMap,
+} from "@/lib/chats/fetch-partner-display";
 import { ensureStoreOrderChatRoomAccessForUser } from "@/lib/chat/store-order-chat-db";
 
 type RoomDetailCacheEntry = { at: number; payload: unknown };
 const ROOM_DETAIL_CACHE_TTL_MS = 2500;
 const roomDetailCache = new Map<string, RoomDetailCacheEntry>();
 
-type PartnerDisplayFields = {
-  partnerNickname: string;
-  partnerAvatar: string;
-  partnerTrustScore: number;
-};
-
-async function fetchPartnerDisplayFields(
-  sbAny: SupabaseClient<any>,
-  partnerId: string,
-  nicknameFallback: string
-): Promise<PartnerDisplayFields> {
-  const fb = nicknameFallback.trim() || partnerId.slice(0, 8) || "?";
-  if (!partnerId) {
-    return {
-      partnerNickname: fb,
-      partnerAvatar: "",
-      partnerTrustScore: resolveProfileTrustScore(null),
-    };
-  }
-  const { data: profileRow } = await sbAny
-    .from("profiles")
-    .select("nickname, username, avatar_url, trust_score, manner_score, manner_temperature")
-    .eq("id", partnerId)
-    .maybeSingle();
-  if (profileRow) {
-    const p = profileRow as Record<string, unknown>;
-    const nick = ((p.nickname ?? p.username ?? fb) as string).trim() || fb;
-    const av = p.avatar_url;
-    const avatar = typeof av === "string" && av.trim() ? av.trim() : "";
-    return {
-      partnerNickname: nick,
-      partnerAvatar: avatar,
-      partnerTrustScore: resolveProfileTrustScore(p),
-    };
-  }
-  const { data: testRow } = await sbAny
-    .from("test_users")
-    .select("display_name, username")
-    .eq("id", partnerId)
-    .maybeSingle();
-  if (testRow) {
-    const t = testRow as Record<string, unknown>;
-    const nick = ((t.display_name ?? t.username ?? fb) as string).trim() || fb;
-    return {
-      partnerNickname: nick,
-      partnerAvatar: "",
-      partnerTrustScore: resolveProfileTrustScore(null),
-    };
-  }
-  return {
-    partnerNickname: fb,
-    partnerAvatar: "",
-    partnerTrustScore: resolveProfileTrustScore(null),
-  };
-}
-
 async function chatProductFromPostEnriched(
   sbAny: SupabaseClient<any>,
   post: Record<string, unknown> | null | undefined,
-  postId: string
+  postId: string,
+  preloadedNicknameByUserId?: Map<string, string>
 ) {
   const aid = postAuthorUserId(post ?? undefined);
-  const map = await fetchNicknamesForUserIds(sbAny, aid ? [aid] : []);
+  let map = preloadedNicknameByUserId;
+  if (!map) {
+    map = await fetchNicknamesForUserIds(sbAny, aid ? [aid] : []);
+  } else if (aid && !map.has(aid)) {
+    const extra = await fetchNicknamesForUserIds(sbAny, [aid]);
+    map = new Map([...map, ...extra]);
+  }
   return chatProductSummaryFromPostRow(enrichPostWithAuthorNickname(post ?? undefined, map), postId);
 }
 
@@ -361,10 +316,16 @@ export async function GET(
         const itemId = (crSame as { item_id: string | null }).item_id ?? "";
         const amISeller2 = crRow.seller_id === userId;
         const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
-        const [post2, partnerDisp2] = await Promise.all([
-          fetchPostRowForChat(sbAny, itemId),
-          fetchPartnerDisplayFields(sbAny, partnerId2 ?? "", (partnerId2 ?? "").slice(0, 8)),
-        ]);
+        const post2 = await fetchPostRowForChat(sbAny, itemId);
+        const batchIdsCr = [
+          ...new Set([partnerId2, postAuthorUserId(post2 ?? undefined) ?? ""].filter(Boolean)),
+        ] as string[];
+        const partnerMapCr = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsCr);
+        const partnerDisp2 = partnerDisplayFromMap(
+          partnerMapCr,
+          partnerId2 ?? "",
+          (partnerId2 ?? "").slice(0, 8)
+        );
         const partnerNickname2 = partnerDisp2.partnerNickname;
         const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
         const rowPc = r as Record<string, unknown>;
@@ -395,7 +356,10 @@ export async function GET(
             lastMessageAt: (crSame as { last_message_at: string | null }).last_message_at ?? (crSame as { created_at: string }).created_at,
             unreadCount,
             tradeStatus: listing,
-            product: await chatProductFromPostEnriched(sbAny, post2 ?? undefined, itemId),
+            product: chatProductSummaryFromPostRow(
+              enrichPostWithAuthorNickname(post2 ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapCr)),
+              itemId
+            ),
             source: "chat_room",
             chatDomain: "trade",
             roomTitle: partnerNickname2.trim() || (partnerId2 ?? "").slice(0, 8),
@@ -419,9 +383,8 @@ export async function GET(
     const row = r as Record<string, unknown>;
     const unreadCount = amISeller ? (row.unread_count_seller ?? 0) : (row.unread_count_buyer ?? 0);
     const partnerId = amISeller ? r.buyer_id : r.seller_id;
-    const [post, partnerDispPc, crRowsLegacyRes] = await Promise.all([
+    const [post, crRowsLegacyRes] = await Promise.all([
       fetchPostRowForChat(sbAny, r.post_id as string),
-      fetchPartnerDisplayFields(sbAny, partnerId, partnerId.slice(0, 8)),
       sbAny
         .from("chat_rooms")
         .select("id, seller_id, buyer_id, updated_at")
@@ -430,6 +393,11 @@ export async function GET(
         .eq("buyer_id", r.buyer_id)
         .order("updated_at", { ascending: false }),
     ]);
+    const batchIdsPc = [
+      ...new Set([partnerId, postAuthorUserId(post ?? undefined) ?? ""].filter(Boolean)),
+    ] as string[];
+    const partnerMapPc = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsPc);
+    const partnerDispPc = partnerDisplayFromMap(partnerMapPc, partnerId, partnerId.slice(0, 8));
     const partnerNickname = partnerDispPc.partnerNickname;
     // crSame(판매자 ID 정확 일치)가 없어도 posts.user_id와 맞는 chat_rooms가 있으면 거래 상태 동기화
     const postSellerCandidates = new Set(
@@ -475,7 +443,10 @@ export async function GET(
       lastMessage: (row.last_message_preview as string) ?? "",
       lastMessageAt: (row.last_message_at as string) ?? r.created_at,
       unreadCount: Number(unreadCount),
-      product: await chatProductFromPostEnriched(sbAny, post ?? undefined, r.post_id),
+      product: chatProductSummaryFromPostRow(
+        enrichPostWithAuthorNickname(post ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapPc)),
+        r.post_id as string
+      ),
       source: "product_chat",
       chatDomain: "trade",
       roomTitle: partnerNickname.trim() || partnerId.slice(0, 8),
@@ -638,11 +609,11 @@ export async function GET(
     const prSo = { unread_count: accessSo.unreadCount };
     const amISellerSo = sRow === userId;
     const partnerIdSo = amISellerSo ? bRow : sRow;
-    const partnerPromise = fetchPartnerDisplayFields(sbAny, partnerIdSo, partnerIdSo.slice(0, 8));
+    const partnerPromise = fetchPartnerDisplayFieldsMap(sbAny, [partnerIdSo]);
     const oid = crSo.store_order_id ?? "";
     let titleSo = "배달 주문";
     let storeIdForRoom: string | null = null;
-    let partnerDispSo: Awaited<ReturnType<typeof fetchPartnerDisplayFields>> | null = null;
+    let partnerDispSo: ReturnType<typeof partnerDisplayFromMap> | null = null;
     let partnerNickSo = partnerIdSo.slice(0, 8);
     if (oid) {
       const { data: ordRow } = await sbAny
@@ -667,7 +638,7 @@ export async function GET(
           ? BUYER_ORDER_STATUS_LABEL[(ordRow as { order_status: string }).order_status] ??
             (ordRow as { order_status: string }).order_status
           : "";
-      partnerDispSo = await partnerPromise;
+      partnerDispSo = partnerDisplayFromMap(await partnerPromise, partnerIdSo, partnerIdSo.slice(0, 8));
       partnerNickSo = partnerDispSo.partnerNickname;
       const payload = {
           id: crSo.id,
@@ -714,7 +685,7 @@ export async function GET(
         { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
       );
     }
-    partnerDispSo = await partnerPromise;
+    partnerDispSo = partnerDisplayFromMap(await partnerPromise, partnerIdSo, partnerIdSo.slice(0, 8));
     partnerNickSo = partnerDispSo.partnerNickname;
     const payload = {
         id: crSo.id,
@@ -778,7 +749,11 @@ export async function GET(
     const partnerId2 = userId === ini ? peer : ini;
     const postIdG = crAny.related_post_id ?? "";
     const postG = postIdG ? await fetchPostRowForChat(sbAny, postIdG) : null;
-    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, await fetchNicknamesForUserIds(sbAny, [postAuthorUserId(postG) ?? ""].filter(Boolean))) : null;
+    const nickMeeting = await fetchNicknamesForUserIds(sbAny, [
+      partnerId2,
+      postAuthorUserId(postG ?? undefined) ?? "",
+    ].filter(Boolean));
+    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, nickMeeting) : null;
     const roomTitle =
       (postG && typeof postG.title === "string" ? String(postG.title).trim() : "") ||
       access.title ||
@@ -834,22 +809,15 @@ export async function GET(
     const ini = crAny.initiator_id ?? "";
     const peer = crAny.peer_id ?? "";
     const partnerId2 = userId === ini ? peer : ini;
-    let partnerNickname2 = partnerId2.slice(0, 8);
-    if (partnerId2) {
-      const { data: profileRow2 } = await sbAny.from("profiles").select("nickname, username").eq("id", partnerId2).maybeSingle();
-      if (profileRow2) {
-        const p = profileRow2 as Record<string, unknown>;
-        partnerNickname2 = (p.nickname ?? p.username ?? partnerNickname2) as string;
-      } else {
-        const { data: testRow2 } = await sbAny.from("test_users").select("display_name, username").eq("id", partnerId2).maybeSingle();
-        if (testRow2) {
-          const t = testRow2 as Record<string, unknown>;
-          partnerNickname2 = (t.display_name ?? t.username ?? partnerNickname2) as string;
-        }
-      }
-    }
     const postIdG = crAny.related_post_id ?? "";
     const postG = postIdG ? await fetchPostRowForChat(sbAny, postIdG) : null;
+    const nickDirect = await fetchNicknamesForUserIds(sbAny, [
+      partnerId2,
+      postAuthorUserId(postG ?? undefined) ?? "",
+    ].filter(Boolean));
+    const partnerNickname2 = partnerId2
+      ? nickDirect.get(partnerId2)?.trim() || partnerId2.slice(0, 8)
+      : partnerId2.slice(0, 8);
     const kind = generalChatKindFromRoomRow(roomType, crAny.context_type ?? null);
     const titleFallback =
       kind === "business"
@@ -857,7 +825,7 @@ export async function GET(
         : kind === "community"
           ? "커뮤니티 문의"
           : "일반 채팅";
-    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, await fetchNicknamesForUserIds(sbAny, [postAuthorUserId(postG) ?? ""].filter(Boolean))) : null;
+    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, nickDirect) : null;
     const payload = buildPhilifeDetailRoom({
         id: crAny.id,
         roomKind: "direct",
@@ -907,8 +875,12 @@ export async function GET(
   const post2 = await fetchPostRowForChat(sbAny, itemId);
   const amISeller2 = crRow.seller_id === userId;
   const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
-  const partnerDispTrade = await fetchPartnerDisplayFields(
-    sbAny,
+  const batchIdsTrade = [
+    ...new Set([partnerId2, postAuthorUserId(post2 ?? undefined) ?? ""].filter(Boolean)),
+  ] as string[];
+  const partnerMapTrade = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsTrade);
+  const partnerDispTrade = partnerDisplayFromMap(
+    partnerMapTrade,
     partnerId2 ?? "",
     (partnerId2 ?? "").slice(0, 8)
   );
@@ -954,7 +926,10 @@ export async function GET(
       lastMessageAt: (cr as { last_message_at: string | null }).last_message_at ?? (cr as { created_at: string }).created_at,
       unreadCount,
       tradeStatus: listing,
-      product: await chatProductFromPostEnriched(sbAny, post2 ?? undefined, itemId),
+      product: chatProductSummaryFromPostRow(
+        enrichPostWithAuthorNickname(post2 ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapTrade)),
+        itemId
+      ),
       source: "chat_room",
       chatDomain: "trade",
       roomTitle: partnerNickname2.trim() || (partnerId2 ?? "").slice(0, 8),

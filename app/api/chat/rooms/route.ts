@@ -3,7 +3,8 @@
  * GET /api/chat/rooms (세션)
  *
  * 성능: 세그먼트별로 불필요한 product_chats / chat_rooms 행 조회 생략,
- * chat_rooms는 청크 단일 select 후 메모리에서 room_type 분기, 닉네임·posts 일괄 조회.
+ * chat_rooms는 청크 단일 select 후 메모리에서 room_type 분기,
+ * 상대·작성자 닉네임은 `fetchNicknamesForUserIds` 한 번(프로필·테스트유저 일괄) + posts 일괄 조회.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";

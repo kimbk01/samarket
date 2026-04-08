@@ -30,7 +30,10 @@ export function postOwnedByUserId(
   return a === u || w === u;
 }
 
-/** Supabase 클라이언트(서비스 롤 또는 브라우저) — profiles + test_users */
+/**
+ * Supabase — `profiles` 일괄 `.in("id", …)` 후, 닉이 아직 없는 ID만 `test_users` 조회 (중복·불필요 왕복 감소).
+ * 채팅 목록/방 상세·주문채팅 방 생성 등 공통 사용.
+ */
 export async function fetchNicknamesForUserIds(
   sbAny: SupabaseClient<any>,
   userIds: string[]
@@ -46,7 +49,13 @@ export async function fetchNicknamesForUserIds(
     if (id && name) map.set(id, String(name).trim());
   });
 
-  const { data: testUsers } = await sbAny.from("test_users").select("id, display_name, username").in("id", ids);
+  const needTest = ids.filter((id) => !map.has(id));
+  if (needTest.length === 0) return map;
+
+  const { data: testUsers } = await sbAny
+    .from("test_users")
+    .select("id, display_name, username")
+    .in("id", needTest);
   (testUsers as Record<string, unknown>[] | null | undefined)?.forEach((t) => {
     const id = t.id as string;
     if (map.has(id)) return;

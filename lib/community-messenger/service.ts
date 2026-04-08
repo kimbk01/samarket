@@ -771,9 +771,7 @@ function buildRoomSummaryFromHydratedMembers(
     joinPolicy === "password" &&
     trimText(isDbRoom ? room.password_hash : room.passwordHash).length > 0;
   const me = participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === userId);
-  const memberIds = dedupeIds(
-    participants.map((item) => ("user_id" in item ? item.user_id : item.userId))
-  );
+  const memberIds = dedupeParticipantUserIds(participants);
   const peers = memberIds.filter((id) => id !== userId);
   const peerProfilesBase = memberProfilesRaw.filter((profile) => profile.id !== userId);
   const memberProfiles = memberProfilesRaw.map((profile) =>
@@ -823,6 +821,78 @@ function buildRoomSummaryFromHydratedMembers(
   };
 }
 
+function buildParticipantsByRoomMap(
+  participantRows: Array<ParticipantRow | DevParticipant>
+): Map<string, Array<ParticipantRow | DevParticipant>> {
+  const byRoomId = new Map<string, Array<ParticipantRow | DevParticipant>>();
+  for (const participant of participantRows) {
+    const roomId = participantRowRoomId(participant);
+    const list = byRoomId.get(roomId) ?? [];
+    list.push(participant);
+    byRoomId.set(roomId, list);
+  }
+  return byRoomId;
+}
+
+/**
+ * Community Messenger — `hydrateProfiles` / 관계 조립 경로 (실 API 기준)
+ *
+ * - `getCommunityMessengerBootstrap`: 친구·차단·팔로우 ID, `fetchMyRoomsPayload`, 탐색 raw, 통화 로그 행을 모은 뒤
+ *   **단일** `hydrateProfiles` → `summarizeRoomsBatchWithProfileMap` + 통화 `roomSummaryMap` + `loadSessionMapsForCallLogs`.
+ * - `listRooms` / `listDiscoverableOpenGroupRooms` / `listCalls`: 단독 엔드포인트에서 각각 **1회** 하이드레이션 (부트스트랩과는 별 요청).
+ * - 방 상세 `getCommunityMessengerRoomDetail`: 해당 방 멤버만 **1회** `hydrateProfilesWithProfileMap`.
+ * - `listCommunityMessengerFriends` / `searchCommunityMessengerUsers`: 목록·검색 전용 **1회**.
+ * - `loadCallSessionParticipants` / `resolveCommunityMessengerGroupTitle`: 해당 작업 범위 **1회** (세션/그룹 제목용).
+ */
+function participantRowRoomId(p: ParticipantRow | DevParticipant): string {
+  return "room_id" in p ? p.room_id : p.roomId;
+}
+
+function participantRowUserId(p: ParticipantRow | DevParticipant): string {
+  return trimText("user_id" in p ? p.user_id : p.userId) || "";
+}
+
+function dedupeParticipantUserIds(rows: Array<ParticipantRow | DevParticipant>): string[] {
+  return dedupeIds(rows.map((p) => participantRowUserId(p)).filter((id): id is string => Boolean(id)));
+}
+
+function isDbCallLogRow(row: CallRow | DevCall): row is CallRow {
+  return "caller_user_id" in row;
+}
+
+function callLogRoomId(row: CallRow | DevCall): string | null {
+  const v = isDbCallLogRow(row) ? row.room_id : row.roomId;
+  return trimText(v) || null;
+}
+
+function callLogSessionId(row: CallRow | DevCall): string | null {
+  const v = isDbCallLogRow(row) ? row.session_id : row.sessionId;
+  return trimText(v) || null;
+}
+
+function callLogPeerUserId(row: CallRow | DevCall): string | null {
+  const v = isDbCallLogRow(row) ? row.peer_user_id : row.peerUserId;
+  return trimText(v) || null;
+}
+
+/** 이미 hydrateProfiles 로 채운 맵으로 방 요약만 조립 (부트스트랩 단일 하이드레이션용). */
+function summarizeRoomsBatchWithProfileMap(
+  userId: string,
+  roomRows: Array<RoomRow | DevRoom>,
+  roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>,
+  participantsByRoom: Map<string, Array<ParticipantRow | DevParticipant>>,
+  profileById: Map<string, CommunityMessengerProfileLite>
+): CommunityMessengerRoomSummary[] {
+  return roomRows.map((room) => {
+    const participants = participantsByRoom.get(room.id) ?? [];
+    const memberIds = dedupeParticipantUserIds(participants);
+    const memberProfilesForRoom = memberIds
+      .map((id) => profileById.get(id))
+      .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+    return buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, memberProfilesForRoom);
+  });
+}
+
 /** 방 목록용: 참가자 전원에 대해 hydrateProfiles 1회만 호출 (방마다 호출 시 N배 지연). */
 async function summarizeRoomsBatch(
   userId: string,
@@ -831,28 +901,20 @@ async function summarizeRoomsBatch(
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>,
   participantsByRoom: Map<string, Array<ParticipantRow | DevParticipant>>
 ): Promise<CommunityMessengerRoomSummary[]> {
-  const allMemberIds = dedupeIds(
-    participantRows.map((item) => ("user_id" in item ? item.user_id : item.userId))
-  );
+  const allMemberIds = dedupeParticipantUserIds(participantRows);
   const allMemberProfiles = await hydrateProfiles(userId, allMemberIds, { includeSelf: true });
   const profileById = new Map(allMemberProfiles.map((profile) => [profile.id, profile]));
-
-  return roomRows.map((room) => {
-    const participants = participantsByRoom.get(room.id) ?? [];
-    const memberIds = dedupeIds(
-      participants.map((item) => ("user_id" in item ? item.user_id : item.userId))
-    );
-    const memberProfilesForRoom = memberIds
-      .map((id) => profileById.get(id))
-      .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
-    return buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, memberProfilesForRoom);
-  });
+  return summarizeRoomsBatchWithProfileMap(userId, roomRows, roomProfileMap, participantsByRoom, profileById);
 }
 
-async function listRooms(userId: string): Promise<{
-  chats: CommunityMessengerRoomSummary[];
-  groups: CommunityMessengerRoomSummary[];
-}> {
+type MessengerRoomsPayload = {
+  roomRows: Array<RoomRow | DevRoom>;
+  participantRows: Array<ParticipantRow | DevParticipant>;
+  byRoomId: Map<string, Array<ParticipantRow | DevParticipant>>;
+  roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>;
+};
+
+async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayload> {
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
@@ -893,29 +955,39 @@ async function listRooms(userId: string): Promise<{
     participantRows = dev.participants.filter((row) => roomIds.includes(row.roomId));
   }
 
-  const byRoomId = new Map<string, Array<ParticipantRow | DevParticipant>>();
-  for (const participant of participantRows) {
-    const roomId = "room_id" in participant ? participant.room_id : participant.roomId;
-    const list = byRoomId.get(roomId) ?? [];
-    list.push(participant);
-    byRoomId.set(roomId, list);
-  }
-
+  const byRoomId = buildParticipantsByRoomMap(participantRows);
   const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
-  const summaries = await summarizeRoomsBatch(userId, roomRows, participantRows, roomProfileMap, byRoomId);
+  return { roomRows, participantRows, byRoomId, roomProfileMap };
+}
+
+async function listRooms(userId: string): Promise<{
+  chats: CommunityMessengerRoomSummary[];
+  groups: CommunityMessengerRoomSummary[];
+}> {
+  const payload = await fetchMyRoomsPayload(userId);
+  const summaries = await summarizeRoomsBatch(
+    userId,
+    payload.roomRows,
+    payload.participantRows,
+    payload.roomProfileMap,
+    payload.byRoomId
+  );
   return {
     chats: summaries.filter((room) => room.roomType === "direct"),
     groups: summaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType)),
   };
 }
 
-async function loadRoomSummaryMap(
-  userId: string,
-  roomIds: string[]
-): Promise<Map<string, CommunityMessengerRoomSummary>> {
+async function fetchRoomsPayloadByRoomIds(roomIds: string[]): Promise<MessengerRoomsPayload> {
   const uniqueRoomIds = dedupeIds(roomIds);
-  const result = new Map<string, CommunityMessengerRoomSummary>();
-  if (!uniqueRoomIds.length) return result;
+  if (!uniqueRoomIds.length) {
+    return {
+      roomRows: [],
+      participantRows: [],
+      byRoomId: new Map(),
+      roomProfileMap: new Map(),
+    };
+  }
 
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
@@ -946,27 +1018,36 @@ async function loadRoomSummaryMap(
     participantRows = dev.participants.filter((participant) => uniqueRoomIds.includes(participant.roomId));
   }
 
-  const participantsByRoom = new Map<string, Array<ParticipantRow | DevParticipant>>();
-  for (const participant of participantRows) {
-    const roomId = "room_id" in participant ? participant.room_id : participant.roomId;
-    const list = participantsByRoom.get(roomId) ?? [];
-    list.push(participant);
-    participantsByRoom.set(roomId, list);
-  }
-
+  const byRoomId = buildParticipantsByRoomMap(participantRows);
   const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
-  const summaries = await summarizeRoomsBatch(userId, roomRows, participantRows, roomProfileMap, participantsByRoom);
+  return { roomRows, participantRows, byRoomId, roomProfileMap };
+}
+
+async function loadRoomSummaryMap(
+  userId: string,
+  roomIds: string[]
+): Promise<Map<string, CommunityMessengerRoomSummary>> {
+  const uniqueRoomIds = dedupeIds(roomIds);
+  const result = new Map<string, CommunityMessengerRoomSummary>();
+  if (!uniqueRoomIds.length) return result;
+
+  const payload = await fetchRoomsPayloadByRoomIds(uniqueRoomIds);
+  const summaries = await summarizeRoomsBatch(
+    userId,
+    payload.roomRows,
+    payload.participantRows,
+    payload.roomProfileMap,
+    payload.byRoomId
+  );
   for (const summary of summaries) {
     result.set(summary.id, summary);
   }
   return result;
 }
 
-export async function listDiscoverableOpenGroupRooms(
-  userId: string,
-  query?: string
-): Promise<CommunityMessengerDiscoverableGroupSummary[]> {
-  const keyword = trimText(query).toLowerCase();
+type DiscoverableOpenGroupsRawState = MessengerRoomsPayload & { joinedRoomIds: Set<string> };
+
+async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<DiscoverableOpenGroupsRawState> {
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
@@ -1017,16 +1098,24 @@ export async function listDiscoverableOpenGroupRooms(
     );
   }
 
-  const byRoomId = new Map<string, Array<ParticipantRow | DevParticipant>>();
-  for (const participant of participantRows) {
-    const roomId = "room_id" in participant ? participant.room_id : participant.roomId;
-    const list = byRoomId.get(roomId) ?? [];
-    list.push(participant);
-    byRoomId.set(roomId, list);
-  }
-
+  const byRoomId = buildParticipantsByRoomMap(participantRows);
   const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
-  const baseSummaries = await summarizeRoomsBatch(userId, roomRows, participantRows, roomProfileMap, byRoomId);
+  return { roomRows, participantRows, byRoomId, roomProfileMap, joinedRoomIds };
+}
+
+export async function listDiscoverableOpenGroupRooms(
+  userId: string,
+  query?: string
+): Promise<CommunityMessengerDiscoverableGroupSummary[]> {
+  const keyword = trimText(query).toLowerCase();
+  const state = await fetchDiscoverableOpenGroupsRawState(userId);
+  const baseSummaries = await summarizeRoomsBatch(
+    userId,
+    state.roomRows,
+    state.participantRows,
+    state.roomProfileMap,
+    state.byRoomId
+  );
   const summaries = baseSummaries
     .map((summary) => {
       if (summary.roomType !== "open_group") return null;
@@ -1051,7 +1140,7 @@ export async function listDiscoverableOpenGroupRooms(
         requiresPassword: summary.requiresPassword,
         lastMessage: summary.lastMessage,
         lastMessageAt: summary.lastMessageAt,
-        isJoined: joinedRoomIds.has(summary.id),
+        isJoined: state.joinedRoomIds.has(summary.id),
       };
     })
     .filter(Boolean);
@@ -1069,7 +1158,7 @@ export async function getOpenGroupJoinPreview(
   return { ok: true, group };
 }
 
-async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
+async function fetchCallLogRowsOnly(userId: string): Promise<Array<CallRow | DevCall>> {
   const sb = getSupabaseOrNull();
   let rows: Array<CallRow | DevCall> = [];
   if (sb) {
@@ -1088,32 +1177,47 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
       .filter((row) => row.callerUserId === userId || row.peerUserId === userId)
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   }
+  return rows;
+}
 
-  const peerIds = dedupeIds(
-    rows.map((row) => ("peer_user_id" in row ? row.peer_user_id : row.peerUserId) ?? "").filter(Boolean)
-  );
-  const peerProfiles = await hydrateProfiles(userId, peerIds);
-  const peerMap = new Map(peerProfiles.map((profile) => [profile.id, profile]));
-  const roomMetaMap = new Map(
-    (
-      await loadRoomSummaryMap(
-        userId,
-        rows
-          .map((row) => ("room_id" in row ? row.room_id : row.roomId) ?? "")
-          .filter((value): value is string => Boolean(value))
-      )
-    ).entries()
-  );
-  const sessionIds = dedupeIds(
-    rows
-      .map((row) => {
-        const isDbCall = "caller_user_id" in row;
-        return (isDbCall ? row.session_id : row.sessionId) ?? "";
-      })
-      .filter(Boolean)
-  );
+async function fetchCallSessionParticipantUserIds(sessionIds: string[]): Promise<string[]> {
+  if (!sessionIds.length) return [];
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data } = await (sb as any)
+      .from("community_messenger_call_session_participants")
+      .select("user_id")
+      .in("session_id", sessionIds);
+    return dedupeIds(
+      ((data ?? []) as Array<{ user_id?: string | null }>)
+        .map((row) => trimText(row.user_id))
+        .filter(Boolean)
+    );
+  }
+  const dev = getDevState();
+  const ids = new Set<string>();
+  for (const sid of sessionIds) {
+    const session = dev.callSessions.find((item) => item.id === sid);
+    if (session?.participants) {
+      for (const p of session.participants) {
+        ids.add(p.userId);
+      }
+    }
+  }
+  return [...ids];
+}
+
+async function loadSessionMapsForCallLogs(
+  userId: string,
+  sessionIds: string[],
+  profileById: Map<string, CommunityMessengerProfileLite>
+): Promise<{
+  sessionMap: Map<string, CallSessionMetaRow | DevCallSession>;
+  participantsBySession: Map<string, CommunityMessengerCallParticipant[]>;
+}> {
   const sessionMap = new Map<string, CallSessionMetaRow | DevCallSession>();
   const participantsBySession = new Map<string, CommunityMessengerCallParticipant[]>();
+  const sb = getSupabaseOrNull();
   if (sb && sessionIds.length) {
     const [{ data: sessionRows }, { data: sessionParticipantRows }] = await Promise.all([
       (sb as any)
@@ -1135,17 +1239,12 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
       joined_at?: string | null;
       left_at?: string | null;
     }>;
-    const participantIds = dedupeIds(
-      participantRows.map((row) => row.user_id ?? "").filter(Boolean)
-    );
-    const participantProfiles = await hydrateProfiles(userId, participantIds, { includeSelf: true });
-    const participantProfileMap = new Map(participantProfiles.map((profile) => [profile.id, profile]));
     for (const row of participantRows) {
       const sessionId = trimText(row.session_id) || "";
       const participantUserId = trimText(row.user_id) || "";
       if (!sessionId || !participantUserId) continue;
       const list = participantsBySession.get(sessionId) ?? [];
-      const profile = participantProfileMap.get(participantUserId);
+      const profile = profileById.get(participantUserId);
       list.push({
         userId: participantUserId,
         label: profile?.label ?? profileLabel(null, participantUserId),
@@ -1163,13 +1262,23 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
       participantsBySession.set(session.id, participants);
     }
   }
+  return { sessionMap, participantsBySession };
+}
 
+function buildCallLogEntriesFromRows(
+  userId: string,
+  rows: Array<CallRow | DevCall>,
+  profileById: Map<string, CommunityMessengerProfileLite>,
+  roomMetaMap: Map<string, CommunityMessengerRoomSummary>,
+  sessionMap: Map<string, CallSessionMetaRow | DevCallSession>,
+  participantsBySession: Map<string, CommunityMessengerCallParticipant[]>
+): CommunityMessengerCallLog[] {
   return rows.map((row) => {
-    const isDbCall = "caller_user_id" in row;
+    const isDbCall = isDbCallLogRow(row);
     const roomId = (isDbCall ? row.room_id : row.roomId) ?? null;
     const sessionId = (isDbCall ? row.session_id : row.sessionId) ?? null;
     const peerUserId = (isDbCall ? row.peer_user_id : row.peerUserId) ?? null;
-    const peer = peerUserId ? peerMap.get(peerUserId) : undefined;
+    const peer = peerUserId ? profileById.get(peerUserId) : undefined;
     const startedAt = trimText(isDbCall ? row.started_at : row.startedAt) || nowIso();
     const session = sessionId ? sessionMap.get(sessionId) : null;
     const roomMeta = roomId ? roomMetaMap.get(roomId) : null;
@@ -1214,15 +1323,39 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
   });
 }
 
-async function loadRoomTitleMap(roomIds: string[], userId: string): Promise<Map<string, string>> {
-  const uniqueRoomIds = dedupeIds(roomIds);
-  const roomMap = new Map<string, string>();
-  if (!uniqueRoomIds.length) return roomMap;
-  const rooms = await listRooms(userId);
-  for (const room of [...rooms.chats, ...rooms.groups]) {
-    roomMap.set(room.id, room.title);
-  }
-  return roomMap;
+async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
+  const rows = await fetchCallLogRowsOnly(userId);
+  const roomIds = dedupeIds(
+    rows.map((row) => callLogRoomId(row)).filter((value): value is string => Boolean(value))
+  );
+  const sessionIds = dedupeIds(
+    rows.map((row) => callLogSessionId(row) ?? "").filter(Boolean)
+  );
+  const peerIds = dedupeIds(
+    rows.map((row) => callLogPeerUserId(row) ?? "").filter(Boolean)
+  );
+  const roomPayload = await fetchRoomsPayloadByRoomIds(roomIds);
+  const sessionParticipantUserIds = await fetchCallSessionParticipantUserIds(sessionIds);
+  const allIds = dedupeIds([
+    userId,
+    ...dedupeParticipantUserIds(roomPayload.participantRows),
+    ...peerIds,
+    ...sessionParticipantUserIds,
+  ]);
+  const profileById = new Map(
+    (await hydrateProfiles(userId, allIds, { includeSelf: true })).map((p) => [p.id, p])
+  );
+  const roomMetaMap = new Map(
+    summarizeRoomsBatchWithProfileMap(
+      userId,
+      roomPayload.roomRows,
+      roomPayload.roomProfileMap,
+      roomPayload.byRoomId,
+      profileById
+    ).map((s) => [s.id, s])
+  );
+  const { sessionMap, participantsBySession } = await loadSessionMapsForCallLogs(userId, sessionIds, profileById);
+  return buildCallLogEntriesFromRows(userId, rows, profileById, roomMetaMap, sessionMap, participantsBySession);
 }
 
 async function loadCallSessionParticipants(
@@ -1315,15 +1448,16 @@ async function mapCallSession(
         ? recipientUserId
         : initiatorUserId
       : null;
-  const profiles = peerUserId ? await hydrateProfiles(userId, [peerUserId]) : [];
-  const peer = profiles[0];
   const joinedCount = participants.filter((item) => item.status === "joined").length;
   const peerLabel =
     sessionMode === "group"
       ? joinedCount > 1
         ? `그룹 통화 · ${joinedCount}명 참여 중`
         : "그룹 통화"
-      : (peer?.label ?? profileLabel(null, peerUserId ?? initiatorUserId));
+      : (peerUserId
+          ? participants.find((p) => p.userId === peerUserId)?.label
+          : undefined) ??
+        profileLabel(null, peerUserId ?? initiatorUserId);
 
   return {
     id: session.id,
@@ -1591,36 +1725,128 @@ async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): P
 export async function getCommunityMessengerBootstrap(
   userId: string
 ): Promise<CommunityMessengerBootstrap> {
-  const [friendIds, followingIds, blockedIds, requests, rooms, discoverableGroups, calls] = await Promise.all([
+  const [friendIds, followingIds, blockedIds, requests, myPayload, discState, callRows] = await Promise.all([
     listAcceptedFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
     listFollowingIds(userId, "blocked"),
     listFriendRequests(userId),
-    listRooms(userId),
-    listDiscoverableOpenGroupRooms(userId),
-    listCalls(userId),
+    fetchMyRoomsPayload(userId),
+    fetchDiscoverableOpenGroupsRawState(userId),
+    fetchCallLogRowsOnly(userId),
   ]);
 
-  const allIds = dedupeIds([userId, ...friendIds, ...followingIds, ...blockedIds]);
+  const callRoomIds = dedupeIds(
+    callRows.map((row) => callLogRoomId(row)).filter((value): value is string => Boolean(value))
+  );
+  const myRoomIdSet = new Set(myPayload.roomRows.map((r) => r.id));
+  const missingCallRoomIds = callRoomIds.filter((id) => !myRoomIdSet.has(id));
+  const extraPayload =
+    missingCallRoomIds.length > 0 ? await fetchRoomsPayloadByRoomIds(missingCallRoomIds) : null;
+
+  const sessionIds = dedupeIds(callRows.map((row) => callLogSessionId(row) ?? "").filter(Boolean));
+  const sessionParticipantUserIds = await fetchCallSessionParticipantUserIds(sessionIds);
+
+  const peerIdsFromCalls = dedupeIds(
+    callRows.map((row) => callLogPeerUserId(row) ?? "").filter(Boolean)
+  );
+
+  const allIds = dedupeIds([
+    userId,
+    ...friendIds,
+    ...followingIds,
+    ...blockedIds,
+    ...dedupeParticipantUserIds(myPayload.participantRows),
+    ...dedupeParticipantUserIds(discState.participantRows),
+    ...(extraPayload ? dedupeParticipantUserIds(extraPayload.participantRows) : []),
+    ...peerIdsFromCalls,
+    ...sessionParticipantUserIds,
+  ]);
+
   const allProfiles = await hydrateProfiles(userId, allIds, { includeSelf: true });
-  const profileMap = new Map(allProfiles.map((profile) => [profile.id, profile]));
-  const me = profileMap.get(userId) ?? null;
+  const profileById = new Map(allProfiles.map((profile) => [profile.id, profile]));
+
+  const me = profileById.get(userId) ?? null;
   const friends = friendIds
-    .map((id) => profileMap.get(id))
+    .map((id) => profileById.get(id))
     .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
   const following = followingIds
-    .map((id) => profileMap.get(id))
+    .map((id) => profileById.get(id))
     .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
   const blocked = blockedIds
-    .map((id) => profileMap.get(id))
+    .map((id) => profileById.get(id))
     .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+
+  const mySummaries = summarizeRoomsBatchWithProfileMap(
+    userId,
+    myPayload.roomRows,
+    myPayload.roomProfileMap,
+    myPayload.byRoomId,
+    profileById
+  );
+  const chats = mySummaries.filter((room) => room.roomType === "direct");
+  const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+
+  const discSummaries = summarizeRoomsBatchWithProfileMap(
+    userId,
+    discState.roomRows,
+    discState.roomProfileMap,
+    discState.byRoomId,
+    profileById
+  );
+  const discoverableGroups = discSummaries
+    .map((summary) => {
+      if (summary.roomType !== "open_group") return null;
+      return {
+        id: summary.id,
+        roomType: "open_group" as const,
+        roomStatus: summary.roomStatus,
+        visibility: "public" as const,
+        joinPolicy: summary.joinPolicy === "free" ? "free" : "password",
+        identityPolicy: summary.identityPolicy,
+        title: summary.title,
+        summary: summary.summary,
+        ownerUserId: summary.ownerUserId,
+        ownerLabel: summary.ownerLabel,
+        memberCount: summary.memberCount,
+        memberLimit: summary.memberLimit,
+        isDiscoverable: summary.isDiscoverable,
+        requiresPassword: summary.requiresPassword,
+        lastMessage: summary.lastMessage,
+        lastMessageAt: summary.lastMessageAt,
+        isJoined: discState.joinedRoomIds.has(summary.id),
+      };
+    })
+    .filter(Boolean) as CommunityMessengerDiscoverableGroupSummary[];
+
+  const roomSummaryMap = new Map<string, CommunityMessengerRoomSummary>();
+  for (const s of mySummaries) roomSummaryMap.set(s.id, s);
+  if (extraPayload) {
+    const extraSummaries = summarizeRoomsBatchWithProfileMap(
+      userId,
+      extraPayload.roomRows,
+      extraPayload.roomProfileMap,
+      extraPayload.byRoomId,
+      profileById
+    );
+    for (const s of extraSummaries) roomSummaryMap.set(s.id, s);
+  }
+
+  const { sessionMap, participantsBySession } = await loadSessionMapsForCallLogs(userId, sessionIds, profileById);
+  const calls = buildCallLogEntriesFromRows(
+    userId,
+    callRows,
+    profileById,
+    roomSummaryMap,
+    sessionMap,
+    participantsBySession
+  );
 
   return {
     me,
     tabs: {
       friends: friends.length,
-      chats: rooms.chats.length,
-      groups: rooms.groups.length,
+      chats: chats.length,
+      groups: groups.length,
       calls: calls.length,
       settings: blocked.length,
     },
@@ -1628,8 +1854,8 @@ export async function getCommunityMessengerBootstrap(
     following,
     blocked,
     requests,
-    chats: rooms.chats,
-    groups: rooms.groups,
+    chats,
+    groups,
     discoverableGroups,
     calls,
   };
@@ -2653,7 +2879,7 @@ export async function getCommunityMessengerRoomSnapshot(
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
   }
 
-  const memberIds = dedupeIds(participants.map((item) => ("user_id" in item ? item.user_id : item.userId)));
+  const memberIds = dedupeParticipantUserIds(participants);
   const [roomProfileMap, activeCall, hydrated] = await Promise.all([
     fetchRoomProfilesByRoomIds([id]),
     getActiveCallSessionForRoom(userId, id),
