@@ -18,6 +18,7 @@ import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
+import { useMypageHubModal } from "@/components/mypage/MypageHubModalProvider";
 
 export type MypageIgTabId = "trade" | "orders" | "board" | "store" | "account";
 
@@ -74,6 +75,7 @@ export function MypageInstagramView({
   storeAttentionSummary,
   services,
 }: MypageInstagramViewProps) {
+  const { openProfileEdit } = useMypageHubModal();
   const [tab, setTab] = useState<MypageIgTabId>("trade");
   const [bizBlockedOpen, setBizBlockedOpen] = useState(false);
 
@@ -267,9 +269,10 @@ export function MypageInstagramView({
       {/* 프로필 상단 — 인스타 프로필 레이아웃 */}
       <div className="px-4 pb-3 pt-1">
         <div className="flex gap-5">
-          <Link
-            href="/my/edit"
-            className="relative h-[86px] w-[86px] shrink-0 overflow-hidden rounded-full border border-ig-border bg-ig-highlight"
+          <button
+            type="button"
+            onClick={() => openProfileEdit()}
+            className="relative h-[86px] w-[86px] shrink-0 overflow-hidden rounded-full border border-ig-border bg-ig-highlight text-left"
             aria-label="프로필 사진 편집"
           >
             {profile.avatar_url ? (
@@ -279,7 +282,7 @@ export function MypageInstagramView({
                 <UserGlyph />
               </div>
             )}
-          </Link>
+          </button>
           <div className="min-w-0 flex-1 pt-1">
             <div className="grid grid-cols-4 divide-x divide-ig-border text-center">
               <StatCell href="/mypage/trade" value={tradeTotal} label="거래" />
@@ -323,12 +326,13 @@ export function MypageInstagramView({
         </div>
 
         <div className="mt-3 flex gap-2">
-          <Link
-            href="/my/edit"
+          <button
+            type="button"
+            onClick={() => openProfileEdit()}
             className="flex h-9 flex-1 items-center justify-center rounded-lg bg-ig-highlight text-[13px] font-semibold text-foreground active:opacity-80"
           >
             프로필 편집
-          </Link>
+          </button>
           <Link
             href="/my/addresses"
             className="flex h-9 flex-1 items-center justify-center rounded-lg bg-ig-highlight text-[13px] font-semibold text-foreground active:opacity-80"
@@ -339,15 +343,26 @@ export function MypageInstagramView({
 
         {chips.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {chips.map((c) => (
-              <Link
-                key={c.key}
-                href={c.href}
-                className="rounded-full border border-ig-border bg-background px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-opacity active:opacity-70"
-              >
-                {c.label}
-              </Link>
-            ))}
+            {chips.map((c) =>
+              c.href === "/my/edit" ? (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => openProfileEdit()}
+                  className="rounded-full border border-ig-border bg-background px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-opacity active:opacity-70"
+                >
+                  {c.label}
+                </button>
+              ) : (
+                <Link
+                  key={c.key}
+                  href={c.href}
+                  className="rounded-full border border-ig-border bg-background px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-opacity active:opacity-70"
+                >
+                  {c.label}
+                </Link>
+              )
+            )}
           </div>
         ) : null}
       </div>
@@ -377,6 +392,7 @@ export function MypageInstagramView({
           <IgMenuRow
             key={row.href + row.title}
             {...row}
+            onProfileEdit={row.href === "/my/edit" ? openProfileEdit : undefined}
             suppressNav={shouldInterceptMypageBusinessHref(row.href, needsBizEntryModal)}
             onSuppressedNav={openBizBlocked}
           />
@@ -473,11 +489,34 @@ function IgMenuRow({
   title,
   subtitle,
   badge,
+  onProfileEdit,
   suppressNav,
   onSuppressedNav,
-}: MenuRow & { suppressNav?: boolean; onSuppressedNav?: () => void }) {
+}: MenuRow & {
+  onProfileEdit?: () => void;
+  suppressNav?: boolean;
+  onSuppressedNav?: () => void;
+}) {
   const rowCls =
     "flex w-full items-center justify-between gap-3 border-b border-ig-border px-4 py-3.5 active:bg-ig-highlight text-left";
+  if (onProfileEdit && href === "/my/edit") {
+    return (
+      <button type="button" className={rowCls} onClick={onProfileEdit}>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-medium text-foreground">{title}</span>
+            {badge ? (
+              <span className="rounded-full bg-signature/15 px-2 py-0.5 text-[11px] font-semibold text-signature">
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          {subtitle ? <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">{subtitle}</p> : null}
+        </div>
+        <Chevron />
+      </button>
+    );
+  }
   if (suppressNav && onSuppressedNav) {
     return (
       <button type="button" className={rowCls} onClick={onSuppressedNav}>

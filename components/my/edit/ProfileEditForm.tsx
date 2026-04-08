@@ -28,7 +28,13 @@ function validate(p: { nickname: string }): { nickname?: string } {
   return errors;
 }
 
-export function ProfileEditForm() {
+export type ProfileEditFormProps = {
+  /** 모달에서 취소·저장 후 닫기 */
+  variant?: "page" | "modal";
+  onRequestClose?: () => void;
+};
+
+export function ProfileEditForm({ variant = "page", onRequestClose }: ProfileEditFormProps = {}) {
   const { setLanguage } = useI18n();
   const { refreshProfileLocation } = useRegion();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -124,6 +130,9 @@ export function ProfileEditForm() {
       });
       await load();
       void refreshProfileLocation();
+      if (variant === "modal" && onRequestClose) {
+        onRequestClose();
+      }
     } else {
       setMessage({ type: "error", text: result.error });
     }
@@ -200,12 +209,22 @@ export function ProfileEditForm() {
       ) : null}
 
       <div className="flex gap-3">
-        <Link
-          href="/my"
-          className="flex-1 rounded-lg border border-gray-300 py-2.5 text-center text-[14px] font-medium text-gray-700"
-        >
-          취소
-        </Link>
+        {variant === "modal" && onRequestClose ? (
+          <button
+            type="button"
+            onClick={onRequestClose}
+            className="flex-1 rounded-lg border border-gray-300 py-2.5 text-center text-[14px] font-medium text-gray-700"
+          >
+            취소
+          </button>
+        ) : (
+          <Link
+            href="/mypage"
+            className="flex-1 rounded-lg border border-gray-300 py-2.5 text-center text-[14px] font-medium text-gray-700"
+          >
+            취소
+          </Link>
+        )}
         <button
           type="submit"
           disabled={saving}

@@ -3,6 +3,7 @@ import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { MainTier1ChromeProvider } from "@/components/layout/MainTier1ChromeProvider";
+import { MypageHubModalProvider } from "@/components/mypage/MypageHubModalProvider";
 import { CategoryListHeaderProvider } from "@/contexts/CategoryListHeaderContext";
 import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { RegionProvider } from "@/contexts/RegionContext";
@@ -27,10 +28,12 @@ export default async function AppLayout({
           <CategoryListHeaderProvider>
             <StoreCommerceCartProvider>
               <MainTier1ChromeProvider>
-                <AppTitle />
-                {/* 메인 1단·헤더 스택 단일 삽입 — `lib/layout/main-tier1.ts` */}
-                <AppStickyHeader />
-                <ConditionalAppShell regionBarInLayout={true}>{children}</ConditionalAppShell>
+                <MypageHubModalProvider>
+                  <AppTitle />
+                  {/* 메인 1단·헤더 스택 단일 삽입 — `lib/layout/main-tier1.ts` */}
+                  <AppStickyHeader />
+                  <ConditionalAppShell regionBarInLayout={true}>{children}</ConditionalAppShell>
+                </MypageHubModalProvider>
               </MainTier1ChromeProvider>
             </StoreCommerceCartProvider>
           </CategoryListHeaderProvider>

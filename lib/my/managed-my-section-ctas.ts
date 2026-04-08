@@ -83,3 +83,8 @@ export function getManagedSectionCtas(
       return [];
   }
 }
+
+/** `/mypage` 계정 허브 모달 — 상단 칩과 동일 + 로그아웃 */
+export function getAccountHubModalLinks(): ManagedMyCtaLink[] {
+  return [...getManagedSectionCtas("account"), { href: "/my/logout", label: "로그아웃" }];
+}
