@@ -1582,8 +1582,7 @@ async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): P
 export async function getCommunityMessengerBootstrap(
   userId: string
 ): Promise<CommunityMessengerBootstrap> {
-  const [me, friendIds, followingIds, blockedIds, requests, rooms, discoverableGroups, calls] = await Promise.all([
-    hydrateSelfProfile(userId),
+  const [friendIds, followingIds, blockedIds, requests, rooms, discoverableGroups, calls] = await Promise.all([
     listAcceptedFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
     listFollowingIds(userId, "blocked"),
@@ -1593,11 +1592,19 @@ export async function getCommunityMessengerBootstrap(
     listCalls(userId),
   ]);
 
-  const [friends, following, blocked] = await Promise.all([
-    hydrateProfiles(userId, friendIds),
-    hydrateProfiles(userId, followingIds),
-    hydrateProfiles(userId, blockedIds),
-  ]);
+  const allIds = dedupeIds([userId, ...friendIds, ...followingIds, ...blockedIds]);
+  const allProfiles = await hydrateProfiles(userId, allIds, { includeSelf: true });
+  const profileMap = new Map(allProfiles.map((profile) => [profile.id, profile]));
+  const me = profileMap.get(userId) ?? null;
+  const friends = friendIds
+    .map((id) => profileMap.get(id))
+    .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+  const following = followingIds
+    .map((id) => profileMap.get(id))
+    .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+  const blocked = blockedIds
+    .map((id) => profileMap.get(id))
+    .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
 
   return {
     me,

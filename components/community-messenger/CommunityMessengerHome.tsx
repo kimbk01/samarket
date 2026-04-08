@@ -12,6 +12,11 @@ import {
 } from "@/lib/community-messenger/preferences";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import {
+  clearBootstrapCache,
+  peekBootstrapCache,
+  primeBootstrapCache,
+} from "@/lib/community-messenger/bootstrap-cache";
+import {
   peekRoomSnapshot,
   prefetchCommunityMessengerRoomSnapshot,
   primeRoomSnapshot,
@@ -136,15 +141,19 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   }, []);
 
   const refresh = useCallback(async (silent = false) => {
-    const shouldBlock = !silent && !loadedRef.current;
+    const stale = !silent ? peekBootstrapCache() : null;
+    const shouldBlock = !silent && !loadedRef.current && !stale;
+    if (stale) {
+      setData(stale);
+      setAuthRequired(false);
+      setPageError(null);
+    }
     if (shouldBlock) setLoading(true);
     try {
       const res = await fetch("/api/community-messenger/bootstrap", { cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & { ok?: boolean; error?: string };
       if (res.ok && json.ok) {
-        setAuthRequired(false);
-        setPageError(null);
-        setData({
+        const next: CommunityMessengerBootstrap = {
           me: json.me ?? null,
           tabs: json.tabs ?? EMPTY_COUNTS,
           friends: json.friends ?? [],
@@ -155,15 +164,25 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           groups: json.groups ?? [],
           discoverableGroups: json.discoverableGroups ?? [],
           calls: json.calls ?? [],
-        });
+        };
+        setAuthRequired(false);
+        setPageError(null);
+        setData(next);
+        primeBootstrapCache(next);
       } else {
-        setAuthRequired(res.status === 401 || res.status === 403);
-        setPageError(
-          res.status === 401 || res.status === 403
-            ? "로그인 후 메신저를 사용할 수 있습니다."
-            : "메신저 데이터를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요."
-        );
-        setData(null);
+        const unauthorized = res.status === 401 || res.status === 403;
+        if (unauthorized) {
+          clearBootstrapCache();
+          setAuthRequired(true);
+          setPageError("로그인 후 메신저를 사용할 수 있습니다.");
+          setData(null);
+        } else {
+          setAuthRequired(false);
+          setPageError("메신저 데이터를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+          if (!silent && !stale) {
+            setData(null);
+          }
+        }
       }
     } finally {
       loadedRef.current = true;
