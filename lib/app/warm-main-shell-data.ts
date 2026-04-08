@@ -6,18 +6,35 @@ import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-dedup
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 export function warmMainShellData(): void {
   if (typeof window === "undefined") return;
+  if (document.visibilityState !== "visible") return;
+  if (isConstrainedNetwork()) return;
 
-  void Promise.all([fetchMainBottomNavDeduped(), fetchMeStoresListDeduped()]).catch(() => {});
+  const idleId = scheduleWhenBrowserIdle(() => {
+    void Promise.all([fetchMainBottomNavDeduped(), fetchMeStoresListDeduped()]).catch(() => {});
 
-  void (async () => {
-    try {
-      const uid = await getCurrentUserIdForDb();
-      if (uid) await fetchTradeHistoryCounts(uid);
-    } catch {
-      /* ignore */
-    }
-  })();
+    void (async () => {
+      try {
+        const uid = await getCurrentUserIdForDb();
+        if (uid) await fetchTradeHistoryCounts(uid);
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, 1800);
+
+  window.addEventListener(
+    "pagehide",
+    () => {
+      cancelScheduledWhenBrowserIdle(idleId);
+    },
+    { once: true }
+  );
 }

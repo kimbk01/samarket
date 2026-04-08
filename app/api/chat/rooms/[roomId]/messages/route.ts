@@ -15,6 +15,14 @@ import {
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
 import { resolvePhilifeMeetingAccessMeetingId } from "@/lib/chats/philife/room-access";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
+import {
+  enforceRateLimit,
+  getRateLimitKey,
+  jsonError,
+  jsonOk,
+  parseJsonBody,
+  safeErrorMessage,
+} from "@/lib/http/api-route";
 
 export async function GET(
   req: NextRequest,
@@ -130,19 +138,30 @@ export async function POST(
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
 
+  const sendRateLimit = enforceRateLimit({
+    key: `trade-chat:message-send:${getRateLimitKey(req, userId)}`,
+    limit: 24,
+    windowMs: 60_000,
+    message: "메시지 전송이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "trade_chat_message_rate_limited",
+  });
+  if (!sendRateLimit.ok) return sendRateLimit.response;
+
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return jsonError("서버 설정 필요", 500);
   }
   const { roomId } = await params;
-  let body: { body?: string; messageType?: string; imageUrl?: string | null; imageUrls?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "body 필요" }, { status: 400 });
-  }
+  const parsed = await parseJsonBody<{
+    body?: string;
+    messageType?: string;
+    imageUrl?: string | null;
+    imageUrls?: unknown;
+  }>(req, "body 필요");
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
   const text = typeof body.body === "string" ? body.body.trim() : "";
   const messageType = (["text", "image", "system", "item_card", "appointment", "safety_notice"] as const).includes(body.messageType as never)
     ? body.messageType
@@ -152,14 +171,14 @@ export async function POST(
     imageUrls: body.imageUrls,
   });
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return jsonError("roomId 필요", 400);
   }
   if (messageType === "image") {
     if (imageList.length === 0) {
-      return NextResponse.json({ ok: false, error: "이미지 주소가 필요합니다." }, { status: 400 });
+      return jsonError("이미지 주소가 필요합니다.", 400);
     }
   } else if (!text && messageType === "text") {
-    return NextResponse.json({ ok: false, error: "메시지를 입력하세요" }, { status: 400 });
+    return jsonError("메시지를 입력하세요", 400);
   }
 
   const { data: room, error: roomFetchErr } = await sb
@@ -332,7 +351,9 @@ export async function POST(
     .single();
 
   if (insertErr) {
-    return NextResponse.json({ ok: false, error: insertErr.message ?? "전송 실패" }, { status: 500 });
+    return jsonError(safeErrorMessage(insertErr, "전송에 실패했습니다."), 500, {
+      code: "trade_chat_message_insert_failed",
+    });
   }
   const now = (msg as { created_at: string }).created_at ?? new Date().toISOString();
   const msgId = (msg as { id: string }).id;
@@ -384,8 +405,7 @@ export async function POST(
 
   await Promise.all([updateRoomPromise, touchLegacyPromise, bumpOtherPromise]);
 
-  return NextResponse.json({
-    ok: true,
+  return jsonOk({
     message: {
       id: (msg as { id: string }).id,
       createdAt: now,

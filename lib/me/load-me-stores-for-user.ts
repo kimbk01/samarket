@@ -15,6 +15,12 @@ const ME_STORE_SELECT =
   ].join(", ");
 
 type MeStoreRow = Record<string, unknown> & { id: string };
+const ME_STORES_SERVER_CACHE_TTL_MS = 20_000;
+
+const meStoresServerCache = new Map<
+  string,
+  { expiresAt: number; value: { ok: true; stores: StoreRow[] } | { ok: false; error: string } }
+>();
 
 /**
  * GET /api/me/stores 와 동일 본문 — Route·RSC 선로딩에서 공유.
@@ -23,6 +29,18 @@ export async function loadMeStoresListForUser(
   supabase: SupabaseClient,
   userId: string
 ): Promise<{ ok: true; stores: StoreRow[] } | { ok: false; error: string }> {
+  const key = userId.trim();
+  if (!key) return { ok: true, stores: [] };
+  for (const [cacheKey, entry] of meStoresServerCache) {
+    if (entry.expiresAt <= Date.now()) {
+      meStoresServerCache.delete(cacheKey);
+    }
+  }
+  const cached = meStoresServerCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const { data, error } = await supabase
     .from("stores")
     .select(ME_STORE_SELECT)
@@ -31,7 +49,12 @@ export async function loadMeStoresListForUser(
 
   if (error) {
     console.error("[loadMeStoresListForUser]", error);
-    return { ok: false, error: error.message };
+    const failed = { ok: false, error: error.message } as const;
+    meStoresServerCache.set(key, {
+      value: failed,
+      expiresAt: Date.now() + 3_000,
+    });
+    return failed;
   }
 
   const list = (data ?? []) as unknown as MeStoreRow[];
@@ -80,7 +103,12 @@ export async function loadMeStoresListForUser(
       }) as StoreRow
   );
 
-  return { ok: true, stores };
+  const success = { ok: true, stores } as const;
+  meStoresServerCache.set(key, {
+    value: success,
+    expiresAt: Date.now() + ME_STORES_SERVER_CACHE_TTL_MS,
+  });
+  return success;
 }
 
 const OWNER_PRODUCT_SELECT = [

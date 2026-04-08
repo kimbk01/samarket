@@ -8,6 +8,10 @@ import {
   userToProfile,
 } from "@/lib/auth/supabase-profile-cache";
 import { dispatchTestAuthChanged } from "@/lib/auth/test-auth-store";
+import {
+  cancelScheduledWhenBrowserIdle,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 /** INITIAL_SESSION·SIGNED_IN 등 짧은 간격에 ensure 가 여러 번 때리는 것 방지 */
 let profileEnsureInFlight: Promise<Response> | null = null;
@@ -84,7 +88,9 @@ export function SupabaseAuthSync() {
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    void hydrateProfileCacheFromSession(sb);
+    const idleId = scheduleWhenBrowserIdle(() => {
+      void hydrateProfileCacheFromSession(sb);
+    }, 900);
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((_event, session) => {
@@ -96,7 +102,10 @@ export function SupabaseAuthSync() {
       void hydrateProfileCacheFromSession(sb);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelScheduledWhenBrowserIdle(idleId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   return null;

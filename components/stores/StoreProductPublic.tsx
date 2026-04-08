@@ -133,6 +133,11 @@ export function StoreProductPublic({
   const [modifierWire, setModifierWire] = useState<ModifierSelectionsWire>({ pick: {}, qty: {} });
   const [lineMemo, setLineMemo] = useState("");
   const [hoursTick, setHoursTick] = useState(0);
+
+  useEffect(() => {
+    void router.prefetch("/my/store-orders");
+  }, [router]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = window.setInterval(() => setHoursTick((n) => n + 1), 60_000);
@@ -439,6 +444,9 @@ export function StoreProductPublic({
       }
       const placedId = typeof json.order?.id === "string" ? json.order.id : null;
       if (placedId) {
+        void router.prefetch("/my/store-orders");
+        void router.prefetch(`/my/store-orders/${encodeURIComponent(placedId)}`);
+        void router.prefetch(`/my/store-orders/${encodeURIComponent(placedId)}/chat`);
         window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
         router.replace("/my/store-orders");
         return;

@@ -6,6 +6,7 @@
  */
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { jsonError, jsonOk } from "@/lib/http/api-route";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anon) {
-    return NextResponse.json({ ok: false, authenticated: false }, { status: 401 });
+    return jsonError("인증 설정이 준비되지 않았습니다.", 503, { authenticated: false });
   }
 
   let cookieCarrier = NextResponse.next({
@@ -59,12 +60,12 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error || !user?.id) {
-    const res = NextResponse.json({ ok: false, authenticated: false }, { status: 401 });
+    const res = jsonError("로그인이 필요합니다.", 401, { authenticated: false });
     mergeAuthCookies(cookieCarrier, res);
     return res;
   }
 
-  const res = NextResponse.json({ ok: true, authenticated: true });
+  const res = jsonOk({ authenticated: true });
   mergeAuthCookies(cookieCarrier, res);
   return res;
 }

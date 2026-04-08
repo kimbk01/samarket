@@ -1,13 +1,22 @@
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { enforceRateLimit, getRateLimitKey, jsonOk } from "@/lib/http/api-route";
 import { listIncomingCommunityMessengerCallSessions } from "@/lib/community-messenger/service";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
+  const rateLimit = enforceRateLimit({
+    key: `community-messenger:incoming-calls:${getRateLimitKey(request, auth.userId)}`,
+    limit: 30,
+    windowMs: 60_000,
+    message: "수신 통화 상태를 너무 자주 확인하고 있습니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_incoming_call_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
+
   const directOnly = request.nextUrl.searchParams.get("directOnly") === "1";
   const sessions = await listIncomingCommunityMessengerCallSessions(auth.userId, { directOnly });
-  return NextResponse.json({ ok: true, sessions });
+  return jsonOk({ sessions });
 }

@@ -18,6 +18,17 @@ import {
 } from "@/components/stores/home/StoreVerticalDiscoveryCard";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
+import { isConstrainedNetwork } from "@/lib/ui/network-policy";
+
+const STORE_HOME_FEED_TTL_MS = 30_000;
+
+type StoreHomeFeedCacheEntry = {
+  stores: StoreHomeFeedItem[];
+  meta: { source?: string } | null;
+  expiresAt: number;
+};
+
+const storeHomeFeedCache = new Map<string, StoreHomeFeedCacheEntry>();
 
 function splitFeedSections(stores: StoreHomeFeedItem[]) {
   const seen = new Set<string>();
@@ -113,14 +124,30 @@ export function StoreNearbyFeedSection({
   const loadFeed = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
+      const cached = storeHomeFeedCache.get(fetchSuffix);
+      if (cached && cached.expiresAt > Date.now()) {
+        setStores(cached.stores);
+        setMeta(cached.meta);
+        setLoading(false);
+        if (!silent && isConstrainedNetwork()) {
+          return;
+        }
+      }
       if (!silent) setLoading(true);
       try {
         await runSingleFlight(`stores:home-feed:${fetchSuffix}`, async () => {
           const res = await fetch(`/api/stores/home-feed${fetchSuffix}`, { cache: "no-store" });
           const json = await res.json();
           if (json?.ok && Array.isArray(json.stores)) {
-            setStores(json.stores as StoreHomeFeedItem[]);
-            setMeta(json.meta ?? null);
+            const nextStores = json.stores as StoreHomeFeedItem[];
+            const nextMeta = (json.meta ?? null) as { source?: string } | null;
+            storeHomeFeedCache.set(fetchSuffix, {
+              stores: nextStores,
+              meta: nextMeta,
+              expiresAt: Date.now() + STORE_HOME_FEED_TTL_MS,
+            });
+            setStores(nextStores);
+            setMeta(nextMeta);
           } else {
             if (!silent) setStores([]);
           }

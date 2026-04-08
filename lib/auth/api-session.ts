@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readKasamaDevUserIdFromRequest } from "@/lib/auth/kasama-session-cookies";
 import { allowKasamaDevSession, isProductionDeploy } from "@/lib/config/deploy-surface";
+import { jsonError } from "@/lib/http/api-route";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
 /**
@@ -32,10 +33,7 @@ export async function requireAuthenticatedUserId(): Promise<
   if (!userId) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { ok: false, error: "로그인이 필요합니다." },
-        { status: 401 }
-      ),
+      response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }),
     };
   }
   return { ok: true, userId };

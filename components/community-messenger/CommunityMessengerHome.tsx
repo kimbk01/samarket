@@ -21,6 +21,10 @@ import {
   prefetchCommunityMessengerRoomSnapshot,
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
+import {
+  cancelScheduledWhenBrowserIdle,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallLog,
@@ -159,7 +163,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     }
     if (shouldBlock) setLoading(true);
     try {
-      const res = await fetch("/api/community-messenger/bootstrap", { cache: "no-store" });
+      const url = silent ? "/api/community-messenger/bootstrap?fresh=1" : "/api/community-messenger/bootstrap";
+      const res = await fetch(url, { cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & { ok?: boolean; error?: string };
       if (res.ok && json.ok) {
         const next: CommunityMessengerBootstrap = {
@@ -200,6 +205,15 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   }, []);
 
   useEffect(() => {
+    const stale = peekBootstrapCache();
+    if (stale) {
+      const idleId = scheduleWhenBrowserIdle(() => {
+        void refresh(true);
+      }, 1400);
+      return () => {
+        cancelScheduledWhenBrowserIdle(idleId);
+      };
+    }
     void refresh();
   }, [refresh]);
 
@@ -299,13 +313,15 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     async (targetUserId: string) => {
       setBusyId(`friend:${targetUserId}`);
       try {
-        await fetch("/api/community-messenger/friend-requests", {
+        const res = await fetch("/api/community-messenger/friend-requests", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         });
-        await refresh(true);
-        await searchUsers();
+        if (res.ok) {
+          void refresh(true);
+          void searchUsers();
+        }
       } finally {
         setBusyId(null);
       }
@@ -317,12 +333,14 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     async (requestId: string, action: "accept" | "reject" | "cancel") => {
       setBusyId(`request:${requestId}:${action}`);
       try {
-        await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(requestId)}`, {
+        const res = await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(requestId)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
         });
-        await refresh(true);
+        if (res.ok) {
+          void refresh(true);
+        }
       } finally {
         setBusyId(null);
       }
@@ -334,10 +352,12 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     async (friendUserId: string) => {
       setBusyId(`favorite:${friendUserId}`);
       try {
-        await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendUserId)}/favorite`, {
+        const res = await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendUserId)}/favorite`, {
           method: "POST",
         });
-        await refresh(true);
+        if (res.ok) {
+          void refresh(true);
+        }
       } finally {
         setBusyId(null);
       }
@@ -349,13 +369,15 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     async (targetUserId: string) => {
       setBusyId(`follow:${targetUserId}`);
       try {
-        await fetch("/api/community/neighbor-relations", {
+        const res = await fetch("/api/community/neighbor-relations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         });
-        await refresh(true);
-        await searchUsers();
+        if (res.ok) {
+          void refresh(true);
+          void searchUsers();
+        }
       } finally {
         setBusyId(null);
       }
@@ -367,13 +389,15 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     async (targetUserId: string) => {
       setBusyId(`block:${targetUserId}`);
       try {
-        await fetch("/api/community/block-relations", {
+        const res = await fetch("/api/community/block-relations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         });
-        await refresh(true);
-        await searchUsers();
+        if (res.ok) {
+          void refresh(true);
+          void searchUsers();
+        }
       } finally {
         setBusyId(null);
       }
@@ -397,8 +421,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-      await refresh(true);
       if (res.ok && json.ok && json.roomId) {
+        void refresh(true);
         setGroupTitle("");
         setGroupMembers([]);
         setGroupCreateStep("closed");
@@ -444,8 +468,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-      await refresh(true);
       if (res.ok && json.ok && json.roomId) {
+        void refresh(true);
         setOpenGroupTitle("");
         setOpenGroupSummary("");
         setOpenGroupPassword("");
@@ -508,8 +532,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-      await refresh(true);
       if (res.ok && json.ok && json.roomId) {
+        void refresh(true);
         setJoinPassword("");
         setJoinIdentityMode("real_name");
         setJoinAliasName("");
@@ -697,11 +721,13 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       if (!window.confirm("이 친구를 삭제할까요? 친구 관계만 해제되고 기존 채팅방은 유지됩니다.")) return;
       setBusyId(`remove-friend:${friendUserId}`);
       try {
-        await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendUserId)}`, {
+        const res = await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendUserId)}`, {
           method: "DELETE",
         });
-        await refresh(true);
-        await searchUsers();
+        if (res.ok) {
+          void refresh(true);
+          void searchUsers();
+        }
       } finally {
         setBusyId(null);
       }

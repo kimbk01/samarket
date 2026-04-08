@@ -11,6 +11,16 @@ import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
 
+const CURRENT_USER_ID_CACHE_TTL_MS = 15_000;
+
+let currentUserIdCache:
+  | {
+      userId: string | null;
+      expiresAt: number;
+    }
+  | null = null;
+let currentUserIdPromise: Promise<string | null> | null = null;
+
 /** 테스트 세션 제외 — 서버 초기 HTML·하이드레이션 안전 값 */
 function resolveCurrentUserWithoutTestSession(): Profile | null {
   return getSupabaseProfileCache();
@@ -43,19 +53,53 @@ export function getCurrentUser(): Profile | null {
 
 /** DB·API 클라이언트용 UUID: 테스트 유저 우선 → Supabase 세션 */
 export async function getCurrentUserIdForDb(): Promise<string | null> {
+  const cachedProfile = getSupabaseProfileCache();
+  if (cachedProfile?.id) {
+    currentUserIdCache = {
+      userId: cachedProfile.id,
+      expiresAt: Date.now() + CURRENT_USER_ID_CACHE_TTL_MS,
+    };
+    return cachedProfile.id;
+  }
+
+  const now = Date.now();
+  if (currentUserIdCache && currentUserIdCache.expiresAt > now) {
+    return currentUserIdCache.userId;
+  }
+  if (currentUserIdPromise) {
+    return currentUserIdPromise;
+  }
+
+  currentUserIdPromise = (async () => {
+    let resolvedUserId: string | null = null;
   if (!isProductionDeploy()) {
     const test = getTestAuth();
-    if (test?.userId) return test.userId;
+      if (test?.userId) {
+        resolvedUserId = test.userId;
+      }
   }
-  const supabase = getSupabaseClient();
-  if (supabase) {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (!error && user?.id) return user.id;
-  }
-  return null;
+    if (!resolvedUserId) {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+        if (!error && user?.id) {
+          resolvedUserId = user.id;
+        }
+      }
+    }
+    currentUserIdCache = {
+      userId: resolvedUserId,
+      expiresAt: Date.now() + CURRENT_USER_ID_CACHE_TTL_MS,
+    };
+    return resolvedUserId;
+  })().finally(() => {
+    currentUserIdPromise = null;
+  });
+
+  return currentUserIdPromise;
 }
 
 export const isAdminUser = checkAdminUser;

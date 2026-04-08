@@ -9,6 +9,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const SESSION_CHECK_INTERVAL_MS = 90_000;
+const SESSION_CHECK_COOLDOWN_MS = 10_000;
 
 /** Supabase 세션이 없는데 (main) 셸이 남은 경우 → 로그인으로 강제 이동 (bfcache·클라 캐시 완화) */
 const SESSION_CHECK_FLIGHT = "client:auth-session-check";
@@ -17,6 +18,7 @@ export function SessionLostRedirect() {
   const pathname = usePathname() ?? "";
   /** pathname 을 check·handleSessionLost 의 의존성에 넣지 않아, 라우트 전환마다 interval/focus 리스너가 재생성되지 않게 함 */
   const pathnameRef = useRef(pathname);
+  const lastCheckAtRef = useRef(0);
 
   const handleSessionLost = useCallback(async () => {
     clearTestAuth();
@@ -35,10 +37,13 @@ export function SessionLostRedirect() {
     }
   }, []);
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (force = false) => {
     if (typeof window === "undefined") return;
     const path = pathnameRef.current;
     if (path === "/login" || path.startsWith("/login/")) return;
+    const now = Date.now();
+    if (!force && now - lastCheckAtRef.current < SESSION_CHECK_COOLDOWN_MS) return;
+    lastCheckAtRef.current = now;
 
     await runSingleFlight(SESSION_CHECK_FLIGHT, async () => {
       try {
@@ -80,21 +85,21 @@ export function SessionLostRedirect() {
     void check();
   }, [pathname, check]);
 
-  useRefetchOnPageShowRestore(() => void check(), { visibilityDebounceMs: 400 });
+  useRefetchOnPageShowRestore(() => void check(true), { visibilityDebounceMs: 400 });
 
   useEffect(() => {
-    const onFocus = () => void check();
+    const onFocus = () => void check(true);
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [check]);
 
   useEffect(() => {
-    const t = window.setInterval(() => void check(), SESSION_CHECK_INTERVAL_MS);
+    const t = window.setInterval(() => void check(true), SESSION_CHECK_INTERVAL_MS);
     return () => window.clearInterval(t);
   }, [check]);
 
   useEffect(() => {
-    const onAuth = () => void check();
+    const onAuth = () => void check(true);
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
   }, [check]);

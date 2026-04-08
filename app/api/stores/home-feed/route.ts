@@ -8,6 +8,21 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
+const STORE_HOME_FEED_SERVER_CACHE_TTL_MS = 20_000;
+
+type StoreHomeFeedServerCacheEntry = {
+  payload: {
+    ok: true;
+    stores: StoreHomeFeedItem[];
+    meta: {
+      source: "supabase";
+      sorted_by: string;
+    };
+  };
+  expiresAt: number;
+};
+
+const storeHomeFeedServerCache = new Map<string, StoreHomeFeedServerCacheEntry>();
 
 function parseSearchQ(raw: string | null): string | null {
   if (raw == null) return null;
@@ -25,6 +40,26 @@ function parseCoord(v: string | null): number | null {
   if (v == null || !v.trim()) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function normalizeCoordForCache(value: number | null): string {
+  return value == null ? "" : value.toFixed(3);
+}
+
+function buildStoreHomeFeedCacheKey(input: {
+  region: string | null;
+  district: string | null;
+  searchQ: string | null;
+  userLat: number | null;
+  userLng: number | null;
+}): string {
+  return [
+    input.region ?? "",
+    input.district ?? "",
+    input.searchQ ?? "",
+    normalizeCoordForCache(input.userLat),
+    normalizeCoordForCache(input.userLng),
+  ].join("|");
 }
 
 type RelOne = { slug: string; name: string };
@@ -85,6 +120,24 @@ export async function GET(req: Request) {
   const searchQ = parseSearchQ(searchParams.get("q"));
   const userLat = parseCoord(searchParams.get("user_lat"));
   const userLng = parseCoord(searchParams.get("user_lng"));
+  const cacheKey = buildStoreHomeFeedCacheKey({
+    region,
+    district,
+    searchQ,
+    userLat,
+    userLng,
+  });
+
+  for (const [key, entry] of storeHomeFeedServerCache) {
+    if (entry.expiresAt <= Date.now()) {
+      storeHomeFeedServerCache.delete(key);
+    }
+  }
+
+  const cached = storeHomeFeedServerCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return NextResponse.json(cached.payload);
+  }
 
   try {
     let q = supabase
@@ -262,8 +315,8 @@ export async function GET(req: Request) {
       return 0;
     });
 
-    return NextResponse.json({
-      ok: true,
+    const payload = {
+      ok: true as const,
       stores: openDeliveryFirst,
       meta: {
         source: "supabase" as const,
@@ -272,7 +325,12 @@ export async function GET(req: Request) {
             ? "open_delivery_featured_distance_rating"
             : "open_delivery_featured_rating",
       },
+    };
+    storeHomeFeedServerCache.set(cacheKey, {
+      payload,
+      expiresAt: Date.now() + STORE_HOME_FEED_SERVER_CACHE_TTL_MS,
     });
+    return NextResponse.json(payload);
   } catch (e) {
     console.error("[api/stores/home-feed]", e);
     return NextResponse.json(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
@@ -35,6 +35,15 @@ export function ChatButton({ productId, existingRoomId, disabled, className, chi
   const hasExisting = !!existingRoomId;
   const label = hasExisting ? "대화중인 채팅" : (children ?? "채팅하기");
 
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user?.id) return;
+    void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+    if (existingRoomId) {
+      void router.prefetch(tradeRoomPath(existingRoomId));
+    }
+  }, [existingRoomId, router]);
+
   const handleClick = async () => {
     setError("");
     const user = getCurrentUser();
@@ -59,6 +68,12 @@ export function ChatButton({ productId, existingRoomId, disabled, className, chi
       <button
         type="button"
         onClick={handleClick}
+        onPointerEnter={() => {
+          void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+          if (existingRoomId) {
+            void router.prefetch(tradeRoomPath(existingRoomId));
+          }
+        }}
         disabled={disabled || loading}
         className={className ?? "rounded-md bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
       >

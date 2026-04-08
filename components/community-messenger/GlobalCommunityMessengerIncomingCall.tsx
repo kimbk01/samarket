@@ -14,6 +14,9 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
+const INCOMING_CALL_REFRESH_INTERVAL_MS = 12_000;
+const INCOMING_CALL_REFRESH_COOLDOWN_MS = 2_500;
+
 export function GlobalCommunityMessengerIncomingCall() {
   const [userId, setUserId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<CommunityMessengerCallSession[]>([]);
@@ -22,6 +25,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const refreshTimerIdsRef = useRef<number[]>([]);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const lastRefreshAtRef = useRef(0);
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
@@ -41,25 +46,40 @@ export function GlobalCommunityMessengerIncomingCall() {
     };
   }, []);
 
-  const refresh = useCallback(async () => {
-    const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
-      cache: "no-store",
+  const refresh = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastRefreshAtRef.current < INCOMING_CALL_REFRESH_COOLDOWN_MS) {
+      return;
+    }
+    if (refreshInFlightRef.current) {
+      await refreshInFlightRef.current;
+      return;
+    }
+    const task = (async () => {
+      const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        sessions?: CommunityMessengerCallSession[];
+      };
+      setSessions(res.ok && json.ok ? json.sessions ?? [] : []);
+      lastRefreshAtRef.current = Date.now();
+    })().finally(() => {
+      refreshInFlightRef.current = null;
     });
-    const json = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      sessions?: CommunityMessengerCallSession[];
-    };
-    setSessions(res.ok && json.ok ? json.sessions ?? [] : []);
+    refreshInFlightRef.current = task;
+    await task;
   }, []);
 
   const queueRefreshBurst = useCallback(() => {
-    void refresh();
+    void refresh(true);
     for (const timerId of refreshTimerIdsRef.current) {
       window.clearTimeout(timerId);
     }
-    refreshTimerIdsRef.current = [0, 50, 150, 400].map((delay) =>
+    refreshTimerIdsRef.current = [900, 2400].map((delay) =>
       window.setTimeout(() => {
-        void refresh();
+        void refresh(true);
       }, delay)
     );
   }, [refresh]);
@@ -73,7 +93,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refresh();
-    }, 500);
+    }, INCOMING_CALL_REFRESH_INTERVAL_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") queueRefreshBurst();
     };

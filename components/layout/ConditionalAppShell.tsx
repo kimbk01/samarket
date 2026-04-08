@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import {
   MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS,
@@ -15,13 +16,40 @@ import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
 import { FloatingAddButton } from "./FloatingAddButton";
 import { OwnerLiteStoreBar } from "./OwnerLiteStoreBar";
-import { GlobalOrderChatUnreadSound } from "@/components/notifications/GlobalOrderChatUnreadSound";
-import { NotificationSoundPrime } from "@/components/notifications/NotificationSoundPrime";
-import { NotificationsBadgeRealtimeBridge } from "@/components/notifications/NotificationsBadgeRealtimeBridge";
-import { HomeTradeReelsSideRail } from "@/components/home-feed/HomeTradeReelsSideRail";
-import { PhilifeFeedWarmPrefetch } from "@/components/community/PhilifeFeedWarmPrefetch";
-import { GlobalCommunityMessengerIncomingCall } from "@/components/community-messenger/GlobalCommunityMessengerIncomingCall";
-import { GlobalCommunityMessengerUnreadSound } from "@/components/community-messenger/GlobalCommunityMessengerUnreadSound";
+
+const NotificationSoundPrime = dynamic(
+  () => import("@/components/notifications/NotificationSoundPrime").then((mod) => mod.NotificationSoundPrime),
+  { ssr: false }
+);
+const NotificationsBadgeRealtimeBridge = dynamic(
+  () =>
+    import("@/components/notifications/NotificationsBadgeRealtimeBridge").then(
+      (mod) => mod.NotificationsBadgeRealtimeBridge
+    ),
+  { ssr: false }
+);
+const GlobalOrderChatUnreadSound = dynamic(
+  () => import("@/components/notifications/GlobalOrderChatUnreadSound").then((mod) => mod.GlobalOrderChatUnreadSound),
+  { ssr: false }
+);
+const PhilifeFeedWarmPrefetch = dynamic(
+  () => import("@/components/community/PhilifeFeedWarmPrefetch").then((mod) => mod.PhilifeFeedWarmPrefetch),
+  { ssr: false }
+);
+const GlobalCommunityMessengerUnreadSound = dynamic(
+  () =>
+    import("@/components/community-messenger/GlobalCommunityMessengerUnreadSound").then(
+      (mod) => mod.GlobalCommunityMessengerUnreadSound
+    ),
+  { ssr: false }
+);
+const GlobalCommunityMessengerIncomingCall = dynamic(
+  () =>
+    import("@/components/community-messenger/GlobalCommunityMessengerIncomingCall").then(
+      (mod) => mod.GlobalCommunityMessengerIncomingCall
+    ),
+  { ssr: false }
+);
 
 export function ConditionalAppShell({
   children,
@@ -145,6 +173,12 @@ export function ConditionalAppShell({
   /** 메신저 방 등에서는 하단 탭이 없어 기존 블록에 안 걸림 — 첫 터치로 알림/통화 톤 잠금 해제 */
   const mountNotificationSoundPrime =
     mountGlobalRealtimeChrome || (isCommunityMessengerSurface && !isCommunityMessengerCallPage);
+  const mountPhilifeWarmPrefetch =
+    !isCommunityApp &&
+    !isCommunityMessengerSurface &&
+    !isWritePage &&
+    !isChatRoomDetail &&
+    !isCommunityMessengerCallPage;
 
   const mainBottomClass = isChatRoomDetail
     ? "pb-0"
@@ -156,7 +190,7 @@ export function ConditionalAppShell({
 
   return (
     <div className={appShellRootClass}>
-      <PhilifeFeedWarmPrefetch />
+      {mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       {mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
@@ -182,7 +216,6 @@ export function ConditionalAppShell({
       {showBottomNav && <BottomNav />}
       {showBottomNav && isTradeFloatingSurface ? <HomeTradeHubFloatingBar /> : null}
       {showFloat && <FloatingAddButton />}
-      <HomeTradeReelsSideRail />
     </div>
   );
 }

@@ -26,6 +26,11 @@ import { StoreMemberQuickActions } from "@/components/stores/home/StoreMemberQui
 import { StoreHubMyZoneSection } from "@/components/stores/home/StoreHubMyZoneSection";
 import { StoreMyBusinessHubBanner } from "@/components/stores/home/StoreMyBusinessHubBanner";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 type OrderRowLite = {
   id: string;
@@ -173,7 +178,12 @@ export function StoresHub() {
   }, []);
 
   useEffect(() => {
-    void loadBuyerHub();
+    const idleId = scheduleWhenBrowserIdle(() => {
+      void loadBuyerHub();
+    }, isConstrainedNetwork() ? 2400 : 900);
+    return () => {
+      cancelScheduledWhenBrowserIdle(idleId);
+    };
   }, [loadBuyerHub]);
 
   useEffect(() => {

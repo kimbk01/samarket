@@ -34,17 +34,17 @@ export function PostCommunityCommentsSection({
   const [error, setError] = useState("");
   const [replyParentId, setReplyParentId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!postId.trim()) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     try {
       const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, { cache: "no-store" });
       const data = (await res.json().catch(() => ({}))) as { comments?: CommentRow[] };
       setComments(Array.isArray(data.comments) ? data.comments : []);
     } catch {
-      setComments([]);
+      if (!opts?.silent) setComments([]);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [postId]);
 
@@ -75,9 +75,22 @@ export function PostCommunityCommentsSection({
     if (!text) return;
     setSubmitting(true);
     setError("");
+    const tempId = `temp-${Date.now()}`;
+    const optimisticComment: CommentRow = {
+      id: tempId,
+      user_id: currentUserId,
+      content: text,
+      created_at: new Date().toISOString(),
+      parent_id: replyParentId?.trim() || null,
+      authorNickname: "나",
+    };
     try {
       const body: { content: string; parentId?: string } = { content: text };
       if (replyParentId?.trim()) body.parentId = replyParentId.trim();
+
+      setComments((prev) => [...prev, optimisticComment]);
+      setDraft("");
+      setReplyParentId(null);
 
       const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
         method: "POST",
@@ -86,13 +99,13 @@ export function PostCommunityCommentsSection({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
+        setComments((prev) => prev.filter((comment) => comment.id !== tempId));
         setError(data.error ?? "등록에 실패했습니다.");
         return;
       }
-      setDraft("");
-      setReplyParentId(null);
-      await load();
+      void load({ silent: true });
     } catch {
+      setComments((prev) => prev.filter((comment) => comment.id !== tempId));
       setError("등록에 실패했습니다.");
     } finally {
       setSubmitting(false);

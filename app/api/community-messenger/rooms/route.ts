@@ -1,5 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import {
+  enforceRateLimit,
+  getRateLimitKey,
+  jsonError,
+  jsonOk,
+  parseJsonBody,
+} from "@/lib/http/api-route";
 import {
   createOpenGroupRoom,
   createPrivateGroupRoom,
@@ -13,8 +20,7 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const data = await getCommunityMessengerBootstrap(auth.userId);
-  return NextResponse.json({
-    ok: true,
+  return jsonOk({
     chats: data.chats,
     groups: data.groups,
   });
@@ -24,7 +30,16 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  let body: {
+  const createRateLimit = enforceRateLimit({
+    key: `community-messenger:room-create:${getRateLimitKey(req, auth.userId)}`,
+    limit: 6,
+    windowMs: 60_000,
+    message: "대화방 생성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_room_create_rate_limited",
+  });
+  if (!createRateLimit.ok) return createRateLimit.response;
+
+  const parsed = await parseJsonBody<{
     roomType?: "direct" | "group" | "private_group" | "open_group";
     peerUserId?: string;
     title?: string;
@@ -41,12 +56,9 @@ export async function POST(req: NextRequest) {
       bio?: string;
       avatarUrl?: string;
     };
-  };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
+  }>(req, "invalid_json");
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
 
   if (body.roomType === "group" || body.roomType === "private_group") {
     const result = await createPrivateGroupRoom({
@@ -54,7 +66,7 @@ export async function POST(req: NextRequest) {
       title: String(body.title ?? ""),
       memberIds: Array.isArray(body.memberIds) ? body.memberIds.map(String) : [],
     });
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    return result.ok ? jsonOk(result) : jsonError(result.error ?? "대화방 생성에 실패했습니다.", 400, result);
   }
 
   if (body.roomType === "open_group") {
@@ -70,7 +82,7 @@ export async function POST(req: NextRequest) {
       creatorIdentityMode: body.creatorIdentityMode === "alias" ? "alias" : "real_name",
       creatorAliasProfile: body.creatorAliasProfile,
     });
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    return result.ok ? jsonOk(result) : jsonError(result.error ?? "오픈 그룹 생성에 실패했습니다.", 400, result);
   }
 
   const result = await ensureCommunityMessengerDirectRoom(
@@ -78,8 +90,8 @@ export async function POST(req: NextRequest) {
     String(body.peerUserId ?? "")
   );
   if (!result.ok || !result.roomId) {
-    return NextResponse.json(result, { status: 400 });
+    return jsonError(result.error ?? "대화방 준비에 실패했습니다.", 400, result);
   }
   const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
-  return NextResponse.json({ ...result, snapshot });
+  return jsonOk({ ...result, snapshot });
 }

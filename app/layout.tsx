@@ -1,28 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Roboto, Noto_Sans_KR, Roboto_Mono } from "next/font/google";
+import { Noto_Sans_KR } from "next/font/google";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { MockAuthProvider } from "@/components/mock-auth/MockAuthProvider";
 import "./globals.css";
-
-/** 인스타그램 웹과 유사: 시스템 산세리프 + Roboto(변수) + Noto Sans KR — 전역 스택은 `globals.css` */
-const roboto = Roboto({
-  weight: ["400", "500", "700"],
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-roboto",
-  display: "swap",
-});
 
 const notoSansKr = Noto_Sans_KR({
   weight: ["400", "500", "700"],
   subsets: ["latin", "latin-ext"],
   variable: "--font-noto-sans-kr",
-  display: "swap",
-});
-
-const robotoMono = Roboto_Mono({
-  weight: ["400", "500", "700"],
-  subsets: ["latin"],
-  variable: "--font-roboto-mono",
   display: "swap",
 });
 
@@ -48,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body
-        className={`${roboto.variable} ${notoSansKr.variable} ${robotoMono.variable} font-sans antialiased`}
+        className={`${notoSansKr.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
         <MockAuthProvider>

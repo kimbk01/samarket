@@ -162,11 +162,19 @@ export function CommunityDetail({
   }, [post.id]);
 
   const onLike = async () => {
+    const prevLikeCount = likeCount;
     setBusy(true);
+    setLikeCount((count) => count + 1);
     try {
       const res = await fetch(philifePostLikeUrl(post.id), { method: "POST" });
       const data = (await res.json()) as { ok?: boolean; like_count?: number };
-      if (data.ok && typeof data.like_count === "number") setLikeCount(data.like_count);
+      if (data.ok && typeof data.like_count === "number") {
+        setLikeCount(data.like_count);
+      } else {
+        setLikeCount(prevLikeCount);
+      }
+    } catch {
+      setLikeCount(prevLikeCount);
     } finally {
       setBusy(false);
     }

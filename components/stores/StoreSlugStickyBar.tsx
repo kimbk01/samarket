@@ -149,19 +149,46 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
 
   const toggleFavorite = useCallback(async () => {
     if (favoriteBusy || !decoded) return;
+    const prevFavorited = viewerFavorited;
+    const prevFavoriteCount = favoriteCount;
+    const nextFavorited = !prevFavorited;
+    const nextFavoriteCount = Math.max(0, prevFavoriteCount + (nextFavorited ? 1 : -1));
     setFavoriteBusy(true);
+    setViewerFavorited(nextFavorited);
+    setFavoriteCount(nextFavoriteCount);
+    window.dispatchEvent(
+      new CustomEvent<StoreFavoriteChangedDetail>(STORE_FAVORITE_CHANGED_EVENT, {
+        detail: { slug: decoded, favorited: nextFavorited, favorite_count: nextFavoriteCount },
+      })
+    );
     try {
-      const method = viewerFavorited ? "DELETE" : "POST";
+      const method = prevFavorited ? "DELETE" : "POST";
       const res = await fetch(`/api/stores/${encodeURIComponent(decoded)}/favorite`, {
         method,
         credentials: "include",
       });
       const json = await res.json();
       if (res.status === 401) {
+        setViewerFavorited(prevFavorited);
+        setFavoriteCount(prevFavoriteCount);
+        window.dispatchEvent(
+          new CustomEvent<StoreFavoriteChangedDetail>(STORE_FAVORITE_CHANGED_EVENT, {
+            detail: { slug: decoded, favorited: prevFavorited, favorite_count: prevFavoriteCount },
+          })
+        );
         window.alert("로그인이 필요합니다.");
         return;
       }
-      if (!json?.ok) return;
+      if (!json?.ok) {
+        setViewerFavorited(prevFavorited);
+        setFavoriteCount(prevFavoriteCount);
+        window.dispatchEvent(
+          new CustomEvent<StoreFavoriteChangedDetail>(STORE_FAVORITE_CHANGED_EVENT, {
+            detail: { slug: decoded, favorited: prevFavorited, favorite_count: prevFavoriteCount },
+          })
+        );
+        return;
+      }
       const favorited = !!json.favorited;
       const favorite_count = Number(json.favorite_count) || 0;
       setViewerFavorited(favorited);

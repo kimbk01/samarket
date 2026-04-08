@@ -124,6 +124,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("cod");
 
   useEffect(() => {
+    void router.prefetch("/my/store-orders");
+  }, [router]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const id = window.setInterval(() => setHoursTick((n) => n + 1), 60_000);
     return () => clearInterval(id);
@@ -721,6 +725,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       if (oid) setLastCheckoutOrderId(store.id, oid);
       cart.clearStoreCart(store.id);
       if (oid) {
+        void router.prefetch("/my/store-orders");
+        void router.prefetch(`/my/store-orders/${encodeURIComponent(oid)}`);
+        void router.prefetch(`/my/store-orders/${encodeURIComponent(oid)}/chat`);
         window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
         router.replace("/my/store-orders");
       }

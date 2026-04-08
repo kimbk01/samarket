@@ -7,6 +7,15 @@ import { normalizePostImages, normalizePostMeta, normalizePostPrice } from "@/li
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
+const HOME_POSTS_SERVER_CACHE_TTL_MS = 15_000;
+
+type HomePostsServerCacheEntry = {
+  posts: PostWithMeta[];
+  hasMore: boolean;
+  expiresAt: number;
+};
+
+const homePostsServerCache = new Map<string, HomePostsServerCacheEntry>();
 
 type HomePostSort = "latest" | "popular";
 type HomePostType = "trade" | "community" | "service" | "feature" | null;
@@ -26,6 +35,10 @@ function normalizePage(raw: string | null): number {
   const page = Number(raw);
   if (!Number.isFinite(page)) return 1;
   return Math.max(1, Math.floor(page));
+}
+
+function buildHomePostsCacheKey(page: number, sort: HomePostSort, type: HomePostType): string {
+  return `${page}:${sort}:${type ?? "all"}`;
 }
 
 function mapPostRow(row: Record<string, unknown>): PostWithMeta {
@@ -68,36 +81,58 @@ export async function GET(req: NextRequest) {
   const sort = normalizeSort(searchParams.get("sort"));
   const type = normalizeType(searchParams.get("type"));
   const from = (page - 1) * PAGE_SIZE;
+  const cacheKey = buildHomePostsCacheKey(page, sort, type);
 
-  let q = sb.from("posts").select("*").neq("status", "hidden").neq("status", "sold");
-  /**
-   * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
-   * (trade: trade_category_id, community: board_id, service: service_id)
-   */
-  if (type === "trade") {
-    q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
-  } else if (type === "community") {
-    q = q.not("board_id", "is", null).neq("board_id", "");
-  } else if (type === "service") {
-    q = q.not("service_id", "is", null).neq("service_id", "");
-  } else if (type === "feature") {
-    // type 컬럼 없을 때 구분 불가 → 과필터 방지 위해 추가 제한 없음(호출처 거의 없음)
+  for (const [key, entry] of homePostsServerCache) {
+    if (entry.expiresAt <= Date.now()) {
+      homePostsServerCache.delete(key);
+    }
   }
-  if (sort === "latest") {
-    q = q.order("created_at", { ascending: false });
+
+  const cachedPosts = homePostsServerCache.get(cacheKey);
+  let posts: PostWithMeta[];
+  let hasMore: boolean;
+
+  if (cachedPosts && cachedPosts.expiresAt > Date.now()) {
+    posts = cachedPosts.posts;
+    hasMore = cachedPosts.hasMore;
   } else {
-    q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
-  }
+    let q = sb.from("posts").select("*").neq("status", "hidden").neq("status", "sold");
+    /**
+     * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
+     * (trade: trade_category_id, community: board_id, service: service_id)
+     */
+    if (type === "trade") {
+      q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
+    } else if (type === "community") {
+      q = q.not("board_id", "is", null).neq("board_id", "");
+    } else if (type === "service") {
+      q = q.not("service_id", "is", null).neq("service_id", "");
+    } else if (type === "feature") {
+      // type 컬럼 없을 때 구분 불가 → 과필터 방지 위해 추가 제한 없음(호출처 거의 없음)
+    }
+    if (sort === "latest") {
+      q = q.order("created_at", { ascending: false });
+    } else {
+      q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+    }
 
-  const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
-  if (error || !Array.isArray(data)) {
-    return NextResponse.json(
-      { posts: [], hasMore: false, favoriteMap: {} },
-      { headers: { "Cache-Control": "no-store" } }
-    );
-  }
+    const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
+    if (error || !Array.isArray(data)) {
+      return NextResponse.json(
+        { posts: [], hasMore: false, favoriteMap: {} },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
 
-  const posts = (data as Record<string, unknown>[]).map(mapPostRow);
+    posts = (data as Record<string, unknown>[]).map(mapPostRow);
+    hasMore = posts.length === PAGE_SIZE;
+    homePostsServerCache.set(cacheKey, {
+      posts,
+      hasMore,
+      expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
+    });
+  }
   const favoriteMap: Record<string, boolean> = {};
   const userId = await getOptionalAuthenticatedUserId();
 
@@ -121,7 +156,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       posts,
-      hasMore: posts.length === PAGE_SIZE,
+      hasMore,
       favoriteMap,
     },
     { headers: { "Cache-Control": "no-store" } }

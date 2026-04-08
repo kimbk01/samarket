@@ -8,6 +8,14 @@ import {
 } from "@/lib/community-feed/community-ops-settings";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
 import { resolveTopicMeta } from "@/lib/community-feed/queries";
+import {
+  enforceRateLimit,
+  getRateLimitKey,
+  jsonError,
+  jsonOk,
+  parseJsonBody,
+  safeErrorMessage,
+} from "@/lib/http/api-route";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
 
 function summarize(text: string, max = 160): string {
@@ -20,7 +28,16 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  let body: {
+  const createRateLimit = enforceRateLimit({
+    key: `community-post:create:${getRateLimitKey(req, auth.userId)}`,
+    limit: 8,
+    windowMs: 60_000,
+    message: "게시글 작성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_post_create_rate_limited",
+  });
+  if (!createRateLimit.ok) return createRateLimit.response;
+
+  const parsed = await parseJsonBody<{
     sectionSlug?: string;
     topicSlug?: string;
     title?: string;
@@ -30,12 +47,9 @@ export async function POST(req: NextRequest) {
     meetup_date?: string | null;
     region_label?: string;
     imageUrls?: string[];
-  };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "JSON 본문이 필요합니다." }, { status: 400 });
-  }
+  }>(req, "JSON 본문이 필요합니다.");
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
 
   const sectionSlug = normalizeSectionSlug(body.sectionSlug);
   const topicSlug = body.topicSlug?.trim().toLowerCase();
@@ -44,13 +58,13 @@ export async function POST(req: NextRequest) {
   const region_label = (body.region_label ?? "").trim() || "Malate";
 
   if (!topicSlug) {
-    return NextResponse.json({ ok: false, error: "주제를 선택하세요." }, { status: 400 });
+    return jsonError("주제를 선택하세요.", 400);
   }
   if (!title) {
-    return NextResponse.json({ ok: false, error: "제목을 입력하세요." }, { status: 400 });
+    return jsonError("제목을 입력하세요.", 400);
   }
   if (!content) {
-    return NextResponse.json({ ok: false, error: "내용을 입력하세요." }, { status: 400 });
+    return jsonError("내용을 입력하세요.", 400);
   }
 
   const ops = await getCommunityFeedOps();
@@ -68,12 +82,12 @@ export async function POST(req: NextRequest) {
   }
   const banned = findBannedWord(`${title}\n${content}`, ops.banned_words);
   if (banned) {
-    return NextResponse.json({ ok: false, error: "금칙어가 포함되어 있습니다." }, { status: 400 });
+    return jsonError("금칙어가 포함되어 있습니다.", 400);
   }
 
   const meta = await resolveTopicMeta(sectionSlug, topicSlug);
   if (!meta || meta.is_feed_sort) {
-    return NextResponse.json({ ok: false, error: "유효한 주제가 아닙니다." }, { status: 400 });
+    return jsonError("유효한 주제가 아닙니다.", 400);
   }
 
   const is_question = meta.allow_question ? !!body.is_question : false;
@@ -102,7 +116,7 @@ export async function POST(req: NextRequest) {
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 오류" }, { status: 500 });
+    return jsonError("서버 설정 오류", 500);
   }
 
   if (ops.max_posts_per_day > 0) {
@@ -122,7 +136,7 @@ export async function POST(req: NextRequest) {
     .eq("is_active", true)
     .maybeSingle();
   if (se || !sec) {
-    return NextResponse.json({ ok: false, error: "섹션을 찾을 수 없습니다." }, { status: 400 });
+    return jsonError("섹션을 찾을 수 없습니다.", 400);
   }
 
   const { data: inserted, error: insErr } = await sb
@@ -150,10 +164,9 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (insErr || !inserted) {
-    return NextResponse.json(
-      { ok: false, error: insErr?.message ?? "등록에 실패했습니다." },
-      { status: 500 }
-    );
+    return jsonError(safeErrorMessage(insErr, "등록에 실패했습니다."), 500, {
+      code: "community_post_insert_failed",
+    });
   }
 
   const newId = (inserted as { id: string }).id;
@@ -170,9 +183,11 @@ export async function POST(req: NextRequest) {
     const { error: imgErr } = await sb.from("community_post_images").insert(rows);
     if (imgErr) {
       await sb.from("community_posts").delete().eq("id", newId);
-      return NextResponse.json({ ok: false, error: imgErr.message ?? "이미지 저장 실패" }, { status: 500 });
+      return jsonError(safeErrorMessage(imgErr, "이미지 저장에 실패했습니다."), 500, {
+        code: "community_post_image_insert_failed",
+      });
     }
   }
 
-  return NextResponse.json({ ok: true, id: newId });
+  return jsonOk({ id: newId });
 }

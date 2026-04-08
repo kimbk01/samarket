@@ -9,6 +9,11 @@ import {
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { computeOwnerCanSell } from "@/lib/stores/owner-lite-store-shortcuts";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 export type OwnerLiteStoreState = {
   loading: boolean;
@@ -25,6 +30,7 @@ const listeners = new Set<() => void>();
 let subscriberCount = 0;
 /** 첫 응답 후에는 재구독(Strict Mode)·백그라운드 갱신 시 로딩 스피너를 다시 켜지 않음 */
 let hasLoadedOnce = false;
+let initialHydrateIdleId: number | null = null;
 
 function emit() {
   for (const l of listeners) l();
@@ -80,11 +86,24 @@ export function subscribeOwnerLiteStore(listener: () => void) {
   listeners.add(listener);
   subscriberCount += 1;
   if (subscriberCount === 1) {
-    void runSingleFlight("owner-lite:hydrate", () => loadFromNetwork());
+    if (initialHydrateIdleId != null) {
+      cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
+      initialHydrateIdleId = null;
+    }
+    initialHydrateIdleId = scheduleWhenBrowserIdle(() => {
+      initialHydrateIdleId = null;
+      void runSingleFlight("owner-lite:hydrate", () =>
+        loadFromNetwork({ withLoadingSpinner: !isConstrainedNetwork() })
+      );
+    }, isConstrainedNetwork() ? 2600 : 1000);
   }
   return () => {
     listeners.delete(listener);
     subscriberCount = Math.max(0, subscriberCount - 1);
+    if (subscriberCount === 0 && initialHydrateIdleId != null) {
+      cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
+      initialHydrateIdleId = null;
+    }
   };
 }
 

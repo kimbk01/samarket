@@ -14,41 +14,56 @@ import {
 } from "@/lib/neighborhood/dev-sample-data";
 import { getNeighborhoodPostDetail } from "@/lib/neighborhood/queries";
 import { fetchBlockedAuthorIdsForViewer } from "@/lib/neighborhood/social-filter";
+import {
+  enforceRateLimit,
+  getRateLimitKey,
+  jsonError,
+  jsonOk,
+  parseJsonBody,
+  safeErrorMessage,
+} from "@/lib/http/api-route";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
   const { postId } = await ctx.params;
   const raw = postId?.trim();
-  if (!raw) return NextResponse.json({ ok: false }, { status: 400 });
+  if (!raw) return jsonError("postId가 필요합니다.", 400);
   const id = await resolveCanonicalCommunityPostId(raw);
-  if (!id) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  if (!id) return jsonError("not_found", 404);
   const viewerUserId = await getOptionalAuthenticatedUserId();
   if (process.env.NODE_ENV !== "production" && getNeighborhoodDevSamplePost(id)) {
     const post = getNeighborhoodDevSamplePost(id);
-    if (!post) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    if (!post) return jsonError("not_found", 404);
     const rows = getNeighborhoodDevSampleCommentRows(id);
-    return NextResponse.json({ ok: true, comments: rows, fallback: "dev_samples" });
+    return jsonOk({ comments: rows, fallback: "dev_samples" });
   }
   const post = await getNeighborhoodPostDetail(id, { viewerUserId });
-  if (!post) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  if (!post) return jsonError("not_found", 404);
   const list = await listCommunityPostComments(id);
-  return NextResponse.json({ ok: true, comments: list });
+  return jsonOk({ comments: list });
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = enforceRateLimit({
+    key: `community-comment:create:${getRateLimitKey(req, auth.userId)}`,
+    limit: 12,
+    windowMs: 60_000,
+    message: "댓글 작성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_comment_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
+
   const { postId } = await ctx.params;
   const raw = postId?.trim();
-  if (!raw) return NextResponse.json({ ok: false }, { status: 400 });
+  if (!raw) return jsonError("postId가 필요합니다.", 400);
 
-  let body: { content?: string; parentId?: string | null };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "JSON 필요" }, { status: 400 });
-  }
+  const parsed = await parseJsonBody<{ content?: string; parentId?: string | null }>(req, "JSON 필요");
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
   const content = body.content?.trim();
-  if (!content) return NextResponse.json({ ok: false, error: "내용을 입력하세요." }, { status: 400 });
+  if (!content) return jsonError("내용을 입력하세요.", 400);
 
   const ops = await getCommunityFeedOps();
   if (content.length > ops.max_comment_length) {
@@ -58,12 +73,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     );
   }
   if (findBannedWord(content, ops.banned_words)) {
-    return NextResponse.json({ ok: false, error: "금칙어가 포함되어 있습니다." }, { status: 400 });
+    return jsonError("금칙어가 포함되어 있습니다.", 400);
   }
 
   try {
     const id = await resolveCanonicalCommunityPostId(raw);
-    if (!id) return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+    if (!id) return jsonError("글을 찾을 수 없습니다.", 404);
     if (process.env.NODE_ENV !== "production") {
       const post = getNeighborhoodDevSamplePost(id);
       if (post) {
@@ -74,8 +89,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
           content,
           parentId: body.parentId ?? null,
         });
-        if (!inserted) return NextResponse.json({ ok: false, error: "실패" }, { status: 500 });
-        return NextResponse.json({ ok: true, id: inserted.id, fallback: "dev_samples" });
+        if (!inserted) return jsonError("실패", 500);
+        return jsonOk({ id: inserted.id, fallback: "dev_samples" });
       }
     }
     const sb = getSupabaseServer();
@@ -113,11 +128,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       prow.location_id == null ||
       String(prow.location_id).trim() === ""
     ) {
-      return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+      return jsonError("글을 찾을 수 없습니다.", 404);
     }
     const blocked = await fetchBlockedAuthorIdsForViewer(sb, auth.userId);
     if (blocked.has(String(prow.user_id ?? ""))) {
-      return NextResponse.json({ ok: false, error: "차단 관계에서는 댓글을 작성할 수 없습니다." }, { status: 403 });
+      return jsonError("차단 관계에서는 댓글을 작성할 수 없습니다.", 403);
     }
 
     const parentId = body.parentId?.trim() || null;
@@ -140,10 +155,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       .select("id")
       .single();
     if (error || !ins) {
-      return NextResponse.json({ ok: false, error: error?.message ?? "실패" }, { status: 500 });
+      return jsonError(safeErrorMessage(error, "댓글 저장에 실패했습니다."), 500, {
+        code: "community_comment_insert_failed",
+      });
     }
-    return NextResponse.json({ ok: true, id: (ins as { id: string }).id });
-  } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return jsonOk({ id: (ins as { id: string }).id });
+  } catch (error) {
+    return jsonError(safeErrorMessage(error, "댓글 저장에 실패했습니다."), 500, {
+      code: "community_comment_unexpected_error",
+    });
   }
 }

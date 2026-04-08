@@ -17,6 +17,11 @@ import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => React.ReactNode> = {
   home: HomeIcon,
@@ -81,11 +86,21 @@ export function BottomNav() {
 
   /** 주요 탭 JS·RSC 선로딩 — 커뮤니티(/philife) 등 탭 전환 체감 지연 완화 */
   useEffect(() => {
-    for (const t of tabs) {
-      const h = t.href?.trim();
-      if (h) router.prefetch(h);
-    }
-  }, [tabs, router]);
+    if (isConstrainedNetwork()) return;
+    if (document.visibilityState !== "visible") return;
+    const candidates = tabs
+      .map((tab) => tab.href?.trim() ?? "")
+      .filter((href) => href && href !== pathname)
+      .slice(0, 4);
+    const idleId = scheduleWhenBrowserIdle(() => {
+      for (const href of candidates) {
+        router.prefetch(href);
+      }
+    }, 1400);
+    return () => {
+      cancelScheduledWhenBrowserIdle(idleId);
+    };
+  }, [pathname, tabs, router]);
 
   if (isChatRoomDetail) return null;
 

@@ -17,6 +17,15 @@ export interface GetPostsForHomeResult {
   favoriteMap: Record<string, boolean>;
 }
 
+const HOME_POSTS_TTL_MS = 20_000;
+
+type HomePostsCacheEntry = {
+  data: GetPostsForHomeResult;
+  expiresAt: number;
+};
+
+const homePostsCache = new Map<string, HomePostsCacheEntry>();
+
 /**
  * 홈/물건 등록 리스트용 게시글 조회 (어드민 posts와 동일 테이블)
  * - status: hidden 제외, sold(거래완료)는 홈 목록 미노출
@@ -27,6 +36,11 @@ export async function getPostsForHome(
   const page = Math.max(1, options.page ?? 1);
   const sort = options.sort ?? "latest";
   const typeFilter = options.type ?? null;
+  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}`;
+  const cached = homePostsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
 
   try {
     const params = new URLSearchParams({
@@ -50,11 +64,16 @@ export async function getPostsForHome(
       hasMore?: boolean;
       favoriteMap?: Record<string, boolean>;
     };
-    return {
+    const result = {
       posts: Array.isArray(data.posts) ? data.posts : [],
       hasMore: data.hasMore === true,
       favoriteMap: data.favoriteMap && typeof data.favoriteMap === "object" ? data.favoriteMap : {},
     };
+    homePostsCache.set(cacheKey, {
+      data: result,
+      expiresAt: Date.now() + HOME_POSTS_TTL_MS,
+    });
+    return result;
   } catch {
     return { posts: [], hasMore: false, favoriteMap: {} };
   }

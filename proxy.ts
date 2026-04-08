@@ -4,6 +4,22 @@ import { KASAMA_DEV_UID_COOKIE, KASAMA_DEV_UID_PUB_COOKIE } from "@/lib/auth/dev
 import { allowKasamaDevSession } from "@/lib/config/deploy-surface";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
+type ProxyAuthCacheStore = Map<string, number>;
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __samarketProxyAuthCache: ProxyAuthCacheStore | undefined;
+}
+
+const PROXY_AUTH_CACHE_TTL_MS = 8_000;
+
+function getProxyAuthCache(): ProxyAuthCacheStore {
+  if (!globalThis.__samarketProxyAuthCache) {
+    globalThis.__samarketProxyAuthCache = new Map<string, number>();
+  }
+  return globalThis.__samarketProxyAuthCache;
+}
+
 /**
  * 앱 UI(HTML·RSC) — 미로그인 시 /login 으로만 진입 가능.
  * - /api/* 는 matcher 에서 제외 (각 Route Handler가 인증 처리).
@@ -37,6 +53,38 @@ function requestHasKasamaDevAuthCookies(request: NextRequest): boolean {
   if (primary && isUuidLikeString(primary)) return true;
   const mirrored = request.cookies.get(KASAMA_DEV_UID_PUB_COOKIE)?.value?.trim();
   return Boolean(mirrored && isUuidLikeString(mirrored));
+}
+
+function getSupabaseAuthCookieCacheKey(request: NextRequest): string | null {
+  const authCookies = request.cookies
+    .getAll()
+    .filter(
+      ({ name }) =>
+        (name.startsWith("sb-") && (name.includes("auth-token") || name.includes("code-verifier"))) ||
+        name === "supabase.auth.token" ||
+        name.startsWith("supabase.auth.token.")
+    )
+    .map(({ name, value }) => `${name}=${value}`)
+    .sort();
+  if (!authCookies.length) return null;
+  return authCookies.join("|");
+}
+
+function hasFreshProxyAuthVerification(request: NextRequest): boolean {
+  const key = getSupabaseAuthCookieCacheKey(request);
+  if (!key) return false;
+  const now = Date.now();
+  const cache = getProxyAuthCache();
+  for (const [cacheKey, expiresAt] of cache) {
+    if (expiresAt <= now) cache.delete(cacheKey);
+  }
+  return (cache.get(key) ?? 0) > now;
+}
+
+function rememberProxyAuthVerification(request: NextRequest): void {
+  const key = getSupabaseAuthCookieCacheKey(request);
+  if (!key) return;
+  getProxyAuthCache().set(key, Date.now() + PROXY_AUTH_CACHE_TTL_MS);
 }
 
 /** HTML 문서가 브라우저(웨일 등) 디스크 캐시에 오래 머물며 “예전처럼 로그인 없이 보임”으로 보이는 일 완화 */
@@ -94,6 +142,10 @@ export async function proxy(request: NextRequest) {
     return redirectToLogin(request, pathname);
   }
 
+  if (hasFreshProxyAuthVerification(request)) {
+    return preventAuthPageCache(NextResponse.next({ request }));
+  }
+
   let response = NextResponse.next({ request });
 
   const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
@@ -130,6 +182,7 @@ export async function proxy(request: NextRequest) {
     if (error || !user?.id) {
       return redirectToLogin(request, pathname);
     }
+    rememberProxyAuthVerification(request);
     return preventAuthPageCache(response);
   } catch {
     /** 네트워크·JWT 파싱 등 실패 시 열어 두지 않고 로그인으로 (fail-closed) */

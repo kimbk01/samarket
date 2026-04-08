@@ -75,6 +75,14 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     };
   }, [post.id, post.type, user?.id, listingOwnerId, authBump]);
 
+  useEffect(() => {
+    if (!user?.id || post.type === "community") return;
+    void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+    if (existingRoomId) {
+      void router.prefetch(tradeRoomPath(existingRoomId));
+    }
+  }, [existingRoomId, post.type, router, user?.id]);
+
   const chatBlockedByOtherReservation =
     post.type === "community"
       ? false
@@ -144,6 +152,12 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
           <button
             type="button"
             onClick={() => void handleChat()}
+            onPointerEnter={() => {
+              void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+              if (existingRoomId) {
+                void router.prefetch(tradeRoomPath(existingRoomId));
+              }
+            }}
             disabled={chatDisabled}
             title={
               chatBlockedByOtherReservation

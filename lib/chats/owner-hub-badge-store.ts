@@ -13,6 +13,11 @@ import {
   KASAMA_TRADE_CHAT_UNREAD_UPDATED,
 } from "@/lib/chats/chat-channel-events";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 const PATH_FETCH_PREFIXES = [
   "/chats",
@@ -34,6 +39,7 @@ const listeners = new Set<() => void>();
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 /** React Strict Mode: 리스너가 잠깐 비었다가 곧바로 다시 붙을 때 허브 중복 기동·해제 완화 */
 let hubStopTimer: ReturnType<typeof setTimeout> | null = null;
+let initialHydrateIdleId: number | null = null;
 let hubStarted = false;
 let globalEventsAttached = false;
 let lastFetchStartedAt = 0;
@@ -138,6 +144,10 @@ function detachGlobalEvents() {
 
 function stopHub() {
   hubStarted = false;
+  if (initialHydrateIdleId != null) {
+    cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
+    initialHydrateIdleId = null;
+  }
   if (pollInterval != null) {
     clearInterval(pollInterval);
     pollInterval = null;
@@ -149,7 +159,17 @@ function startHub() {
   if (hubStarted) return;
   hubStarted = true;
   attachGlobalEventsOnce();
-  void fetchOwnerHubBadgeNow(true);
+  if (initialHydrateIdleId != null) {
+    cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
+    initialHydrateIdleId = null;
+  }
+  if (typeof document === "undefined" || document.visibilityState === "visible") {
+    const initialDelay = isConstrainedNetwork() ? 2600 : 1200;
+    initialHydrateIdleId = scheduleWhenBrowserIdle(() => {
+      initialHydrateIdleId = null;
+      void fetchOwnerHubBadgeNow(true);
+    }, initialDelay);
+  }
   if (typeof document === "undefined" || document.visibilityState === "visible") {
     pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
