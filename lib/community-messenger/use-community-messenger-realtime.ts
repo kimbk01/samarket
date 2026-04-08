@@ -30,7 +30,7 @@ function createRefreshScheduler(callbackRef: MutableRefObject<() => void>, delay
   return { schedule, cancel };
 }
 
-type CommunityMessengerRoomRealtimeMessageRow = {
+export type CommunityMessengerRoomRealtimeMessageRow = {
   id: string;
   roomId: string;
   senderId: string | null;
@@ -40,7 +40,7 @@ type CommunityMessengerRoomRealtimeMessageRow = {
   createdAt: string;
 };
 
-type CommunityMessengerRoomRealtimeMessageEvent = {
+export type CommunityMessengerRoomRealtimeMessageEvent = {
   eventType: "INSERT" | "UPDATE" | "DELETE";
   message: CommunityMessengerRoomRealtimeMessageRow;
 };
@@ -78,7 +78,8 @@ export function useCommunityMessengerHomeRealtime(args: {
     if (!sb) return;
 
     let cancelled = false;
-    const refreshScheduler = createRefreshScheduler(callbackRef, 250);
+    /** 목록·친구·요청 등 메타 변경은 묶어서 전체 리프레시 (과도한 GET 완화) */
+    const refreshScheduler = createRefreshScheduler(callbackRef, 450);
     const channels: RealtimeChannel[] = [];
     const roomIds = [...new Set((args.roomIds ?? []).filter(Boolean))];
 
@@ -238,7 +239,10 @@ export function useCommunityMessengerRoomRealtime(args: {
     if (!sb) return;
 
     let cancelled = false;
-    const refreshScheduler = createRefreshScheduler(callbackRef, 250);
+    /** 메시지 파싱 실패 등 예외 시에만 짧은 지연으로 스냅샷 재동기화 */
+    const messageFallbackRefreshScheduler = createRefreshScheduler(callbackRef, 200);
+    /** 멤버·방 설정 변경은 연속 이벤트가 많아 길게 묶음 → /rooms GET 부담 감소 */
+    const metaRefreshScheduler = createRefreshScheduler(callbackRef, 550);
     const callRefreshScheduler = createRefreshScheduler(callbackRef, 0);
     /** 음성 INSERT 직후 GET 이 비는 경우 대비 — 지연 refresh 로 채팅 목록·스냅샷을 한 번 더 맞춤 */
     const voiceRefreshScheduler = createRefreshScheduler(callbackRef, 500);
@@ -280,7 +284,7 @@ export function useCommunityMessengerRoomRealtime(args: {
             }
             return;
           }
-          if (!cancelled) refreshScheduler.schedule();
+          if (!cancelled) messageFallbackRefreshScheduler.schedule();
         }
       )
     );
@@ -295,7 +299,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `room_id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) refreshScheduler.schedule();
+          if (!cancelled) metaRefreshScheduler.schedule();
         }
       )
     );
@@ -310,7 +314,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           filter: `id=eq.${args.roomId}`,
         },
         () => {
-          if (!cancelled) refreshScheduler.schedule();
+          if (!cancelled) metaRefreshScheduler.schedule();
         }
       )
     );
@@ -362,7 +366,8 @@ export function useCommunityMessengerRoomRealtime(args: {
 
     return () => {
       cancelled = true;
-      refreshScheduler.cancel();
+      messageFallbackRefreshScheduler.cancel();
+      metaRefreshScheduler.cancel();
       callRefreshScheduler.cancel();
       voiceRefreshScheduler.cancel();
       for (const channel of channels) {

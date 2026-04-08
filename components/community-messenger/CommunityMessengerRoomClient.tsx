@@ -19,7 +19,10 @@ import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
-import { useCommunityMessengerRoomRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
+import {
+  useCommunityMessengerRoomRealtime,
+  type CommunityMessengerRoomRealtimeMessageEvent,
+} from "@/lib/community-messenger/use-community-messenger-realtime";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerProfileLite,
@@ -74,6 +77,9 @@ export function CommunityMessengerRoomClient({
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
+  const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
+  const pendingRealtimeRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
+  snapshotRef.current = snapshot;
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -115,28 +121,36 @@ export function CommunityMessengerRoomClient({
     void refresh();
   }, [refresh]);
 
-  const handleRealtimeMessageEvent = useCallback(
-    (event: {
-      eventType: "INSERT" | "UPDATE" | "DELETE";
-      message: {
-        id: string;
-        roomId: string;
-        senderId: string | null;
-        messageType: "text" | "image" | "system" | "call_stub" | "voice";
-        content: string;
-        metadata: Record<string, unknown>;
-        createdAt: string;
-      };
-    }) => {
-      if (!snapshot) return;
-      if (event.eventType === "DELETE") {
-        setRoomMessages((prev) => prev.filter((item) => item.id !== event.message.id));
-        return;
+  const handleRealtimeMessageEvent = useCallback((event: CommunityMessengerRoomRealtimeMessageEvent) => {
+    const snap = snapshotRef.current;
+    if (!snap) {
+      pendingRealtimeRef.current.push(event);
+      return;
+    }
+    if (event.eventType === "DELETE") {
+      setRoomMessages((prev) => prev.filter((item) => item.id !== event.message.id));
+      return;
+    }
+    setRoomMessages((prev) => mergeRoomMessages(prev, [mapRealtimeRoomMessage(snap, event.message)]));
+  }, []);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    const queued = pendingRealtimeRef.current;
+    if (queued.length === 0) return;
+    pendingRealtimeRef.current = [];
+    setRoomMessages((prev) => {
+      let cur = prev;
+      for (const event of queued) {
+        if (event.eventType === "DELETE") {
+          cur = cur.filter((item) => item.id !== event.message.id);
+        } else {
+          cur = mergeRoomMessages(cur, [mapRealtimeRoomMessage(snapshot, event.message)]);
+        }
       }
-      setRoomMessages((prev) => mergeRoomMessages(prev, [mapRealtimeRoomMessage(snapshot, event.message)]));
-    },
-    [snapshot]
-  );
+      return cur;
+    });
+  }, [snapshot]);
 
   useCommunityMessengerRoomRealtime({
     roomId,
