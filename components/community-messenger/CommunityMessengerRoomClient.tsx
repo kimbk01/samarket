@@ -9,6 +9,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getCommunityMessengerPermissionGuide,
   hasUsablePrimedCommunityMessengerDeviceStream,
@@ -46,6 +47,7 @@ export function CommunityMessengerRoomClient({
   initialCallAction?: string;
   initialCallSessionId?: string;
 }) {
+  const { t, tt } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   /** 같은 방에 머문 채 전역 배너에서 수락할 때도 반응하도록 URL 을 구독한다(RSC initial props 만으론 갱신이 안 될 수 있음). */
@@ -210,7 +212,7 @@ export function CommunityMessengerRoomClient({
     enabled: false,
     roomId,
     viewerUserId: snapshot?.viewerUserId ?? "",
-    roomLabel: snapshot?.room.title ?? "그룹 통화",
+    roomLabel: snapshot?.room.title ?? t("nav_messenger_group_call"),
     activeCall: null,
     onRefresh: () => refresh(true),
   });
@@ -221,35 +223,43 @@ export function CommunityMessengerRoomClient({
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
   const isOwner = snapshot?.myRole === "owner";
-  const roomTypeLabel = isOpenGroupRoom ? "공개 그룹" : isPrivateGroupRoom ? "비공개 그룹" : "1:1 대화";
-  const roomSubtitle = snapshot?.room.description || (isGroupRoom ? `${snapshot?.room.memberCount ?? 0}명 참여 중인 대화방` : "친구와 나누는 대화");
+  const roomTypeLabel = isOpenGroupRoom
+    ? t("nav_messenger_open_group")
+    : isPrivateGroupRoom
+      ? t("nav_messenger_private_group")
+      : t("nav_messenger_direct_room");
+  const roomSubtitle =
+    snapshot?.room.description ||
+    (isGroupRoom
+      ? t("nav_messenger_group_room_subtitle", { count: snapshot?.room.memberCount ?? 0 })
+      : t("nav_messenger_friend_room_subtitle"));
   const roomJoinLabel = isOpenGroupRoom
     ? snapshot?.room.joinPolicy === "password"
-      ? "비밀번호 입장"
-      : "자유 입장"
+      ? t("nav_messenger_join_password")
+      : t("nav_messenger_join_free")
     : null;
   const roomIdentityLabel = isOpenGroupRoom
     ? snapshot?.room.identityPolicy === "alias_allowed"
-      ? "별칭 허용"
-      : "실명 기반"
+      ? t("nav_messenger_identity_alias")
+      : t("nav_messenger_identity_real")
     : null;
 
   const getRoomActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
       case "room_not_found":
-        return "채팅방을 찾을 수 없습니다.";
+        return t("nav_messenger_room_not_found");
       case "content_required":
-        return "메시지를 입력해 주세요.";
+        return t("nav_messenger_message_required");
       case "room_blocked":
-        return "관리자에 의해 차단된 방입니다.";
+        return t("nav_messenger_room_blocked_error");
       case "room_archived":
-        return "보관된 방이라 새 메시지를 보낼 수 없습니다.";
+        return t("nav_messenger_room_archived_error");
       case "room_readonly":
-        return "읽기 전용 방이라 메시지를 보낼 수 없습니다.";
+        return t("nav_messenger_room_readonly_error");
       case "friend_required":
         return "그룹 초대는 친구 관계에서만 가능합니다.";
       case "not_group_room":
-        return "그룹방에서만 멤버를 초대할 수 있습니다.";
+        return t("nav_messenger_group_only");
       case "not_open_group_room":
         return "공개 그룹방에서만 사용할 수 있는 기능입니다.";
       case "password_required":
@@ -263,49 +273,49 @@ export function CommunityMessengerRoomClient({
       case "owner_cannot_leave":
         return "방장은 이 방을 바로 나갈 수 없습니다.";
       case "room_unavailable":
-        return "현재 이 방에서는 초대 또는 통화를 진행할 수 없습니다.";
+        return t("nav_messenger_room_unavailable");
       case "peer_not_found":
-        return "상대방 정보를 찾지 못했습니다.";
+        return t("nav_messenger_peer_not_found");
       case "forbidden":
-        return "이 작업을 수행할 권한이 없습니다.";
+        return t("nav_messenger_forbidden");
       case "call_provider_not_configured":
-        return "통화 서비스 설정이 아직 완료되지 않았습니다.";
+        return t("nav_messenger_call_provider_not_ready");
       case "call_session_start_failed":
       case "call_session_participants_insert_failed":
-        return "통화 세션을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        return t("nav_messenger_call_start_failed");
       case "messenger_storage_unavailable":
         return "메신저 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
       case "messenger_migration_required":
         return "메신저 저장소 마이그레이션이 아직 반영되지 않았습니다. DB 스키마를 먼저 업데이트해 주세요.";
       case "file_too_large":
-        return "음성 파일이 너무 큽니다. 2MB 이하로 녹음해 주세요.";
+        return t("nav_messenger_voice_file_too_large");
       case "unsupported_audio":
-        return "이 기기에서 녹음된 형식은 전송할 수 없습니다.";
+        return t("nav_messenger_voice_unsupported");
       case "file_required":
       case "multipart_required":
-        return "음성 데이터를 확인할 수 없습니다.";
+        return t("nav_messenger_voice_missing");
       case "upload_failed":
       case "server_config":
-        return "음성 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+        return t("nav_messenger_voice_upload_failed");
       case "not_found":
-        return "메시지를 찾을 수 없습니다.";
+        return t("nav_messenger_message_not_found");
       case "unsupported_type":
-        return "이 유형의 메시지는 삭제할 수 없습니다.";
+        return t("nav_messenger_message_type_delete_unsupported");
       case "delete_failed":
-        return "메시지를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        return t("nav_messenger_message_delete_failed");
       default:
-        return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        return t("nav_messenger_action_failed");
     }
-  }, []);
+  }, [t]);
 
   const openCallPermissionHelp = useCallback(() => {
     if (openCommunityMessengerPermissionSettings()) return;
     alert(
       call.panel?.kind === "video"
-        ? "브라우저 주소창 왼쪽의 사이트 설정에서 카메라와 마이크를 허용해 주세요."
-        : "브라우저 주소창 왼쪽의 사이트 설정에서 마이크를 허용해 주세요."
+        ? t("nav_messenger_permission_browser_camera_mic")
+        : t("nav_messenger_permission_browser_mic")
     );
-  }, [call.panel?.kind]);
+  }, [call.panel?.kind, t]);
 
   const retryCallDevicePermission = useCallback(() => {
     const kind = call.panel?.kind;
@@ -324,11 +334,11 @@ export function CommunityMessengerRoomClient({
       .catch(() => {
         alert(
           kind === "video"
-            ? "카메라·마이크 권한을 허용한 뒤 다시 시도해 주세요."
-            : "마이크 권한을 허용한 뒤 다시 시도해 주세요."
+            ? t("nav_messenger_permission_retry_camera_mic")
+            : t("nav_messenger_permission_retry_mic")
         );
       });
-  }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId]);
+  }, [call, call.panel?.kind, call.panel?.mode, call.panel?.sessionId, t]);
 
   const handleAcceptIncomingCall = useCallback((): Promise<boolean> => {
     return call.acceptIncomingCall();
@@ -435,7 +445,7 @@ export function CommunityMessengerRoomClient({
   ]);
 
   const leaveRoom = useCallback(async () => {
-    if (!window.confirm("이 그룹방에서 나가시겠습니까?")) return;
+    if (!window.confirm(t("nav_messenger_leave_group_confirm"))) return;
     setBusy("leave-room");
     try {
       const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/leave`, {
@@ -450,7 +460,7 @@ export function CommunityMessengerRoomClient({
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, roomId, router]);
+  }, [getRoomActionErrorMessage, roomId, router, t]);
 
   const sendMessage = useCallback(async () => {
     const content = message.trim();
@@ -1112,7 +1122,7 @@ export function CommunityMessengerRoomClient({
           onClick={() => router.replace("/community-messenger?tab=chats")}
           className="rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
         >
-          메신저 홈으로
+          {t("nav_messenger_home")}
         </button>
       </div>
     );
@@ -1126,7 +1136,7 @@ export function CommunityMessengerRoomClient({
             type="button"
             onClick={() => router.replace(`/community-messenger?tab=${isGroupRoom ? "groups" : "chats"}`)}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
-            aria-label="뒤로가기"
+            aria-label={t("tier1_back")}
           >
             <BackIcon className="h-5 w-5" />
           </button>
@@ -1145,7 +1155,7 @@ export function CommunityMessengerRoomClient({
                   onClick={() => void startManagedDirectCall("voice")}
                   disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
                   className="flex h-11 w-11 items-center justify-center rounded-full text-[#06C755] transition hover:bg-[#06C755]/10 disabled:opacity-35"
-                  aria-label="음성 통화"
+                  aria-label={t("nav_voice_call_label")}
                 >
                   <VoiceCallIcon className="h-5 w-5" />
                 </button>
@@ -1154,7 +1164,7 @@ export function CommunityMessengerRoomClient({
                   onClick={() => void startManagedDirectCall("video")}
                   disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
                   className="flex h-11 w-11 items-center justify-center rounded-full text-[#06C755] transition hover:bg-[#06C755]/10 disabled:opacity-35"
-                  aria-label="영상 통화"
+                  aria-label={t("nav_video_call_label")}
                 >
                   <VideoCallIcon className="h-5 w-5" />
                 </button>
@@ -1164,7 +1174,7 @@ export function CommunityMessengerRoomClient({
               type="button"
               onClick={() => setActiveSheet("menu")}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
-              aria-label="채팅방 메뉴"
+              aria-label={t("nav_messenger_room_menu")}
             >
               <MoreIcon className="h-5 w-5" />
             </button>
@@ -1177,11 +1187,11 @@ export function CommunityMessengerRoomClient({
           {snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly ? (
             <div className="rounded-2xl bg-amber-50 px-3 py-3 text-[13px] text-amber-800">
               {snapshot.room.roomStatus === "blocked"
-                ? "이 방은 관리자에 의해 차단되었습니다."
+                ? t("nav_messenger_room_blocked_notice")
                 : snapshot.room.roomStatus === "archived"
-                  ? "이 방은 관리자에 의해 보관되었습니다."
-                  : "이 방은 현재 제한 상태입니다."}
-              {snapshot.room.isReadonly ? " 현재 읽기 전용 상태입니다." : ""}
+                  ? t("nav_messenger_room_archived_notice")
+                  : t("nav_messenger_room_restricted_notice")}
+              {snapshot.room.isReadonly ? ` ${t("nav_messenger_room_readonly_notice")}` : ""}
             </div>
           ) : null}
           {(managedDirectCallError || (call.errorMessage && !call.panel)) ? (
@@ -1191,7 +1201,7 @@ export function CommunityMessengerRoomClient({
           ) : null}
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full bg-[#06C755]/10 px-3 py-1 text-[12px] font-semibold text-[#06C755]">
-              SAMarket 메신저
+              {t("tier1_messenger")}
             </span>
             <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
               {roomTypeLabel}
@@ -1208,7 +1218,9 @@ export function CommunityMessengerRoomClient({
             ) : null}
             {snapshot.room.myIdentityMode ? (
               <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
-                내 표시 {snapshot.room.myIdentityMode === "alias" ? "별칭" : "실명"}
+                {t("nav_messenger_my_identity", {
+                  mode: snapshot.room.myIdentityMode === "alias" ? t("nav_messenger_identity_alias") : t("nav_messenger_identity_real"),
+                })}
               </span>
             ) : null}
           </div>
@@ -1219,7 +1231,7 @@ export function CommunityMessengerRoomClient({
                 className={`flex ${item.isMine ? "justify-end" : "justify-start"}`}
               >
                 <div className={`max-w-[78%] ${item.isMine ? "items-end" : "items-start"} flex flex-col gap-1`}>
-                  <span className="text-[11px] text-gray-400">{item.senderLabel}</span>
+                  <span className="text-[11px] text-gray-400">{tt(item.senderLabel)}</span>
                   <div
                     className={`rounded-2xl px-4 py-3 text-[14px] leading-5 shadow-sm ${
                       item.messageType === "call_stub"
@@ -1249,14 +1261,14 @@ export function CommunityMessengerRoomClient({
                     ) : item.messageType === "call_stub" ? (
                       <div>
                         <p className="font-semibold">
-                          {item.callKind === "video" ? "영상 통화" : "음성 통화"}
+                          {item.callKind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
                         </p>
-                        <p className="mt-1 text-[12px]">{formatRoomCallStatus(item.callStatus)}</p>
+                        <p className="mt-1 text-[12px]">{tt(formatRoomCallStatus(item.callStatus))}</p>
                       </div>
                     ) : (
                       <div className="flex items-end gap-2">
                         <span>{item.content}</span>
-                        {item.pending ? <span className="text-[11px] opacity-70">전송 중</span> : null}
+                        {item.pending ? <span className="text-[11px] opacity-70">{t("common_sending")}</span> : null}
                       </div>
                     )}
                   </div>
@@ -1526,7 +1538,7 @@ export function CommunityMessengerRoomClient({
                     disabled={roomUnavailable || isGroupRoom || busy === "managed-call:video"}
                     className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
                   >
-                    {isGroupRoom ? "그룹 통화 준비 중" : "영상 통화"}
+                    {isGroupRoom ? t("nav_group_call_coming_soon") : t("nav_video_call_label")}
                   </button>
                   <button
                     type="button"
@@ -1536,7 +1548,7 @@ export function CommunityMessengerRoomClient({
                     }}
                     className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-left text-[15px] font-semibold text-red-700"
                   >
-                    신고
+                    {t("nav_messenger_report")}
                   </button>
                 </div>
               </>
@@ -1546,15 +1558,15 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-[#06C755]">참가자</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">참여 멤버</h2>
+                    <p className="text-[13px] font-medium text-[#06C755]">{t("nav_messenger_participants")}</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{t("nav_messenger_participating_members")}</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
                     className="rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
                   >
-                    이전
+                    {t("tier1_back")}
                   </button>
                 </div>
                 <div className="mt-4 grid gap-2">
@@ -1562,7 +1574,7 @@ export function CommunityMessengerRoomClient({
                     <div key={member.id} className="rounded-2xl border border-gray-200 px-4 py-3">
                       <p className="text-[14px] font-semibold text-gray-900">{member.label}</p>
                       <p className="mt-1 text-[12px] text-gray-500">
-                        {member.subtitle ?? (member.identityMode === "alias" ? "별칭 참여" : "참여 중")}
+                        {member.subtitle ?? (member.identityMode === "alias" ? t("nav_messenger_member_alias_joined") : t("nav_messenger_member_joined"))}
                       </p>
                     </div>
                   ))}
@@ -1571,11 +1583,11 @@ export function CommunityMessengerRoomClient({
                   <div className="mt-4 rounded-2xl bg-[#F8FAF9] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[14px] font-semibold text-gray-900">멤버 초대</p>
-                        <p className="mt-1 text-[12px] text-gray-500">친구 목록에서 그룹방에 새 멤버를 초대합니다.</p>
+                        <p className="text-[14px] font-semibold text-gray-900">{t("nav_messenger_invite_members")}</p>
+                        <p className="mt-1 text-[12px] text-gray-500">{t("nav_messenger_invite_members_desc")}</p>
                       </div>
                       <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
-                        내 역할 {snapshot.myRole}
+                        {t("nav_messenger_my_role_label", { role: snapshot.myRole })}
                       </span>
                     </div>
                     <div className="mt-3 grid gap-2">
@@ -1587,7 +1599,7 @@ export function CommunityMessengerRoomClient({
                           >
                             <div>
                               <p className="text-[13px] font-semibold text-gray-900">{friend.label}</p>
-                              <p className="text-[12px] text-gray-500">{friend.subtitle ?? "친구"}</p>
+                              <p className="text-[12px] text-gray-500">{friend.subtitle ?? t("nav_messenger_friend")}</p>
                             </div>
                             <input
                               type="checkbox"
@@ -1602,7 +1614,7 @@ export function CommunityMessengerRoomClient({
                           </label>
                         ))
                       ) : (
-                        <p className="text-[12px] text-gray-500">초대 가능한 친구가 없습니다.</p>
+                        <p className="text-[12px] text-gray-500">{t("nav_messenger_no_invitable_friends")}</p>
                       )}
                     </div>
                     <button
@@ -1611,7 +1623,7 @@ export function CommunityMessengerRoomClient({
                       disabled={inviteIds.length === 0 || busy === "invite"}
                       className="mt-3 rounded-xl bg-[#06C755] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
                     >
-                      선택한 친구 초대
+                      {t("nav_messenger_invite_selected_friends")}
                     </button>
                   </div>
                 ) : null}
@@ -1622,15 +1634,15 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-[#06C755]">방 정보</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">대화방 상세</h2>
+                    <p className="text-[13px] font-medium text-[#06C755]">{t("nav_messenger_room_info")}</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{t("nav_messenger_room_details")}</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
                     className="rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
                   >
-                    이전
+                    {t("tier1_back")}
                   </button>
                 </div>
 
@@ -1638,7 +1650,7 @@ export function CommunityMessengerRoomClient({
                   <div className="rounded-2xl border border-gray-200 p-4">
                     <p className="text-[14px] font-semibold text-gray-900">{snapshot.room.title}</p>
                     <p className="mt-2 text-[13px] leading-5 text-gray-600">
-                      {snapshot.room.summary?.trim() || roomSubtitle || "아직 소개가 없는 대화방입니다."}
+                      {snapshot.room.summary?.trim() || roomSubtitle || t("nav_messenger_room_no_intro")}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
@@ -1656,8 +1668,16 @@ export function CommunityMessengerRoomClient({
                       ) : null}
                     </div>
                     <p className="mt-3 text-[12px] text-gray-500">
-                      방장 {snapshot.room.ownerLabel} · 현재 {snapshot.room.memberCount}명
-                      {snapshot.room.memberLimit ? ` / 최대 ${snapshot.room.memberLimit}명` : ""}
+                      {snapshot.room.memberLimit
+                        ? t("nav_messenger_room_owner_summary_with_limit", {
+                            owner: snapshot.room.ownerLabel,
+                            count: snapshot.room.memberCount,
+                            limit: snapshot.room.memberLimit,
+                          })
+                        : t("nav_messenger_room_owner_summary", {
+                            owner: snapshot.room.ownerLabel,
+                            count: snapshot.room.memberCount,
+                          })}
                     </p>
                   </div>
 
@@ -1665,13 +1685,13 @@ export function CommunityMessengerRoomClient({
                     <div className="rounded-2xl bg-[#F8FAF9] p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[14px] font-semibold text-gray-900">공개 그룹 설정</p>
+                          <p className="text-[14px] font-semibold text-gray-900">{t("nav_messenger_open_group_settings")}</p>
                           <p className="mt-1 text-[12px] text-gray-500">
-                            {isOwner ? "방장으로서 입장 정책과 노출 정책을 수정할 수 있습니다." : "현재 공개 그룹 정책을 확인합니다."}
+                            {isOwner ? t("nav_messenger_open_group_owner_desc") : t("nav_messenger_open_group_view_desc")}
                           </p>
                         </div>
                         <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
-                          {isOwner ? "방장" : `내 역할 ${snapshot.myRole}`}
+                          {isOwner ? t("nav_messenger_owner_label") : t("nav_messenger_my_role_label", { role: snapshot.myRole })}
                         </span>
                       </div>
 
@@ -1680,14 +1700,14 @@ export function CommunityMessengerRoomClient({
                           <input
                             value={openGroupTitle}
                             onChange={(e) => setOpenGroupTitle(e.target.value)}
-                            placeholder="방 제목"
+                            placeholder={t("nav_messenger_room_title_placeholder")}
                             className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
                           />
                           <textarea
                             value={openGroupSummary}
                             onChange={(e) => setOpenGroupSummary(e.target.value)}
                             rows={3}
-                            placeholder="방 소개"
+                            placeholder={t("nav_messenger_room_intro_placeholder")}
                             className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
                           />
                           <div className="grid gap-3 md:grid-cols-2">
@@ -1697,7 +1717,7 @@ export function CommunityMessengerRoomClient({
                                 onClick={() => setOpenGroupJoinPolicy("password")}
                                 className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
                               >
-                                비밀번호
+                                {t("nav_messenger_password_short")}
                               </button>
                               <button
                                 type="button"
@@ -1707,13 +1727,13 @@ export function CommunityMessengerRoomClient({
                                 }}
                                 className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
                               >
-                                자유 입장
+                                {t("nav_messenger_join_free")}
                               </button>
                             </div>
                             <input
                               value={openGroupMemberLimit}
                               onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
-                              placeholder="최대 인원"
+                              placeholder={t("nav_messenger_member_limit_placeholder")}
                               className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
                             />
                           </div>
@@ -1721,7 +1741,7 @@ export function CommunityMessengerRoomClient({
                             <input
                               value={openGroupPassword}
                               onChange={(e) => setOpenGroupPassword(e.target.value)}
-                              placeholder="새 비밀번호"
+                              placeholder={t("nav_messenger_new_password_placeholder")}
                               className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
                             />
                           ) : null}
@@ -1731,20 +1751,20 @@ export function CommunityMessengerRoomClient({
                               onClick={() => setOpenGroupIdentityPolicy("real_name")}
                               className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
                             >
-                              실명 기반
+                              {t("nav_messenger_identity_real")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
                               className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
                             >
-                              별칭 허용
+                              {t("nav_messenger_identity_alias")}
                             </button>
                           </div>
                           <label className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3">
                             <div>
-                              <p className="text-[13px] font-semibold text-gray-900">공개 목록 노출</p>
-                              <p className="mt-1 text-[12px] text-gray-500">OFF면 새 참여자는 검색으로 찾을 수 없습니다.</p>
+                              <p className="text-[13px] font-semibold text-gray-900">{t("nav_messenger_discoverable_label")}</p>
+                              <p className="mt-1 text-[12px] text-gray-500">{t("nav_messenger_discoverable_desc")}</p>
                             </div>
                             <input
                               type="checkbox"
@@ -1759,7 +1779,7 @@ export function CommunityMessengerRoomClient({
                             disabled={busy === "open-group-settings" || !openGroupTitle.trim()}
                             className="rounded-xl bg-[#111827] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
                           >
-                            {busy === "open-group-settings" ? "설정 저장 중..." : "방 설정 저장"}
+                            {busy === "open-group-settings" ? t("nav_messenger_saving_settings") : t("nav_messenger_save_room_settings")}
                           </button>
                         </div>
                       ) : (
@@ -1770,7 +1790,7 @@ export function CommunityMessengerRoomClient({
                             disabled={busy === "leave-room"}
                             className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700 disabled:opacity-40"
                           >
-                            {busy === "leave-room" ? "나가는 중..." : "그룹방 나가기"}
+                            {busy === "leave-room" ? t("nav_messenger_leaving") : t("nav_messenger_leave_group_room")}
                           </button>
                         </div>
                       )}
@@ -1788,8 +1808,8 @@ export function CommunityMessengerRoomClient({
           <div className="w-full max-w-[420px] rounded-[32px] bg-[#111827] px-5 pb-5 pt-6 text-white shadow-2xl">
             <div className="flex items-center justify-between gap-3">
               <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-white/85">
-                {isGroupRoom ? "그룹 " : ""}
-                {call.panel.kind === "video" ? "영상 통화" : "음성 통화"}
+                {isGroupRoom ? t("nav_messenger_group_prefix") : ""}
+                {call.panel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
               </span>
               {call.panel.mode === "active" ? (
                 <span className="rounded-full bg-[#06C755]/20 px-3 py-1 text-[12px] font-semibold text-[#86EFAC]">
@@ -1816,8 +1836,8 @@ export function CommunityMessengerRoomClient({
                       </div>
                       <p className="text-[13px] text-white/75">
                         {call.panel.mode === "incoming"
-                          ? "카메라와 마이크 권한을 확인하면 바로 통화에 참여합니다."
-                          : "카메라와 마이크 권한을 확인하는 중입니다."}
+                          ? t("nav_messenger_video_join_after_permission")
+                          : t("nav_messenger_video_preparing_permission")}
                       </p>
                     </div>
                   )}
@@ -1828,7 +1848,9 @@ export function CommunityMessengerRoomClient({
                     MIC
                   </div>
                   <p className="text-[13px] text-white/70">
-                    {call.panel.mode === "incoming" ? "마이크 확인 후 바로 연결합니다." : "마이크 연결을 준비하고 있습니다."}
+                    {call.panel.mode === "incoming"
+                      ? t("nav_messenger_voice_join_after_permission")
+                      : t("nav_messenger_voice_preparing_permission")}
                   </p>
                 </div>
               )}
@@ -1863,7 +1885,7 @@ export function CommunityMessengerRoomClient({
                             : "bg-red-500/15 text-red-200"
                       }`}
                     >
-                      {participant.label} · {formatParticipantStatus(participant.status)}
+                      {participant.label} · {tt(formatParticipantStatus(participant.status))}
                     </span>
                   ))}
                 </div>
@@ -1899,15 +1921,15 @@ export function CommunityMessengerRoomClient({
                     className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
                   >
                     {call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"
-                      ? "확인 중..."
-                      : permissionGuide?.retryLabel ?? "권한 확인"}
+                      ? t("nav_messenger_checking")
+                      : permissionGuide?.retryLabel ?? t("nav_messenger_permission_check")}
                   </button>
                   <button
                     type="button"
                     onClick={openCallPermissionHelp}
                     className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
                   >
-                    {permissionGuide?.settingsLabel ?? "권한 안내"}
+                    {permissionGuide?.settingsLabel ?? t("nav_messenger_permission_guide")}
                   </button>
                 </div>
               </div>
@@ -1920,15 +1942,15 @@ export function CommunityMessengerRoomClient({
                   className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
                 >
                   {call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"
-                    ? "확인 중..."
-                    : permissionGuide?.retryLabel ?? "권한 확인"}
+                    ? t("nav_messenger_checking")
+                    : permissionGuide?.retryLabel ?? t("nav_messenger_permission_check")}
                 </button>
                 <button
                   type="button"
                   onClick={openCallPermissionHelp}
                   className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
                 >
-                  {permissionGuide?.settingsLabel ?? "권한 안내"}
+                  {permissionGuide?.settingsLabel ?? t("nav_messenger_permission_guide")}
                 </button>
               </div>
             ) : null}

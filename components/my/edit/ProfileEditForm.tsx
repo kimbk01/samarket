@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRegion } from "@/contexts/RegionContext";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
@@ -27,6 +29,7 @@ function validate(p: { nickname: string }): { nickname?: string } {
 }
 
 export function ProfileEditForm() {
+  const { setLanguage } = useI18n();
   const { refreshProfileLocation } = useRegion();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,6 +116,7 @@ export function ProfileEditForm() {
     const result = await updateMyProfile(payload);
     setSaving(false);
     if (result.ok) {
+      setLanguage(normalizeAppLanguage(preferredLanguage));
       const warn = "warning" in result && result.warning ? result.warning : "";
       setMessage({
         type: "ok",

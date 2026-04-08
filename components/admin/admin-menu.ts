@@ -5,6 +5,8 @@
  * - roles 미지정 시 전체 노출, 지정 시 해당 role만 노출 (추후 권한 연동)
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export type AdminMenuRole = "master" | "admin" | "operator" | "viewer";
 
 /** 메뉴 연결 상태: 완료 / 부분 / 미연결. 미지정 시 하위로부터 자동 계산 (사이드바 접두어 미사용) */
@@ -13,6 +15,7 @@ export type AdminMenuStatus = "done" | "partial" | "todo";
 export interface AdminMenuItem {
   key: string;
   title: string;
+  titleKey?: MessageKey;
   path?: string;
   icon?: string;
   roles?: AdminMenuRole[];
@@ -23,8 +26,137 @@ export interface AdminMenuItem {
   status?: AdminMenuStatus;
 }
 
+const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
+  dashboard: "admin_menu_dashboard",
+  operations: "admin_menu_operations",
+  users: "admin_menu_users",
+  "posts-management": "admin_menu_posts_management",
+  "jobs-management": "admin_menu_jobs_management",
+  regions: "admin_menu_regions",
+  "menu-management": "admin_menu_menu_management",
+  "menu-trade": "admin_menu_menu_trade",
+  "menu-community": "admin_menu_menu_community",
+  "menu-main-bottom-nav": "admin_menu_main_bottom_nav",
+  trade: "admin_menu_trade",
+  "trade-products": "admin_menu_trade_products",
+  "trade-feed-topics": "admin_menu_trade_topics",
+  "trade-offers": "admin_menu_trade_offers",
+  "trade-likes": "admin_menu_trade_likes",
+  "trade-status": "admin_menu_trade_status",
+  community: "admin_menu_community",
+  "community-boards": "admin_menu_boards",
+  "community-sections": "admin_menu_feed_sections",
+  "community-topics": "admin_menu_feed_topics",
+  "community-feed-settings": "admin_menu_feed_settings",
+  "community-feed-reports": "admin_menu_feed_reports",
+  "community-meeting-events": "admin_menu_meeting_logs",
+  "community-posts": "admin_menu_posts",
+  "community-comments": "admin_menu_comments",
+  "community-board-categories": "admin_menu_board_categories",
+  "community-popular": "admin_menu_popular_posts",
+  "community-notices": "admin_menu_notices",
+  business: "admin_menu_delivery",
+  "store-application-settings": "admin_menu_store_application_settings",
+  "stores-commerce": "admin_menu_store_review_queue",
+  "store-products-admin": "admin_menu_store_products",
+  "store-orders-admin": "admin_menu_store_orders",
+  "delivery-orders-console": "admin_menu_delivery_ops",
+  "delivery-orders-list": "admin_menu_delivery_order_list",
+  "delivery-orders-cancel": "admin_menu_delivery_cancel",
+  "delivery-orders-refund": "admin_menu_delivery_refund",
+  "delivery-orders-settlement": "admin_menu_delivery_settlement",
+  "delivery-orders-reports": "admin_menu_delivery_reports",
+  "delivery-orders-logs": "admin_menu_delivery_logs",
+  "store-inquiries-admin": "admin_menu_store_inquiries",
+  "store-reviews-admin": "admin_menu_store_reviews",
+  "store-reports-admin": "admin_menu_store_reports",
+  "store-settlements-admin": "admin_menu_store_settlements",
+  "store-payment-events-admin": "admin_menu_store_payment_events",
+  "commerce-settings-admin": "admin_menu_commerce_settings",
+  "business-shops": "admin_menu_business_management",
+  "business-posts": "admin_menu_business_posts",
+  "business-coupons": "admin_menu_business_coupons",
+  "business-exposure": "admin_menu_business_exposure",
+  chat: "admin_menu_chat",
+  "chat-all": "admin_menu_chat_all",
+  "chat-trade-flow": "admin_menu_chat_flow",
+  "chat-trade": "admin_menu_chat_trade",
+  "chat-messenger": "admin_menu_chat_messenger",
+  "chat-reported": "admin_menu_chat_reported",
+  reviews: "admin_menu_reviews",
+  "reviews-trade": "admin_menu_trade_reviews",
+  "reviews-business": "admin_menu_business_reviews",
+  "reviews-reported": "admin_menu_review_reports",
+  reports: "admin_menu_reports",
+  "reports-posts": "admin_menu_reports_all",
+  "reports-comments": "admin_menu_reports_comments",
+  "reports-chat": "admin_menu_reports_chat",
+  "reports-users": "admin_menu_reports_users",
+  "reports-logs": "admin_menu_reports_logs",
+  ads: "admin_menu_ads",
+  "ads-applications": "admin_menu_ads_applications",
+  "ads-post-ads": "admin_menu_ads_posts",
+  "ads-paid": "admin_menu_ads_paid",
+  "ads-benefits": "admin_menu_ads_benefits",
+  "ads-policy": "admin_menu_ads_policy",
+  "ads-home-feed": "admin_menu_ads_home_feed",
+  "ads-recommendation": "admin_menu_ads_recommendation",
+  points: "admin_menu_points",
+  "points-charge": "admin_menu_points_charge",
+  "points-ledger": "admin_menu_points_ledger",
+  "points-policy": "admin_menu_points_policy",
+  "points-execute": "admin_menu_points_execute",
+  "points-expire": "admin_menu_points_expire",
+  settings: "admin_menu_settings",
+  "settings-services": "admin_menu_settings_services",
+  "settings-boards": "admin_menu_settings_boards",
+  "settings-general": "admin_menu_settings_general",
+  "settings-permissions": "admin_menu_settings_permissions",
+  manage: "admin_menu_manage",
+  "manage-experiments": "admin_menu_manage_experiments",
+  "manage-ab": "admin_menu_manage_ab",
+  "manage-reports": "admin_menu_manage_reports",
+  "manage-ops-board": "admin_menu_manage_ops_board",
+  "manage-knowledge": "admin_menu_manage_knowledge",
+  "manage-docs": "admin_menu_manage_docs",
+  "manage-runbooks": "admin_menu_manage_runbooks",
+  "manage-kb": "admin_menu_manage_kb",
+  "manage-kg": "admin_menu_manage_kg",
+  "manage-eval": "admin_menu_manage_eval",
+  "manage-learning": "admin_menu_manage_learning",
+  "manage-maturity": "admin_menu_manage_maturity",
+  "manage-benchmarks": "admin_menu_manage_benchmarks",
+  system: "admin_menu_dev",
+  "system-qa": "admin_menu_dev_qa",
+  "system-hotfix": "admin_menu_dev_hotfix",
+  "system-longrun": "admin_menu_dev_longterm",
+  "system-backlog": "admin_menu_dev_backlog",
+  "system-sprint": "admin_menu_dev_sprints",
+  "system-release": "admin_menu_dev_release",
+  "system-release-notes": "admin_menu_dev_release_notes",
+  "system-release-archive": "admin_menu_dev_release_archive",
+  "system-release-migration": "admin_menu_dev_production",
+  "system-manage": "admin_menu_dev_system",
+  "system-backup": "admin_menu_dev_backup",
+  "system-dr": "admin_menu_dev_dr",
+  "system-security": "admin_menu_dev_security",
+  "system-performance": "admin_menu_dev_performance",
+  "system-usage": "admin_menu_dev_usage",
+  "system-automation": "admin_menu_dev_automation",
+  "system-status": "admin_menu_dev_system_status",
+  "system-audit": "admin_menu_dev_audit",
+};
+
+function attachAdminMenuTitleKeys(items: AdminMenuItem[]): AdminMenuItem[] {
+  return items.map((item) => ({
+    ...item,
+    titleKey: item.titleKey ?? ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY[item.key],
+    children: item.children?.length ? attachAdminMenuTitleKeys(item.children) : undefined,
+  }));
+}
+
 /** 단일 배열: 대시보드(단일) + 실질운영/광고/포인트/설정/관리보고/개발시스템(그룹) */
-export const adminMenu: AdminMenuItem[] = [
+export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   {
     key: "dashboard",
     title: "대시보드",
@@ -356,7 +488,7 @@ export const adminMenu: AdminMenuItem[] = [
       { key: "system-audit", title: "로그감사", path: "/admin/audit-logs", status: "done" },
     ],
   },
-];
+]);
 
 /**
  * role 기준 메뉴 필터링. 항목/자식의 roles 미지정 시 전체 노출, 지정 시 해당 role만 노출.

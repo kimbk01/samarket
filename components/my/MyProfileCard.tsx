@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ProfileRow } from "@/lib/profile/types";
 import {
   isProfileLocationComplete,
@@ -41,21 +42,22 @@ export function MyProfileCard({
   editHref = "/my/edit",
   addressDefaults,
 }: MyProfileCardProps) {
-  const memberLabel = getMemberTypeLabel(profile);
+  const { tt } = useI18n();
+  const memberLabel = tt(getMemberTypeLabel(profile));
   const hasRegion = isProfileLocationComplete(profile);
-  const regionDisplay = resolveProfileLocationAddressOneLine(profile).trim() || "미설정";
-  const displayName = profile.nickname || "닉네임 없음";
+  const regionDisplay = resolveProfileLocationAddressOneLine(profile).trim() || tt("미설정");
+  const displayName = profile.nickname || tt("닉네임 없음");
   const pointsLabel = `${Math.max(0, Math.floor(Number(profile.points) || 0)).toLocaleString()}P`;
 
   const chips: { key: string; label: string; warn: boolean }[] = [];
-  if (!hasRegion) chips.push({ key: "region", label: "기본 동네 미설정", warn: true });
+  if (!hasRegion) chips.push({ key: "region", label: tt("기본 동네 미설정"), warn: true });
   if (addressDefaults) {
-    if (!addressDefaults.life) chips.push({ key: "life", label: "생활 주소 미설정", warn: true });
-    if (!addressDefaults.trade) chips.push({ key: "trade", label: "거래 주소 미설정", warn: true });
-    if (!addressDefaults.delivery) chips.push({ key: "delivery", label: "배달 주소 미설정", warn: true });
+    if (!addressDefaults.life) chips.push({ key: "life", label: tt("생활 주소 미설정"), warn: true });
+    if (!addressDefaults.trade) chips.push({ key: "trade", label: tt("거래 주소 미설정"), warn: true });
+    if (!addressDefaults.delivery) chips.push({ key: "delivery", label: tt("배달 주소 미설정"), warn: true });
   }
-  if (!profile.phone_verified) chips.push({ key: "phone", label: "연락처 미인증", warn: true });
-  if (!profile.realname_verified) chips.push({ key: "realname", label: "본인인증 필요", warn: true });
+  if (!profile.phone_verified) chips.push({ key: "phone", label: tt("연락처 미인증"), warn: true });
+  if (!profile.realname_verified) chips.push({ key: "realname", label: tt("본인인증 필요"), warn: true });
 
   return (
     <div className="rounded-[28px] border border-[#E5E7EB] bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
@@ -65,7 +67,7 @@ export function MyProfileCard({
           <Link
             href={editHref}
             className="relative block h-[72px] w-[72px] overflow-hidden rounded-full bg-[#EFEFEF] sm:h-[76px] sm:w-[76px]"
-            aria-label="프로필 이미지 편집"
+            aria-label={tt("프로필 이미지 편집")}
           >
             {profile.avatar_url ? (
               <Image src={profile.avatar_url} alt="" fill className="object-cover" sizes="76px" />
@@ -83,7 +85,7 @@ export function MyProfileCard({
                 <span className="truncate text-[17px] font-semibold text-[#262626] sm:text-[18px]">{displayName}</span>
                 {isBusinessMember ? (
                   <span className="rounded-full bg-signature/10 px-2 py-0.5 text-[11px] font-medium text-signature">
-                    비즈
+                    {tt("비즈")}
                   </span>
                 ) : null}
                 <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-medium text-[#4B5563]">
@@ -95,7 +97,7 @@ export function MyProfileCard({
               href={editHref}
               className="inline-flex shrink-0 items-center rounded-full border border-[#DBDBDB] px-2.5 py-1 text-[11px] font-medium text-[#262626] active:bg-[#FAFAFA] sm:px-3 sm:text-[12px]"
             >
-              프로필 편집
+              {tt("프로필 편집")}
             </Link>
           </div>
 
@@ -104,21 +106,21 @@ export function MyProfileCard({
             <div className="flex items-center gap-3">
               <MannerBatteryDisplay raw={mannerScore} size="md" layout="inline" className="gap-2" />
               <div>
-                <p className="text-[11px] font-medium text-[#6B7280]">신뢰 온도</p>
-                <p className="text-[13px] font-semibold text-[#111827]">거래 매너 지표</p>
+                <p className="text-[11px] font-medium text-[#6B7280]">{tt("신뢰 온도")}</p>
+                <p className="text-[13px] font-semibold text-[#111827]">{tt("거래 매너 지표")}</p>
               </div>
             </div>
             <div className="flex gap-2 sm:justify-end">
-              <StatMini label="포인트" value={pointsLabel} href="/mypage/points" />
-              <StatMini label="기본 동네" value={regionDisplay} warn={!hasRegion} href="/my/addresses" />
+              <StatMini label={tt("포인트")} value={pointsLabel} href="/mypage/points" />
+              <StatMini label={tt("기본 동네")} value={regionDisplay} warn={!hasRegion} href="/my/addresses" />
             </div>
           </div>
 
           {/* 3행: 주소 · 충전 · 인증 */}
           <div className="mt-3 grid grid-cols-3 gap-2">
-            <QuickLink href="/my/addresses" title="주소 관리" subtitle="생활·거래·배달" />
-            <QuickLink href="/mypage/points" title="충전·포인트" subtitle="잔액·내역" />
-            <QuickLink href={accountHref} title="인증·보안" subtitle="연락처·계정" />
+            <QuickLink href="/my/addresses" title={tt("주소 관리")} subtitle={tt("생활·거래·배달")} />
+            <QuickLink href="/mypage/points" title={tt("충전·포인트")} subtitle={tt("잔액·내역")} />
+            <QuickLink href={accountHref} title={tt("인증·보안")} subtitle={tt("연락처·계정")} />
           </div>
         </div>
       </div>

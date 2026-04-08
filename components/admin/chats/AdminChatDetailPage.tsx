@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   AdminChatRoom,
   AdminChatMessage,
@@ -162,6 +163,7 @@ interface AdminChatDetailPageProps {
 }
 
 export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [memoInput, setMemoInput] = useState("");
   const [room, setRoom] = useState<AdminChatRoom | null>(null);
@@ -228,7 +230,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
   if (loading) {
     return (
       <div className="py-8 text-center text-[14px] text-gray-500">
-        불러오는 중...
+        {t("admin_chat_loading_room")}
       </div>
     );
   }
@@ -236,7 +238,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
   if (!room) {
     return (
       <div className="py-8 text-center text-[14px] text-gray-500">
-        채팅방을 찾을 수 없습니다.
+        {t("admin_chat_room_not_found")}
       </div>
     );
   }
@@ -251,9 +253,9 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="채팅 상세" backHref="/admin/chats" />
+      <AdminPageHeader title={t("admin_page_chat_detail")} backHref="/admin/chats" />
 
-      <AdminCard title="채팅방 정보">
+      <AdminCard title={t("admin_chat_room_info_card")}>
         <div className="flex gap-4">
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100">
             {room.productThumbnail ? (
@@ -271,7 +273,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             <p className="text-[13px] text-gray-500">ID: {room.id}</p>
             {room.roomType ? (
               <p className="text-[12px] text-signature">
-                유형: {room.roomType}
+                {t("admin_chat_type_label")}: {room.roomType}
                 {room.contextType ? ` · ${room.contextType}` : ""}
               </p>
             ) : null}
@@ -281,23 +283,26 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
                   href={`/philife/meetings/${room.meetingId}`}
                   className="font-medium text-signature hover:underline"
                 >
-                  모임 페이지로 이동
+                  {t("admin_chat_move_to_meeting")}
                 </Link>
               </p>
             ) : null}
             <AdminChatRoomStatusBadge status={room.roomStatus} className="mt-2" />
             <p className="mt-2 text-[13px] text-gray-600">
-              메시지 {room.messageCount} · 신고 {room.reportCount}
+              {t("admin_chat_message_report_count", {
+                messageCount: room.messageCount,
+                reportCount: room.reportCount,
+              })}
             </p>
           </div>
         </div>
       </AdminCard>
 
-      <AdminCard title="참여자">
+      <AdminCard title={t("admin_chat_participants")}>
         <dl className="grid gap-2 text-[14px]">
           <div>
             <dt className="text-gray-500">
-              {room.roomType === "item_trade" || !room.roomType ? "판매자" : "참여자 A"}
+              {room.roomType === "item_trade" || !room.roomType ? t("admin_chat_seller") : t("admin_chat_participant_a")}
             </dt>
             <dd>
               {room.sellerNickname} ({room.sellerId || "—"})
@@ -305,7 +310,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
           </div>
           <div>
             <dt className="text-gray-500">
-              {room.roomType === "item_trade" || !room.roomType ? "구매자" : "참여자 B"}
+              {room.roomType === "item_trade" || !room.roomType ? t("admin_chat_buyer") : t("admin_chat_participant_b")}
             </dt>
             <dd>
               {room.buyerNickname} ({room.buyerId || "—"})
@@ -314,18 +319,18 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         </dl>
       </AdminCard>
 
-      <AdminCard title="메시지 타임라인">
+      <AdminCard title={t("admin_chat_message_timeline")}>
         <AdminChatMessageTimeline messages={messages} />
       </AdminCard>
 
-      <AdminCard title="관리자 메모 (placeholder)">
+      <AdminCard title={t("admin_chat_admin_memo")}>
         {hasMemo && (
           <p className="mb-2 text-[13px] text-gray-700">{hasMemo}</p>
         )}
         <div className="flex gap-2">
           <input
             type="text"
-            placeholder="메모 입력"
+            placeholder={t("admin_chat_memo_placeholder")}
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
             className="min-w-0 flex-1 rounded border border-gray-200 px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
@@ -335,18 +340,18 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             onClick={handleSaveMemo}
             className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50"
           >
-            저장
+            {t("admin_chat_save_memo")}
           </button>
         </div>
       </AdminCard>
 
-      <AdminCard title="관리자 액션">
+      <AdminCard title={t("admin_chat_admin_action")}>
         <AdminChatActionPanel room={room} onActionSuccess={refreshDetail} />
       </AdminCard>
 
-      <AdminCard title="관련 신고 목록">
+      <AdminCard title={t("admin_chat_related_reports")}>
         {roomReports.length === 0 ? (
-          <p className="text-[13px] text-gray-500">해당 채팅방 신고 없음</p>
+          <p className="text-[13px] text-gray-500">{t("admin_chat_no_reports")}</p>
         ) : (
           <ul className="space-y-2">
             {roomReports.map((rp) => (
@@ -357,7 +362,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
                   href={`/admin/reports/${rp.id}`}
                   className="shrink-0 font-medium text-signature hover:underline"
                 >
-                  상세
+                  {t("admin_chat_detail_short")}
                 </Link>
               </li>
             ))}
@@ -365,9 +370,9 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         )}
       </AdminCard>
 
-      <AdminCard title="제재 이력 (판매자/구매자)">
+      <AdminCard title={t("admin_chat_sanctions_history")}>
         {sanctions.length === 0 ? (
-          <p className="text-[13px] text-gray-500">제재 이력 없음</p>
+          <p className="text-[13px] text-gray-500">{t("admin_chat_no_sanctions")}</p>
         ) : (
           <ul className="space-y-2 text-[13px]">
             {sanctions.map((s) => (
@@ -382,7 +387,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         )}
       </AdminCard>
 
-      <AdminCard title="조치 이력">
+      <AdminCard title={t("admin_chat_action_history")}>
         <AdminChatModerationLogList logs={modLogs} />
       </AdminCard>
     </div>

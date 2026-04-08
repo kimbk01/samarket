@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
 interface SettingsHeaderProps {
@@ -12,12 +13,13 @@ interface SettingsHeaderProps {
 export function SettingsHeader({
   title,
   backHref = "/mypage",
-  subtitle = "앱 전역 설정",
+  subtitle,
 }: SettingsHeaderProps) {
+  const { t } = useI18n();
   return (
     <MySubpageHeader
       title={title}
-      subtitle={subtitle ?? undefined}
+      subtitle={subtitle === undefined ? t("settings_global_subtitle") : subtitle ?? undefined}
       backHref={backHref}
       section={subtitle === null ? undefined : "account"}
       hideCtaStrip={subtitle === null}

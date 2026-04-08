@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 export function AppBackIcon({ className }: { className?: string }) {
@@ -68,12 +69,14 @@ export function AppBackButton({
   iconClassName,
   ariaLabel = "뒤로가기",
 }: AppBackButtonProps) {
+  const { tt } = useI18n();
   const router = useRouter();
   const mergedClass = `${structuralClass} ${className ?? defaultToneClass}`.trim();
+  const resolvedAriaLabel = tt(ariaLabel);
 
   if (preferHistoryBack === false && backHref != null) {
     return (
-      <Link href={backHref} className={mergedClass} aria-label={ariaLabel}>
+      <Link href={backHref} className={mergedClass} aria-label={resolvedAriaLabel}>
         <AppBackIcon className={iconClassName} />
       </Link>
     );
@@ -85,7 +88,7 @@ export function AppBackButton({
         type="button"
         onClick={() => runHistoryBackWithFallback(router, backHref)}
         className={mergedClass}
-        aria-label={ariaLabel}
+        aria-label={resolvedAriaLabel}
       >
         <AppBackIcon className={iconClassName} />
       </button>
@@ -97,7 +100,7 @@ export function AppBackButton({
       type="button"
       onClick={() => (onBack ? onBack() : router.back())}
       className={mergedClass}
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
     >
       <AppBackIcon className={iconClassName} />
     </button>

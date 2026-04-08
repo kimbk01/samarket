@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatRoom, ChatMessage } from "@/lib/types/chat";
 import { allowMockChatMessageFallback } from "@/lib/config/deploy-surface";
 import { getMessages } from "@/lib/chats/mock-chat-messages";
@@ -134,6 +135,7 @@ export function ChatDetailView({
   tradeHubColumnLayout = false,
   ownerStoreOrderModalChrome: _ownerStoreOrderModalChrome = false,
 }: ChatDetailViewProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const rootHeightClass = embedded
@@ -231,8 +233,8 @@ export function ChatDetailView({
   const amISeller = room.sellerId === currentUserId;
 
   const partnerDisplayNickname = useMemo(
-    () => room.partnerNickname?.trim() || "상대",
-    [room.partnerNickname]
+    () => room.partnerNickname?.trim() || t("common_partner"),
+    [room.partnerNickname, t]
   );
   const partnerDisplayAvatar = useMemo(
     () => room.partnerAvatar?.trim() || "",
@@ -1186,7 +1188,7 @@ export function ChatDetailView({
                   }}
                   className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
                 >
-                  채팅 정보
+                  {t("common_chat_info")}
                 </button>
                 {reportEnabled && (
                   <button
@@ -1197,7 +1199,7 @@ export function ChatDetailView({
                     }}
                     className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
                   >
-                    신고
+                    {t("nav_messenger_report")}
                   </button>
                 )}
                 <button
@@ -1208,7 +1210,7 @@ export function ChatDetailView({
                   }}
                   className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
                 >
-                  차단
+                  {t("common_block")}
                 </button>
                 <button
                   type="button"
@@ -1219,7 +1221,7 @@ export function ChatDetailView({
                   }}
                   className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
                 >
-                  나가기
+                  {t("common_leave_chat_room")}
                 </button>
                 {isChatRoom && (
                   <button
@@ -1242,7 +1244,7 @@ export function ChatDetailView({
                     }}
                     className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
                   >
-                    숨기기
+                    {t("common_hide")}
                   </button>
                 )}
                 {canOpenReviewSheet && (
@@ -1254,7 +1256,7 @@ export function ChatDetailView({
                     }}
                     className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
                   >
-                    평가·후기 보내기
+                    {t("nav_trade_review_send")}
                   </button>
                 )}
     </div>
@@ -1483,7 +1485,7 @@ export function ChatDetailView({
             {sellerComposerQuickBar}
             <div className="px-4 py-3 text-center">
               <p className="text-[13px] text-gray-500">
-                차단된 사용자와는 메시지를 보낼 수 없습니다
+                {t("nav_trade_blocked_no_message")}
               </p>
             </div>
           </div>
@@ -1491,7 +1493,7 @@ export function ChatDetailView({
           <div className="shrink-0 border-t border-gray-200 bg-white safe-area-pb">
             <div className="px-4 py-3 text-center">
               <p className="text-[13px] text-gray-500">
-                차단된 사용자와는 메시지를 보낼 수 없습니다
+                {t("nav_trade_blocked_no_message")}
               </p>
             </div>
           </div>
@@ -1508,12 +1510,12 @@ export function ChatDetailView({
                 {adminChatSuspended
                   ? ADMIN_CHAT_SUSPENDED_MESSAGE
                   : soldToOther
-                    ? "이 상품은 다른 구매자와 거래가 완료되었습니다."
+                    ? t("nav_trade_sold_to_other")
                     : blockedByReservation
-                      ? "판매자가 다른 분과 예약 중입니다. 이 채팅에서는 새 메시지를 보낼 수 없어요."
+                      ? t("nav_trade_reserved_with_other")
                       : chatMode === "limited" || chatMode === "readonly"
-                        ? "이 채팅에서는 메시지를 보낼 수 없습니다."
-                        : "메시지를 보낼 수 없습니다."}
+                        ? t("nav_trade_cannot_message_here")
+                        : t("nav_trade_cannot_send_message")}
               </p>
             </div>
           </div>
@@ -1524,12 +1526,12 @@ export function ChatDetailView({
                 {adminChatSuspended
                   ? ADMIN_CHAT_SUSPENDED_MESSAGE
                   : soldToOther
-                    ? "이 상품은 다른 구매자와 거래가 완료되었습니다."
+                    ? t("nav_trade_sold_to_other")
                     : blockedByReservation
-                      ? "판매자가 다른 분과 예약 중입니다. 이 채팅에서는 새 메시지를 보낼 수 없어요."
+                      ? t("nav_trade_reserved_with_other")
                       : chatMode === "limited" || chatMode === "readonly"
-                        ? "이 채팅에서는 메시지를 보낼 수 없습니다."
-                        : "메시지를 보낼 수 없습니다."}
+                        ? t("nav_trade_cannot_message_here")
+                        : t("nav_trade_cannot_send_message")}
               </p>
             </div>
           </div>
@@ -1569,11 +1571,11 @@ export function ChatDetailView({
           <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-lg sm:max-h-[90vh] sm:rounded-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
               <div>
-                <h2 className="text-[16px] font-semibold text-gray-900">채팅 정보</h2>
-                <p className="mt-1 text-[12px] text-gray-500">{partnerDisplayNickname}과의 대화 정보를 확인합니다.</p>
+                <h2 className="text-[16px] font-semibold text-gray-900">{t("common_chat_info")}</h2>
+                <p className="mt-1 text-[12px] text-gray-500">{t("nav_trade_chat_info_desc", { nickname: partnerDisplayNickname })}</p>
               </div>
               <button type="button" onClick={() => setRoomInfoSheetOpen(false)} className="text-[14px] text-gray-500">
-                닫기
+                {t("common_close")}
               </button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
@@ -1581,12 +1583,12 @@ export function ChatDetailView({
                 <p className="text-[15px] font-semibold text-gray-900">{partnerDisplayNickname}</p>
                 <p className="mt-1 text-[13px] text-gray-500">
                   {isStoreOrderChat && !isStoreOrderBuyer
-                    ? room.roomSubtitle?.trim() || (amISeller ? "상대방 · 주문 고객" : "상대방 · 매장")
+                    ? room.roomSubtitle?.trim() || (amISeller ? t("nav_trade_partner_order_customer") : t("nav_trade_partner_store"))
                     : room.product
                       ? amISeller
-                        ? "상대방 · 구매자"
-                        : "상대방 · 이 글의 판매자"
-                      : "1:1 채팅"}
+                        ? t("nav_trade_partner_buyer")
+                        : t("nav_trade_partner_seller_of_post")
+                      : t("nav_trade_direct_chat")}
                 </p>
                 {partnerTrustSummary ? (
                   <div className="mt-3">
@@ -1596,7 +1598,7 @@ export function ChatDetailView({
               </section>
               {room.product ? (
                 <section className="rounded-2xl border border-gray-200 bg-[#F8FAF9] p-3">
-                  <p className="mb-3 text-[14px] font-semibold text-gray-900">연결된 상품</p>
+                  <p className="mb-3 text-[14px] font-semibold text-gray-900">{t("nav_trade_connected_product")}</p>
                   <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
                 </section>
               ) : null}
@@ -1609,9 +1611,9 @@ export function ChatDetailView({
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-t-2xl bg-white">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <h2 className="text-[16px] font-semibold text-gray-900">신고</h2>
+              <h2 className="text-[16px] font-semibold text-gray-900">{t("nav_messenger_report")}</h2>
               <button type="button" onClick={() => setReportSheetOpen(false)} className="text-[14px] text-gray-500">
-                닫기
+                {t("common_close")}
               </button>
             </div>
             <ReportActionSheet
@@ -1632,9 +1634,9 @@ export function ChatDetailView({
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-t-2xl bg-white">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <h2 className="text-[16px] font-semibold text-gray-900">차단</h2>
+              <h2 className="text-[16px] font-semibold text-gray-900">{t("common_block")}</h2>
               <button type="button" onClick={() => setBlockSheetOpen(false)} className="text-[14px] text-gray-500">
-                닫기
+                {t("common_close")}
               </button>
             </div>
             <BlockActionSheet

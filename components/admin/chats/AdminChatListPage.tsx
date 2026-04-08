@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isAdminUser } from "@/lib/auth/get-current-user";
 import { getAdminChatRoomsFromDb } from "@/lib/admin-chats/getAdminChatRoomsFromDb";
@@ -111,9 +112,9 @@ function getInitialFilters(mode: ChatListMode): AdminChatFilters {
 
 function getTitle(mode: ChatListMode): string {
   if (mode === "trade") return "거래채팅";
-  if (mode === "reported") return "신고 채팅";
+  if (mode === "reported") return "신고채팅";
   if (mode === "business" || mode === "community" || mode === "group") return "제거된 채팅";
-  return "전체 채팅";
+  return "전체채팅";
 }
 
 interface AdminChatListPageProps {
@@ -122,6 +123,7 @@ interface AdminChatListPageProps {
 }
 
 export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
+  const { t, tt } = useI18n();
   const [filters, setFilters] = useState<AdminChatFilters>(() => getInitialFilters(mode));
   const [searchQuery, setSearchQuery] = useState("");
   const [rooms, setRooms] = useState<AdminChatRoom[]>([]);
@@ -240,8 +242,8 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       return next;
     });
     setSelectedIds(new Set());
-    setActionMessage("선택한 방을 이 화면 목록에서만 숨겼습니다. 새로고침하면 다시 보입니다.");
-  }, [selectedIds]);
+    setActionMessage(t("admin_chat_hidden_list_only"));
+  }, [selectedIds, t]);
 
   const deleteSelectedFromDb = useCallback(async () => {
     if (selectedIds.size === 0) return;
@@ -256,13 +258,13 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       .filter((x): x is { id: string; storage: "chat_rooms" | "product_chats" } => x != null);
 
     if (items.length === 0) {
-      setActionMessage("삭제할 수 있는 방이 없습니다.");
+      setActionMessage(t("admin_chat_no_deletable_rooms"));
       return;
     }
 
     if (
       !window.confirm(
-        `선택 ${items.length}개 채팅방을 DB에서 영구 삭제합니다.\n메시지·참여자·통합 신고(chat_reports) 등 연쇄 삭제가 수행됩니다. 계속할까요?`
+        t("admin_chat_delete_confirm", { count: items.length })
       )
     ) {
       return;
@@ -279,7 +281,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       const data = await res.json().catch(() => ({}));
       const deleted: string[] = Array.isArray(data.deleted) ? data.deleted : [];
       if (!res.ok) {
-        setActionMessage(data.error ?? "삭제 요청에 실패했습니다.");
+        setActionMessage(data.error ?? t("admin_chat_delete_failed"));
         return;
       }
       const deletedSet = new Set(deleted);
@@ -296,25 +298,29 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       });
       if (data.errors?.length) {
         setActionMessage(
-          `${deleted.length}건 DB 삭제 완료. 실패 ${data.errors.length}건: ${data.errors
-            .map((e: { id: string; message: string }) => `${e.id.slice(0, 8)}… ${e.message}`)
-            .join(" / ")}`
+          t("admin_chat_done_with_errors", {
+            ok: deleted.length,
+            failed: data.errors.length,
+            errors: data.errors
+              .map((e: { id: string; message: string }) => `${e.id.slice(0, 8)}… ${e.message}`)
+              .join(" / "),
+          })
         );
       } else {
-        setActionMessage(`${deleted.length}개 방을 DB에서 삭제했습니다.`);
+        setActionMessage(t("admin_chat_deleted_count", { count: deleted.length }));
       }
     } catch {
-      setActionMessage("네트워크 오류로 삭제에 실패했습니다.");
+      setActionMessage(t("admin_chat_deleted_network_failed"));
     } finally {
       setActionBusy(false);
     }
-  }, [selectedIds, rooms]);
+  }, [selectedIds, rooms, t]);
 
   const blockSelectedTradeRooms = useCallback(async () => {
     if (selectedIds.size === 0 || mode !== "trade") return;
     if (
       !window.confirm(
-        `선택한 ${selectedIds.size}개 거래채팅방을 운영 조치로 닫습니다.\n구매자·판매자는 이후 새 메시지를 보낼 수 없습니다. 계속할까요?`
+        t("admin_chat_block_confirm", { count: selectedIds.size })
       )
     ) {
       return;
@@ -329,46 +335,46 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         const res = await fetch(`/api/admin/chat/rooms/${encodeURIComponent(id)}/action`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "block_room", note: "거래채팅 목록 일괄 조치" }),
+          body: JSON.stringify({ action: "block_room", note: t("admin_chat_bulk_list_note") }),
           credentials: "same-origin",
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (res.ok && j.ok) ok += 1;
         else errors.push(`${id.slice(0, 8)}… ${j.error ?? res.statusText}`);
       } catch {
-        errors.push(`${id.slice(0, 8)}… 네트워크 오류`);
+        errors.push(`${id.slice(0, 8)}… ${t("common_network_error")}`);
       }
     }
     setSelectedIds(new Set());
     setActionMessage(
       errors.length
-        ? `${ok}건 조치 완료. 실패 ${errors.length}건: ${errors.join(" / ")}`
-        : `${ok}개 채팅방을 운영 조치로 닫았습니다.`
+        ? t("admin_chat_done_with_errors", { ok, failed: errors.length, errors: errors.join(" / ") })
+        : t("admin_chat_bulk_closed", { count: ok })
     );
     setReloadToken((t) => t + 1);
     setActionBusy(false);
-  }, [mode, selectedIds]);
+  }, [mode, selectedIds, t]);
 
   const emptyCopy =
     rooms.length === 0
       ? mode === "trade"
-        ? "거래채팅이 없습니다. 웹에서 상품 채팅하기로 대화를 시작하면 여기에 표시됩니다."
+        ? t("admin_chat_empty_trade")
         : mode === "reported"
-          ? "신고된 채팅방이 없습니다."
+          ? t("admin_chat_empty_reported")
           : mode === "business"
-            ? "업체·비즈 채팅이 없습니다."
+            ? t("admin_chat_empty_business")
             : mode === "community"
-              ? "커뮤니티 채팅 문의가 없습니다."
+              ? t("admin_chat_empty_community")
               : mode === "group"
-                ? "모임·게시판 문의 채팅이 없습니다."
-                : "실제 채팅방이 없습니다. 웹에서 상품 채팅하기로 대화를 시작하면 여기에 표시됩니다."
+                ? t("admin_chat_empty_group")
+                : t("admin_chat_empty_all")
       : filtered.length === 0
-        ? "조건에 맞는 채팅방이 없습니다. 필터를 바꿔 보세요."
-        : "표시할 채팅이 없습니다. 목록에서만 숨긴 방만 남았다면 새로고침하면 다시 보입니다.";
+        ? t("admin_chat_empty_filtered")
+        : t("admin_chat_empty_hidden_only");
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={getTitle(mode)} />
+      <AdminPageHeader title={tt(getTitle(mode))} />
       <AdminChatFilterBar
         filters={filters}
         searchQuery={searchQuery}
@@ -378,8 +384,10 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       {!loading && (filtered.length > 0 || rooms.length > 0) ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px]">
           <span className="text-gray-600">
-            선택 <strong className="text-gray-900">{selectedIds.size}</strong>건 · 표시{" "}
-            <strong className="text-gray-900">{visibleFiltered.length}</strong>건
+            {t("admin_chat_selected_summary", {
+              selected: selectedIds.size,
+              visible: visibleFiltered.length,
+            })}
           </span>
           <span className="hidden sm:inline text-gray-300">|</span>
           <button
@@ -388,7 +396,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             onClick={() => handleToggleAllVisible(true)}
             className="rounded border border-gray-200 bg-white px-2.5 py-1.5 font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-40"
           >
-            현재 목록 전체 선택
+            {t("admin_chat_select_all_visible")}
           </button>
           <button
             type="button"
@@ -396,7 +404,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             onClick={() => setSelectedIds(new Set())}
             className="rounded border border-gray-200 bg-white px-2.5 py-1.5 font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-40"
           >
-            선택 해제
+            {t("admin_chat_clear_selection")}
           </button>
           <button
             type="button"
@@ -404,7 +412,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             onClick={hideSelectedFromListOnly}
             className="rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-40"
           >
-            목록에서만 제거
+            {t("admin_chat_remove_list_only")}
           </button>
           {mode === "trade" ? (
             <button
@@ -413,7 +421,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
               onClick={() => void blockSelectedTradeRooms()}
               className="rounded border border-red-300 bg-red-100 px-2.5 py-1.5 font-medium text-red-900 hover:bg-red-200 disabled:opacity-40"
             >
-              선택 방 채팅 닫기(운영)
+              {t("admin_chat_close_selected_ops")}
             </button>
           ) : null}
           <button
@@ -422,7 +430,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             onClick={() => void deleteSelectedFromDb()}
             className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
           >
-            DB에서 삭제
+            {t("admin_chat_delete_from_db")}
           </button>
         </div>
       ) : null}
@@ -433,7 +441,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       ) : null}
       {loading ? (
         <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
-          불러오는 중...
+          {t("admin_chat_loading_room")}
         </div>
       ) : visibleFiltered.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">

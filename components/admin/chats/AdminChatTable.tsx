@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminChatRoom } from "@/lib/types/admin-chat";
 import { AdminChatRoomStatusBadge } from "./AdminChatRoomStatusBadge";
 
@@ -18,6 +19,7 @@ export function AdminChatTable({
   onToggleRow,
   onToggleAllVisible,
 }: AdminChatTableProps) {
+  const { t } = useI18n();
   const visibleIds = rooms.map((r) => r.id);
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -43,21 +45,21 @@ export function AdminChatTable({
                 checked={allVisibleSelected}
                 onChange={(e) => onToggleAllVisible(e.target.checked)}
                 className="rounded border-gray-300"
-                title="현재 목록 전체 선택"
-                aria-label="현재 목록 전체 선택"
+                title={t("admin_chat_select_all_visible")}
+                aria-label={t("admin_chat_select_all_visible")}
               />
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">room id</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">상품명</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">판매자</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">구매자</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">최근 메시지</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">최근 시간</th>
-            <th className="px-3 py-2.5 text-center font-medium text-gray-700">unread</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">room 상태</th>
-            <th className="px-3 py-2.5 text-center font-medium text-gray-700">신고</th>
-            <th className="px-3 py-2.5 text-center font-medium text-gray-700">차단</th>
-            <th className="px-3 py-2.5 text-right font-medium text-gray-700">상세보기</th>
+            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_room_id")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_product_title")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_seller")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_buyer")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_last_message")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_last_time")}</th>
+            <th className="px-3 py-2.5 text-center font-medium text-gray-700">{t("admin_chat_unread")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_room_status")}</th>
+            <th className="px-3 py-2.5 text-center font-medium text-gray-700">{t("admin_chat_report")}</th>
+            <th className="px-3 py-2.5 text-center font-medium text-gray-700">{t("admin_chat_block")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-gray-700">{t("admin_chat_detail_link")}</th>
           </tr>
         </thead>
         <tbody>
@@ -69,7 +71,7 @@ export function AdminChatTable({
                   checked={selectedIds.has(r.id)}
                   onChange={(e) => onToggleRow(r.id, e.target.checked)}
                   className="rounded border-gray-300"
-                  aria-label={`채팅방 ${r.id.slice(0, 8)} 선택`}
+                  aria-label={t("admin_chat_select_row", { id: r.id.slice(0, 8) })}
                 />
               </td>
               <td className="max-w-[100px] truncate px-3 py-2.5 font-mono text-[12px] text-gray-600">
@@ -117,7 +119,7 @@ export function AdminChatTable({
                   href={`/admin/chats/${r.id}`}
                   className="text-[13px] font-medium text-signature hover:underline"
                 >
-                  상세보기
+                  {t("admin_chat_detail_link")}
                 </Link>
               </td>
             </tr>

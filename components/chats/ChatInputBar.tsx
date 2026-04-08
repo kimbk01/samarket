@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAppSettings } from "@/lib/app-settings";
 import { MAX_CHAT_IMAGE_ATTACH } from "@/lib/chats/chat-image-bundle";
 import { usePreferMobileChatImagePicker } from "@/lib/ui/use-prefer-mobile-chat-image-picker";
@@ -53,6 +54,7 @@ export function ChatInputBar({
   onImageFilesSelected,
   imageSending = false,
 }: ChatInputBarProps) {
+  const { t } = useI18n();
   const ig = variant === "instagram";
   const preferMobileImageSheet = usePreferMobileChatImagePicker();
   const [pickerStagingFiles, setPickerStagingFiles] = useState<File[] | null>(null);
@@ -183,7 +185,7 @@ export function ChatInputBar({
                 type="button"
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-[22px] hover:bg-[#FAFAFA]"
                 onClick={() => insertEmoji(emoji)}
-                aria-label={`이모지 ${emoji}`}
+                aria-label={`${t("common_emoji")} ${emoji}`}
               >
                 {emoji}
               </button>
@@ -197,7 +199,7 @@ export function ChatInputBar({
           type="button"
           onClick={onLeave}
           className={attachBtnClass}
-          aria-label="나가기"
+          aria-label={t("common_leave_chat_room")}
           disabled={disabled}
         >
           <LeaveIcon className="h-5 w-5" />
@@ -229,7 +231,7 @@ export function ChatInputBar({
           <button
             type="button"
             className={attachBtnClass}
-            aria-label="사진·첨부"
+            aria-label={t("common_photo_attach")}
             aria-expanded={preferMobileImageSheet ? mobileAttachSheetOpen : attachOpen}
             aria-haspopup={preferMobileImageSheet ? "dialog" : "menu"}
             disabled={inputLocked}
@@ -256,7 +258,7 @@ export function ChatInputBar({
                 }}
               >
                 <CameraIcon className="h-5 w-5 shrink-0 opacity-80" />
-                사진 촬영
+                {t("common_take_photo")}
               </button>
               <button
                 type="button"
@@ -268,13 +270,13 @@ export function ChatInputBar({
                 }}
               >
                 <GalleryIcon className="h-5 w-5 shrink-0 opacity-80" />
-                앨범에서 선택
+                {t("common_choose_from_album")}
               </button>
             </div>
           ) : null}
         </div>
       ) : (
-        <button type="button" className={attachBtnClass} aria-label="첨부" disabled={disabled}>
+        <button type="button" className={attachBtnClass} aria-label={t("common_attach")} disabled={disabled}>
           <PlusIcon className="h-7 w-7" />
         </button>
       )}
@@ -306,7 +308,7 @@ export function ChatInputBar({
             type="button"
             onClick={() => setEmojiOpen((v) => !v)}
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${emojiOpen ? (ig ? "bg-black/[0.08] text-[#262626]" : "bg-[#EFEFEF] text-[#262626]") : ig ? "text-[#262626] hover:bg-black/[0.05]" : "text-[#262626] hover:bg-[#EFEFEF]"}`}
-            aria-label="이모지"
+            aria-label={t("common_emoji")}
             aria-expanded={emojiOpen}
             disabled={inputLocked}
           >
@@ -319,7 +321,7 @@ export function ChatInputBar({
         onClick={handleSubmit}
         disabled={inputLocked || !hasText}
         className={`flex h-11 w-11 min-w-[44px] shrink-0 items-center justify-center rounded-full text-[14px] font-semibold text-white hover:opacity-90 disabled:opacity-50 ${ig ? "bg-[#0095F6]" : "bg-signature"}`}
-        aria-label="전송"
+        aria-label={t("common_send")}
       >
         <SendIcon className="h-5 w-5" />
       </button>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   adminMenu,
   filterMenuByRole,
@@ -20,6 +21,7 @@ function toMenuRole(role: "operator" | "manager" | "master"): AdminMenuRole {
 }
 
 export function AdminSidebar() {
+  const { tt, t } = useI18n();
   const pathname = usePathname();
   const currentPath = pathname ?? "";
   const role = toMenuRole(getAdminRole());
@@ -33,7 +35,7 @@ export function AdminSidebar() {
             href="/admin"
             className="text-[17px] font-bold text-gray-900"
           >
-            samarket 관리자
+            {t("admin_brand")}
           </Link>
         </div>
         <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3">

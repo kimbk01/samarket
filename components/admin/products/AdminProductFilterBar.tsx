@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { Product, ProductStatus } from "@/lib/types/product";
 import {
   STATUS_OPTIONS,
@@ -24,6 +25,7 @@ export function AdminProductFilterBar({
   onFiltersChange,
   onSearchChange,
 }: AdminProductFilterBarProps) {
+  const { tt, t } = useI18n();
   const categories = getCategoryOptions(products);
 
   return (
@@ -31,7 +33,7 @@ export function AdminProductFilterBar({
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="text"
-          placeholder="상품명·판매자·ID 검색"
+          placeholder={t("admin_search_product")}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="min-w-[180px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
@@ -48,7 +50,7 @@ export function AdminProductFilterBar({
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value || "all"} value={o.value}>
-              {o.label}
+              {tt(o.label)}
             </option>
           ))}
         </select>
@@ -57,7 +59,7 @@ export function AdminProductFilterBar({
           onChange={(e) => onFiltersChange({ ...filters, category: e.target.value })}
           className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
         >
-          <option value="">카테고리 전체</option>
+          <option value="">{t("admin_category_all")}</option>
           {categories.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -66,7 +68,7 @@ export function AdminProductFilterBar({
         </select>
         <input
           type="text"
-          placeholder="지역"
+          placeholder={t("common_region")}
           value={filters.location}
           onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
           className="min-w-[100px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
@@ -83,7 +85,7 @@ export function AdminProductFilterBar({
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {tt(o.label)}
             </option>
           ))}
         </select>

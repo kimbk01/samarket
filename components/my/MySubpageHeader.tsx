@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useLayoutEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import type { ManagedMySection } from "@/lib/my/managed-my-section-ctas";
 import { getManagedSectionCtas } from "@/lib/my/managed-my-section-ctas";
@@ -48,7 +49,7 @@ export function MySubpageHeader({
   subtitle,
   subtitleHref,
   backHref = "/mypage",
-  ariaLabel = "이전 화면으로",
+  ariaLabel,
   preferHistoryBack = true,
   rightSlot,
   stickyBelow,
@@ -60,9 +61,13 @@ export function MySubpageHeader({
   notificationUnreadCount,
   registerMainTier1 = true,
 }: MySubpageHeaderProps) {
+  const { t, tt } = useI18n();
   const router = useRouter();
   const tier1Provider = useMainTier1ExtrasOptional();
   const setMainTier1Extras = tier1Provider?.setMainTier1Extras ?? null;
+  const resolvedAriaLabel = tt(ariaLabel ?? t("common_back_to_mypage"));
+  const translatedTitle = typeof title === "string" ? tt(title) : title;
+  const translatedSubtitle = subtitle ? tt(subtitle) : undefined;
 
   const stripLinks = useMemo((): { href: string; label: string }[] => {
     if (hideCtaStrip) return [];
@@ -76,12 +81,12 @@ export function MySubpageHeader({
     if (registerMainTier1) {
       setMainTier1Extras({
         tier1: {
-          title,
-          subtitle,
+          title: translatedTitle,
+          subtitle: translatedSubtitle,
           subtitleHref,
           backHref,
           preferHistoryBack,
-          ariaLabel,
+          ariaLabel: resolvedAriaLabel,
           rightSlot,
           showHubQuickActions,
           notificationUnreadCount,
@@ -99,12 +104,12 @@ export function MySubpageHeader({
   }, [
     setMainTier1Extras,
     registerMainTier1,
-    title,
-    subtitle,
+    translatedTitle,
+    translatedSubtitle,
     subtitleHref,
     backHref,
     preferHistoryBack,
-    ariaLabel,
+    resolvedAriaLabel,
     rightSlot,
     showHubQuickActions,
     notificationUnreadCount,
@@ -131,7 +136,7 @@ export function MySubpageHeader({
                 <Link
                   href={backHref}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-                  aria-label={ariaLabel}
+                  aria-label={resolvedAriaLabel}
                 >
                   <BackChevronIcon />
                 </Link>
@@ -140,7 +145,7 @@ export function MySubpageHeader({
                   type="button"
                   onClick={() => runHistoryBackWithFallback(router, backHref)}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-                  aria-label={ariaLabel}
+                  aria-label={resolvedAriaLabel}
                 >
                   <BackChevronIcon />
                 </button>
@@ -148,22 +153,22 @@ export function MySubpageHeader({
             </div>
             <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
               <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
-                {typeof title === "string" ? (
-                  <span className="truncate text-[17px] font-semibold">{title}</span>
+                {typeof translatedTitle === "string" ? (
+                  <span className="truncate text-[17px] font-semibold">{translatedTitle}</span>
                 ) : (
-                  title
+                  translatedTitle
                 )}
               </h1>
-              {subtitle ? (
+              {translatedSubtitle ? (
                 subtitleHref ? (
                   <Link
                     href={subtitleHref}
                     className="mt-0.5 block truncate text-[11px] leading-tight text-[var(--text-muted)] hover:text-foreground hover:underline"
                   >
-                    {subtitle}
+                    {translatedSubtitle}
                   </Link>
                 ) : (
-                  <p className="truncate text-[11px] leading-tight text-[var(--text-muted)]">{subtitle}</p>
+                  <p className="truncate text-[11px] leading-tight text-[var(--text-muted)]">{translatedSubtitle}</p>
                 )
               ) : null}
             </div>

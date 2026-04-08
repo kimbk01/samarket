@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getUserSettings, updateUserSettings } from "@/lib/settings/user-settings-store";
 import { SettingsSection } from "./SettingsSection";
 
 export function NotificationsSettingsContent() {
+  const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
 
@@ -61,10 +63,10 @@ export function NotificationsSettingsContent() {
 
   return (
     <div className="space-y-2">
-      <SettingsSection title="알림">
+      <SettingsSection title={t("common_notifications")}>
         <div className="border-b border-gray-100 px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-gray-900">전체 알림</span>
+            <span className="text-[15px] text-gray-900">{t("notifications_all")}</span>
             <button
               type="button"
               role="switch"
@@ -84,7 +86,7 @@ export function NotificationsSettingsContent() {
         </div>
         <div className="border-b border-gray-100 px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-gray-900">채팅 알림</span>
+            <span className="text-[15px] text-gray-900">{t("notifications_chat")}</span>
             <button
               type="button"
               role="switch"
@@ -104,7 +106,7 @@ export function NotificationsSettingsContent() {
         </div>
         <div className="border-b border-gray-100 px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-gray-900">마케팅 알림</span>
+            <span className="text-[15px] text-gray-900">{t("notifications_marketing")}</span>
             <button
               type="button"
               role="switch"
@@ -126,9 +128,9 @@ export function NotificationsSettingsContent() {
           <div className="border-b border-gray-100 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <span className="text-[15px] text-gray-900">매장·주문 이메일</span>
+                <span className="text-[15px] text-gray-900">{t("notifications_commerce_email")}</span>
                 <p className="mt-0.5 text-[12px] leading-snug text-gray-500">
-                  매장 주문 알림을 이메일로 받습니다. 서버에서 Resend가 켜져 있을 때만 발송됩니다.
+                  {t("notifications_commerce_email_desc")}
                   {commerceEmailColumnMissing ? (
                     <span className="mt-1 block text-amber-700">
                       DB에 컬럼이 없어 저장할 수 없습니다.{" "}
@@ -166,12 +168,12 @@ export function NotificationsSettingsContent() {
                       } else if (j?.error === "column_missing") {
                         setCommerceEmailColumnMissing(true);
                       } else if (j?.error === "profile_not_found") {
-                        setCommerceEmailPatchError("프로필이 없어 저장할 수 없습니다. 가입·프로필을 먼저 완료해 주세요.");
+                        setCommerceEmailPatchError(t("notifications_profile_missing"));
                       } else if (j?.error === "server_error") {
-                        setCommerceEmailPatchError("저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+                        setCommerceEmailPatchError(t("notifications_save_failed"));
                       } else {
                         setCommerceEmailPatchError(
-                          typeof j?.error === "string" ? j.error : "저장에 실패했습니다. 잠시 후 다시 시도해 주세요."
+                          typeof j?.error === "string" ? j.error : t("notifications_save_failed")
                         );
                       }
                     } finally {
@@ -193,10 +195,10 @@ export function NotificationsSettingsContent() {
           </div>
         ) : null}
       </SettingsSection>
-      <SettingsSection title="방해금지 시간">
+      <SettingsSection title={t("notifications_dnd")}>
         <div className="space-y-3 px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-gray-900">사용</span>
+            <span className="text-[15px] text-gray-900">{t("notifications_use")}</span>
             <button
               type="button"
               role="switch"

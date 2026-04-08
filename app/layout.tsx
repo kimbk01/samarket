@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
+import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { MockAuthProvider } from "@/components/mock-auth/MockAuthProvider";
 import "./globals.css";
 
@@ -37,8 +38,10 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <MockAuthProvider>
-          <SupabaseAuthSync />
-          {children}
+          <AppLanguageProvider>
+            <SupabaseAuthSync />
+            {children}
+          </AppLanguageProvider>
         </MockAuthProvider>
       </body>
     </html>

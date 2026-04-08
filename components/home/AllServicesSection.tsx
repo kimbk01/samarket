@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getGroupedCategories } from "@/lib/categories/getGroupedCategories";
 import type { GroupedCategories } from "@/lib/categories/getGroupedCategories";
 import { ServiceCategoryGrid } from "./ServiceCategoryGrid";
@@ -13,6 +14,7 @@ const GROUP_LABELS: Record<keyof Omit<GroupedCategories, "all">, string> = {
 };
 
 export function AllServicesSection() {
+  const { tt } = useI18n();
   const [grouped, setGrouped] = useState<GroupedCategories | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function AllServicesSection() {
       const data = await getGroupedCategories();
       setGrouped(data);
     } catch (e) {
-      setError((e as Error).message ?? "카테고리를 불러올 수 없습니다.");
+      setError((e as Error).message ?? tt("카테고리를 불러올 수 없습니다."));
     } finally {
       setLoading(false);
     }
@@ -37,7 +39,7 @@ export function AllServicesSection() {
   if (loading) {
     return (
       <div className="rounded-xl bg-white py-12 text-center text-[14px] text-gray-500 shadow-sm">
-        불러오는 중…
+        {tt("불러오는 중…")}
       </div>
     );
   }
@@ -53,7 +55,7 @@ export function AllServicesSection() {
   if (!grouped || grouped.all.length === 0) {
     return (
       <div className="rounded-xl bg-white py-12 text-center text-[14px] text-gray-500 shadow-sm">
-        등록된 카테고리가 없습니다.
+        {tt("등록된 카테고리가 없습니다.")}
       </div>
     );
   }
@@ -68,7 +70,7 @@ export function AllServicesSection() {
         return (
           <section key={type}>
             <h2 className="mb-3 text-[15px] font-semibold text-gray-900">
-              {GROUP_LABELS[type]}
+              {tt(GROUP_LABELS[type])}
             </h2>
             <ServiceCategoryGrid categories={list} maxItems={0} />
           </section>

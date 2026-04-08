@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ChatRoom } from "@/lib/types/chat";
@@ -33,6 +34,7 @@ export function ChatRoomScreen({
   /** 매장 주문 관리 모달 — 상단 탭(채팅·주문)만 표시 */
   ownerStoreOrderModalChrome?: boolean;
 }) {
+  const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const currentUserId = mounted ? (getCurrentUser()?.id ?? null) : null;
 
@@ -110,14 +112,14 @@ export function ChatRoomScreen({
   if (!roomId) {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
-        <p className="text-sm text-gray-600">잘못된 채팅방 주소입니다.</p>
+        <p className="text-sm text-gray-600">{t("common_invalid_chat_room")}</p>
         {onListNavigate ? (
           <button type="button" onClick={onListNavigate} className="mt-3 font-medium text-signature underline">
-            목록으로
+            {t("common_to_list")}
           </button>
         ) : (
           <Link href={listHref} className="mt-3 font-medium text-signature underline" replace scroll={false}>
-            목록으로
+            {t("common_to_list")}
           </Link>
         )}
       </div>
@@ -126,16 +128,16 @@ export function ChatRoomScreen({
 
   if (!mounted) {
     return (
-      <div className={`flex items-center justify-center text-sm text-[#8E8E8E] ${embeddedEmptyClass}`}>불러오는 중…</div>
+      <div className={`flex items-center justify-center text-sm text-[#8E8E8E] ${embeddedEmptyClass}`}>{t("common_loading")}</div>
     );
   }
 
   if (!currentUserId) {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
-        <p className="text-sm text-gray-600">로그인이 필요합니다.</p>
+        <p className="text-sm text-gray-600">{t("common_login_required")}</p>
         <Link href="/login" className="mt-3 font-medium text-signature underline">
-          로그인
+          {t("common_login")}
         </Link>
       </div>
     );
@@ -143,21 +145,21 @@ export function ChatRoomScreen({
 
   if (loading) {
     return (
-      <div className={`flex items-center justify-center text-sm text-[#8E8E8E] ${embeddedEmptyClass}`}>불러오는 중…</div>
+      <div className={`flex items-center justify-center text-sm text-[#8E8E8E] ${embeddedEmptyClass}`}>{t("common_loading")}</div>
     );
   }
 
   if (err === "not_found") {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
-        <p className="text-sm text-gray-600">채팅방을 찾을 수 없습니다.</p>
+        <p className="text-sm text-gray-600">{t("common_chat_room_not_found")}</p>
         {onListNavigate ? (
           <button type="button" onClick={onListNavigate} className="mt-3 font-medium text-signature underline">
-            목록으로
+            {t("common_to_list")}
           </button>
         ) : (
           <Link href={listHref} className="mt-3 font-medium text-signature underline" replace scroll={false}>
-            목록으로
+            {t("common_to_list")}
           </Link>
         )}
       </div>
@@ -168,18 +170,18 @@ export function ChatRoomScreen({
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
         <p className="text-sm text-red-600">
-          {err === "auth" ? "접근 권한이 없습니다." : "채팅방을 불러오지 못했습니다."}
+          {err === "auth" ? t("common_access_denied") : t("common_chat_room_load_failed")}
         </p>
         <button type="button" onClick={() => void reload()} className="mt-3 font-medium text-signature underline">
-          다시 시도
+          {t("common_retry")}
         </button>
         {onListNavigate ? (
           <button type="button" onClick={onListNavigate} className="mt-2 text-sm text-gray-600 underline">
-            목록으로
+            {t("common_to_list")}
           </button>
         ) : (
           <Link href={listHref} replace scroll={false} className="mt-2 text-sm text-gray-600 underline">
-            목록으로
+            {t("common_to_list")}
           </Link>
         )}
       </div>

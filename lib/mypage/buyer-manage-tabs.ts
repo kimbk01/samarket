@@ -1,13 +1,16 @@
+import type { MessageKey } from "@/lib/i18n/messages";
+import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
 import type { PurchaseHistoryRow } from "@/components/mypage/purchases/PurchaseHistoryCard";
 
 /** 내정보 거래관리 — 구매내역 하위 탭 */
 export type BuyerManageTabId = "trading" | "completed" | "cancelled" | "review_wait";
 
-export const BUYER_MANAGE_TABS: { id: BuyerManageTabId; label: string }[] = [
-  { id: "trading", label: "거래중" },
-  { id: "completed", label: "구매완료" },
-  { id: "cancelled", label: "구매취소" },
-  { id: "review_wait", label: "후기대기" },
+export const BUYER_MANAGE_TABS: { id: BuyerManageTabId; label: string; labelKey: MessageKey }[] = [
+  { id: "trading", label: "거래중", labelKey: "tab_trading" },
+  { id: "completed", label: "구매완료", labelKey: "tab_purchase_completed" },
+  { id: "cancelled", label: "구매취소", labelKey: "tab_purchase_cancelled" },
+  { id: "review_wait", label: "후기대기", labelKey: "tab_review_wait" },
 ];
 
 type Row = Pick<
@@ -43,4 +46,12 @@ export function countBuyerManageTabs<T extends Row>(items: T[], buyerUserId: str
     counts[getBuyerManageTabId(row, buyerUserId)] += 1;
   }
   return counts;
+}
+
+export function getBuyerManageTabLabel(
+  id: BuyerManageTabId,
+  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+): string {
+  const tab = BUYER_MANAGE_TABS.find((item) => item.id === id);
+  return tab ? translate(language, tab.labelKey) : id;
 }

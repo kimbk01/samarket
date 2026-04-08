@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { APP_LANGUAGE_COOKIE, normalizeAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
   }
 
   const cookieRaw = req.cookies.get(SIGNUP_NICKNAME_COOKIE)?.value;
+  const localeCookieRaw = req.cookies.get(APP_LANGUAGE_COOKIE)?.value;
 
   /**
    * exchangeCodeForSession 이 Set-Cookie 를 쓰므로, 같은 redirect 응답에 붙여야 함.
@@ -66,35 +68,42 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (exchangedOk && cookieRaw) {
-    let decoded = cookieRaw;
-    try {
-      decoded = decodeURIComponent(cookieRaw.trim());
-    } catch {
-      decoded = cookieRaw.trim();
+  if (exchangedOk) {
+    let nick = "";
+    if (cookieRaw) {
+      let decoded = cookieRaw;
+      try {
+        decoded = decodeURIComponent(cookieRaw.trim());
+      } catch {
+        decoded = cookieRaw.trim();
+      }
+      nick = decoded.trim().slice(0, 20);
     }
-    const nick = decoded.trim().slice(0, 20);
-    if (nick) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const serviceSb = tryCreateSupabaseServiceClient();
-      if (user && serviceSb) {
-        const baseMeta =
-          user.user_metadata && typeof user.user_metadata === "object"
-            ? { ...(user.user_metadata as Record<string, unknown>) }
-            : {};
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const serviceSb = tryCreateSupabaseServiceClient();
+    if (user && serviceSb) {
+      const baseMeta =
+        user.user_metadata && typeof user.user_metadata === "object"
+          ? { ...(user.user_metadata as Record<string, unknown>) }
+          : {};
+      if (nick) {
         baseMeta.nickname = nick;
-        const mergedUser = { ...user, user_metadata: baseMeta } as User;
-        try {
-          await ensureAuthProfileRow(serviceSb, mergedUser);
-        } catch {
-          /* 프로필 보장 실패 시 클라이언트 ensure 에 맡김 */
-        }
+      }
+      if (localeCookieRaw) {
+        baseMeta.preferred_language = normalizeAppLanguage(localeCookieRaw);
+      }
+      const mergedUser = { ...user, user_metadata: baseMeta } as User;
+      try {
+        await ensureAuthProfileRow(serviceSb, mergedUser);
+      } catch {
+        /* 프로필 보장 실패 시 클라이언트 ensure 에 맡김 */
       }
     }
   }
 
   response.cookies.set(SIGNUP_NICKNAME_COOKIE, "", { path: "/", maxAge: 0 });
+  response.cookies.set(APP_LANGUAGE_COOKIE, "", { path: "/", maxAge: 0 });
   return response;
 }

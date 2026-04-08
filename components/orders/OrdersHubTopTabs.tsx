@@ -6,14 +6,15 @@
  */
 import type { ReactNode } from "react";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ORDER_CHAT_SURFACE } from "@/lib/chats/surfaces/order-chat-surface";
 
 export type OrdersHubTabId = "store" | "chat" | "purchases";
 
-const TABS: { id: OrdersHubTabId; label: string }[] = [
-  { id: "store", label: "배달주문" },
-  { id: "chat", label: ORDER_CHAT_SURFACE.ordersHubTabLabel },
-  { id: "purchases", label: "중고 구매 내역" },
+const TABS: { id: OrdersHubTabId; label: string; labelKey?: "nav_orders_tab_store" | "nav_orders_tab_purchases" | "nav_chat_order_compact" }[] = [
+  { id: "store", label: "배달주문", labelKey: "nav_orders_tab_store" },
+  { id: "chat", label: ORDER_CHAT_SURFACE.ordersHubTabLabel, labelKey: ORDER_CHAT_SURFACE.ordersHubTabLabelKey },
+  { id: "purchases", label: "중고 구매 내역", labelKey: "nav_orders_tab_purchases" },
 ];
 
 /** 상단 탭 순서 — 스와이프 전환과 동일 */
@@ -34,6 +35,7 @@ export function OrdersHubTopTabs({
   /** 탭 줄 오른쪽 끝(예: 매장 관리 햄버거) */
   trailing?: ReactNode;
 }) {
+  const { t, tt } = useI18n();
   const outerRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<OrdersHubTabId, HTMLButtonElement | null>>({
     store: null,
@@ -76,10 +78,10 @@ export function OrdersHubTopTabs({
       <div ref={outerRef} className="relative min-w-0 flex-1">
         <div
           role="tablist"
-          aria-label="주문 구분"
+          aria-label={t("nav_orders_tab_aria")}
           className="flex h-[55px] w-full min-w-0 items-stretch"
         >
-          {TABS.map(({ id, label }) => {
+          {TABS.map(({ id, label, labelKey }) => {
             const isOn = active === id;
             return (
               <button
@@ -96,7 +98,7 @@ export function OrdersHubTopTabs({
                   isOn ? "font-semibold text-gray-900" : "font-medium text-gray-500 hover:text-gray-700",
                 ].join(" ")}
               >
-                {label}
+                {labelKey ? t(labelKey) : tt(label)}
               </button>
             );
           })}

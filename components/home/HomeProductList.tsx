@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
 import { HiddenPostCard } from "@/components/post/HiddenPostCard";
 import { NotInterestedCard } from "@/components/post/NotInterestedCard";
@@ -16,6 +17,7 @@ type ListState = "idle" | "loading" | "error" | "empty";
 const MIN_SILENT_REFRESH_GAP_MS = 15_000;
 
 export function HomeProductList() {
+  const { tt } = useI18n();
   const [listState, setListState] = useState<ListState>("loading");
   const [posts, setPosts] = useState<PostWithMeta[]>([]);
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
@@ -118,7 +120,7 @@ export function HomeProductList() {
 
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
     if (action === "interest") {
-      setToast("관심 있음으로 표시했어요");
+      setToast(tt("관심 있음으로 표시했어요"));
       setTimeout(() => setToast(null), 2000);
     }
     if (action === "not_interest") {

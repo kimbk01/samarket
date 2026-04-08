@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FavoriteProductsView } from "@/components/favorites/FavoriteProductsView";
 import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
@@ -27,6 +28,7 @@ const TAB_INACTIVE_CLASS =
  * 홈 플로팅 「거래내역」시트 — `/mypage/trade` 구매·판매·찜·후기 탭과 동일 구성(채팅 탭 제외).
  */
 export function HomeTradeHistorySheetContent() {
+  const { tt } = useI18n();
   const [tab, setTab] = useState<TradeHistorySheetTab>("purchases");
 
   return (
@@ -34,7 +36,7 @@ export function HomeTradeHistorySheetContent() {
       <div
         className={`shrink-0 overflow-x-hidden border-b border-[#EFEFEF] bg-white ${APP_MAIN_GUTTER_NEG_X_CLASS}`}
       >
-        <nav aria-label="거래 허브 메뉴" className="w-full">
+        <nav aria-label={tt("거래 허브 메뉴")} className="w-full">
           <ul className="flex w-full">
             {TABS.map((item) => (
               <li key={item.id} className="flex min-w-0 flex-1">
@@ -43,7 +45,7 @@ export function HomeTradeHistorySheetContent() {
                   onClick={() => setTab(item.id)}
                   className={tab === item.id ? TAB_ACTIVE_CLASS : TAB_INACTIVE_CLASS}
                 >
-                  {item.label}
+                  {tt(item.label)}
                 </button>
               </li>
             ))}
@@ -52,22 +54,22 @@ export function HomeTradeHistorySheetContent() {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3">
         {tab === "purchases" ? (
-          <TradeHubSectionShell title="구매 내역">
+          <TradeHubSectionShell title={tt("구매 내역")}>
             <PurchasesView />
           </TradeHubSectionShell>
         ) : null}
         {tab === "sales" ? (
-          <TradeHubSectionShell title="판매 내역">
+          <TradeHubSectionShell title={tt("판매 내역")}>
             <SalesHistoryView />
           </TradeHubSectionShell>
         ) : null}
         {tab === "favorites" ? (
-          <TradeHubSectionShell title="찜 목록">
+          <TradeHubSectionShell title={tt("찜 목록")}>
             <FavoriteProductsView embedded />
           </TradeHubSectionShell>
         ) : null}
         {tab === "reviews" ? (
-          <TradeHubSectionShell title="거래 후기">
+          <TradeHubSectionShell title={tt("거래 후기")}>
             <TradeReviewsManagementView />
           </TradeHubSectionShell>
         ) : null}

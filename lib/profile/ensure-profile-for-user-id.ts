@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileRow } from "./types";
 import { fetchProfileRowSafe } from "./fetch-profile-row-safe";
+import { normalizeAppLanguage } from "@/lib/i18n/config";
 
 /**
  * `profiles` 행이 없고 Supabase Auth 에 해당 사용자가 있으면 최소 행을 upsert 한다.
@@ -29,6 +30,7 @@ export async function ensureProfileForUserId(
   const metaNick =
     (typeof meta.nickname === "string" && meta.nickname.trim()) || metaUser || null;
   const email = user.email?.trim() ?? null;
+  const preferredLanguage = normalizeAppLanguage(meta.preferred_language);
 
   const { data: tu } = await sb
     .from("test_users")
@@ -59,7 +61,7 @@ export async function ensureProfileForUserId(
     phone_verification_status: "unverified",
     realname_verified: false,
     status: "active",
-    preferred_language: "ko",
+    preferred_language: preferredLanguage,
     preferred_country: "PH",
     auth_provider:
       (typeof meta.auth_provider === "string" && meta.auth_provider.trim()) || "sync_from_auth",

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { ChatHubTopTabs } from "@/components/order-chat/ChatHubTopTabs";
 import { MemberChatInput } from "@/components/order-chat/MemberChatInput";
@@ -27,6 +28,7 @@ import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-tran
 const BASE = "/my/store-orders";
 
 export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
+  const { t } = useI18n();
   const cv = useOrderChatVersion();
   const readSig = useOrderChatReadSignature(orderId);
   const mv = useMemberOrdersVersion();
@@ -57,9 +59,9 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
   if (!buyerId) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-16 text-center">
-        <p className="text-sm text-gray-600">회원 역할로 전환한 뒤 채팅을 이용해 주세요.</p>
+        <p className="text-sm text-gray-600">{t("member_order_chat_member_required")}</p>
         <Link href={BASE} className="mt-4 inline-block text-signature underline">
-          주문 목록
+          {t("member_order_chat_list_link")}
         </Link>
       </div>
     );
@@ -68,9 +70,9 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
   if (!order || order.buyer_user_id !== buyerId) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-16 text-center">
-        <p className="text-sm text-gray-600">채팅을 열 수 없어요.</p>
+        <p className="text-sm text-gray-600">{t("member_order_chat_open_failed")}</p>
         <Link href={BASE} className="mt-4 inline-block text-signature underline">
-          주문 목록
+          {t("member_order_chat_list_link")}
         </Link>
       </div>
     );
@@ -79,12 +81,12 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
   if (isStoreOrderChatDisabledForBuyer(order.order_status)) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-16 text-center">
-        <p className="text-sm text-gray-600">취소된 주문은 주문 채팅을 열 수 없습니다.</p>
+        <p className="text-sm text-gray-600">{t("member_order_chat_cancelled_blocked")}</p>
         <Link
           href={`${BASE}/${encodeURIComponent(orderId)}`}
           className="mt-4 inline-block text-signature underline"
         >
-          주문 상세로
+          {t("member_order_chat_to_detail")}
         </Link>
       </div>
     );
@@ -97,12 +99,12 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
       <div className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
         <div className="flex items-center gap-2 px-2 py-2">
           <AppBackButton backHref={`${BASE}/${encodeURIComponent(orderId)}`} />
-          <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold">주문 채팅</h1>
+          <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold">{t("member_order_chat_title")}</h1>
           <span className="w-10" />
         </div>
         <ChatHubTopTabs active="order" />
         <p className="border-t border-gray-100 bg-gray-50 px-4 py-2 text-center text-[11px] leading-relaxed text-gray-600">
-          주문 상태 확인, 취소, 환불 요청은 주문 상세에서 진행하고 매장과의 대화만 여기서 이어가세요.
+          {t("member_order_chat_notice")}
         </p>
         <OrderChatProgressStrip orderStatus={order.order_status} orderFlow={flow} />
         <OrderChatHeader
@@ -124,7 +126,7 @@ export function MemberOrderChatPageClient({ orderId }: { orderId: string }) {
           className="w-full border-t border-amber-200 bg-amber-50 py-2 text-center text-[11px] font-medium text-amber-900"
           onClick={() => alert("샘플: 신고·분쟁은 고객센터/관리자 연동 예정입니다.")}
         >
-          문제 신고 (샘플)
+          {t("member_order_issue_report_sample")}
         </button>
         <MemberChatInput
           disabled={chatBlocked}

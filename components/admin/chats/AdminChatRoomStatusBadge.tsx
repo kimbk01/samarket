@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RoomStatus } from "@/lib/types/admin-chat";
 
 const LABELS: Record<RoomStatus, string> = {
@@ -25,11 +26,12 @@ export function AdminChatRoomStatusBadge({
   status,
   className = "",
 }: AdminChatRoomStatusBadgeProps) {
+  const { tt } = useI18n();
   return (
     <span
       className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${CLASSES[status]} ${className}`}
     >
-      {LABELS[status]}
+      {tt(LABELS[status])}
     </span>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import {
   filterMemberOrdersByTab,
@@ -20,6 +21,7 @@ import { MemberOrderTabs } from "./MemberOrderTabs";
 const BASE = "/mypage/store-orders";
 
 export function MemberOrdersPageClient() {
+  const { t } = useI18n();
   const v = useMemberOrdersVersion();
   const buyerId = getDemoBuyerUserId();
   const [tab, setTab] = useState<MemberOrderTab>("all");
@@ -56,7 +58,7 @@ export function MemberOrdersPageClient() {
         <div className="mx-auto flex max-w-lg items-center gap-2">
           <AppBackButton backHref="/my" />
           <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold text-gray-900">
-            배달 주문
+            {t("member_orders_title")}
           </h1>
           <div className="flex shrink-0 items-center gap-1">
             <MemberNotificationBell />
@@ -64,15 +66,15 @@ export function MemberOrdersPageClient() {
               type="button"
               className="shrink-0 text-[11px] text-gray-500 underline"
               onClick={() => {
-                if (confirm("샘플 주문 데이터를 초기화할까요?")) resetMemberOrdersMock();
+                if (confirm(t("member_orders_reset_confirm"))) resetMemberOrdersMock();
               }}
             >
-              초기화
+              {t("common_reset_filters")}
             </button>
           </div>
         </div>
         <p className="mx-auto max-w-lg px-3 pb-2 text-center text-[11px] text-gray-500">
-          시뮬레이션 데이터 · 역할별 화면은 세션에 따라 달라질 수 있어요
+          {t("member_orders_simulation_hint")}
         </p>
       </header>
 
@@ -83,7 +85,7 @@ export function MemberOrdersPageClient() {
 
         {!buyerId ? (
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-center text-xs text-amber-950">
-            회원 주문 내역은 <strong>회원</strong> 역할로 접속했을 때만 표시돼요.
+            {t("member_orders_member_only")}
           </p>
         ) : null}
 
@@ -91,14 +93,14 @@ export function MemberOrdersPageClient() {
 
         <p className="text-xs text-gray-500">
           <Link href="/my/store-orders" className="text-violet-700 underline">
-            주문 채팅 목록
+            {t("member_orders_chat_list")}
           </Link>
           {" · "}
-          매장 주문 목록은{" "}
+          {t("member_orders_store_orders_prefix")}{" "}
           <Link href="/mypage/store-orders" className="text-violet-700 underline">
-            매장 주문 내역
+            {t("member_orders_store_orders_link")}
           </Link>
-          에서 확인해요.
+          {t("member_orders_link_suffix")}
         </p>
 
         <MemberOrderList
@@ -114,7 +116,7 @@ export function MemberOrdersPageClient() {
         onConfirm={(label, detail) => {
           if (!cancelTarget) return;
           const r = requestMemberOrderCancel(buyerId, cancelTarget.id, label, detail);
-          setToast(r.ok ? "취소 요청이 접수되었어요." : r.error);
+          setToast(r.ok ? t("member_orders_cancel_requested") : r.error);
           setTimeout(() => setToast(null), 2800);
         }}
       />

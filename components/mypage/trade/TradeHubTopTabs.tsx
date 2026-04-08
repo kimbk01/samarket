@@ -2,24 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 
 const ITEMS = [
-  { href: "/mypage/trade/purchases", label: "구매 내역" },
-  { href: "/mypage/trade/sales", label: "판매 내역" },
-  { href: MYPAGE_TRADE_FAVORITES_HREF, label: "찜 목록" },
-  { href: "/mypage/trade/reviews", label: "후기" },
-  { href: "/mypage/trade/chat", label: "채팅" },
+  { href: "/mypage/trade/purchases", labelKey: "nav_trade_hub_purchases", label: "구매 내역" },
+  { href: "/mypage/trade/sales", labelKey: "nav_trade_hub_sales", label: "판매 내역" },
+  { href: MYPAGE_TRADE_FAVORITES_HREF, labelKey: "nav_trade_hub_favorites", label: "찜 목록" },
+  { href: "/mypage/trade/reviews", labelKey: "nav_trade_hub_reviews", label: "후기" },
+  { href: "/mypage/trade/chat", labelKey: "nav_trade_hub_chat", label: "채팅" },
 ] as const;
 
 /** 탭 라벨이 좁은 칸에서도 본문 컬럼 안에만 머물도록 (flex min-width:auto 방지) */
 const tabLinkBase = "min-w-0 max-w-full break-words [overflow-wrap:anywhere]";
 
 export function TradeHubTopTabs() {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   return (
-    <nav aria-label="거래 허브 메뉴" className="mt-0 w-full min-w-0 max-w-full">
+    <nav aria-label={t("nav_trade_hub_menu")} className="mt-0 w-full min-w-0 max-w-full">
       <div className={APP_MAIN_HEADER_INNER_CLASS}>
         <ul className="flex min-w-0 w-full border-b border-ig-border bg-[var(--sub-bg)]">
           {ITEMS.map((item) => {
@@ -38,7 +40,7 @@ export function TradeHubTopTabs() {
                       : "flex min-h-[52px] w-full items-center justify-center px-0.5 py-2 text-center text-[12px] font-semibold leading-tight text-[#8E8E8E] transition-colors hover:text-[#262626] sm:min-h-[50px] sm:px-1 sm:text-[14px] md:text-[15px]",
                   ].join(" ")}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               </li>
             );

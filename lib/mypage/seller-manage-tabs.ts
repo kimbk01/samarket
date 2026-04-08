@@ -1,3 +1,6 @@
+import type { MessageKey } from "@/lib/i18n/messages";
+import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 
@@ -9,12 +12,12 @@ export type SellerManageTabId =
   | "cancelled"
   | "review_wait";
 
-export const SELLER_MANAGE_TABS: { id: SellerManageTabId; label: string }[] = [
-  { id: "selling", label: "판매중" },
-  { id: "reserved", label: "예약중" },
-  { id: "completed", label: "판매완료" },
-  { id: "cancelled", label: "판매취소" },
-  { id: "review_wait", label: "후기대기" },
+export const SELLER_MANAGE_TABS: { id: SellerManageTabId; label: string; labelKey: MessageKey }[] = [
+  { id: "selling", label: "판매중", labelKey: "tab_active_sale" },
+  { id: "reserved", label: "예약중", labelKey: "tab_reserved" },
+  { id: "completed", label: "판매완료", labelKey: "tab_sale_completed" },
+  { id: "cancelled", label: "판매취소", labelKey: "tab_sale_cancelled" },
+  { id: "review_wait", label: "후기대기", labelKey: "tab_review_wait" },
 ];
 
 type Row = Pick<
@@ -68,4 +71,12 @@ export function countSellerManageTabs<T extends Row>(items: T[]): Record<SellerM
     counts[getSellerManageTabId(row)] += 1;
   }
   return counts;
+}
+
+export function getSellerManageTabLabel(
+  id: SellerManageTabId,
+  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+): string {
+  const tab = SELLER_MANAGE_TABS.find((item) => item.id === id);
+  return tab ? translate(language, tab.labelKey) : id;
 }

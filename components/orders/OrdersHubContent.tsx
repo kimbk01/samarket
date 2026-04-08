@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
 import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
@@ -25,6 +26,7 @@ function neighborOrdersHubTab(current: OrdersHubTabId, delta: -1 | 1): OrdersHub
 }
 
 export function OrdersHubContent() {
+  const { tt } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -88,11 +90,11 @@ export function OrdersHubContent() {
       <TradePrimaryColumnStickyAppBar
         hidePrimaryRow={false}
         hideBackButton
-        title="주문"
+        title={tt("주문")}
         backButtonProps={{
           preferHistoryBack: true,
           backHref: "/home",
-          ariaLabel: "이전 화면",
+          ariaLabel: tt("이전 화면"),
         }}
         actions={<CommerceCartHeaderLink />}
         shellFooter={

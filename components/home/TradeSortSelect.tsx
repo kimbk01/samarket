@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { SortKey } from "@/lib/constants/sort";
 import { SORT_OPTIONS } from "@/lib/constants/sort";
 
@@ -26,11 +27,12 @@ const COMMUNITY_SELECT_STYLE: CSSProperties = {
 
 /** 홈·마켓 피드 정렬 (칩 행 대신 컴팩트 셀렉트) */
 export function TradeSortSelect({ value, onChange, id, variant = "default" }: TradeSortSelectProps) {
+  const { tt, t } = useI18n();
   return (
     <select
       id={id}
       value={value}
-      aria-label="정렬"
+      aria-label={t("common_sort")}
       onChange={(e) => onChange(e.target.value as SortKey)}
       className={
         variant === "community"
@@ -41,7 +43,7 @@ export function TradeSortSelect({ value, onChange, id, variant = "default" }: Tr
     >
       {SORT_OPTIONS.map((opt) => (
         <option key={opt.key} value={opt.key}>
-          {opt.label}
+          {opt.labelKey ? t(opt.labelKey) : tt(opt.label)}
         </option>
       ))}
     </select>

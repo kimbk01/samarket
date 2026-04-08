@@ -5,6 +5,7 @@
 import type { UserSettingsRow } from "@/lib/types/settings-db";
 import { DEFAULT_USER_SETTINGS } from "@/lib/types/settings-db";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { APP_LANGUAGE_CHANGED_EVENT, normalizeAppLanguage } from "@/lib/i18n/config";
 
 const STORAGE_KEY = "kasama_user_settings";
 
@@ -45,12 +46,19 @@ export function updateUserSettings(
     // TODO: supabase.from('user_settings').upsert({ user_id: userId, ...partial, updated_at: new Date().toISOString() })
   }
   setStored(userId, partial);
+  if (typeof window !== "undefined" && "preferred_language" in partial && partial.preferred_language) {
+    window.dispatchEvent(
+      new CustomEvent(APP_LANGUAGE_CHANGED_EVENT, {
+        detail: normalizeAppLanguage(partial.preferred_language),
+      })
+    );
+  }
 }
 
 export const LANGUAGE_NAMES: Record<string, string> = {
   ko: "한국어",
   en: "English",
-  ja: "日本語",
+  "zh-CN": "简体中文",
 };
 
 export const COUNTRY_NAMES: Record<string, string> = {

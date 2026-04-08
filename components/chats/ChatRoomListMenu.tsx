@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
@@ -28,8 +30,8 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
       if (busy) return;
       const msg =
         kind === "leave"
-          ? "이 채팅방에서 나가시겠어요? 나가면 목록에서 사라집니다."
-          : "채팅방을 삭제(숨김)하시겠어요? 내 목록에서만 제거됩니다.";
+          ? t("nav_trade_leave_confirm")
+          : t("nav_trade_hide_confirm");
       if (typeof window !== "undefined" && !window.confirm(msg)) return;
       setBusy(true);
       try {
@@ -42,19 +44,19 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
-          window.alert(j.error ?? "처리에 실패했습니다.");
+          window.alert(j.error ?? t("nav_trade_action_failed"));
           return;
         }
         setOpen(false);
         window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
         onAfterAction?.();
       } catch {
-        window.alert("네트워크 오류");
+        window.alert(t("nav_trade_network_error"));
       } finally {
         setBusy(false);
       }
     },
-    [busy, onAfterAction, roomId]
+    [busy, onAfterAction, roomId, t]
   );
 
   return (
@@ -68,7 +70,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
         }}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#8E8E8E] hover:bg-[#FAFAFA]"
         aria-expanded={open}
-        aria-label="채팅 메뉴"
+        aria-label={t("common_chat_menu")}
         aria-haspopup="menu"
         disabled={busy}
       >
@@ -91,7 +93,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
                 void run("leave");
               }}
             >
-              채팅방 나가기
+              {t("common_leave_chat_room")}
             </button>
           </li>
           <li role="presentation">
@@ -106,7 +108,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
                 void run("hide");
               }}
             >
-              채팅방 삭제
+              {t("common_delete_chat_room")}
             </button>
           </li>
         </ul>

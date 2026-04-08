@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminSidebarItem } from "./AdminSidebarItem";
 import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
@@ -13,8 +14,9 @@ export function AdminSidebarGroup({
   item: AdminMenuItem & { children: AdminMenuItem[] };
   currentPath: string;
 }) {
+  const { t, tt } = useI18n();
   const status = getMenuStatus(item);
-  const displayTitle = getMenuDisplayTitle(item.title, status);
+  const displayTitle = getMenuDisplayTitle(item.titleKey ? t(item.titleKey) : tt(item.title), status);
   const pathsScope = collectMenuPaths(item.children);
 
   return (

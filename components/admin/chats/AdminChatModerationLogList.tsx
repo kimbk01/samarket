@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatModerationLog } from "@/lib/types/admin-chat";
 
 const ACTION_LABELS: Record<string, string> = {
@@ -23,9 +24,10 @@ interface AdminChatModerationLogListProps {
 }
 
 export function AdminChatModerationLogList({ logs }: AdminChatModerationLogListProps) {
+  const { t, tt } = useI18n();
   if (logs.length === 0) {
     return (
-      <p className="text-[13px] text-gray-500">조치 이력이 없습니다.</p>
+      <p className="text-[13px] text-gray-500">{t("admin_chat_no_action_history")}</p>
     );
   }
   const sorted = [...logs].sort(
@@ -39,14 +41,14 @@ export function AdminChatModerationLogList({ logs }: AdminChatModerationLogListP
           className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 text-[13px]"
         >
           <span className="font-medium text-gray-700">
-            {ACTION_LABELS[log.actionType] ?? log.actionType}
+            {tt(ACTION_LABELS[log.actionType] ?? log.actionType)}
           </span>
           <span className="text-gray-500">
             {new Date(log.createdAt).toLocaleString("ko-KR")}
           </span>
           <span className="text-gray-500">· {log.adminNickname}</span>
           {log.note && (
-            <span className="w-full text-gray-600">메모: {log.note}</span>
+            <span className="w-full text-gray-600">{t("admin_chat_note_label")}: {log.note}</span>
           )}
         </li>
       ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MemberOrderStatus } from "@/lib/member-orders/types";
 
 const LABEL: Record<MemberOrderStatus, string> = {
@@ -31,11 +32,12 @@ const CLS: Record<MemberOrderStatus, string> = {
 };
 
 export function MemberOrderStatusBadge({ status }: { status: MemberOrderStatus }) {
+  const { tt } = useI18n();
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${CLS[status]}`}
     >
-      {LABEL[status]}
+      {tt(LABEL[status])}
     </span>
   );
 }

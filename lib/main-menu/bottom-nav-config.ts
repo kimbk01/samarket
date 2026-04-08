@@ -28,10 +28,13 @@ export const BOTTOM_NAV_ICON_KEYS = [
 ] as const;
 export type BottomNavIconKey = (typeof BOTTOM_NAV_ICON_KEYS)[number];
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export type BottomNavItemConfig = {
   id: BottomNavTabId;
   href: string;
   label: string;
+  labelKey?: MessageKey;
   icon: BottomNavIconKey;
   /** 아이콘 SVG 래퍼 (기본 theme.iconSizeClass) */
   iconSizeClass?: string;
@@ -140,11 +143,11 @@ export const HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS =
  * (`as const` 튜플은 선택 스타일 필드가 타입에 안 잡혀 BottomNavItemConfig[] 로 둡니다.)
  */
 export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
-  { id: "home", href: "/home", label: "거래", icon: "trade" },
-  { id: "community", href: "/philife", label: "커뮤니티", icon: "community" },
-  { id: "stores", href: "/stores", label: "배달", icon: "stores" },
-  { id: "chat", href: "/community-messenger", label: "메신저", icon: "chat" },
-  { id: "my", href: "/mypage", label: "내정보", icon: "my" },
+  { id: "home", href: "/home", label: "거래", labelKey: "nav_bottom_trade", icon: "trade" },
+  { id: "community", href: "/philife", label: "커뮤니티", labelKey: "nav_bottom_community", icon: "community" },
+  { id: "stores", href: "/stores", label: "배달", labelKey: "nav_bottom_delivery", icon: "stores" },
+  { id: "chat", href: "/community-messenger", label: "메신저", labelKey: "nav_bottom_messenger", icon: "chat" },
+  { id: "my", href: "/mypage", label: "내정보", labelKey: "nav_bottom_my", icon: "my" },
   // 예: 탭별 색·폰트만 바꿀 때
   // { id: "home", href: "/home", label: "홈", icon: "home", iconActiveClass: "text-emerald-600", labelActiveExtraClass: "font-semibold" },
 ];
@@ -153,6 +156,12 @@ export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
 export const BOTTOM_NAV_TRADE_TAB_LABEL: string =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.label ?? "거래";
 
+export const BOTTOM_NAV_TRADE_TAB_LABEL_KEY: MessageKey =
+  BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.labelKey ?? "nav_bottom_trade";
+
 /** 커뮤니티 탭 라벨 — 1단 `Tier1ExplorationTitleRow` 등과 동기화 */
 export const BOTTOM_NAV_PHILIFE_TAB_LABEL: string =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.label ?? "커뮤니티";
+
+export const BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY: MessageKey =
+  BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.labelKey ?? "nav_bottom_community";

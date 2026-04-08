@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BOTTOM_NAV_ITEMS,
   BOTTOM_NAV_SHELL,
@@ -34,13 +35,14 @@ const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => Rea
 };
 
 export function BottomNav() {
+  const { tt, t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const { chatUnread, philifeChatUnread, storesTabAttention, storeDeepLink } =
     useOwnerHubBadgeBreakdown();
   const { ownerStore } = useOwnerLiteStore();
   const { hubBlockedModal, refresh: refreshBusinessHubGate, setModalOpen: setBusinessHubBlockedModalOpen } =
-    useStoreBusinessHubEntryModal("확인", { eager: false });
+    useStoreBusinessHubEntryModal(t("common_confirm"), { eager: false });
   const storeDeepLinkNavBusyRef = useRef(false);
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
   const isChatRoomDetail =
@@ -157,9 +159,9 @@ export function BottomNav() {
 
         const ariaLbl =
           tabBadgeCount > 0
-            ? `${tab.label}, 확인 필요 ${tabBadgeCount}건`
+            ? t("nav_attention_needed", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), count: tabBadgeCount })
             : storesTabOwnerLite && ownerStore?.store_name
-              ? `${tab.label}, ${ownerStore.store_name}`
+              ? t("nav_store_owner", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), storeName: ownerStore.store_name })
               : undefined;
 
         const inner = (
@@ -174,7 +176,7 @@ export function BottomNav() {
                 ) : null}
               </span>
             </span>
-            <span className={isActive ? labelActive : labelInactive}>{tab.label}</span>
+            <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
           </>
         );
 

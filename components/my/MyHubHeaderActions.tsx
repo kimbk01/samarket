@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
   notificationUnreadCount?: number | null;
 };
 
 export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
+  const { t } = useI18n();
   const showBadge = notificationUnreadCount != null && notificationUnreadCount > 0;
   const badgeText =
     notificationUnreadCount != null && notificationUnreadCount > 99
@@ -18,7 +20,11 @@ export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
       <Link
         href="/mypage/notifications"
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-        aria-label={showBadge ? `알림, 읽지 않음 ${notificationUnreadCount}건` : "알림"}
+        aria-label={
+          showBadge
+            ? t("hub_alert_unread_aria", { count: notificationUnreadCount ?? 0 })
+            : t("hub_alert_aria")
+        }
       >
         <BellIcon />
         {showBadge ? (
@@ -30,7 +36,7 @@ export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
       <Link
         href="/my/settings"
         className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-        aria-label="설정"
+        aria-label={t("hub_settings_aria")}
       >
         <SettingsIcon />
       </Link>

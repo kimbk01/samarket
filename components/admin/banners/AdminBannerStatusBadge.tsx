@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BannerStatus } from "@/lib/types/admin-banner";
 
 const LABELS: Record<BannerStatus, string> = {
@@ -24,11 +25,12 @@ interface AdminBannerStatusBadgeProps {
 }
 
 export function AdminBannerStatusBadge({ status, className = "" }: AdminBannerStatusBadgeProps) {
+  const { tt } = useI18n();
   return (
     <span
       className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${CLASSES[status]} ${className}`}
     >
-      {LABELS[status]}
+      {tt(LABELS[status])}
     </span>
   );
 }

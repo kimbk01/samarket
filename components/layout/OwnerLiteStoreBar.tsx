@@ -2,6 +2,7 @@
 
 import type { MouseEventHandler } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
@@ -15,8 +16,9 @@ import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-
 import { resolveOwnerLiteStoreShortcuts } from "@/lib/stores/owner-lite-store-shortcuts";
 
 export function OwnerLiteStoreBar() {
+  const { t } = useI18n();
   const { ownerStore } = useOwnerLiteStore();
-  const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
+  const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
   const breakdown = useOwnerHubBadgeBreakdown();
 
   if (!ownerStore) return null;
@@ -38,11 +40,11 @@ export function OwnerLiteStoreBar() {
       >
         <div className="min-w-0 flex-1 shrink">
           <p className="truncate text-[13px] font-semibold text-gray-900">
-            {ownerStore.store_name || "내 매장"}
+            {ownerStore.store_name || t("nav_store_name_fallback")}
           </p>
           <p className="truncate text-[11px] text-gray-700">
             {formatStoreApprovalStatusKo(ownerStore.approval_status)}
-            {!isStorePubliclyListed(ownerStore) ? " · 고객 /stores 목록 미노출" : ""}
+            {!isStorePubliclyListed(ownerStore) ? t("nav_store_hidden_hint") : ""}
           </p>
         </div>
         <div className="flex shrink-0 items-center justify-end gap-2">

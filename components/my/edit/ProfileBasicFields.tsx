@@ -20,7 +20,7 @@ export interface ProfileBasicFieldsProps {
 const LANG_OPTIONS = [
   { value: "ko", label: "한국어" },
   { value: "en", label: "English" },
-  { value: "ja", label: "日本語" },
+  { value: "zh-CN", label: "简体中文" },
 ];
 
 const COUNTRY_OPTIONS = [

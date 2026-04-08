@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
 import { HomeTradeHistorySheetContent } from "@/components/home/HomeTradeHistorySheetContent";
 import { MypageTradeHubChatList } from "@/components/mypage/MypageTradeHubChatList";
@@ -73,6 +74,7 @@ type MenuDef = {
  * `/market/[slug]` 가 늘어나도 셸에서 동일 마운트.
  */
 export function HomeTradeHubFloatingBar() {
+  const { t, tt } = useI18n();
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const { chatUnread: tradeChatUnread } = useOwnerHubBadgeBreakdown();
@@ -152,14 +154,14 @@ export function HomeTradeHubFloatingBar() {
   const menuItems: MenuDef[] = useMemo(() => {
     const rows: MenuDef[] = [];
     if (showWriteInDial) {
-      rows.push({ key: "write", label: "글쓰기", Icon: PlusBoldIcon, onClick: onWriteClick });
+      rows.push({ key: "write", label: t("common_write"), Icon: PlusBoldIcon, onClick: onWriteClick });
     }
     rows.push(
-      { key: "trade-chat", label: "거래채팅", Icon: ChatBubbleIcon, onClick: openChatSheet },
-      { key: "trade-history", label: "거래내역", Icon: BagIcon, onClick: openPurchasesSheet },
+      { key: "trade-chat", label: t("nav_trade_chat"), Icon: ChatBubbleIcon, onClick: openChatSheet },
+      { key: "trade-history", label: t("nav_trade_history"), Icon: BagIcon, onClick: openPurchasesSheet },
     );
     return rows;
-  }, [showWriteInDial, onWriteClick, openChatSheet, openPurchasesSheet]);
+  }, [showWriteInDial, onWriteClick, openChatSheet, openPurchasesSheet, t]);
 
   const maxRowIndex = menuItems.length - 1;
 
@@ -233,7 +235,7 @@ export function HomeTradeHubFloatingBar() {
         <button
           type="button"
           className="fixed inset-0 z-[20] bg-black/30 backdrop-blur-[3px]"
-          aria-label="메뉴 닫기"
+          aria-label={t("nav_menu_close")}
           onClick={onBackdropClick}
         />
       ) : null}
@@ -258,13 +260,13 @@ export function HomeTradeHubFloatingBar() {
                 : undefined
           }
           aria-label={
-            hubSheet === "chat" && tradeChatRoomId ? `${TRADE_CHAT_SURFACE.hubTabLabel} 대화` : undefined
+            hubSheet === "chat" && tradeChatRoomId ? `${tt(TRADE_CHAT_SURFACE.hubTabLabel)} ${t("nav_conversation")}` : undefined
           }
         >
           <button
             type="button"
             className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${hubSheetEntered ? "opacity-100" : "opacity-0"}`}
-            aria-label={hubSheet === "purchases" ? "거래 내역 닫기" : `${TRADE_CHAT_SURFACE.hubTabLabel} 닫기`}
+            aria-label={hubSheet === "purchases" ? `${t("nav_trade_history_title")} ${t("nav_close")}` : `${tt(TRADE_CHAT_SURFACE.hubTabLabel)} ${t("nav_close")}`}
             onClick={closeHubSheet}
           />
           <div
@@ -278,7 +280,7 @@ export function HomeTradeHubFloatingBar() {
                 <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex justify-end pb-2 pt-0`}>
                   <HubSheetCloseButton
                     onClick={closeHubSheet}
-                    ariaLabel={`${TRADE_CHAT_SURFACE.hubTabLabel} 닫기`}
+                    ariaLabel={`${tt(TRADE_CHAT_SURFACE.hubTabLabel)} ${t("nav_close")}`}
                   />
                 </div>
               ) : (
@@ -287,11 +289,11 @@ export function HomeTradeHubFloatingBar() {
                     id={hubSheet === "purchases" ? "home-trade-history-sheet-title" : "home-trade-chat-sheet-title"}
                     className="text-[17px] font-semibold text-gray-900"
                   >
-                    {hubSheet === "purchases" ? "거래 내역" : TRADE_CHAT_SURFACE.hubTabLabel}
+                    {hubSheet === "purchases" ? t("nav_trade_history_title") : tt(TRADE_CHAT_SURFACE.hubTabLabel)}
                   </h2>
                   <HubSheetCloseButton
                     onClick={closeHubSheet}
-                    ariaLabel={hubSheet === "purchases" ? "거래 내역 닫기" : `${TRADE_CHAT_SURFACE.hubTabLabel} 닫기`}
+                    ariaLabel={hubSheet === "purchases" ? `${t("nav_trade_history_title")} ${t("nav_close")}` : `${tt(TRADE_CHAT_SURFACE.hubTabLabel)} ${t("nav_close")}`}
                   />
                 </div>
               )}
@@ -343,7 +345,7 @@ export function HomeTradeHubFloatingBar() {
               <nav
                 id="home-trade-speed-dial"
                 className="flex flex-col items-end gap-3"
-                aria-label="거래 빠른 메뉴"
+                aria-label={t("nav_trade_quick_menu")}
               >
                 {menuOpen
                   ? menuItems.map((item, i) => (
@@ -361,7 +363,10 @@ export function HomeTradeHubFloatingBar() {
                             className={HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS}
                             aria-label={
                               item.key === "trade-chat" && showFloatingTradeChatBadge && menuOpen
-                                ? `${item.label}, 확인 필요 ${tradeChatUnread > 99 ? "99+" : tradeChatUnread}건`
+                                ? t("nav_attention_needed", {
+                                    label: item.label,
+                                    count: tradeChatUnread > 99 ? "99+" : tradeChatUnread,
+                                  })
                                 : item.label
                             }
                           >
@@ -401,10 +406,13 @@ export function HomeTradeHubFloatingBar() {
                 className={`${HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS} relative`}
                 aria-label={
                   !menuOpen && showFloatingTradeChatBadge
-                    ? `메뉴 열기, 거래 채팅 확인 필요 ${tradeChatUnread > 99 ? "99+" : tradeChatUnread}건`
+                    ? `${t("nav_menu_open")}, ${t("nav_attention_needed", {
+                        label: t("nav_trade_chat"),
+                        count: tradeChatUnread > 99 ? "99+" : tradeChatUnread,
+                      })}`
                     : menuOpen
-                      ? "메뉴 닫기"
-                      : "메뉴 열기"
+                      ? t("nav_menu_close")
+                      : t("nav_menu_open")
                 }
               >
                 <span className="relative inline-flex">
@@ -455,6 +463,7 @@ function DialRow({
 
 /** 바텀 시트 헤더 닫기 — 모바일: 원형 ✕(유니코드), md↑: 「닫기」 */
 function HubSheetCloseButton({ onClick, ariaLabel }: { onClick: () => void; ariaLabel: string }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -468,7 +477,7 @@ function HubSheetCloseButton({ onClick, ariaLabel }: { onClick: () => void; aria
       >
         ✕
       </span>
-      <span className="hidden text-[14px] font-medium md:inline">닫기</span>
+      <span className="hidden text-[14px] font-medium md:inline">{t("nav_close")}</span>
     </button>
   );
 }

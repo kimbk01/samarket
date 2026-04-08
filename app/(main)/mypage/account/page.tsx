@@ -1,12 +1,16 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyAccountContent } from "@/components/my/MyAccountContent";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
 export default function MypageAccountPage() {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-background">
       <MySubpageHeader
-        title="내 정보"
-        subtitle="프로필·인증·연락처"
+        title={t("account_title")}
+        subtitle={t("account_subtitle")}
         backHref="/mypage"
         section="account"
       />

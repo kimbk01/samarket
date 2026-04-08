@@ -5,6 +5,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
 import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
+import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
 export const dynamic = "force-dynamic";
@@ -57,11 +58,14 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
     return { ok: false, error: "요청 형식이 올바르지 않습니다." };
   }
   const b = body as Record<string, unknown>;
-  const n = String(b.nickname ?? "").trim();
-  if (!n) return { ok: false, error: "닉네임을 입력해 주세요." };
-  if (n.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
+  const patch: Record<string, unknown> = {};
 
-  const patch: Record<string, unknown> = { nickname: n };
+  if ("nickname" in b) {
+    const n = String(b.nickname ?? "").trim();
+    if (!n) return { ok: false, error: "닉네임을 입력해 주세요." };
+    if (n.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
+    patch.nickname = n;
+  }
 
   if ("avatar_url" in b) {
     const v = b.avatar_url;
@@ -99,8 +103,7 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
     }
   }
   if ("preferred_language" in b) {
-    const s = String(b.preferred_language ?? "ko").trim() || "ko";
-    patch.preferred_language = s;
+    patch.preferred_language = normalizeAppLanguage(b.preferred_language);
   }
   if ("preferred_country" in b) {
     const s = String(b.preferred_country ?? "PH").trim() || "PH";

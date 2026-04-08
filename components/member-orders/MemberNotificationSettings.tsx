@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getDemoBuyerUserId } from "@/lib/member-orders/member-order-store";
 import {
   getNotificationPreferences,
@@ -48,6 +49,7 @@ function Row({
 }
 
 export function MemberNotificationSettings() {
+  const { t } = useI18n();
   const v = useSyncExternalStore(
     subscribeNotificationSettings,
     getNotificationSettingsVersion,
@@ -68,7 +70,7 @@ export function MemberNotificationSettings() {
   if (!userId) {
     return (
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-        알림 설정은 <strong>회원</strong> 역할에서만 조정할 수 있어요.
+        {t("order_notifications_guest_only")}
       </p>
     );
   }
@@ -78,30 +80,29 @@ export function MemberNotificationSettings() {
   return (
     <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="px-4 py-3">
-        <h2 className="text-sm font-bold text-gray-900">주문 알림</h2>
+        <h2 className="text-sm font-bold text-gray-900">{t("order_notifications_header")}</h2>
         <p className="mt-1 text-[12px] text-gray-500">
-          데모 회원 <span className="font-mono">{userId}</span> 기준입니다. 실서비스에서는 로그인 사용자 ID로
-          치환됩니다.
+          {t("order_notifications_demo_desc", { userId })}
         </p>
       </div>
       <Row
-        label="주문 접수 알림 받기"
+        label={t("order_notifications_new_order")}
         checked={p.allow_new_order}
         onChange={(x) => patch({ allow_new_order: x })}
       />
       <Row
-        label="주문 상태 변경 알림 받기"
+        label={t("order_notifications_status")}
         checked={p.allow_order_status}
         onChange={(x) => patch({ allow_order_status: x })}
       />
       <Row
-        label="취소·환불 알림 받기"
+        label={t("order_notifications_cancel_refund")}
         checked={p.allow_cancel && p.allow_refund}
         onChange={(x) => patch({ allow_cancel: x, allow_refund: x })}
       />
       <Row
-        label="마케팅·이벤트 알림 받기"
-        description="주문 시뮬에서는 사용 예약. 푸시 확장 시 연결."
+        label={t("order_notifications_marketing")}
+        description={t("order_notifications_marketing_desc")}
         checked={p.allow_marketing}
         onChange={(x) => patch({ allow_marketing: x })}
       />

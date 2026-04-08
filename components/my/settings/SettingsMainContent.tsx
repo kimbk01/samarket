@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
+import { normalizeAppLanguage } from "@/lib/i18n/config";
 import {
   getUserSettings,
   LANGUAGE_NAMES,
@@ -16,6 +18,7 @@ import { SettingsIcons } from "./settings-icons";
 import { useHasOwnerStores } from "@/hooks/useHasOwnerStores";
 
 export function SettingsMainContent() {
+  const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
   const showAdmin = isAdminUser(getCurrentUser());
@@ -30,82 +33,84 @@ export function SettingsMainContent() {
   }, [refresh]);
 
   const languageLabel =
-    LANGUAGE_NAMES[settings.preferred_language ?? "ko"] ?? settings.preferred_language ?? "한국어";
+    LANGUAGE_NAMES[normalizeAppLanguage(settings.preferred_language)] ??
+    settings.preferred_language ??
+    "한국어";
   const countryLabel =
     COUNTRY_NAMES[settings.preferred_country ?? "PH"] ?? settings.preferred_country ?? "필리핀";
 
   return (
     <div className="mx-auto max-w-[480px] bg-background pb-8">
-      <SettingsSection title="서비스 설정">
+      <SettingsSection title={t("settings_section_service")}>
         <SettingsRow
           href="/my/settings/favorite-users"
           icon={SettingsIcons.users}
-          label="모아보는 사용자"
+          label={t("settings_following_users")}
         />
         <SettingsRow
           href="/my/settings/blocked-users"
           icon={SettingsIcons.block}
-          label="차단한 사용자"
+          label={t("settings_blocked_users")}
         />
         <SettingsRow
           href="/my/settings/hidden-users"
           icon={SettingsIcons.eyeOff}
-          label="숨긴 사용자"
+          label={t("settings_hidden_users")}
         />
         <SettingsRow
           href="/my/settings/video-autoplay"
           icon={SettingsIcons.play}
-          label="동영상 자동 재생"
+          label={t("settings_video_autoplay")}
         />
         <SettingsRow
           href="/my/settings/bulk-region-change"
           icon={SettingsIcons.target}
-          label="판매 글 동네 일괄 변경"
+          label={t("settings_bulk_region_change")}
         />
         <SettingsRow
           href="/my/settings/chat"
           icon={SettingsIcons.chat}
-          label="채팅 설정"
+          label={t("settings_chat")}
         />
         <SettingsRow
           href="/my/settings/personalization"
           icon={SettingsIcons.dots}
-          label="맞춤 설정"
+          label={t("settings_personalization")}
         />
       </SettingsSection>
 
-      <SettingsSection title="기타">
+      <SettingsSection title={t("settings_section_misc")}>
         <SettingsRow
           href="/my/settings/notices"
           icon={SettingsIcons.megaphone}
-          label="공지사항"
+          label={t("settings_notices")}
         />
         <SettingsValueRow
           href="/my/settings/country"
           icon={SettingsIcons.globe}
-          label="국가 변경"
+          label={t("settings_country")}
           value={countryLabel}
         />
         <SettingsValueRow
           href="/my/settings/language"
           icon={SettingsIcons.language}
-          label="언어 설정"
+          label={t("settings_language")}
           value={languageLabel}
         />
         <SettingsRow
           href="/my/settings/cache"
           icon={SettingsIcons.trash}
-          label="캐시 삭제"
+          label={t("settings_cache_clear")}
         />
         <SettingsRow
           href="/my/settings/version"
           icon={SettingsIcons.info}
-          label="버전 정보"
+          label={t("settings_version")}
         />
         <SettingsDangerRow
           href="/my/settings/leave"
           icon={SettingsIcons.hand}
-          label="탈퇴하기"
+          label={t("settings_leave")}
         />
       </SettingsSection>
 

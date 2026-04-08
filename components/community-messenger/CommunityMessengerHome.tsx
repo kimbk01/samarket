@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   isCommunityMessengerIncomingCallBannerEnabled,
   isCommunityMessengerIncomingCallSoundEnabled,
@@ -37,12 +39,12 @@ import type {
 } from "@/lib/community-messenger/types";
 
 const HOME_TABS = [
-  { id: "friends", label: "친구" },
-  { id: "chats", label: "1:1 채팅" },
-  { id: "groups", label: "그룹" },
-  { id: "calls", label: "통화" },
-  { id: "settings", label: "설정" },
-] as const satisfies readonly { id: CommunityMessengerTab; label: string }[];
+  { id: "friends", label: "친구", labelKey: "nav_messenger_friends" },
+  { id: "chats", label: "1:1 채팅", labelKey: "nav_messenger_direct" },
+  { id: "groups", label: "그룹", labelKey: "nav_messenger_groups" },
+  { id: "calls", label: "통화", labelKey: "nav_messenger_calls" },
+  { id: "settings", label: "설정", labelKey: "nav_messenger_settings" },
+] as const satisfies readonly { id: CommunityMessengerTab; label: string; labelKey?: MessageKey }[];
 
 const EMPTY_COUNTS: Record<CommunityMessengerTab, number> = {
   friends: 0,
@@ -60,6 +62,7 @@ function normalizeTab(value: string | null): CommunityMessengerTab {
 }
 
 export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const loadedRef = useRef(false);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
@@ -106,43 +109,43 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const getMessengerActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
       case "bad_peer":
-        return "1:1 채팅 대상을 다시 확인해 주세요.";
+        return t("nav_messenger_direct_target_invalid");
       case "blocked_target":
-        return "차단 관계에서는 채팅방을 만들 수 없습니다.";
+        return t("nav_messenger_blocked_target");
       case "friend_required":
-        return "그룹방과 그룹 초대는 친구 관계에서만 가능합니다.";
+        return t("nav_messenger_friend_required");
       case "title_required":
-        return "그룹방 제목을 입력해 주세요.";
+        return t("nav_messenger_title_required");
       case "password_required":
-        return "비밀번호를 입력해 주세요.";
+        return t("nav_messenger_password_required");
       case "alias_name_required":
-        return "별칭으로 참여하려면 닉네임을 입력해 주세요.";
+        return t("nav_messenger_alias_name_required");
       case "members_required":
-        return "그룹방에 초대할 친구를 1명 이상 선택해 주세요.";
+        return t("nav_messenger_members_required");
       case "invalid_password":
-        return "비밀번호가 맞지 않습니다.";
+        return t("nav_messenger_invalid_password");
       case "room_full":
-        return "정원이 가득 찬 그룹방입니다.";
+        return t("nav_messenger_room_full");
       case "not_open_group_room":
-        return "공개 그룹방만 비밀번호 입장이 가능합니다.";
+        return t("nav_messenger_open_group_only");
       case "owner_cannot_leave":
-        return "방장은 방을 나갈 수 없습니다. 필요하면 다른 방장을 지정하는 기능을 후속으로 연결해야 합니다.";
+        return t("nav_messenger_owner_cannot_leave");
       case "room_lookup_failed":
-        return "기존 채팅방 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+        return t("nav_messenger_room_lookup_failed");
       case "room_create_failed":
       case "room_participant_create_failed":
-        return "1:1 채팅방 생성에 실패했습니다.";
+        return t("nav_messenger_direct_create_failed");
       case "group_create_failed":
       case "group_participant_create_failed":
-        return "그룹방 생성에 실패했습니다.";
+        return t("nav_messenger_group_create_failed");
       case "messenger_storage_unavailable":
-        return "메신저 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        return t("nav_messenger_storage_unavailable");
       case "messenger_migration_required":
-        return "메신저 저장소 마이그레이션이 아직 반영되지 않았습니다. 데이터베이스 스키마를 먼저 업데이트해 주세요.";
+        return t("nav_messenger_migration_required");
       default:
-        return "메신저 작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        return t("nav_messenger_action_failed");
     }
-  }, []);
+  }, [t]);
 
   useLayoutEffect(() => {
     const stale = peekBootstrapCache();
@@ -188,11 +191,11 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         if (unauthorized) {
           clearBootstrapCache();
           setAuthRequired(true);
-          setPageError("로그인 후 메신저를 사용할 수 있습니다.");
+          setPageError(t("nav_messenger_login_required"));
           setData(null);
         } else {
           setAuthRequired(false);
-          setPageError("메신저 데이터를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+          setPageError(t("nav_messenger_load_failed"));
           if (!silent && !stale) {
             setData(null);
           }
@@ -202,7 +205,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       loadedRef.current = true;
       if (shouldBlock) setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const stale = peekBootstrapCache();
@@ -280,7 +283,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         }
         if (res.status === 401 || res.status === 403) {
           setAuthRequired(true);
-          setPageError("로그인 후 메신저를 사용할 수 있습니다.");
+          setPageError(t("nav_messenger_login_required"));
           return;
         }
         setActionError(getMessengerActionErrorMessage(json.error));
@@ -431,7 +434,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       }
       if (res.status === 401 || res.status === 403) {
         setAuthRequired(true);
-        setPageError("로그인 후 메신저를 사용할 수 있습니다.");
+        setPageError(t("nav_messenger_login_required"));
         return;
       }
       setActionError(getMessengerActionErrorMessage(json.error));
@@ -487,7 +490,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       }
       if (res.status === 401 || res.status === 403) {
         setAuthRequired(true);
-        setPageError("로그인 후 메신저를 사용할 수 있습니다.");
+        setPageError(t("nav_messenger_login_required"));
         return;
       }
       setActionError(getMessengerActionErrorMessage(json.error));
@@ -804,7 +807,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       {!loading && authRequired ? (
         <section className="rounded-2xl border border-gray-200 bg-white px-4 py-8 text-center">
           <p className="text-[16px] font-semibold text-gray-900">로그인이 필요합니다.</p>
-          <p className="mt-2 text-[13px] text-gray-500">{pageError ?? "메신저는 로그인 후 사용할 수 있습니다."}</p>
+          <p className="mt-2 text-[13px] text-gray-500">{pageError ?? t("nav_messenger_login_required")}</p>
           <div className="mt-4 flex justify-center">
             <Link
               href={`/login?next=${encodeURIComponent("/community-messenger")}`}
@@ -819,7 +822,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       {!loading && !authRequired && !data ? (
         <section className="rounded-2xl border border-gray-200 bg-white px-4 py-8 text-center">
           <p className="text-[16px] font-semibold text-gray-900">메신저를 불러오지 못했습니다.</p>
-          <p className="mt-2 text-[13px] text-gray-500">{pageError ?? "잠시 후 다시 시도해 주세요."}</p>
+          <p className="mt-2 text-[13px] text-gray-500">{pageError ?? t("common_try_again_later")}</p>
           <div className="mt-4 flex justify-center">
             <button
               type="button"

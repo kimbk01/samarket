@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
@@ -28,12 +29,17 @@ interface ChatButtonProps {
  * - existingRoomId 있음 → "대화중인 채팅", 해당 방으로 이동
  */
 export function ChatButton({ productId, existingRoomId, disabled, className, children }: ChatButtonProps) {
+  const { t, tt } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const hasExisting = !!existingRoomId;
-  const label = hasExisting ? "대화중인 채팅" : (children ?? "채팅하기");
+  const label = hasExisting
+    ? t("common_existing_chat")
+    : typeof children === "string"
+      ? tt(children)
+      : children ?? tt("채팅하기");
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -77,7 +83,7 @@ export function ChatButton({ productId, existingRoomId, disabled, className, chi
         disabled={disabled || loading}
         className={className ?? "rounded-md bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
       >
-        {loading ? "이동 중..." : label}
+        {loading ? t("common_move_in_progress") : label}
       </button>
       {error && <p className="mt-1 text-[12px] text-red-600">{error}</p>}
     </div>

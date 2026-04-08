@@ -5,11 +5,14 @@
 export const TRADE_CHAT_SURFACE = {
   id: "trade",
   hubTabLabel: "거래채팅",
+  hubTabLabelKey: "nav_chat_trade",
   /** 거래 허브(`/mypage/trade`) 안의 채팅 탭 — 목록·상세 단일 메인 */
   hubPath: "/mypage/trade/chat",
   listEmptyMessage: "받은 거래채팅이 없어요.",
+  listEmptyMessageKey: "nav_chat_trade_empty",
   emptyCtaHref: "/home",
   emptyCtaLabel: "거래 둘러보기",
+  emptyCtaLabelKey: "nav_chat_trade_cta",
 } as const;
 
 export type TradeChatSurface = typeof TRADE_CHAT_SURFACE;

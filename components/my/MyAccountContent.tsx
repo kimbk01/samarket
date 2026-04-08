@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 import type { ProfileRow } from "@/lib/profile/types";
 
 export function MyAccountContent() {
+  const { t } = useI18n();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,26 +25,26 @@ export function MyAccountContent() {
   }, [load]);
 
   if (loading) {
-    return <p className="py-4 text-center text-[14px] text-gray-500">불러오는 중…</p>;
+    return <p className="py-4 text-center text-[14px] text-gray-500">{t("common_loading")}</p>;
   }
   if (!profile) {
     return (
       <div className="space-y-3 py-4 text-center text-[14px] text-gray-500">
-        <p>로그인이 필요합니다.</p>
+        <p>{t("common_login_required")}</p>
         <p>
           <Link href="/login" className="font-medium text-signature underline">
-            {isTestUsersSurfaceEnabled() ? "테스트 로그인" : "로그인"}
+            {isTestUsersSurfaceEnabled() ? "테스트 로그인" : t("common_login")}
           </Link>
           {isTestUsersSurfaceEnabled() ? (
             <>
               {" · "}
               <Link href="/signup" className="font-medium text-signature underline">
-                회원가입
+                {t("common_signup")}
               </Link>
             </>
           ) : null}
         </p>
-        <Link href="/my" className="block text-gray-500">내정보로</Link>
+        <Link href="/my" className="block text-gray-500">{t("common_back_to_mypage")}</Link>
       </div>
     );
   }
@@ -50,7 +52,7 @@ export function MyAccountContent() {
   const phoneVerificationStatus = (profile as ProfileRow & { phone_verification_status?: string })
     .phone_verification_status;
 
-  const displayNickname = profile.nickname?.trim() || "닉네임 없음";
+  const displayNickname = profile.nickname?.trim() || t("account_nickname");
 
   return (
     <div className="space-y-4">
@@ -70,48 +72,50 @@ export function MyAccountContent() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[17px] font-semibold text-gray-900">{displayNickname}</p>
-          <p className="mt-0.5 truncate text-[13px] text-gray-500">회원가입 시 설정한 닉네임이 표시됩니다.</p>
+          <p className="mt-0.5 truncate text-[13px] text-gray-500">{t("account_nickname_note")}</p>
           <Link href="/my/edit" className="mt-2 inline-block text-[14px] font-medium text-signature">
-            프로필·사진 수정
+            {t("account_edit_profile")}
           </Link>
         </div>
       </div>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-gray-900">계정 정보</h2>
+          <h2 className="text-[15px] font-semibold text-gray-900">{t("account_info_title")}</h2>
           <Link
             href="/my/edit"
             className="text-[14px] font-medium text-signature"
           >
-            프로필 수정
+            {t("account_edit")}
           </Link>
         </div>
         <dl className="space-y-3 text-[14px]">
           <div>
-            <dt className="text-gray-500">닉네임</dt>
+            <dt className="text-gray-500">{t("account_nickname")}</dt>
             <dd className="mt-0.5 text-gray-900">{displayNickname}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">이메일</dt>
+            <dt className="text-gray-500">{t("account_email")}</dt>
             <dd className="mt-0.5 text-gray-900">{profile.email ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">연락처</dt>
-            <dd className="mt-0.5 text-gray-900">{profile.phone ?? "등록된 연락처 없음"}</dd>
+            <dt className="text-gray-500">{t("account_phone")}</dt>
+            <dd className="mt-0.5 text-gray-900">{profile.phone ?? t("account_missing_phone")}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">실명 인증</dt>
-            <dd className="mt-0.5 text-gray-900">{profile.realname_verified ? "완료" : "미인증"}</dd>
+            <dt className="text-gray-500">{t("account_realname")}</dt>
+            <dd className="mt-0.5 text-gray-900">
+              {profile.realname_verified ? t("account_verified") : t("account_unverified")}
+            </dd>
           </div>
           <div>
-            <dt className="text-gray-500">연락처 인증</dt>
+            <dt className="text-gray-500">{t("account_phone_verification")}</dt>
             <dd className="mt-0.5 text-gray-900">
               {profile.phone_verified
-                ? "완료"
+                ? t("account_verified")
                 : phoneVerificationStatus === "pending"
-                  ? "승인 대기"
-                  : "미인증"}
+                  ? t("account_pending")
+                  : t("account_unverified")}
             </dd>
           </div>
         </dl>
@@ -120,7 +124,7 @@ export function MyAccountContent() {
             href="/my/account/phone-verification"
             className="mt-4 block rounded-xl border border-signature/20 bg-signature/5 px-4 py-3 text-center text-[14px] font-semibold text-signature"
           >
-            필리핀 전화번호 인증 진행하기
+            {t("account_phone_cta")}
           </Link>
         ) : null}
       </div>
@@ -128,7 +132,7 @@ export function MyAccountContent() {
         href="/my/settings"
         className="block rounded-xl bg-white px-4 py-3 text-center text-[14px] font-medium text-gray-700 shadow-sm"
       >
-        설정
+        {t("account_to_settings")}
       </Link>
     </div>
   );

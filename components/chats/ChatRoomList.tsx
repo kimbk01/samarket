@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatRoom } from "@/lib/types/chat";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
@@ -30,6 +31,7 @@ export function ChatRoomList({
   /** 지정 시 링크 이동 대신 콜백(홈 거래 채팅 시트 등) */
   onSelectRoom?: (roomId: string) => void;
 }) {
+  const { t } = useI18n();
   const [rooms, setRooms] = useState<ChatRoom[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** 서버 401 — `getCurrentUser()` 지연과 무관하게 판별 */
@@ -46,17 +48,17 @@ export function ChatRoomList({
       }
       setSessionDenied(false);
       if (!ok) {
-        setError("목록을 불러오지 못했습니다.");
+        setError(t("common_fetch_list_failed"));
         setRooms([]);
         return;
       }
       setRooms(next);
       setError(null);
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setError(t("common_network_error"));
       setRooms([]);
     }
-  }, [segment]);
+  }, [segment, t]);
 
   useEffect(() => {
     void load();
@@ -85,7 +87,7 @@ export function ChatRoomList({
   if (rooms === null && !sessionDenied) {
     return (
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-[#8E8E8E]`}>
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -93,9 +95,9 @@ export function ChatRoomList({
   if (sessionDenied) {
     return (
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-gray-600`}>
-        <p>로그인 후 채팅 목록을 볼 수 있어요.</p>
+        <p>{t("common_login_required_for_chat_list")}</p>
         <Link href="/login" className="mt-3 inline-block font-medium text-signature underline">
-          로그인
+          {t("common_login")}
         </Link>
       </div>
     );
@@ -110,7 +112,7 @@ export function ChatRoomList({
           onClick={() => void load()}
           className="mt-3 block w-full font-medium text-signature underline"
         >
-          다시 시도
+          {t("common_retry")}
         </button>
       </div>
     );
@@ -119,17 +121,17 @@ export function ChatRoomList({
   if (!rooms || rooms.length === 0) {
     const emptyCopy =
       segment === "order"
-        ? ORDER_CHAT_SURFACE.listEmptyMessage
-        : TRADE_CHAT_SURFACE.listEmptyMessage;
+        ? t(ORDER_CHAT_SURFACE.listEmptyMessageKey)
+        : t(TRADE_CHAT_SURFACE.listEmptyMessageKey);
     const emptyCta =
       segment === "order"
         ? {
             href: ORDER_CHAT_SURFACE.emptyCtaHref,
-            label: ORDER_CHAT_SURFACE.emptyCtaLabel,
+            label: t(ORDER_CHAT_SURFACE.emptyCtaLabelKey),
           }
         : {
             href: TRADE_CHAT_SURFACE.emptyCtaHref,
-            label: TRADE_CHAT_SURFACE.emptyCtaLabel,
+            label: t(TRADE_CHAT_SURFACE.emptyCtaLabelKey),
           };
     return (
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-[#8E8E8E]`}>

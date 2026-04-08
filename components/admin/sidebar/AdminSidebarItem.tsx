@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
 import { isLeafMenuActive } from "./admin-sidebar-active-path";
@@ -30,6 +31,7 @@ export function AdminSidebarItem({
   depth?: number;
   pathsScope?: string[];
 }) {
+  const { tt, t } = useI18n();
   const hasChildren = item.children && item.children.length > 0;
 
   const isActive = isPathActive(item.path, currentPath);
@@ -38,7 +40,7 @@ export function AdminSidebarItem({
 
   const pending = item.pendingRoute === true;
   const status = getMenuStatus(item);
-  const displayTitle = getMenuDisplayTitle(item.title, status);
+  const displayTitle = getMenuDisplayTitle(item.titleKey ? t(item.titleKey) : tt(item.title), status);
 
   const padding = depth === 0 ? "pl-3" : depth === 1 ? "pl-5" : "pl-7";
   const baseLinkClass = `block rounded-lg py-2 pr-3 text-[15px] whitespace-nowrap ${padding}`;
@@ -99,7 +101,7 @@ export function AdminSidebarItem({
             onClick={toggleOpen}
             className="shrink-0 rounded p-1 text-[14px] font-semibold text-gray-500 hover:bg-gray-200"
             aria-expanded={open}
-            aria-label={open ? "하위 메뉴 접기" : "하위 메뉴 펼치기"}
+            aria-label={open ? t("common_close_submenu") : t("common_open_submenu")}
           >
             {open ? "▲" : "▼"}
           </button>

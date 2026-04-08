@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
   getMobileTopTier1RuleSet,
@@ -15,7 +16,12 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
-import { BOTTOM_NAV_PHILIFE_TAB_LABEL, BOTTOM_NAV_TRADE_TAB_LABEL } from "@/lib/main-menu/bottom-nav-config";
+import {
+  BOTTOM_NAV_PHILIFE_TAB_LABEL,
+  BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
+  BOTTOM_NAV_TRADE_TAB_LABEL,
+  BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
+} from "@/lib/main-menu/bottom-nav-config";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,
@@ -25,6 +31,7 @@ import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-na
 import type { ReactNode } from "react";
 
 function StoresRootTier1Right() {
+  const { t } = useI18n();
   const commerceCart = useStoreCommerceCartOptional();
   const cartLineKindCount = commerceCart?.hydrated ? commerceCart.totalItemCountAllStores : 0;
   const cartHref = useMemo(() => {
@@ -37,7 +44,7 @@ function StoresRootTier1Right() {
       <Link
         href="/search"
         className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-        aria-label="검색"
+        aria-label={t("nav_search_aria")}
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
           <path
@@ -50,7 +57,7 @@ function StoresRootTier1Right() {
       <Link
         href={cartHref}
         className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-        aria-label={cartLineKindCount > 0 ? "장바구니" : "배달"}
+        aria-label={cartLineKindCount > 0 ? t("nav_cart_aria") : t("common_delivery")}
       >
         <StoreCommerceCartStrokeIcon className="h-5 w-5" />
         {cartLineKindCount > 0 ? (
@@ -81,6 +88,7 @@ function UnifiedTier1Shell({
 
 /** 메인 1단 UI — 단일 구현체. `Tier1ExplorationTitleRow`·서브페이지·매장 루트를 한 스타일(h-12)로 맞춘다. */
 export function RegionBar({ embedded }: { embedded?: boolean }) {
+  const { tt, t } = useI18n();
   const pathname = usePathname();
   const pathNoQuery = normalizeAppPathnameForTier1(pathname);
   const ruleSet = getMobileTopTier1RuleSet(pathname);
@@ -101,7 +109,7 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
 
   if (isUnifiedExplorationTier1) {
     const segmentTitle =
-      pathNoQuery === "/philife" ? BOTTOM_NAV_PHILIFE_TAB_LABEL : BOTTOM_NAV_TRADE_TAB_LABEL;
+      pathNoQuery === "/philife" ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY) : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
     return (
       <UnifiedTier1Shell embedded={embedded}>
         <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
@@ -124,11 +132,11 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
       <UnifiedTier1Shell embedded={embedded}>
         <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
           <div className="flex w-[44px] shrink-0 justify-start">
-            <AppBackButton preferHistoryBack backHref="/home" ariaLabel="이전 화면" />
+            <AppBackButton preferHistoryBack backHref="/home" ariaLabel={t("tier1_back")} />
           </div>
           <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
             <h1 className="overflow-hidden text-foreground">
-              <span className="block truncate text-[17px] font-semibold">배달</span>
+              <span className="block truncate text-[17px] font-semibold">{t("common_delivery")}</span>
             </h1>
           </div>
           <StoresRootTier1Right />
@@ -146,8 +154,9 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
   const hideBack = o?.hideBack ?? base.hideBack ?? false;
   const backHref = o?.backHref ?? base.backHref;
   const preferHistoryBack = o?.preferHistoryBack ?? base.preferHistoryBack;
-  const ariaLabel = o?.ariaLabel ?? base.ariaLabel;
-  const subtitle = o?.subtitle ?? base.subtitle;
+  const ariaLabel = tt(o?.ariaLabel ?? base.ariaLabel);
+  const subtitleRaw = o?.subtitle ?? base.subtitle;
+  const subtitle = subtitleRaw ? tt(subtitleRaw) : undefined;
   const subtitleHref = o?.subtitleHref ?? base.subtitleHref;
   const showHub = o?.showHubQuickActions ?? base.showHubQuickActions;
   const hubUnread = o?.notificationUnreadCount ?? notificationUnreadCount;
@@ -155,9 +164,9 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
   const centerFromExtras = o?.title != null ? o.title : null;
   const titleTextFromExtras = o?.titleText;
   const rawStringTitle =
-    (typeof centerFromExtras === "string" ? centerFromExtras : null) ??
-    titleTextFromExtras ??
-    base.titleText;
+    (typeof centerFromExtras === "string" ? tt(centerFromExtras) : null) ??
+    (titleTextFromExtras ? tt(titleTextFromExtras) : null) ??
+    tt(base.titleText);
   const stringTitle = rawStringTitle?.trim() ? rawStringTitle : undefined;
 
   const centerNode: ReactNode =

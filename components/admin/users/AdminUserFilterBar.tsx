@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminUser } from "@/lib/types/admin-user";
 import {
   MODERATION_STATUS_OPTIONS,
@@ -25,9 +26,10 @@ export function AdminUserFilterBar({
   onSearchChange,
   showMemberUuid = false,
 }: AdminUserFilterBarProps) {
+  const { tt, t } = useI18n();
   const searchPlaceholder = showMemberUuid
-    ? "닉네임·로그인 아이디·UUID 검색"
-    : "닉네임·로그인 아이디 검색";
+    ? t("admin_search_member_with_uuid")
+    : t("admin_search_member");
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -50,7 +52,7 @@ export function AdminUserFilterBar({
       >
         {MODERATION_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {tt(o.label)}
           </option>
         ))}
       </select>
@@ -66,13 +68,13 @@ export function AdminUserFilterBar({
       >
         {MEMBER_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {tt(o.label)}
           </option>
         ))}
       </select>
       <input
         type="text"
-        placeholder="지역"
+        placeholder={t("common_region")}
         value={filters.location}
         onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
         className="min-w-[100px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
@@ -89,7 +91,7 @@ export function AdminUserFilterBar({
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {tt(o.label)}
           </option>
         ))}
       </select>

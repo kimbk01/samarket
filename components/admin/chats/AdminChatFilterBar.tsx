@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   ROOM_STATUS_OPTIONS,
   ROOM_TYPE_OPTIONS,
@@ -21,6 +22,7 @@ export function AdminChatFilterBar({
   onFiltersChange,
   onSearchChange,
 }: AdminChatFilterBarProps) {
+  const { t, tt } = useI18n();
   return (
     <div className="flex flex-wrap items-center gap-2">
       <select
@@ -32,11 +34,11 @@ export function AdminChatFilterBar({
           })
         }
         className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
-        title="거래채팅 = 상품 채팅하기, 일반 채팅 = 프로필/이웃·커뮤니티 등"
+        title={t("admin_menu_chat_trade")}
       >
         {ROOM_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {tt(o.label)}
           </option>
         ))}
       </select>
@@ -52,7 +54,7 @@ export function AdminChatFilterBar({
       >
         {ROOM_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {tt(o.label)}
           </option>
         ))}
       </select>
@@ -65,11 +67,11 @@ export function AdminChatFilterBar({
           }
           className="rounded border-gray-300"
         />
-        신고 있음
+        {t("admin_chat_reported_only")}
       </label>
       <input
         type="text"
-        placeholder="상품명·참여자·채팅방 ID 검색"
+        placeholder={t("admin_chat_search_placeholder")}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
         className="min-w-[200px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"

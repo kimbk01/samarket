@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function formatVoiceDuration(totalSec: number): string {
   const s = Math.max(0, Math.floor(totalSec));
@@ -36,6 +37,7 @@ export function VoiceMessageBubble({
   /** `<source type>` — blob/브라우저별 디코딩 안정화 */
   mediaType?: string | null;
 }) {
+  const { t } = useI18n();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playIntentRef = useRef(false);
   const [activeSrc, setActiveSrc] = useState(src);
@@ -148,7 +150,7 @@ export function VoiceMessageBubble({
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
             isMine ? "bg-white/25 text-white ring-2 ring-white/35" : "bg-[#06C755] text-white ring-2 ring-[#06C755]/25"
           }`}
-          aria-label={playing ? "일시정지" : "재생"}
+          aria-label={playing ? t("common_pause") : t("common_play")}
         >
           {playing ? (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -202,10 +204,10 @@ export function VoiceMessageBubble({
       ) : null}
       {loadError || playbackBlocked ? (
         <span className={`text-[11px] ${isMine ? "text-white/85" : "text-red-600"}`}>
-          재생할 수 없습니다. 새로고침 후 다시 시도해 주세요.
+          {t("nav_messenger_voice_upload_failed")}
         </span>
       ) : null}
-      {pending ? <span className={`text-[11px] ${isMine ? "text-white/80" : "text-gray-500"}`}>전송 중</span> : null}
+      {pending ? <span className={`text-[11px] ${isMine ? "text-white/80" : "text-gray-500"}`}>{t("common_sending")}</span> : null}
     </div>
   );
 }

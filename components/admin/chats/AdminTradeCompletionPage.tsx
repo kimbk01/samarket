@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
@@ -20,6 +21,7 @@ interface Row {
 }
 
 export function AdminTradeCompletionPage() {
+  const { t } = useI18n();
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export function AdminTradeCompletionPage() {
     const user = getCurrentUser();
     const uid = user?.id?.trim() ?? "";
     if (!uid || !isAdminUser(user)) {
-      setError("관리자 로그인이 필요합니다.");
+      setError(t("admin_trade_completion_admin_login_required"));
       setItems([]);
       setLoading(false);
       return;
@@ -44,18 +46,18 @@ export function AdminTradeCompletionPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError((data as { error?: string }).error ?? "조회 실패");
+        setError((data as { error?: string }).error ?? t("admin_trade_completion_fetch_failed"));
         setItems([]);
         return;
       }
       setItems(Array.isArray(data.items) ? data.items : []);
     } catch {
-      setError("네트워크 오류");
+      setError(t("common_network_error"));
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -65,7 +67,7 @@ export function AdminTradeCompletionPage() {
     const user = getCurrentUser();
     const uid = user?.id?.trim() ?? "";
     if (!uid) return;
-    if (!window.confirm("이 방에 대해 구매자 거래완료 확인(관리자완료)을 반영할까요?")) return;
+    if (!window.confirm(t("admin_trade_completion_admin_confirm_question"))) return;
     setBusyId(roomId);
     setError(null);
     try {
@@ -76,12 +78,12 @@ export function AdminTradeCompletionPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        setError((data as { error?: string }).error ?? "처리 실패");
+        setError((data as { error?: string }).error ?? t("admin_trade_completion_process_failed"));
         return;
       }
       await load();
     } catch {
-      setError("네트워크 오류");
+      setError(t("common_network_error"));
     } finally {
       setBusyId(null);
     }
@@ -89,11 +91,9 @@ export function AdminTradeCompletionPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="거래완료 (판매자 처리)" />
+      <AdminPageHeader title={t("admin_page_trade_completion")} />
       <p className="text-[13px] text-gray-600">
-        판매자가 거래완료 처리한 채팅만 모았습니다.{" "}
-        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-900">구매자 미반영</span> 행은 구매자가 아직
-        거래완료 확인을 하지 않은 경우입니다. 필요 시 관리자 확인으로 진행할 수 있습니다.
+        {t("admin_page_trade_completion_desc")}
       </p>
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
@@ -101,19 +101,19 @@ export function AdminTradeCompletionPage() {
         </div>
       ) : null}
       {loading ? (
-        <p className="text-[14px] text-gray-500">불러오는 중…</p>
+        <p className="text-[14px] text-gray-500">{t("common_loading")}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
           <table className="w-full min-w-[960px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-gray-600">
-                <th className="px-3 py-2 font-medium">상태</th>
-                <th className="px-3 py-2 font-medium">채팅</th>
-                <th className="px-3 py-2 font-medium">글</th>
-                <th className="px-3 py-2 font-medium">흐름</th>
-                <th className="px-3 py-2 font-medium">판매자완료 시각</th>
-                <th className="px-3 py-2 font-medium">구매자 확인</th>
-                <th className="px-3 py-2 font-medium">관리</th>
+                <th className="px-3 py-2 font-medium">{t("admin_trade_completion_status")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_trade_completion_chat")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_trade_completion_post")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_trade_completion_flow")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_trade_completion_seller_completed_at")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_trade_completion_buyer_confirmed")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_trade_completion_manage")}</th>
               </tr>
             </thead>
             <tbody>
@@ -127,10 +127,10 @@ export function AdminTradeCompletionPage() {
                   <td className="px-3 py-2">
                     {r.buyerPending ? (
                       <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[11px] font-semibold text-amber-950">
-                        구매자 미반영
+                        {t("admin_trade_completion_pending_buyer")}
                       </span>
                     ) : (
-                      <span className="text-gray-500">처리됨</span>
+                      <span className="text-gray-500">{t("admin_trade_completion_done")}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono text-[12px]">
@@ -158,7 +158,7 @@ export function AdminTradeCompletionPage() {
                         onClick={() => void confirmBuyer(r.roomId)}
                         className="rounded border border-gray-300 bg-signature/5 px-2 py-1 text-[11px] font-medium text-gray-900 hover:bg-signature/10 disabled:opacity-50"
                       >
-                        {busyId === r.roomId ? "처리 중…" : "관리자 확인"}
+                        {busyId === r.roomId ? t("admin_chat_processing") : t("admin_trade_completion_admin_confirm")}
                       </button>
                     ) : (
                       <span className="text-gray-400">—</span>
@@ -169,7 +169,7 @@ export function AdminTradeCompletionPage() {
             </tbody>
           </table>
           {items.length === 0 && (
-            <p className="px-4 py-10 text-center text-[14px] text-gray-500">판매자 완료 건이 없습니다.</p>
+            <p className="px-4 py-10 text-center text-[14px] text-gray-500">{t("admin_trade_completion_no_items")}</p>
           )}
         </div>
       )}

@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
+import { normalizeAppLanguage } from "@/lib/i18n/config";
 
 export type MemberAccessState = {
   userId: string;
@@ -61,6 +62,7 @@ export async function ensureAuthProfileRow(
   });
 
   const oauthAvatar = pickTrimmed(meta.picture) ?? pickTrimmed(meta.avatar_url);
+  const preferredLanguage = normalizeAppLanguage(meta.preferred_language);
 
   const seedRow = {
     id: user.id,
@@ -69,6 +71,7 @@ export async function ensureAuthProfileRow(
     nickname,
     auth_provider: provider,
     avatar_url: oauthAvatar,
+    preferred_language: preferredLanguage,
   };
 
   const { data: existing } = await sb
@@ -94,6 +97,9 @@ export async function ensureAuthProfileRow(
     if (!pickTrimmed(existing.username) && username) patch.username = username;
     if (!pickTrimmed(existing.nickname) && nickname) patch.nickname = nickname;
     if (!pickTrimmed(existing.auth_provider) && provider) patch.auth_provider = provider;
+    if (!pickTrimmed((existing as { preferred_language?: string | null }).preferred_language) && preferredLanguage) {
+      patch.preferred_language = preferredLanguage;
+    }
     const exAv = pickTrimmed(existing.avatar_url);
     if (!exAv && oauthAvatar) patch.avatar_url = oauthAvatar;
     if (Object.keys(patch).length > 0) {

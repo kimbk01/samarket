@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 
 
@@ -23,6 +26,7 @@ export function TradeHubSectionShell({
   className?: string;
 
 }) {
+  const { tt } = useI18n();
 
   return (
 
@@ -34,11 +38,11 @@ export function TradeHubSectionShell({
 
       <div className="mb-4">
 
-        <h2 className="text-[17px] font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-[17px] font-semibold text-gray-900">{tt(title)}</h2>
 
         {description ? (
 
-          <p className="mt-1 text-[12px] leading-relaxed text-gray-500">{description}</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-gray-500">{tt(description)}</p>
 
         ) : null}
 

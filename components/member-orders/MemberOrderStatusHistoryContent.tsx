@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getDemoBuyerUserId,
   listMemberOrderStatusEventsForBuyer,
@@ -9,6 +10,7 @@ import {
 import { useMemberOrdersVersion } from "@/lib/member-orders/use-member-orders-store";
 
 export function MemberOrderStatusHistoryContent() {
+  const { t, tt } = useI18n();
   const v = useMemberOrdersVersion();
   const buyerId = getDemoBuyerUserId();
 
@@ -20,7 +22,7 @@ export function MemberOrderStatusHistoryContent() {
   if (!buyerId) {
     return (
       <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-        회원 역할로 전환한 뒤 상태 이력을 확인하세요.
+        {t("member_order_status_history_role_hint")}
       </p>
     );
   }
@@ -28,7 +30,7 @@ export function MemberOrderStatusHistoryContent() {
   if (rows.length === 0) {
     return (
       <p className="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">
-        아직 단계 기록이 없어요. 샘플 주문을 진행하면 여기에 쌓여요.
+        {t("member_order_status_history_empty")}
       </p>
     );
   }
@@ -50,13 +52,13 @@ export function MemberOrderStatusHistoryContent() {
               {r.order_no}
             </span>
           </p>
-          <p className="mt-0.5 text-[13px] text-gray-700">{r.message}</p>
+          <p className="mt-0.5 text-[13px] text-gray-700">{tt(r.message)}</p>
           <div className="mt-2">
             <Link
               href="/my/store-orders"
               className="text-[12px] font-medium text-signature underline"
             >
-              실배달 주문 내역 보기
+              {t("member_order_status_history_delivery_link")}
             </Link>
           </div>
         </li>

@@ -1,19 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatRoom } from "@/lib/types/chat";
 import { formatChatTime } from "@/lib/utils/format";
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
 import { ChatRoomListMenu } from "@/components/chats/ChatRoomListMenu";
-
-const KIND_LABEL: Record<NonNullable<ChatRoom["generalChat"]>["kind"], string> = {
-  community: "일반",
-  group: "모임",
-  open_chat: "오픈채팅",
-  business: "비즈",
-  legacy_general: "일반",
-  store_order: "배달 주문",
-};
 
 interface Props {
   room: ChatRoom;
@@ -24,15 +16,25 @@ interface Props {
 }
 
 export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelectRoom }: Props) {
+  const { t } = useI18n();
   const kind = room.generalChat?.kind ?? "legacy_general";
-  const label = KIND_LABEL[kind];
+  const label =
+    kind === "community" || kind === "legacy_general"
+      ? t("nav_chat_kind_general")
+      : kind === "group"
+        ? t("nav_chat_kind_group")
+        : kind === "open_chat"
+          ? t("nav_chat_kind_open")
+          : kind === "business"
+            ? t("nav_chat_kind_business")
+            : t("nav_chat_kind_store_order");
   const detailHref = getRoomHref ? getRoomHref(room.id) : `/chats/${room.id}`;
   const product = room.product;
   const title = room.roomTitle?.trim() || room.partnerNickname;
   const subtitle = room.roomSubtitle?.trim() || product?.regionLabel || "";
   const isStoreOrder = kind === "store_order";
   const statusSummary = isStoreOrder
-    ? subtitle.replace(/^주문 상태\s*·\s*/, "").trim() || "확인 필요"
+    ? subtitle.replace(/^주문 상태\s*·\s*/, "").trim() || t("common_need_check")
     : "";
 
   const rowClass = "flex flex-col gap-2 p-3 pr-11";
@@ -50,7 +52,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
           {isStoreOrder ? (
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
-                주문 상태
+                {t("nav_chat_order_status")}
               </span>
               <span className="text-[12px] font-medium text-gray-700">{statusSummary}</span>
             </div>
@@ -60,11 +62,11 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
       </div>
       {isStoreOrder ? (
         <div className="rounded-xl border border-amber-100 bg-amber-50/80 px-3 py-2.5">
-          <p className="text-[12px] font-medium text-gray-900">주문 상태 확인 후 필요한 문의만 채팅으로 이어가세요.</p>
-          <p className="mt-1 line-clamp-2 text-[12px] text-gray-600">{room.lastMessage || "대화를 시작해 보세요"}</p>
+          <p className="text-[12px] font-medium text-gray-900">{t("nav_chat_order_follow_notice")}</p>
+          <p className="mt-1 line-clamp-2 text-[12px] text-gray-600">{room.lastMessage || t("nav_chat_start_conversation")}</p>
         </div>
       ) : (
-        <p className="line-clamp-2 text-[14px] text-gray-600">{room.lastMessage || "대화를 시작해 보세요"}</p>
+        <p className="line-clamp-2 text-[14px] text-gray-600">{room.lastMessage || t("nav_chat_start_conversation")}</p>
       )}
       {product?.thumbnail || product?.title ? (
         <div className="flex gap-3 border-t border-gray-100 pt-2">
@@ -73,7 +75,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
               <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">
-                이미지
+                {t("common_image")}
               </div>
             )}
           </div>
@@ -85,11 +87,12 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
               <p className="mt-1 text-[12px] text-[#8E8E8E]">{subtitle}</p>
             ) : null}
             {isStoreOrder ? (
-              <p className="mt-2 text-[12px] font-medium text-signature">주문 상세와 채팅을 같은 맥락에서 이어보기</p>
+              <p className="mt-2 text-[12px] font-medium text-signature">{t("nav_chat_continue_order_context")}</p>
             ) : null}
             {(kind === "group" || kind === "open_chat") && typeof room.memberCount === "number" ? (
               <p className="mt-2 text-[12px] font-medium text-signature">
-                {kind === "open_chat" ? "참여 인원" : "참여 멤버"} {room.memberCount}명
+                {kind === "open_chat" ? t("nav_chat_participants") : t("nav_chat_members")}{" "}
+                {t("nav_chat_count_people", { count: room.memberCount })}
               </p>
             ) : null}
           </div>

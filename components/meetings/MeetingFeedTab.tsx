@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MeetingFeedPostDTO } from "@/lib/neighborhood/types";
 import { MeetingReportModal } from "@/components/meetings/MeetingReportModal";
 import { formatKorDateTime } from "@/lib/ui/format-meeting-date";
@@ -47,6 +48,7 @@ export function MeetingFeedTab({
   isHost,
   allowFeed = true,
 }: MeetingFeedTabProps) {
+  const { tt } = useI18n();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const canWrite = Boolean(isHost) || allowFeed !== false;
@@ -94,7 +96,7 @@ export function MeetingFeedTab({
   const typeOptions = isHost ? HOST_TYPES : WRITABLE_TYPES;
 
   const handleDelete = async (postId: string) => {
-    if (!confirm("이 글을 삭제하시겠어요?")) return;
+    if (!confirm(tt("이 글을 삭제하시겠어요?"))) return;
     setDeletingId(postId);
     try {
       const res = await fetch(`/api/philife/meetings/${meetingId}/feed/${postId}`, {

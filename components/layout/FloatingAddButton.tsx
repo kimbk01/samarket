@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { WriteLauncher } from "@/components/write-launcher/WriteLauncher";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
@@ -19,6 +20,7 @@ function getCategorySlugFromPath(pathname: string): string | null {
 }
 
 export function FloatingAddButton() {
+  const { t } = useI18n();
   const [launcherOpen, setLauncherOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -49,7 +51,7 @@ export function FloatingAddButton() {
           type="button"
           onClick={handleClick}
           className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-lg`}
-          aria-label="글쓰기"
+          aria-label={t("nav_write_aria")}
         >
           <PlusIcon />
         </button>

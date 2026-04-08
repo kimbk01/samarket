@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
   IG_DM_BODY_TEXT,
@@ -167,6 +168,7 @@ export function ChatMessageList({
   partnerAvatar,
   variant = "default",
 }: ChatMessageListProps) {
+  const { t } = useI18n();
   const ig = variant === "instagram";
   const uniqueMessages = useMemo(() => {
     const seenIds = new Set<string>();
@@ -184,7 +186,7 @@ export function ChatMessageList({
         <p
           className={`text-center font-normal ${ig ? `max-w-[22.2rem] ${IG_DM_BODY_TEXT} text-[#A8A8A8]` : "text-[14px] text-[#999999]"}`}
         >
-          메시지를 보내 대화를 시작해 보세요.
+          {t("common_start_conversation_message")}
         </p>
       </div>
     );
@@ -218,7 +220,7 @@ export function ChatMessageList({
     }
 
     if (block.type === "system") {
-      const body = ((block.msg.message || "").trim() || "(시스템 메시지)").trim();
+      const body = ((block.msg.message || "").trim() || t("common_system_message")).trim();
       if (ig) {
         items.push(
           <li key={block.msg.id} className={`flex justify-start ${gapFromPrev}`}>
@@ -294,7 +296,7 @@ export function ChatMessageList({
               <p
                 className={`truncate pl-0.5 ${ig ? "mb-1 text-[12px] font-semibold leading-none text-[#8E8E8E]" : "mb-0.5 text-[13px] font-medium text-[#111111]"}`}
               >
-                {partnerNickname || "상대"}
+                {partnerNickname || t("common_partner")}
               </p>
               {msgs.map((msg, i) => {
                 const pos = getBubblePosition(msgs, i);

@@ -1,15 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type StoreBrowseSortId = "default" | "distance" | "rating" | "reviews" | "fast";
 
-const SORTS: { id: StoreBrowseSortId; label: string }[] = [
-  { id: "default", label: "기본순" },
-  { id: "distance", label: "가까운순" },
-  { id: "rating", label: "평점순" },
-  { id: "reviews", label: "리뷰많은순" },
-  { id: "fast", label: "배달빠른순" },
+const SORTS: {
+  id: StoreBrowseSortId;
+  label: string;
+  labelKey:
+    | "nav_store_sort_default"
+    | "nav_store_sort_distance"
+    | "nav_store_sort_rating"
+    | "nav_store_sort_reviews"
+    | "nav_store_sort_fast";
+}[] = [
+  { id: "default", label: "기본순", labelKey: "nav_store_sort_default" },
+  { id: "distance", label: "가까운순", labelKey: "nav_store_sort_distance" },
+  { id: "rating", label: "평점순", labelKey: "nav_store_sort_rating" },
+  { id: "reviews", label: "리뷰많은순", labelKey: "nav_store_sort_reviews" },
+  { id: "fast", label: "배달빠른순", labelKey: "nav_store_sort_fast" },
 ];
 
 const CHIP_BASE =
@@ -27,12 +37,13 @@ export function StoreListFilters({
   /** 위치 꺼져 있으면 가까운순 비활성 안내 */
   hasGeo: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">정렬</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{t("common_sort")}</span>
         <div className="flex flex-wrap gap-1">
-          {SORTS.map(({ id, label }) => {
+          {SORTS.map(({ id, labelKey }) => {
             const on = sort === id;
             const disabled = id === "distance" && !hasGeo;
             return (
@@ -40,7 +51,7 @@ export function StoreListFilters({
                 key={id}
                 type="button"
                 disabled={disabled}
-                title={disabled ? "동네·위치 권한을 켜면 사용할 수 있어요" : undefined}
+                title={disabled ? t("nav_store_geo_required_hint") : undefined}
                 onClick={() => {
                   if (!disabled) onSortChange(id);
                 }}
@@ -48,7 +59,7 @@ export function StoreListFilters({
                   disabled ? "cursor-not-allowed opacity-45" : ""
                 }`}
               >
-                {label}
+                {t(labelKey)}
               </button>
             );
           })}
@@ -58,7 +69,7 @@ export function StoreListFilters({
         href="/regions"
         className="inline-flex items-center rounded-full border border-dashed border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 active:bg-gray-50"
       >
-        지역·동네 설정
+        {t("nav_store_region_settings")}
       </Link>
     </div>
   );

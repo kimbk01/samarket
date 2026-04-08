@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
 import { useOrderChatVersion } from "@/components/order-chat/use-order-chat-version";
 import { getDemoBuyerUserId } from "@/lib/member-orders/member-order-store";
@@ -29,6 +30,7 @@ export function MemberOrderCard({
   chatHref: string;
   onOpenCancel?: (order: MemberOrder) => void;
 }) {
+  const { t, tt } = useI18n();
   const cv = useOrderChatVersion();
   const buyerId = getDemoBuyerUserId();
   const activeTab = [
@@ -69,32 +71,32 @@ export function MemberOrderCard({
             order.order_type === "delivery" ? "bg-signature/5 text-gray-900" : "bg-teal-50 text-teal-900"
           }`}
         >
-          {order.order_type === "delivery" ? "배달" : "포장"}
+          {order.order_type === "delivery" ? t("member_order_delivery_short") : t("member_order_pickup_short")}
         </span>
         {order.request_message ? (
           <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
-            요청있음
+            {t("member_order_has_request")}
           </span>
         ) : null}
       </div>
 
       <p className="mt-2 text-sm text-gray-700">{titleSummary(order.items)}</p>
       <p className="mt-2 text-lg font-bold text-gray-900">{formatMoneyPhp(order.total_amount)}</p>
-      <p className="mt-2 text-sm text-gray-600">{MEMBER_STATUS_USER_MESSAGE[order.order_status]}</p>
+      <p className="mt-2 text-sm text-gray-600">{tt(MEMBER_STATUS_USER_MESSAGE[order.order_status])}</p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
           href={detailHref}
           className="flex-1 rounded-xl bg-gray-900 py-2.5 text-center text-sm font-semibold text-white"
         >
-          상세보기
+          {t("member_order_detail_action")}
         </Link>
         {canOpenChat ? (
           <Link
             href={chatHref}
             className="flex items-center justify-center gap-1 rounded-xl border border-gray-200 bg-signature/5 px-4 py-2.5 text-sm font-semibold text-gray-900"
           >
-            주문 문의
+            {t("member_order_inquiry_action")}
             <UnreadBadge count={chatUnread} />
           </Link>
         ) : null}
@@ -104,7 +106,7 @@ export function MemberOrderCard({
             onClick={() => onOpenCancel(order)}
             className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700"
           >
-            취소 요청
+            {t("member_order_cancel_action")}
           </button>
         ) : null}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAdminRole } from "@/lib/admin-permission";
 import {
   OPS_QUICK_LINKS_PRIORITY,
@@ -49,18 +50,22 @@ function Card({
 }
 
 export function DashboardQuickLinksBySection() {
+  const { tt, t } = useI18n();
   const role = getAdminRole();
   const showManage = role === "manager" || role === "master";
   const showDev = role === "master";
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <Card title="실질 운영 바로가기" links={OPS_QUICK_LINKS_PRIORITY} />
+      <Card title={t("admin_quicklinks_ops")} links={OPS_QUICK_LINKS_PRIORITY.map((row) => ({ ...row, label: tt(row.label) }))} />
       {showManage && (
-        <Card title="관리/보고 바로가기" links={MANAGE_QUICK_LINKS_PRIORITY} />
+        <Card
+          title={t("admin_quicklinks_manage")}
+          links={MANAGE_QUICK_LINKS_PRIORITY.map((row) => ({ ...row, label: tt(row.label) }))}
+        />
       )}
       {showDev && (
-        <Card title="개발/시스템 바로가기" links={DEV_LINKS} />
+        <Card title={t("admin_quicklinks_dev")} links={DEV_LINKS.map((row) => ({ ...row, label: tt(row.label) }))} />
       )}
     </div>
   );

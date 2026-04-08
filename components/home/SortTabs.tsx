@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { SortKey } from "@/lib/constants/sort";
 import { SORT_OPTIONS } from "@/lib/constants/sort";
 import {
@@ -15,6 +16,7 @@ interface SortTabsProps {
 
 /** 동네생활 상단 섹션 탭과 동일 pill·타이포 */
 export function SortTabs({ value, onChange }: SortTabsProps) {
+  const { t, tt } = useI18n();
   return (
     <div className="sticky top-24 z-10 flex flex-nowrap gap-1 overflow-x-auto border-b border-gray-100 bg-white px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       {SORT_OPTIONS.map((opt) => {
@@ -26,7 +28,7 @@ export function SortTabs({ value, onChange }: SortTabsProps) {
             onClick={() => onChange(opt.key)}
             className={`${APP_TOP_MENU_ROW1_BASE} ${on ? APP_TOP_MENU_ROW1_ACTIVE : APP_TOP_MENU_ROW1_INACTIVE}`}
           >
-            {opt.label}
+            {opt.labelKey ? t(opt.labelKey) : tt(opt.label)}
           </button>
         );
       })}

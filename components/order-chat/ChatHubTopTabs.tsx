@@ -6,6 +6,7 @@
  */
 import Link from "next/link";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildChatHubTopTabDefs } from "@/lib/chats/surfaces/chat-hub-tab-defs";
 import type { ChatHubSegment } from "@/lib/chats/surfaces/chat-hub-segment";
 import { APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
@@ -26,6 +27,7 @@ export function ChatHubTopTabs({
   /** false: `/chats` 허브 — 주문 채팅 탭 기본 목적지는 `/my/store-orders` */
   showOrderTab?: boolean;
 }) {
+  const { t } = useI18n();
   const outerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<ChatHubSegment, HTMLAnchorElement | null>>({
@@ -98,9 +100,9 @@ export function ChatHubTopTabs({
         <nav
           ref={scrollRef}
           className={`flex h-[55px] flex-nowrap items-center gap-6 overflow-x-auto ${tabScrollHide}`}
-          aria-label="채팅 구분"
+          aria-label={t("nav_trade_hub_chat")}
         >
-          {tabs.map(({ segment, href, label }) => {
+          {tabs.map(({ segment, href, label, labelKey }) => {
             const isOn = active === segment;
             return (
               <Link
@@ -116,7 +118,7 @@ export function ChatHubTopTabs({
                   isOn ? "font-semibold text-gray-900" : "font-medium text-gray-500 hover:text-gray-700",
                 ].join(" ")}
               >
-                {label}
+                {labelKey ? t(labelKey) : label}
               </Link>
             );
           })}

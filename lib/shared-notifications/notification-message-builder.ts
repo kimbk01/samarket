@@ -1,4 +1,6 @@
 import type { SharedOrder } from "@/lib/shared-orders/types";
+import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { translate, translateText } from "@/lib/i18n/messages";
 import { DEMO_ADMIN_USER_ID } from "./constants";
 import type { OrderNotificationDraft } from "./types";
 
@@ -26,7 +28,13 @@ function orderLabel(o: SharedOrder) {
   return `${o.store_name} · ${o.order_no}`;
 }
 
-export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyEvent): OrderNotificationDraft[] {
+export function buildOrderNotificationDrafts(
+  o: SharedOrder,
+  event: OrderNotifyEvent,
+  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+): OrderNotificationDraft[] {
+  const nt = (key: Parameters<typeof translate>[1], vars?: Record<string, string | number>) =>
+    translate(language, key, vars);
   const oid = o.id;
   const sid = o.store_id;
   const out: OrderNotificationDraft[] = [];
@@ -40,8 +48,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "new_order",
-          title: "주문 접수",
-          message: "주문이 접수되었어요",
+          title: nt("notify_order_received_title"),
+          message: nt("notify_order_received_message"),
           preference: "allow_new_order",
         },
         {
@@ -50,8 +58,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: sid,
           linked_order_id: oid,
           type: "new_order",
-          title: "신규 주문",
-          message: "새 주문이 들어왔어요",
+          title: nt("notify_new_order_title"),
+          message: nt("notify_new_order_message"),
           preference: "allow_new_order",
         }
       );
@@ -64,8 +72,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: null,
         linked_order_id: oid,
         type: "order_accepted",
-        title: "주문 확인",
-        message: "매장에서 주문을 확인했어요",
+        title: nt("notify_order_checked_title"),
+        message: nt("notify_order_checked_message"),
         preference: "allow_order_status",
       });
       break;
@@ -77,8 +85,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: null,
         linked_order_id: oid,
         type: "preparing",
-        title: "조리 중",
-        message: "음식을 준비하고 있어요",
+        title: nt("notify_preparing_title"),
+        message: nt("notify_preparing_message"),
         preference: "allow_order_status",
       });
       break;
@@ -90,8 +98,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: null,
         linked_order_id: oid,
         type: "delivering",
-        title: "배송 시작",
-        message: "배송이 시작됐어요",
+        title: nt("notify_delivery_started_title"),
+        message: nt("notify_delivery_started_message"),
         preference: "allow_order_status",
       });
       break;
@@ -103,8 +111,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: null,
         linked_order_id: oid,
         type: "arrived",
-        title: "배송지 도착",
-        message: "배송지에 도착했어요",
+        title: nt("notify_arrived_title"),
+        message: nt("notify_arrived_message"),
         preference: "allow_order_status",
       });
       break;
@@ -116,11 +124,11 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: null,
         linked_order_id: oid,
         type: "ready_for_pickup",
-        title: "픽업 준비",
+        title: nt("notify_pickup_ready_title"),
         message:
           o.order_type === "delivery"
-            ? "출고·픽업 준비가 되었어요. 곧 배송을 시작합니다."
-            : "픽업할 수 있어요",
+            ? nt("notify_pickup_ready_delivery_message")
+            : nt("notify_pickup_ready_message"),
         preference: "allow_order_status",
       });
       break;
@@ -133,8 +141,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "completed",
-          title: "주문 완료",
-          message: "주문이 완료되었어요",
+          title: nt("notify_order_completed_title"),
+          message: nt("notify_order_completed_message"),
           preference: "allow_order_status",
         },
         {
@@ -143,8 +151,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "completed",
-          title: "정산 예정",
-          message: `완료 주문 정산 예정 건이 생겼어요 (${orderLabel(o)})`,
+          title: nt("notify_settlement_scheduled_title"),
+          message: nt("notify_settlement_scheduled_message", { label: orderLabel(o) }),
           preference: "allow_settlement",
         }
       );
@@ -158,8 +166,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "cancel_requested",
-          title: "취소 요청",
-          message: "취소 요청이 접수되었어요",
+          title: nt("notify_cancel_requested_title"),
+          message: nt("notify_cancel_requested_message"),
           preference: "allow_cancel",
         },
         {
@@ -168,8 +176,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: sid,
           linked_order_id: oid,
           type: "cancel_requested",
-          title: "취소 요청",
-          message: "고객이 취소를 요청했어요",
+          title: nt("notify_cancel_requested_title"),
+          message: nt("notify_customer_cancel_requested_message"),
           preference: "allow_cancel",
         },
         {
@@ -178,8 +186,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "cancel_requested",
-          title: "취소 승인 대기",
-          message: `취소 승인 대기 주문이 있어요 (${orderLabel(o)})`,
+          title: nt("notify_cancel_pending_title"),
+          message: nt("notify_cancel_pending_message", { label: orderLabel(o) }),
           preference: "allow_cancel",
           priority: "high",
         }
@@ -194,8 +202,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "refund_requested",
-          title: "환불 요청",
-          message: "환불 요청이 접수되었어요",
+          title: nt("notify_refund_requested_title"),
+          message: nt("notify_refund_requested_message"),
           preference: "allow_refund",
         },
         {
@@ -204,8 +212,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: sid,
           linked_order_id: oid,
           type: "refund_requested",
-          title: "환불 요청",
-          message: "환불 요청이 접수되었어요",
+          title: nt("notify_refund_requested_title"),
+          message: nt("notify_refund_requested_message"),
           preference: "allow_refund",
         },
         {
@@ -214,8 +222,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "refund_requested",
-          title: "환불 요청",
-          message: `환불 요청 주문이 발생했어요 (${orderLabel(o)})`,
+          title: nt("notify_refund_requested_title"),
+          message: nt("notify_refund_requested_admin_message", { label: orderLabel(o) }),
           preference: "allow_refund",
           priority: "high",
         },
@@ -225,8 +233,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "settlement_held",
-          title: "정산 보류 필요",
-          message: `정산 보류가 필요한 주문이 생겼어요 (${orderLabel(o)})`,
+          title: nt("notify_settlement_hold_needed_title"),
+          message: nt("notify_settlement_hold_needed_message", { label: orderLabel(o) }),
           preference: "allow_settlement",
         }
       );
@@ -240,8 +248,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: sid,
           linked_order_id: oid,
           type: "refund_requested",
-          title: "환불 검토",
-          message: "환불 요청이 접수되었어요",
+          title: nt("notify_refund_review_title"),
+          message: nt("notify_refund_requested_message"),
           preference: "allow_refund",
         },
         {
@@ -250,8 +258,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "dispute",
-          title: "분쟁·문제 주문",
-          message: `분쟁/문제 주문이 등록되었어요 (${orderLabel(o)})`,
+          title: nt("notify_dispute_order_title"),
+          message: nt("notify_dispute_order_message", { label: orderLabel(o) }),
           preference: "allow_admin_notice",
           priority: "high",
         },
@@ -261,8 +269,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "refund_requested",
-          title: "환불 요청",
-          message: `환불 요청 주문이 발생했어요 (${orderLabel(o)})`,
+          title: nt("notify_refund_requested_title"),
+          message: nt("notify_refund_requested_admin_message", { label: orderLabel(o) }),
           preference: "allow_refund",
           priority: "high",
         }
@@ -276,8 +284,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: null,
         linked_order_id: oid,
         type: "cancelled",
-        title: "주문 취소",
-        message: `매장에서 주문을 거절했어요. ${event.reason}`,
+        title: nt("notify_order_cancelled_title"),
+        message: nt("notify_order_rejected_message", { reason: event.reason }),
         preference: "allow_cancel",
       });
       break;
@@ -290,8 +298,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "cancelled",
-          title: "주문 취소",
-          message: "주문이 취소되었어요",
+          title: nt("notify_order_cancelled_title"),
+          message: nt("notify_order_cancelled_message"),
           preference: "allow_cancel",
         },
         {
@@ -300,8 +308,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: sid,
           linked_order_id: oid,
           type: "cancelled",
-          title: "관리자 취소",
-          message: "주문이 관리자에 의해 취소되었어요",
+          title: nt("notify_admin_cancel_title"),
+          message: nt("notify_admin_cancel_message"),
           preference: "allow_cancel",
         }
       );
@@ -315,8 +323,10 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "cancelled",
-          title: "주문 취소",
-          message: `주문이 취소되었어요${event.reason ? ` (${event.reason})` : ""}`,
+          title: nt("notify_order_cancelled_title"),
+          message: nt("notify_order_cancelled_with_reason_message", {
+            reasonText: event.reason ? ` (${event.reason})` : "",
+          }),
           preference: "allow_cancel",
         },
         {
@@ -325,8 +335,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: sid,
           linked_order_id: oid,
           type: "cancelled",
-          title: "관리자 취소",
-          message: "주문이 관리자에 의해 취소되었어요",
+          title: nt("notify_admin_cancel_title"),
+          message: nt("notify_admin_cancel_message"),
           preference: "allow_cancel",
         },
         {
@@ -335,8 +345,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "dispute",
-          title: "강제 변경",
-          message: `강제 확인이 필요한 주문이 있어요 (${orderLabel(o)})`,
+          title: nt("notify_force_change_title"),
+          message: nt("notify_force_change_message", { label: orderLabel(o) }),
           preference: "allow_admin_notice",
           priority: "high",
         }
@@ -351,8 +361,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "refunded",
-          title: "환불 완료",
-          message: "환불이 승인되었어요",
+          title: nt("notify_refund_completed_title"),
+          message: nt("notify_refund_completed_message"),
           preference: "allow_refund",
         },
         {
@@ -361,8 +371,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: sid,
           linked_order_id: oid,
           type: "refunded",
-          title: "환불 승인",
-          message: "해당 주문이 환불 처리되었어요",
+          title: nt("notify_refund_approved_title"),
+          message: nt("notify_refund_approved_message"),
           preference: "allow_refund",
         },
         {
@@ -371,8 +381,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "refunded",
-          title: "환불 처리",
-          message: `환불 승인 완료 (${orderLabel(o)})`,
+          title: nt("notify_refund_processed_title"),
+          message: nt("notify_refund_processed_message", { label: orderLabel(o) }),
           preference: "allow_refund",
         }
       );
@@ -386,8 +396,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: sid,
           linked_order_id: oid,
           type: "settlement_held",
-          title: "정산 보류",
-          message: `정산이 보류되었어요. ${event.reason}`,
+          title: nt("notify_settlement_hold_title"),
+          message: nt("notify_settlement_hold_message", { reason: event.reason }),
           preference: "allow_settlement",
         },
         {
@@ -396,8 +406,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
           target_store_id: null,
           linked_order_id: oid,
           type: "settlement_held",
-          title: "정산 보류",
-          message: `정산 보류가 필요한 주문이 생겼어요 (${orderLabel(o)})`,
+          title: nt("notify_settlement_hold_title"),
+          message: nt("notify_settlement_hold_needed_message", { label: orderLabel(o) }),
           preference: "allow_settlement",
           priority: "high",
         }
@@ -411,8 +421,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: sid,
         linked_order_id: oid,
         type: "settlement_released",
-        title: "정산 보류 해제",
-        message: "정산 보류가 해제되었어요",
+        title: nt("notify_settlement_release_title"),
+        message: nt("notify_settlement_release_message"),
         preference: "allow_settlement",
       });
       break;
@@ -424,8 +434,8 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: sid,
         linked_order_id: oid,
         type: "admin_note",
-        title: "관리자 메모",
-        message: `관리자 메모가 등록되었어요: ${event.memo.slice(0, 200)}`,
+        title: nt("notify_admin_memo_title"),
+        message: nt("notify_admin_memo_message", { memo: event.memo.slice(0, 200) }),
         preference: "allow_admin_notice",
       });
       break;
@@ -437,8 +447,11 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
         target_store_id: null,
         linked_order_id: oid,
         type: "dispute",
-        title: "검토 필요",
-        message: `강제 확인이 필요한 주문이 있어요 (${orderLabel(o)}) ${event.reason ?? ""}`.trim(),
+        title: nt("notify_review_needed_title"),
+        message: nt("notify_review_needed_message", {
+          label: orderLabel(o),
+          reasonText: event.reason ? ` ${event.reason}` : "",
+        }),
         preference: "allow_marketing",
         priority: "high",
       });
@@ -448,5 +461,10 @@ export function buildOrderNotificationDrafts(o: SharedOrder, event: OrderNotifyE
       break;
   }
 
-  return out;
+  if (language === "ko") return out;
+  return out.map((draft) => ({
+    ...draft,
+    title: translateText(language, draft.title),
+    message: translateText(language, draft.message),
+  }));
 }

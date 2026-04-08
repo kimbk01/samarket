@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRegionOptions } from "@/lib/regions/region-utils";
 import { getCategories } from "@/lib/categories/getCategories";
 import type { CategoryWithSettings } from "@/lib/types/category";
@@ -43,6 +44,7 @@ export function SearchFilterBar({
   onChange,
   onReset,
 }: SearchFilterBarProps) {
+  const { tt, t } = useI18n();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
   useEffect(() => {
     getCategories({ type: "trade", activeOnly: true }).then(setCategories);
@@ -64,7 +66,7 @@ export function SearchFilterBar({
           }
           className="min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
         >
-          <option value="">전체 지역</option>
+          <option value="">{t("common_all_region")}</option>
           {getRegionOptions().map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}
@@ -78,7 +80,7 @@ export function SearchFilterBar({
           }
           className="min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
         >
-          <option value="">전체 카테고리</option>
+          <option value="">{t("common_all_category")}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.slug}>
               {c.name}
@@ -94,7 +96,7 @@ export function SearchFilterBar({
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {tt(o.label)}
             </option>
           ))}
         </select>
@@ -107,7 +109,7 @@ export function SearchFilterBar({
         >
           {SEARCH_SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {tt(o.label)}
             </option>
           ))}
         </select>
@@ -118,7 +120,7 @@ export function SearchFilterBar({
           onClick={onReset}
           className="shrink-0 text-[12px] text-[#999999] underline"
         >
-          필터 초기화
+          {t("common_reset_filters")}
         </button>
       )}
     </div>
