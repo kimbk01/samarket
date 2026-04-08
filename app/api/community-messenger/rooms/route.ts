@@ -5,6 +5,7 @@ import {
   createPrivateGroupRoom,
   ensureCommunityMessengerDirectRoom,
   getCommunityMessengerBootstrap,
+  getCommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/service";
 
 export async function GET() {
@@ -76,5 +77,9 @@ export async function POST(req: NextRequest) {
     auth.userId,
     String(body.peerUserId ?? "")
   );
-  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  if (!result.ok || !result.roomId) {
+    return NextResponse.json(result, { status: 400 });
+  }
+  const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
+  return NextResponse.json({ ...result, snapshot });
 }

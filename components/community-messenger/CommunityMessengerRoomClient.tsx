@@ -28,6 +28,7 @@ import type {
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
+import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { VoiceMessageBubble } from "@/components/community-messenger/VoiceMessageBubble";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
@@ -103,14 +104,23 @@ export function CommunityMessengerRoomClient({
   const [managedDirectCallError, setManagedDirectCallError] = useState<string | null>(null);
 
   const refresh = useCallback(async (silent = false) => {
-    const shouldBlock = !silent && !loadedRef.current;
+    const primed = !silent && consumeRoomSnapshot(roomId);
+    const shouldBlock = !silent && !loadedRef.current && !primed;
     if (shouldBlock) setLoading(true);
     try {
+      if (primed) {
+        setSnapshot(primed);
+        setLoading(false);
+      }
       const roomRes = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, { cache: "no-store" });
       const roomJson = (await roomRes.json()) as (CommunityMessengerRoomSnapshot & { ok?: boolean }) | {
         ok?: boolean;
       };
-      setSnapshot(roomRes.ok && roomJson.ok ? (roomJson as CommunityMessengerRoomSnapshot) : null);
+      if (roomRes.ok && roomJson.ok) {
+        setSnapshot(roomJson as CommunityMessengerRoomSnapshot);
+      } else if (!primed) {
+        setSnapshot(null);
+      }
     } finally {
       loadedRef.current = true;
       if (shouldBlock) setLoading(false);

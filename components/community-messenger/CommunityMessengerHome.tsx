@@ -11,12 +11,18 @@ import {
   setCommunityMessengerIncomingCallSoundEnabled,
 } from "@/lib/community-messenger/preferences";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
+import {
+  peekRoomSnapshot,
+  prefetchCommunityMessengerRoomSnapshot,
+  primeRoomSnapshot,
+} from "@/lib/community-messenger/room-snapshot-cache";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallLog,
   CommunityMessengerDiscoverableGroupSummary,
   CommunityMessengerFriendRequest,
   CommunityMessengerProfileLite,
+  CommunityMessengerRoomSnapshot,
   CommunityMessengerRoomSummary,
   CommunityMessengerTab,
 } from "@/lib/community-messenger/types";
@@ -191,11 +197,22 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     [router]
   );
 
+  const maybePrefetchDirectRoom = useCallback(
+    (peerUserId: string) => {
+      const existing = (data?.chats ?? []).find((room) => room.roomType === "direct" && room.peerUserId === peerUserId);
+      if (existing) void prefetchCommunityMessengerRoomSnapshot(existing.id);
+    },
+    [data?.chats]
+  );
+
   const startDirectRoom = useCallback(
     async (peerUserId: string) => {
       setActionError(null);
       const existingRoom = (data?.chats ?? []).find((room) => room.roomType === "direct" && room.peerUserId === peerUserId);
       if (existingRoom) {
+        if (!peekRoomSnapshot(existingRoom.id)) {
+          await prefetchCommunityMessengerRoomSnapshot(existingRoom.id);
+        }
         router.push(`/community-messenger/rooms/${encodeURIComponent(existingRoom.id)}`);
         return;
       }
@@ -206,8 +223,16 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ roomType: "direct", peerUserId }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          roomId?: string;
+          error?: string;
+          snapshot?: CommunityMessengerRoomSnapshot;
+        };
         if (res.ok && json.ok && json.roomId) {
+          if (json.snapshot) {
+            primeRoomSnapshot(json.roomId, json.snapshot);
+          }
           router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
           return;
         }
@@ -794,6 +819,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                         {user.isFriend ? (
                           <button
                             type="button"
+                            onPointerEnter={() => maybePrefetchDirectRoom(user.id)}
                             onClick={() => void startDirectRoom(user.id)}
                             disabled={busyId === `room:${user.id}`}
                             className="rounded-lg bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white"
@@ -861,6 +887,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                       </button>
                       <button
                         type="button"
+                        onPointerEnter={() => maybePrefetchDirectRoom(friend.id)}
                         onClick={() => void startDirectRoom(friend.id)}
                         disabled={busyId === `room:${friend.id}`}
                         className="rounded-lg bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white"
@@ -898,6 +925,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                       </button>
                       <button
                         type="button"
+                        onPointerEnter={() => maybePrefetchDirectRoom(friend.id)}
                         onClick={() => void startDirectRoom(friend.id)}
                         disabled={busyId === `room:${friend.id}`}
                         className="rounded-lg bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white"
@@ -949,6 +977,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                       ) : (
                         <button
                           type="button"
+                          onPointerEnter={() => maybePrefetchDirectRoom(user.id)}
                           onClick={() => void startDirectRoom(user.id)}
                           disabled={busyId === `room:${user.id}`}
                           className="rounded-lg bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white"
@@ -1721,7 +1750,11 @@ function getRoomPreviewText(room: CommunityMessengerRoomSummary): string {
 function RoomCard({ room, href }: { room: CommunityMessengerRoomSummary; href: string }) {
   const previewText = getRoomPreviewText(room);
   return (
-    <Link href={href} className="block rounded-xl border border-gray-100 px-4 py-3 transition hover:bg-gray-50">
+    <Link
+      href={href}
+      onPointerEnter={() => void prefetchCommunityMessengerRoomSnapshot(room.id)}
+      className="block rounded-xl border border-gray-100 px-4 py-3 transition hover:bg-gray-50"
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
