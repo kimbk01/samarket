@@ -595,19 +595,19 @@ async function getViewerRelationSets(
   return { following, blocked, friendIds, favoriteFriendIds };
 }
 
-async function hydrateProfiles(
+async function hydrateProfilesWithProfileMap(
   viewerId: string,
   targetIds: string[],
   options?: { includeSelf?: boolean }
-): Promise<CommunityMessengerProfileLite[]> {
+): Promise<{ members: CommunityMessengerProfileLite[]; profileMap: Map<string, ProfileRow> }> {
   const includeSelf = options?.includeSelf === true;
   const uniqueTargets = dedupeIds(targetIds.filter((id) => id && (includeSelf || id !== viewerId)));
-  if (!uniqueTargets.length) return [];
+  if (!uniqueTargets.length) return { members: [], profileMap: new Map() };
   const [profileMap, relationSets] = await Promise.all([
     fetchProfilesByIds(uniqueTargets),
     getViewerRelationSets(viewerId, uniqueTargets),
   ]);
-  return uniqueTargets.map((id) => {
+  const members = uniqueTargets.map((id) => {
     const profile = profileMap.get(id);
     return {
       id,
@@ -620,6 +620,16 @@ async function hydrateProfiles(
       isFavoriteFriend: id === viewerId ? false : relationSets.favoriteFriendIds.has(id),
     };
   });
+  return { members, profileMap };
+}
+
+async function hydrateProfiles(
+  viewerId: string,
+  targetIds: string[],
+  options?: { includeSelf?: boolean }
+): Promise<CommunityMessengerProfileLite[]> {
+  const { members } = await hydrateProfilesWithProfileMap(viewerId, targetIds, options);
+  return members;
 }
 
 async function resolveCommunityMessengerGroupTitle(
@@ -732,12 +742,13 @@ async function listFollowingIds(userId: string, relationType: "neighbor_follow" 
   return [...result];
 }
 
-async function mapRoomSummary(
+function buildRoomSummaryFromHydratedMembers(
   userId: string,
   room: RoomRow | DevRoom,
   participants: Array<ParticipantRow | DevParticipant>,
-  roomProfileMap?: Map<string, RoomProfileRow | DevRoomProfile>
-): Promise<CommunityMessengerRoomSummary> {
+  roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile> | undefined,
+  memberProfilesRaw: CommunityMessengerProfileLite[]
+): CommunityMessengerRoomSummary {
   const roomId = room.id;
   const isDbRoom = "room_type" in room;
   const roomType = (isDbRoom ? room.room_type : room.roomType) as CommunityMessengerRoomType;
@@ -764,22 +775,21 @@ async function mapRoomSummary(
     participants.map((item) => ("user_id" in item ? item.user_id : item.userId))
   );
   const peers = memberIds.filter((id) => id !== userId);
-  const peerProfiles = await hydrateProfiles(userId, peers);
-  const memberProfilesRaw = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+  const peerProfilesBase = memberProfilesRaw.filter((profile) => profile.id !== userId);
   const memberProfiles = memberProfilesRaw.map((profile) =>
     resolveRoomProfileLite(profile, roomProfileMap?.get(roomProfileKey(roomId, profile.id))) ?? profile
   );
   const ownerLabel =
     (ownerUserId ? memberProfiles.find((profile) => profile.id === ownerUserId)?.label : "") ||
     (ownerUserId ? profileLabel(null, ownerUserId) : "-");
-  const defaultDirectTitle = peerProfiles[0]?.label ?? "새 대화";
+  const defaultDirectTitle = peerProfilesBase[0]?.label ?? "새 대화";
   const title =
     roomType === "direct"
       ? defaultDirectTitle
       : roomTitle || (roomType === "open_group" ? "공개 그룹방" : `그룹 ${memberIds.length}명`);
   const subtitle =
     roomType === "direct"
-      ? peerProfiles[0]?.subtitle ?? "친구와 나누는 대화"
+      ? peerProfilesBase[0]?.subtitle ?? "친구와 나누는 대화"
       : roomType === "open_group"
         ? `공개 그룹 · ${memberIds.length}명 참여 중`
         : `${memberIds.length}명 참여 중`;
@@ -794,7 +804,7 @@ async function mapRoomSummary(
     title,
     subtitle,
     summary: roomSummary,
-    avatarUrl: roomAvatar || peerProfiles[0]?.avatarUrl || null,
+    avatarUrl: roomAvatar || peerProfilesBase[0]?.avatarUrl || null,
     unreadCount: Math.max(0, Number(("unread_count" in (me ?? {}) ? (me as ParticipantRow).unread_count : (me as DevParticipant | undefined)?.unreadCount) ?? 0)),
     lastMessage: roomLastMessage || (roomType === "direct" ? "메시지를 보내 보세요." : "그룹 대화를 시작해 보세요."),
     lastMessageAt: roomLastAt,
@@ -811,6 +821,19 @@ async function mapRoomSummary(
     )?.identityMode,
     peerUserId: roomType === "direct" ? peers[0] ?? null : null,
   };
+}
+
+async function mapRoomSummary(
+  userId: string,
+  room: RoomRow | DevRoom,
+  participants: Array<ParticipantRow | DevParticipant>,
+  roomProfileMap?: Map<string, RoomProfileRow | DevRoomProfile>
+): Promise<CommunityMessengerRoomSummary> {
+  const memberIds = dedupeIds(
+    participants.map((item) => ("user_id" in item ? item.user_id : item.userId))
+  );
+  const memberProfilesRaw = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+  return buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, memberProfilesRaw);
 }
 
 async function listRooms(userId: string): Promise<{
@@ -2591,11 +2614,15 @@ export async function getCommunityMessengerRoomSnapshot(
       room = (roomData as RoomRow | null) ?? null;
       participants = (participantData ?? []) as ParticipantRow[];
       messages = (messageData ?? []) as MessageRow[];
-      await (sb as any)
+      void (sb as any)
         .from("community_messenger_participants")
         .update({ unread_count: 0, last_read_at: nowIso() })
         .eq("room_id", id)
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .then(
+          () => undefined,
+          () => undefined
+        );
     }
   }
 
@@ -2610,17 +2637,17 @@ export async function getCommunityMessengerRoomSnapshot(
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
   }
 
-  const [roomProfileMap, activeCall] = await Promise.all([
+  const memberIds = dedupeIds(participants.map((item) => ("user_id" in item ? item.user_id : item.userId)));
+  const [roomProfileMap, activeCall, hydrated] = await Promise.all([
     fetchRoomProfilesByRoomIds([id]),
     getActiveCallSessionForRoom(userId, id),
+    hydrateProfilesWithProfileMap(userId, memberIds, { includeSelf: true }),
   ]);
-  const summary = await mapRoomSummary(userId, room, participants, roomProfileMap);
-  const memberIds = dedupeIds(participants.map((item) => ("user_id" in item ? item.user_id : item.userId)));
-  const membersRaw = await hydrateProfiles(userId, memberIds, { includeSelf: true });
-  const members = membersRaw.map((profile) =>
+  const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members);
+  const members = hydrated.members.map((profile) =>
     resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile
   );
-  const profileMap = await fetchProfilesByIds(memberIds);
+  const profileMap = hydrated.profileMap;
   const meParticipant = participants.find(
     (item) => ("user_id" in item ? item.user_id : item.userId) === userId
   ) as ParticipantRow | DevParticipant | undefined;
