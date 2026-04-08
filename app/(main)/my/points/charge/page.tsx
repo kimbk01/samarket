@@ -8,7 +8,7 @@ export default function MyPointsChargePage() {
       <MySubpageHeader
         title="포인트 충전 신청"
         subtitle="충전 요청"
-        backHref="/my/points"
+        backHref="/mypage/points"
         section="account"
         hideCtaStrip
       />

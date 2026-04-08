@@ -47,7 +47,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
         <span className="text-[13px] font-medium text-[#262626]">혜택</span>
       </Link>
       <Link
-        href="/my/notifications"
+        href="/mypage/notifications"
         className="relative flex flex-col items-center rounded-xl border border-[#DBDBDB] bg-white py-4 active:bg-[#FAFAFA]"
       >
         {notificationUnreadCount != null && notificationUnreadCount > 0 && (

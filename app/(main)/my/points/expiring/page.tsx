@@ -26,7 +26,7 @@ export default function MyPointsExpiringPage() {
       <MySubpageHeader
         title="만료 예정 포인트"
         subtitle="소멸 전 확인"
-        backHref="/my/points"
+        backHref="/mypage/points"
         section="account"
         hideCtaStrip
       />

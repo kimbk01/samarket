@@ -70,10 +70,10 @@ export function FavoriteProductsView({
     if (loading || sessionAuthenticated === null) return;
     if (!sessionAuthenticated) {
       const next =
-        typeof window !== "undefined" && window.location.pathname !== "/my/account"
+        typeof window !== "undefined" && window.location.pathname !== "/mypage/account"
           ? `?next=${encodeURIComponent(window.location.pathname)}`
           : "";
-      router.replace(`/my/account${next}`);
+      router.replace(`/mypage/account${next}`);
     }
   }, [loading, sessionAuthenticated, router]);
 

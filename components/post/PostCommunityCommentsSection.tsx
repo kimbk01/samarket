@@ -14,7 +14,7 @@ type CommentRow = {
   authorNickname?: string;
 };
 
-const LOGIN_REDIRECT = "/my/account";
+const LOGIN_REDIRECT = "/mypage/account";
 
 export function PostCommunityCommentsSection({
   postId,

@@ -86,6 +86,11 @@ export const SAMARKET_ROUTES = {
     room: (roomId: string) => `/chats/${encodeURIComponent(roomId)}`,
   },
   account: {
+    mypage: "/mypage",
+    mypageAccount: "/mypage/account",
+    mypageNotifications: "/mypage/notifications",
+    mypageOrderNotifications: "/mypage/order-notifications",
+    mypagePoints: "/mypage/points",
     mypageSettings: "/mypage/settings",
     mypageStoreOrders: "/mypage/store-orders",
     /** 레거시 /my 트리 — 신규는 /mypage 우선 */

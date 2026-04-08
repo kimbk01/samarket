@@ -181,7 +181,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "회원 혜택", subtitle: "이벤트·프로모션", showHubQuickActions: true });
   }
 
-  if (p === "/my/account") {
+  if (p === "/my/account" || p === "/mypage/account") {
     return backMypage({ titleText: "내 계정", subtitle: "프로필·인증·연락처", showHubQuickActions: true });
   }
 
@@ -219,27 +219,27 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "리뷰 작성", subtitle: "배달 주문 후기", showHubQuickActions: true });
   }
 
-  if (p === "/my/points") {
+  if (p === "/my/points" || p === "/mypage/points") {
     return backMypage({ titleText: "포인트", subtitle: "잔액·충전·내역", showHubQuickActions: true });
   }
 
   if (p === "/my/points/promotions") {
-    return { ...DEFAULT, backHref: "/my/points", titleText: "포인트 노출 신청", subtitle: "프로모션", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/mypage/points", titleText: "포인트 노출 신청", subtitle: "프로모션", showHubQuickActions: true };
   }
 
   if (p === "/my/points/expiring") {
-    return { ...DEFAULT, backHref: "/my/points", titleText: "만료 예정 포인트", subtitle: "소멸 전 확인", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/mypage/points", titleText: "만료 예정 포인트", subtitle: "소멸 전 확인", showHubQuickActions: true };
   }
 
   if (p === "/my/points/ledger") {
-    return { ...DEFAULT, backHref: "/my/points", titleText: "포인트 거래내역", subtitle: "적립·사용 내역", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/mypage/points", titleText: "포인트 거래내역", subtitle: "적립·사용 내역", showHubQuickActions: true };
   }
 
   if (p === "/my/points/charge") {
-    return { ...DEFAULT, backHref: "/my/points", titleText: "포인트 충전 신청", subtitle: "충전 요청", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/mypage/points", titleText: "포인트 충전 신청", subtitle: "충전 요청", showHubQuickActions: true };
   }
 
-  if (p === "/my/notifications") {
+  if (p === "/my/notifications" || p === "/mypage/notifications") {
     return backMypage({ titleText: "알림", subtitle: "거래·주문·서비스", showHubQuickActions: false });
   }
 

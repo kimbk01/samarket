@@ -16,7 +16,7 @@ export function MyPointCard() {
   }, []);
 
   return (
-    <Link href="/my/points" className="block">
+    <Link href="/mypage/points" className="block">
       <div className="flex items-center justify-between rounded-xl border border-[#DBDBDB] bg-white px-4 py-3.5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-signature/10">

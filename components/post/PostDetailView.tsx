@@ -446,7 +446,7 @@ function TradeMetaBlock({
   );
 }
 
-const LOGIN_REDIRECT = "/my/account";
+const LOGIN_REDIRECT = "/mypage/account";
 
 function postMatchesAuthorSalesTab(
   p: PostWithMeta,

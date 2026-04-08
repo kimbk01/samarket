@@ -1,13 +1,5 @@
-import { SettingsHeader } from "@/components/my/settings/SettingsHeader";
-import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
+import { redirect } from "next/navigation";
 
 export default function NotificationsSettingsPage() {
-  return (
-    <div className="min-h-screen bg-background">
-      <SettingsHeader title="알림 설정" backHref="/my/settings" />
-      <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
-        <NotificationsSettingsContent />
-      </div>
-    </div>
-  );
+  redirect("/mypage/notifications");
 }

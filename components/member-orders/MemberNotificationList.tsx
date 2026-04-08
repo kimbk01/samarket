@@ -121,7 +121,7 @@ export function MemberNotificationList() {
       )}
       <p className="text-[11px] text-gray-500">
         알림 on/off는{" "}
-        <Link href="/my/settings/order-notifications" className="text-signature underline">
+        <Link href="/mypage/order-notifications" className="text-signature underline">
           주문 알림 설정
         </Link>
         에서 바꿀 수 있어요.

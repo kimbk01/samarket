@@ -15,7 +15,7 @@ export default function MyPointsLedgerPage() {
       <MySubpageHeader
         title="포인트 거래내역"
         subtitle="적립·사용 내역"
-        backHref="/my/points"
+        backHref="/mypage/points"
         section="account"
         hideCtaStrip
       />

@@ -1,13 +1,5 @@
-import { SettingsHeader } from "@/components/my/settings/SettingsHeader";
-import { MemberNotificationSettings } from "@/components/member-orders/MemberNotificationSettings";
+import { redirect } from "next/navigation";
 
 export default function MyOrderNotificationsSettingsPage() {
-  return (
-    <div className="min-h-screen bg-background">
-      <SettingsHeader title="주문 알림 설정" backHref="/my/settings" />
-      <div className="mx-auto max-w-[480px] px-4 py-4">
-        <MemberNotificationSettings />
-      </div>
-    </div>
-  );
+  redirect("/mypage/order-notifications");
 }

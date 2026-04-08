@@ -29,7 +29,7 @@ function IconReportAlert({ className }: { className?: string }) {
   );
 }
 
-const LOGIN_REDIRECT = "/my/account";
+const LOGIN_REDIRECT = "/mypage/account";
 
 export function PostDetailMoreBottomSheet({
   open,

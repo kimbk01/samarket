@@ -6,7 +6,7 @@ import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 
-const LOGIN_REDIRECT = "/my/account";
+const LOGIN_REDIRECT = "/mypage/account";
 
 export interface PostFavoriteButtonProps {
   postId: string;

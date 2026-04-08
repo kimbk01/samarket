@@ -16,7 +16,7 @@ export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
   return (
     <div className="flex w-[88px] shrink-0 items-center justify-end gap-0.5">
       <Link
-        href="/my/notifications"
+        href="/mypage/notifications"
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
         aria-label={showBadge ? `알림, 읽지 않음 ${notificationUnreadCount}건` : "알림"}
       >

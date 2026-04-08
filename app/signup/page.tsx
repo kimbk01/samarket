@@ -15,7 +15,7 @@ const PROVIDERS: Array<{ id: OAuthProvider; label: string }> = [
 
 function SignupPageContent() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next")?.trim() || "/my/account";
+  const next = searchParams.get("next")?.trim() || "/mypage/account";
   const supabaseReady = useMemo(() => !!getSupabaseClient(), []);
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");

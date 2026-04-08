@@ -147,7 +147,7 @@ export function PhoneVerificationRequestForm() {
         </button>
       </form>
 
-      <Link href="/my/account" className="block text-center text-[13px] text-signature underline">
+      <Link href="/mypage/account" className="block text-center text-[13px] text-signature underline">
         내 계정으로 돌아가기
       </Link>
     </div>

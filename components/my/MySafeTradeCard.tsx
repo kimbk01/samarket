@@ -9,7 +9,7 @@ import Link from "next/link";
 export function MySafeTradeCard() {
   return (
     <Link
-      href="/my/points"
+      href="/mypage/points"
       className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm"
     >
       <div>

@@ -247,7 +247,7 @@ export function TradeReviewsManagementView({
     return (
       <div className="rounded-xl border border-gray-100 bg-white px-4 py-8 text-center">
         <p className="text-[14px] text-gray-600">로그인하면 거래 후기를 모아 볼 수 있어요.</p>
-        <a href="/my/account" className="mt-4 inline-block text-[14px] font-medium text-signature">
+        <a href="/mypage/account" className="mt-4 inline-block text-[14px] font-medium text-signature">
           로그인
         </a>
       </div>

@@ -12,7 +12,7 @@ interface ProfileCardProps {
 export function ProfileCard({ profile }: ProfileCardProps) {
   if (!profile) {
     return (
-      <Link href="/my/account" className="block">
+      <Link href="/mypage/account" className="block">
         <div className="rounded-xl border border-[#DBDBDB] bg-white p-4">
           <div className="flex items-center gap-3">
             <div className="h-14 w-14 shrink-0 rounded-full bg-[#EFEFEF]" />
@@ -28,7 +28,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
   }
 
   return (
-    <Link href="/my/account" className="block">
+    <Link href="/mypage/account" className="block">
       <div className="rounded-xl border border-[#DBDBDB] bg-white p-4">
         <div className="flex items-center gap-3">
           <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#EFEFEF]">

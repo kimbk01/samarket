@@ -150,7 +150,7 @@ export function MypageInstagramView({
     if (!addressDefaults.delivery) chips.push({ key: "d", label: "배달지", href: "/my/addresses" });
     if (!addressDefaults.trade) chips.push({ key: "t", label: "거래 주소", href: "/my/addresses" });
   }
-  if (!profile.phone_verified) chips.push({ key: "p", label: "연락처 인증", href: "/my/account" });
+  if (!profile.phone_verified) chips.push({ key: "p", label: "연락처 인증", href: "/mypage/account" });
 
   const tradeRows: MenuRow[] = [
     { href: "/mypage/trade", title: "개인 거래 허브", subtitle: "구매·판매·채팅 한곳에서" },
@@ -230,14 +230,17 @@ export function MypageInstagramView({
     }));
 
   const accountRows: MenuRow[] = [
+    { href: "/mypage/account", title: "내 정보", subtitle: "프로필·연락처·인증" },
     {
-      href: "/my/notifications",
-      title: "알림",
+      href: "/mypage/notifications",
+      title: "알림함",
       subtitle: notificationBadge ? `읽지 않음 ${notificationBadge}건` : "거래·주문·서비스",
       badge: notificationBadge,
     },
-    { href: "/my/account", title: "계정", subtitle: "프로필·연락처·인증" },
-    { href: "/my/settings", title: "설정", subtitle: "앱·알림·언어" },
+    { href: "/mypage/notifications", title: "알림 설정", subtitle: "푸시·이메일·방해금지" },
+    { href: "/mypage/order-notifications", title: "주문 알림 설정", subtitle: "배달·픽업·주문 상태" },
+    { href: "/mypage/points", title: "포인트", subtitle: "잔액·충전·내역" },
+    { href: "/my/settings", title: "설정", subtitle: "언어·국가·캐시·앱 옵션" },
     { href: "/my/edit", title: "프로필 편집", subtitle: "닉네임·사진" },
     { href: "/my/logout", title: "로그아웃", subtitle: "이 기기에서 종료" },
     ...serviceTools,
@@ -312,7 +315,7 @@ export function MypageInstagramView({
             <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
               <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1" />
               <span>·</span>
-              <Link href="/my/points" className="font-medium text-foreground">
+              <Link href="/mypage/points" className="font-medium text-foreground">
                 {pointsLabel}
               </Link>
             </span>

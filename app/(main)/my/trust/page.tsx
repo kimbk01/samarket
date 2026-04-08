@@ -67,7 +67,7 @@ export default function MyTrustPage() {
           </p>
         </div>
         <Link
-          href="/my/account"
+          href="/mypage/account"
           className="mt-6 block text-center text-[14px] font-medium text-signature underline-offset-2 hover:underline"
         >
           내 계정에서 닉네임·지역 수정

@@ -12,7 +12,7 @@ interface SettingsHeaderProps {
 export function SettingsHeader({
   title,
   backHref = "/mypage",
-  subtitle = "앱·알림·계정",
+  subtitle = "앱 전역 설정",
 }: SettingsHeaderProps) {
   return (
     <MySubpageHeader

@@ -7,7 +7,7 @@ export default function MyPhoneVerificationPage() {
       <MySubpageHeader
         title="전화번호 인증"
         subtitle="계정 보안"
-        backHref="/my/account"
+        backHref="/mypage/account"
         section="account"
         hideCtaStrip
       />

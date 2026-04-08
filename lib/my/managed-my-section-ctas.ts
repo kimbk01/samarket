@@ -57,10 +57,11 @@ function storeSectionCtas(ownerStoreId?: string | null): ManagedMyCtaLink[] {
 
 const ACCOUNT_CTAS: ManagedMyCtaLink[] = [
   { href: "/mypage", label: "내정보" },
-  { href: "/my/notifications", label: "알림" },
+  { href: "/mypage/account", label: "계정" },
+  { href: "/mypage/notifications", label: "알림설정" },
+  { href: "/mypage/order-notifications", label: "주문알림" },
+  { href: "/mypage/points", label: "포인트" },
   { href: "/my/settings", label: "설정" },
-  { href: "/my/points", label: "포인트" },
-  { href: "/my/account", label: "계정" },
 ];
 
 export function getManagedSectionCtas(

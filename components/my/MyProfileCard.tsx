@@ -37,7 +37,7 @@ export function MyProfileCard({
   profile,
   mannerScore,
   isBusinessMember,
-  accountHref = "/my/account",
+  accountHref = "/mypage/account",
   editHref = "/my/edit",
   addressDefaults,
 }: MyProfileCardProps) {
@@ -109,7 +109,7 @@ export function MyProfileCard({
               </div>
             </div>
             <div className="flex gap-2 sm:justify-end">
-              <StatMini label="포인트" value={pointsLabel} href="/my/points" />
+              <StatMini label="포인트" value={pointsLabel} href="/mypage/points" />
               <StatMini label="기본 동네" value={regionDisplay} warn={!hasRegion} href="/my/addresses" />
             </div>
           </div>
@@ -117,7 +117,7 @@ export function MyProfileCard({
           {/* 3행: 주소 · 충전 · 인증 */}
           <div className="mt-3 grid grid-cols-3 gap-2">
             <QuickLink href="/my/addresses" title="주소 관리" subtitle="생활·거래·배달" />
-            <QuickLink href="/my/points" title="충전·포인트" subtitle="잔액·내역" />
+            <QuickLink href="/mypage/points" title="충전·포인트" subtitle="잔액·내역" />
             <QuickLink href={accountHref} title="인증·보안" subtitle="연락처·계정" />
           </div>
         </div>

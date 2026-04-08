@@ -14,7 +14,7 @@ export default function MyPointsPromotionsPage() {
       <MySubpageHeader
         title="포인트 노출 신청"
         subtitle="프로모션"
-        backHref="/my/points"
+        backHref="/mypage/points"
         section="account"
         hideCtaStrip
       />

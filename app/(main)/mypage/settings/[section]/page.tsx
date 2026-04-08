@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 
 const SECTION_REDIRECTS: Record<string, string> = {
-  account: "/my/settings/account",
-  notifications: "/my/settings/notifications",
-  "quiet-hours": "/my/settings/notifications",
+  account: "/mypage/account",
+  notifications: "/mypage/notifications",
+  "quiet-hours": "/mypage/notifications",
+  "order-notifications": "/mypage/order-notifications",
   following: "/my/settings/favorite-users",
   "hidden-users": "/my/settings/hidden-users",
   autoplay: "/my/settings/video-autoplay",
