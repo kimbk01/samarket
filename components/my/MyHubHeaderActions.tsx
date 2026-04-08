@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMypageHubModalOptional } from "@/components/mypage/MypageHubModalProvider";
 
 type Props = {
   notificationUnreadCount?: number | null;
@@ -11,8 +9,6 @@ type Props = {
 
 export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
   const { t } = useI18n();
-  const pathname = usePathname();
-  const mypageHub = useMypageHubModalOptional();
   const showBadge = notificationUnreadCount != null && notificationUnreadCount > 0;
   const badgeText =
     notificationUnreadCount != null && notificationUnreadCount > 99
@@ -37,24 +33,13 @@ export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
           </span>
         ) : null}
       </Link>
-      {pathname === "/mypage" && mypageHub ? (
-        <button
-          type="button"
-          onClick={() => mypageHub.openAccountHub()}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-          aria-label={t("hub_settings_aria")}
-        >
-          <SettingsIcon />
-        </button>
-      ) : (
-        <Link
-          href="/my/settings"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-          aria-label={t("hub_settings_aria")}
-        >
-          <SettingsIcon />
-        </Link>
-      )}
+      <Link
+        href="/my/settings"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        aria-label={t("hub_settings_aria")}
+      >
+        <SettingsIcon />
+      </Link>
     </div>
   );
 }
