@@ -7,16 +7,23 @@ type Props = {
   icon?: ReactNode;
   /** 오른쪽 보조 텍스트(배지 등) */
   accessory?: ReactNode;
+  /** 로그아웃 등 강조 */
+  tone?: "default" | "danger";
 };
 
-export function MyPageMobileMenuRow({ href, title, icon, accessory }: Props) {
+export function MyPageMobileMenuRow({ href, title, icon, accessory, tone = "default" }: Props) {
+  const titleClass =
+    tone === "danger"
+      ? "min-w-0 flex-1 text-[15px] font-medium text-red-600"
+      : "min-w-0 flex-1 text-[15px] font-medium text-gray-900";
+
   return (
     <Link
       href={href}
       className="flex min-h-[52px] items-center gap-3 border-b border-gray-100 bg-white px-4 py-3.5 active:bg-gray-50"
     >
       {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center text-gray-600">{icon}</span> : null}
-      <span className="min-w-0 flex-1 text-[15px] font-medium text-gray-900">{title}</span>
+      <span className={titleClass}>{title}</span>
       {accessory ? <span className="shrink-0 text-[13px] text-gray-500">{accessory}</span> : null}
       <Chevron />
     </Link>

@@ -2,16 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  buildMyPageMobileMenuHref,
-  MYPAGE_MOBILE_NAV_QUERY,
-  normalizeMyPageSection,
-  normalizeMyPageTab,
-} from "@/components/mypage/mypage-nav";
-import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
-import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 type Props = {
@@ -19,72 +10,26 @@ type Props = {
 };
 
 /**
- * 내정보 허브(`/mypage`)에서는 상단 톱니를 두지 않음 — 계정 탭·「앱·서비스 설정」행으로 통합.
- * 다른 화면에서는 기존처럼 시트 진입용 톱니 유지.
+ * 내정보 계열 헤더 우측: 알림 + 설정(톱니) — `/mypage` 홈·하위 섹션 동일 동작.
  */
 export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
-  const pathname = usePathname();
-  const isMobileViewport = useIsMobileViewport();
-  const pathBase = normalizeAppPathnameForTier1(pathname);
-  const hideSettingsGear = pathBase === "/mypage";
-
   return (
-    <Suspense
-      fallback={
-        <MyHubHeaderActionsFallback
-          notificationUnreadCount={notificationUnreadCount}
-          hideSettingsGear={hideSettingsGear}
-        />
-      }
-    >
-      <MyHubHeaderActionsInner
-        notificationUnreadCount={notificationUnreadCount}
-        hideSettingsGear={hideSettingsGear}
-        isMobileViewport={isMobileViewport}
-      />
+    <Suspense fallback={<MyHubHeaderActionsFallback notificationUnreadCount={notificationUnreadCount} />}>
+      <MyHubHeaderActionsInner notificationUnreadCount={notificationUnreadCount} />
     </Suspense>
   );
 }
 
-function MyHubHeaderActionsInner({
-  notificationUnreadCount,
-  hideSettingsGear,
-  isMobileViewport,
-}: Props & { hideSettingsGear: boolean; isMobileViewport: boolean }) {
-  const searchParams = useSearchParams();
+function MyHubHeaderActionsInner({ notificationUnreadCount }: Props) {
   const { t } = useI18n();
-  const mypageTab = normalizeMyPageTab(searchParams.get("tab"));
-  const mypageSection = normalizeMyPageSection(mypageTab, searchParams.get("section"));
-  const showMypageMobileMenuEntry =
-    hideSettingsGear &&
-    isMobileViewport &&
-    searchParams.get(MYPAGE_MOBILE_NAV_QUERY) !== "1";
-  const mypageMenuHref = buildMyPageMobileMenuHref(mypageTab, mypageSection);
   const showBadge = notificationUnreadCount != null && notificationUnreadCount > 0;
   const badgeText =
     notificationUnreadCount != null && notificationUnreadCount > 99
       ? "99+"
       : String(notificationUnreadCount ?? "");
 
-  const widthClass = showMypageMobileMenuEntry
-    ? hideSettingsGear
-      ? "min-w-[96px] gap-1"
-      : "min-w-[140px] gap-1"
-    : hideSettingsGear
-      ? "w-[44px]"
-      : "w-[88px]";
-
   return (
-    <div className={`flex shrink-0 items-center justify-end gap-0.5 ${widthClass}`}>
-      {showMypageMobileMenuEntry ? (
-        <Link
-          href={mypageMenuHref}
-          className="shrink-0 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-foreground hover:bg-ig-highlight"
-          aria-label={t("mypage_console_menu_aria")}
-        >
-          {t("mypage_open_menu_label")}
-        </Link>
-      ) : null}
+    <div className="flex w-[88px] shrink-0 items-center justify-end gap-0.5">
       <Link
         href="/mypage/notifications"
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
@@ -101,37 +46,27 @@ function MyHubHeaderActionsInner({
           </span>
         ) : null}
       </Link>
-      {hideSettingsGear ? null : (
-        <Link
-          href={buildMypageInfoHubHref()}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-          aria-label={t("hub_settings_aria")}
-        >
-          <SettingsIcon />
-        </Link>
-      )}
+      <Link
+        href={buildMypageInfoHubHref()}
+        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        aria-label={t("hub_settings_aria")}
+      >
+        <SettingsIcon />
+      </Link>
     </div>
   );
 }
 
-function MyHubHeaderActionsFallback({
-  notificationUnreadCount,
-  hideSettingsGear,
-}: {
-  notificationUnreadCount?: number | null;
-  hideSettingsGear: boolean;
-}) {
+function MyHubHeaderActionsFallback({ notificationUnreadCount }: Props) {
   const { t } = useI18n();
   const showBadge = notificationUnreadCount != null && notificationUnreadCount > 0;
   const badgeText =
     notificationUnreadCount != null && notificationUnreadCount > 99
       ? "99+"
       : String(notificationUnreadCount ?? "");
-  const widthClass = hideSettingsGear ? "min-w-[96px] gap-1" : "w-[88px]";
 
   return (
-    <div className={`flex shrink-0 items-center justify-end gap-0.5 ${widthClass}`}>
-      <div className="h-9 w-10 shrink-0 rounded-lg" aria-hidden />
+    <div className="flex w-[88px] shrink-0 items-center justify-end gap-0.5">
       <Link
         href="/mypage/notifications"
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
@@ -148,15 +83,13 @@ function MyHubHeaderActionsFallback({
           </span>
         ) : null}
       </Link>
-      {hideSettingsGear ? null : (
-        <Link
-          href={buildMypageInfoHubHref()}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-          aria-label={t("hub_settings_aria")}
-        >
-          <SettingsIcon />
-        </Link>
-      )}
+      <Link
+        href={buildMypageInfoHubHref()}
+        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        aria-label={t("hub_settings_aria")}
+      >
+        <SettingsIcon />
+      </Link>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import {
   MYPAGE_MOBILE_NAV,
   MYPAGE_PROFILE_EDIT_HREF,
+  buildMypageItemHref,
   buildMypageSectionHref,
 } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
@@ -27,14 +28,12 @@ export function MyPageHomeDashboard({
   profile,
   mannerScore,
   overviewCounts,
-  onLoadBanner,
   showBanner,
   bannerSlot,
 }: {
   profile: ProfileRow;
   mannerScore: number;
   overviewCounts: MyPageOverviewCounts;
-  onLoadBanner?: () => void;
   showBanner?: boolean;
   bannerSlot?: React.ReactNode;
 }) {
@@ -170,6 +169,13 @@ export function MyPageHomeDashboard({
           {MYPAGE_MOBILE_NAV.map((sec) => (
             <MyPageMobileMenuRow key={sec.id} href={buildMypageSectionHref(sec.id)} title={sec.label} />
           ))}
+        </div>
+        <div className="mt-3 overflow-hidden rounded-[4px] border border-gray-200 bg-white">
+          <MyPageMobileMenuRow
+            href={buildMypageItemHref("settings", "logout")}
+            title="로그아웃"
+            tone="danger"
+          />
         </div>
       </section>
     </div>
