@@ -104,6 +104,7 @@ function CardShell({
     <article className="overflow-hidden rounded-ui-rect border border-neutral-200 bg-white shadow-sm">
       <Link
         href={href}
+        prefetch
         className="block px-4 py-3 transition-colors hover:bg-neutral-50/60 active:bg-neutral-100/80"
       >
         {children}

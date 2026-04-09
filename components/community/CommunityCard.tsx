@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { formatTimeAgo } from "@/lib/utils/format";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
@@ -51,7 +52,7 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
   };
 }
 
-export function CommunityCard({ post }: { post: NeighborhoodFeedPostDTO }) {
+export const CommunityCard = memo(function CommunityCard({ post }: { post: NeighborhoodFeedPostDTO }) {
   const skin = post.feed_list_skin;
   const vm = buildNeighborhoodFeedListViewModel(post);
   const hasThumb = Boolean(vm.thumbnailUrl);
@@ -71,4 +72,4 @@ export function CommunityCard({ post }: { post: NeighborhoodFeedPostDTO }) {
   }
   if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
   return <FeedListLayoutCarrotThumbRight vm={vm} />;
-}
+});

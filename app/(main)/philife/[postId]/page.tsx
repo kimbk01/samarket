@@ -3,7 +3,6 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import { Detail } from "@/components/community/Detail";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
-import { loadPhilifeMeetingHubData } from "@/lib/neighborhood/philife-meeting-hub-load";
 import {
   getMeetingDetail,
   getNeighborhoodPostDetail,
@@ -28,7 +27,10 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
     redirect("/philife");
   }
 
-  const canonical = await resolveCanonicalCommunityPostId(seg);
+  const [viewerId, canonical] = await Promise.all([
+    getOptionalAuthenticatedUserId(),
+    resolveCanonicalCommunityPostId(seg),
+  ]);
   if (!canonical) {
     if (await isNeighborhoodMeetingId(seg)) {
       redirect(philifeAppPaths.meeting(seg));
@@ -39,15 +41,17 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
     redirect(`/philife/${canonical}`);
   }
 
-  const viewerId = await getOptionalAuthenticatedUserId();
   const post = await getNeighborhoodPostDetail(canonical, { viewerUserId: viewerId });
   if (!post) {
     notFound();
   }
 
-  const [comments, meeting] = await Promise.all([
+  const [comments, meeting, joinedFromDb] = await Promise.all([
     listNeighborhoodComments(canonical, viewerId),
     post.meeting_id ? getMeetingDetail(post.meeting_id) : Promise.resolve(null),
+    post.meeting_id && viewerId
+      ? isViewerJoinedNeighborhoodMeeting(post.meeting_id, viewerId)
+      : Promise.resolve(false),
   ]);
 
   let viewerJoinedMeeting = false;
@@ -56,7 +60,7 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
       isSameUserId(viewerId, meeting.host_user_id) ||
       isSameUserId(viewerId, meeting.created_by) ||
       isSameUserId(viewerId, post.author_id) ||
-      (await isViewerJoinedNeighborhoodMeeting(post.meeting_id, viewerId));
+      joinedFromDb;
   }
 
   /** 개설자·승인 멤버도 채팅 대신 모임 상세로 이동 */

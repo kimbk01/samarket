@@ -24,17 +24,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "locationKey_required" }, { status: 400 });
   }
 
-  const viewerUserId = await getOptionalAuthenticatedUserId();
-
-  if (neighborOnly && !viewerUserId) {
-    return NextResponse.json({ ok: false, error: "neighbor_only_requires_login" }, { status: 401 });
-  }
-
-  const authorId = authorIdRaw || null;
-  if (authorId && (!viewerUserId || viewerUserId !== authorId)) {
-    return NextResponse.json({ ok: false, error: "author_filter_requires_self" }, { status: 403 });
-  }
-
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
@@ -44,10 +33,20 @@ export async function GET(req: NextRequest) {
 
   const coalesced = coalesceNeighborhoodLocationInput(locationKey, { city, district, name });
 
-  const [locationId, topics] = await Promise.all([
+  const [viewerUserId, locationId, topics] = await Promise.all([
+    getOptionalAuthenticatedUserId(),
     ensureLocationId(sb, locationKey, coalesced),
     loadPhilifeDefaultSectionTopics(),
   ]);
+
+  if (neighborOnly && !viewerUserId) {
+    return NextResponse.json({ ok: false, error: "neighbor_only_requires_login" }, { status: 401 });
+  }
+
+  const authorId = authorIdRaw || null;
+  if (authorId && (!viewerUserId || viewerUserId !== authorId)) {
+    return NextResponse.json({ ok: false, error: "author_filter_requires_self" }, { status: 403 });
+  }
 
   if (!locationId) {
     return NextResponse.json({
@@ -98,7 +97,7 @@ export async function GET(req: NextRequest) {
    * 워밍·탭 왕복 시 브라우저 재검증으로 RTT 절감.
    */
   if (!neighborOnly && !authorId && !viewerUserId) {
-    headers.set("Cache-Control", "private, max-age=10, stale-while-revalidate=60");
+    headers.set("Cache-Control", "private, max-age=15, stale-while-revalidate=120");
   }
 
   return NextResponse.json(body, { headers });

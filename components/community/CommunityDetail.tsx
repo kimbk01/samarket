@@ -101,22 +101,40 @@ export function CommunityDetail({
       /* ignore storage read errors */
     }
 
-    void (async () => {
-      try {
-        const res = await fetch(philifePostViewUrl(post.id), { method: "POST" });
-        const data = (await res.json()) as { ok?: boolean; view_count?: number };
-        if (data.ok && typeof data.view_count === "number") {
-          setViewCount(data.view_count);
-          try {
-            window.sessionStorage.setItem(viewedKey, "1");
-          } catch {
-            /* ignore storage write errors */
+    const run = () => {
+      void (async () => {
+        try {
+          const res = await fetch(philifePostViewUrl(post.id), { method: "POST" });
+          const data = (await res.json()) as { ok?: boolean; view_count?: number };
+          if (data.ok && typeof data.view_count === "number") {
+            setViewCount(data.view_count);
+            try {
+              window.sessionStorage.setItem(viewedKey, "1");
+            } catch {
+              /* ignore storage write errors */
+            }
           }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
+      })();
+    };
+
+    const ric = (
+      globalThis as typeof globalThis & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
       }
-    })();
+    ).requestIdleCallback;
+    if (typeof ric === "function") {
+      const id = ric(run, { timeout: 2200 });
+      return () => {
+        const cancel = (globalThis as typeof globalThis & { cancelIdleCallback?: (n: number) => void })
+          .cancelIdleCallback;
+        if (typeof cancel === "function") cancel(id);
+      };
+    }
+    const t = window.setTimeout(run, 1);
+    return () => window.clearTimeout(t);
   }, [post.id]);
 
   const flatCommentCount = useCallback((nodes: NeighborhoodCommentNode[]): number => {

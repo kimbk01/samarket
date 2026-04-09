@@ -18,7 +18,8 @@ export type PhilifeNeighborhoodTopicOptionsJson = {
  */
 export function fetchPhilifeNeighborhoodTopicOptions(): Promise<PhilifeNeighborhoodTopicOptionsJson> {
   return runSingleFlight(PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_FLIGHT, async () => {
-    const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "no-store" });
+    /** 서버 `Cache-Control` 준수 — 탭 왕복·글쓰기 ↔ 피드 시 중복 요청 감소 */
+    const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "default" });
     return (await res.json()) as PhilifeNeighborhoodTopicOptionsJson;
   });
 }

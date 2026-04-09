@@ -9,19 +9,23 @@ import {
   loadPhilifeDefaultSectionTopics,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 
-export const dynamic = "force-dynamic";
+/** 브라우저·CDN이 짧게 재사용 — 주제 변경은 수초~분 단위로 반영되면 충분 */
+const TOPIC_OPTIONS_CACHE_CONTROL = "public, max-age=30, s-maxage=45, stale-while-revalidate=300";
 
 export async function GET() {
   try {
     const topics = await loadPhilifeDefaultSectionTopics();
     const feedChips = topics.length > 0 ? buildPhilifeFeedChipsFromTopics(topics) : [];
     const writeTopics = topics.length > 0 ? buildPhilifeWriteTopicOptionsFromTopics(topics) : [];
-    return NextResponse.json({
-      ok: true,
-      feedChips,
-      writeTopics,
-      source: topics.length > 0 ? "community_topics" : "community_topics_empty",
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        feedChips,
+        writeTopics,
+        source: topics.length > 0 ? "community_topics" : "community_topics_empty",
+      },
+      { headers: { "Cache-Control": TOPIC_OPTIONS_CACHE_CONTROL } }
+    );
   } catch (e) {
     return NextResponse.json(
       {
@@ -31,7 +35,7 @@ export async function GET() {
         source: "error",
         error: (e as Error).message,
       },
-      { status: 200 }
+      { status: 200, headers: { "Cache-Control": "private, no-store" } }
     );
   }
 }

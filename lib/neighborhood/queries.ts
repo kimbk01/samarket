@@ -67,20 +67,23 @@ export async function listNeighborhoodFeed(options: {
   const lid = options.locationId.trim();
   if (!lid) return { posts: [], hasMore: false, dbScannedCount: 0 };
 
-  const topics = options.topics ?? (await loadPhilifeDefaultSectionTopics());
+  const v = options.viewerUserId?.trim() ?? "";
+  const topicsPromise = options.topics ? Promise.resolve(options.topics) : loadPhilifeDefaultSectionTopics();
+  const [topics, socialPair] = await Promise.all([
+    topicsPromise,
+    v
+      ? Promise.all([
+          fetchBlockedAuthorIdsForViewer(sb, v),
+          options.neighborOnly === true ? fetchNeighborFollowTargetIds(sb, v) : Promise.resolve<Set<string> | null>(null),
+        ])
+      : Promise.resolve([new Set<string>(), null] as [Set<string>, Set<string> | null]),
+  ]);
+  const blockExclude = socialPair[0];
+  const neighborOnlySet: Set<string> | null = socialPair[1];
+
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
-
-  let blockExclude = new Set<string>();
-  let neighborOnlySet: Set<string> | null = null;
-  const v = options.viewerUserId?.trim() ?? "";
-  if (v) {
-    blockExclude = await fetchBlockedAuthorIdsForViewer(sb, v);
-    if (options.neighborOnly === true) {
-      neighborOnlySet = await fetchNeighborFollowTargetIds(sb, v);
-    }
-  }
 
   const fetchCount = pageSize + 1;
   const cat = options.category?.trim().toLowerCase() || null;
@@ -160,37 +163,42 @@ export async function listNeighborhoodFeed(options: {
   rows = rows.slice(0, pageSize);
 
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
-  const nickMap = await fetchNicknamesForUserIds(sb as never, uids);
-
   const postIds = rows.map((r) => String(r.id));
+  const meetingsPromise =
+    postIds.length > 0
+      ? (async () => {
+          const rMeet = await sb
+            .from("meetings")
+            .select("id, post_id, meeting_date, tenure_type")
+            .in("post_id", postIds);
+          if (rMeet.error && isMissingDbColumnError(rMeet.error, "tenure_type")) {
+            const r2 = await sb.from("meetings").select("id, post_id, meeting_date").in("post_id", postIds);
+            return (r2.data as unknown[] | null) ?? null;
+          }
+          return (rMeet.data as unknown[] | null) ?? null;
+        })()
+      : Promise.resolve(null);
+
+  const [nickMap, meetings] = await Promise.all([
+    fetchNicknamesForUserIds(sb as never, uids),
+    meetingsPromise,
+  ]);
+
   const meetByPost = new Map<string, { id: string; meeting_date: string | null; tenure_type?: string | null }>();
-  if (postIds.length > 0) {
-    let meetings: unknown[] | null = null;
-    const rMeet = await sb
-      .from("meetings")
-      .select("id, post_id, meeting_date, tenure_type")
-      .in("post_id", postIds);
-    if (rMeet.error && isMissingDbColumnError(rMeet.error, "tenure_type")) {
-      const r2 = await sb.from("meetings").select("id, post_id, meeting_date").in("post_id", postIds);
-      meetings = (r2.data as unknown[] | null) ?? null;
-    } else {
-      meetings = (rMeet.data as unknown[] | null) ?? null;
-    }
-    if (Array.isArray(meetings)) {
-      for (const m of meetings as {
-        id?: string;
-        post_id?: string;
-        meeting_date?: string | null;
-        tenure_type?: string | null;
-      }[]) {
-        const pid = String(m.post_id ?? "");
-        if (pid && m.id)
-          meetByPost.set(pid, {
-            id: String(m.id),
-            meeting_date: m.meeting_date ?? null,
-            tenure_type: m.tenure_type ?? null,
-          });
-      }
+  if (Array.isArray(meetings)) {
+    for (const m of meetings as {
+      id?: string;
+      post_id?: string;
+      meeting_date?: string | null;
+      tenure_type?: string | null;
+    }[]) {
+      const pid = String(m.post_id ?? "");
+      if (pid && m.id)
+        meetByPost.set(pid, {
+          id: String(m.id),
+          meeting_date: m.meeting_date ?? null,
+          tenure_type: m.tenure_type ?? null,
+        });
     }
   }
 
@@ -320,14 +328,15 @@ export async function getNeighborhoodPostDetail(
   if (row.location_id == null || String(row.location_id).trim() === "") return null;
 
   const uid = String(row.user_id ?? "");
-  if (v) {
-    const blocked = await fetchBlockedAuthorIdsForViewer(sb, v);
-    if (blocked.has(uid)) return null;
-  }
+  const [blocked, nickMap, topics, meetLink] = await Promise.all([
+    v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
+    fetchNicknamesForUserIds(sb as never, [uid]),
+    loadPhilifeDefaultSectionTopics(),
+    fetchMeetingLinkByPostId(sb, postId),
+  ]);
+  if (v && blocked.has(uid)) return null;
 
-  const nickMap = await fetchNicknamesForUserIds(sb as never, [uid]);
   const locationLabel = String(row.region_label ?? "").trim();
-  const topics = await loadPhilifeDefaultSectionTopics();
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
@@ -338,8 +347,6 @@ export async function getNeighborhoodPostDetail(
   const isQuestion = Boolean(row.is_question);
   const isMeetupRow = Boolean(row.is_meetup);
   const meetupPlace = row.meetup_place != null && String(row.meetup_place).trim() !== "" ? String(row.meetup_place).trim() : null;
-
-  const meetLink = await fetchMeetingLinkByPostId(sb, postId);
   const hasMeeting = Boolean(meetLink?.id);
   const isMeetup = hasMeeting || isMeetupRow || enumCat === "meetup";
   const defaultSkin = normalizeCommunityFeedListSkin(undefined);
@@ -385,20 +392,22 @@ export async function listNeighborhoodComments(postId: string, viewerUserId?: st
     return [];
   }
 
-  const { data, error } = await sb
-    .from("community_comments")
-    .select("id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status")
-    .eq("post_id", postId)
-    .order("created_at", { ascending: true });
+  const v = viewerUserId?.trim() ?? "";
+  const [{ data, error }, blockExclude] = await Promise.all([
+    sb
+      .from("community_comments")
+      .select("id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true }),
+    v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
+  ]);
 
   if (error || !Array.isArray(data)) return [];
 
   let rows = (data as Record<string, unknown>[]).filter((r) => isCommunityCommentPubliclyVisible(r as never));
 
-  const v = viewerUserId?.trim() ?? "";
   if (v) {
-    const blocked = await fetchBlockedAuthorIdsForViewer(sb, v);
-    rows = rows.filter((r) => !blocked.has(String(r.user_id ?? "")));
+    rows = rows.filter((r) => !blockExclude.has(String(r.user_id ?? "")));
   }
 
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];

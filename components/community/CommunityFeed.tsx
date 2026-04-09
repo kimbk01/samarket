@@ -256,18 +256,40 @@ export function CommunityFeed() {
     };
   }, [locationKey, category, neighborOnly, viewerSig, fetchPage]);
 
-  // 상단 광고 비동기 로드 (1회, 위치 무관)
+  // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
     adsAbortRef.current?.abort();
     const controller = new AbortController();
     adsAbortRef.current = controller;
-    fetch("/api/ads/active?boardKey=plife", { signal: controller.signal })
-      .then((r) => r.json())
-      .then((j: { ads?: AdFeedPost[] }) => {
-        if (j.ads) setTopAds(j.ads);
-      })
-      .catch(() => { /* 광고 로드 실패는 조용히 무시 */ });
+    const load = () => {
+      fetch("/api/ads/active?boardKey=plife", { signal: controller.signal })
+        .then((r) => r.json())
+        .then((j: { ads?: AdFeedPost[] }) => {
+          if (j.ads) setTopAds(j.ads);
+        })
+        .catch(() => {
+          /* 광고 로드 실패는 조용히 무시 */
+        });
+    };
+    const ric = (
+      globalThis as typeof globalThis & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+        cancelIdleCallback?: (id: number) => void;
+      }
+    ).requestIdleCallback;
+    const cancelRic = globalThis.cancelIdleCallback;
+    let cancelScheduled: (() => void) | undefined;
+    if (typeof ric === "function") {
+      const idleId = ric(load, { timeout: 2800 });
+      cancelScheduled = () => {
+        if (typeof cancelRic === "function") cancelRic(idleId);
+      };
+    } else {
+      const tid = window.setTimeout(load, 120);
+      cancelScheduled = () => window.clearTimeout(tid);
+    }
     return () => {
+      cancelScheduled?.();
       controller.abort();
       if (adsAbortRef.current === controller) {
         adsAbortRef.current = null;
