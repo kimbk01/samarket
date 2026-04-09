@@ -5,7 +5,6 @@ import {
   POINT_CHARGE_STATUS_LABELS,
   POINT_PAYMENT_METHOD_LABELS,
 } from "@/lib/points/point-utils";
-import { cancelPointChargeRequest } from "@/lib/points/mock-point-charge-requests";
 
 interface PointChargeRequestListProps {
   requests: PointChargeRequest[];
@@ -25,8 +24,7 @@ export function PointChargeRequestList({
   requests,
   onCancel,
 }: PointChargeRequestListProps) {
-  const handleCancel = (id: string) => {
-    cancelPointChargeRequest(id);
+  const handleCancel = (_id: string) => {
     onCancel?.();
   };
 
@@ -62,7 +60,7 @@ export function PointChargeRequestList({
           <p className="mt-1 text-[12px] text-gray-400">
             {new Date(r.requestedAt).toLocaleString("ko-KR")}
           </p>
-          {["pending", "waiting_confirm"].includes(r.requestStatus) && (
+          {onCancel && ["pending", "waiting_confirm"].includes(r.requestStatus) && (
             <button
               type="button"
               onClick={() => handleCancel(r.id)}

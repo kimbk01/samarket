@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   getUserSettings,
+  subscribeUserSettings,
+  syncUserSettings,
   updateUserSettings,
   VIDEO_AUTOPLAY_LABELS,
 } from "@/lib/settings/user-settings-store";
@@ -23,7 +25,13 @@ export function VideoAutoplayContent() {
     const s = getUserSettings(userId);
     setMode((s.video_autoplay_mode as VideoAutoplayMode) ?? "wifi_only");
   }, [userId]);
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+    void syncUserSettings(userId).then(() => refresh());
+    return subscribeUserSettings(({ userId: changedUserId }) => {
+      if (changedUserId === userId) refresh();
+    });
+  }, [refresh, userId]);
 
   const select = (value: VideoAutoplayMode) => {
     updateUserSettings(userId, { video_autoplay_mode: value });

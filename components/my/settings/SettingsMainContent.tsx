@@ -8,6 +8,8 @@ import {
   getUserSettings,
   LANGUAGE_NAMES,
   COUNTRY_NAMES,
+  subscribeUserSettings,
+  syncUserSettings,
 } from "@/lib/settings/user-settings-store";
 import { SettingsSection } from "./SettingsSection";
 import { SettingsRow } from "./SettingsRow";
@@ -30,7 +32,11 @@ export function SettingsMainContent({ className }: { className?: string } = {}) 
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    void syncUserSettings(userId).then(() => refresh());
+    return subscribeUserSettings(({ userId: changedUserId }) => {
+      if (changedUserId === userId) refresh();
+    });
+  }, [refresh, userId]);
 
   const languageLabel =
     LANGUAGE_NAMES[normalizeAppLanguage(settings.preferred_language)] ??

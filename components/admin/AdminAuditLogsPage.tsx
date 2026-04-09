@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
@@ -108,7 +109,9 @@ export function AdminAuditLogsPage() {
                   {r.actor_id ? ` · ${r.actor_id.slice(0, 8)}…` : ""}
                 </span>
               </div>
-              <p className="mt-1 font-medium text-gray-900">{r.action}</p>
+              <Link href={`/admin/audit-logs/${r.id}`} className="mt-1 block font-medium text-gray-900 hover:text-signature">
+                {r.action}
+              </Link>
               <p className="text-xs text-gray-600">
                 {r.target_type} · <span className="font-mono">{r.target_id}</span>
                 {r.ip ? ` · ${r.ip}` : ""}

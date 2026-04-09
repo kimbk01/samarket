@@ -2,14 +2,25 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getUserSettings, updateUserSettings } from "@/lib/settings/user-settings-store";
+import {
+  getUserSettings,
+  subscribeUserSettings,
+  syncUserSettings,
+  updateUserSettings,
+} from "@/lib/settings/user-settings-store";
 
 export function ChatSettingsContent() {
   const userId = getCurrentUser()?.id ?? "me";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+    void syncUserSettings(userId).then(() => refresh());
+    return subscribeUserSettings(({ userId: changedUserId }) => {
+      if (changedUserId === userId) refresh();
+    });
+  }, [refresh, userId]);
 
   const toggle = (key: "chat_push_enabled" | "chat_preview_enabled") => {
     const v = settings[key];

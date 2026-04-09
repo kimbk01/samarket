@@ -1,13 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import type { AdminAuditLog, AuditLogCategory, AuditLogResult } from "@/lib/types/admin-audit";
-import { getAuditLogById } from "@/lib/admin-audit/mock-admin-audit-logs";
+import { useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminAuditJsonViewer } from "./AdminAuditJsonViewer";
 
-const CATEGORY_LABELS: Record<AuditLogCategory, string> = {
+type AuditDetailLog = {
+  id: string;
+  actor_type: string;
+  actor_id: string | null;
+  target_type: string;
+  target_id: string | null;
+  action: string;
+  before_json: unknown;
+  after_json: unknown;
+  ip: string | null;
+  user_agent?: string | null;
+  created_at: string;
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
   product: "상품",
   user: "회원",
   chat: "채팅",
@@ -15,28 +28,27 @@ const CATEGORY_LABELS: Record<AuditLogCategory, string> = {
   review: "리뷰",
   setting: "설정",
   auth: "관리자 인증",
+  user_settings: "내 설정",
+  store_order: "주문",
 };
 
-const RESULT_LABELS: Record<AuditLogResult, string> = {
-  success: "성공",
-  warning: "경고",
-  error: "오류",
-};
-
-function getRelatedHref(log: AdminAuditLog): string | null {
-  switch (log.category) {
+function getRelatedHref(log: AuditDetailLog): string | null {
+  switch (log.target_type) {
     case "product":
-      return log.targetId ? `/admin/products/${log.targetId}` : null;
+      return log.target_id ? `/admin/products/${log.target_id}` : null;
     case "user":
-      return log.targetId ? `/admin/users/${log.targetId}` : null;
+    case "user_settings":
+      return log.target_id ? `/admin/users/${log.target_id}` : null;
     case "chat":
-      return log.targetId ? `/admin/chats/${log.targetId}` : null;
+      return log.target_id ? `/admin/chats/${log.target_id}` : null;
     case "report":
-      return log.targetId ? `/admin/reports/${log.targetId}` : null;
+      return log.target_id ? `/admin/reports/${log.target_id}` : null;
     case "review":
-      return log.targetId ? `/admin/reviews/${log.targetId}` : null;
+      return log.target_id ? `/admin/reviews/${log.target_id}` : null;
     case "setting":
       return "/admin/settings";
+    case "store_order":
+      return "/admin/orders";
     default:
       return null;
   }
@@ -47,21 +59,64 @@ interface AdminAuditDetailPageProps {
 }
 
 export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
-  const log = getAuditLogById(logId);
+  const [log, setLog] = useState<AuditDetailLog | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!log) {
-    return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
-        로그를 찾을 수 없습니다.
-      </div>
-    );
-  }
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/admin/audit-logs/${encodeURIComponent(logId)}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          log?: AuditDetailLog;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json?.ok || !json.log) {
+          setError(json?.error ?? "not_found");
+          setLog(null);
+          return;
+        }
+        setError(null);
+        setLog(json.log);
+      } catch {
+        if (!cancelled) {
+          setError("network_error");
+          setLog(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [logId]);
 
-  const relatedHref = getRelatedHref(log);
+  const relatedHref = log ? getRelatedHref(log) : null;
 
   return (
     <div className="space-y-4">
       <AdminPageHeader title="로그 상세" backHref="/admin/audit-logs" />
+      {loading ? (
+        <div className="py-8 text-center text-[14px] text-gray-500">불러오는 중…</div>
+      ) : null}
+      {!loading && error ? (
+        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-5 text-[14px] text-red-700">
+          로그를 불러오지 못했습니다.
+        </div>
+      ) : null}
+      {!loading && !error && !log ? (
+        <div className="py-8 text-center text-[14px] text-gray-500">로그를 찾을 수 없습니다.</div>
+      ) : null}
+      {log ? (
+        <>
 
       <AdminCard title="기본 정보">
         <dl className="grid gap-2 text-[14px]">
@@ -71,53 +126,42 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
           </div>
           <div>
             <dt className="text-gray-500">유형</dt>
-            <dd>{CATEGORY_LABELS[log.category]}</dd>
+            <dd>{CATEGORY_LABELS[log.target_type] ?? log.target_type}</dd>
           </div>
           <div>
             <dt className="text-gray-500">액션</dt>
-            <dd>{log.actionType}</dd>
+            <dd>{log.action}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">결과</dt>
-            <dd>{RESULT_LABELS[log.result]}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">관리자</dt>
-            <dd>
-              {log.adminNickname} ({log.adminId})
-            </dd>
+            <dt className="text-gray-500">행위자</dt>
+            <dd>{log.actor_id ? `${log.actor_type} (${log.actor_id})` : log.actor_type}</dd>
           </div>
           <div>
             <dt className="text-gray-500">대상</dt>
-            <dd>
-              {log.targetLabel ?? log.targetId ?? "-"}
-              {log.targetId && (
-                <span className="ml-2 text-gray-500">({log.targetType})</span>
-              )}
-            </dd>
+            <dd>{log.target_id ?? "-"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">요약</dt>
-            <dd className="text-gray-700">{log.summary}</dd>
+            <dt className="text-gray-500">IP</dt>
+            <dd className="text-gray-700">{log.ip ?? "-"}</dd>
           </div>
           <div>
             <dt className="text-gray-500">일시</dt>
-            <dd>{new Date(log.createdAt).toLocaleString("ko-KR")}</dd>
+            <dd>{new Date(log.created_at).toLocaleString("ko-KR")}</dd>
           </div>
-          {log.note && (
+          {log.user_agent ? (
             <div>
-              <dt className="text-gray-500">메모</dt>
-              <dd className="text-gray-700">{log.note}</dd>
+              <dt className="text-gray-500">User-Agent</dt>
+              <dd className="break-all text-gray-700">{log.user_agent}</dd>
             </div>
-          )}
+          ) : null}
         </dl>
       </AdminCard>
 
-      {(log.beforeData !== undefined || log.afterData !== undefined) && (
+      {(log.before_json !== undefined || log.after_json !== undefined) && (
         <AdminCard title="변경 데이터">
           <div className="space-y-3">
-            <AdminAuditJsonViewer label="변경 전" data={log.beforeData} />
-            <AdminAuditJsonViewer label="변경 후" data={log.afterData} />
+            <AdminAuditJsonViewer label="변경 전" data={log.before_json} />
+            <AdminAuditJsonViewer label="변경 후" data={log.after_json} />
           </div>
         </AdminCard>
       )}
@@ -128,10 +172,12 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
             href={relatedHref}
             className="text-[14px] font-medium text-signature hover:underline"
           >
-            해당 관리 화면으로 이동 (placeholder)
+            관련 관리 화면으로 이동
           </Link>
         </AdminCard>
       )}
+        </>
+      ) : null}
     </div>
   );
 }

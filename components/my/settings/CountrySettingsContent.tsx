@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getUserSettings, updateUserSettings } from "@/lib/settings/user-settings-store";
+import {
+  getUserSettings,
+  subscribeUserSettings,
+  syncUserSettings,
+  updateUserSettings,
+} from "@/lib/settings/user-settings-store";
 
 const FALLBACK_COUNTRIES = [
   { code: "PH", name: "필리핀" },
@@ -18,11 +23,32 @@ export function CountrySettingsContent() {
 
   useEffect(() => {
     const supabase = getSupabaseClient();
+    let cancelled = false;
     if (supabase) {
-      // TODO: supabase.from('app_supported_countries').select('code,name').eq('is_active', true).order('sort_order')
+      void supabase
+        .from("app_supported_countries")
+        .select("code,name")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .then(({ data }) => {
+          if (!cancelled && Array.isArray(data) && data.length > 0) {
+            setList(data as typeof FALLBACK_COUNTRIES);
+          }
+        });
     }
-    const s = getUserSettings(userId);
-    setCurrent(s.preferred_country ?? "PH");
+    const applyCurrent = () => {
+      const s = getUserSettings(userId);
+      setCurrent(s.preferred_country ?? "PH");
+    };
+    applyCurrent();
+    void syncUserSettings(userId).then(() => applyCurrent());
+    const unsubscribe = subscribeUserSettings(({ userId: changedUserId }) => {
+      if (changedUserId === userId) applyCurrent();
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [userId]);
 
   const select = useCallback(

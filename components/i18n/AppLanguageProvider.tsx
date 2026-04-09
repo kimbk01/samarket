@@ -11,7 +11,12 @@ import {
 } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { getUserSettings, updateUserSettings } from "@/lib/settings/user-settings-store";
+import {
+  getUserSettings,
+  subscribeUserSettings,
+  syncUserSettings,
+  updateUserSettings,
+} from "@/lib/settings/user-settings-store";
 import {
   APP_LANGUAGE_CHANGED_EVENT,
   APP_LANGUAGE_COOKIE,
@@ -79,6 +84,12 @@ export function AppLanguageProvider({ children }: { children: ReactNode }) {
     async function syncProfileLanguage() {
       const userId = getCurrentUser()?.id;
       if (!userId) return;
+      const remoteSettings = await syncUserSettings(userId).catch(() => null);
+      if (!cancelled && remoteSettings?.preferred_language) {
+        const preferredFromSettings = normalizeAppLanguage(remoteSettings.preferred_language);
+        persistLanguage(preferredFromSettings);
+        setLanguageState(preferredFromSettings);
+      }
       const profile = await getMyProfile().catch(() => null);
       if (cancelled || !profile?.preferred_language) return;
       const preferred = normalizeAppLanguage(profile.preferred_language);
@@ -102,10 +113,15 @@ export function AppLanguageProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
     window.addEventListener("storage", onStorage);
+    const unsubscribeSettings = subscribeUserSettings(({ userId, settings }) => {
+      if (userId !== getCurrentUser()?.id || !settings.preferred_language) return;
+      setLanguageState(normalizeAppLanguage(settings.preferred_language));
+    });
     return () => {
       cancelled = true;
       window.removeEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
       window.removeEventListener("storage", onStorage);
+      unsubscribeSettings();
     };
   }, []);
 

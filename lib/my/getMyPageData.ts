@@ -11,7 +11,6 @@ import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { fetchMeHasOwnerStores } from "@/lib/my/fetch-me-has-owner-stores";
 import { getTrustSummary } from "@/lib/reviews/trust-utils";
-import { getBusinessProfileByOwnerUserId } from "@/lib/business/mock-business-profiles";
 import { getMySettings } from "./getMySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
@@ -83,8 +82,7 @@ export async function getMyPageData(): Promise<MyPageData> {
   const mannerScore = profile
     ? resolveProfileTrustScore(profile as unknown as Record<string, unknown>)
     : (trustSummary?.mannerScore ?? 50);
-  const businessProfile = uid ? getBusinessProfileByOwnerUserId(uid) : null;
-  const isBusinessMember = businessProfile?.status === "active";
+  const isBusinessMember = hasOwnerStore;
   const isAdmin = isAdminUser(user);
 
   return {

@@ -8,13 +8,33 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 export function AdminMySectionsPage() {
   const [items, setItems] = useState<MyPageSectionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
-    if (supabase) {
-      // TODO: supabase.from('my_page_sections').select('*').order('sort_order').then(({ data }) => setItems(data ?? []))
-    }
-    setLoading(false);
+    let cancelled = false;
+    void (async () => {
+      if (!supabase) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("my_page_sections")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        setError(error.message);
+        setItems([]);
+      } else {
+        setError(null);
+        setItems((data ?? []) as MyPageSectionRow[]);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -22,9 +42,11 @@ export function AdminMySectionsPage() {
       <h1 className="mb-4 text-[18px] font-semibold text-gray-900">나의 카마켓 섹션</h1>
       {loading ? (
         <p className="text-gray-500">불러오는 중…</p>
+      ) : error ? (
+        <p className="rounded-lg bg-red-50 p-4 text-[14px] text-red-700">{error}</p>
       ) : items.length === 0 ? (
         <p className="rounded-lg bg-white p-4 text-[14px] text-gray-500">
-          섹션이 없습니다. Supabase my_page_sections 연동 후 목록이 표시됩니다.
+          섹션이 없습니다.
         </p>
       ) : (
         <ul className="space-y-2">

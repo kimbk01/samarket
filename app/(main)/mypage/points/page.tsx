@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { getUpcomingExpiringSummary } from "@/lib/points/point-expire-utils";
@@ -14,7 +14,7 @@ import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
 function PointsBackendNotice() {
   const { t } = useI18n();
   return (
-    <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+    <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
       {t("points_backend_notice")}
     </div>
   );
@@ -23,8 +23,55 @@ function PointsBackendNotice() {
 export default function MypagePointsPage() {
   const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "";
-  const balance = 0;
-  const ledgerEntries = useMemo<PointLedgerEntry[]>(() => [], []);
+  const [balance, setBalance] = useState(0);
+  const [ledgerEntries, setLedgerEntries] = useState<PointLedgerEntry[]>([]);
+  const [requests, setRequests] = useState<PointChargeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/me/points", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          balance?: unknown;
+          ledger?: PointLedgerEntry[];
+          chargeRequests?: PointChargeRequest[];
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json?.ok) {
+          setLoadError(json?.error ?? "points_load_failed");
+          setBalance(0);
+          setLedgerEntries([]);
+          setRequests([]);
+          return;
+        }
+        setLoadError(null);
+        setBalance(Math.max(0, Number(json.balance ?? 0)));
+        setLedgerEntries(Array.isArray(json.ledger) ? json.ledger : []);
+        setRequests(Array.isArray(json.chargeRequests) ? json.chargeRequests : []);
+      } catch {
+        if (cancelled) return;
+        setLoadError("points_load_failed");
+        setBalance(0);
+        setLedgerEntries([]);
+        setRequests([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const expiringSummary = useMemo(
     () => ({
       userId,
@@ -32,7 +79,6 @@ export default function MypagePointsPage() {
     }),
     [userId, ledgerEntries]
   );
-  const requests = useMemo<PointChargeRequest[]>(() => [], []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,6 +90,11 @@ export default function MypagePointsPage() {
       />
       <div className="mx-auto max-w-lg space-y-6 p-4">
         <PointsBackendNotice />
+        {loadError ? (
+          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+            포인트 정보를 불러오지 못했습니다.
+          </div>
+        ) : null}
         <PointBalanceCard balance={balance} />
         <PointExpiringCard summary={expiringSummary} />
         <div className="flex flex-wrap gap-2">
@@ -74,7 +125,11 @@ export default function MypagePointsPage() {
         </div>
         <div>
           <h2 className="mb-2 text-[15px] font-semibold text-gray-900">{t("points_charge_history")}</h2>
-          <PointChargeRequestList requests={requests} />
+          {loading ? (
+            <div className="rounded-lg bg-white p-8 text-center text-[14px] text-gray-500">불러오는 중…</div>
+          ) : (
+            <PointChargeRequestList requests={requests} />
+          )}
         </div>
       </div>
     </div>

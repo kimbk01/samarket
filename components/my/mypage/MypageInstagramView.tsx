@@ -18,7 +18,7 @@ import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBl
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
-type MypageSectionId = "overview" | "orders" | "store" | "account" | "activity";
+type MypageSectionId = "trade" | "board" | "store" | "account";
 const SECTION_STORAGE_KEY = "samarket:mypage:info-section";
 
 type OverviewCounts = {
@@ -75,7 +75,7 @@ export function MypageInstagramView({
   services,
   sections,
 }: MypageInstagramViewProps) {
-  const [activeSection, setActiveSection] = useState<MypageSectionId>("overview");
+  const [activeSection, setActiveSection] = useState<MypageSectionId>("trade");
   const [bizBlockedOpen, setBizBlockedOpen] = useState(false);
 
   const needsBizEntryModal =
@@ -87,11 +87,10 @@ export function MypageInstagramView({
     try {
       const raw = window.sessionStorage.getItem(SECTION_STORAGE_KEY);
       if (
-        raw === "overview" ||
-        raw === "orders" ||
+        raw === "trade" ||
+        raw === "board" ||
         raw === "store" ||
-        raw === "account" ||
-        raw === "activity"
+        raw === "account"
       ) {
         setActiveSection(raw);
       }
@@ -198,7 +197,7 @@ export function MypageInstagramView({
 
   const adsEnabled = services.some((service) => service.code === "ads");
 
-  const overviewRows = dedupeRows([
+  const priorityRows = dedupeRows([
     ...setupRows,
     {
       href: "/mypage/notifications",
@@ -230,13 +229,7 @@ export function MypageInstagramView({
         },
   ]);
 
-  const orderRows = dedupeRows([
-    {
-      href: storeOrdersHref,
-      title: "주문 내역",
-      subtitle: "배달, 픽업, 리뷰, 재주문을 확인합니다.",
-      eyebrow: "배달",
-    },
+  const tradeRows = dedupeRows([
     {
       href: "/mypage/trade/purchases",
       title: "구매 관리",
@@ -281,6 +274,12 @@ export function MypageInstagramView({
   const storeRows = hasOwnerStore
     ? dedupeRows([
         {
+          href: storeOrdersHref,
+          title: "주문 내역",
+          subtitle: "배달, 픽업, 리뷰, 재주문을 확인합니다.",
+          eyebrow: "소비자",
+        },
+        {
           href: ownerOrdersHref,
           title: "사장님 주문 관리",
           subtitle: storeAttentionSummary ?? "신규 주문과 취소, 환불 요청을 확인합니다.",
@@ -304,6 +303,12 @@ export function MypageInstagramView({
           : []),
       ])
     : dedupeRows([
+        {
+          href: storeOrdersHref,
+          title: "주문 내역",
+          subtitle: "배달, 픽업, 리뷰, 재주문을 확인합니다.",
+          eyebrow: "소비자",
+        },
         {
           href: businessApplyHref,
           title: "매장 등록 신청",
@@ -376,7 +381,7 @@ export function MypageInstagramView({
     },
   ]);
 
-  const activityRows = [
+  const boardRows = [
     {
       href: "/mypage/community-posts",
       title: "내 활동",
@@ -389,42 +394,35 @@ export function MypageInstagramView({
     MypageSectionId,
     { id: MypageSectionId; label: string; shortLabel: string; description: string; rows: MenuRow[] }
   > = {
-    overview: {
-      id: "overview",
-      label: "요약",
-      shortLabel: "요약",
-      description: "지금 바로 확인해야 할 정보와 설정만 모았습니다.",
-      rows: overviewRows,
+    trade: {
+      id: "trade",
+      label: "거래",
+      shortLabel: "거래",
+      description: "개인 거래 흐름만 따로 모아 구매, 판매, 채팅, 후기를 빠르게 처리합니다.",
+      rows: tradeRows,
     },
-    orders: {
-      id: "orders",
-      label: "주문/거래",
-      shortLabel: "주문",
-      description: "배달 주문과 개인 거래를 한 흐름으로 관리합니다.",
-      rows: orderRows,
+    board: {
+      id: "board",
+      label: "게시판",
+      shortLabel: "게시판",
+      description: "커뮤니티는 내 활동만 남기고 불필요한 탐색 동선을 제거했습니다.",
+      rows: boardRows,
     },
     store: {
       id: "store",
-      label: "매장",
+      label: "매장·주문",
       shortLabel: "매장",
       description: hasOwnerStore
-        ? "사장님용 운영 기능만 따로 모아 복잡도를 줄였습니다."
-        : "매장 입점과 노출 확장 기능만 남겼습니다.",
+        ? "소비자 주문과 사장님 운영 기능을 같은 축에서 관리합니다."
+        : "주문 내역과 매장 입점, 노출 확장 기능만 남겼습니다.",
       rows: storeRows,
     },
     account: {
       id: "account",
-      label: "계정/설정",
-      shortLabel: "계정",
-      description: "프로필과 설정, 보안 관련 기능을 정리했습니다.",
+      label: "개인 설정",
+      shortLabel: "설정",
+      description: "프로필, 주소, 인증, 알림, 앱 설정을 한 축으로 정리했습니다.",
       rows: accountRows,
-    },
-    activity: {
-      id: "activity",
-      label: "내 활동",
-      shortLabel: "활동",
-      description: "커뮤니티 영역은 내 활동만 남기고 나머지는 정리했습니다.",
-      rows: activityRows,
     },
   };
 
@@ -434,7 +432,7 @@ export function MypageInstagramView({
       const id = normalizeSectionId(section.section_key);
       if (id && !preferred.includes(id)) preferred.push(id);
     }
-    for (const fallback of ["overview", "orders", "store", "account", "activity"] as MypageSectionId[]) {
+    for (const fallback of ["trade", "board", "store", "account"] as MypageSectionId[]) {
       if (!preferred.includes(fallback)) preferred.push(fallback);
     }
     return preferred.filter((id) => sectionMap[id].rows.length > 0);
@@ -447,7 +445,7 @@ export function MypageInstagramView({
   }, [activeSection, orderedSectionIds]);
 
   const resolvedSectionId =
-    orderedSectionIds.includes(activeSection) ? activeSection : (orderedSectionIds[0] ?? "overview");
+    orderedSectionIds.includes(activeSection) ? activeSection : (orderedSectionIds[0] ?? "trade");
   const currentSection = sectionMap[resolvedSectionId];
   const statusPills = [
     isBusinessMember ? "비즈 회원" : null,
@@ -522,8 +520,32 @@ export function MypageInstagramView({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--sub-bg)] [scrollbar-gutter:stable]">
-        <div className="grid min-h-full grid-cols-[92px_minmax(0,1fr)] gap-3 px-4 py-4 md:grid-cols-[196px_minmax(0,1fr)]">
-          <aside className="rounded-[24px] border border-ig-border bg-background p-2 shadow-sm">
+        <div className="px-4 py-4 md:grid md:min-h-full md:grid-cols-[220px_minmax(0,1fr)] md:gap-3">
+          <div className="mb-3 overflow-x-auto md:hidden">
+            <nav className="flex min-w-max gap-2 pb-1">
+              {orderedSectionIds.map((sectionId) => {
+                const section = sectionMap[sectionId];
+                const selected = section.id === currentSection.id;
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => persistSection(section.id)}
+                    className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-left transition-colors ${
+                      selected
+                        ? "bg-foreground text-background"
+                        : "text-foreground hover:bg-ig-highlight active:bg-ig-highlight"
+                    }`}
+                  >
+                    <SectionGlyph sectionId={section.id} />
+                    <span className="text-[13px] font-semibold">{section.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          <aside className="hidden rounded-[24px] border border-ig-border bg-background p-2 shadow-sm md:block">
             <nav className="space-y-1">
               {orderedSectionIds.map((sectionId) => {
                 const section = sectionMap[sectionId];
@@ -541,9 +563,9 @@ export function MypageInstagramView({
                   >
                     <SectionGlyph sectionId={section.id} />
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold md:text-[14px]">{section.label}</p>
+                      <p className="text-[14px] font-semibold">{section.label}</p>
                       <p
-                        className={`mt-0.5 hidden text-[11px] md:block ${
+                        className={`mt-0.5 text-[11px] ${
                           selected ? "text-background/80" : "text-[var(--text-muted)]"
                         }`}
                       >
@@ -556,7 +578,32 @@ export function MypageInstagramView({
             </nav>
           </aside>
 
-          <section className="flex min-h-[420px] flex-col overflow-hidden rounded-[24px] border border-ig-border bg-background shadow-sm">
+          <div className="space-y-3">
+            {priorityRows.length > 0 ? (
+              <section className="overflow-hidden rounded-[24px] border border-ig-border bg-background shadow-sm">
+                <div className="border-b border-ig-border px-4 py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    Priority
+                  </p>
+                  <h2 className="mt-1 text-[17px] font-semibold text-foreground">먼저 처리할 항목</h2>
+                  <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+                    지역, 주소, 인증처럼 서비스 동작에 바로 영향을 주는 항목입니다.
+                  </p>
+                </div>
+                <div className="divide-y divide-ig-border">
+                  {priorityRows.map((row) => (
+                    <HubMenuRow
+                      key={`priority:${row.href}:${row.title}`}
+                      {...row}
+                      suppressNav={shouldInterceptMypageBusinessHref(row.href, needsBizEntryModal)}
+                      onSuppressedNav={openBizBlocked}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="flex min-h-[420px] flex-col overflow-hidden rounded-[24px] border border-ig-border bg-background shadow-sm">
             <div className="border-b border-ig-border px-4 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                 My Info
@@ -580,7 +627,8 @@ export function MypageInstagramView({
                 ) : null}
               </div>
             </div>
-          </section>
+            </section>
+          </div>
         </div>
       </div>
 
@@ -674,23 +722,22 @@ function dedupeRows(rows: Array<MenuRow | false | null | undefined>): MenuRow[] 
 
 function normalizeSectionId(raw: string): MypageSectionId | null {
   switch (raw) {
+    case "trade":
     case "overview":
     case "summary":
     case "interests":
-      return "overview";
-    case "orders":
-    case "trade":
     case "deals":
-      return "orders";
+    case "orders":
+      return "trade";
+    case "board":
+    case "activity":
+      return "board";
     case "store":
     case "business":
       return "store";
     case "account":
     case "settings":
       return "account";
-    case "activity":
-    case "board":
-      return "activity";
     default:
       return null;
   }
@@ -698,16 +745,14 @@ function normalizeSectionId(raw: string): MypageSectionId | null {
 
 function SectionGlyph({ sectionId }: { sectionId: MypageSectionId }) {
   switch (sectionId) {
-    case "overview":
-      return <OverviewIcon />;
-    case "orders":
+    case "trade":
       return <OrdersIcon />;
+    case "board":
+      return <ActivityIcon />;
     case "store":
       return <StoreIcon />;
     case "account":
       return <SettingsIcon />;
-    case "activity":
-      return <ActivityIcon />;
   }
 }
 
@@ -716,14 +761,6 @@ function UserGlyph() {
     <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function OverviewIcon() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" />
     </svg>
   );
 }

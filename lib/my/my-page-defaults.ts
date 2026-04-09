@@ -13,9 +13,8 @@ export const DEFAULT_MY_SERVICES: MyServiceRow[] = [
 ];
 
 export const DEFAULT_MY_SECTIONS: MyPageSectionRow[] = [
-  { section_key: "overview", title: "요약", is_active: true, sort_order: 0 },
-  { section_key: "orders", title: "주문/거래", is_active: true, sort_order: 1 },
-  { section_key: "store", title: "매장", is_active: true, sort_order: 2 },
-  { section_key: "account", title: "계정/설정", is_active: true, sort_order: 3 },
-  { section_key: "activity", title: "내 활동", is_active: true, sort_order: 4 },
+  { section_key: "trade", title: "거래", is_active: true, sort_order: 0 },
+  { section_key: "board", title: "게시판", is_active: true, sort_order: 1 },
+  { section_key: "store", title: "매장·주문", is_active: true, sort_order: 2 },
+  { section_key: "account", title: "개인 설정", is_active: true, sort_order: 3 },
 ];

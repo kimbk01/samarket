@@ -4,7 +4,6 @@ import { getAllowedAdminEmails } from "@/lib/auth/admin-policy";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
-import { getBusinessProfileByOwnerUserId } from "@/lib/business/mock-business-profiles";
 import { getTrustSummary } from "@/lib/reviews/trust-utils";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
 import type { MyPageData, MyPageBannerRow, MyServiceRow, MyPageSectionRow } from "./types";
@@ -67,8 +66,7 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
   const mannerScore = profile
     ? resolveProfileTrustScore(profile as unknown as Record<string, unknown>)
     : (trustSummary?.mannerScore ?? 50);
-  const businessProfile = getBusinessProfileByOwnerUserId(uid);
-  const isBusinessMember = businessProfile?.status === "active";
+  const isBusinessMember = hasOwnerStore;
   const isAdmin = isAdminEmailForServer(profile?.email ?? null);
 
   return {

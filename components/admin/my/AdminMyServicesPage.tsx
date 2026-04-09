@@ -8,13 +8,33 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 export function AdminMyServicesPage() {
   const [items, setItems] = useState<MyServiceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
-    if (supabase) {
-      // TODO: supabase.from('my_services').select('*').order('sort_order').then(({ data }) => setItems(data ?? []))
-    }
-    setLoading(false);
+    let cancelled = false;
+    void (async () => {
+      if (!supabase) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("my_services")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        setError(error.message);
+        setItems([]);
+      } else {
+        setError(null);
+        setItems((data ?? []) as MyServiceRow[]);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -30,9 +50,11 @@ export function AdminMyServicesPage() {
       </div>
       {loading ? (
         <p className="text-gray-500">불러오는 중…</p>
+      ) : error ? (
+        <p className="rounded-lg bg-red-50 p-4 text-[14px] text-red-700">{error}</p>
       ) : items.length === 0 ? (
         <p className="rounded-lg bg-white p-4 text-[14px] text-gray-500">
-          등록된 서비스가 없습니다. Supabase my_services 연동 후 목록이 표시됩니다.
+          등록된 서비스가 없습니다.
         </p>
       ) : (
         <ul className="space-y-2">

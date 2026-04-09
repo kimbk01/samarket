@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getUserSettings, updateUserSettings, LANGUAGE_NAMES } from "@/lib/settings/user-settings-store";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  getUserSettings,
+  LANGUAGE_NAMES,
+  subscribeUserSettings,
+  syncUserSettings,
+  updateUserSettings,
+} from "@/lib/settings/user-settings-store";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import { normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 
@@ -22,9 +29,37 @@ export function LanguageSettingsContent() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const s = getUserSettings(userId);
-    setCurrent(normalizeAppLanguage(s.preferred_language ?? language));
-    setList(FALLBACK_LANGS);
+    let cancelled = false;
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      void supabase
+        .from("app_supported_languages")
+        .select("code,name")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .then(({ data }) => {
+          if (!cancelled && Array.isArray(data) && data.length > 0) {
+            setList(data as typeof FALLBACK_LANGS);
+          } else {
+            setList(FALLBACK_LANGS);
+          }
+        });
+    } else {
+      setList(FALLBACK_LANGS);
+    }
+    const applyCurrent = () => {
+      const s = getUserSettings(userId);
+      setCurrent(normalizeAppLanguage(s.preferred_language ?? language));
+    };
+    applyCurrent();
+    void syncUserSettings(userId).then(() => applyCurrent());
+    const unsubscribe = subscribeUserSettings(({ userId: changedUserId }) => {
+      if (changedUserId === userId) applyCurrent();
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [language, userId]);
 
   const select = useCallback(

@@ -4,10 +4,10 @@ import { useState } from "react";
 
 interface AdminAuditJsonViewerProps {
   label: string;
-  data: string | Record<string, unknown> | undefined;
+  data: unknown;
 }
 
-function formatJson(data: string | Record<string, unknown> | undefined): string {
+function formatJson(data: unknown): string {
   if (data === undefined || data === null) return "-";
   if (typeof data === "string") return data;
   try {
