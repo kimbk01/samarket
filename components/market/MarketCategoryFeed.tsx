@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getChildCategories } from "@/lib/categories/getChildCategories";
+import { getHomeChipCategories } from "@/lib/categories/getHomeChipCategories";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { TradeTopicChipsRow } from "@/components/home/TradeTopicChipsRow";
 import { PostListByCategory } from "@/components/post/PostListByCategory";
@@ -32,6 +33,16 @@ function parseJobListingKindParam(raw: string | null): JobListingKindTab {
   return t === "work" ? "work" : "hire";
 }
 
+/**
+ * `/market/trade` 등 **슬러그 trade** 루트 카테고리 — DB에서 하위가 비어 있어도
+ * 홈 상단 칩과 동일하게 `parent_id IS NULL` 거래 세그먼트(중고·부동산·알바…)를 쓴다.
+ * (운영에서 세그먼트가 trade 의 자식이 아니라 **형제 루트**로만 잡혀 있을 때 주제 칩·OR 필터가 비는 문제 방지)
+ */
+function shouldFillTopicsFromHomeChips(c: CategoryWithSettings): boolean {
+  if (c.parent_id != null) return false;
+  return (c.slug?.trim().toLowerCase() ?? "") === "trade";
+}
+
 export function MarketCategoryFeed({ category }: { category: CategoryWithSettings }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -44,13 +55,20 @@ export function MarketCategoryFeed({ category }: { category: CategoryWithSetting
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const list = await getChildCategories(category.id);
+      let list = await getChildCategories(category.id);
+      if (
+        list.length === 0 &&
+        shouldFillTopicsFromHomeChips(category)
+      ) {
+        const home = await getHomeChipCategories();
+        list = home.filter((row) => row.id !== category.id);
+      }
       if (!cancelled) setChildren(list);
     })();
     return () => {
       cancelled = true;
     };
-  }, [category.id]);
+  }, [category.id, category.parent_id, category.slug]);
 
   const topicChild = useMemo(() => {
     if (!topicRaw) return null;
