@@ -1,5 +1,8 @@
+/** 내정보 **홈** (`/mypage`) — 취소·레거시 시트 등에서 사용 */
+export const MYPAGE_MAIN_HREF = "/mypage" as const;
+
 /**
- * 내정보 헤더 톱니바퀴 목적지 — 계층형 설정 목록(`/mypage/section/settings`).
+ * 전역 1단 헤더 우측 **톱니** 및 계정·설정 “앱 설정 허브” 진입 — 설정 대메뉴 목록.
  * 예전 `?sheet=info` URL은 호환용으로만 유지합니다.
  */
 export const MYPAGE_INFO_HUB_SHEET_PARAM = "sheet";

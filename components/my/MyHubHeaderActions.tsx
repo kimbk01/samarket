@@ -10,7 +10,8 @@ type Props = {
 };
 
 /**
- * 내정보 계열 헤더 우측: 알림 + 설정(톱니) — `/mypage` 홈·하위 섹션 동일 동작.
+ * 전역 1단 헤더 우측: 알림 + 톱니.
+ * 톱니는 설정 허브(`/mypage/section/settings`)로 연결.
  */
 export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
   return (
@@ -49,7 +50,7 @@ function MyHubHeaderActionsInner({ notificationUnreadCount }: Props) {
       <Link
         href={buildMypageInfoHubHref()}
         className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-        aria-label={t("hub_settings_aria")}
+        aria-label={t("nav_bottom_my")}
       >
         <SettingsIcon />
       </Link>
@@ -86,7 +87,7 @@ function MyHubHeaderActionsFallback({ notificationUnreadCount }: Props) {
       <Link
         href={buildMypageInfoHubHref()}
         className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-        aria-label={t("hub_settings_aria")}
+        aria-label={t("nav_bottom_my")}
       >
         <SettingsIcon />
       </Link>

@@ -14,7 +14,7 @@ import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import {
   MYPAGE_INFO_HUB_SHEET_PARAM,
   MYPAGE_INFO_HUB_SHEET_VALUE,
-  buildMypageInfoHubHref,
+  MYPAGE_MAIN_HREF,
 } from "@/lib/my/mypage-info-hub";
 
 export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
@@ -28,7 +28,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   useEffect(() => {
     if (!infoHubOpen) return;
-    router.replace(buildMypageInfoHubHref());
+    router.replace(MYPAGE_MAIN_HREF);
   }, [infoHubOpen, router]);
 
   /** 레거시 `?tab=&section=` → 계층형 경로 */

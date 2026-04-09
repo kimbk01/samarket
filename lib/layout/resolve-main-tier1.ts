@@ -283,6 +283,11 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "앱·계정 설정", showHubQuickActions: true });
   }
 
+  /** `/mypage/section/...` — `MainTier1Extras`로 섹션 제목 덮어쓰기 전 RegionBar 기본값 */
+  if (starts(p, "/mypage/section/")) {
+    return backMypage({ titleText: "내정보", showHubQuickActions: true });
+  }
+
   if (p === "/products/new" || starts(p, "/products/new/")) {
     return backHome({ titleText: "상품 등록", showHubQuickActions: true });
   }

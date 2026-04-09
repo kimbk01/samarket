@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
+import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 
 export function LeaveContent() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -56,7 +56,7 @@ export function LeaveContent() {
       {step === 1 ? (
         <div className="flex gap-2">
           <Link
-            href={buildMypageInfoHubHref()}
+            href={MYPAGE_MAIN_HREF}
             className="rounded-lg border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700"
           >
             취소
