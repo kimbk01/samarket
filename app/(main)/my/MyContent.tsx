@@ -351,13 +351,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
               storeAttentionSummary={storeAttentionSummary}
               services={services}
             />
-            <MypageInfoHubSheet
-              open={infoHubOpen}
-              onClose={closeInfoHub}
-              profile={profile}
-              mannerScore={mannerScore}
-              notificationBadge={notificationBadge}
-            />
+            <MypageInfoHubSheet open={infoHubOpen} onClose={closeInfoHub} />
           </>
         ) : (
           <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)] sm:mx-0">

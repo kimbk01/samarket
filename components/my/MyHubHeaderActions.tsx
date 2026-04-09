@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 type Props = {
@@ -10,13 +11,13 @@ type Props = {
 };
 
 /**
- * 내정보 허브(`/mypage`)에서는 상단 톱니를 두지 않음 — 계정 탭·「내 정보·앱 설정」행으로 통합.
+ * 내정보 허브(`/mypage`)에서는 상단 톱니를 두지 않음 — 계정 탭·「앱·서비스 설정」행으로 통합.
  * 다른 화면에서는 기존처럼 시트 진입용 톱니 유지.
  */
 export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
   const pathname = usePathname();
   const { t } = useI18n();
-  const hideSettingsGear = pathname === "/mypage";
+  const hideSettingsGear = normalizeAppPathnameForTier1(pathname) === "/mypage";
   const showBadge = notificationUnreadCount != null && notificationUnreadCount > 0;
   const badgeText =
     notificationUnreadCount != null && notificationUnreadCount > 99

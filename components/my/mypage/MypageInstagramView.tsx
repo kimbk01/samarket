@@ -230,11 +230,11 @@ export function MypageInstagramView({
       subtitle: serviceDescription(service),
     }));
 
-  /** 계정 탭: 상단 프로필(1번)에 이미 프로필 편집·주소 관리가 있으므로 목록에서 중복 제거. 앱 설정은 톱니 대신 이 탭의 「내 정보·앱 설정」으로 통합. */
+  /** 계정 탭: 상단 프로필에 편집·주소가 있음. 앱 옵션 시트는 계정 탭 첫 줄로만 진입(헤더 톱니 없음). */
   const accountRows: MenuRow[] = [
     {
       href: buildMypageInfoHubHref(),
-      title: "내 정보 · 앱 설정",
+      title: "앱 · 서비스 설정",
       subtitle: "언어·국가·차단·캐시·공지·버전",
     },
     { href: "/mypage/account", title: "계정 상세", subtitle: "프로필·연락처·인증" },
