@@ -9,7 +9,7 @@ import { AddressDefaultsSummary } from "@/components/addresses/AddressDefaultsSu
 import { AddressRowCard } from "@/components/addresses/AddressRowCard";
 import { AddressEditorSheet } from "@/components/addresses/AddressEditorSheet";
 
-export function AddressManagementClient() {
+export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
   const [list, setList] = useState<UserAddressDTO[]>([]);
   const [defaults, setDefaults] = useState<UserAddressDefaultsDTO | null>(null);
@@ -92,14 +92,18 @@ export function AddressManagementClient() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <MySubpageHeader
-        title={tt("주소 관리")}
-        subtitle={tt("생활·거래·배달 기본 주소")}
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div className="mx-auto max-w-lg space-y-5 px-4 py-4 pb-28 md:max-w-3xl">
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded ? (
+        <MySubpageHeader
+          title={tt("주소 관리")}
+          subtitle={tt("생활·거래·배달 기본 주소")}
+          backHref="/mypage"
+          hideCtaStrip
+        />
+      ) : null}
+      <div
+        className={`mx-auto space-y-5 px-0 py-0 ${embedded ? "max-w-none pb-0" : "max-w-lg px-4 py-4 pb-28 md:max-w-3xl"}`}
+      >
         <p className="text-[13px] leading-relaxed text-gray-600">
           {tt("생활·동네, 중고거래, 배달에 쓰는 주소를 한곳에서 관리해요. 대표 주소와 용도별 기본값을 각각 지정할 수 있어요.")}
         </p>

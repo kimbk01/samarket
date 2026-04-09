@@ -4,18 +4,35 @@ import Link from "next/link";
 import { useState } from "react";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
-/**
- * 2단계 확인 UI.
- * 실제 즉시 삭제 대신 withdrawal_requested_at 요청형 구조로 설계.
- * auth.users 직접 삭제하지 않음.
- */
 export function LeaveContent() {
   const [step, setStep] = useState<1 | 2>(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleConfirm = () => {
-    // TODO: Supabase에 withdrawal_requested_at 저장 또는 별도 탈퇴 요청 테이블에 insert.
-    // 이후 관리자 승인 또는 이메일 확인 후 계정 비활성화.
-    alert("탈퇴 요청이 접수되었습니다. 처리 후 안내드리겠습니다.");
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/me/leave-request", {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        requestedAt?: string;
+      };
+      if (!res.ok || !json.ok) {
+        setError(typeof json.error === "string" ? json.error : "탈퇴 요청을 접수하지 못했습니다.");
+        return;
+      }
+      setSubmittedAt(typeof json.requestedAt === "string" ? json.requestedAt : new Date().toISOString());
+    } catch {
+      setError("탈퇴 요청을 접수하지 못했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -23,6 +40,19 @@ export function LeaveContent() {
       <p className="text-[14px] text-gray-600">
         탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.
       </p>
+      {submittedAt ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-[14px] font-medium text-emerald-800">탈퇴 요청이 접수되었습니다.</p>
+          <p className="mt-1 text-[13px] text-emerald-700">
+            접수 시간: {new Date(submittedAt).toLocaleString("ko-KR")}
+          </p>
+        </div>
+      ) : null}
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-[13px] text-red-600">
+          {error}
+        </div>
+      ) : null}
       {step === 1 ? (
         <div className="flex gap-2">
           <Link
@@ -33,6 +63,7 @@ export function LeaveContent() {
           </Link>
           <button
             type="button"
+            disabled={submitting || submittedAt != null}
             onClick={() => setStep(2)}
             className="rounded-lg bg-red-500 px-4 py-2 text-[14px] font-medium text-white"
           >
@@ -45,6 +76,7 @@ export function LeaveContent() {
           <div className="mt-3 flex gap-2">
             <button
               type="button"
+              disabled={submitting}
               onClick={() => setStep(1)}
               className="rounded border border-gray-300 px-3 py-1.5 text-[14px] text-gray-700"
             >
@@ -52,10 +84,11 @@ export function LeaveContent() {
             </button>
             <button
               type="button"
+              disabled={submitting || submittedAt != null}
               onClick={handleConfirm}
               className="rounded bg-red-500 px-3 py-1.5 text-[14px] font-medium text-white"
             >
-              탈퇴 요청
+              {submitting ? "요청 중" : "탈퇴 요청"}
             </button>
           </div>
         </div>

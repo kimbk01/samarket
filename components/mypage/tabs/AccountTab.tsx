@@ -1,0 +1,182 @@
+import Link from "next/link";
+import { UserListContent } from "@/components/my/settings/UserListContent";
+import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
+import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
+import type { MyPageConsoleProps } from "@/components/mypage/types";
+import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
+import { buildMyPageHref } from "@/components/mypage/mypage-nav";
+
+type Props = Pick<
+  MyPageConsoleProps,
+  | "profile"
+  | "mannerScore"
+  | "favoriteBadge"
+  | "notificationBadge"
+  | "overviewCounts"
+  | "storeAttentionSummary"
+>;
+
+export function AccountTab({
+  section,
+  profile,
+  mannerScore,
+  favoriteBadge,
+  notificationBadge,
+  overviewCounts,
+  storeAttentionSummary,
+}: Props & { section: string }) {
+  if (section === "profile") {
+    return (
+      <div className="space-y-4">
+        <MyPageSectionHeader
+          title="프로필"
+          description="닉네임, 프로필 사진, 기본 소개와 지역 정보를 확인하고 수정합니다."
+        />
+        <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+          <div className="space-y-2">
+            <p className="text-[14px] font-semibold text-gray-900">
+              {profile.nickname?.trim() || "닉네임 없음"}
+            </p>
+            <p className="text-[12px] text-gray-500">{profile.email ?? "이메일 정보 없음"}</p>
+            <p className="text-[12px] text-gray-500">
+              연락처 {profile.phone?.trim() || "미등록"} · {profile.phone_verified ? "인증 완료" : "인증 필요"}
+            </p>
+            <div className="pt-1">
+              <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
+            </div>
+          </div>
+        </div>
+        <MyPageQuickActions
+          items={[
+            { label: "프로필 수정", href: "/mypage/edit", caption: "사진, 닉네임, 소개" },
+            { label: "계정 기본정보", href: "/mypage/account", caption: "계정 상세와 연락처" },
+            {
+              label: "주소 관리",
+              href: buildMyPageHref("settings", "address"),
+              caption: "거래 / 생활 / 배달 주소",
+            },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  if (section === "basic") {
+    return (
+      <div className="space-y-4">
+        <MyPageSectionHeader
+          title="계정 기본정보"
+          description="계정 상세, 연락처 인증, 로그아웃과 탈퇴 같은 계정 단위 작업을 관리합니다."
+        />
+        <MyPageQuickActions
+          items={[
+            { label: "계정 상세", href: "/mypage/account", caption: "내 계정 정보 확인" },
+            { label: "프로필 수정", href: "/mypage/edit", caption: "기본 프로필 편집" },
+            {
+              label: "로그아웃",
+              href: buildMyPageHref("settings", "system"),
+              caption: "설정 > 시스템에서 처리",
+            },
+            {
+              label: "탈퇴하기",
+              href: buildMyPageHref("settings", "system"),
+              caption: "설정 > 시스템에서 처리",
+            },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  if (section === "favorite-users") {
+    return (
+      <div className="space-y-4">
+        <MyPageSectionHeader
+          title="친구 / 관심 사용자"
+          description="모아보는 사용자를 관리합니다. 거래, 커뮤니티, 메신저에서 공통으로 참조되는 사용자 목록입니다."
+        />
+        <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+          <UserListContent type="favorite" emptyMessage="모아보는 사용자가 없습니다." />
+        </div>
+      </div>
+    );
+  }
+
+  if (section === "blocked-users") {
+    return (
+      <div className="space-y-4">
+        <MyPageSectionHeader
+          title="차단 사용자"
+          description="차단된 사용자는 거래, 커뮤니티, 메신저에서 공통으로 제한됩니다."
+        />
+        <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+          <UserListContent type="blocked" emptyMessage="차단한 사용자가 없습니다." />
+        </div>
+      </div>
+    );
+  }
+
+  if (section === "hidden-users") {
+    return (
+      <div className="space-y-4">
+        <MyPageSectionHeader
+          title="숨긴 사용자"
+          description="숨김 처리한 사용자는 피드와 일부 목록 노출에서 제외됩니다."
+        />
+        <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+          <UserListContent type="hidden" emptyMessage="숨긴 사용자가 없습니다." />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <MyPageSectionHeader
+        title="내정보 홈"
+        description="내 계정 상태와 자주 쓰는 관리 항목을 한 곳에서 바로 확인합니다."
+      />
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryBox label="진행중 거래" value={String((overviewCounts.purchases ?? 0) + (overviewCounts.sales ?? 0))} />
+        <SummaryBox label="미확인 알림" value={notificationBadge ?? "0"} />
+        <SummaryBox label="최근 주문 상태" value={storeAttentionSummary ?? "확인"} />
+        <SummaryBox label="관심 사용자" value={favoriteBadge ?? "0"} />
+      </div>
+      <MyPageQuickActions
+        items={[
+          { label: "주소 관리", href: buildMyPageHref("settings", "address"), caption: "대표 / 거래 / 배달 주소" },
+          { label: "판매 내역", href: buildMyPageHref("trade", "sales"), caption: "거래 관리 바로가기" },
+          { label: "주문 내역", href: buildMyPageHref("store", "orders"), caption: "주문과 배송 상태 확인" },
+          { label: "1:1 채팅", href: buildMyPageHref("messenger", "dm"), caption: "메신저 / 거래 / 주문 채팅" },
+          {
+            label: "언어 / 지역 설정",
+            href: buildMyPageHref("settings", "region-language"),
+            caption: "국가, 언어, 지역 공통 설정",
+          },
+        ]}
+      />
+      <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">프로필 요약</p>
+            <p className="mt-1 text-[12px] text-gray-500">
+              {profile.nickname?.trim() || "닉네임 없음"} · {profile.email ?? "이메일 없음"}
+            </p>
+          </div>
+          <Link href="/mypage/edit" className="text-[12px] font-medium text-blue-600">
+            수정
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[4px] border border-gray-200 bg-white px-3 py-3">
+      <p className="text-[11px] text-gray-500">{label}</p>
+      <p className="mt-1 text-[14px] font-semibold text-gray-900">{value}</p>
+    </div>
+  );
+}

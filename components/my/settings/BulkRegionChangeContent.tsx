@@ -2,42 +2,71 @@
 
 import { useState } from "react";
 
-/**
- * 사용자의 판매중 상품 목록 지역을 새 지역으로 일괄 업데이트.
- * TODO: products 테이블 구조 확정 후 연동. 현재는 확인 모달 + 시그니처만.
- */
 export function BulkRegionChangeContent() {
   const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleSubmit = () => {
+    setError(null);
+    setSuccess(null);
     setConfirming(true);
   };
 
-  const handleConfirm = () => {
-    // TODO: fetch user's selling products, batch update region_id. Supabase 연동.
-    setConfirming(false);
-    alert("준비 중입니다. products 테이블 연동 후 동작합니다.");
+  const handleConfirm = async () => {
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/me/posts/bulk-region", {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        updatedCount?: number;
+        location?: { label?: string | null; source?: string | null };
+      };
+      if (!res.ok || !json.ok) {
+        setError(typeof json.error === "string" ? json.error : "동네를 일괄 변경하지 못했습니다.");
+        return;
+      }
+      const label = typeof json.location?.label === "string" ? json.location.label : "선택한 기본 동네";
+      const count = Number.isFinite(json.updatedCount) ? Number(json.updatedCount) : 0;
+      setSuccess(`${label} 기준으로 판매 글 ${count}건의 동네를 변경했습니다.`);
+      setConfirming(false);
+    } catch {
+      setError("동네를 일괄 변경하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="space-y-4">
       <p className="text-[14px] text-gray-600">
-        등록한 판매 글의 동네를 한 번에 변경합니다.
+        거래 기본 주소를 우선 사용하고, 없으면 현재 프로필 지역을 기준으로 등록한 판매 글의 동네를 한 번에 변경합니다.
       </p>
+      {success ? <div className="rounded-lg bg-emerald-50 px-4 py-3 text-[13px] text-emerald-700">{success}</div> : null}
+      {error ? <div className="rounded-lg bg-red-50 px-4 py-3 text-[13px] text-red-600">{error}</div> : null}
       {!confirming ? (
         <button
           type="button"
           onClick={handleSubmit}
+          disabled={busy}
           className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white"
         >
-          동네 일괄 변경
+          {busy ? "변경 중" : "동네 일괄 변경"}
         </button>
       ) : (
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <p className="text-[14px] text-gray-700">정말 일괄 변경하시겠습니까?</p>
+          <p className="text-[14px] text-gray-700">정말 현재 기본 지역 기준으로 판매 글 동네를 일괄 변경하시겠습니까?</p>
           <div className="mt-3 flex gap-2">
             <button
               type="button"
+              disabled={busy}
               onClick={() => setConfirming(false)}
               className="rounded border border-gray-300 px-3 py-1.5 text-[14px] text-gray-700"
             >
@@ -45,10 +74,11 @@ export function BulkRegionChangeContent() {
             </button>
             <button
               type="button"
+              disabled={busy}
               onClick={handleConfirm}
               className="rounded bg-signature px-3 py-1.5 text-[14px] font-medium text-white"
             >
-              확인
+              {busy ? "적용 중" : "확인"}
             </button>
           </div>
         </div>

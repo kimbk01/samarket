@@ -8,7 +8,7 @@ import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyTopBanner } from "@/components/my/MyTopBanner";
-import { MypageInstagramView } from "@/components/my/mypage/MypageInstagramView";
+import { MyPageConsole } from "@/components/mypage/MyPageConsole";
 import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
 import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
@@ -309,17 +309,8 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     );
   }
 
-  const {
-    profile,
-    banner,
-    bannerHidden,
-    services,
-    sections,
-    mannerScore,
-    isBusinessMember,
-    isAdmin,
-    hasOwnerStore,
-  } = data;
+  const { profile, banner, bannerHidden, mannerScore, isBusinessMember, isAdmin, hasOwnerStore } =
+    data;
   const showBanner = banner && !bannerHidden;
 
   const favoriteBadge =
@@ -349,14 +340,12 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
         {profile ? (
           <>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <MypageInstagramView
+              <MyPageConsole
                 profile={profile}
                 mannerScore={mannerScore}
                 isBusinessMember={isBusinessMember}
                 hasOwnerStore={hasOwnerStore}
                 ownerHubStoreId={ownerHubStoreId}
-                ownerStoreGate={ownerStoreGate}
-                ownerStoreGateFirstId={ownerStoreGateFirstId}
                 isAdmin={isAdmin}
                 addressDefaults={addressDefaults}
                 neighborhoodFromLife={neighborhoodFromLife}
@@ -364,8 +353,6 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
                 favoriteBadge={favoriteBadge}
                 notificationBadge={notificationBadge}
                 storeAttentionSummary={storeAttentionSummary}
-                services={services}
-                sections={sections}
               />
             </div>
           </>

@@ -321,9 +321,9 @@ export function TradeReviewsManagementView({
 
       {tab === "hidden_review" ? (
         <div className="rounded-xl border border-gray-100 bg-white px-4 py-8 text-center">
-          <p className="text-[14px] text-gray-600">후기 숨김 기능은 준비 중이에요.</p>
+          <p className="text-[14px] text-gray-600">현재 사용자 화면에 표시할 숨김 후기 내역이 없습니다.</p>
           <p className="mt-2 text-[12px] text-gray-500">
-            서비스에서 후기 가리기가 지원되면 이 탭에서 모아 볼 수 있도록 연결할 예정이에요.
+            후기 노출 제어가 발생한 경우 이 영역에서 상태를 함께 확인할 수 있도록 유지됩니다.
           </p>
         </div>
       ) : null}
