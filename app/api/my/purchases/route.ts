@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
   const countOnly = req.nextUrl.searchParams.get("count_only") === "1";
+  const limitRaw = Number(req.nextUrl.searchParams.get("limit") ?? "");
+  const previewLimit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 20) : null;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
@@ -42,6 +44,10 @@ export async function GET(req: NextRequest) {
 
   if (rows.length === 0) {
     return NextResponse.json({ items: [] });
+  }
+
+  if (previewLimit != null && rows.length > previewLimit) {
+    rows = rows.slice(0, previewLimit);
   }
 
   const roomIds = rows.map((r) => String(r.id));

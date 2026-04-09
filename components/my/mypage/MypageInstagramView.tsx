@@ -2,23 +2,51 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { philifeAppPaths } from "@domain/philife/paths";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsContent";
+import { CountrySettingsContent } from "@/components/my/settings/CountrySettingsContent";
+import { LanguageSettingsContent } from "@/components/my/settings/LanguageSettingsContent";
+import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
+import { PersonalizationContent } from "@/components/my/settings/PersonalizationContent";
+import { SettingsMainContent } from "@/components/my/settings/SettingsMainContent";
+import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
+import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
+import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
+import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
+import type { MyPageSectionRow, MyServiceRow } from "@/lib/my/types";
 import type { ProfileRow } from "@/lib/profile/types";
 import {
   isProfileLocationComplete,
   resolveProfileLocationAddressLines,
 } from "@/lib/profile/profile-location";
-import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
-import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
-import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
-import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
-import type { MyPageSectionRow, MyServiceRow } from "@/lib/my/types";
+import {
+  COUNTRY_NAMES,
+  getUserSettings,
+  LANGUAGE_NAMES,
+  subscribeUserSettings,
+  syncUserSettings,
+  VIDEO_AUTOPLAY_LABELS,
+} from "@/lib/settings/user-settings-store";
+import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
+import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
-import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
-import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
+import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
+import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
+import type { UserSettingsRow } from "@/lib/types/settings-db";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 type MypageSectionId = "trade" | "board" | "store" | "account";
+type SettingsSheetKind =
+  | "notifications"
+  | "language"
+  | "country"
+  | "chat"
+  | "autoplay"
+  | "personalization"
+  | "app";
+
 const SECTION_STORAGE_KEY = "samarket:mypage:info-section";
 
 type OverviewCounts = {
@@ -27,19 +55,63 @@ type OverviewCounts = {
   storeAttention: number | null;
 };
 
+type TradePurchasePreview = {
+  chatId: string;
+  title: string;
+  price: number;
+  sellerNickname: string;
+  tradeFlowStatus?: string;
+  lastMessageAt: string | null;
+  hasBuyerReview: boolean;
+};
+
+type TradeSalePreview = {
+  chatId: string;
+  postId: string;
+  title: string;
+  price: number;
+  buyerNickname: string;
+  tradeFlowStatus?: string;
+  lastMessageAt: string | null;
+  noActiveChat?: boolean;
+};
+
+type StoreOrderPreview = {
+  id: string;
+  order_no: string;
+  store_name: string;
+  payment_amount: number;
+  order_status: string;
+  created_at: string;
+  order_chat_unread_count?: number;
+};
+
+type TradePreviewState = {
+  status: "idle" | "loading" | "ready" | "error";
+  purchases: TradePurchasePreview[];
+  sales: TradeSalePreview[];
+};
+
+type StorePreviewState = {
+  status: "idle" | "loading" | "ready" | "error";
+  orders: StoreOrderPreview[];
+};
+
+type BoardPreviewState = {
+  status: "idle" | "loading" | "ready" | "error";
+  posts: CommunityFeedPostDTO[];
+};
+
 export type MypageInstagramViewProps = {
   profile: ProfileRow;
   mannerScore: number;
   isBusinessMember: boolean;
   hasOwnerStore: boolean;
-  /** 있으면 매장 운영 링크에 `storeId` 반영 (내정보에서 매장 목록과 동일 우선순위) */
   ownerHubStoreId?: string | null;
-  /** 오너 매장 게이트(심사 중 등) — 승인 전이면 매장 허브 진입은 모달 */
   ownerStoreGate?: OwnerStoreGateState | null;
   ownerStoreGateFirstId?: string | null;
   isAdmin: boolean;
   addressDefaults: AddressDefaultsFlags;
-  /** 주소록 기본 생활지 기준 동네 요약 — 프로필과 불일치 시에도 표시·완료 판정에 사용 */
   neighborhoodFromLife: LifeDefaultLocationSummary | null;
   overviewCounts: OverviewCounts;
   favoriteBadge: string | null;
@@ -47,14 +119,6 @@ export type MypageInstagramViewProps = {
   storeAttentionSummary: string | null;
   services: MyServiceRow[];
   sections: MyPageSectionRow[];
-};
-
-type MenuRow = {
-  href: string;
-  title: string;
-  subtitle?: string;
-  badge?: string | null;
-  eyebrow?: string;
 };
 
 export function MypageInstagramView({
@@ -72,11 +136,28 @@ export function MypageInstagramView({
   favoriteBadge,
   notificationBadge,
   storeAttentionSummary,
-  services,
   sections,
 }: MypageInstagramViewProps) {
   const [activeSection, setActiveSection] = useState<MypageSectionId>("trade");
+  const [settingsSheet, setSettingsSheet] = useState<SettingsSheetKind | null>(null);
   const [bizBlockedOpen, setBizBlockedOpen] = useState(false);
+  const [tradePreview, setTradePreview] = useState<TradePreviewState>({
+    status: "idle",
+    purchases: [],
+    sales: [],
+  });
+  const [storePreview, setStorePreview] = useState<StorePreviewState>({
+    status: "idle",
+    orders: [],
+  });
+  const [boardPreview, setBoardPreview] = useState<BoardPreviewState>({
+    status: "idle",
+    posts: [],
+  });
+  const userId = profile.id?.trim() ?? "";
+  const [userSettings, setUserSettings] = useState<Partial<UserSettingsRow>>(() =>
+    userId ? getUserSettings(userId) : {}
+  );
 
   const needsBizEntryModal =
     hasOwnerStore && ownerStoreGate != null && ownerStoreGate.kind !== "approved";
@@ -86,18 +167,23 @@ export function MypageInstagramView({
     if (typeof window === "undefined") return;
     try {
       const raw = window.sessionStorage.getItem(SECTION_STORAGE_KEY);
-      if (
-        raw === "trade" ||
-        raw === "board" ||
-        raw === "store" ||
-        raw === "account"
-      ) {
+      if (raw === "trade" || raw === "board" || raw === "store" || raw === "account") {
         setActiveSection(raw);
       }
     } catch {
       /* ignore */
     }
   }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    const apply = () => setUserSettings(getUserSettings(userId));
+    apply();
+    void syncUserSettings(userId).then(() => apply());
+    return subscribeUserSettings(({ userId: changedUserId }) => {
+      if (changedUserId === userId) apply();
+    });
+  }, [userId]);
 
   const persistSection = useCallback((id: MypageSectionId) => {
     setActiveSection(id);
@@ -109,6 +195,84 @@ export function MypageInstagramView({
       /* ignore */
     }
   }, []);
+
+  const loadTradePreview = useCallback(async () => {
+    setTradePreview((prev) => ({ ...prev, status: "loading" }));
+    try {
+      const [purchasesRes, salesRes] = await Promise.all([
+        fetch("/api/my/purchases?limit=3", { credentials: "include", cache: "no-store" }),
+        fetch("/api/my/sales?limit=3", { credentials: "include", cache: "no-store" }),
+      ]);
+      if (!purchasesRes.ok || !salesRes.ok) throw new Error("trade_preview_failed");
+      const purchasesJson = (await purchasesRes.json()) as { items?: TradePurchasePreview[] };
+      const salesJson = (await salesRes.json()) as { items?: TradeSalePreview[] };
+      setTradePreview({
+        status: "ready",
+        purchases: Array.isArray(purchasesJson.items) ? purchasesJson.items : [],
+        sales: Array.isArray(salesJson.items) ? salesJson.items : [],
+      });
+    } catch {
+      setTradePreview({ status: "error", purchases: [], sales: [] });
+    }
+  }, []);
+
+  const loadStorePreview = useCallback(async () => {
+    setStorePreview((prev) => ({ ...prev, status: "loading" }));
+    try {
+      const res = await fetch("/api/me/store-orders?limit=3", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("store_preview_failed");
+      const json = (await res.json()) as { ok?: boolean; orders?: StoreOrderPreview[] };
+      if (!json.ok) throw new Error("store_preview_failed");
+      setStorePreview({
+        status: "ready",
+        orders: Array.isArray(json.orders) ? json.orders : [],
+      });
+    } catch {
+      setStorePreview({ status: "error", orders: [] });
+    }
+  }, []);
+
+  const loadBoardPreview = useCallback(async () => {
+    setBoardPreview((prev) => ({ ...prev, status: "loading" }));
+    try {
+      const res = await fetch("/api/me/community-posts?limit=3", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("board_preview_failed");
+      const json = (await res.json()) as { ok?: boolean; posts?: CommunityFeedPostDTO[] };
+      if (!json.ok) throw new Error("board_preview_failed");
+      setBoardPreview({
+        status: "ready",
+        posts: Array.isArray(json.posts) ? json.posts : [],
+      });
+    } catch {
+      setBoardPreview({ status: "error", posts: [] });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === "trade" && tradePreview.status === "idle") {
+      void loadTradePreview();
+    }
+    if (activeSection === "store" && storePreview.status === "idle") {
+      void loadStorePreview();
+    }
+    if (activeSection === "board" && boardPreview.status === "idle") {
+      void loadBoardPreview();
+    }
+  }, [
+    activeSection,
+    boardPreview.status,
+    loadBoardPreview,
+    loadStorePreview,
+    loadTradePreview,
+    storePreview.status,
+    tradePreview.status,
+  ]);
 
   const displayName = profile.nickname?.trim() || "닉네임 없음";
   const handle =
@@ -130,12 +294,22 @@ export function MypageInstagramView({
     }
     if (profileLocationLines.length > 0) return profileLocationLines.join("\n");
     const lf = neighborhoodFromLife?.label?.trim() ?? "";
-    if (lf) return `${lf} · 동네를 마저 선택해 주세요`;
+    if (lf) return `${lf} · 설정 필요`;
     return "동네 미설정";
   })();
   const pointsLabel = `${Math.max(0, Math.floor(Number(profile.points) || 0)).toLocaleString()}P`;
-  const accountHref = "/mypage/account";
+  const tradeTotal =
+    overviewCounts.purchases != null || overviewCounts.sales != null
+      ? String((overviewCounts.purchases ?? 0) + (overviewCounts.sales ?? 0))
+      : "–";
+  const storeStatLabel =
+    hasOwnerStore && overviewCounts.storeAttention != null && overviewCounts.storeAttention > 0
+      ? String(overviewCounts.storeAttention)
+      : hasOwnerStore
+        ? "ON"
+        : "–";
   const editHref = "/mypage/edit";
+  const accountHref = "/mypage/account";
   const addressesHref = "/mypage/addresses";
   const storeOrdersHref = "/mypage/store-orders";
   const businessHubHref = ownerHubStoreId?.trim()
@@ -145,285 +319,28 @@ export function MypageInstagramView({
     ? `/mypage/business/orders?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
     : "/mypage/business/orders";
   const businessApplyHref = "/mypage/business/apply";
+  const statusPills = [
+    isBusinessMember ? "비즈 회원" : null,
+    hasRegion ? "지역 완료" : "지역 설정 필요",
+    profile.phone_verified ? "연락처 인증" : "연락처 미인증",
+  ].filter(Boolean) as string[];
 
-  const tradeTotal =
-    overviewCounts.purchases != null && overviewCounts.sales != null
-      ? String(overviewCounts.purchases + overviewCounts.sales)
-      : overviewCounts.purchases != null || overviewCounts.sales != null
-        ? String((overviewCounts.purchases ?? 0) + (overviewCounts.sales ?? 0))
-        : "–";
-
-  const storeStatLabel =
-    hasOwnerStore && overviewCounts.storeAttention != null && overviewCounts.storeAttention > 0
-      ? String(overviewCounts.storeAttention)
-      : hasOwnerStore
-        ? "ON"
-        : "–";
-
-  const setupRows: MenuRow[] = [];
-  if (!hasRegion) {
-    setupRows.push({
-      href: editHref,
-      title: "동네와 지역 설정",
-      subtitle: "배달·거래에 사용할 기본 생활 지역을 입력해 주세요.",
-      badge: "필수",
-      eyebrow: "프로필",
-    });
-  }
-  if (addressDefaults) {
-    const missingAddressParts: string[] = [];
-    if (!addressDefaults.life) missingAddressParts.push("생활");
-    if (!addressDefaults.delivery) missingAddressParts.push("배달");
-    if (!addressDefaults.trade) missingAddressParts.push("거래");
-    if (missingAddressParts.length > 0) {
-      setupRows.push({
-        href: addressesHref,
-        title: "기본 주소 정리",
-        subtitle: `${missingAddressParts.join(" · ")} 주소를 설정해 주세요.`,
-        badge: "필수",
-        eyebrow: "주소",
-      });
-    }
-  }
-  if (!profile.phone_verified) {
-    setupRows.push({
-      href: accountHref,
-      title: "연락처 인증",
-      subtitle: "주문과 거래 신뢰를 위해 인증을 완료해 주세요.",
-      badge: "필수",
-      eyebrow: "보안",
-    });
-  }
-
-  const adsEnabled = services.some((service) => service.code === "ads");
-
-  const priorityRows = dedupeRows([
-    ...setupRows,
-    {
-      href: "/mypage/notifications",
-      title: "알림 센터",
-      subtitle: notificationBadge
-        ? `읽지 않은 알림 ${notificationBadge}건을 먼저 확인해 주세요.`
-        : "주문, 거래, 시스템 알림을 한곳에서 확인합니다.",
-      badge: notificationBadge,
-      eyebrow: "중요",
-    },
-    {
-      href: "/mypage/points",
-      title: "포인트",
-      subtitle: `현재 ${pointsLabel} 보유 중입니다.`,
-      eyebrow: "자산",
-    },
-    hasOwnerStore
-      ? {
-          href: businessHubHref,
-          title: "매장 운영 허브",
-          subtitle: storeAttentionSummary ?? "주문, 문의, 상품, 정산을 한곳에서 관리합니다.",
-          eyebrow: "매장",
-        }
-      : {
-          href: businessApplyHref,
-          title: "매장 등록 신청",
-          subtitle: "사장님 기능이 필요하면 여기서 시작합니다.",
-          eyebrow: "매장",
-        },
-  ]);
-
-  const tradeRows = dedupeRows([
-    {
-      href: "/mypage/trade/purchases",
-      title: "구매 관리",
-      subtitle: "구매 진행, 예약, 후기 작성을 관리합니다.",
-      badge: overviewCounts.purchases != null ? String(overviewCounts.purchases) : null,
-      eyebrow: "거래",
-    },
-    {
-      href: "/mypage/trade/sales",
-      title: "판매 관리",
-      subtitle: "판매중, 예약, 완료 상태를 확인합니다.",
-      badge: overviewCounts.sales != null ? String(overviewCounts.sales) : null,
-      eyebrow: "거래",
-    },
-    {
-      href: "/mypage/trade/chat",
-      title: "거래 채팅",
-      subtitle: "연결된 대화를 이어서 처리합니다.",
-      eyebrow: "메신저",
-    },
-    {
-      href: "/mypage/trade/reviews",
-      title: "거래 후기",
-      subtitle: "받은 후기와 작성할 후기를 정리합니다.",
-      eyebrow: "후기",
-    },
-    {
-      href: MYPAGE_TRADE_FAVORITES_HREF,
-      title: "찜한 상품",
-      subtitle: "관심 상품을 다시 확인합니다.",
-      badge: favoriteBadge,
-      eyebrow: "관심",
-    },
-    {
-      href: "/mypage/products",
-      title: "내 상품 관리",
-      subtitle: "등록한 개인 거래 글을 관리합니다.",
-      eyebrow: "상품",
-    },
-  ]);
-
-  const storeRows = hasOwnerStore
-    ? dedupeRows([
-        {
-          href: storeOrdersHref,
-          title: "주문 내역",
-          subtitle: "배달, 픽업, 리뷰, 재주문을 확인합니다.",
-          eyebrow: "소비자",
-        },
-        {
-          href: ownerOrdersHref,
-          title: "사장님 주문 관리",
-          subtitle: storeAttentionSummary ?? "신규 주문과 취소, 환불 요청을 확인합니다.",
-          eyebrow: "운영",
-        },
-        {
-          href: businessHubHref,
-          title: "매장 운영 허브",
-          subtitle: "상품, 문의, 운영 상태, 정산을 묶어서 관리합니다.",
-          eyebrow: "허브",
-        },
-        ...(adsEnabled
-          ? [
-              {
-                href: "/mypage/ads",
-                title: "광고와 노출 확장",
-                subtitle: "매장 노출과 광고 신청을 관리합니다.",
-                eyebrow: "성장",
-              } satisfies MenuRow,
-            ]
-          : []),
-      ])
-    : dedupeRows([
-        {
-          href: storeOrdersHref,
-          title: "주문 내역",
-          subtitle: "배달, 픽업, 리뷰, 재주문을 확인합니다.",
-          eyebrow: "소비자",
-        },
-        {
-          href: businessApplyHref,
-          title: "매장 등록 신청",
-          subtitle: "사장님 전용 관리 화면을 열기 위한 첫 단계입니다.",
-          eyebrow: "입점",
-        },
-        ...(adsEnabled
-          ? [
-              {
-                href: "/mypage/ads",
-                title: "광고 신청",
-                subtitle: "서비스 노출과 이벤트 신청을 관리합니다.",
-                eyebrow: "노출",
-              } satisfies MenuRow,
-            ]
-          : []),
-      ]);
-
-  const accountRows = dedupeRows([
-    {
-      href: accountHref,
-      title: "계정 상세",
-      subtitle: "프로필, 연락처, 인증 상태를 확인합니다.",
-      eyebrow: "계정",
-    },
-    {
-      href: editHref,
-      title: "프로필 수정",
-      subtitle: "사진, 닉네임, 소개, 지역 정보를 수정합니다.",
-      eyebrow: "프로필",
-    },
-    {
-      href: addressesHref,
-      title: "주소와 지역",
-      subtitle: "생활, 거래, 배달 기본 주소를 정리합니다.",
-      eyebrow: "주소",
-    },
-    {
-      href: "/mypage/notifications",
-      title: "알림 설정",
-      subtitle: notificationBadge
-        ? `현재 ${notificationBadge}건 확인 필요 · 푸시와 채널을 조정합니다.`
-        : "푸시, 이메일, 방해금지 설정을 관리합니다.",
-      badge: notificationBadge,
-      eyebrow: "알림",
-    },
-    {
-      href: "/mypage/order-notifications",
-      title: "주문 알림",
-      subtitle: "배달, 픽업, 주문 상태 알림만 따로 관리합니다.",
-      eyebrow: "주문",
-    },
-    {
-      href: buildMypageInfoHubHref(),
-      title: "앱 설정",
-      subtitle: "언어, 국가, 차단, 캐시, 공지, 버전을 확인합니다.",
-      eyebrow: "앱",
-    },
-    {
-      href: "/mypage/points",
-      title: "포인트",
-      subtitle: "잔액, 충전, 내역을 확인합니다.",
-      eyebrow: "자산",
-    },
-    {
-      href: "/mypage/logout",
-      title: "로그아웃",
-      subtitle: "이 기기에서 안전하게 로그아웃합니다.",
-      eyebrow: "보안",
-    },
-  ]);
-
-  const boardRows = [
-    {
-      href: "/mypage/community-posts",
-      title: "내 활동",
-      subtitle: "내가 남긴 커뮤니티 글만 모아서 봅니다.",
-      eyebrow: "커뮤니티",
-    },
-  ];
-
-  const sectionMap: Record<
+  const sectionMeta: Record<
     MypageSectionId,
-    { id: MypageSectionId; label: string; shortLabel: string; description: string; rows: MenuRow[] }
+    { id: MypageSectionId; label: string; count?: string | null }
   > = {
-    trade: {
-      id: "trade",
-      label: "거래",
-      shortLabel: "거래",
-      description: "개인 거래 흐름만 따로 모아 구매, 판매, 채팅, 후기를 빠르게 처리합니다.",
-      rows: tradeRows,
-    },
+    trade: { id: "trade", label: "거래", count: tradeTotal !== "–" ? tradeTotal : null },
     board: {
       id: "board",
       label: "게시판",
-      shortLabel: "게시판",
-      description: "커뮤니티는 내 활동만 남기고 불필요한 탐색 동선을 제거했습니다.",
-      rows: boardRows,
+      count: boardPreview.posts.length > 0 ? String(boardPreview.posts.length) : null,
     },
     store: {
       id: "store",
       label: "매장·주문",
-      shortLabel: "매장",
-      description: hasOwnerStore
-        ? "소비자 주문과 사장님 운영 기능을 같은 축에서 관리합니다."
-        : "주문 내역과 매장 입점, 노출 확장 기능만 남겼습니다.",
-      rows: storeRows,
+      count: hasOwnerStore ? storeAttentionSummary ?? storeStatLabel : null,
     },
-    account: {
-      id: "account",
-      label: "개인 설정",
-      shortLabel: "설정",
-      description: "프로필, 주소, 인증, 알림, 앱 설정을 한 축으로 정리했습니다.",
-      rows: accountRows,
-    },
+    account: { id: "account", label: "개인 설정", count: notificationBadge },
   };
 
   const orderedSectionIds = useMemo(() => {
@@ -435,29 +352,34 @@ export function MypageInstagramView({
     for (const fallback of ["trade", "board", "store", "account"] as MypageSectionId[]) {
       if (!preferred.includes(fallback)) preferred.push(fallback);
     }
-    return preferred.filter((id) => sectionMap[id].rows.length > 0);
-  }, [sections, sectionMap]);
+    return preferred;
+  }, [sections]);
 
   useEffect(() => {
     if (!orderedSectionIds.includes(activeSection)) {
-      setActiveSection(orderedSectionIds[0] ?? "overview");
+      setActiveSection(orderedSectionIds[0] ?? "trade");
     }
   }, [activeSection, orderedSectionIds]);
 
   const resolvedSectionId =
     orderedSectionIds.includes(activeSection) ? activeSection : (orderedSectionIds[0] ?? "trade");
-  const currentSection = sectionMap[resolvedSectionId];
-  const statusPills = [
-    isBusinessMember ? "비즈 회원" : null,
-    hasRegion ? "지역 설정 완료" : "지역 설정 필요",
-    profile.phone_verified ? "연락처 인증 완료" : "연락처 인증 필요",
-  ].filter(Boolean) as string[];
-  const summaryCards = [
-    { label: "거래", value: tradeTotal, detail: "구매+판매" },
-    { label: "포인트", value: pointsLabel, detail: "보유 자산" },
-    { label: "알림", value: notificationBadge ?? "0", detail: "미확인 알림" },
-    { label: "매장", value: storeStatLabel, detail: hasOwnerStore ? "운영 상태" : "미개설" },
-  ];
+
+  const accountAlerts = [
+    !hasRegion ? { label: "지역 설정", href: editHref } : null,
+    !profile.phone_verified ? { label: "연락처 인증", href: accountHref } : null,
+    addressDefaults && !addressDefaults.life ? { label: "생활 주소", href: addressesHref } : null,
+    addressDefaults && !addressDefaults.trade ? { label: "거래 주소", href: addressesHref } : null,
+    addressDefaults && !addressDefaults.delivery ? { label: "배달 주소", href: addressesHref } : null,
+  ].filter(Boolean) as Array<{ label: string; href: string }>;
+
+  const currentLanguage =
+    LANGUAGE_NAMES[String(userSettings.preferred_language ?? "ko")] ??
+    String(userSettings.preferred_language ?? "한국어");
+  const currentCountry =
+    COUNTRY_NAMES[String(userSettings.preferred_country ?? "PH")] ??
+    String(userSettings.preferred_country ?? "필리핀");
+  const currentAutoplay =
+    VIDEO_AUTOPLAY_LABELS[String(userSettings.video_autoplay_mode ?? "wifi_only")] ?? "Wi-Fi에서만";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-ig-border bg-[var(--sub-bg)]">
@@ -491,7 +413,9 @@ export function MypageInstagramView({
               </div>
               <p className="mt-1 text-[13px] text-[var(--text-muted)]">{handle}</p>
               <p
-                className={`mt-2 whitespace-pre-line text-[13px] ${!hasRegion ? "text-amber-700 dark:text-amber-400" : "text-[var(--text-muted)]"}`}
+                className={`mt-2 whitespace-pre-line text-[13px] ${
+                  !hasRegion ? "text-amber-700 dark:text-amber-400" : "text-[var(--text-muted)]"
+                }`}
               >
                 {regionLine}
               </p>
@@ -508,129 +432,112 @@ export function MypageInstagramView({
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {summaryCards.map((card) => (
-              <div key={card.label} className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-3 py-3">
-                <p className="text-[11px] font-medium text-[var(--text-muted)]">{card.label}</p>
-                <p className="mt-1 text-[18px] font-semibold text-foreground">{card.value}</p>
-                <p className="mt-1 text-[11px] text-[var(--text-muted)]">{card.detail}</p>
-              </div>
-            ))}
+            <SummaryCard label="거래" value={tradeTotal} detail="구매+판매" />
+            <SummaryCard label="포인트" value={pointsLabel} detail="보유" />
+            <SummaryCard label="알림" value={notificationBadge ?? "0"} detail="미확인" />
+            <SummaryCard
+              label="매장"
+              value={storeStatLabel}
+              detail={hasOwnerStore ? "운영 상태" : "미개설"}
+            />
           </div>
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--sub-bg)] [scrollbar-gutter:stable]">
-        <div className="px-4 py-4 md:grid md:min-h-full md:grid-cols-[220px_minmax(0,1fr)] md:gap-3">
-          <div className="mb-3 overflow-x-auto md:hidden">
-            <nav className="flex min-w-max gap-2 pb-1">
+        <div className="sticky top-0 z-10 border-b border-ig-border bg-[var(--sub-bg)]/95 px-4 py-3 backdrop-blur">
+          <nav className="overflow-x-auto">
+            <div className="flex min-w-max gap-2">
               {orderedSectionIds.map((sectionId) => {
-                const section = sectionMap[sectionId];
-                const selected = section.id === currentSection.id;
+                const section = sectionMeta[sectionId];
+                const selected = section.id === resolvedSectionId;
                 return (
                   <button
                     key={section.id}
                     type="button"
                     onClick={() => persistSection(section.id)}
-                    className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-left transition-colors ${
+                    className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors ${
                       selected
-                        ? "bg-foreground text-background"
-                        : "text-foreground hover:bg-ig-highlight active:bg-ig-highlight"
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-ig-border bg-background text-foreground hover:bg-ig-highlight"
                     }`}
                   >
-                    <SectionGlyph sectionId={section.id} />
-                    <span className="text-[13px] font-semibold">{section.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-
-          <aside className="hidden rounded-[24px] border border-ig-border bg-background p-2 shadow-sm md:block">
-            <nav className="space-y-1">
-              {orderedSectionIds.map((sectionId) => {
-                const section = sectionMap[sectionId];
-                const selected = section.id === currentSection.id;
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => persistSection(section.id)}
-                    className={`flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-left transition-colors ${
-                      selected
-                        ? "bg-foreground text-background"
-                        : "text-foreground hover:bg-ig-highlight active:bg-ig-highlight"
-                    }`}
-                  >
-                    <SectionGlyph sectionId={section.id} />
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-semibold">{section.label}</p>
-                      <p
-                        className={`mt-0.5 text-[11px] ${
-                          selected ? "text-background/80" : "text-[var(--text-muted)]"
+                    <span>{section.label}</span>
+                    {section.count ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] ${
+                          selected ? "bg-background/15 text-background" : "bg-signature/10 text-signature"
                         }`}
                       >
-                        {section.shortLabel}
-                      </p>
-                    </div>
+                        {section.count}
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
-            </nav>
-          </aside>
-
-          <div className="space-y-3">
-            {priorityRows.length > 0 ? (
-              <section className="overflow-hidden rounded-[24px] border border-ig-border bg-background shadow-sm">
-                <div className="border-b border-ig-border px-4 py-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                    Priority
-                  </p>
-                  <h2 className="mt-1 text-[17px] font-semibold text-foreground">먼저 처리할 항목</h2>
-                  <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-                    지역, 주소, 인증처럼 서비스 동작에 바로 영향을 주는 항목입니다.
-                  </p>
-                </div>
-                <div className="divide-y divide-ig-border">
-                  {priorityRows.map((row) => (
-                    <HubMenuRow
-                      key={`priority:${row.href}:${row.title}`}
-                      {...row}
-                      suppressNav={shouldInterceptMypageBusinessHref(row.href, needsBizEntryModal)}
-                      onSuppressedNav={openBizBlocked}
-                    />
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            <section className="flex min-h-[420px] flex-col overflow-hidden rounded-[24px] border border-ig-border bg-background shadow-sm">
-            <div className="border-b border-ig-border px-4 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                My Info
-              </p>
-              <h2 className="mt-1 text-[18px] font-semibold text-foreground">{currentSection.label}</h2>
-              <p className="mt-1 text-[13px] text-[var(--text-muted)]">{currentSection.description}</p>
             </div>
+          </nav>
+        </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="divide-y divide-ig-border">
-                {currentSection.rows.map((row) => (
-                  <HubMenuRow
-                    key={row.href + row.title}
-                    {...row}
-                    suppressNav={shouldInterceptMypageBusinessHref(row.href, needsBizEntryModal)}
-                    onSuppressedNav={openBizBlocked}
-                  />
-                ))}
-                {currentSection.id === "account" && isAdmin ? (
-                  <HubMenuRow href="/admin" title="관리자" subtitle="운영 도구와 관리자 메뉴로 이동합니다." eyebrow="운영" />
-                ) : null}
-              </div>
-            </div>
-            </section>
-          </div>
+        <div className="space-y-3 px-4 py-4">
+          {resolvedSectionId === "trade" ? (
+            <TradeSection
+              favoriteBadge={favoriteBadge}
+              overviewCounts={overviewCounts}
+              preview={tradePreview}
+              onReload={() => void loadTradePreview()}
+            />
+          ) : null}
+
+          {resolvedSectionId === "board" ? (
+            <BoardSection preview={boardPreview} onReload={() => void loadBoardPreview()} />
+          ) : null}
+
+          {resolvedSectionId === "store" ? (
+            <StoreSection
+              hasOwnerStore={hasOwnerStore}
+              storeAttentionSummary={storeAttentionSummary}
+              storeOrdersHref={storeOrdersHref}
+              ownerOrdersHref={ownerOrdersHref}
+              businessHubHref={businessHubHref}
+              businessApplyHref={businessApplyHref}
+              needsBizEntryModal={needsBizEntryModal}
+              onBizBlocked={openBizBlocked}
+              preview={storePreview}
+              onReload={() => void loadStorePreview()}
+            />
+          ) : null}
+
+          {resolvedSectionId === "account" ? (
+            <AccountSection
+              alerts={accountAlerts}
+              accountHref={accountHref}
+              editHref={editHref}
+              addressesHref={addressesHref}
+              isAdmin={isAdmin}
+              currentLanguage={currentLanguage}
+              currentCountry={currentCountry}
+              currentAutoplay={currentAutoplay}
+              notificationBadge={notificationBadge}
+              onOpenSheet={setSettingsSheet}
+            />
+          ) : null}
         </div>
       </div>
+
+      <BottomSheet
+        open={settingsSheet != null}
+        title={sheetTitle(settingsSheet)}
+        onClose={() => setSettingsSheet(null)}
+      >
+        {settingsSheet === "notifications" ? <NotificationsSettingsContent /> : null}
+        {settingsSheet === "language" ? <LanguageSettingsContent /> : null}
+        {settingsSheet === "country" ? <CountrySettingsContent /> : null}
+        {settingsSheet === "chat" ? <ChatSettingsContent /> : null}
+        {settingsSheet === "autoplay" ? <VideoAutoplayContent /> : null}
+        {settingsSheet === "personalization" ? <PersonalizationContent /> : null}
+        {settingsSheet === "app" ? <SettingsMainContent className="pb-0" /> : null}
+      </BottomSheet>
 
       {needsBizEntryModal && ownerStoreGate ? (
         <StoreBusinessBlockedModal
@@ -645,79 +552,642 @@ export function MypageInstagramView({
   );
 }
 
-function HubMenuRow({
-  href,
-  title,
-  subtitle,
-  badge,
-  eyebrow,
-  suppressNav,
-  onSuppressedNav,
-}: MenuRow & { suppressNav?: boolean; onSuppressedNav?: () => void }) {
-  const rowCls =
-    "flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-ig-highlight/70 active:bg-ig-highlight";
-  if (suppressNav && onSuppressedNav) {
-    return (
-      <button type="button" className={rowCls} onClick={onSuppressedNav}>
-        <div className="min-w-0 flex-1">
-          {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{eyebrow}</p> : null}
-          <div className="flex items-center gap-2">
-            <span className="text-[15px] font-semibold text-foreground">{title}</span>
-            {badge ? (
-              <span className="rounded-full bg-signature/15 px-2 py-0.5 text-[11px] font-semibold text-signature">
-                {badge}
-              </span>
-            ) : null}
+function TradeSection({
+  favoriteBadge,
+  overviewCounts,
+  preview,
+  onReload,
+}: {
+  favoriteBadge: string | null;
+  overviewCounts: OverviewCounts;
+  preview: TradePreviewState;
+  onReload: () => void;
+}) {
+  return (
+    <>
+      <SectionCard title="바로 관리">
+        <QuickActionGrid
+          items={[
+            { label: "구매", href: "/mypage/trade/purchases", value: formatCount(overviewCounts.purchases) },
+            { label: "판매", href: "/mypage/trade/sales", value: formatCount(overviewCounts.sales) },
+            { label: "채팅", href: "/mypage/trade/chat" },
+            { label: "찜", href: MYPAGE_TRADE_FAVORITES_HREF, value: favoriteBadge ?? undefined },
+            { label: "후기", href: "/mypage/trade/reviews" },
+            { label: "내 상품", href: "/mypage/products" },
+          ]}
+        />
+      </SectionCard>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SectionCard title="최근 구매" actionHref="/mypage/trade/purchases">
+          <PreviewStateBlock
+            status={preview.status}
+            emptyLabel="최근 구매가 없습니다."
+            errorLabel="구매 목록을 불러오지 못했습니다."
+            onRetry={onReload}
+            hasItems={preview.purchases.length > 0}
+          >
+            <div className="divide-y divide-ig-border">
+              {preview.purchases.map((item) => (
+                <Link
+                  key={item.chatId}
+                  href={`/mypage/purchases/${encodeURIComponent(item.chatId)}`}
+                  className="block px-4 py-3 hover:bg-ig-highlight/70"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-semibold text-foreground">
+                        {item.title || "상품"}
+                      </p>
+                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                        {item.sellerNickname || "판매자"} · {tradeFlowLabel(item.tradeFlowStatus)}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[13px] font-semibold text-foreground">
+                        {formatMoneyPhp(item.price)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                        {formatRelativeDate(item.lastMessageAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <InlineBadge tone="soft">{item.hasBuyerReview ? "후기 작성" : "후기 대기"}</InlineBadge>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </PreviewStateBlock>
+        </SectionCard>
+
+        <SectionCard title="최근 판매" actionHref="/mypage/trade/sales">
+          <PreviewStateBlock
+            status={preview.status}
+            emptyLabel="최근 판매가 없습니다."
+            errorLabel="판매 목록을 불러오지 못했습니다."
+            onRetry={onReload}
+            hasItems={preview.sales.length > 0}
+          >
+            <div className="divide-y divide-ig-border">
+              {preview.sales.map((item) => (
+                <Link
+                  key={`${item.chatId}:${item.postId}`}
+                  href={item.noActiveChat ? `/post/${encodeURIComponent(item.postId)}` : "/mypage/trade/sales"}
+                  className="block px-4 py-3 hover:bg-ig-highlight/70"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-semibold text-foreground">
+                        {item.title || "상품"}
+                      </p>
+                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                        {item.noActiveChat ? "문의 없음" : `구매자 ${item.buyerNickname || "대기"}`}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[13px] font-semibold text-foreground">
+                        {formatMoneyPhp(item.price)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                        {formatRelativeDate(item.lastMessageAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <InlineBadge tone="soft">{tradeFlowLabel(item.tradeFlowStatus)}</InlineBadge>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </PreviewStateBlock>
+        </SectionCard>
+      </div>
+    </>
+  );
+}
+
+function BoardSection({
+  preview,
+  onReload,
+}: {
+  preview: BoardPreviewState;
+  onReload: () => void;
+}) {
+  return (
+    <>
+      <SectionCard title="게시판 관리">
+        <QuickActionGrid
+          items={[
+            { label: "내 활동", href: "/mypage/community-posts" },
+            { label: "댓글·반응", href: "/mypage/community-posts" },
+            { label: "숨김 사용자", href: "/mypage/settings/hidden-users" },
+            { label: "차단 사용자", href: "/mypage/settings/blocked-users" },
+          ]}
+        />
+      </SectionCard>
+
+      <SectionCard title="최근 활동" actionHref="/mypage/community-posts">
+        <PreviewStateBlock
+          status={preview.status}
+          emptyLabel="최근 활동이 없습니다."
+          errorLabel="게시판 활동을 불러오지 못했습니다."
+          onRetry={onReload}
+          hasItems={preview.posts.length > 0}
+        >
+          <div className="divide-y divide-ig-border">
+            {preview.posts.map((post) => (
+              <Link
+                key={post.id}
+                href={philifeAppPaths.post(post.id)}
+                className="block px-4 py-3 hover:bg-ig-highlight/70"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-foreground">{post.title}</p>
+                    <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                      {post.topic_name || "커뮤니티"} · {post.region_label || "지역 없음"}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-[11px] text-[var(--text-muted)]">
+                    {formatRelativeDate(post.created_at)}
+                  </p>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <InlineBadge tone="soft">댓글 {post.comment_count}</InlineBadge>
+                  <InlineBadge tone="soft">좋아요 {post.like_count}</InlineBadge>
+                  <InlineBadge tone="soft">조회 {post.view_count}</InlineBadge>
+                </div>
+              </Link>
+            ))}
           </div>
-          {subtitle ? <p className="mt-1 text-[13px] text-[var(--text-muted)]">{subtitle}</p> : null}
+        </PreviewStateBlock>
+      </SectionCard>
+    </>
+  );
+}
+
+function StoreSection({
+  hasOwnerStore,
+  storeAttentionSummary,
+  storeOrdersHref,
+  ownerOrdersHref,
+  businessHubHref,
+  businessApplyHref,
+  needsBizEntryModal,
+  onBizBlocked,
+  preview,
+  onReload,
+}: {
+  hasOwnerStore: boolean;
+  storeAttentionSummary: string | null;
+  storeOrdersHref: string;
+  ownerOrdersHref: string;
+  businessHubHref: string;
+  businessApplyHref: string;
+  needsBizEntryModal: boolean;
+  onBizBlocked: () => void;
+  preview: StorePreviewState;
+  onReload: () => void;
+}) {
+  return (
+    <>
+      <SectionCard title="바로 관리">
+        <QuickActionGrid
+          items={[
+            { label: "내 주문", href: storeOrdersHref },
+            hasOwnerStore
+              ? { label: "사장님 주문", href: ownerOrdersHref, value: storeAttentionSummary ?? undefined }
+              : { label: "매장 신청", href: businessApplyHref },
+            {
+              label: hasOwnerStore ? "매장 운영" : "입점 안내",
+              href: hasOwnerStore ? businessHubHref : businessApplyHref,
+              suppressNav: shouldInterceptMypageBusinessHref(
+                hasOwnerStore ? businessHubHref : businessApplyHref,
+                needsBizEntryModal
+              ),
+              onSuppressedNav: onBizBlocked,
+            },
+          ]}
+        />
+      </SectionCard>
+
+      <SectionCard title="최근 주문" actionHref={storeOrdersHref}>
+        <PreviewStateBlock
+          status={preview.status}
+          emptyLabel="최근 주문이 없습니다."
+          errorLabel="주문 내역을 불러오지 못했습니다."
+          onRetry={onReload}
+          hasItems={preview.orders.length > 0}
+        >
+          <div className="divide-y divide-ig-border">
+            {preview.orders.map((order) => (
+              <Link
+                key={order.id}
+                href={`/mypage/store-orders/${encodeURIComponent(order.id)}`}
+                className="block px-4 py-3 hover:bg-ig-highlight/70"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-foreground">
+                      {order.store_name || "매장"}
+                    </p>
+                    <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                      {BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status}
+                      {order.order_chat_unread_count ? ` · 채팅 ${order.order_chat_unread_count}` : ""}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[13px] font-semibold text-foreground">
+                      {formatMoneyPhp(order.payment_amount)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                      {formatRelativeDate(order.created_at)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <InlineBadge tone="soft">{order.order_no}</InlineBadge>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </PreviewStateBlock>
+      </SectionCard>
+    </>
+  );
+}
+
+function AccountSection({
+  alerts,
+  accountHref,
+  editHref,
+  addressesHref,
+  isAdmin,
+  currentLanguage,
+  currentCountry,
+  currentAutoplay,
+  notificationBadge,
+  onOpenSheet,
+}: {
+  alerts: Array<{ label: string; href: string }>;
+  accountHref: string;
+  editHref: string;
+  addressesHref: string;
+  isAdmin: boolean;
+  currentLanguage: string;
+  currentCountry: string;
+  currentAutoplay: string;
+  notificationBadge: string | null;
+  onOpenSheet: (kind: SettingsSheetKind) => void;
+}) {
+  return (
+    <>
+      {alerts.length > 0 ? (
+        <SectionCard title="확인 필요">
+          <div className="flex flex-wrap gap-2 px-4 py-4">
+            {alerts.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-800"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </SectionCard>
+      ) : null}
+
+      <SectionCard title="계정">
+        <div className="divide-y divide-ig-border">
+          <ActionRow href={accountHref} label="계정 상세" />
+          <ActionRow href={editHref} label="프로필 수정" />
+          <ActionRow href={addressesHref} label="주소 관리" />
+          <ActionRow
+            label="알림 설정"
+            value={notificationBadge ? `${notificationBadge} 확인` : "바로 조정"}
+            onClick={() => onOpenSheet("notifications")}
+          />
+          <ActionRow href="/mypage/order-notifications" label="주문 알림" />
+          <ActionRow label="언어" value={currentLanguage} onClick={() => onOpenSheet("language")} />
+          <ActionRow label="국가" value={currentCountry} onClick={() => onOpenSheet("country")} />
+          <ActionRow label="채팅 설정" onClick={() => onOpenSheet("chat")} />
+          <ActionRow label="자동 재생" value={currentAutoplay} onClick={() => onOpenSheet("autoplay")} />
+          <ActionRow label="개인화" onClick={() => onOpenSheet("personalization")} />
+          <ActionRow label="앱 설정 전체" onClick={() => onOpenSheet("app")} />
+          <ActionRow href="/mypage/points" label="포인트" />
+          <ActionRow href="/mypage/logout" label="로그아웃" />
+          {isAdmin ? <ActionRow href="/admin" label="관리자" /> : null}
         </div>
-        <Chevron />
+      </SectionCard>
+    </>
+  );
+}
+
+function SectionCard({
+  title,
+  actionHref,
+  children,
+}: {
+  title: string;
+  actionHref?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[24px] border border-ig-border bg-background shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-ig-border px-4 py-3.5">
+        <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+        {actionHref ? (
+          <Link href={actionHref} className="text-[12px] font-medium text-signature">
+            전체 보기
+          </Link>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function QuickActionGrid({
+  items,
+}: {
+  items: Array<{
+    label: string;
+    href?: string;
+    value?: string;
+    suppressNav?: boolean;
+    onSuppressedNav?: () => void;
+  } | null>;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 px-4 py-4 sm:grid-cols-3">
+      {items.filter(Boolean).map((item) => (
+        <QuickActionTile key={`${item!.label}:${item!.href ?? "button"}`} item={item!} />
+      ))}
+    </div>
+  );
+}
+
+function QuickActionTile({
+  item,
+}: {
+  item: {
+    label: string;
+    href?: string;
+    value?: string;
+    suppressNav?: boolean;
+    onSuppressedNav?: () => void;
+  };
+}) {
+  const cls =
+    "flex min-h-[86px] flex-col justify-between rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-3 py-3 text-left";
+  if (item.href && item.suppressNav && item.onSuppressedNav) {
+    return (
+      <button type="button" onClick={item.onSuppressedNav} className={cls}>
+        <span className="text-[13px] font-semibold text-foreground">{item.label}</span>
+        <span className="text-[12px] text-[var(--text-muted)]">{item.value ?? "열기"}</span>
       </button>
     );
   }
-  return (
-    <Link href={href} className={rowCls}>
-      <div className="min-w-0 flex-1">
-        {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{eyebrow}</p> : null}
-        <div className="flex items-center gap-2">
-          <span className="text-[15px] font-semibold text-foreground">{title}</span>
-          {badge ? (
-            <span className="rounded-full bg-signature/15 px-2 py-0.5 text-[11px] font-semibold text-signature">
-              {badge}
-            </span>
-          ) : null}
-        </div>
-        {subtitle ? <p className="mt-1 text-[13px] text-[var(--text-muted)]">{subtitle}</p> : null}
+  if (item.href) {
+    return (
+      <Link href={item.href} className={cls}>
+        <span className="text-[13px] font-semibold text-foreground">{item.label}</span>
+        <span className="text-[12px] text-[var(--text-muted)]">{item.value ?? "열기"}</span>
+      </Link>
+    );
+  }
+  return null;
+}
+
+function PreviewStateBlock({
+  status,
+  hasItems,
+  emptyLabel,
+  errorLabel,
+  onRetry,
+  children,
+}: {
+  status: "idle" | "loading" | "ready" | "error";
+  hasItems: boolean;
+  emptyLabel: string;
+  errorLabel: string;
+  onRetry: () => void;
+  children: ReactNode;
+}) {
+  if (status === "idle" || status === "loading") {
+    return <div className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">불러오는 중…</div>;
+  }
+  if (status === "error") {
+    return (
+      <div className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">
+        <p>{errorLabel}</p>
+        <button type="button" onClick={onRetry} className="mt-3 text-[12px] font-semibold text-signature">
+          다시 시도
+        </button>
       </div>
-      <Chevron />
-    </Link>
+    );
+  }
+  if (!hasItems) {
+    return <div className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">{emptyLabel}</div>;
+  }
+  return <>{children}</>;
+}
+
+function ActionRow({
+  href,
+  label,
+  value,
+  onClick,
+}: {
+  href?: string;
+  label: string;
+  value?: string | null;
+  onClick?: () => void;
+}) {
+  const cls =
+    "flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-ig-highlight/70";
+  if (href) {
+    return (
+      <Link href={href} className={cls}>
+        <span className="text-[14px] font-medium text-foreground">{label}</span>
+        <span className="flex items-center gap-2">
+          {value ? <span className="text-[12px] text-[var(--text-muted)]">{value}</span> : null}
+          <Chevron />
+        </span>
+      </Link>
+    );
+  }
+  return (
+    <button type="button" className={cls} onClick={onClick}>
+      <span className="text-[14px] font-medium text-foreground">{label}</span>
+      <span className="flex items-center gap-2">
+        {value ? <span className="text-[12px] text-[var(--text-muted)]">{value}</span> : null}
+        <Chevron />
+      </span>
+    </button>
+  );
+}
+
+function BottomSheet({
+  open,
+  title,
+  children,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[120] flex items-end bg-black/45" onClick={onClose}>
+      <div
+        className="max-h-[82vh] w-full overflow-hidden rounded-t-[28px] bg-background shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-ig-border px-4 py-3">
+          <div className="mx-auto h-1.5 w-12 rounded-full bg-ig-border" />
+        </div>
+        <div className="border-b border-ig-border px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-[16px] font-semibold text-foreground">{title}</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-ig-border px-3 py-1 text-[12px] font-medium text-[var(--text-muted)]"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+        <div className="overflow-y-auto px-4 py-3">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-3 py-3">
+      <p className="text-[11px] font-medium text-[var(--text-muted)]">{label}</p>
+      <p className="mt-1 text-[18px] font-semibold text-foreground">{value}</p>
+      <p className="mt-1 text-[11px] text-[var(--text-muted)]">{detail}</p>
+    </div>
+  );
+}
+
+function InlineBadge({
+  children,
+  tone = "default",
+}: {
+  children: ReactNode;
+  tone?: "default" | "soft";
+}) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+        tone === "soft"
+          ? "bg-[var(--sub-bg)] text-[var(--text-muted)]"
+          : "bg-signature/10 text-signature"
+      }`}
+    >
+      {children}
+    </span>
   );
 }
 
 function Chevron() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0 text-[var(--text-muted)]" aria-hidden>
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="shrink-0 text-[var(--text-muted)]"
+      aria-hidden
+    >
       <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
-/** 심사 중 등: 운영 경로는 모달로 막음 (`shouldInterceptBusinessHubHref` 와 동일) */
-function shouldInterceptMypageBusinessHref(href: string, needsModal: boolean): boolean {
-  return needsModal && shouldInterceptBusinessHubHref(href);
+function formatCount(value: number | null): string | undefined {
+  if (value == null) return undefined;
+  return `${value}건`;
 }
 
-function dedupeRows(rows: Array<MenuRow | false | null | undefined>): MenuRow[] {
-  const seen = new Set<string>();
-  const list: MenuRow[] = [];
-  for (const row of rows) {
-    if (!row) continue;
-    const key = `${row.href}::${row.title}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    list.push(row);
+function formatRelativeDate(value: string | null | undefined): string {
+  if (!value) return "최근";
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return "최근";
+  const diffMinutes = Math.floor((Date.now() - time) / 60000);
+  if (diffMinutes < 1) return "방금";
+  if (diffMinutes < 60) return `${diffMinutes}분 전`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}시간 전`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}일 전`;
+  return new Date(value).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+}
+
+function tradeFlowLabel(value: string | null | undefined): string {
+  switch (value) {
+    case "seller_done":
+      return "판매자 완료";
+    case "completed":
+      return "거래 완료";
+    case "issue":
+      return "이슈";
+    case "chatting":
+      return "대화 중";
+    default:
+      return value?.trim() ? value : "진행 중";
   }
-  return list;
+}
+
+function sheetTitle(kind: SettingsSheetKind | null): string {
+  switch (kind) {
+    case "notifications":
+      return "알림 설정";
+    case "language":
+      return "언어";
+    case "country":
+      return "국가";
+    case "chat":
+      return "채팅 설정";
+    case "autoplay":
+      return "자동 재생";
+    case "personalization":
+      return "개인화";
+    case "app":
+      return "앱 설정";
+    default:
+      return "";
+  }
+}
+
+function shouldInterceptMypageBusinessHref(href: string, needsModal: boolean): boolean {
+  return needsModal && shouldInterceptBusinessHubHref(href);
 }
 
 function normalizeSectionId(raw: string): MypageSectionId | null {
@@ -743,61 +1213,15 @@ function normalizeSectionId(raw: string): MypageSectionId | null {
   }
 }
 
-function SectionGlyph({ sectionId }: { sectionId: MypageSectionId }) {
-  switch (sectionId) {
-    case "trade":
-      return <OrdersIcon />;
-    case "board":
-      return <ActivityIcon />;
-    case "store":
-      return <StoreIcon />;
-    case "account":
-      return <SettingsIcon />;
-  }
-}
-
 function UserGlyph() {
   return (
     <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function OrdersIcon() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M7 12h10M9 17h6" />
-    </svg>
-  );
-}
-
-function StoreIcon() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 9l1.5-4h13L20 9M5 9v10h14V9M9 13h6" />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M10.325 4.317a1.724 1.724 0 013.35 0l.18.79a1.724 1.724 0 002.573 1.066l.694-.4a1.724 1.724 0 012.352.632l.342.592a1.724 1.724 0 01-.632 2.352l-.694.4a1.724 1.724 0 000 3.132l.694.4a1.724 1.724 0 01.632 2.352l-.342.592a1.724 1.724 0 01-2.352.632l-.694-.4a1.724 1.724 0 00-2.573 1.066l-.18.79a1.724 1.724 0 01-3.35 0l-.18-.79a1.724 1.724 0 00-2.573-1.066l-.694.4a1.724 1.724 0 01-2.352-.632l-.342-.592a1.724 1.724 0 01.632-2.352l.694-.4a1.724 1.724 0 000-3.132l-.694-.4a1.724 1.724 0 01-.632-2.352l.342-.592a1.724 1.724 0 012.352-.632l.694.4a1.724 1.724 0 002.573-1.066l.18-.79z"
+        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
       />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function ActivityIcon() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h3l2-5 4 10 2-5h3" />
+      <circle cx="12" cy="7" r="4" />
     </svg>
   );
 }

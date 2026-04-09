@@ -404,9 +404,13 @@ export async function listCommunityPostComments(postId: string): Promise<Communi
   }
 }
 
-export async function listCommunityPostsForUser(userId: string): Promise<CommunityFeedPostDTO[]> {
+export async function listCommunityPostsForUser(
+  userId: string,
+  limit = 100
+): Promise<CommunityFeedPostDTO[]> {
   const uid = userId?.trim();
   if (!uid) return [];
+  const rowLimit = Math.min(Math.max(Math.floor(limit) || 100, 1), 100);
   let sb: Sb;
   try {
     sb = getSupabaseServer();
@@ -425,7 +429,7 @@ export async function listCommunityPostsForUser(userId: string): Promise<Communi
     .eq("user_id", uid)
     .eq("is_hidden", false)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(rowLimit);
   let userPostsRaw: unknown = u1.data;
   let error = u1.error;
   if (error && isMissingDbColumnError(error, "feed_list_skin")) {
@@ -435,7 +439,7 @@ export async function listCommunityPostsForUser(userId: string): Promise<Communi
       .eq("user_id", uid)
       .eq("is_hidden", false)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(rowLimit);
     userPostsRaw = u2.data;
     error = u2.error;
   }
