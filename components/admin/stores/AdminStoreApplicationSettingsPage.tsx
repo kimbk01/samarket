@@ -197,7 +197,7 @@ export function AdminStoreApplicationSettingsPage() {
         onAfterMutation={bustOrderMatchAlertSoundCache}
       />
 
-      <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <section className="mt-6 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-[15px] font-semibold text-gray-900">연동 여부</h2>
         <ul className="mt-3 space-y-2 text-[13px] text-gray-700">
           <li className="flex flex-wrap items-center gap-2">
@@ -237,12 +237,12 @@ export function AdminStoreApplicationSettingsPage() {
       </section>
 
       {msg && (
-        <p className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-[13px] text-green-800">
+        <p className="mt-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 text-[13px] text-green-800">
           {msg}
         </p>
       )}
 
-      <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <section className="mt-6 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-[15px] font-semibold text-gray-900">기본 1차 업종 (코드)</h2>
         <p className="mt-1 text-[12px] text-gray-500">배포 시 포함된 목록입니다. 여기서는 읽기만 됩니다.</p>
         <ul className="mt-3 divide-y divide-gray-100 text-[13px]">
@@ -256,7 +256,7 @@ export function AdminStoreApplicationSettingsPage() {
         </ul>
       </section>
 
-      <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <section className="mt-6 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-[15px] font-semibold text-gray-900">추가 1차 업종</h2>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
           <label className="flex min-w-[140px] flex-1 flex-col text-[12px] text-gray-600">
@@ -289,7 +289,7 @@ export function AdminStoreApplicationSettingsPage() {
           <button
             type="button"
             onClick={addPrimary}
-            className="rounded-lg bg-signature px-4 py-2 text-[13px] font-medium text-white"
+            className="rounded-ui-rect bg-signature px-4 py-2 text-[13px] font-medium text-white"
           >
             추가
           </button>
@@ -317,7 +317,7 @@ export function AdminStoreApplicationSettingsPage() {
         )}
       </section>
 
-      <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <section className="mt-6 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-[15px] font-semibold text-gray-900">2차 업종</h2>
         <p className="mt-1 text-[12px] text-gray-500">
           1차 슬러그를 고른 뒤 하위 업종을 추가합니다. 기본 하위는 코드에 고정입니다.
@@ -370,7 +370,7 @@ export function AdminStoreApplicationSettingsPage() {
               <button
                 type="button"
                 onClick={addSub}
-                className="rounded-lg bg-signature px-4 py-2 text-[13px] font-medium text-white"
+                className="rounded-ui-rect bg-signature px-4 py-2 text-[13px] font-medium text-white"
               >
                 하위 추가
               </button>
@@ -402,7 +402,7 @@ export function AdminStoreApplicationSettingsPage() {
         ) : null}
       </section>
 
-      <section className="mt-6 rounded-xl border border-amber-200 bg-amber-50/80 p-4">
+      <section className="mt-6 rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">초기화</h2>
         <p className="mt-1 text-[12px] text-gray-600">
           추가 1·2차 업종만 삭제합니다. 코드에 있는 기본 업종은 그대로입니다.
@@ -410,7 +410,7 @@ export function AdminStoreApplicationSettingsPage() {
         <button
           type="button"
           onClick={resetOverrides}
-          className="mt-3 rounded-lg border border-amber-300 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
+          className="mt-3 rounded-ui-rect border border-amber-300 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
         >
           추가 업종 전부 제거
         </button>

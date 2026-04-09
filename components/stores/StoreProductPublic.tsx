@@ -621,7 +621,7 @@ export function StoreProductPublic({
               <img
                 src={profileUrl}
                 alt=""
-                className="max-h-[58%] max-w-[58%] rounded-2xl object-contain shadow-lg ring-4 ring-white/80"
+                className="max-h-[58%] max-w-[58%] rounded-ui-rect object-contain shadow-lg ring-4 ring-white/80"
               />
             </div>
           ) : (
@@ -645,7 +645,7 @@ export function StoreProductPublic({
                 key={`${u}-${i}`}
                 type="button"
                 onClick={() => setGalleryIdx(i)}
-                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ring-2 ring-offset-1 ${
+                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect ring-2 ring-offset-1 ${
                   i === galleryIdx ? "ring-signature" : "ring-transparent opacity-80"
                 }`}
               >
@@ -704,18 +704,18 @@ export function StoreProductPublic({
         </div>
       ) : null}
 
-      <div className="mx-4 mt-4 space-y-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="mx-4 mt-4 space-y-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         {commerce.breakConfigured ? (
           <p className="text-[12px] font-medium text-gray-900">
             Break time: {commerce.breakRangeLabel}
           </p>
         ) : null}
         {commerce.inBreak ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
+          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
             {t("common_break_time_menu_blocked", { time: commerce.breakRangeLabel })}
           </p>
         ) : !commerce.isOpenForCommerce ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
+          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
             {t("common_preparing_order_cart_blocked")}
           </p>
         ) : null}
@@ -764,7 +764,7 @@ export function StoreProductPublic({
                   disabled={orderBusy || orderBlocked}
                 />
                 {optionValidation.ok && optionValidation.snapshot.summary ? (
-                  <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-[12px] text-gray-700">
+                  <div className="mt-3 rounded-ui-rect bg-gray-50 px-3 py-2 text-[12px] text-gray-700">
                     <p className="font-semibold text-gray-800">선택한 옵션</p>
                     <p className="mt-1 leading-relaxed">{optionValidation.snapshot.summary}</p>
                   </div>
@@ -785,7 +785,7 @@ export function StoreProductPublic({
                 value={lineMemo}
                 disabled={orderBusy || orderBlocked}
                 onChange={(e) => setLineMemo(e.target.value)}
-                className="mt-2 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
+                className="mt-2 w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
                 placeholder="예) 국물 많이 주세요"
                 maxLength={300}
               />
@@ -798,7 +798,7 @@ export function StoreProductPublic({
                   type="button"
                   disabled={qty <= minQ || orderBusy || orderBlocked}
                   onClick={() => setQty((q) => Math.max(minQ, q - 1))}
-                  className="h-9 w-9 rounded-lg border border-gray-200 text-lg leading-none text-gray-700 disabled:opacity-40"
+                  className="h-9 w-9 rounded-ui-rect border border-gray-200 text-lg leading-none text-gray-700 disabled:opacity-40"
                 >
                   −
                 </button>
@@ -807,7 +807,7 @@ export function StoreProductPublic({
                   type="button"
                   disabled={qty >= capQty || orderBusy || orderBlocked}
                   onClick={() => setQty((q) => Math.min(capQty, q + 1))}
-                  className="h-9 w-9 rounded-lg border border-gray-200 text-lg leading-none text-gray-700 disabled:opacity-40"
+                  className="h-9 w-9 rounded-ui-rect border border-gray-200 text-lg leading-none text-gray-700 disabled:opacity-40"
                 >
                   +
                 </button>
@@ -856,7 +856,7 @@ export function StoreProductPublic({
                 disabled={orderBusy || orderBlocked}
                 onChange={(e) => setBuyerPhone(parsePhMobileInput(e.target.value))}
                 placeholder={PH_LOCAL_09_PLACEHOLDER}
-                className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
+                className="mt-2 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
                 aria-label="주문 연락처"
               />
             </div>
@@ -871,13 +871,13 @@ export function StoreProductPublic({
                 value={buyerNote}
                 disabled={orderBusy || orderBlocked}
                 onChange={(e) => setBuyerNote(e.target.value)}
-                className="mt-2 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
+                className="mt-2 w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
                 placeholder="픽업 시간 등"
                 maxLength={500}
               />
             </div>
 
-            <div className="space-y-1.5 rounded-lg bg-gray-50 px-3 py-2.5 text-sm text-gray-800">
+            <div className="space-y-1.5 rounded-ui-rect bg-gray-50 px-3 py-2.5 text-sm text-gray-800">
               <div className="flex justify-between">
                 <span className="text-gray-600">상품 금액</span>
                 <span className="font-semibold">{formatMoneyPhp(lineSubtotalPhp)}</span>
@@ -910,7 +910,7 @@ export function StoreProductPublic({
               </div>
             </div>
             {belowStoreMinOrder && !orderBlocked ? (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-[12px] font-medium leading-snug text-amber-950">
+              <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-center text-[12px] font-medium leading-snug text-amber-950">
                 최소 주문 {formatMoneyPhp(minOrderStorePhp)} 이상부터 주문할 수 있습니다. (부족{" "}
                 {formatMoneyPhp(minOrderStorePhp - lineSubtotalPhp)}) · 장바구니에 더 담거나 수량을
                 늘려 주세요.
@@ -919,7 +919,7 @@ export function StoreProductPublic({
 
             {orderErr ? <p className="text-sm text-red-600">{orderErr}</p> : null}
             {orderOk ? (
-              <div className="space-y-2 rounded-lg bg-green-50 px-3 py-2">
+              <div className="space-y-2 rounded-ui-rect bg-green-50 px-3 py-2">
                 <p className="text-sm text-green-800">{orderOk}</p>
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium">
@@ -953,7 +953,7 @@ export function StoreProductPublic({
                   type="button"
                   disabled={orderBusy || !optionValidation.ok || orderBlocked}
                   onClick={() => addToCart()}
-                  className="flex-1 rounded-xl border border-gray-300 bg-white py-3 text-[15px] font-semibold text-gray-900 disabled:opacity-50"
+                  className="flex-1 rounded-ui-rect border border-gray-300 bg-white py-3 text-[15px] font-semibold text-gray-900 disabled:opacity-50"
                 >
                   장바구니 담기
                 </button>
@@ -964,7 +964,7 @@ export function StoreProductPublic({
                   orderBusy || !optionValidation.ok || orderBlocked || belowStoreMinOrder
                 }
                 onClick={() => void submitOrder()}
-                className={`rounded-xl bg-signature py-3 text-[15px] font-semibold text-white disabled:opacity-50 ${
+                className={`rounded-ui-rect bg-signature py-3 text-[15px] font-semibold text-white disabled:opacity-50 ${
                   commerceCart ? "flex-1" : "w-full"
                 }`}
               >

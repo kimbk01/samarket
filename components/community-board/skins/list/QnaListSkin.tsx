@@ -8,7 +8,7 @@ export function QnaListSkin({
   baseHref,
 }: BoardListSkinProps) {
   return (
-    <ul className="divide-y divide-gray-200 bg-white rounded-lg overflow-hidden">
+    <ul className="divide-y divide-gray-200 bg-white rounded-ui-rect overflow-hidden">
       {posts.length === 0 ? (
         <li className="px-4 py-8 text-center text-gray-500">아직 질문이 없어요.</li>
       ) : (

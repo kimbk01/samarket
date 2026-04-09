@@ -66,11 +66,11 @@ export function PersonalizedFeedSimulator() {
         지역: {MOCK_REGION} · 총 {totalItems}건
       </p>
       {totalItems === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           추천 결과가 없습니다. 관심 카테고리/최근 본/찜/채팅 데이터를 확인하세요.
         </div>
       ) : (
-        <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+        <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-white p-4">
           {results.map((r) => (
             <div key={r.sectionKey} className="border-b border-gray-100 pb-3 last:border-0">
               <h3 className="mb-2 text-[14px] font-semibold text-gray-900">

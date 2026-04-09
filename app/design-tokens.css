@@ -17,11 +17,13 @@
   --ui-danger: #e41e3f;
   --ui-success: #31a24c;
 
-  /* 레이아웃·터치 (문서·마케팅 페이지 확장 시 동일 토큰 사용) */
-  --ui-radius-sm: 0.25rem;
-  --ui-radius-md: 0.5rem;
-  --ui-radius-lg: 0.75rem;
-  --ui-radius-xl: 1rem;
+  /* 사각형 섹션·카드·시트(원형·pill 제외) — 모서리 4px 고정 */
+  --ui-radius-rect: 4px;
+  --ui-radius-sm: var(--ui-radius-rect);
+  --ui-radius-md: var(--ui-radius-rect);
+  --ui-radius-lg: var(--ui-radius-rect);
+  --ui-radius-xl: var(--ui-radius-rect);
+  /** 아바타·FAB·pill 입력 등 — `rounded-full` 전용, 사각형 토큰과 별도 */
   --ui-radius-pill: 9999px;
   --ui-tap-min: 44px;
   --ui-shadow-card: 0 2px 16px rgba(0, 0, 0, 0.06);

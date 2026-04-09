@@ -1120,7 +1120,7 @@ export function CommunityMessengerRoomClient({
         <button
           type="button"
           onClick={() => router.replace("/community-messenger?tab=chats")}
-          className="rounded-xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+          className="rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
         >
           {t("nav_messenger_home")}
         </button>
@@ -1185,7 +1185,7 @@ export function CommunityMessengerRoomClient({
       <div ref={messagesViewportRef} className="min-h-0 flex-1 overflow-y-auto">
         <main className="space-y-3 px-4 py-4 pb-6">
           {snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly ? (
-            <div className="rounded-2xl bg-amber-50 px-3 py-3 text-[13px] text-amber-800">
+            <div className="rounded-ui-rect bg-amber-50 px-3 py-3 text-[13px] text-amber-800">
               {snapshot.room.roomStatus === "blocked"
                 ? t("nav_messenger_room_blocked_notice")
                 : snapshot.room.roomStatus === "archived"
@@ -1195,7 +1195,7 @@ export function CommunityMessengerRoomClient({
             </div>
           ) : null}
           {(managedDirectCallError || (call.errorMessage && !call.panel)) ? (
-            <div className="rounded-2xl bg-red-50 px-3 py-3 text-[13px] text-red-700">
+            <div className="rounded-ui-rect bg-red-50 px-3 py-3 text-[13px] text-red-700">
               {managedDirectCallError ?? call.errorMessage}
             </div>
           ) : null}
@@ -1233,7 +1233,7 @@ export function CommunityMessengerRoomClient({
                 <div className={`max-w-[78%] ${item.isMine ? "items-end" : "items-start"} flex flex-col gap-1`}>
                   <span className="text-[11px] text-gray-400">{tt(item.senderLabel)}</span>
                   <div
-                    className={`rounded-2xl px-4 py-3 text-[14px] leading-5 shadow-sm ${
+                    className={`rounded-ui-rect px-4 py-3 text-[14px] leading-5 shadow-sm ${
                       item.messageType === "call_stub"
                         ? "bg-[#EEF9F2] text-[#15803D]"
                         : item.isMine
@@ -1322,7 +1322,7 @@ export function CommunityMessengerRoomClient({
               </div>
             ))
           ) : (
-            <div className="rounded-2xl bg-white px-4 py-8 text-center text-[13px] text-gray-500 shadow-sm">
+            <div className="rounded-ui-rect bg-white px-4 py-8 text-center text-[13px] text-gray-500 shadow-sm">
               첫 메시지를 보내서 대화를 시작해 보세요.
             </div>
           )}
@@ -1366,10 +1366,10 @@ export function CommunityMessengerRoomClient({
                         : "보관된 방입니다"
                     : "메시지"
                 }
-                className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-2xl border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
+                className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-ui-rect border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
               />
             ) : voiceHandsFree ? (
-              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-2xl border-2 border-sky-300/70 bg-[#eef6ff] px-3 py-2 shadow-inner ring-1 ring-sky-200/50">
+              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sky-300/70 bg-[#eef6ff] px-3 py-2 shadow-inner ring-1 ring-sky-200/50">
                 <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-900 sm:text-[14px]">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
@@ -1396,7 +1396,7 @@ export function CommunityMessengerRoomClient({
                 </button>
               </div>
             ) : (
-              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-2xl border-2 border-sky-300/70 bg-[#eef6ff] px-3 py-2 shadow-inner ring-1 ring-sky-200/50">
+              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sky-300/70 bg-[#eef6ff] px-3 py-2 shadow-inner ring-1 ring-sky-200/50">
                 <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-800 sm:text-[14px]">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
@@ -1417,7 +1417,7 @@ export function CommunityMessengerRoomClient({
             <div className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center overflow-visible">
               {voiceRecording && !voiceHandsFree ? (
                 <div
-                  className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-2xl px-2.5 py-2 shadow-md ${
+                  className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-ui-rect px-2.5 py-2 shadow-md ${
                     voiceLockHint ? "bg-[#2AABEE] text-white" : "bg-gray-700/88 text-white/75"
                   }`}
                 >
@@ -1471,7 +1471,7 @@ export function CommunityMessengerRoomClient({
                 busy === "send-voice" ||
                 busy === "delete-voice"
               }
-              className="rounded-2xl bg-[#06C755] px-3.5 py-3 text-[14px] font-semibold text-white disabled:opacity-40 sm:px-4"
+              className="rounded-ui-rect bg-[#06C755] px-3.5 py-3 text-[14px] font-semibold text-white disabled:opacity-40 sm:px-4"
             >
               전송
             </button>
@@ -1486,7 +1486,7 @@ export function CommunityMessengerRoomClient({
       {activeSheet ? (
         <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 px-4 pb-6" onClick={() => setActiveSheet(null)}>
           <div
-            className="max-h-[78vh] w-full max-w-[520px] overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl"
+            className="max-h-[78vh] w-full max-w-[520px] overflow-y-auto rounded-ui-rect bg-white p-5 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             {activeSheet === "menu" ? (
@@ -1497,7 +1497,7 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={() => setActiveSheet("members")}
-                    className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-4 text-left"
+                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
                   >
                     <div>
                       <p className="text-[15px] font-semibold text-gray-900">참가자 보기</p>
@@ -1508,7 +1508,7 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={() => setActiveSheet("info")}
-                    className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-4 text-left"
+                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
                   >
                     <div>
                       <p className="text-[15px] font-semibold text-gray-900">방 정보 보기</p>
@@ -1524,7 +1524,7 @@ export function CommunityMessengerRoomClient({
                       void startManagedDirectCall("voice");
                     }}
                     disabled={roomUnavailable || isGroupRoom || busy === "managed-call:voice"}
-                    className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+                    className="rounded-ui-rect border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
                   >
                     {isGroupRoom ? "1:1 통화 준비 중" : "음성 통화"}
                   </button>
@@ -1536,7 +1536,7 @@ export function CommunityMessengerRoomClient({
                       void startManagedDirectCall("video");
                     }}
                     disabled={roomUnavailable || isGroupRoom || busy === "managed-call:video"}
-                    className="rounded-2xl border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+                    className="rounded-ui-rect border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
                   >
                     {isGroupRoom ? t("nav_group_call_coming_soon") : t("nav_video_call_label")}
                   </button>
@@ -1546,7 +1546,7 @@ export function CommunityMessengerRoomClient({
                       setActiveSheet(null);
                       void reportTarget({ reportType: "room" });
                     }}
-                    className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-left text-[15px] font-semibold text-red-700"
+                    className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-4 text-left text-[15px] font-semibold text-red-700"
                   >
                     {t("nav_messenger_report")}
                   </button>
@@ -1564,14 +1564,14 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
                   >
                     {t("tier1_back")}
                   </button>
                 </div>
                 <div className="mt-4 grid gap-2">
                   {snapshot.members.map((member) => (
-                    <div key={member.id} className="rounded-2xl border border-gray-200 px-4 py-3">
+                    <div key={member.id} className="rounded-ui-rect border border-gray-200 px-4 py-3">
                       <p className="text-[14px] font-semibold text-gray-900">{member.label}</p>
                       <p className="mt-1 text-[12px] text-gray-500">
                         {member.subtitle ?? (member.identityMode === "alias" ? t("nav_messenger_member_alias_joined") : t("nav_messenger_member_joined"))}
@@ -1580,7 +1580,7 @@ export function CommunityMessengerRoomClient({
                   ))}
                 </div>
                 {isPrivateGroupRoom ? (
-                  <div className="mt-4 rounded-2xl bg-[#F8FAF9] p-4">
+                  <div className="mt-4 rounded-ui-rect bg-[#F8FAF9] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[14px] font-semibold text-gray-900">{t("nav_messenger_invite_members")}</p>
@@ -1595,7 +1595,7 @@ export function CommunityMessengerRoomClient({
                         inviteCandidates.map((friend) => (
                           <label
                             key={friend.id}
-                            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3"
+                            className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-3 py-3"
                           >
                             <div>
                               <p className="text-[13px] font-semibold text-gray-900">{friend.label}</p>
@@ -1621,7 +1621,7 @@ export function CommunityMessengerRoomClient({
                       type="button"
                       onClick={() => void inviteMembers()}
                       disabled={inviteIds.length === 0 || busy === "invite"}
-                      className="mt-3 rounded-xl bg-[#06C755] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                      className="mt-3 rounded-ui-rect bg-[#06C755] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
                     >
                       {t("nav_messenger_invite_selected_friends")}
                     </button>
@@ -1640,14 +1640,14 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
                   >
                     {t("tier1_back")}
                   </button>
                 </div>
 
                 <div className="mt-4 space-y-3">
-                  <div className="rounded-2xl border border-gray-200 p-4">
+                  <div className="rounded-ui-rect border border-gray-200 p-4">
                     <p className="text-[14px] font-semibold text-gray-900">{snapshot.room.title}</p>
                     <p className="mt-2 text-[13px] leading-5 text-gray-600">
                       {snapshot.room.summary?.trim() || roomSubtitle || t("nav_messenger_room_no_intro")}
@@ -1682,7 +1682,7 @@ export function CommunityMessengerRoomClient({
                   </div>
 
                   {isOpenGroupRoom ? (
-                    <div className="rounded-2xl bg-[#F8FAF9] p-4">
+                    <div className="rounded-ui-rect bg-[#F8FAF9] p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-[14px] font-semibold text-gray-900">{t("nav_messenger_open_group_settings")}</p>
@@ -1701,21 +1701,21 @@ export function CommunityMessengerRoomClient({
                             value={openGroupTitle}
                             onChange={(e) => setOpenGroupTitle(e.target.value)}
                             placeholder={t("nav_messenger_room_title_placeholder")}
-                            className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                            className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
                           />
                           <textarea
                             value={openGroupSummary}
                             onChange={(e) => setOpenGroupSummary(e.target.value)}
                             rows={3}
                             placeholder={t("nav_messenger_room_intro_placeholder")}
-                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
+                            className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
                           />
                           <div className="grid gap-3 md:grid-cols-2">
-                            <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2">
+                            <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-gray-200 bg-white p-2">
                               <button
                                 type="button"
                                 onClick={() => setOpenGroupJoinPolicy("password")}
-                                className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
+                                className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
                               >
                                 {t("nav_messenger_password_short")}
                               </button>
@@ -1725,7 +1725,7 @@ export function CommunityMessengerRoomClient({
                                   setOpenGroupJoinPolicy("free");
                                   setOpenGroupPassword("");
                                 }}
-                                className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
+                                className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
                               >
                                 {t("nav_messenger_join_free")}
                               </button>
@@ -1734,7 +1734,7 @@ export function CommunityMessengerRoomClient({
                               value={openGroupMemberLimit}
                               onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
                               placeholder={t("nav_messenger_member_limit_placeholder")}
-                              className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                              className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
                             />
                           </div>
                           {openGroupJoinPolicy === "password" ? (
@@ -1742,26 +1742,26 @@ export function CommunityMessengerRoomClient({
                               value={openGroupPassword}
                               onChange={(e) => setOpenGroupPassword(e.target.value)}
                               placeholder={t("nav_messenger_new_password_placeholder")}
-                              className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                              className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
                             />
                           ) : null}
-                          <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2">
+                          <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-gray-200 bg-white p-2">
                             <button
                               type="button"
                               onClick={() => setOpenGroupIdentityPolicy("real_name")}
-                              className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
+                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
                             >
                               {t("nav_messenger_identity_real")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
-                              className={`rounded-lg px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
+                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
                             >
                               {t("nav_messenger_identity_alias")}
                             </button>
                           </div>
-                          <label className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-3">
+                          <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
                             <div>
                               <p className="text-[13px] font-semibold text-gray-900">{t("nav_messenger_discoverable_label")}</p>
                               <p className="mt-1 text-[12px] text-gray-500">{t("nav_messenger_discoverable_desc")}</p>
@@ -1777,7 +1777,7 @@ export function CommunityMessengerRoomClient({
                             type="button"
                             onClick={() => void saveOpenGroupSettings()}
                             disabled={busy === "open-group-settings" || !openGroupTitle.trim()}
-                            className="rounded-xl bg-[#111827] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                            className="rounded-ui-rect bg-[#111827] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
                           >
                             {busy === "open-group-settings" ? t("nav_messenger_saving_settings") : t("nav_messenger_save_room_settings")}
                           </button>
@@ -1788,7 +1788,7 @@ export function CommunityMessengerRoomClient({
                             type="button"
                             onClick={() => void leaveRoom()}
                             disabled={busy === "leave-room"}
-                            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700 disabled:opacity-40"
+                            className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700 disabled:opacity-40"
                           >
                             {busy === "leave-room" ? t("nav_messenger_leaving") : t("nav_messenger_leave_group_room")}
                           </button>
@@ -1805,7 +1805,7 @@ export function CommunityMessengerRoomClient({
 
       {isGroupRoom && call.panel ? (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/70 px-4 pb-4 sm:items-center sm:pb-0">
-          <div className="w-full max-w-[420px] rounded-[32px] bg-[#111827] px-5 pb-5 pt-6 text-white shadow-2xl">
+          <div className="w-full max-w-[420px] rounded-ui-rect bg-[#111827] px-5 pb-5 pt-6 text-white shadow-2xl">
             <div className="flex items-center justify-between gap-3">
               <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-white/85">
                 {isGroupRoom ? t("nav_messenger_group_prefix") : ""}
@@ -1818,7 +1818,7 @@ export function CommunityMessengerRoomClient({
               ) : null}
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-[28px] bg-black">
+            <div className="mt-5 overflow-hidden rounded-ui-rect bg-black">
               {call.panel.kind === "video" ? (
                 <div className="relative min-h-[250px] bg-black">
                   {call.localStream ? (
@@ -1893,7 +1893,7 @@ export function CommunityMessengerRoomClient({
               {isGroupRoom && groupCall.remotePeers.length ? (
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   {groupCall.remotePeers.map((peer) => (
-                    <div key={peer.userId} className="overflow-hidden rounded-2xl bg-black">
+                    <div key={peer.userId} className="overflow-hidden rounded-ui-rect bg-black">
                       <video
                         ref={(node) => {
                           groupCall.bindRemoteVideo(peer.userId, node);
@@ -1910,7 +1910,7 @@ export function CommunityMessengerRoomClient({
             </div>
 
             {call.errorMessage ? (
-              <div className="mt-4 rounded-2xl bg-white/10 p-4 text-left">
+              <div className="mt-4 rounded-ui-rect bg-white/10 p-4 text-left">
                 <p className="text-[13px] font-semibold text-[#FECACA]">{call.errorMessage}</p>
                 <p className="mt-2 text-[12px] leading-5 text-white/70">{permissionGuide?.description}</p>
                 <div className="mt-3 flex gap-2">
@@ -1918,7 +1918,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void retryCallDevicePermission()}
                     disabled={call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"}
-                    className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
+                    className="flex-1 rounded-ui-rect bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
                   >
                     {call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"
                       ? t("nav_messenger_checking")
@@ -1927,7 +1927,7 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={openCallPermissionHelp}
-                    className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
+                    className="rounded-ui-rect border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
                   >
                     {permissionGuide?.settingsLabel ?? t("nav_messenger_permission_guide")}
                   </button>
@@ -1939,7 +1939,7 @@ export function CommunityMessengerRoomClient({
                   type="button"
                   onClick={() => void retryCallDevicePermission()}
                   disabled={call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"}
-                  className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
+                  className="flex-1 rounded-ui-rect bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
                 >
                   {call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"
                     ? t("nav_messenger_checking")
@@ -1948,7 +1948,7 @@ export function CommunityMessengerRoomClient({
                 <button
                   type="button"
                   onClick={openCallPermissionHelp}
-                  className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
+                  className="rounded-ui-rect border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
                 >
                   {permissionGuide?.settingsLabel ?? t("nav_messenger_permission_guide")}
                 </button>
@@ -1962,7 +1962,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void call.rejectIncomingCall()}
                     disabled={call.busy === "call-reject"}
-                    className="cursor-pointer touch-manipulation rounded-2xl border border-white/15 px-4 py-3 text-[14px] text-white/80 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white active:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
+                    className="cursor-pointer touch-manipulation rounded-ui-rect border border-white/15 px-4 py-3 text-[14px] text-white/80 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white active:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
                   >
                     거절
                   </button>
@@ -1970,7 +1970,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void handleAcceptIncomingCall()}
                     disabled={call.busy === "call-accept"}
-                    className="flex-1 cursor-pointer touch-manipulation select-none rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
+                    className="flex-1 cursor-pointer touch-manipulation select-none rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
                   >
                     수락
                   </button>
@@ -1987,7 +1987,7 @@ export function CommunityMessengerRoomClient({
                       call.dismissPanel();
                     }}
                     disabled={call.panel?.sessionId ? call.busy === "call-cancel" : false}
-                    className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                    className="flex-1 rounded-ui-rect bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                   >
                     통화 끊기
                   </button>
@@ -1998,7 +1998,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void call.endActiveCall()}
                     disabled={call.busy === "call-end"}
-                    className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                    className="flex-1 rounded-ui-rect bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                   >
                     통화 끊기
                   </button>
@@ -2007,7 +2007,7 @@ export function CommunityMessengerRoomClient({
                       type="button"
                       onClick={() => void call.retryConnection()}
                       disabled={call.busy === "call-retry"}
-                      className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80"
+                      className="rounded-ui-rect border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80"
                     >
                       다시 연결
                     </button>

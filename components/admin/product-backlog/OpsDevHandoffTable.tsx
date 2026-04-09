@@ -42,7 +42,7 @@ export function OpsDevHandoffTable() {
       </p>
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           handoff 항목이 없습니다.
         </div>
       ) : (

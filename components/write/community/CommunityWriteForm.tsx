@@ -75,7 +75,7 @@ export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityW
             onChange={(e) => setTitle(e.target.value)}
             placeholder="제목"
             maxLength={100}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+            className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
             aria-invalid={!!errors.title}
           />
           {errors.title && <p className="mt-1 text-[13px] text-red-500">{errors.title}</p>}
@@ -89,7 +89,7 @@ export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityW
             onChange={(e) => setContent(e.target.value)}
             placeholder="내용을 입력해 주세요"
             rows={6}
-            className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+            className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
             aria-invalid={!!errors.content}
           />
           {errors.content && <p className="mt-1 text-[13px] text-red-500">{errors.content}</p>}

@@ -38,7 +38,7 @@ export function CategoryMenuIconPicker({ variant, value, onChange }: CategoryMen
                 key={o.value}
                 type="button"
                 onClick={() => onChange(o.value)}
-                className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-center transition-colors ${
+                className={`flex flex-col items-center gap-1 rounded-ui-rect border px-2 py-2.5 text-center transition-colors ${
                   selected
                     ? "border-signature bg-signature/5 ring-1 ring-signature/30"
                     : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
@@ -71,7 +71,7 @@ export function CategoryMenuIconPicker({ variant, value, onChange }: CategoryMen
               key={o.value}
               type="button"
               onClick={() => onChange(o.value)}
-              className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-center transition-colors ${
+              className={`flex flex-col items-center gap-1 rounded-ui-rect border px-2 py-2.5 text-center transition-colors ${
                 selected
                   ? "border-signature bg-signature/5 ring-1 ring-signature/30"
                   : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"

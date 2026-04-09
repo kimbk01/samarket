@@ -32,7 +32,7 @@ export function ProductLocationSelect({
             onRegionChange(e.target.value);
             onCityChange("");
           }}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
           aria-invalid={!!error}
         >
           <option value="">Select region</option>
@@ -45,7 +45,7 @@ export function ProductLocationSelect({
         <select
           value={city}
           onChange={(e) => onCityChange(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
           disabled={!region}
           aria-invalid={!!error}
         >

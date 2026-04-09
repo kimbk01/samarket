@@ -80,11 +80,11 @@ export function MemberOrdersPageClient() {
 
       <div className="mx-auto max-w-lg space-y-4 px-3 pt-4">
         {toast ? (
-          <p className="rounded-xl bg-gray-900 px-3 py-2 text-center text-xs text-white">{toast}</p>
+          <p className="rounded-ui-rect bg-gray-900 px-3 py-2 text-center text-xs text-white">{toast}</p>
         ) : null}
 
         {!buyerId ? (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-center text-xs text-amber-950">
+          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 text-center text-xs text-amber-950">
             {t("member_orders_member_only")}
           </p>
         ) : null}

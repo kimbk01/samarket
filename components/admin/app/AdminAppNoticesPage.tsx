@@ -32,7 +32,7 @@ export function AdminAppNoticesPage() {
         <h1 className="text-[18px] font-semibold text-gray-900">공지사항</h1>
         <Link
           href="/admin/app/notices/create"
-          className="rounded-lg bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded-ui-rect bg-signature px-3 py-2 text-[14px] font-medium text-white"
         >
           추가
         </Link>
@@ -40,13 +40,13 @@ export function AdminAppNoticesPage() {
       {loading ? (
         <p className="text-gray-500">불러오는 중…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-lg bg-white p-4 text-[14px] text-gray-500">
+        <p className="rounded-ui-rect bg-white p-4 text-[14px] text-gray-500">
           공지가 없습니다. Supabase app_notices 연동 후 목록이 표시됩니다.
         </p>
       ) : (
         <ul className="space-y-2">
           {items.map((n) => (
-            <li key={n.id} className="flex items-center justify-between rounded-lg bg-white p-3">
+            <li key={n.id} className="flex items-center justify-between rounded-ui-rect bg-white p-3">
               <div>
                 <span className="font-medium">{n.title}</span>
                 <span className="ml-2 text-[13px] text-gray-500">

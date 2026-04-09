@@ -33,7 +33,7 @@ export function OpsBenchmarkCards() {
 
   if (benchmarks.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
         해당 기간 벤치마크 데이터가 없습니다.
       </div>
     );
@@ -62,7 +62,7 @@ export function OpsBenchmarkCards() {
         {benchmarks.map((b) => (
           <div
             key={b.id}
-            className={`rounded-lg border p-4 ${
+            className={`rounded-ui-rect border p-4 ${
               b.gapScore > 5
                 ? "border-amber-200 bg-amber-50/50"
                 : b.gapScore <= 0

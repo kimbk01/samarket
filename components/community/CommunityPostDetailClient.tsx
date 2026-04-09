@@ -137,16 +137,16 @@ export function CommunityPostDetailClient({
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-24">
       <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-        <div className="rounded-md border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className="rounded-md px-2 py-0.5 text-[11px] font-semibold text-white"
+              className="rounded-ui-rect px-2 py-0.5 text-[11px] font-semibold text-white"
               style={{ backgroundColor: post.topic_color ?? "#64748b" }}
             >
               {post.topic_name}
             </span>
             {post.is_question ? (
-              <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">질문</span>
+              <span className="rounded-ui-rect bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">질문</span>
             ) : null}
           </div>
           <h1 className="mt-3 text-xl font-bold text-gray-900">{post.title}</h1>
@@ -164,7 +164,7 @@ export function CommunityPostDetailClient({
             <div className="mt-4 grid grid-cols-2 gap-2">
               {post.images.map((im) =>
                 im.url ? (
-                  <a key={im.id} href={im.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-md bg-gray-100">
+                  <a key={im.id} href={im.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-ui-rect bg-gray-100">
                     <img src={im.url} alt="" className="h-40 w-full object-cover" />
                   </a>
                 ) : null
@@ -173,7 +173,7 @@ export function CommunityPostDetailClient({
           ) : null}
 
           {post.is_meetup && (post.meetup_date || post.meetup_place) ? (
-            <div className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900">
+            <div className="mt-4 rounded-ui-rect bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900">
               {post.meetup_date ? <p>일시: {new Date(post.meetup_date).toLocaleString("ko-KR")}</p> : null}
               {post.meetup_place ? <p>장소: {post.meetup_place}</p> : null}
             </div>
@@ -184,7 +184,7 @@ export function CommunityPostDetailClient({
               type="button"
               disabled={busy}
               onClick={() => void onLike()}
-              className="rounded-md border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
+              className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
             >
               공감 {likeCount}
             </button>
@@ -195,12 +195,12 @@ export function CommunityPostDetailClient({
                   setReportErr("");
                   setReportOpen(true);
                 }}
-                className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-[13px] font-medium text-red-800"
+                className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 text-[13px] font-medium text-red-800"
               >
                 신고
               </button>
             ) : null}
-            <Link href={philifeAppPaths.home} className="rounded-md border border-gray-200 px-4 py-2 text-[13px] text-gray-600">
+            <Link href={philifeAppPaths.home} className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[13px] text-gray-600">
               목록
             </Link>
           </div>
@@ -208,14 +208,14 @@ export function CommunityPostDetailClient({
 
         {reportOpen ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog">
-            <div className="w-full max-w-md rounded-md bg-white p-4 shadow-xl">
+            <div className="w-full max-w-md rounded-ui-rect bg-white p-4 shadow-xl">
               <p className="text-[15px] font-semibold text-gray-900">게시글 신고</p>
               <p className="mt-1 text-[12px] text-gray-500">신고 사유를 적어 주세요. 운영팀이 확인합니다.</p>
               <textarea
                 value={reportText}
                 onChange={(e) => setReportText(e.target.value)}
                 rows={4}
-                className="mt-3 w-full rounded-md border border-gray-200 px-3 py-2 text-[14px]"
+                className="mt-3 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
                 placeholder="예: 스팸, 욕설, 사기 의심 등"
               />
               {reportErr ? <p className="mt-1 text-[12px] text-red-600">{reportErr}</p> : null}
@@ -223,7 +223,7 @@ export function CommunityPostDetailClient({
                 <button
                   type="button"
                   onClick={() => setReportOpen(false)}
-                  className="flex-1 rounded-md border border-gray-200 py-2.5 text-[14px] text-gray-700"
+                  className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[14px] text-gray-700"
                 >
                   취소
                 </button>
@@ -231,7 +231,7 @@ export function CommunityPostDetailClient({
                   type="button"
                   disabled={busy || !reportText.trim()}
                   onClick={() => void onReport()}
-                  className="flex-1 rounded-md bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
+                  className="flex-1 rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
                 >
                   접수
                 </button>
@@ -240,7 +240,7 @@ export function CommunityPostDetailClient({
           </div>
         ) : null}
 
-        <section className="mt-4 rounded-md border border-gray-100 bg-white p-4 shadow-sm" id="comments">
+        <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm" id="comments">
           <h2 className="text-[15px] font-semibold text-gray-900">댓글 {comments.length}</h2>
           <ul className="mt-3 divide-y divide-gray-100">
             {comments.map((c) => (
@@ -263,12 +263,12 @@ export function CommunityPostDetailClient({
               placeholder={me?.id ? "댓글을 입력하세요" : "로그인 후 댓글을 작성할 수 있어요"}
               disabled={!me?.id || busy}
               rows={3}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-400"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-400"
             />
             <button
               type="submit"
               disabled={!me?.id || busy || !commentText.trim()}
-              className="mt-2 w-full rounded-md bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
+              className="mt-2 w-full rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
             >
               등록
             </button>

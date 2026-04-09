@@ -40,7 +40,7 @@ export function TrustSummaryCard({ summary, variant = "full" }: TrustSummaryCard
   }
 
   return (
-    <div className="rounded-lg border border-gray-100 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-100 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[13px] font-medium text-gray-700">{batteryLabel}</span>
         <div className="flex items-center gap-2">

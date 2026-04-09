@@ -11,7 +11,7 @@ export function OpsCarryOverBoard() {
 
   if (carryOver.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
         다음 달로 이월(carry-over)된 항목이 없습니다.
       </div>
     );
@@ -28,7 +28,7 @@ export function OpsCarryOverBoard() {
           return (
             <div
               key={e.id}
-              className="rounded-lg border border-amber-200 bg-amber-50/50 p-4"
+              className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-4"
             >
               <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-600">
                 <span>{getCadenceLabel(e.periodType as "weekly" | "monthly" | "quarterly")}</span>

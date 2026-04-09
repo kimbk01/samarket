@@ -81,7 +81,7 @@ export function ChatButton({ productId, existingRoomId, disabled, className, chi
           }
         }}
         disabled={disabled || loading}
-        className={className ?? "rounded-md bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
+        className={className ?? "rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
       >
         {loading ? t("common_move_in_progress") : label}
       </button>

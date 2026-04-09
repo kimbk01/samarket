@@ -56,7 +56,7 @@ export function MyPostAdList({
 
   if (ads.length === 0) {
     return (
-      <div className="rounded-xl border border-stone-200 bg-white p-8 text-center text-[14px] text-stone-500">
+      <div className="rounded-ui-rect border border-stone-200 bg-white p-8 text-center text-[14px] text-stone-500">
         <p>게시글 광고 신청 내역이 없습니다.</p>
         <p className="mt-2 text-[12px] text-stone-400">
           커뮤니티·동네 피드에서 글을 작성한 뒤, 해당 글에 대해 광고를 신청할 수 있어요.
@@ -68,17 +68,17 @@ export function MyPostAdList({
   return (
     <div className="space-y-3">
       {metaSource === "memory" ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
+        <p className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
           개발용 인메모리 목록입니다. Supabase에 <code className="rounded bg-white/80 px-1">post_ads</code> 테이블을
           적용하면 DB와 동기화됩니다.
         </p>
       ) : null}
       {err ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{err}</p>
+        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] text-red-700">{err}</p>
       ) : null}
       <ul className="space-y-3">
         {ads.map((a) => (
-          <li key={a.id} className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+          <li key={a.id} className="rounded-ui-rect border border-stone-200 bg-white p-4 shadow-sm">
             <p className="font-semibold text-stone-900">{a.postTitle}</p>
             <p className="mt-0.5 text-[13px] text-stone-600">
               {a.adProductName} · {AD_TYPE_LABELS[a.adType]} · {a.pointCost.toLocaleString()}P
@@ -104,7 +104,7 @@ export function MyPostAdList({
               신청일 {new Date(a.createdAt).toLocaleString("ko-KR")}
             </p>
             {a.adminNote ? (
-              <p className="mt-2 rounded-md bg-stone-50 px-2 py-1.5 text-[12px] text-stone-600">
+              <p className="mt-2 rounded-ui-rect bg-stone-50 px-2 py-1.5 text-[12px] text-stone-600">
                 안내: {a.adminNote}
               </p>
             ) : null}

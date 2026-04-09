@@ -432,7 +432,7 @@ export function AdminCommunityMessengerPage() {
           <div className="space-y-2">
             <p className="text-[13px] font-medium text-gray-700">반복 발생 방 TOP</p>
             {filteredForceEndRecurrenceAnalysis.room.topItems.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-gray-200 px-3 py-6 text-center text-[13px] text-gray-500">
+              <div className="rounded-ui-rect border border-dashed border-gray-200 px-3 py-6 text-center text-[13px] text-gray-500">
                 반복 발생 방이 없습니다.
               </div>
             ) : (
@@ -450,7 +450,7 @@ export function AdminCommunityMessengerPage() {
           <div className="space-y-2">
             <p className="text-[13px] font-medium text-gray-700">반복 발생 발신자 TOP</p>
             {filteredForceEndRecurrenceAnalysis.caller.topItems.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-gray-200 px-3 py-6 text-center text-[13px] text-gray-500">
+              <div className="rounded-ui-rect border border-dashed border-gray-200 px-3 py-6 text-center text-[13px] text-gray-500">
                 반복 발생 발신자가 없습니다.
               </div>
             ) : (
@@ -471,7 +471,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="사유 코드 x 재발 여부">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filteredForceEndReasonRecurrenceStats.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 px-3 py-8 text-center text-[13px] text-gray-500 md:col-span-2 xl:col-span-3">
+            <div className="rounded-ui-rect border border-dashed border-gray-200 px-3 py-8 text-center text-[13px] text-gray-500 md:col-span-2 xl:col-span-3">
               재발 분석 대상 사유 코드가 없습니다.
             </div>
           ) : (
@@ -538,7 +538,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="사유 코드 x 시간대 히트맵">
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredForceEndReasonHeatmapStats.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 px-3 py-8 text-center text-[13px] text-gray-500 xl:col-span-2">
+            <div className="rounded-ui-rect border border-dashed border-gray-200 px-3 py-8 text-center text-[13px] text-gray-500 xl:col-span-2">
               시간대 패턴을 표시할 사유 코드가 없습니다.
             </div>
           ) : (
@@ -562,7 +562,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="사유 코드 x 관리자">
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredForceEndReasonAdminStats.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 px-3 py-8 text-center text-[13px] text-gray-500 xl:col-span-2">
+            <div className="rounded-ui-rect border border-dashed border-gray-200 px-3 py-8 text-center text-[13px] text-gray-500 xl:col-span-2">
               운영자 교차 분석 대상 사유 코드가 없습니다.
             </div>
           ) : (
@@ -801,7 +801,7 @@ export function AdminCommunityMessengerPage() {
 
 function StatCard({ label, value, helper }: { label: string; value: number; helper: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <p className="text-[13px] text-gray-500">{label}</p>
       <p className="mt-2 text-[28px] font-semibold text-gray-900">{value}</p>
       <p className="mt-1 text-[12px] text-gray-400">{helper}</p>
@@ -822,7 +822,7 @@ function ForceEndReasonKpiCard({
 }) {
   const percent = Math.round(share * 100);
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[13px] text-gray-500">{label}</p>
@@ -861,7 +861,7 @@ function ForceEndTrendCard({
     direction === "up" ? `+${delta}` : direction === "down" ? `${delta}` : "0";
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[13px] text-gray-500">{label}</p>
@@ -885,7 +885,7 @@ function ForceEndAdminRow({
 }) {
   const percent = Math.round(share * 100);
   return (
-    <div className="rounded-lg border border-gray-100 px-3 py-3">
+    <div className="rounded-ui-rect border border-gray-100 px-3 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[14px] font-medium text-gray-900">{adminLabel}</p>
@@ -914,7 +914,7 @@ function ForceEndRoomTypeCard({
 }) {
   const percent = Math.round(share * 100);
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <p className="text-[13px] text-gray-500">{label}</p>
       <p className="mt-2 text-[28px] font-semibold text-gray-900">{count}</p>
       <div className="mt-3 h-2 rounded-full bg-gray-100">
@@ -942,7 +942,7 @@ function ForceEndRecurrenceSummaryCard({
 }) {
   const percent = Math.round(share * 100);
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[13px] text-gray-500">{label}</p>
@@ -971,7 +971,7 @@ function ForceEndRecurrenceRow({
   latestAt: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-100 px-3 py-3">
+    <div className="rounded-ui-rect border border-gray-100 px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[14px] font-medium text-gray-900">{label}</p>
@@ -1007,7 +1007,7 @@ function ForceEndReasonRecurrenceCard({
   const roomPercent = Math.round(roomRepeatShare * 100);
   const callerPercent = Math.round(callerRepeatShare * 100);
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[13px] text-gray-500">{label}</p>
@@ -1066,7 +1066,7 @@ function ForceEndAdminEffectRow({
   const roomPercent = Math.round(roomSuppressionRate * 100);
   const callerPercent = Math.round(callerSuppressionRate * 100);
   return (
-    <div className="rounded-lg border border-gray-100 px-3 py-3">
+    <div className="rounded-ui-rect border border-gray-100 px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[14px] font-medium text-gray-900">{adminLabel}</p>
@@ -1121,7 +1121,7 @@ function ForceEndHeatmapCard({
   tone: "red" | "amber";
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <p className="text-[14px] font-medium text-gray-900">{title}</p>
       <p className="mt-1 text-[12px] text-gray-500">{description}</p>
       <div className="mt-4 overflow-x-auto">
@@ -1198,7 +1198,7 @@ function ForceEndReasonHeatmapCard({
 }) {
   const recurrencePercent = Math.round(recurrenceShare * 100);
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[14px] font-medium text-gray-900">{label}</p>
@@ -1273,7 +1273,7 @@ function ForceEndReasonAdminCard({
   topAdmins: Array<{ adminLabel: string; count: number; share: number }>;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[14px] font-medium text-gray-900">{label}</p>
@@ -1292,7 +1292,7 @@ function ForceEndReasonAdminCard({
           topAdmins.map((item) => {
             const percent = Math.round(item.share * 100);
             return (
-              <div key={`${code}:${item.adminLabel}`} className="rounded-lg border border-gray-100 px-3 py-3">
+              <div key={`${code}:${item.adminLabel}`} className="rounded-ui-rect border border-gray-100 px-3 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-medium text-gray-900">{item.adminLabel}</p>
@@ -1371,7 +1371,7 @@ function RequestRow({
   onAction: (requestId: string, status: CommunityMessengerFriendRequestStatus) => Promise<void>;
 }) {
   return (
-    <div className="rounded-lg border border-gray-100 px-3 py-3">
+    <div className="rounded-ui-rect border border-gray-100 px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[14px] font-medium text-gray-900">
@@ -1418,7 +1418,7 @@ function RequestRow({
 
 function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
   return (
-    <div className="rounded-lg border border-gray-100 px-3 py-3">
+    <div className="rounded-ui-rect border border-gray-100 px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[14px] font-medium text-gray-900">
@@ -1442,7 +1442,7 @@ function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
 
 function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSession }) {
   return (
-    <div className="rounded-lg border border-gray-100 px-3 py-3">
+    <div className="rounded-ui-rect border border-gray-100 px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[14px] font-medium text-gray-900">
@@ -1479,7 +1479,7 @@ function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSessio
 
 function CallAuditRow({ log }: { log: AdminCommunityMessengerCallAuditLog }) {
   return (
-    <div className="rounded-lg border border-gray-100 px-3 py-3">
+    <div className="rounded-ui-rect border border-gray-100 px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[14px] font-medium text-gray-900">
@@ -1540,7 +1540,7 @@ function ReportRow({
   };
 
   return (
-    <div className="rounded-lg border border-gray-100 px-3 py-3">
+    <div className="rounded-ui-rect border border-gray-100 px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[14px] font-medium text-gray-900">

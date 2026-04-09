@@ -175,7 +175,7 @@ export function BusinessProfileEditForm({
       </div>
       <button
         type="submit"
-        className="w-full rounded-lg bg-signature py-3 text-[15px] font-medium text-white"
+        className="w-full rounded-ui-rect bg-signature py-3 text-[15px] font-medium text-white"
       >
         {submitLabel}
       </button>

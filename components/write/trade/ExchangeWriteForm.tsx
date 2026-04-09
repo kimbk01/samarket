@@ -319,13 +319,13 @@ export function ExchangeWriteForm({
         <section className="border-b border-gray-100 bg-white px-4 py-4">
           <h3 className="mb-3 text-[15px] font-bold text-gray-900">환율 상황판</h3>
           {ratesLoading ? (
-            <p className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 text-center text-[14px] text-gray-500">환율 불러오는 중…</p>
+            <p className="rounded-ui-rect border border-gray-200 bg-gray-50/50 p-4 text-center text-[14px] text-gray-500">환율 불러오는 중…</p>
           ) : (
             <>
               <p className="mb-2 text-[12px] text-gray-500">
                 {ratesFetchedAt ? `${ratesFetchedAt} 기준 환율` : "기준: 페소 1 (기본값)"}
               </p>
-              <ul className="space-y-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+              <ul className="space-y-2 rounded-ui-rect border border-gray-200 bg-gray-50/50 p-3">
                 {EXCHANGE_CURRENCIES.map((code) => (
                   <li key={code} className="flex items-center justify-between text-[14px]">
                     <span className="font-medium text-gray-800">{code}</span>
@@ -351,7 +351,7 @@ export function ExchangeWriteForm({
                 key={opt.value}
                 type="button"
                 onClick={() => setDirection(opt.value as "sell" | "buy")}
-                className={`flex-1 rounded-lg border py-2.5 text-[14px] font-medium ${
+                className={`flex-1 rounded-ui-rect border py-2.5 text-[14px] font-medium ${
                   direction === opt.value ? "border-gray-800 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-700"
                 }`}
               >
@@ -382,7 +382,7 @@ export function ExchangeWriteForm({
                   (1 PHP = ? KRW)
                 </span>
               </label>
-              <div className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-2 sm:gap-2 sm:px-3 sm:py-2.5">
+              <div className="flex items-center gap-1 rounded-ui-rect border border-gray-300 bg-white px-2 py-2 sm:gap-2 sm:px-3 sm:py-2.5">
                 <input
                   type="text"
                   inputMode="decimal"
@@ -399,7 +399,7 @@ export function ExchangeWriteForm({
               <label className="mb-1 block text-[11px] font-medium text-gray-800 sm:text-[12px]">
                 기준 환율 + (가산)
               </label>
-              <div className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-2 sm:gap-2 sm:px-3 sm:py-2.5">
+              <div className="flex items-center gap-1 rounded-ui-rect border border-gray-300 bg-white px-2 py-2 sm:gap-2 sm:px-3 sm:py-2.5">
                 <span className="shrink-0 text-[14px] text-gray-500 sm:text-[15px]">+</span>
                 <input
                   type="text"
@@ -422,7 +422,7 @@ export function ExchangeWriteForm({
           {errors.rate && <p className="mt-1 text-[13px] text-red-500">{errors.rate}</p>}
 
           <p className="mt-4 mb-2 text-[14px] font-medium text-gray-800">금액 (페소)</p>
-          <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2.5">
+          <div className="flex items-center gap-2 rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5">
             <span className="text-[14px] text-gray-500">{CURRENCY_SYMBOLS.PHP}</span>
             <input
               type="text"
@@ -450,7 +450,7 @@ export function ExchangeWriteForm({
                   return (
                     <label
                       key={`seller-${opt.value}`}
-                      className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 ${disabled ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60" : "cursor-pointer border-gray-200"}`}
+                      className={`flex items-center gap-1.5 rounded-ui-rect border px-3 py-2 ${disabled ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60" : "cursor-pointer border-gray-200"}`}
                     >
                       <input
                         type="checkbox"
@@ -478,7 +478,7 @@ export function ExchangeWriteForm({
               return (
                 <label
                   key={`buyer-${opt.value}`}
-                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 ${disabled ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60" : "cursor-pointer border-gray-200"}`}
+                  className={`flex items-center gap-1.5 rounded-ui-rect border px-3 py-2 ${disabled ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60" : "cursor-pointer border-gray-200"}`}
                 >
                   <input
                     type="checkbox"
@@ -502,7 +502,7 @@ export function ExchangeWriteForm({
             onChange={(e) => setMemo(e.target.value)}
             placeholder="매너와 속도가 중요해요. 거래 시 유의사항을 적어주세요."
             rows={3}
-            className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-[14px] text-gray-900"
+            className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px] text-gray-900"
           />
           <p className="mt-1 text-[12px] text-gray-500">매너와 속도가 중요해요.</p>
         </section>

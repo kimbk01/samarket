@@ -30,7 +30,7 @@ export function PointChargeRequestList({
 
   if (requests.length === 0) {
     return (
-      <div className="rounded-lg bg-white p-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">
         충전 신청 내역이 없습니다.
       </div>
     );
@@ -41,7 +41,7 @@ export function PointChargeRequestList({
       {requests.map((r) => (
         <li
           key={r.id}
-          className="rounded-lg border border-gray-200 bg-white p-4"
+          className="rounded-ui-rect border border-gray-200 bg-white p-4"
         >
           <p className="font-medium text-gray-900">{r.planName}</p>
           <p className="mt-0.5 text-[13px] text-gray-600">

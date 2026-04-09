@@ -91,7 +91,7 @@ export function PhoneVerificationRequestForm() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-ig-border bg-signature/5 px-4 py-3">
+      <div className="rounded-ui-rect border border-ig-border bg-signature/5 px-4 py-3">
         <p className="text-sm font-semibold text-gray-900">필리핀 전화번호 인증</p>
         <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
           전화번호 인증 전까지는 열람만 가능하며 글쓰기, 거래, 주문, 채팅은 사용할 수 없습니다. 현재 단계에서는
@@ -99,7 +99,7 @@ export function PhoneVerificationRequestForm() {
         </p>
       </div>
 
-      <div className="rounded-xl bg-white p-4 shadow-sm">
+      <div className="rounded-ui-rect bg-white p-4 shadow-sm">
         <p className="text-[13px] text-gray-500">현재 상태</p>
         <p className="mt-1 text-[16px] font-semibold text-gray-900">
           {status?.phone_verified
@@ -111,7 +111,7 @@ export function PhoneVerificationRequestForm() {
         <p className="mt-1 text-[13px] text-gray-600">{status?.help_text ?? ""}</p>
       </div>
 
-      <form onSubmit={submit} className="space-y-4 rounded-xl bg-white p-4 shadow-sm">
+      <form onSubmit={submit} className="space-y-4 rounded-ui-rect bg-white p-4 shadow-sm">
         <div>
           <label className="block text-[13px] font-medium text-gray-700">닉네임</label>
           <input
@@ -120,7 +120,7 @@ export function PhoneVerificationRequestForm() {
             onChange={(e) => setNickname(e.target.value)}
             maxLength={20}
             required
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
           />
         </div>
         <div>
@@ -133,7 +133,7 @@ export function PhoneVerificationRequestForm() {
             onChange={(e) => setPhoneDigits(parsePhMobileInput(e.target.value))}
             placeholder={PH_MOBILE_PLACEHOLDER}
             required
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
           />
         </div>
         {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
@@ -141,7 +141,7 @@ export function PhoneVerificationRequestForm() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-lg bg-signature py-3 text-[14px] font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-ui-rect bg-signature py-3 text-[14px] font-semibold text-white disabled:opacity-50"
         >
           {submitting ? "저장 중…" : "전화번호 인증 요청 저장"}
         </button>

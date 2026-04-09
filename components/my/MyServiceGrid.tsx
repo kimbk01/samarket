@@ -28,7 +28,7 @@ export function MyServiceGrid({ services }: MyServiceGridProps) {
         <Link
           key={s.code}
           href={s.href}
-          className="flex flex-col items-center justify-center rounded-xl bg-white py-4 shadow-sm"
+          className="flex flex-col items-center justify-center rounded-ui-rect bg-white py-4 shadow-sm"
         >
           <span className="mb-2 flex h-10 w-10 items-center justify-center text-gray-600">
             {ICON_MAP[s.icon_key] ?? ICON_MAP.default}

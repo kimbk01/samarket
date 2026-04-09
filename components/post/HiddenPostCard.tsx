@@ -54,7 +54,7 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
   };
 
   return (
-    <div className="rounded-md border border-gray-200 bg-gray-100 p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-gray-100 p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[15px] font-semibold text-gray-900">글을 숨겼어요</p>
@@ -63,7 +63,7 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
         <button
           type="button"
           onClick={onUndo}
-          className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-200"
+          className="flex shrink-0 items-center gap-1 rounded-ui-rect px-2 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-200"
         >
           <IconUndo className="h-4 w-4" />
           되돌리기

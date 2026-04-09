@@ -56,7 +56,7 @@ function MeetingInfoCard({
   const hasCover = !!(meeting as { cover_image_url?: string }).cover_image_url;
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-white shadow-sm">
       <div
         className={`relative flex h-28 items-end px-5 pb-4 ${
           hasCover
@@ -172,7 +172,7 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
               openChatAnyApproval={openChatAnyApproval}
             />
             {!isPending && !isRestricted ? (
-              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
                 <MeetingJoinButton
                   meetingId={meeting.id}
                   chatRoomId={meeting.chat_room_id}

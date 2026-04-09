@@ -36,7 +36,7 @@ export function AdminAuditSummaryCards({ summary }: AdminAuditSummaryCardsProps)
       {items.map(({ label, value }) => (
         <div
           key={label}
-          className="rounded-lg border border-gray-200 bg-white p-3"
+          className="rounded-ui-rect border border-gray-200 bg-white p-3"
         >
           <p className="text-[12px] text-gray-500">{label}</p>
           <p className="mt-0.5 truncate text-[14px] font-medium text-gray-900">

@@ -21,7 +21,7 @@ export function MyPageMobileFold({
   }, [defaultOpenMobile, title]);
 
   return (
-    <section className="rounded-[4px] border border-gray-200 bg-white">
+    <section className="rounded-ui-rect border border-gray-200 bg-white">
       <div className="flex items-start justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <h3 className="text-[14px] font-semibold text-gray-900">{title}</h3>
@@ -31,7 +31,7 @@ export function MyPageMobileFold({
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((current) => !current)}
-          className="inline-flex h-7 min-w-7 items-center justify-center rounded-[4px] border border-gray-200 px-2 text-[14px] font-semibold text-gray-700 md:hidden"
+          className="inline-flex h-7 min-w-7 items-center justify-center rounded-ui-rect border border-gray-200 px-2 text-[14px] font-semibold text-gray-700 md:hidden"
         >
           {open ? "-" : "+"}
         </button>

@@ -29,25 +29,25 @@ export function LaunchWeekSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">현재 Day</p>
           <p className="text-[24px] font-semibold text-gray-900">
             Day {summary.currentDay}
           </p>
         </div>
-        <div className={`rounded-lg border p-4 ${stabilityBg}`}>
+        <div className={`rounded-ui-rect border p-4 ${stabilityBg}`}>
           <p className="text-[12px] text-gray-500">초기 안정화 상태</p>
           <p className={`text-[20px] font-semibold ${stabilityClass}`}>
             {getStabilityLabel(summary.currentStabilityStatus)}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">오픈 이슈 / Critical</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.openIssueCount} / {summary.criticalIssueCount}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">체크리스트</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.totalChecklistDone} / {summary.totalChecklistCount}
@@ -61,13 +61,13 @@ export function LaunchWeekSummaryCards() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">오늘 Fallback / Kill Switch</p>
           <p className="text-[14px] text-gray-700">
             {summary.fallbackToday} / {summary.killSwitchToday}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">연결</p>
           <p className="text-[14px] text-gray-700">
             <Link href="/admin/recommendation-monitoring" className="text-signature hover:underline">

@@ -34,7 +34,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <AdminTestSwitcher />
             <Link
               href="/home"
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+              className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300"
             >
               {t("common_homepage")}
             </Link>

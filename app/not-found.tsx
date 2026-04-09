@@ -13,7 +13,7 @@ export default function NotFound() {
       </p>
       <Link
         href="/home"
-        className="mt-8 rounded-lg bg-signature px-6 py-2.5 text-[14px] font-medium text-white"
+        className="mt-8 rounded-ui-rect bg-signature px-6 py-2.5 text-[14px] font-medium text-white"
       >
         홈으로 이동
       </Link>

@@ -252,7 +252,7 @@ export function AdminPostsManagementPage({
           <Link
             key={t.value}
             href={`/admin/posts-management?tab=${t.value}`}
-            className={`rounded-lg px-4 py-2 text-[14px] font-medium ${
+            className={`rounded-ui-rect px-4 py-2 text-[14px] font-medium ${
               tab === t.value
                 ? "bg-signature text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -293,17 +293,17 @@ export function AdminPostsManagementPage({
         </p>
       )}
       {loading ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           불러오는 중…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white px-4 py-12 text-center">
+        <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-12 text-center">
           {products.length === 0 ? (
             <div className="mx-auto max-w-lg space-y-3 text-left text-[14px] text-gray-700">
               {listQueryError ? (
                 <>
                   <p className="font-medium text-red-800">posts 조회 실패</p>
-                  <p className="rounded-md bg-red-50 px-3 py-2 font-mono text-[12px] text-red-900">
+                  <p className="rounded-ui-rect bg-red-50 px-3 py-2 font-mono text-[12px] text-red-900">
                     {listQueryError}
                   </p>
                   <p className="text-[13px] text-gray-600">
@@ -393,14 +393,14 @@ export function AdminPostsManagementPage({
                 {tradeTabCount > 0 && tab !== "trade" && (
                   <Link
                     href="/admin/posts-management?tab=trade"
-                    className="rounded-lg bg-signature px-4 py-2 text-[13px] font-medium text-white"
+                    className="rounded-ui-rect bg-signature px-4 py-2 text-[13px] font-medium text-white"
                   >
                     중고거래 탭으로 ({tradeTabCount})
                   </Link>
                 )}
                 <Link
                   href="/admin/posts-management?tab=all"
-                  className={`rounded-lg px-4 py-2 text-[13px] font-medium ${
+                  className={`rounded-ui-rect px-4 py-2 text-[13px] font-medium ${
                     tradeTabCount > 0 && tab !== "trade"
                       ? "border border-gray-300 bg-white text-gray-800"
                       : "bg-signature text-white"
@@ -412,7 +412,7 @@ export function AdminPostsManagementPage({
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
+                    className="rounded-ui-rect border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
                   >
                     필터·검색 초기화
                   </button>
@@ -459,7 +459,7 @@ export function AdminPostsManagementPage({
                 type="button"
                 disabled={safePage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-ui-rect border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 이전
               </button>
@@ -477,7 +477,7 @@ export function AdminPostsManagementPage({
                       key={item}
                       type="button"
                       onClick={() => setCurrentPage(item)}
-                      className={`min-w-[2.25rem] rounded-lg px-2 py-1.5 text-[13px] font-medium ${
+                      className={`min-w-[2.25rem] rounded-ui-rect px-2 py-1.5 text-[13px] font-medium ${
                         item === safePage
                           ? "bg-signature text-white"
                           : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
@@ -494,7 +494,7 @@ export function AdminPostsManagementPage({
                 onClick={() =>
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-ui-rect border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 다음
               </button>

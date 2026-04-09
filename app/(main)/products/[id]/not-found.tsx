@@ -9,7 +9,7 @@ export default function ProductNotFound() {
       </p>
       <Link
         href="/home"
-        className="mt-6 rounded-lg bg-signature px-6 py-2.5 text-[14px] font-medium text-white"
+        className="mt-6 rounded-ui-rect bg-signature px-6 py-2.5 text-[14px] font-medium text-white"
       >
         홈으로
       </Link>

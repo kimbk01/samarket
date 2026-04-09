@@ -79,10 +79,10 @@ function ReceivedReviewCard({ it, currency }: { it: MyReceivedReviewItem; curren
       : "/mypage/purchases";
 
   return (
-    <li className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+    <li className="overflow-hidden rounded-ui-rect border border-gray-100 bg-white shadow-sm">
       <div className="flex gap-2 p-3">
         <Link href={detailHref} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg bg-gray-100">
+          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
             {it.thumbnail ? (
               <img src={it.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -96,11 +96,11 @@ function ReceivedReviewCard({ it, currency }: { it: MyReceivedReviewItem; curren
               {counterpartyLabel} {it.reviewerNickname}
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-md bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
+              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
                 {PUBLIC_LABELS[it.publicReviewType] ?? it.publicReviewType}
               </span>
               {it.isAnonymousNegative ? (
-                <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">익명 표시</span>
+                <span className="rounded-ui-rect bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">익명 표시</span>
               ) : null}
             </div>
             {tags ? (
@@ -245,7 +245,7 @@ export function TradeReviewsManagementView({
 
   if (!viewerId) {
     return (
-      <div className="rounded-xl border border-gray-100 bg-white px-4 py-8 text-center">
+      <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-8 text-center">
         <p className="text-[14px] text-gray-600">로그인하면 거래 후기를 모아 볼 수 있어요.</p>
         <a href="/mypage/account" className="mt-4 inline-block text-[14px] font-medium text-signature">
           로그인
@@ -320,7 +320,7 @@ export function TradeReviewsManagementView({
       ) : null}
 
       {tab === "hidden_review" ? (
-        <div className="rounded-xl border border-gray-100 bg-white px-4 py-8 text-center">
+        <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-8 text-center">
           <p className="text-[14px] text-gray-600">현재 사용자 화면에 표시할 숨김 후기 내역이 없습니다.</p>
           <p className="mt-2 text-[12px] text-gray-500">
             후기 노출 제어가 발생한 경우 이 영역에서 상태를 함께 확인할 수 있도록 유지됩니다.

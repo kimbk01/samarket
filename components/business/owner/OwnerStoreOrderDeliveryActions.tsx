@@ -9,16 +9,16 @@ import {
 import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 
 const BTN_PRIMARY =
-  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-lg bg-signature px-2 py-2 text-center text-[13px] font-medium leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
+  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-2 text-center text-[13px] font-medium leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
 const BTN_DANGER =
-  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-lg border border-red-200 bg-white px-2 py-2 text-center text-[13px] font-medium leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
+  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-white px-2 py-2 text-center text-[13px] font-medium leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
 const OC_SM =
   "text-[13px] font-normal leading-snug text-gray-500 [overflow-wrap:anywhere] [word-break:break-word]";
 
 const TB_BTN_PRIMARY =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-lg bg-signature px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 const TB_BTN_DANGER =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-lg border border-red-200 bg-white px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-white px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 
 export type OwnerDeliveryOrderRef = {
   id: string;
@@ -143,7 +143,7 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
   const noticeEl: ReactNode = useMemo(() => {
     if (order.order_status === "refund_requested") {
       return (
-        <p className="rounded-lg border border-amber-100 bg-amber-50/80 px-2 py-2 text-[12px] leading-snug text-amber-950">
+        <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 text-[12px] leading-snug text-amber-950">
           구매자가 환불을 요청했습니다. 관리자 화면(배달 주문)에서 승인하면 재고·정산이 반영됩니다.
         </p>
       );
@@ -220,7 +220,7 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
   const noticeEl: ReactNode = useMemo(() => {
     if (order.order_status === "refund_requested") {
       return (
-        <p className="rounded-md border border-amber-100 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
+        <p className="rounded-ui-rect border border-amber-100 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
           환불 요청됨 — 관리자 배달 주문에서 승인 시 반영됩니다.
         </p>
       );
@@ -280,7 +280,7 @@ export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactN
 
   if (order.order_status === "refund_requested") {
     return (
-      <p className="rounded-lg border border-amber-100 bg-amber-50/80 px-2 py-2 text-[13px] leading-snug text-amber-950">
+      <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 text-[13px] leading-snug text-amber-950">
         구매자가 환불을 요청했습니다. 관리자 화면(배달 주문)에서 승인하면 재고·정산이 반영됩니다.
       </p>
     );

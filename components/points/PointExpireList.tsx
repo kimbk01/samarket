@@ -21,7 +21,7 @@ export function PointExpireList({
 
   if (!hasExpiring && !hasExpired) {
     return (
-      <div className="rounded-lg bg-white p-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">
         {emptyMessage}
       </div>
     );
@@ -38,7 +38,7 @@ export function PointExpireList({
             {expiringEntries.map((e) => (
               <li
                 key={e.id}
-                className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50/50 py-3 px-3 text-[14px]"
+                className="flex items-center justify-between rounded-ui-rect border border-amber-100 bg-amber-50/50 py-3 px-3 text-[14px]"
               >
                 <div>
                   <p className="font-medium text-gray-900">

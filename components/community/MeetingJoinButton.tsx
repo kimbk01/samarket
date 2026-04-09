@@ -200,8 +200,8 @@ export function MeetingJoinButton({
             : "";
 
   const btnClass = embedChrome
-    ? "w-full rounded-[4px] bg-emerald-600 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-    : "w-full rounded-xl bg-emerald-600 py-3 text-[15px] font-bold text-white shadow-sm disabled:opacity-45";
+    ? "w-full rounded-ui-rect bg-emerald-600 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+    : "w-full rounded-ui-rect bg-emerald-600 py-3 text-[15px] font-bold text-white shadow-sm disabled:opacity-45";
 
   return (
     <div className={embedChrome ? "space-y-2" : "space-y-3"}>

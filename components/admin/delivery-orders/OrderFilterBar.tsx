@@ -23,7 +23,7 @@ export function OrderFilterBar({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+    <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-white p-4">
       <p className="text-sm font-semibold text-gray-900">필터</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-xs text-gray-500">

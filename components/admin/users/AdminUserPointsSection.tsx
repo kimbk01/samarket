@@ -89,7 +89,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
   return (
     <AdminCard title="포인트 관리">
       {/* 잔액 + 바로가기 */}
-      <div className="mb-4 flex items-center justify-between rounded-xl bg-sky-50 px-4 py-3">
+      <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sky-50 px-4 py-3">
         <div>
           <p className="text-[12px] text-sky-700">포인트 잔액</p>
           <p className="text-[24px] font-bold text-sky-800">{(balance ?? 0).toLocaleString()}P</p>
@@ -104,13 +104,13 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       {err ? <p className="mb-2 text-[12px] text-red-600">{err}</p> : null}
 
       {/* 탭 */}
-      <div className="mb-3 flex gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="mb-3 flex gap-1 rounded-ui-rect bg-gray-100 p-1">
         {(["charges", "ledger"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`flex-1 rounded-md py-1.5 text-[12px] font-semibold transition-colors ${
+            className={`flex-1 rounded-ui-rect py-1.5 text-[12px] font-semibold transition-colors ${
               tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
             }`}
           >
@@ -134,7 +134,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                 return (
                   <div
                     key={c.id}
-                    className={`rounded-xl border px-3 py-3 ${
+                    className={`rounded-ui-rect border px-3 py-3 ${
                       c.requestStatus === "waiting_confirm"
                         ? "border-amber-200 bg-amber-50"
                         : "border-gray-100 bg-gray-50"

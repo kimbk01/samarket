@@ -22,7 +22,7 @@ export function SubmitButton({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-gray-300 px-4 py-2.5 text-[15px] text-gray-600"
+          className="rounded-ui-rect border border-gray-300 px-4 py-2.5 text-[15px] text-gray-600"
         >
           취소
         </button>
@@ -30,7 +30,7 @@ export function SubmitButton({
       <button
         type="submit"
         disabled={disabled || submitting}
-        className="flex-1 rounded-lg bg-signature py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
+        className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
       >
         {submitting ? submittingLabel : label}
       </button>

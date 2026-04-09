@@ -57,7 +57,7 @@ function Thumbnail92({ url }: { url: string }) {
     <img
       src={url}
       alt=""
-      className="h-[92px] w-[92px] shrink-0 rounded-xl object-cover"
+      className="h-[92px] w-[92px] shrink-0 rounded-ui-rect object-cover"
       loading="lazy"
     />
   );
@@ -101,7 +101,7 @@ function CardShell({
   children: React.ReactNode;
 }) {
   return (
-    <article className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+    <article className="overflow-hidden rounded-ui-rect border border-neutral-200 bg-white shadow-sm">
       <Link
         href={href}
         className="block px-4 py-3 transition-colors hover:bg-neutral-50/60 active:bg-neutral-100/80"

@@ -90,7 +90,7 @@ export function ReportActionSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-4 w-full rounded-lg border border-gray-200 py-2.5 text-[14px] text-gray-700"
+          className="mt-4 w-full rounded-ui-rect border border-gray-200 py-2.5 text-[14px] text-gray-700"
         >
           닫기
         </button>
@@ -121,7 +121,7 @@ export function ReportActionSheet({
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             placeholder="구체적으로 적어 주세요"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px] text-gray-900"
+            className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] text-gray-900"
           />
         </div>
       )}
@@ -131,14 +131,14 @@ export function ReportActionSheet({
           type="button"
           onClick={onClose}
           disabled={submitting}
-          className="rounded-lg border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600 disabled:opacity-50"
+          className="rounded-ui-rect border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600 disabled:opacity-50"
         >
           취소
         </button>
         <button
           type="submit"
           disabled={!reasonCode || submitting}
-          className="flex-1 rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
         >
           {submitting ? "접수 중…" : "신고하기"}
         </button>

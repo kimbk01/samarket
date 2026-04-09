@@ -50,7 +50,7 @@ export function MonitoringTimeline() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         최근 이벤트가 없습니다.
       </div>
     );
@@ -61,7 +61,7 @@ export function MonitoringTimeline() {
       {items.map((item) => (
         <div
           key={`${item.type}-${item.id}`}
-          className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3"
+          className="flex items-start gap-3 rounded-ui-rect border border-gray-200 bg-white p-3"
         >
           <span
             className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-medium ${

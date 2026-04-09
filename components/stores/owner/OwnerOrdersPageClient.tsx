@@ -50,11 +50,11 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   const filtered = useMemo(() => filterOwnerOrdersByTab(orders, tab), [orders, tab]);
 
   if (gate.kind === "loading" || gate.kind === "idle") {
-    return <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600">불러오는 중…</div>;
+    return <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-600">불러오는 중…</div>;
   }
   if (gate.kind === "unauth") {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-700">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-700">
         로그인이 필요합니다.{" "}
         <Link className="font-bold text-gray-900 underline" href="/login">
           로그인
@@ -64,14 +64,14 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   }
   if (gate.kind === "not_owner") {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-700">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-700">
         이 매장에 대한 오너 권한이 없습니다.
       </div>
     );
   }
   if (gate.kind === "error") {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+      <div className="rounded-ui-rect border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
         매장 정보를 불러오지 못했습니다. ({gate.message})
       </div>
     );
@@ -88,7 +88,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-900 hover:bg-gray-50"
+          className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-900 hover:bg-gray-50"
         >
           새로고침
         </button>
@@ -116,13 +116,13 @@ export function OwnerOrdersPageClient({ slug }: Props) {
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>
+        <div className="rounded-ui-rect border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>
       ) : null}
 
       {loading ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600">주문 불러오는 중…</div>
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-600">주문 불러오는 중…</div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600">표시할 주문이 없습니다.</div>
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-600">표시할 주문이 없습니다.</div>
       ) : (
         <div className="space-y-3">
           {filtered.map((o) => (
@@ -137,7 +137,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 text-xs text-gray-600">
         <div className="font-bold text-gray-900">상태 안내</div>
         <div className="mt-2 flex flex-wrap gap-2">
           {(

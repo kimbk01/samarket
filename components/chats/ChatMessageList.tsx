@@ -143,14 +143,14 @@ function getOpponentBubbleRadius(
   pos: "single" | "first" | "middle" | "last",
   ig = false
 ): string {
-  if (ig) return "rounded-[10px]";
+  if (ig) return "rounded-ui-rect";
   switch (pos) {
     case "single":
-      return "rounded-[18px]";
+      return "rounded-ui-rect";
     case "first":
       return "rounded-tl-[18px] rounded-tr-[18px] rounded-bl-[6px] rounded-br-[6px]";
     case "middle":
-      return "rounded-[6px]";
+      return "rounded-ui-rect";
     case "last":
       return "rounded-bl-[18px] rounded-br-[18px] rounded-tl-[6px] rounded-tr-[6px]";
   }
@@ -238,7 +238,7 @@ export function ChatMessageList({
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <div
-                  className={`flex min-h-[36px] min-w-[44px] items-start justify-start rounded-[10px] bg-[#F0F0F0] ${IG_DM_BUBBLE_PAD} shadow-none`}
+                  className={`flex min-h-[36px] min-w-[44px] items-start justify-start rounded-ui-rect bg-[#F0F0F0] ${IG_DM_BUBBLE_PAD} shadow-none`}
                   onContextMenu={(e) => e.preventDefault()}
                 >
                   <p className={`w-full whitespace-pre-wrap break-words text-left ${IG_DM_BODY_TEXT} text-foreground`}>
@@ -257,7 +257,7 @@ export function ChatMessageList({
       } else {
         items.push(
           <li key={block.msg.id} className={`flex justify-center px-3 py-1.5 ${gapFromPrev}`}>
-            <p className="max-w-[90%] rounded-lg bg-black/10 px-3 py-2 text-center text-[12px] font-medium leading-[16px] text-[#999999]">
+            <p className="max-w-[90%] rounded-ui-rect bg-black/10 px-3 py-2 text-center text-[12px] font-medium leading-[16px] text-[#999999]">
               {body}
             </p>
           </li>
@@ -335,7 +335,7 @@ export function ChatMessageList({
                           </div>
                         )}
                         {isImage ? (
-                          <div className={`overflow-hidden ${ig ? "rounded-[10px]" : "rounded-[12px]"}`}>
+                          <div className={`overflow-hidden ${ig ? "rounded-ui-rect" : "rounded-ui-rect"}`}>
                             {msg.imageUrl ? (
                               <img src={msg.imageUrl} alt="" className="max-h-60 w-full object-cover" />
                             ) : null}
@@ -421,7 +421,7 @@ export function ChatMessageList({
                         </div>
                       )}
                       {isImage ? (
-                        <div className={`overflow-hidden ${ig ? "rounded-[10px]" : "rounded-[12px]"}`}>
+                        <div className={`overflow-hidden ${ig ? "rounded-ui-rect" : "rounded-ui-rect"}`}>
                           {msg.imageUrl ? (
                             <img src={msg.imageUrl} alt="" className="max-h-60 w-full object-cover" />
                           ) : null}

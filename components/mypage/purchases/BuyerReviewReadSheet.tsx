@@ -65,7 +65,7 @@ export function BuyerReviewReadSheet({
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 sm:items-center">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <div className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-xl sm:rounded-ui-rect">
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
           <h2 className="text-[16px] font-semibold text-gray-900">{title}</h2>
           <button type="button" onClick={onClose} className="text-[14px] text-gray-500">

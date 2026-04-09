@@ -20,7 +20,7 @@ export default function AdminAdProductsPage() {
           { label: "활성", value: products.filter((p) => p.isActive).length },
           { label: "비활성", value: products.filter((p) => !p.isActive).length },
         ].map(({ label, value }) => (
-          <div key={label} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center shadow-sm">
+          <div key={label} className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-center shadow-sm">
             <p className="text-[24px] font-bold text-gray-900">{value}</p>
             <p className="text-[12px] text-gray-500">{label}</p>
           </div>
@@ -28,7 +28,7 @@ export default function AdminAdProductsPage() {
       </div>
 
       {/* 상품 목록 */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h2 className="text-[15px] font-semibold text-gray-900">광고 상품 목록</h2>
         </div>

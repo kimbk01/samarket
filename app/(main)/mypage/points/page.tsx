@@ -15,7 +15,7 @@ import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 function PointsBackendNotice() {
   const { t } = useI18n();
   return (
-    <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
+    <div className="rounded-ui-rect border border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
       {t("points_backend_notice")}
     </div>
   );
@@ -24,9 +24,9 @@ function PointsBackendNotice() {
 function PointsLoadingSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="h-20 rounded-xl bg-white shadow-sm ring-1 ring-black/[0.06]" />
-      <div className="h-20 rounded-xl bg-white shadow-sm ring-1 ring-black/[0.06]" />
-      <div className="h-40 rounded-xl bg-white shadow-sm ring-1 ring-black/[0.06]" />
+      <div className="h-20 rounded-ui-rect bg-white shadow-sm ring-1 ring-black/[0.06]" />
+      <div className="h-20 rounded-ui-rect bg-white shadow-sm ring-1 ring-black/[0.06]" />
+      <div className="h-40 rounded-ui-rect bg-white shadow-sm ring-1 ring-black/[0.06]" />
     </div>
   );
 }
@@ -102,7 +102,7 @@ export default function MypagePointsPage() {
       <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-6 py-4`}>
         <PointsBackendNotice />
         {loadError ? (
-          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+          <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-3 text-[13px] text-red-700">
             포인트 정보를 불러오지 못했습니다.
           </div>
         ) : null}
@@ -117,25 +117,25 @@ export default function MypagePointsPage() {
         <div className="flex flex-wrap gap-2">
           <Link
             href="/my/points/charge"
-            className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white"
+            className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white"
           >
             {t("points_charge")}
           </Link>
           <Link
             href="/my/points/ledger"
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
           >
             {t("points_ledger")}
           </Link>
           <Link
             href="/my/points/promotions"
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
           >
             {t("points_promotion")}
           </Link>
           <Link
             href="/my/points/expiring"
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
           >
             {t("points_expiring")}
           </Link>
@@ -143,7 +143,7 @@ export default function MypagePointsPage() {
         <div>
           <h2 className="mb-2 text-[15px] font-semibold text-gray-900">{t("points_charge_history")}</h2>
           {loading ? (
-            <div className="rounded-lg bg-white p-8 text-center text-[14px] text-gray-500">불러오는 중…</div>
+            <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">불러오는 중…</div>
           ) : (
             <PointChargeRequestList requests={requests} />
           )}

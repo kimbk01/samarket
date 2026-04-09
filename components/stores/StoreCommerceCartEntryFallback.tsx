@@ -37,14 +37,14 @@ export function StoreCommerceCartEntryFallback({
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800"
+            className="rounded-ui-rect border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800"
           >
             다시 시도
           </button>
         </div>
       ) : null}
       {buckets.length > 0 ? (
-        <div className="mx-auto mt-8 max-w-md rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">
+        <div className="mx-auto mt-8 max-w-md rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">
           <p className="font-medium">담아 둔 장바구니가 있으면 아래에서 열 수 있어요.</p>
           <ul className="mt-3 space-y-2">
             {buckets.map((b) => (

@@ -14,7 +14,7 @@ export function PointExpiringCard({ summary, className = "" }: PointExpiringCard
   return (
     <Link
       href="/my/points/expiring"
-      className={`block rounded-xl border border-amber-200 bg-amber-50/80 p-4 ${className}`}
+      className={`block rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4 ${className}`}
     >
       <p className="text-[13px] text-amber-800">만료 예정 포인트</p>
       <p className="mt-1 text-[20px] font-bold text-amber-900">

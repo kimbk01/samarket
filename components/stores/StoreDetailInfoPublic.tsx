@@ -344,7 +344,7 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
                   <button
                     type="button"
                     onClick={copyAddress}
-                    className="rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[12px] font-semibold text-stone-800 active:bg-stone-100"
+                    className="rounded-ui-rect border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[12px] font-semibold text-stone-800 active:bg-stone-100"
                   >
                     주소 복사
                   </button>
@@ -353,7 +353,7 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
                       href={mapsHref}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[12px] font-semibold text-stone-800 active:bg-stone-100"
+                      className="rounded-ui-rect border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[12px] font-semibold text-stone-800 active:bg-stone-100"
                     >
                       길찾기
                     </a>
@@ -468,7 +468,7 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
                   <img
                     src={u}
                     alt=""
-                    className="aspect-[3/4] w-full rounded-lg border border-stone-200 object-cover"
+                    className="aspect-[3/4] w-full rounded-ui-rect border border-stone-200 object-cover"
                   />
                 </li>
               ))}

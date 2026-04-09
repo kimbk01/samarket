@@ -13,7 +13,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
   if (!profile) {
     return (
       <Link href="/mypage/account" className="block">
-        <div className="rounded-xl border border-ig-border bg-white p-4">
+        <div className="rounded-ui-rect border border-ig-border bg-white p-4">
           <div className="flex items-center gap-3">
             <div className="h-14 w-14 shrink-0 rounded-full bg-ig-highlight" />
             <div className="min-w-0 flex-1">
@@ -29,7 +29,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
 
   return (
     <Link href="/mypage/account" className="block">
-      <div className="rounded-xl border border-ig-border bg-white p-4">
+      <div className="rounded-ui-rect border border-ig-border bg-white p-4">
         <div className="flex items-center gap-3">
           <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-ig-highlight">
             {profile.avatar_url ? (

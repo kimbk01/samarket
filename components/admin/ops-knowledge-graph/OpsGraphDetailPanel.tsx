@@ -38,7 +38,7 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
 
   if (!nodeId || !node) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 text-center text-[14px] text-gray-500">
         노드를 선택하면 상세가 표시됩니다.
       </div>
     );
@@ -52,7 +52,7 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
         : null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-[15px] font-medium text-gray-900">{node.title}</h3>
         {onClose && (

@@ -21,7 +21,7 @@ export function BusinessDashboardMobileBar({
       <div className="mx-auto flex max-w-lg gap-2">
         <Link
           href={storeOrdersHref}
-          className="relative flex flex-1 items-center justify-center rounded-xl bg-signature py-3 text-[14px] font-semibold text-white"
+          className="relative flex flex-1 items-center justify-center rounded-ui-rect bg-signature py-3 text-[14px] font-semibold text-white"
         >
           주문 보기
           {orderBadge > 0 ? (
@@ -32,7 +32,7 @@ export function BusinessDashboardMobileBar({
         </Link>
         <Link
           href={inquiriesHref}
-          className="relative flex flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white py-3 text-[14px] font-semibold text-gray-900"
+          className="relative flex flex-1 items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-3 text-[14px] font-semibold text-gray-900"
         >
           문의
           {inquiryOpenCount > 0 ? (

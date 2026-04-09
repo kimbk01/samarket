@@ -256,11 +256,11 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   }
   if (state.kind === "unauth") {
     return (
-      <div className="space-y-3 rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-600 shadow-sm">
+      <div className="space-y-3 rounded-ui-rect border border-gray-100 bg-white p-4 text-sm text-gray-600 shadow-sm">
         <p>로그인 후 주문 상세와 매장 채팅을 계속 확인할 수 있습니다.</p>
         <Link
           href={`/login?next=${encodeURIComponent(orderBase)}`}
-          className="inline-flex rounded-lg bg-signature px-4 py-2 font-semibold text-white"
+          className="inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white"
         >
           로그인하고 주문 이어보기
         </Link>
@@ -328,14 +328,14 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap justify-between gap-2">
           <p className="text-[15px] font-semibold text-gray-900">
             {order.store_name || "매장"}
           </p>
           <span className="text-xs text-gray-400">{order.order_no}</span>
         </div>
-        <div className="mt-3 rounded-xl border border-gray-200 bg-signature/5/80 px-3 py-3">
+        <div className="mt-3 rounded-ui-rect border border-gray-200 bg-signature/5/80 px-3 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-signature">
             현재 주문 상태
           </p>
@@ -349,13 +349,13 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {orderChatDisabled ? (
-            <span className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-medium text-gray-400">
+            <span className="inline-flex items-center justify-center rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-medium text-gray-400">
               주문 채팅 불가
             </span>
           ) : (
             <Link
               href={chatHref}
-              className="inline-flex items-center justify-center rounded-xl border border-signature bg-white px-3 py-3 text-sm font-semibold text-signature shadow-sm"
+              className="inline-flex items-center justify-center rounded-ui-rect border border-signature bg-white px-3 py-3 text-sm font-semibold text-signature shadow-sm"
             >
               주문 채팅
             </Link>
@@ -363,14 +363,14 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           {order.store_slug ? (
             <Link
               href={`/stores/${encodeURIComponent(order.store_slug)}`}
-              className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-800"
+              className="inline-flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-800"
             >
               매장 보기
             </Link>
           ) : (
             <Link
               href={listHref}
-              className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-800"
+              className="inline-flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-800"
             >
               주문 목록 보기
             </Link>
@@ -381,21 +381,21 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             {!review && can_submit_review ? (
               <Link
                 href={reviewHref}
-                className="inline-flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-2 py-3 text-sm font-semibold text-amber-900"
+                className="inline-flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-amber-200 bg-amber-50 px-2 py-3 text-sm font-semibold text-amber-900"
               >
                 리뷰 작성으로 이어가기
               </Link>
             ) : null}
             <StoreOrderReorderAgainButton
               payload={reorderPayload}
-              className="inline-flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-xl border border-signature/40 bg-white px-2 py-3 text-sm font-semibold text-signature shadow-sm"
+              className="inline-flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-signature/40 bg-white px-2 py-3 text-sm font-semibold text-signature shadow-sm"
             />
           </div>
         ) : order.order_status === "completed" && !review && can_submit_review ? (
           <div className="mt-3">
             <Link
               href={reviewHref}
-              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-900"
+              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-900"
             >
               리뷰 작성으로 이어가기
             </Link>
@@ -433,10 +433,10 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </p>
       </div>
 
-      <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-900">진행 단계</h2>
         {order.order_status === "pending" ? (
-          <p className="mt-2 rounded-lg bg-signature/5 px-3 py-2 text-[12px] text-gray-900">
+          <p className="mt-2 rounded-ui-rect bg-signature/5 px-3 py-2 text-[12px] text-gray-900">
             매장에서 주문을 확인·접수하면 채팅과 알림으로 다음 단계를 알려드려요.
           </p>
         ) : null}
@@ -449,7 +449,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <h2 className="text-[15px] font-bold text-gray-900">주문 상품</h2>
 
         <div className="mt-4">
@@ -524,7 +524,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               const st = Number(it.subtotal) || 0;
               const disc = lineDiscountDisplay(ps, q, st);
               return (
-                <li key={it.id} className="rounded-lg bg-gray-50/80 px-3 py-2.5 ring-1 ring-gray-100">
+                <li key={it.id} className="rounded-ui-rect bg-gray-50/80 px-3 py-2.5 ring-1 ring-gray-100">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="min-w-0 flex-1 font-medium text-gray-900">{it.product_title_snapshot}</p>
                     <span className="shrink-0 text-gray-600">× {it.qty}</span>
@@ -602,7 +602,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       </div>
 
       {order.order_status === "completed" ? (
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
           {review ? (
             <>
               <p className="text-sm text-gray-600">
@@ -613,7 +613,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               {!orderChatDisabled ? (
                 <Link
                   href={chatHref}
-                  className="mt-3 block w-full rounded-xl border border-gray-200 bg-white py-3 text-center text-sm font-medium text-gray-800"
+                  className="mt-3 block w-full rounded-ui-rect border border-gray-200 bg-white py-3 text-center text-sm font-medium text-gray-800"
                 >
                   주문 채팅 다시 보기
                 </Link>
@@ -627,7 +627,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               {!orderChatDisabled ? (
                 <Link
                   href={chatHref}
-                  className="block w-full rounded-xl border border-gray-200 bg-white py-3 text-center text-sm font-medium text-gray-800"
+                  className="block w-full rounded-ui-rect border border-gray-200 bg-white py-3 text-center text-sm font-medium text-gray-800"
                 >
                   주문 채팅 보기
                 </Link>
@@ -636,19 +636,19 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                 <div className="flex flex-row gap-2">
                   <Link
                     href={reviewHref}
-                    className="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-xl bg-signature px-2 py-3 text-center text-sm font-semibold text-white"
+                    className="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-3 text-center text-sm font-semibold text-white"
                   >
                     리뷰 작성하기
                   </Link>
                   <StoreOrderReorderAgainButton
                     payload={reorderPayload}
-                    className="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-xl border border-signature/40 bg-white px-2 py-3 text-sm font-semibold text-signature shadow-sm"
+                    className="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-signature/40 bg-white px-2 py-3 text-sm font-semibold text-signature shadow-sm"
                   />
                 </div>
               ) : (
                 <Link
                   href={reviewHref}
-                  className="block w-full rounded-xl bg-signature py-3 text-center text-sm font-semibold text-white"
+                  className="block w-full rounded-ui-rect bg-signature py-3 text-center text-sm font-semibold text-white"
                 >
                   리뷰 작성하기
                 </Link>
@@ -663,7 +663,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       ) : null}
 
       {refundPending ? (
-        <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-4">
+        <div className="rounded-ui-rect border border-blue-100 bg-blue-50/80 p-4">
           <p className="text-sm text-blue-950">
             환불 요청이 접수되었습니다. 매장·운영 확인 후 처리됩니다. 실제 금액 반환은 매장과 직접 조율하면
             됩니다.
@@ -672,7 +672,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       ) : null}
 
       {canRefundRequest ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-900">환불 요청</h3>
           <p className="mt-1 text-[12px] text-gray-600">
             매장이 이미 접수한 주문입니다. 환불이 필요하면 아래에서 요청해 주세요. 승인 시 재고는 자동으로
@@ -681,7 +681,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           <label className="mt-3 block text-[12px] text-gray-600">
             사유 (선택, 최대 500자)
             <textarea
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+              className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-sm text-gray-900"
               rows={3}
               maxLength={500}
               value={refundReason}
@@ -694,7 +694,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             type="button"
             disabled={refundBusy}
             onClick={() => void requestRefund()}
-            className="mt-3 w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 text-sm font-medium text-gray-900 disabled:opacity-50"
+            className="mt-3 w-full rounded-ui-rect border border-gray-300 bg-gray-50 py-2.5 text-sm font-medium text-gray-900 disabled:opacity-50"
           >
             {refundBusy ? "처리 중…" : "환불 요청하기"}
           </button>
@@ -702,7 +702,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       ) : null}
 
       {canBuyerCancel ? (
-        <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-4">
+        <div className="rounded-ui-rect border border-amber-100 bg-amber-50/80 p-4">
           <p className="text-sm text-amber-950">
             매장이 아직 접수하지 않았다면 주문을 취소할 수 있습니다. 취소 시 상품 재고가 되돌아갑니다.
           </p>
@@ -711,7 +711,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             type="button"
             disabled={cancelBusy}
             onClick={() => void cancelOrder()}
-            className="mt-3 w-full rounded-lg border border-red-200 bg-white py-2.5 text-sm font-medium text-red-700 disabled:opacity-50"
+            className="mt-3 w-full rounded-ui-rect border border-red-200 bg-white py-2.5 text-sm font-medium text-red-700 disabled:opacity-50"
           >
             {cancelBusy ? "처리 중…" : "주문 취소"}
           </button>

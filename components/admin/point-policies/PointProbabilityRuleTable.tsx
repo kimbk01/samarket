@@ -163,7 +163,7 @@ export function PointProbabilityRuleTable({
           확률 구간이 없습니다. 게시판 정책에서 확률형을 사용할 때 여기에서 구간을 설정합니다.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="w-full min-w-[400px] border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">

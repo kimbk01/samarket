@@ -773,13 +773,13 @@ function ForceEndConfirmModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-lg rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl"
+        className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white p-4 shadow-xl sm:rounded-ui-rect"
       >
         <h2 className="text-base font-bold text-gray-900">통화 강제 종료 확인</h2>
-        <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800 ring-1 ring-red-200">
+        <p className="mt-2 rounded-ui-rect bg-red-50 px-3 py-2 text-xs text-red-800 ring-1 ring-red-200">
           이 작업은 즉시 통화를 종료시키며 감사 로그에 기록됩니다. 실행 전에 대상과 사유를 다시 확인하세요.
         </p>
-        <div className="mt-4 space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+        <div className="mt-4 space-y-2 rounded-ui-rect border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
           <div>
             <span className="text-gray-500">대상 통화</span>
             <div className="mt-1 font-medium text-gray-900">
@@ -813,7 +813,7 @@ function ForceEndConfirmModal({
             type="button"
             disabled={busy}
             onClick={onClose}
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+            className="rounded-ui-rect border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
           >
             취소
           </button>
@@ -821,7 +821,7 @@ function ForceEndConfirmModal({
             type="button"
             disabled={busy}
             onClick={onConfirm}
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-ui-rect bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             {busy ? "강제 종료 중..." : "강제 종료 확인"}
           </button>

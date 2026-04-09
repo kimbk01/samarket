@@ -3,11 +3,11 @@
 import Link from "next/link";
 
 const ROW_CLASS =
-  "flex items-center justify-between rounded-xl border border-ig-border bg-white px-4 py-3 active:bg-ig-highlight";
+  "flex items-center justify-between rounded-ui-rect border border-ig-border bg-white px-4 py-3 active:bg-ig-highlight";
 
 export function MyOrderRelatedSection() {
   return (
-    <section className="rounded-xl border border-ig-border bg-white p-3">
+    <section className="rounded-ui-rect border border-ig-border bg-white p-3">
       <h2 className="mb-2 px-1 text-[13px] font-semibold text-muted">주문 관련 항목</h2>
       <div className="space-y-2">
         <Link href="/my/store-orders" className={ROW_CLASS}>

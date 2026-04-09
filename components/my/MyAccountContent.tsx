@@ -58,7 +58,7 @@ export function MyAccountContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-100">
           {profile.avatar_url ? (
             <Image
@@ -81,7 +81,7 @@ export function MyAccountContent() {
         </div>
       </div>
 
-      <div className="rounded-xl bg-white p-4 shadow-sm">
+      <div className="rounded-ui-rect bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-gray-900">{t("account_info_title")}</h2>
           <Link href={MYPAGE_PROFILE_EDIT_HREF} className="text-[14px] font-medium text-signature">
@@ -121,7 +121,7 @@ export function MyAccountContent() {
         {!profile.phone_verified ? (
           <Link
             href="/my/account/phone-verification"
-            className="mt-4 block rounded-xl border border-signature/20 bg-signature/5 px-4 py-3 text-center text-[14px] font-semibold text-signature"
+            className="mt-4 block rounded-ui-rect border border-signature/20 bg-signature/5 px-4 py-3 text-center text-[14px] font-semibold text-signature"
           >
             {t("account_phone_cta")}
           </Link>
@@ -129,7 +129,7 @@ export function MyAccountContent() {
       </div>
       <Link
         href={buildMypageInfoHubHref()}
-        className="block rounded-xl bg-white px-4 py-3 text-center text-[14px] font-medium text-gray-700 shadow-sm"
+        className="block rounded-ui-rect bg-white px-4 py-3 text-center text-[14px] font-medium text-gray-700 shadow-sm"
       >
         {t("account_to_settings")}
       </Link>

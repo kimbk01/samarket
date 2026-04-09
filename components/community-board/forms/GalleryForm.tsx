@@ -57,7 +57,7 @@ export function GalleryForm({
             value={boardCategoryId}
             onChange={(e) => setBoardCategoryId(e.target.value)}
             required
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+            className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
             disabled={isSubmitting}
           >
             {boardCategories.map((c) => (
@@ -104,7 +104,7 @@ export function GalleryForm({
           required
           maxLength={200}
           placeholder="제목"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-ui-rect focus:ring-2 focus:ring-blue-500"
           disabled={isSubmitting}
         />
       </div>
@@ -118,7 +118,7 @@ export function GalleryForm({
           onChange={(e) => setContent(e.target.value)}
           rows={4}
           placeholder="설명 (선택)"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y"
+          className="w-full px-3 py-2 border border-gray-300 rounded-ui-rect focus:ring-2 focus:ring-blue-500 resize-y"
           disabled={isSubmitting}
         />
       </div>
@@ -126,11 +126,11 @@ export function GalleryForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="px-4 py-2 bg-blue-600 text-white rounded-ui-rect hover:bg-blue-700 disabled:opacity-50"
         >
           {isSubmitting ? "등록 중…" : "등록"}
         </button>
-        <Link href={cancelHref} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+        <Link href={cancelHref} className="px-4 py-2 border border-gray-300 rounded-ui-rect text-gray-700 hover:bg-gray-50">
           취소
         </Link>
       </div>

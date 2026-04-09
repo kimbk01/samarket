@@ -25,7 +25,7 @@ export function AdminNotificationBell() {
   return (
     <Link
       href="/admin/order-notifications"
-      className="relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-ig-border bg-white px-2.5 text-[12px] font-medium text-foreground"
+      className="relative inline-flex h-9 items-center gap-1.5 rounded-ui-rect border border-ig-border bg-white px-2.5 text-[12px] font-medium text-foreground"
     >
       <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
         <path

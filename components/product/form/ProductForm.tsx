@@ -121,7 +121,7 @@ export function ProductForm({
           onChange={(e) => setTitle(e.target.value)}
           placeholder="상품 제목"
           maxLength={100}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
           aria-invalid={!!errors.title}
         />
         {errors.title && (
@@ -137,7 +137,7 @@ export function ProductForm({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="상품 설명"
           rows={5}
-          className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+          className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
           aria-invalid={!!errors.description}
         />
         {errors.description && (
@@ -172,7 +172,7 @@ export function ProductForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-gray-300 px-4 py-2.5 text-[15px] text-gray-600"
+            className="rounded-ui-rect border border-gray-300 px-4 py-2.5 text-[15px] text-gray-600"
           >
             취소
           </button>
@@ -180,7 +180,7 @@ export function ProductForm({
         <button
           type="submit"
           disabled={submitting}
-          className="flex-1 rounded-lg bg-signature py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
         >
           {submitting ? "등록 중…" : "등록하기"}
         </button>

@@ -25,7 +25,7 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
 
   if (!snapshot) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
         백업 스냅샷을 찾을 수 없습니다.
       </div>
     );
@@ -33,7 +33,7 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
           <span>{getSnapshotTypeLabel(snapshot.snapshotType)}</span>
           <span
@@ -62,7 +62,7 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="text-[15px] font-medium text-gray-900">백업 항목</h3>
         {items.length === 0 ? (
           <p className="mt-2 text-[13px] text-gray-500">항목 없음</p>
@@ -88,7 +88,7 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="text-[15px] font-medium text-gray-900">복구 실행 로그</h3>
         {restores.length === 0 ? (
           <p className="mt-2 text-[13px] text-gray-500">복구 이력 없음</p>

@@ -96,7 +96,7 @@ export function MeetingCard({
   if (variant === "postEmbed") {
     const descLine = meeting.description.replace(/\s+/g, " ").trim();
     return (
-      <div className="rounded-[4px] border-2 border-[#10a37f]/80 bg-white px-3 py-3 sm:px-4">
+      <div className="rounded-ui-rect border-2 border-[#10a37f]/80 bg-white px-3 py-3 sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100/80 pb-2.5">
           <div className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-[#0d8f6a]">
             <LockIcon className="h-4 w-4 shrink-0 text-[#10a37f]" />
@@ -143,7 +143,7 @@ export function MeetingCard({
   }
 
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4">
+    <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/80 p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[13px] font-semibold text-emerald-900">모임</p>

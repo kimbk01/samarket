@@ -89,7 +89,7 @@ export const AdminPostsManagementTable = forwardRef<
     <div
       ref={ref}
       onScroll={onHorizontalScroll}
-      className="w-full max-w-full overflow-x-auto overflow-y-visible rounded-lg border border-gray-200 bg-white shadow-sm [-webkit-overflow-scrolling:touch]"
+      className="w-full max-w-full overflow-x-auto overflow-y-visible rounded-ui-rect border border-gray-200 bg-white shadow-sm [-webkit-overflow-scrolling:touch]"
     >
       <table
         className={`w-full border-collapse text-[14px] ${showProductIdColumn ? "min-w-[1240px]" : "min-w-[1120px]"}`}

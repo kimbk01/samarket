@@ -10,13 +10,13 @@ export function DevSprintSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">스프린트 / 진행중</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.totalSprints} / {summary.activeSprints}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">작업 / 완료 / 블로킹</p>
           <p className="text-[14px] text-gray-700">
             {summary.totalItems} / {summary.completedItems} /{" "}
@@ -25,13 +25,13 @@ export function DevSprintSummaryCards() {
             </span>
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">velocity (placeholder)</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.averageVelocity}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">최신 릴리즈</p>
           <p className="text-[14px] font-medium text-gray-900">
             {summary.latestReleaseVersion ?? "-"}
@@ -39,7 +39,7 @@ export function DevSprintSummaryCards() {
         </div>
       </div>
       {summary.blockedItems > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50/50 p-3 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50/50 p-3 text-[13px] text-red-800">
           블로킹된 개발 작업이 {summary.blockedItems}건 있습니다. 스프린트 보드에서 확인하세요.
         </div>
       )}

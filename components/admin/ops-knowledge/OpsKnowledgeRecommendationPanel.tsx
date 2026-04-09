@@ -50,7 +50,7 @@ export function OpsKnowledgeRecommendationPanel({
 
   if (rec.items.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-3">
         <h3 className="text-[13px] font-medium text-gray-700">
           {title ?? `${SOURCE_LABELS[sourceType]} 관련 문서`}
         </h3>
@@ -60,7 +60,7 @@ export function OpsKnowledgeRecommendationPanel({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-3">
       <h3 className="text-[13px] font-medium text-gray-700">
         {title ?? `${SOURCE_LABELS[sourceType]} 관련 문서`}
       </h3>

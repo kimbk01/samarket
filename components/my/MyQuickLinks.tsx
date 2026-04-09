@@ -16,7 +16,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Link
         href={MYPAGE_TRADE_FAVORITES_HREF}
-        className="relative flex flex-col items-center rounded-xl border border-ig-border bg-white py-4 active:bg-ig-highlight"
+        className="relative flex flex-col items-center rounded-ui-rect border border-ig-border bg-white py-4 active:bg-ig-highlight"
       >
         {favoriteCount != null && favoriteCount > 0 && (
           <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
@@ -30,7 +30,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
       </Link>
       <Link
         href="/my/recent-viewed"
-        className="flex flex-col items-center rounded-xl border border-ig-border bg-white py-4 active:bg-ig-highlight"
+        className="flex flex-col items-center rounded-ui-rect border border-ig-border bg-white py-4 active:bg-ig-highlight"
       >
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <ClockOutlineIcon />
@@ -39,7 +39,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
       </Link>
       <Link
         href="/my/benefits"
-        className="flex flex-col items-center rounded-xl border border-ig-border bg-white py-4 active:bg-ig-highlight"
+        className="flex flex-col items-center rounded-ui-rect border border-ig-border bg-white py-4 active:bg-ig-highlight"
       >
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <GiftOutlineIcon />
@@ -48,7 +48,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
       </Link>
       <Link
         href="/mypage/notifications"
-        className="relative flex flex-col items-center rounded-xl border border-ig-border bg-white py-4 active:bg-ig-highlight"
+        className="relative flex flex-col items-center rounded-ui-rect border border-ig-border bg-white py-4 active:bg-ig-highlight"
       >
         {notificationUnreadCount != null && notificationUnreadCount > 0 && (
           <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">

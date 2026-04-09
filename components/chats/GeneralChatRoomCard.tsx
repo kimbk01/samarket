@@ -61,7 +61,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
         <time className="shrink-0 text-[12px] text-gray-400">{formatChatTime(room.lastMessageAt)}</time>
       </div>
       {isStoreOrder ? (
-        <div className="rounded-xl border border-amber-100 bg-amber-50/80 px-3 py-2.5">
+        <div className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-3 py-2.5">
           <p className="text-[12px] font-medium text-gray-900">{t("nav_chat_order_follow_notice")}</p>
           <p className="mt-1 line-clamp-2 text-[12px] text-gray-600">{room.lastMessage || t("nav_chat_start_conversation")}</p>
         </div>
@@ -70,7 +70,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
       )}
       {product?.thumbnail || product?.title ? (
         <div className="flex gap-3 border-t border-gray-100 pt-2">
-          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-ig-highlight">
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight">
             {product?.thumbnail ? (
               <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (

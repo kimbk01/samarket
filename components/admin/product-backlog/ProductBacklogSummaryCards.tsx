@@ -23,20 +23,20 @@ export function ProductBacklogSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">피드백 / 백로그</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.totalFeedbackItems} / {summary.totalBacklogItems}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">인박스·예정·진행·릴리즈</p>
           <p className="text-[14px] text-gray-700">
             {summary.inboxCount} / {summary.plannedCount} /{" "}
             {summary.inProgressCount} / {summary.releasedCount}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">많이 들어온 카테고리</p>
           <p className="text-[14px] font-medium text-gray-900">
             {summary.topCategory
@@ -44,11 +44,11 @@ export function ProductBacklogSummaryCards() {
               : "-"}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">우선 추천 (impact↑ effort↓)</p>
           <p className="text-[20px] font-semibold text-gray-900">{recommendedCount}건</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">연결</p>
           <p className="text-[13px] text-gray-700">
             <Link href="/admin/ops-board" className="text-signature hover:underline">

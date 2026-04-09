@@ -88,7 +88,7 @@ export function ProductBacklogBoard() {
       </div>
 
       {allItems.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           백로그 항목이 없습니다.
         </div>
       ) : (
@@ -96,7 +96,7 @@ export function ProductBacklogBoard() {
           {columnsToShow.map((status) => (
             <div
               key={status}
-              className="min-w-[200px] rounded-lg border border-gray-200 bg-gray-50/50 p-3"
+              className="min-w-[200px] rounded-ui-rect border border-gray-200 bg-gray-50/50 p-3"
             >
               <h3 className="mb-2 text-[13px] font-medium text-gray-700">
                 {getBacklogStatusLabel(status)}

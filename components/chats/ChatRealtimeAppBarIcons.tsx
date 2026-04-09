@@ -81,7 +81,7 @@ export function ChatRealtimeAppBarIcons({
         className={
           ig
             ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-black/[0.05] active:bg-black/[0.08]"
-            : "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-800 hover:bg-black/10 active:bg-black/15"
+            : "flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-gray-800 hover:bg-black/10 active:bg-black/15"
         }
         aria-label={messageSoundMuted ? "이 채팅방 메시지 알림음 켜기" : "이 채팅방 메시지 알림음 끄기"}
         aria-pressed={messageSoundMuted}

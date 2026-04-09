@@ -58,7 +58,7 @@ export function ActionSection({
           onClick={onToggle}
           aria-expanded={isExpanded}
           aria-controls={contentId}
-          className="flex w-full items-start justify-between gap-3 rounded-[24px] border border-ig-border bg-white px-4 py-4 text-left shadow-[0_6px_24px_rgba(15,23,42,0.05)] active:bg-ig-highlight"
+          className="flex w-full items-start justify-between gap-3 rounded-ui-rect border border-ig-border bg-white px-4 py-4 text-left shadow-[0_6px_24px_rgba(15,23,42,0.05)] active:bg-ig-highlight"
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -131,7 +131,7 @@ function ActionTile({
   return (
     <Link
       href={action.href}
-      className={`flex h-full items-start justify-between gap-3 rounded-2xl border px-4 ${paddingClass} ${toneClass} active:translate-y-[1px]`}
+      className={`flex h-full items-start justify-between gap-3 rounded-ui-rect border px-4 ${paddingClass} ${toneClass} active:translate-y-[1px]`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ export function InfoShortcutCard({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-2xl border border-ig-border bg-white px-4 py-3.5 active:bg-ig-highlight"
+      className="flex items-center justify-between rounded-ui-rect border border-ig-border bg-white px-4 py-3.5 active:bg-ig-highlight"
     >
       <div className="min-w-0 flex-1 pr-3">
         <p className="text-[15px] font-medium text-foreground">{title}</p>

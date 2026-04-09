@@ -9,8 +9,8 @@ import { RejectOrderModal } from "./RejectOrderModal";
 
 function btnClass(primary?: boolean) {
   return primary
-    ? "flex-1 rounded-xl bg-gray-900 py-3 text-sm font-bold text-white shadow-sm active:scale-[0.99] disabled:opacity-50"
-    : "flex-1 rounded-xl bg-white py-3 text-sm font-semibold text-gray-800 ring-1 ring-gray-200 active:bg-gray-50 disabled:opacity-50";
+    ? "flex-1 rounded-ui-rect bg-gray-900 py-3 text-sm font-bold text-white shadow-sm active:scale-[0.99] disabled:opacity-50"
+    : "flex-1 rounded-ui-rect bg-white py-3 text-sm font-semibold text-gray-800 ring-1 ring-gray-200 active:bg-gray-50 disabled:opacity-50";
 }
 
 export function OwnerOrderActionPanel({
@@ -56,7 +56,7 @@ export function OwnerOrderActionPanel({
   if (s === "refund_requested") {
     return (
       <div className="space-y-2">
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-950 ring-1 ring-amber-200">
+        <p className="rounded-ui-rect bg-amber-50 px-3 py-2 text-center text-xs text-amber-950 ring-1 ring-amber-200">
           구매자가 환불을 요청했습니다. 비즈니스 콘솔 또는 관리자 처리 흐름을 이용해 주세요.
         </p>
       </div>
@@ -65,7 +65,7 @@ export function OwnerOrderActionPanel({
 
   if (s === "refunded") {
     return (
-      <p className="rounded-lg bg-gray-100 px-3 py-2 text-center text-xs text-gray-600 ring-1 ring-gray-200">
+      <p className="rounded-ui-rect bg-gray-100 px-3 py-2 text-center text-xs text-gray-600 ring-1 ring-gray-200">
         환불 처리된 주문입니다.
       </p>
     );
@@ -74,13 +74,13 @@ export function OwnerOrderActionPanel({
   return (
     <div className="space-y-2">
       {toast ? (
-        <p className="rounded-lg bg-gray-100 px-3 py-2 text-center text-xs text-gray-800 ring-1 ring-gray-200">
+        <p className="rounded-ui-rect bg-gray-100 px-3 py-2 text-center text-xs text-gray-800 ring-1 ring-gray-200">
           {toast}
         </p>
       ) : null}
 
       {order.buyer_cancel_request ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
           <p className="font-semibold text-amber-950">고객 취소 요청</p>
           <p className="mt-1 text-xs text-amber-900">{order.buyer_cancel_request.reason}</p>
         </div>

@@ -1,6 +1,6 @@
 export function MeetingRestrictedCard({ reason }: { reason: "kicked" | "banned" }) {
   return (
-    <div className="mt-3 overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
+    <div className="mt-3 overflow-hidden rounded-ui-rect border border-red-100 bg-white shadow-sm">
       <div className="flex items-center gap-3 bg-red-50 px-5 py-4">
         <span className="text-[24px]">🚫</span>
         <div>

@@ -87,7 +87,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
   if (phase.kind === "loading") {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className={`mx-auto max-w-md ${OWNER_STORE_STACK_Y_CLASS} rounded-xl bg-white p-6 shadow-sm`}>
+        <div className={`mx-auto max-w-md ${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-6 shadow-sm`}>
           <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
           <div className="h-4 w-1/2 animate-pulse rounded bg-gray-200" />
         </div>
@@ -98,7 +98,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
   if (phase.kind === "unauth") {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className="mx-auto max-w-md rounded-xl bg-white p-6 text-center shadow-sm">
+        <div className="mx-auto max-w-md rounded-ui-rect bg-white p-6 text-center shadow-sm">
           <p className="text-[14px] text-gray-700">로그인이 필요합니다.</p>
           <Link href="/mypage" className="mt-4 inline-block text-[14px] font-medium text-signature">
             내 정보로
@@ -111,7 +111,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
   if (phase.kind === "config") {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className="mx-auto max-w-md rounded-xl bg-white p-6 text-center shadow-sm">
+        <div className="mx-auto max-w-md rounded-ui-rect bg-white p-6 text-center shadow-sm">
           <p className="text-[14px] text-gray-700">매장 서비스 설정이 완료되지 않았습니다.</p>
           <Link href="/mypage" className="mt-4 inline-block text-[14px] font-medium text-signature">
             내 정보로
@@ -124,7 +124,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
   if (phase.kind === "error") {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className="mx-auto max-w-md rounded-xl bg-white p-6 text-center shadow-sm">
+        <div className="mx-auto max-w-md rounded-ui-rect bg-white p-6 text-center shadow-sm">
           <p className="text-[14px] text-red-700">불러오지 못했습니다. ({phase.message})</p>
           <button
             type="button"

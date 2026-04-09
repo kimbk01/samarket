@@ -106,7 +106,7 @@ function SignupPageContent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="w-full max-w-md rounded-ui-rect border border-gray-200 bg-white p-6 shadow-sm">
         <h1 className="text-center text-xl font-semibold text-gray-900">{t("signup_title")}</h1>
         <p className="mt-2 text-center text-[13px] leading-relaxed text-gray-500">
           {t("signup_desc")}
@@ -119,7 +119,7 @@ function SignupPageContent() {
               type="button"
               disabled={!supabaseReady || busy !== null}
               onClick={() => void handleOAuth(provider.id)}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+              className="w-full rounded-ui-rect border border-gray-300 bg-white px-4 py-3 text-[14px] font-medium text-gray-900 disabled:opacity-50"
             >
               {busy === provider.id ? t("signup_oauth_moving") : provider.label}
             </button>
@@ -141,7 +141,7 @@ function SignupPageContent() {
               onChange={(e) => setNickname(e.target.value)}
               maxLength={20}
               required
-              className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px]"
               placeholder={t("signup_nickname_placeholder")}
             />
           </div>
@@ -152,7 +152,7 @@ function SignupPageContent() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px]"
               placeholder={t("signup_email_placeholder")}
             />
           </div>
@@ -164,7 +164,7 @@ function SignupPageContent() {
               onChange={(e) => setPassword(e.target.value)}
               minLength={6}
               required
-              className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px]"
               placeholder={t("signup_password_placeholder")}
             />
           </div>
@@ -173,7 +173,7 @@ function SignupPageContent() {
           <button
             type="submit"
             disabled={!supabaseReady || busy !== null}
-            className="w-full rounded-xl bg-signature py-3 text-[14px] font-semibold text-white disabled:opacity-50"
+            className="w-full rounded-ui-rect bg-signature py-3 text-[14px] font-semibold text-white disabled:opacity-50"
           >
             {busy === "email" ? t("signup_submitting") : t("signup_submit")}
           </button>

@@ -73,7 +73,7 @@ export function OpsTeamKpiTable() {
           <option value="monthly">월간 (이번 달 vs 지난 달)</option>
         </select>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
         <table className="w-full min-w-[520px] border-collapse text-[14px]">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">

@@ -125,8 +125,8 @@ export function MeetingAlbumTab({
 
           {preview ? (
             /* 미리보기 + 캡션 + 업로드 */
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="relative mx-auto max-w-xs overflow-hidden rounded-xl">
+            <div className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="relative mx-auto max-w-xs overflow-hidden rounded-ui-rect">
                 <img
                   src={preview.url}
                   alt="미리보기"
@@ -139,7 +139,7 @@ export function MeetingAlbumTab({
                 onChange={(e) => setCaption(e.target.value)}
                 maxLength={200}
                 placeholder="사진에 한마디 (선택)"
-                className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+                className="mt-3 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
               />
               {err && <p className="mt-1 text-[11px] text-red-500">{err}</p>}
               <div className="mt-3 flex gap-2">
@@ -147,7 +147,7 @@ export function MeetingAlbumTab({
                   type="button"
                   onClick={onCancel}
                   disabled={uploading}
-                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-[13px] font-medium text-gray-600 disabled:opacity-50"
+                  className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[13px] font-medium text-gray-600 disabled:opacity-50"
                 >
                   취소
                 </button>
@@ -155,7 +155,7 @@ export function MeetingAlbumTab({
                   type="button"
                   onClick={() => void onUpload()}
                   disabled={uploading}
-                  className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-[13px] font-semibold text-white disabled:opacity-50"
+                  className="flex-1 rounded-ui-rect bg-emerald-500 py-2.5 text-[13px] font-semibold text-white disabled:opacity-50"
                 >
                   {uploading ? "업로드 중…" : "앨범에 올리기"}
                 </button>
@@ -166,7 +166,7 @@ export function MeetingAlbumTab({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-[13px] font-semibold text-white shadow-sm hover:bg-emerald-600 active:bg-emerald-700"
+              className="flex w-full items-center justify-center gap-2 rounded-ui-rect bg-emerald-500 px-4 py-3 text-[13px] font-semibold text-white shadow-sm hover:bg-emerald-600 active:bg-emerald-700"
             >
               <span className="text-[18px]">📷</span>
               <span>사진 올리기</span>
@@ -177,7 +177,7 @@ export function MeetingAlbumTab({
 
       {/* 앨범 그리드 — 3열 밀집 */}
       {visible.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-14 text-center">
+        <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-14 text-center">
           <p className="text-[32px]">📷</p>
           <p className="mt-2 text-[14px] text-gray-400">앨범에 사진이 없어요.</p>
           {allowUpload && (
@@ -187,7 +187,7 @@ export function MeetingAlbumTab({
       ) : (
         <div className="grid grid-cols-3 gap-1">
           {visible.map((item) => (
-            <div key={item.id} className="relative aspect-square overflow-hidden rounded-xl bg-gray-100">
+            <div key={item.id} className="relative aspect-square overflow-hidden rounded-ui-rect bg-gray-100">
               {item.image_url ? (
                 <img
                   src={item.image_url}

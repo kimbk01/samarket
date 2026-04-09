@@ -5,7 +5,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 
 export function OrderItemsTable({ items }: { items: AdminDeliveryOrderItem[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200">
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-600">

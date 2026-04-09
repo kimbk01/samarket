@@ -50,7 +50,7 @@ export function MemberOrderCard({
 
   return (
     <article
-      className={`rounded-2xl border bg-white p-4 shadow-sm ${
+      className={`rounded-ui-rect border bg-white p-4 shadow-sm ${
         activeTab ? "border-gray-200 ring-1 ring-gray-200" : "border-gray-100"
       }`}
     >
@@ -67,7 +67,7 @@ export function MemberOrderCard({
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span
-          className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+          className={`rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
             order.order_type === "delivery" ? "bg-signature/5 text-gray-900" : "bg-teal-50 text-teal-900"
           }`}
         >
@@ -87,14 +87,14 @@ export function MemberOrderCard({
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
           href={detailHref}
-          className="flex-1 rounded-xl bg-gray-900 py-2.5 text-center text-sm font-semibold text-white"
+          className="flex-1 rounded-ui-rect bg-gray-900 py-2.5 text-center text-sm font-semibold text-white"
         >
           {t("member_order_detail_action")}
         </Link>
         {canOpenChat ? (
           <Link
             href={chatHref}
-            className="flex items-center justify-center gap-1 rounded-xl border border-gray-200 bg-signature/5 px-4 py-2.5 text-sm font-semibold text-gray-900"
+            className="flex items-center justify-center gap-1 rounded-ui-rect border border-gray-200 bg-signature/5 px-4 py-2.5 text-sm font-semibold text-gray-900"
           >
             {t("member_order_inquiry_action")}
             <UnreadBadge count={chatUnread} />
@@ -104,7 +104,7 @@ export function MemberOrderCard({
           <button
             type="button"
             onClick={() => onOpenCancel(order)}
-            className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700"
+            className="rounded-ui-rect border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700"
           >
             {t("member_order_cancel_action")}
           </button>

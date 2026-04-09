@@ -24,7 +24,7 @@ export function MemberOrderChatList() {
 
   if (!buyerId) {
     return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         회원 역할에서만 내 주문 채팅 목록이 보여요.
       </p>
     );
@@ -32,7 +32,7 @@ export function MemberOrderChatList() {
 
   return (
     <div className="space-y-2">
-      <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm ring-1 ring-gray-50">
+      <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm ring-1 ring-gray-50">
         주문 상태 확인과 취소·환불 요청은{" "}
         <Link href={BASE} className="font-medium text-signature underline">
           주문 내역
@@ -40,7 +40,7 @@ export function MemberOrderChatList() {
         에서 하고, 매장과의 대화만 여기서 이어가세요.
       </div>
       {rows.length === 0 ? (
-        <div className="rounded-xl bg-white p-6 text-sm text-gray-500 ring-1 ring-gray-100">
+        <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-500 ring-1 ring-gray-100">
           <p>주문 채팅이 없어요.</p>
           <Link href={BASE} className="mt-3 inline-block font-medium text-signature underline">
             주문 내역 보기
@@ -58,7 +58,7 @@ export function MemberOrderChatList() {
               : `/my/store-orders/${encodeURIComponent(r.order_id)}`;
             return (
               <li key={r.id}>
-                <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm ring-1 ring-gray-50">
+                <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm ring-1 ring-gray-50">
                   <Link href={chatHref} className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-bold text-gray-900">{r.store_name}</p>

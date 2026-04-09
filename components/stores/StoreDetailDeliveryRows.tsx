@@ -15,7 +15,7 @@ import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detai
 function CommerceMetricVSeparator() {
   return (
     <div className="flex w-[2px] shrink-0 self-stretch py-0" aria-hidden>
-      <div className="min-h-0 flex-1 rounded-md bg-stone-300" />
+      <div className="min-h-0 flex-1 rounded-ui-rect bg-stone-300" />
     </div>
   );
 }
@@ -154,9 +154,9 @@ export function StoreDetailInquiryActions({ phone }: { phone: string | null }) {
   const href =
     telHrefFromLoosePhPhone(phone) ?? (phone?.replace(/\s/g, "") ? `tel:${phone.replace(/\s/g, "")}` : "");
   const btn =
-    "flex flex-1 items-center justify-center rounded-xl border border-ig-border bg-background py-2.5 text-center text-[14px] font-semibold text-foreground shadow-sm active:bg-ig-highlight";
+    "flex flex-1 items-center justify-center rounded-ui-rect border border-ig-border bg-background py-2.5 text-center text-[14px] font-semibold text-foreground shadow-sm active:bg-ig-highlight";
   const disabled =
-    "flex flex-1 cursor-not-allowed items-center justify-center rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-center text-[14px] text-stone-400";
+    "flex flex-1 cursor-not-allowed items-center justify-center rounded-ui-rect border border-stone-200 bg-stone-50 py-2.5 text-center text-[14px] text-stone-400";
   return (
     <div className={`${STORE_DETAIL_GUTTER} mt-3 ${STORE_DETAIL_CARD} p-4`}>
       <StoreDetailSectionTitle level="h2">문의</StoreDetailSectionTitle>
@@ -192,10 +192,10 @@ export function StoreDetailPromoBanner({
       : "");
   if (!line) return null;
   const boxClass =
-    "flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] font-normal leading-snug text-amber-950 shadow-sm";
+    "flex items-start gap-2.5 rounded-ui-rect border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] font-normal leading-snug text-amber-950 shadow-sm";
   return (
     <div className={embedded ? `mt-3 ${boxClass}` : `${STORE_DETAIL_GUTTER} mt-3 ${boxClass}`}>
-      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-200/80 text-[11px] font-bold text-amber-900">
+      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-ui-rect bg-amber-200/80 text-[11px] font-bold text-amber-900">
         i
       </span>
       <p>{line}</p>

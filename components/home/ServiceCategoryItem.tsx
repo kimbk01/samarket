@@ -14,7 +14,7 @@ export function ServiceCategoryItem({ category }: ServiceCategoryItemProps) {
   return (
     <Link
       href={href}
-      className="flex min-w-[72px] shrink-0 flex-col items-center justify-center rounded-xl bg-gray-50 py-4 transition-colors hover:bg-gray-100"
+      className="flex min-w-[72px] shrink-0 flex-col items-center justify-center rounded-ui-rect bg-gray-50 py-4 transition-colors hover:bg-gray-100"
     >
       <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm">
         <CategoryIcon iconKey={category.icon_key} />

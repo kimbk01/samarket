@@ -64,7 +64,7 @@ export function AdminOrderChatPageClient({ orderId }: { orderId: string }) {
         </Link>
       </div>
       <ChatHubTopTabs active="order" orderChatsHref="/admin/order-chats" />
-      <div className="mx-auto max-w-lg overflow-hidden rounded-xl border border-gray-200 bg-[#eceef2] shadow-sm">
+      <div className="mx-auto max-w-lg overflow-hidden rounded-ui-rect border border-gray-200 bg-[#eceef2] shadow-sm">
         <OrderChatProgressStrip orderStatus={order.order_status} orderFlow={flow} />
         <OrderChatHeader
           sticky={false}
@@ -86,7 +86,7 @@ export function AdminOrderChatPageClient({ orderId }: { orderId: string }) {
             />
             <button
               type="button"
-              className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-bold text-white"
+              className="rounded-ui-rect bg-gray-900 px-3 py-1.5 text-xs font-bold text-white"
               onClick={() => {
                 if (!adminLine.trim()) return;
                 sendOrderChatFromAdmin(order, adminLine.trim(), false);

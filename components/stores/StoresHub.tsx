@@ -69,7 +69,7 @@ function StoresHubOwnerOperChip({
             e.preventDefault();
           }
         }}
-        className={`relative inline-flex shrink-0 rounded-md px-3 py-1.5 text-[12px] font-semibold ${FB.secondaryBtn}`}
+        className={`relative inline-flex shrink-0 rounded-ui-rect px-3 py-1.5 text-[12px] font-semibold ${FB.secondaryBtn}`}
         aria-label={
           storeOpsAttention > 0 ? `매장 운영 할 일 ${storeOpsAttention}건` : "매장 운영 바로가기"
         }

@@ -61,7 +61,7 @@ export function MyProfileCard({
   if (!profile.realname_verified) chips.push({ key: "realname", label: tt("본인인증 필요"), warn: true });
 
   return (
-    <div className="rounded-[28px] border border-ig-border bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
+    <div className="rounded-ui-rect border border-ig-border bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
       {/* 1행: 아바타 · 닉네임 · 회원 · 프로필 편집 */}
       <div className="flex items-start gap-3 sm:gap-4">
         <div className="rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] p-[2px]">
@@ -103,7 +103,7 @@ export function MyProfileCard({
           </div>
 
           {/* 2행: 매너(강조) · 포인트 · 동네 */}
-          <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-signature/15 bg-gradient-to-br from-signature/8 via-white to-[#F9FAFB] p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-3 flex flex-col gap-3 rounded-ui-rect border border-signature/15 bg-gradient-to-br from-signature/8 via-white to-[#F9FAFB] p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <MannerBatteryDisplay raw={mannerScore} size="md" layout="inline" className="gap-2" />
               <div>
@@ -160,7 +160,7 @@ function StatMini({
   return (
     <Link
       href={href}
-      className={`min-w-0 flex-1 rounded-xl px-2.5 py-2 sm:max-w-[140px] ${
+      className={`min-w-0 flex-1 rounded-ui-rect px-2.5 py-2 sm:max-w-[140px] ${
         warn ? "bg-amber-50 ring-1 ring-amber-200/70" : "bg-white/80 ring-1 ring-[#E5E7EB]"
       }`}
     >
@@ -176,7 +176,7 @@ function QuickLink({ href, title, subtitle }: { href: string; title: string; sub
   return (
     <Link
       href={href}
-      className="flex flex-col rounded-2xl bg-[#F9FAFB] px-2 py-2 text-center active:bg-[#F3F4F6] sm:px-3"
+      className="flex flex-col rounded-ui-rect bg-[#F9FAFB] px-2 py-2 text-center active:bg-[#F3F4F6] sm:px-3"
     >
       <span className="text-[12px] font-semibold text-foreground">{title}</span>
       <span className="mt-0.5 text-[10px] text-muted">{subtitle}</span>

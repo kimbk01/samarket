@@ -32,7 +32,7 @@ export default async function NewPostPage({ searchParams }: PageProps) {
         </p>
         <Link
           href="/write"
-          className="inline-flex w-full items-center justify-center rounded-lg bg-gray-900 py-3 text-[14px] font-medium text-white"
+          className="inline-flex w-full items-center justify-center rounded-ui-rect bg-gray-900 py-3 text-[14px] font-medium text-white"
         >
           글쓰기 메뉴로 이동
         </Link>

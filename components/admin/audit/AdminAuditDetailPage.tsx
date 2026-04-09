@@ -108,7 +108,7 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
         <div className="py-8 text-center text-[14px] text-gray-500">불러오는 중…</div>
       ) : null}
       {!loading && error ? (
-        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-5 text-[14px] text-red-700">
+        <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-5 text-[14px] text-red-700">
           로그를 불러오지 못했습니다.
         </div>
       ) : null}

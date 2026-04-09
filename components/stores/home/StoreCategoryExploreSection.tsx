@@ -40,7 +40,7 @@ export function StoreCategoryExploreSection({
 
   return (
     <section id="store-industry-explore" className="scroll-mt-4">
-      <div className={`overflow-hidden rounded-2xl border border-[#E4E6EB] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-white/[0.08]`}>
+      <div className={`overflow-hidden rounded-ui-rect border border-[#E4E6EB] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-white/[0.08]`}>
         <div className={`flex items-start justify-between gap-2 border-b border-[#E4E6EB] px-3 py-3 dark:border-[#3E4042]`}>
           <div className="min-w-0">
             <h2 className={FB.name}>업종 선택</h2>
@@ -63,7 +63,7 @@ export function StoreCategoryExploreSection({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setPickedSlug(p.slug)}
-                className={`flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors ${
+                className={`flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-ui-rect px-3 py-2 text-[13px] font-semibold transition-colors ${
                   on ?
                     "bg-[#1877F2] text-white dark:bg-[#2374E1]"
                   : "bg-[#F0F2F5] text-[#050505] active:bg-[#E4E6EB] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:active:bg-[#4E4F50]"
@@ -94,7 +94,7 @@ export function StoreCategoryExploreSection({
         <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4">
           <Link
             href={storesBrowsePrimaryPath(activeSlug)}
-            className="flex min-h-[56px] flex-col items-center justify-center rounded-xl bg-[#F7F8FA] px-2 py-2 text-center active:bg-[#ECEFF3] dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
+            className="flex min-h-[56px] flex-col items-center justify-center rounded-ui-rect bg-[#F7F8FA] px-2 py-2 text-center active:bg-[#ECEFF3] dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
           >
             <span className="text-[11px] font-semibold text-[#65676B] dark:text-[#B0B3B8]">모아보기</span>
             <span className="mt-0.5 text-[13px] font-bold text-[#050505] dark:text-[#E4E6EB]">전체</span>
@@ -103,7 +103,7 @@ export function StoreCategoryExploreSection({
             <Link
               key={s.id}
               href={storesBrowsePath(activeSlug, s.slug)}
-              className="flex min-h-[56px] items-center justify-center rounded-xl bg-[#F7F8FA] px-2 py-2 text-center active:bg-[#ECEFF3] dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
+              className="flex min-h-[56px] items-center justify-center rounded-ui-rect bg-[#F7F8FA] px-2 py-2 text-center active:bg-[#ECEFF3] dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
             >
               <span className="text-center text-[13px] font-semibold leading-tight text-[#050505] dark:text-[#E4E6EB]">
                 {s.nameKo}

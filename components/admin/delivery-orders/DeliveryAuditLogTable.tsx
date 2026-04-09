@@ -17,7 +17,7 @@ export function DeliveryAuditLogTable({
     return <p className="py-6 text-center text-sm text-gray-500">로그가 없습니다.</p>;
   }
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
       <table className="w-full min-w-[960px] border-collapse text-[12px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-600">

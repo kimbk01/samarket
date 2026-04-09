@@ -220,7 +220,7 @@ export function MyNotificationsView() {
             type="button"
             disabled={busy}
             onClick={() => void markAllRead()}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-800 disabled:opacity-50"
+            className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-800 disabled:opacity-50"
           >
             {busy ? t("common_processing") : t("common_mark_all_read")}
           </button>
@@ -228,7 +228,7 @@ export function MyNotificationsView() {
       </div>
       {error ? <p className="text-sm text-red-600">({error})</p> : null}
       {rows.length === 0 ? (
-        <p className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm">{t("common_notifications_empty")}</p>
+        <p className="rounded-ui-rect bg-white p-6 text-sm text-gray-500 shadow-sm">{t("common_notifications_empty")}</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => {
@@ -238,7 +238,7 @@ export function MyNotificationsView() {
             return (
               <li
                 key={r.id}
-                className={`rounded-xl border px-3 py-3 shadow-sm ${
+                className={`rounded-ui-rect border px-3 py-3 shadow-sm ${
                   r.is_read ? "border-gray-100 bg-white" : "border-signature/25 bg-signature/5"
                 }`}
               >

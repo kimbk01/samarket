@@ -19,7 +19,7 @@ const TABS: { id: TradeHistorySheetTab; label: string }[] = [
 ];
 
 const TAB_ACTIVE_CLASS =
-  "relative flex min-h-[52px] w-full items-center justify-center bg-[var(--sub-bg)] px-1 py-2 text-center text-[13px] font-bold leading-tight text-signature transition-colors after:pointer-events-none after:absolute after:bottom-0 after:left-[10%] after:right-[10%] after:z-[1] after:h-[3px] after:rounded-sm after:bg-signature sm:min-h-[50px] sm:text-[15px] md:text-[16px]";
+  "relative flex min-h-[52px] w-full items-center justify-center bg-[var(--sub-bg)] px-1 py-2 text-center text-[13px] font-bold leading-tight text-signature transition-colors after:pointer-events-none after:absolute after:bottom-0 after:left-[10%] after:right-[10%] after:z-[1] after:h-[3px] after:rounded-ui-rect after:bg-signature sm:min-h-[50px] sm:text-[15px] md:text-[16px]";
 
 const TAB_INACTIVE_CLASS =
   "flex min-h-[52px] w-full items-center justify-center px-1 py-2 text-center text-[13px] font-semibold leading-tight text-muted transition-colors hover:text-foreground sm:min-h-[50px] sm:text-[15px] md:text-[16px]";

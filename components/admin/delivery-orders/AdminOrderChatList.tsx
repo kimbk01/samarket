@@ -47,7 +47,7 @@ export function AdminOrderChatList() {
           <Link
             key={r.id}
             href={`/admin/delivery-orders/${encodeURIComponent(r.order_id)}/chat`}
-            className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-signature"
+            className="flex items-start justify-between gap-3 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm hover:border-signature"
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">

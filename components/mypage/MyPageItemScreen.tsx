@@ -84,7 +84,7 @@ export function MyPageItemScreen(
     if (item === "friends") {
       return (
         <div className="space-y-3">
-          <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+          <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
             <UserListContent type="favorite" emptyMessage="모아보는 사용자가 없습니다." />
           </div>
         </div>
@@ -123,12 +123,12 @@ export function MyPageItemScreen(
         <div className="space-y-4">
           <Link
             href="/my/regions"
-            className="flex min-h-[52px] items-center justify-between rounded-[4px] border border-gray-200 bg-white px-4 py-3 text-[14px] font-medium text-gray-900"
+            className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[14px] font-medium text-gray-900"
           >
             동네 설정 열기
             <span className="text-gray-400">›</span>
           </Link>
-          <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+          <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
             <p className="mb-3 text-[14px] font-semibold text-gray-900">판매 글 동네 일괄 변경</p>
             <BulkRegionChangeContent />
           </div>
@@ -158,11 +158,11 @@ export function MyPageItemScreen(
     }
     if (item === "events") {
       return (
-        <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[14px] text-gray-700">진행 중인 이벤트와 혜택을 확인하세요.</p>
           <Link
             href="/my/benefits"
-            className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-[4px] bg-gray-900 px-4 text-[14px] font-medium text-white"
+            className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-ui-rect bg-gray-900 px-4 text-[14px] font-medium text-white"
           >
             이벤트 · 혜택 보기
           </Link>
@@ -171,7 +171,7 @@ export function MyPageItemScreen(
     }
     if (item === "support") {
       return (
-        <div className="space-y-3 rounded-[4px] border border-gray-200 bg-white p-4 text-[14px] leading-6 text-gray-700">
+        <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-white p-4 text-[14px] leading-6 text-gray-700">
           <p>주문 문제는 주문 내역과 주문 상세에서 먼저 확인해 주세요.</p>
           <p>거래 문제는 거래 채팅과 거래 후기 화면에서 먼저 확인해 주세요.</p>
           <p className="text-[12px] text-gray-500">추가 문의가 필요하면 앱 내 공지·안내를 참고해 주세요.</p>
@@ -180,7 +180,7 @@ export function MyPageItemScreen(
     }
     if (item === "terms") {
       return (
-        <div className="space-y-3 rounded-[4px] border border-gray-200 bg-white p-4 text-[14px] leading-6 text-gray-700">
+        <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-white p-4 text-[14px] leading-6 text-gray-700">
           <p>서비스 이용 약관·운영 정책은 회원가입 시 동의한 내용을 따릅니다.</p>
           <Link href="/signup" className="text-[14px] font-medium text-gray-900 underline">
             회원가입 화면에서 약관 다시 보기
@@ -200,7 +200,7 @@ export function MyPageItemScreen(
   }
 
   return (
-    <div className="rounded-[4px] border border-gray-200 bg-white px-4 py-10 text-center text-[14px] text-gray-500">
+    <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-10 text-center text-[14px] text-gray-500">
       이 화면을 불러올 수 없습니다.
       <div className="mt-4">
         <Link href={buildMypageSectionHref("settings")} className="text-[14px] font-medium text-gray-900 underline">
@@ -218,12 +218,12 @@ function MannerTrustEmbed() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <div className="flex items-center gap-3">
           {mannerPercent != null && mannerTier != null ? (
             <MannerBatteryIcon tier={mannerTier} percent={mannerPercent} size="lg" className="shrink-0" />
           ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-gray-100 text-[12px] text-gray-400">
+            <div className="flex h-12 w-12 items-center justify-center rounded-ui-rect bg-gray-100 text-[12px] text-gray-400">
               —
             </div>
           )}
@@ -240,7 +240,7 @@ function MannerTrustEmbed() {
         </div>
         <Link
           href="/my/trust"
-          className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-[4px] border border-gray-200 px-4 text-[14px] font-medium text-gray-800"
+          className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-ui-rect border border-gray-200 px-4 text-[14px] font-medium text-gray-800"
         >
           상세 보기
         </Link>

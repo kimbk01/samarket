@@ -14,7 +14,7 @@ export function MyTestLoginSection({ redirectTo }: MyTestLoginSectionProps) {
   return (
     <section className="space-y-2" aria-label="아이디 로그인">
       <h2 className="px-1 text-[13px] font-semibold text-muted">아이디 로그인</h2>
-      <div className="overflow-hidden rounded-xl border border-ig-border bg-white">
+      <div className="overflow-hidden rounded-ui-rect border border-ig-border bg-white">
         <TestLoginBar redirectTo={redirectTo} />
       </div>
       <p className="px-1 text-[11px] leading-relaxed text-muted">

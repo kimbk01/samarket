@@ -45,14 +45,14 @@ export function MenuManagementTable({
 }: MenuManagementTableProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         등록된 항목이 없습니다. 항목 추가로 메뉴·카테고리를 등록해 주세요.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
       <table className="w-full min-w-[720px] border-collapse text-[14px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
@@ -171,7 +171,7 @@ export function MenuManagementTable({
                     <button
                       type="button"
                       onClick={() => onManageSubtopics(c)}
-                      className="rounded-lg border border-signature/40 bg-signature/5 px-3 py-1.5 text-[12px] font-semibold text-signature hover:bg-signature/15"
+                      className="rounded-ui-rect border border-signature/40 bg-signature/5 px-3 py-1.5 text-[12px] font-semibold text-signature hover:bg-signature/15"
                       title="현대·기아 등 2행 칩·글쓰기 주제"
                     >
                       주제 관리

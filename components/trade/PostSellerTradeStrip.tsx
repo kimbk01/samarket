@@ -149,7 +149,7 @@ export function PostSellerTradeStrip({
             (!listingReserved || !reservedBuyerId || isReservedRow);
           return (
             <li key={r.chatId}>
-              <div className="flex flex-col gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1.5 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <Link
                   href={`/mypage/trade/chat/${encodeURIComponent(r.chatId)}`}
                   className="min-w-0 flex-1 text-[13px] text-gray-900 active:bg-signature/5"
@@ -167,7 +167,7 @@ export function PostSellerTradeStrip({
                     type="button"
                     disabled={!!busyChatId}
                     onClick={() => sellerComplete(r.chatId)}
-                    className="shrink-0 rounded-lg bg-signature px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+                    className="shrink-0 rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
                   >
                     {busyChatId === r.chatId ? "처리 중…" : "거래완료"}
                   </button>

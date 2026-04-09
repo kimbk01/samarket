@@ -52,13 +52,13 @@ export function LaunchReadinessSummaryCards() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">Readiness 점수</p>
           <p className="text-[24px] font-semibold text-gray-900">
             {summary.overallScore}%
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">Must-Have</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.mustHaveReady} / {summary.mustHaveTotal}
@@ -67,14 +67,14 @@ export function LaunchReadinessSummaryCards() {
             <p className="mt-1 text-[12px] text-amber-600">미완료 항목 있음</p>
           )}
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">Should-Have</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.shouldHaveReady} / {summary.shouldHaveTotal}
           </p>
         </div>
         <div
-          className={`rounded-lg border p-4 ${
+          className={`rounded-ui-rect border p-4 ${
             summary.goLiveRecommendation === "no_go"
               ? "border-red-200 bg-red-50/50"
               : summary.goLiveRecommendation === "conditional_go"
@@ -95,7 +95,7 @@ export function LaunchReadinessSummaryCards() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">준비 완료 영역</p>
           <p className="text-[14px] text-gray-700">
             {summary.readyAreas.length > 0
@@ -103,7 +103,7 @@ export function LaunchReadinessSummaryCards() {
               : "없음"}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">미준비 영역</p>
           <p className="text-[14px] text-gray-700">
             {summary.notReadyAreas.length > 0

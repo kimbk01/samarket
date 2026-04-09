@@ -42,7 +42,7 @@ export default function MyTrustPage() {
         section="account"
       />
       <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-center shadow-sm">
           <p className="text-[13px] text-gray-500">
             {getAppSettings().speedDisplayLabel ?? "배터리"} (프로필 기준)
           </p>

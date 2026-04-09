@@ -49,14 +49,14 @@ export function AdminCategoriesPage() {
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white"
+          className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white"
         >
           카테고리 추가
         </button>
       </div>
 
       {supabaseAvailable === false && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
           <p className="font-medium">Supabase가 연결되지 않았습니다.</p>
           <p className="mt-1 text-amber-700">
             카테고리 저장·조회를 하려면 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를
@@ -67,7 +67,7 @@ export function AdminCategoriesPage() {
 
       {message && (
         <div
-          className={`rounded-lg px-4 py-2 text-[14px] ${
+          className={`rounded-ui-rect px-4 py-2 text-[14px] ${
             message.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
           }`}
         >
@@ -76,7 +76,7 @@ export function AdminCategoriesPage() {
       )}
 
       {loading ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
           불러오는 중…
         </div>
       ) : (

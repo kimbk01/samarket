@@ -136,7 +136,7 @@ export function CategorySubtopicFormModal({
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-4 shadow-lg"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-ui-rect bg-white p-4 shadow-lg"
         onClick={(ev) => ev.stopPropagation()}
       >
         <h2 className="mb-1 text-[17px] font-semibold text-gray-900">
@@ -194,14 +194,14 @@ export function CategorySubtopicFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+              className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+              className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
             >
               {submitting ? "저장 중…" : "저장"}
             </button>

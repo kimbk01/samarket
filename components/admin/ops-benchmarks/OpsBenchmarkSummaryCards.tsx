@@ -19,7 +19,7 @@ export function OpsBenchmarkSummaryCards() {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">벤치마크 요약</p>
         <p className="text-[20px] font-semibold text-gray-900">
           현재 평균 {benchmarkSummary.averageCurrentScore} / 목표 평균{" "}
@@ -36,7 +36,7 @@ export function OpsBenchmarkSummaryCards() {
           </p>
         )}
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">분기 계획 요약</p>
         <p className="text-[20px] font-semibold text-gray-900">
           총 {planSummary.totalPlans}건 · 완료 {planSummary.completedCount}
@@ -50,7 +50,7 @@ export function OpsBenchmarkSummaryCards() {
           현재 분기 {planSummary.currentQuarter}
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">성과 리뷰 요약</p>
         <p className="text-[20px] font-semibold text-gray-900">
           리뷰 {reviewSummary.totalReviewedAdmins}명 · 평균 점수{" "}
@@ -66,7 +66,7 @@ export function OpsBenchmarkSummaryCards() {
           </p>
         )}
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4 sm:col-span-2 lg:col-span-3">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 sm:col-span-2 lg:col-span-3">
         <p className="text-[12px] text-gray-500">바로가기</p>
         <p className="mt-1 text-[14px] text-gray-700">
           <Link href="/admin/ops-maturity" className="text-signature hover:underline">

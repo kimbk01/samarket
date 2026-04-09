@@ -70,7 +70,7 @@ export function BlockActionSheet({
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 rounded-lg border border-gray-200 py-2.5 text-[14px] text-gray-700"
+          className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[14px] text-gray-700"
         >
           취소
         </button>
@@ -78,7 +78,7 @@ export function BlockActionSheet({
           type="button"
           onClick={handleBlock}
           disabled={loading}
-          className="flex-1 rounded-lg bg-red-600 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-red-600 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
         >
           {loading ? "처리 중..." : "차단하기"}
         </button>

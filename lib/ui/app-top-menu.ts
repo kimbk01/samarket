@@ -7,7 +7,7 @@ const APP_TOP_MENU_ROW1_CORE =
 export const APP_TOP_MENU_ROW1_BASE = `${APP_TOP_MENU_ROW1_CORE} rounded-full`;
 
 /** 구매 내역 하위 탭 등 — border-radius 4px */
-export const APP_TOP_MENU_ROW1_BASE_RADIUS_4 = `${APP_TOP_MENU_ROW1_CORE} rounded-[4px]`;
+export const APP_TOP_MENU_ROW1_BASE_RADIUS_4 = `${APP_TOP_MENU_ROW1_CORE} rounded-ui-rect`;
 
 export const APP_TOP_MENU_ROW1_ACTIVE = "bg-gray-900 text-white";
 
@@ -23,7 +23,7 @@ export const APP_TOP_MENU_ROW2_INACTIVE_SKY = "bg-sky-50 text-sky-900 hover:bg-s
  * 마켓 거래 리스트 1·2행 — 피드 카드 하단 메타(위치·시간)와 동일 톤(text-[12px] #999), 배경 박스 없음
  */
 export const APP_MARKET_MENU_TEXT_BASE =
-  "shrink-0 whitespace-nowrap rounded-md px-2 py-1.5 text-[12px] transition-colors";
+  "shrink-0 whitespace-nowrap rounded-ui-rect px-2 py-1.5 text-[12px] transition-colors";
 
 export const APP_MARKET_MENU_TEXT_ACTIVE = "font-semibold text-gray-900";
 

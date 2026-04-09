@@ -23,7 +23,7 @@ export function QaSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">Pass Rate</p>
           <p className="text-[24px] font-semibold text-gray-900">
             {passRate}%
@@ -32,13 +32,13 @@ export function QaSummaryCards() {
             {summary.passedCases} / {summary.totalCases}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">실패 / 차단</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.failedCases} / {summary.blockedCases}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">Must-Pass</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.mustPassPassed} / {summary.mustPassTotal}
@@ -48,7 +48,7 @@ export function QaSummaryCards() {
           )}
         </div>
         <div
-          className={`rounded-lg border p-4 ${
+          className={`rounded-ui-rect border p-4 ${
             summary.goLiveQaDecision === "no_go"
               ? "border-red-200 bg-red-50/50"
               : summary.goLiveQaDecision === "conditional_go"
@@ -69,13 +69,13 @@ export function QaSummaryCards() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">파일럿 운영</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.pilotDoneCount} / {summary.pilotTotalCount} 완료
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">연결</p>
           <p className="text-[14px] text-gray-700">
             <Link href="/admin/launch-readiness" className="text-signature hover:underline">

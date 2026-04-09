@@ -49,7 +49,7 @@ export function MyPageSidebar({
         <button
           type="button"
           onClick={() => router.push(MYPAGE_PROFILE_EDIT_HREF)}
-          className={`mt-3 w-full rounded-md border border-gray-200 py-2 text-center font-medium text-gray-700 hover:bg-gray-50 ${MYPAGE_TYPO.navItem}`}
+          className={`mt-3 w-full rounded-ui-rect border border-gray-200 py-2 text-center font-medium text-gray-700 hover:bg-gray-50 ${MYPAGE_TYPO.navItem}`}
         >
           프로필 수정
         </button>

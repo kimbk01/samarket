@@ -34,7 +34,7 @@ export function AdminPointExecutionDetailPage({
     return (
       <div className="space-y-4">
         <AdminPageHeader title="포인트 실행 상세" backHref="/admin/point-executions" />
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           해당 실행을 찾을 수 없습니다.
         </div>
       </div>

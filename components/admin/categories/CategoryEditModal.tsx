@@ -63,7 +63,7 @@ export function CategoryEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-4 shadow-lg"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-white p-4 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-4 text-[17px] font-semibold text-gray-900">
@@ -146,14 +146,14 @@ export function CategoryEditModal({
             </div>
           </div>
           <div className="flex flex-wrap gap-2 pt-4">
-            <button type="submit" className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white">
+            <button type="submit" className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white">
               저장
             </button>
-            <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-[14px] text-gray-700">
+            <button type="button" onClick={onClose} className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] text-gray-700">
               취소
             </button>
             {!isCreate && onDelete && (
-              <button type="button" onClick={onDelete} className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[14px] text-red-700">
+              <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 text-[14px] text-red-700">
                 삭제
               </button>
             )}

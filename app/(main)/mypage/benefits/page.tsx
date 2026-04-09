@@ -54,7 +54,7 @@
      <div className="min-h-screen bg-background">
        <MySubpageHeader title="회원 혜택" subtitle="이벤트·프로모션" backHref="/mypage" hideCtaStrip />
        <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-4 py-4`}>
-         <div className="rounded-xl border border-gray-200 bg-white p-4">
+         <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
            <p className="text-[13px] text-gray-500">내 회원 구분</p>
            <div className="mt-1 flex items-center gap-2">
              {role === undefined ? (
@@ -68,7 +68,7 @@
              )}
            </div>
          </div>
-         <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+         <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
            혜택 정책은 운영 데이터 기준으로 노출되며, 현재 등록된 정책만 표시합니다.
          </div>
          <div>

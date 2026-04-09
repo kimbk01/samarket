@@ -86,7 +86,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
         o.order_status === "completed" && canSubmitReview && !hasReview;
       return (
         <div className="min-h-screen bg-[#f3f4f6] px-4 py-8 pb-16">
-          <div className="mx-auto max-w-md rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+          <div className="mx-auto max-w-md rounded-ui-rect border border-emerald-100 bg-white p-6 shadow-sm">
             <p className="text-center text-sm font-semibold text-emerald-700">
               {o.order_status === "completed" ? "주문이 완료되었습니다" : "주문이 접수되었습니다"}
             </p>
@@ -108,26 +108,26 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
             {showReviewCta ? (
               <Link
                 href={`/my/store-orders/${encodeURIComponent(o.id)}/review`}
-                className="mt-6 block w-full rounded-xl bg-amber-500 py-3 text-center text-sm font-bold text-white shadow-sm"
+                className="mt-6 block w-full rounded-ui-rect bg-amber-500 py-3 text-center text-sm font-bold text-white shadow-sm"
               >
                 배달 완료 · 리뷰 남기기
               </Link>
             ) : null}
             {!showReviewCta && o.order_status !== "completed" ? (
-              <p className="mt-4 rounded-lg bg-gray-50 px-3 py-2 text-center text-[11px] leading-relaxed text-gray-600">
+              <p className="mt-4 rounded-ui-rect bg-gray-50 px-3 py-2 text-center text-[11px] leading-relaxed text-gray-600">
                 진행 상황은 주문 상세에서 확인하고, 매장과 조율이 필요할 때만 채팅을 이용할 수 있어요. 주문이
                 모두 완료되면 리뷰를 작성할 수 있습니다.
               </p>
             ) : null}
             <Link
               href={`/my/store-orders/${encodeURIComponent(o.id)}`}
-              className={`${showReviewCta ? "mt-3" : "mt-6"} block w-full rounded-xl bg-signature py-3 text-center text-sm font-bold text-white`}
+              className={`${showReviewCta ? "mt-3" : "mt-6"} block w-full rounded-ui-rect bg-signature py-3 text-center text-sm font-bold text-white`}
             >
               주문 상세 보기
             </Link>
             <Link
               href={`/my/store-orders/${encodeURIComponent(o.id)}/chat`}
-              className="mt-3 block w-full rounded-xl border border-signature bg-signature/5 py-3 text-center text-sm font-semibold text-signature"
+              className="mt-3 block w-full rounded-ui-rect border border-signature bg-signature/5 py-3 text-center text-sm font-semibold text-signature"
             >
               매장 문의 남기기
             </Link>

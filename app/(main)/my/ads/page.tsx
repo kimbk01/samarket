@@ -58,7 +58,7 @@ export default function MyAdsPage() {
       />
       <div className="mx-auto max-w-lg px-4 py-4">
         {authHint ? (
-          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+          <p className="mb-4 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
             {authHint}{" "}
             <Link href="/login" className="font-semibold text-signature underline">
               로그인
@@ -66,7 +66,7 @@ export default function MyAdsPage() {
           </p>
         ) : null}
 
-        <div className="mb-4 space-y-2 rounded-xl border border-stone-200 bg-white p-3 text-[12px] text-stone-600">
+        <div className="mb-4 space-y-2 rounded-ui-rect border border-stone-200 bg-white p-3 text-[12px] text-stone-600">
           <p className="font-semibold text-stone-800">무엇이 여기에 보이나요?</p>
           <ul className="list-inside list-disc space-y-1 text-[11px] leading-relaxed">
             <li>
@@ -94,13 +94,13 @@ export default function MyAdsPage() {
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Link
             href="/philife"
-            className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-center text-[14px] font-medium text-stone-800"
+            className="rounded-ui-rect border border-stone-300 bg-white px-4 py-2 text-center text-[14px] font-medium text-stone-800"
           >
             커뮤니티에서 글 쓰기
           </Link>
           <Link
             href="/my/ads/apply"
-            className="rounded-lg bg-stone-100 px-4 py-2 text-center text-[14px] font-medium text-stone-700"
+            className="rounded-ui-rect bg-stone-100 px-4 py-2 text-center text-[14px] font-medium text-stone-700"
           >
             홈 노출 신청(베타)
           </Link>

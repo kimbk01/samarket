@@ -25,6 +25,7 @@
   --color-ui-danger: var(--ui-danger);
   --color-ui-success: var(--ui-success);
 
+  --radius-ui-rect: var(--ui-radius-rect);
   --radius-ui-sm: var(--ui-radius-sm);
   --radius-ui-md: var(--ui-radius-md);
   --radius-ui-lg: var(--ui-radius-lg);
@@ -106,7 +107,7 @@ body {
 .ui-doc-surface {
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-lg);
+  border-radius: var(--ui-radius-rect);
   box-shadow: var(--ui-shadow-card);
 }
 

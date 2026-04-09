@@ -14,6 +14,8 @@ export const UI_CSS = {
   hoverSurface: "var(--ui-hover-surface)",
   danger: "var(--ui-danger)",
   success: "var(--ui-success)",
+  /** 사각형 카드·섹션·시트 (원·`rounded-full` 제외) */
+  radiusRect: "var(--ui-radius-rect)",
   radiusLg: "var(--ui-radius-lg)",
   shadowCard: "var(--ui-shadow-card)",
   tapMin: "var(--ui-tap-min)",

@@ -49,7 +49,7 @@ function slugFromPath(pathname: string): string | null {
 
 /** 참고 UI: 흰 라벨 박스 (왼쪽) */
 const LABEL_BOX_CLASS =
-  "max-w-[11rem] truncate rounded-lg border border-neutral-300 bg-white px-3 py-2 text-center text-[13px] font-semibold leading-tight text-neutral-900 shadow-sm";
+  "max-w-[11rem] truncate rounded-ui-rect border border-neutral-300 bg-white px-3 py-2 text-center text-[13px] font-semibold leading-tight text-neutral-900 shadow-sm";
 
 const SLIDE_MS = 320;
 const SLIDE_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";
@@ -270,7 +270,7 @@ export function HomeTradeHubFloatingBar() {
             onClick={closeHubSheet}
           />
           <div
-            className={`relative z-[1] flex max-h-[min(88dvh,900px)] w-full flex-col rounded-t-2xl bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform ease-out ${hubSheetEntered ? "translate-y-0" : "translate-y-full"}`}
+            className={`relative z-[1] flex max-h-[min(88dvh,900px)] w-full flex-col rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform ease-out ${hubSheetEntered ? "translate-y-0" : "translate-y-full"}`}
             style={{ transitionDuration: `${SHEET_MS}ms`, transitionTimingFunction: SHEET_EASE }}
             onClick={(e) => e.stopPropagation()}
           >

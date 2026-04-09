@@ -37,7 +37,7 @@ export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
   const totalItems = sections.reduce((sum, s) => sum + s.items.length, 0);
   if (totalItems === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         미리보기 결과가 없습니다. 정책을 활성화하거나 후보 데이터를 확인하세요.
       </div>
     );
@@ -48,7 +48,7 @@ export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
       <p className="text-[14px] text-gray-600">
         지역: {MOCK_PREVIEW_REGION_LABEL} · 총 {totalItems}건
       </p>
-      <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-4">
+      <div className="space-y-4 rounded-ui-rect border border-gray-200 bg-white p-4">
         {sections.map((sec) => (
           <div key={sec.sectionKey} className="border-b border-gray-100 pb-4 last:border-0">
             <h3 className="mb-2 text-[14px] font-semibold text-gray-900">

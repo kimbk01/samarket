@@ -49,7 +49,7 @@ export function MemberNotificationList() {
 
   if (!buyerId) {
     return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" id="order-sim">
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" id="order-sim">
         회원 역할로 전환한 뒤 주문 알림을 확인하세요.
       </p>
     );
@@ -69,7 +69,7 @@ export function MemberNotificationList() {
         {buyerId && rows.some((r) => !r.is_read) ? (
           <button
             type="button"
-            className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-800"
+            className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-800"
             onClick={() => markAllNotificationsReadForTarget("member", buyerId)}
           >
             전체 읽음
@@ -77,7 +77,7 @@ export function MemberNotificationList() {
         ) : null}
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">
+        <p className="rounded-ui-rect bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">
           주문 시뮬 알림이 없어요. 주문을 진행하면 여기에 쌓여요.
         </p>
       ) : (
@@ -85,7 +85,7 @@ export function MemberNotificationList() {
           {rows.map((r) => (
             <li
               key={r.id}
-              className={`rounded-xl border px-3 py-3 shadow-sm ${
+              className={`rounded-ui-rect border px-3 py-3 shadow-sm ${
                 r.is_read ? "border-gray-100 bg-white" : "border-gray-200 bg-signature/5/80"
               }`}
             >

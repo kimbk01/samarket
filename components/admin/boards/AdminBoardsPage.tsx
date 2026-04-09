@@ -31,7 +31,7 @@ export function AdminBoardsPage() {
           type="button"
           disabled={loading}
           onClick={() => setCreateOpen(true)}
-          className="shrink-0 rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+          className="shrink-0 rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
         >
           게시판 추가
         </button>
@@ -40,16 +40,16 @@ export function AdminBoardsPage() {
       <AdminBoardCreateForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => void load()} />
 
       {loading ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           불러오는 중…
         </div>
       ) : boards.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           등록된 게시판이 없습니다. 상단 <strong className="text-gray-800">게시판 추가</strong>로 생성하거나, DB에 services·boards 데이터를
           넣을 수 있습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="w-full min-w-[640px] border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">

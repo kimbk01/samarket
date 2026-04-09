@@ -34,7 +34,7 @@ export function AddressRowCard(props: {
     row.appRegionId && row.appCityId ? getLocationLabel(row.appRegionId, row.appCityId) : publicLine;
 
   return (
-    <li className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <li className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <input
           type="radio"
@@ -63,7 +63,7 @@ export function AddressRowCard(props: {
               type="button"
               disabled={row.isDefaultLife || rowBusy}
               onClick={() => onSetDefault({ isDefaultLife: true })}
-              className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700 disabled:opacity-40"
+              className="rounded-ui-rect border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700 disabled:opacity-40"
             >
               생활 기본
             </button>
@@ -71,7 +71,7 @@ export function AddressRowCard(props: {
               type="button"
               disabled={row.isDefaultTrade || rowBusy}
               onClick={() => onSetDefault({ isDefaultTrade: true })}
-              className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700 disabled:opacity-40"
+              className="rounded-ui-rect border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700 disabled:opacity-40"
             >
               거래 기본
             </button>
@@ -79,7 +79,7 @@ export function AddressRowCard(props: {
               type="button"
               disabled={row.isDefaultDelivery || rowBusy}
               onClick={() => onSetDefault({ isDefaultDelivery: true })}
-              className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700 disabled:opacity-40"
+              className="rounded-ui-rect border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700 disabled:opacity-40"
             >
               배달 기본
             </button>
@@ -89,14 +89,14 @@ export function AddressRowCard(props: {
           <button
             type="button"
             onClick={onEdit}
-            className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-800"
+            className="rounded-ui-rect border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-800"
           >
             수정
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="rounded-lg border border-red-200 px-2 py-1 text-[11px] font-semibold text-red-700"
+            className="rounded-ui-rect border border-red-200 px-2 py-1 text-[11px] font-semibold text-red-700"
           >
             삭제
           </button>

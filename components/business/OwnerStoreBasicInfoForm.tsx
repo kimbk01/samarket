@@ -368,7 +368,7 @@ export function OwnerStoreBasicInfoForm({
     <>
       {error ? (
         <div
-          className="mb-2 max-h-24 overflow-y-auto rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[12px] leading-snug text-red-800"
+          className="mb-2 max-h-24 overflow-y-auto rounded-ui-rect border border-red-100 bg-red-50 px-3 py-2 text-[12px] leading-snug text-red-800"
           role="alert"
         >
           {error}
@@ -378,7 +378,7 @@ export function OwnerStoreBasicInfoForm({
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-[48px] min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-[15px] font-medium text-gray-800 shadow-sm"
+          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect border border-gray-300 bg-white px-3 py-3 text-[15px] font-medium text-gray-800 shadow-sm"
         >
           취소
         </button>
@@ -386,7 +386,7 @@ export function OwnerStoreBasicInfoForm({
           type="submit"
           form="owner-store-basic-info-form"
           disabled={submitting || uploading}
-          className="min-h-[48px] min-w-0 flex-1 rounded-lg bg-signature px-3 py-3 text-[15px] font-medium text-white shadow-sm disabled:opacity-50"
+          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect bg-signature px-3 py-3 text-[15px] font-medium text-white shadow-sm disabled:opacity-50"
         >
           {submitting ? "저장 중…" : "저장"}
         </button>
@@ -409,7 +409,7 @@ export function OwnerStoreBasicInfoForm({
           <label className="mb-2 block text-[14px] font-medium text-gray-700">대표 이미지 (로고)</label>
           <div>
             <div className="relative inline-block shrink-0">
-              <div className="h-20 w-20 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+              <div className="h-20 w-20 overflow-hidden rounded-ui-rect border border-gray-200 bg-gray-50">
                 {values.profileImageUrl ? (
                    
                   <img src={values.profileImageUrl} alt="" className="h-full w-full object-cover" />

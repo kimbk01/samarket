@@ -10,7 +10,7 @@ interface PointLedgerListProps {
 export function PointLedgerList({ entries }: PointLedgerListProps) {
   if (entries.length === 0) {
     return (
-      <div className="rounded-lg bg-white p-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">
         포인트 거래내역이 없습니다.
       </div>
     );

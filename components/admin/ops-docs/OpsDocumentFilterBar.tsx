@@ -49,7 +49,7 @@ interface OpsDocumentFilterBarProps {
 
 export function OpsDocumentFilterBar({ state, onChange }: OpsDocumentFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-gray-200 bg-white p-3">
       <input
         type="search"
         placeholder="제목·요약·태그 검색"

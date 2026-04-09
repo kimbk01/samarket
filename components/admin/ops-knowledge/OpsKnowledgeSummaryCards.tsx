@@ -15,19 +15,19 @@ export function OpsKnowledgeSummaryCards() {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">전체 / 활성 문서</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {summary.totalDocuments} / {summary.activeDocuments}
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">오늘 검색 / 추천 클릭</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {summary.totalSearchesToday} / {summary.totalRecommendationClicks}
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">최근 수정 / 인기 카테고리</p>
         <p className="text-[14px] font-medium text-gray-900">
           {summary.latestUpdatedAt

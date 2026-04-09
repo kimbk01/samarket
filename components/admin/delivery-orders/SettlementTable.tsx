@@ -10,7 +10,7 @@ export function SettlementTable({ rows }: { rows: AdminDeliveryOrder[] }) {
     return <p className="py-6 text-center text-sm text-gray-500">조건에 맞는 정산 행이 없습니다.</p>;
   }
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
       <table className="w-full min-w-[1000px] border-collapse text-[13px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-600">

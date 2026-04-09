@@ -79,7 +79,7 @@ export function AdminAuditLogsPage() {
         <label className="block">
           <span className="text-xs text-gray-600">target_type 필터</span>
           <input
-            className="mt-0.5 block rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-0.5 block rounded-ui-rect border border-gray-200 px-2 py-1.5 text-sm"
             placeholder="예: store_order, cron_job"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -88,7 +88,7 @@ export function AdminAuditLogsPage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm text-white"
+          className="rounded-ui-rect bg-gray-900 px-3 py-1.5 text-sm text-white"
         >
           조회
         </button>
@@ -101,7 +101,7 @@ export function AdminAuditLogsPage() {
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <li key={r.id} className="rounded-xl border border-gray-200 bg-white p-3 text-sm shadow-sm">
+            <li key={r.id} className="rounded-ui-rect border border-gray-200 bg-white p-3 text-sm shadow-sm">
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="font-mono text-[11px] text-gray-500">{r.created_at}</span>
                 <span className="text-xs text-gray-600">

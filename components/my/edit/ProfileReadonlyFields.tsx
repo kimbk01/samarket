@@ -6,7 +6,7 @@ export interface ProfileReadonlyFieldsProps {
 
 export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
   return (
-    <div className="space-y-3 rounded-lg bg-gray-50 p-3">
+    <div className="space-y-3 rounded-ui-rect bg-gray-50 p-3">
       <p className="text-[12px] font-medium text-gray-500">읽기 전용</p>
       <div className="grid gap-2 text-[14px]">
         <div className="flex justify-between">

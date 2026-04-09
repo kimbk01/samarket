@@ -40,7 +40,7 @@ export function UserBlockButton({
       <button
         type="button"
         onClick={handleClick}
-        className={`rounded-lg px-3 py-1.5 text-[13px] font-medium ${
+        className={`rounded-ui-rect px-3 py-1.5 text-[13px] font-medium ${
           blocked ? "bg-gray-100 text-gray-600" : "bg-red-50 text-red-600"
         }`}
       >

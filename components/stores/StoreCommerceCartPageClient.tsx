@@ -1159,7 +1159,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               {checkoutPaymentOptions.map((opt) => (
                 <label
                   key={opt.id}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-[13px] font-medium shadow-sm ${
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-ui-rect border px-3 py-2 text-[13px] font-medium shadow-sm ${
                     selectedPaymentMethod === opt.id
                       ? "border-signature bg-signature/5 text-gray-900 ring-1 ring-signature/25"
                       : "border-gray-200 bg-white text-gray-700"
@@ -1182,7 +1182,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         </div>
 
         {fulfillment === "pickup" && offerPickup && storePickupLines.length > 0 ? (
-          <div className="rounded-lg border border-sky-100 bg-sky-50/90 px-3 py-2.5">
+          <div className="rounded-ui-rect border border-sky-100 bg-sky-50/90 px-3 py-2.5">
             <p className="text-[12px] font-semibold text-sky-950">픽업 장소 (매장 주소)</p>
             <p className="mt-1 text-[11px] leading-snug text-sky-900/85">
               이 주소에서 수령합니다. 배달을 고르면 아래에 입력하는 주소가 배달지로 전달됩니다.
@@ -1202,7 +1202,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             : null}
           </div>
         ) : fulfillment === "pickup" && offerPickup ? (
-          <p className="rounded-lg border border-amber-100 bg-amber-50/80 px-3 py-2 text-[12px] text-amber-950">
+          <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-3 py-2 text-[12px] text-amber-950">
             매장 주소가 비어 있어 픽업 장소를 표시할 수 없습니다. 사장님 메뉴에서 매장 기본 정보를
             등록해 주세요.
           </p>

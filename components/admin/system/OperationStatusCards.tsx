@@ -17,25 +17,25 @@ export function OperationStatusCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">가동률</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {status.uptime}%
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">활성 사용자</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {status.activeUsers}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">에러율</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {status.errorRate}%
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">운영 준비 상태</p>
           <p
             className={`text-[14px] font-semibold ${
@@ -47,7 +47,7 @@ export function OperationStatusCards() {
         </div>
       </div>
       {readyForScale && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 text-center">
+        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-4 text-center">
           <p className="text-[18px] font-semibold text-emerald-800">
             READY FOR SCALE
           </p>

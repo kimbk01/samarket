@@ -162,7 +162,7 @@ export function TumblerTimePickerDialog({
       }}
     >
       <div
-        className="max-h-[min(90dvh,520px)] w-full max-w-[340px] overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="max-h-[min(90dvh,520px)] w-full max-w-[340px] overflow-hidden rounded-ui-rect bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-sky-200/80 px-4 py-3">

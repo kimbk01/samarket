@@ -56,7 +56,7 @@ export default function MyAdsApplyPage() {
       />
       <div className="mx-auto max-w-lg px-4 py-4">
         {submitError && (
-          <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
+          <p className="mb-4 rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] text-red-700">
             {submitError}
           </p>
         )}

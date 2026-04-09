@@ -21,7 +21,7 @@ export function ExposureResultTable({
 
   if (results.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         시뮬레이션 결과가 없습니다. 후보 상품이 없거나 정책을 선택하세요.
       </div>
     );
@@ -34,7 +34,7 @@ export function ExposureResultTable({
       <p className="text-[14px] text-gray-600">
         {policyName} · {results.length}건 (점수순 정렬)
       </p>
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
         <table className="w-full min-w-[640px] border-collapse text-[14px]">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">

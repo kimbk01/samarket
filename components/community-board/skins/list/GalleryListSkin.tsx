@@ -18,7 +18,7 @@ export function GalleryListSkin({
             <Link
               key={post.id}
               href={`${baseHref}/${post.id}`}
-              className="block rounded-lg overflow-hidden border border-gray-200 bg-white hover:shadow-md transition-shadow"
+              className="block rounded-ui-rect overflow-hidden border border-gray-200 bg-white hover:shadow-md transition-shadow"
             >
               <div className="aspect-square bg-gray-100 relative">
                 {thumb ? (

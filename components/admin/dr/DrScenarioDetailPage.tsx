@@ -26,7 +26,7 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
 
   if (!scenario) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
         시나리오를 찾을 수 없습니다.
       </div>
     );
@@ -34,7 +34,7 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
           <span>{getScenarioTypeLabel(scenario.scenarioType)}</span>
           <span
@@ -53,7 +53,7 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
         <p className="mt-2 text-[14px] text-gray-700">{scenario.description}</p>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="text-[15px] font-medium text-gray-900">대응 단계 체크리스트</h3>
         {steps.length === 0 ? (
           <p className="mt-2 text-[13px] text-gray-500">단계 없음</p>
@@ -69,7 +69,7 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="text-[15px] font-medium text-gray-900">실행 로그 타임라인</h3>
         {executions.length === 0 ? (
           <p className="mt-2 text-[13px] text-gray-500">실행 이력 없음</p>

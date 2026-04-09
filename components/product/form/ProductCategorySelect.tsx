@@ -30,7 +30,7 @@ export function ProductCategorySelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+        className="w-full rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
         aria-invalid={!!error}
       >
         <option value="">선택</option>

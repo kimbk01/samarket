@@ -26,7 +26,7 @@ export function SettlementFilterBar({
   onChange: (f: SettlementListFilters) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-gray-50/80 p-3 text-sm">
+    <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-3 text-sm">
       <label className="flex flex-col gap-1">
         <span className="text-xs font-medium text-gray-600">정산상태</span>
         <select

@@ -67,7 +67,7 @@ export function AdminStoreInquiriesPage() {
       </p>
 
       {error ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
       ) : null}
 
       {loading ? (
@@ -79,7 +79,7 @@ export function AdminStoreInquiriesPage() {
           {rows.map((r) => (
             <article
               key={r.id}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm"
             >
               <div className="flex flex-wrap justify-between gap-2 text-[13px]">
                 <span className="font-semibold text-gray-900">{r.store_name || r.store_id}</span>
@@ -92,7 +92,7 @@ export function AdminStoreInquiriesPage() {
               <p className="mt-2 font-medium text-gray-900">{r.subject}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">{r.content}</p>
               {r.answer ? (
-                <div className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-800">
+                <div className="mt-3 rounded-ui-rect bg-gray-50 p-3 text-sm text-gray-800">
                   <p className="text-xs font-medium text-gray-500">매장 답변</p>
                   <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                   {r.answered_at ? (

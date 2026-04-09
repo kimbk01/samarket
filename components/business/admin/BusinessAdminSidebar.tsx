@@ -48,7 +48,7 @@ export function BusinessAdminSidebar({
               const active = isNavActive(item.href, pathname, searchParams);
               const isExternal = item.href.startsWith("/stores/");
               const common =
-                "flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors";
+                "flex items-center justify-between gap-2 rounded-ui-rect px-3 py-2.5 text-[14px] font-medium transition-colors";
               const activeCls = active ? "bg-[#E7F3FF] text-[#1877F2]" : "text-gray-800 hover:bg-gray-100";
               const inner = (
                 <>

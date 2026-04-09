@@ -11,7 +11,7 @@ export function MagazineDetailSkin({
   const thumb = post.images?.[0]?.url;
 
   return (
-    <article className="bg-white rounded-xl overflow-hidden shadow-sm">
+    <article className="bg-white rounded-ui-rect overflow-hidden shadow-sm">
       {thumb && (
         <div className="aspect-[16/9] bg-gray-100">
           <img src={thumb} alt="" className="w-full h-full object-cover" />
@@ -33,7 +33,7 @@ export function MagazineDetailSkin({
                   key={img.id}
                   src={img.url}
                   alt=""
-                  className="rounded-lg w-full object-cover"
+                  className="rounded-ui-rect w-full object-cover"
                 />
               ) : null
             )}

@@ -119,7 +119,7 @@ export function AdminStoreProductsPage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
           {error}
         </div>
       ) : null}
@@ -127,11 +127,11 @@ export function AdminStoreProductsPage() {
       {loading ? (
         <p className="text-[14px] text-gray-500">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           상품이 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="min-w-[900px] w-full border-collapse text-left text-[13px]">
             <thead className="border-b border-gray-200 bg-gray-50 text-[12px] text-gray-600">
               <tr>

@@ -43,7 +43,7 @@ export function AdminSidebarItem({
   const displayTitle = getMenuDisplayTitle(item.titleKey ? t(item.titleKey) : tt(item.title), status);
 
   const padding = depth === 0 ? "pl-3" : depth === 1 ? "pl-5" : "pl-7";
-  const baseLinkClass = `block rounded-lg py-2 pr-3 text-[15px] whitespace-nowrap ${padding}`;
+  const baseLinkClass = `block rounded-ui-rect py-2 pr-3 text-[15px] whitespace-nowrap ${padding}`;
   const activeClass =
     "bg-signature/25 font-bold text-signature shadow-sm ring-1 ring-inset ring-signature/15";
   const inactiveClass = pending
@@ -75,7 +75,7 @@ export function AdminSidebarItem({
   if (hasChildren) {
     return (
       <div className="py-0.5">
-        <div className={`flex items-center rounded-lg pl-3 pr-2 py-2 ${groupRowClass}`}>
+        <div className={`flex items-center rounded-ui-rect pl-3 pr-2 py-2 ${groupRowClass}`}>
           {item.path ? (
             <Link
               href={item.path}

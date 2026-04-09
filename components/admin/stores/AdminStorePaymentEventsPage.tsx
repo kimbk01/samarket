@@ -71,7 +71,7 @@ export function AdminStorePaymentEventsPage() {
         제한하세요.
       </p>
 
-      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-[13px]">
+      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-gray-200 bg-gray-50 p-3 text-[13px]">
         <label className="flex flex-col gap-0.5">
           <span className="text-gray-600">order_id</span>
           <input
@@ -115,7 +115,7 @@ export function AdminStorePaymentEventsPage() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-gray-500">기록이 없습니다.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white text-[12px]">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white text-[12px]">
           <table className="min-w-full text-left">
             <thead className="border-b border-gray-200 bg-gray-50 text-gray-600">
               <tr>

@@ -15,7 +15,7 @@ export function RecommendationReportKpiCards({ reportId }: RecommendationReportK
 
   if (!kpis) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
         KPI 데이터가 없습니다.
       </div>
     );
@@ -39,7 +39,7 @@ export function RecommendationReportKpiCards({ reportId }: RecommendationReportK
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-lg border border-gray-200 bg-white p-4"
+          className="rounded-ui-rect border border-gray-200 bg-white p-4"
         >
           <p className="text-[12px] text-gray-500">{item.label}</p>
           <p className="text-[18px] font-semibold text-gray-900">{item.value}</p>

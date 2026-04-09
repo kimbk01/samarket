@@ -53,7 +53,7 @@ export function OpsActionBoard() {
         )}
       </div>
       {items.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           액션아이템이 없습니다.
         </div>
       ) : (

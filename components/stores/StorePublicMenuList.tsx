@@ -14,7 +14,7 @@ const SECTION_HEAD = "mb-3 text-[15px] font-bold text-gray-900";
 
 /** 피드형 메뉴 카드 — 좌 썸네일 · 우 텍스트 · 우하단 + */
 const CARD_WRAP =
-  "flex w-full gap-3 rounded-2xl border border-stone-200 bg-white p-3 text-left shadow-sm transition-shadow active:shadow-md";
+  "flex w-full gap-3 rounded-ui-rect border border-stone-200 bg-white p-3 text-left shadow-sm transition-shadow active:shadow-md";
 
 export function StorePublicMenuList({
   storeSlug,
@@ -43,7 +43,7 @@ export function StorePublicMenuList({
   if (!canSell) {
     return (
       <div className={`${STORE_DETAIL_GUTTER} mt-4`}>
-        <p className="rounded-2xl border border-stone-300 bg-white px-3 py-4 text-center text-[13px] font-normal leading-relaxed text-gray-500 shadow-sm">
+        <p className="rounded-ui-rect border border-stone-300 bg-white px-3 py-4 text-center text-[13px] font-normal leading-relaxed text-gray-500 shadow-sm">
           이 매장은 상품 판매 승인 전이거나 판매가 일시 중지된 상태입니다.
         </p>
       </div>
@@ -54,7 +54,7 @@ export function StorePublicMenuList({
   if (flatCount === 0) {
     return (
       <div className={`${STORE_DETAIL_GUTTER} mt-4`}>
-        <p className="rounded-2xl border border-stone-300 bg-white px-3 py-4 text-center text-[13px] font-normal leading-relaxed text-gray-500 shadow-sm">
+        <p className="rounded-ui-rect border border-stone-300 bg-white px-3 py-4 text-center text-[13px] font-normal leading-relaxed text-gray-500 shadow-sm">
           {sections.length === 0 ? "검색 결과가 없습니다." : "등록된 상품이 없습니다."}
         </p>
       </div>
@@ -64,7 +64,7 @@ export function StorePublicMenuList({
   return (
     <div className={`${STORE_DETAIL_GUTTER} mt-3 space-y-6 pb-4`}>
       {menuSelectBlocked ? (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] font-medium leading-snug text-amber-950 shadow-sm">
+        <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] font-medium leading-snug text-amber-950 shadow-sm">
           {menuSelectHint?.trim() ||
             "지금은 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다."}
         </p>
@@ -106,9 +106,9 @@ export function StorePublicMenuList({
                 openSheet();
               };
               const thumb = (
-                <div className="relative h-[5.25rem] w-[5.25rem] shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-gray-100 to-gray-200">
+                <div className="relative h-[5.25rem] w-[5.25rem] shrink-0 overflow-hidden rounded-ui-rect bg-gradient-to-br from-gray-100 to-gray-200">
                   {hasDiscount && badgePct > 0 ? (
-                    <span className="absolute left-1 top-1 z-10 rounded-md bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow">
+                    <span className="absolute left-1 top-1 z-10 rounded-ui-rect bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow">
                       {badgePct}%
                     </span>
                   ) : null}
@@ -122,7 +122,7 @@ export function StorePublicMenuList({
                   )}
                   {soldOut ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/55">
-                      <span className="rounded-md bg-white/95 px-2 py-1 text-[11px] font-bold text-gray-900">
+                      <span className="rounded-ui-rect bg-white/95 px-2 py-1 text-[11px] font-bold text-gray-900">
                         품절
                       </span>
                     </div>
@@ -134,17 +134,17 @@ export function StorePublicMenuList({
                   <div className="flex flex-wrap items-center gap-1">
                     <span className="text-[15px] font-bold leading-snug text-gray-900">{p.title}</span>
                     {p.is_featured ? (
-                      <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+                      <span className="rounded-ui-rect bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
                         인기
                       </span>
                     ) : null}
                     {typeLabel && typeLabel !== "상품" ? (
-                      <span className="rounded-md bg-signature/10 px-1.5 py-0.5 text-[10px] font-semibold text-signature">
+                      <span className="rounded-ui-rect bg-signature/10 px-1.5 py-0.5 text-[10px] font-semibold text-signature">
                         {typeLabel}
                       </span>
                     ) : null}
                     {p.has_options ? (
-                      <span className="rounded-md border border-stone-200 bg-stone-50 px-1.5 py-0.5 text-[10px] font-semibold text-stone-600">
+                      <span className="rounded-ui-rect border border-stone-200 bg-stone-50 px-1.5 py-0.5 text-[10px] font-semibold text-stone-600">
                         옵션
                       </span>
                     ) : null}

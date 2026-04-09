@@ -17,7 +17,7 @@ export function ReportReasonSelector({ value, onChange }: ReportReasonSelectorPr
             <button
               type="button"
               onClick={() => onChange(r.code, r.label)}
-              className={`w-full rounded-lg border px-3 py-2.5 text-left text-[14px] ${
+              className={`w-full rounded-ui-rect border px-3 py-2.5 text-left text-[14px] ${
                 value === r.code
                   ? "border-signature bg-signature/5 text-signature"
                   : "border-gray-200 text-gray-800"

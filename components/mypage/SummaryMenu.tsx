@@ -22,7 +22,7 @@ interface SummaryMenuProps {
 
 export function SummaryMenu({ favoriteCount }: SummaryMenuProps) {
   return (
-    <section className="rounded-xl border border-ig-border bg-white p-4">
+    <section className="rounded-ui-rect border border-ig-border bg-white p-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ITEMS.map(({ label, href, icon, hasAlert, showFavoriteBadge }) => (
           <Link

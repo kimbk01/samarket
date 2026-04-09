@@ -249,14 +249,14 @@ export function CommunityDetail({
   const commentsLocked = Boolean(meeting && !viewerJoinedMeeting);
 
   const meetingToolbarBtn =
-    "flex min-h-[44px] w-full items-center justify-center rounded-[4px] border border-gray-200 bg-white px-1 py-2 text-center text-[11px] font-medium leading-tight text-gray-800 sm:text-[12px] disabled:opacity-50";
+    "flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-gray-200 bg-white px-1 py-2 text-center text-[11px] font-medium leading-tight text-gray-800 sm:text-[12px] disabled:opacity-50";
   const meetingToolbarWrap =
-    "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-[4px] [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[11px] [&>button]:font-medium [&>button]:leading-tight [&>button]:text-gray-800 sm:[&>button]:text-[12px]";
+    "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-ui-rect [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[11px] [&>button]:font-medium [&>button]:leading-tight [&>button]:text-gray-800 sm:[&>button]:text-[12px]";
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-24">
       <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-        <div className="overflow-hidden rounded-[4px] border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-white shadow-sm">
           {post.images.length > 0 ? (
             <div className="grid grid-cols-1 gap-px bg-gray-100 sm:grid-cols-2">
               {post.images.map((url, i) =>
@@ -283,7 +283,7 @@ export function CommunityDetail({
 
           <div className="p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-[4px] bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+              <span className="rounded-ui-rect bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
                 {meeting ? "모임" : post.category_label}
               </span>
             </div>
@@ -366,7 +366,7 @@ export function CommunityDetail({
                 type="button"
                 disabled={busy}
                 onClick={() => void onLike()}
-                className="rounded-md border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
+                className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
               >
                 공감 {likeCount}
               </button>
@@ -379,12 +379,12 @@ export function CommunityDetail({
                     setReportErr("");
                     setReportOpen(true);
                   }}
-                  className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-[13px] font-medium text-red-800"
+                  className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 text-[13px] font-medium text-red-800"
                 >
                   신고
                 </button>
               ) : null}
-              <Link href={philifeAppPaths.home} className="rounded-md border border-gray-200 px-4 py-2 text-[13px] text-gray-600">
+              <Link href={philifeAppPaths.home} className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[13px] text-gray-600">
                 목록
               </Link>
               {me?.id && me.id === post.author_id ? (
@@ -392,7 +392,7 @@ export function CommunityDetail({
                   type="button"
                   disabled={busy}
                   onClick={() => void onDeletePost()}
-                  className="rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-[13px] font-medium text-gray-800"
+                  className="rounded-ui-rect border border-gray-300 bg-gray-100 px-4 py-2 text-[13px] font-medium text-gray-800"
                 >
                   삭제
                 </button>
@@ -405,7 +405,7 @@ export function CommunityDetail({
                 type="button"
                 disabled={busy}
                 onClick={() => void onDeletePost()}
-                className="rounded-[4px] border border-gray-300 bg-gray-100 px-4 py-2 text-[13px] font-medium text-gray-800"
+                className="rounded-ui-rect border border-gray-300 bg-gray-100 px-4 py-2 text-[13px] font-medium text-gray-800"
               >
                 삭제
               </button>
@@ -428,20 +428,20 @@ export function CommunityDetail({
 
         {reportOpen ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog">
-            <div className="w-full max-w-md rounded-md bg-white p-4 shadow-xl">
+            <div className="w-full max-w-md rounded-ui-rect bg-white p-4 shadow-xl">
               <p className="text-[15px] font-semibold text-gray-900">게시글 신고</p>
               <textarea
                 value={reportText}
                 onChange={(e) => setReportText(e.target.value)}
                 rows={4}
-                className="mt-3 w-full rounded-md border border-gray-200 px-3 py-2 text-[14px]"
+                className="mt-3 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
               />
               {reportErr ? <p className="mt-1 text-[12px] text-red-600">{reportErr}</p> : null}
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setReportOpen(false)}
-                  className="flex-1 rounded-md border border-gray-200 py-2.5 text-[14px]"
+                  className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[14px]"
                 >
                   취소
                 </button>
@@ -449,7 +449,7 @@ export function CommunityDetail({
                   type="button"
                   disabled={busy || !reportText.trim()}
                   onClick={() => void onReport()}
-                  className="flex-1 rounded-md bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
+                  className="flex-1 rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
                 >
                   접수
                 </button>
@@ -458,10 +458,10 @@ export function CommunityDetail({
           </div>
         ) : null}
 
-        <section className="mt-4 rounded-[4px] border border-gray-100 bg-white p-4 shadow-sm" id="comments">
+        <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm" id="comments">
           <h2 className="text-[15px] font-semibold text-gray-900">댓글</h2>
           {commentsLocked ? (
-            <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-[4px] bg-gray-100 px-4 py-4 text-[13px] text-gray-500">
+            <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-ui-rect bg-gray-100 px-4 py-4 text-[13px] text-gray-500">
               <CommentLockIcon className="h-5 w-5 shrink-0 text-gray-400" />
               <span>
                 {!me?.id
@@ -494,7 +494,7 @@ export function CommunityDetail({
                   placeholder={me?.id ? "댓글을 입력하세요" : "로그인 후 댓글을 작성할 수 있어요"}
                   disabled={!me?.id || busy}
                   rows={3}
-                  className="w-full rounded-[4px] border border-gray-200 px-3 py-2 text-[14px] outline-none"
+                  className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] outline-none"
                 />
                 {me?.id ? (
                   <p className="mt-1 text-[11px] text-gray-500">
@@ -504,7 +504,7 @@ export function CommunityDetail({
                 <button
                   type="submit"
                   disabled={!me?.id || busy || !commentText.trim()}
-                  className="mt-2 w-full rounded-[4px] bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
+                  className="mt-2 w-full rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
                 >
                   등록
                 </button>

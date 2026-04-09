@@ -32,7 +32,7 @@ export function TradeHubSectionShell({
 
     <section
 
-      className={`overflow-hidden rounded-[4px] border border-ig-border bg-[var(--sub-bg)] px-4 py-4 shadow-sm md:px-5 md:py-5 ${className}`}
+      className={`overflow-hidden rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-4 py-4 shadow-sm md:px-5 md:py-5 ${className}`}
 
     >
 

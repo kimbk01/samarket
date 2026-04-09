@@ -71,7 +71,7 @@ export function ProductDetailHeaderToolbar({
           <MoreIcon className="h-5 w-5" />
         </button>
         {moreOpen && onReport ? (
-          <div className="absolute right-0 top-full z-10 mt-1 min-w-[120px] rounded-lg border border-ig-border bg-[var(--sub-bg)] py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-10 mt-1 min-w-[120px] rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] py-1 shadow-lg">
             <button
               type="button"
               onClick={() => {

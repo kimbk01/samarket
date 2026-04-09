@@ -145,7 +145,7 @@ function LoginPageContent() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
-      <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="w-full max-w-sm rounded-ui-rect border border-gray-200 bg-white p-6 shadow-sm">
         <h1 className="text-center text-lg font-semibold text-gray-900">로그인</h1>
         <p className="mt-1 text-center text-[13px] text-gray-500">구글, 카카오, 애플 또는 이메일 계정</p>
         <div className="mt-5 space-y-2">
@@ -153,7 +153,7 @@ function LoginPageContent() {
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("google")}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
           >
             {oauthBusy === "google" ? "이동 중…" : "구글로 로그인"}
           </button>
@@ -161,7 +161,7 @@ function LoginPageContent() {
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("kakao")}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
           >
             {oauthBusy === "kakao" ? "이동 중…" : "카카오로 로그인"}
           </button>
@@ -169,7 +169,7 @@ function LoginPageContent() {
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("apple")}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
           >
             {oauthBusy === "apple" ? "이동 중…" : "애플로 로그인"}
           </button>
@@ -190,7 +190,7 @@ function LoginPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="이메일 주소 또는 로그인 아이디"
               required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
             />
           </div>
           <div>
@@ -200,14 +200,14 @@ function LoginPageContent() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
             />
           </div>
           {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
           <button
             type="submit"
             disabled={loading || !!oauthBusy}
-            className="w-full rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+            className="w-full rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
           >
             {loading ? "로그인 중…" : "로그인"}
           </button>

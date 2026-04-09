@@ -111,7 +111,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <AddressDefaultsSummary defaults={defaults} />
 
         {loadErr ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] text-amber-950">
+          <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] text-amber-950">
             {loadErr}
             <p className="mt-2 text-[12px] text-amber-900/90">
               Supabase에 <code className="rounded bg-white/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
@@ -126,7 +126,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             <span className="text-[11px] text-gray-500">{tt("라디오: 대표 주소")}</span>
           </div>
           {list.length === 0 && !loadErr ? (
-            <p className="rounded-xl border border-dashed border-gray-200 bg-white py-8 text-center text-[13px] text-gray-500">
+            <p className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-8 text-center text-[13px] text-gray-500">
               {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
             </p>
           ) : (
@@ -148,7 +148,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <button
           type="button"
           onClick={openCreate}
-          className="w-full rounded-2xl border-2 border-dashed border-gray-200 py-3.5 text-[14px] font-semibold text-gray-700"
+          className="w-full rounded-ui-rect border-2 border-dashed border-gray-200 py-3.5 text-[14px] font-semibold text-gray-700"
         >
           {tt("+ 주소 추가")}
         </button>

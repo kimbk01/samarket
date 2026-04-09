@@ -8,19 +8,19 @@ export function OpsDocumentSummaryCards() {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">전체 문서</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {summary.totalDocuments}
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">활성 / 초안 / 보관</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {summary.totalActive} / {summary.totalDraft} / {summary.totalArchived}
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">고정 문서</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {summary.totalPinned}

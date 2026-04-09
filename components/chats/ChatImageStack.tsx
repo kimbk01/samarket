@@ -11,7 +11,7 @@ export function ChatImageStack({ urls, alignEnd }: { urls: string[]; alignEnd: b
 
   return (
     <div className={`flex min-w-0 max-w-[min(86.4vw,22.2rem)] flex-col ${alignEnd ? "items-end" : "items-start"}`}>
-      <div className={`w-full overflow-hidden rounded-2xl ${gridClass}`}>
+      <div className={`w-full overflow-hidden rounded-ui-rect ${gridClass}`}>
         {urls.map((url, idx) => (
           <div key={`${url}-${idx}`} className="relative min-h-0 min-w-0 bg-black/[0.03]">
             <img

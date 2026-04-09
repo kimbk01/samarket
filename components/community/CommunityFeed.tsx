@@ -365,7 +365,7 @@ export function CommunityFeed() {
 
         {err ? (
           <div className="px-3 py-3 sm:px-4">
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">{err}</div>
+            <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">{err}</div>
           </div>
         ) : null}
         {loading && posts.length === 0 ? (

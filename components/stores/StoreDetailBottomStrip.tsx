@@ -105,8 +105,8 @@ export function StoreDetailBottomStrip({
             href={cartHref}
             className={
               hasCart
-                ? "flex shrink-0 items-center gap-2 rounded-2xl bg-signature px-5 py-3 text-[15px] font-bold text-white shadow-md ring-2 ring-signature/25 active:bg-signature/90"
-                : "flex shrink-0 items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-600 active:bg-stone-100"
+                ? "flex shrink-0 items-center gap-2 rounded-ui-rect bg-signature px-5 py-3 text-[15px] font-bold text-white shadow-md ring-2 ring-signature/25 active:bg-signature/90"
+                : "flex shrink-0 items-center gap-1.5 rounded-ui-rect border border-stone-200 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-600 active:bg-stone-100"
             }
             aria-label={hasCart ? "주문 확인으로 이동" : "장바구니로 이동"}
           >

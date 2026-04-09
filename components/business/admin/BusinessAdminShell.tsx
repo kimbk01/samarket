@@ -202,7 +202,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
       <div className="border-t border-gray-100 p-3">
         <Link
           href="/my"
-          className="block rounded-lg px-3 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+          className="block rounded-ui-rect px-3 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
           onClick={() => setDrawerOpen(false)}
         >
           ← 내 정보(홈)

@@ -36,7 +36,7 @@ export function AdminPermissionToggles({
   return (
     <div className="space-y-4">
       {showRoleDefaultsButton && (
-        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-2">
           <span className="text-[13px] text-gray-600">역할에 맞춰 권한을 한 번에 적용</span>
           <button
             type="button"
@@ -51,7 +51,7 @@ export function AdminPermissionToggles({
         아이디별로 항목을 클릭해 권한 부여 여부를 선택하세요. (예: 글쓰기 권한 부여 O/X)
       </p>
       {ADMIN_PERMISSION_GROUPS.map((g) => (
-        <div key={g.groupLabel} className="rounded-lg border border-gray-200 bg-white">
+        <div key={g.groupLabel} className="rounded-ui-rect border border-gray-200 bg-white">
           <div className="border-b border-gray-100 bg-gray-50 px-3 py-2 text-[12px] font-medium text-gray-500">
             {g.groupLabel}
           </div>

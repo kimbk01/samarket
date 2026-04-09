@@ -72,7 +72,7 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-[4px] border border-gray-200 bg-gray-50 px-4 py-3">
+      <div className="rounded-ui-rect border border-gray-200 bg-gray-50 px-4 py-3">
         <p className="text-[13px] font-medium text-gray-900">
           {mode === "dm" ? "1:1 채팅" : "그룹 채팅"} 미확인 {unreadCount}건
         </p>
@@ -80,7 +80,7 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
           최근 대화방을 여기서 확인하고, 상세 운영은 메신저 화면으로 이어집니다.
         </p>
       </div>
-      <div className="rounded-[4px] border border-gray-200 bg-white">
+      <div className="rounded-ui-rect border border-gray-200 bg-white">
         {loading ? (
           <div className="px-4 py-8 text-center text-[12px] text-gray-500">불러오는 중입니다.</div>
         ) : error ? (
@@ -121,14 +121,14 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
       <div className="flex flex-wrap gap-2">
         <Link
           href={mode === "dm" ? "/community-messenger?tab=chats" : "/community-messenger?tab=groups"}
-          className="rounded-[4px] border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
+          className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
         >
           전체 메신저 열기
         </Link>
         {mode === "dm" ? (
           <Link
             href="/mypage/section/settings/chat-settings"
-            className="rounded-[4px] border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
           >
             채팅 설정
           </Link>

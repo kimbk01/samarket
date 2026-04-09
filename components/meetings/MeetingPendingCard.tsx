@@ -40,7 +40,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
   };
 
   return (
-    <div className="mx-0 mt-4 overflow-hidden rounded-3xl border border-amber-200 bg-white shadow-sm">
+    <div className="mx-0 mt-4 overflow-hidden rounded-ui-rect border border-amber-200 bg-white shadow-sm">
       {/* 상단 상태 바 */}
       <div className="flex items-center gap-3 bg-amber-50 px-5 py-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
@@ -79,7 +79,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
           <button
             type="button"
             onClick={onInquiry}
-            className="flex-1 rounded-2xl border border-gray-200 py-3 text-[13px] font-semibold text-gray-700 hover:bg-gray-50"
+            className="flex-1 rounded-ui-rect border border-gray-200 py-3 text-[13px] font-semibold text-gray-700 hover:bg-gray-50"
           >
             운영자 문의
           </button>
@@ -87,7 +87,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
             type="button"
             disabled={busy}
             onClick={() => void onCancel()}
-            className="flex-1 rounded-2xl bg-amber-500 py-3 text-[13px] font-semibold text-white disabled:opacity-50 hover:bg-amber-600"
+            className="flex-1 rounded-ui-rect bg-amber-500 py-3 text-[13px] font-semibold text-white disabled:opacity-50 hover:bg-amber-600"
           >
             {busy ? "처리 중…" : "신청 취소"}
           </button>

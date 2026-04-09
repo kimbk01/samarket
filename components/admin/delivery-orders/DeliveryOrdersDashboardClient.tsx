@@ -231,14 +231,14 @@ export function DeliveryOrdersDashboardClient() {
           type="button"
           onClick={() => void loadDbOrders()}
           disabled={dbLoading}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 disabled:opacity-50"
+          className="rounded-ui-rect border border-gray-300 px-3 py-1.5 text-xs text-gray-700 disabled:opacity-50"
         >
           {dbLoading ? "목록 갱신 중…" : "목록 새로고침"}
         </button>
       </div>
 
       {dbError ? (
-        <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
           주문 목록을 불러오지 못했습니다 ({dbError}). Supabase 설정·관리자 로그인을 확인하세요.
         </p>
       ) : null}
@@ -263,7 +263,7 @@ export function DeliveryOrdersDashboardClient() {
           {dbLoading ? " · 갱신 중…" : ""}
         </p>
         {!dbLoading && (filteredRows.length > 0 || dbOrders.length > 0) ? (
-          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px]">
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px]">
             <span className="text-gray-600">
               선택 <strong className="text-gray-900">{selectedIds.size}</strong>건
             </span>

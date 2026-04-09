@@ -107,28 +107,28 @@ export function StoreDetailInfoCard({
         <p className="text-[12px] font-semibold text-stone-500">이용 가능</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <span
-            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[12px] font-semibold ${
+            className={`inline-flex items-center rounded-ui-rect px-2.5 py-1 text-[12px] font-semibold ${
               isOpen ? "bg-emerald-100 text-emerald-900" : "bg-stone-200 text-stone-700"
             }`}
           >
             {isOpen ? "영업 중" : "준비 중"}
           </span>
           {commerce?.breakConfigured ? (
-            <span className="inline-flex items-center rounded-lg border border-gray-200 bg-signature/5 px-2.5 py-1 text-[12px] font-medium text-gray-900">
+            <span className="inline-flex items-center rounded-ui-rect border border-gray-200 bg-signature/5 px-2.5 py-1 text-[12px] font-medium text-gray-900">
               Break {commerce.breakRangeLabel}
             </span>
           ) : null}
-          <span className="inline-flex items-center rounded-lg border border-stone-200 bg-white px-2.5 py-1 text-[12px] font-medium text-stone-800">
+          <span className="inline-flex items-center rounded-ui-rect border border-stone-200 bg-white px-2.5 py-1 text-[12px] font-medium text-stone-800">
             {deliveryAvailable ? "배달" : "배달 불가"}
           </span>
-          <span className="inline-flex items-center rounded-lg border border-stone-200 bg-white px-2.5 py-1 text-[12px] font-medium text-stone-800">
+          <span className="inline-flex items-center rounded-ui-rect border border-stone-200 bg-white px-2.5 py-1 text-[12px] font-medium text-stone-800">
             {pickupAvailable ? "포장·픽업" : "픽업 불가"}
           </span>
         </div>
       </div>
 
       {commerce?.inBreak ? (
-        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] font-medium leading-snug text-amber-950">
+        <p className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] font-medium leading-snug text-amber-950">
           쉬는 시간에는 메뉴 담기가 제한될 수 있어요.
         </p>
       ) : null}
@@ -144,7 +144,7 @@ export function StoreDetailInfoCard({
 
       <Link
         href={infoHref}
-        className="mt-4 flex w-full items-center justify-between gap-3 rounded-xl border border-stone-900 bg-stone-900 px-4 py-3 text-left text-[14px] font-semibold text-white shadow-sm active:bg-stone-800"
+        className="mt-4 flex w-full items-center justify-between gap-3 rounded-ui-rect border border-stone-900 bg-stone-900 px-4 py-3 text-left text-[14px] font-semibold text-white shadow-sm active:bg-stone-800"
       >
         <span>
           가게정보

@@ -14,7 +14,7 @@ export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardP
 
   return (
     <div
-      className={`rounded-xl border bg-white p-4 ${
+      className={`rounded-ui-rect border bg-white p-4 ${
         isPremium
           ? "border-amber-200 bg-amber-50/30"
           : isAdmin

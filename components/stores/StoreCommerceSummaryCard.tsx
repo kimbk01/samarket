@@ -57,7 +57,7 @@ export function StoreCommerceSummaryCard({
     deliveryFeePhp != null && deliveryFeePhp >= 0 ? formatMoneyPhp(deliveryFeePhp) : "문의";
 
   return (
-    <div className="mx-4 mt-3 space-y-2 rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+    <div className="mx-4 mt-3 space-y-2 rounded-ui-rect border border-gray-100 bg-white p-3 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-bold text-gray-900">{storeName}</h2>
         {statusBadge(isOpen)}

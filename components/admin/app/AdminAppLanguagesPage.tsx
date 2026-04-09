@@ -23,7 +23,7 @@ export function AdminAppLanguagesPage() {
         <h1 className="text-[18px] font-semibold text-gray-900">언어 목록</h1>
         <Link
           href="/admin/app/languages/create"
-          className="rounded-lg bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded-ui-rect bg-signature px-3 py-2 text-[14px] font-medium text-white"
         >
           추가
         </Link>
@@ -31,13 +31,13 @@ export function AdminAppLanguagesPage() {
       {loading ? (
         <p className="text-gray-500">불러오는 중…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-lg bg-white p-4 text-[14px] text-gray-500">
+        <p className="rounded-ui-rect bg-white p-4 text-[14px] text-gray-500">
           언어가 없습니다. Supabase app_supported_languages 연동 후 목록이 표시됩니다.
         </p>
       ) : (
         <ul className="space-y-2">
           {items.map((l) => (
-            <li key={l.code} className="flex items-center justify-between rounded-lg bg-white p-3">
+            <li key={l.code} className="flex items-center justify-between rounded-ui-rect bg-white p-3">
               <div>
                 <span className="font-medium">{l.name}</span>
                 <span className="ml-2 text-[13px] text-gray-500">

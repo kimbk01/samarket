@@ -29,7 +29,7 @@ export function AdApplyButton({
 
   if (successAdId) {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[13px] text-emerald-800">
+      <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[13px] text-emerald-800">
         광고 신청이 완료되었습니다. 관리자 승인 후 노출됩니다.
       </div>
     );
@@ -37,7 +37,7 @@ export function AdApplyButton({
 
   if (hasActiveAd) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800">
+      <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800">
         이 게시글은 현재 광고 중입니다.
       </div>
     );
@@ -48,7 +48,7 @@ export function AdApplyButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-[13px] font-semibold text-amber-800 hover:bg-amber-100"
+        className="w-full rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2.5 text-[13px] font-semibold text-amber-800 hover:bg-amber-100"
       >
         📢 이 글 광고 신청하기
       </button>

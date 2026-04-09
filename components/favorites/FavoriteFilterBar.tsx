@@ -48,7 +48,7 @@ export function FavoriteFilterBar({
         <select
           value={sortKey}
           onChange={(e) => onSortKeyChange(e.target.value as FavoriteSortKey)}
-          className="rounded-md border border-gray-300 bg-gray-100 px-2 py-1 text-[13px] font-semibold text-gray-900"
+          className="rounded-ui-rect border border-gray-300 bg-gray-100 px-2 py-1 text-[13px] font-semibold text-gray-900"
         >
           {FAVORITE_SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

@@ -25,7 +25,7 @@ export function OpsKnowledgeResultList({
 }: OpsKnowledgeResultListProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         검색 결과가 없습니다.
       </div>
     );
@@ -36,7 +36,7 @@ export function OpsKnowledgeResultList({
       {items.map((item) => (
         <li key={item.id}>
           <div
-            className={`cursor-pointer rounded-lg border p-3 ${
+            className={`cursor-pointer rounded-ui-rect border p-3 ${
               selectedDocumentId === item.documentId
                 ? "border-signature bg-signature/5"
                 : "border-gray-200 bg-white hover:bg-gray-50"

@@ -29,21 +29,21 @@ export function RecommendationSummaryCards({
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">총 노출</p>
         <p className="text-[20px] font-semibold text-gray-900">{totalImpressions}</p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">총 클릭</p>
         <p className="text-[20px] font-semibold text-gray-900">{totalClicks}</p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">CTR</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {(overallCtr * 100).toFixed(2)}%
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">전환률</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {(overallCvr * 100).toFixed(2)}%
@@ -52,7 +52,7 @@ export function RecommendationSummaryCards({
       {[...bySurface.entries()].map(([surface, list]) => (
         <div
           key={surface}
-          className="rounded-lg border border-gray-200 bg-gray-50 p-4 sm:col-span-2"
+          className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4 sm:col-span-2"
         >
           <p className="text-[14px] font-medium text-gray-900">
             {surfaceLabels[surface] ?? surface} · 섹션별 성과

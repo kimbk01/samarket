@@ -13,7 +13,7 @@ export function BoardListCategoryChips({ baseHref, categorySlug, categories }: B
   if (categories.length === 0) return null;
 
   return (
-    <div className="mb-3 flex flex-wrap gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2.5">
+    <div className="mb-3 flex flex-wrap gap-2 rounded-ui-rect border border-gray-100 bg-white px-3 py-2.5">
       <span className="w-full text-[11px] font-medium uppercase tracking-wide text-gray-400">카테고리</span>
       <Link
         href={baseHref}

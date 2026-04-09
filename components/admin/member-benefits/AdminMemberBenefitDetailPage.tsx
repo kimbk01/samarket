@@ -40,7 +40,7 @@ export function AdminMemberBenefitDetailPage({
           title="회원 혜택 상세"
           backHref="/admin/member-benefits"
         />
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           정책을 찾을 수 없습니다.
         </div>
       </div>

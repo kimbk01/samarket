@@ -212,7 +212,7 @@ export function AdminMainBottomNavPage() {
 
       {message ? (
         <div
-          className={`rounded-lg px-4 py-2 text-[14px] ${
+          className={`rounded-ui-rect px-4 py-2 text-[14px] ${
             message.type === "ok" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
           }`}
         >
@@ -225,7 +225,7 @@ export function AdminMainBottomNavPage() {
           type="button"
           disabled={saving || loading || !rows}
           onClick={() => void save()}
-          className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+          className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
         >
           {saving ? "저장 중…" : "저장"}
         </button>
@@ -233,7 +233,7 @@ export function AdminMainBottomNavPage() {
           type="button"
           disabled={saving || loading || !rows || rows.length >= MAX_TABS}
           onClick={addRow}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[14px] text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-ui-rect border border-gray-300 bg-white px-4 py-2 text-[14px] text-gray-800 hover:bg-gray-50 disabled:opacity-50"
         >
           메뉴 추가
         </button>
@@ -241,7 +241,7 @@ export function AdminMainBottomNavPage() {
           type="button"
           disabled={saving || loading}
           onClick={() => void load()}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[14px] text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-ui-rect border border-gray-300 bg-white px-4 py-2 text-[14px] text-gray-800 hover:bg-gray-50 disabled:opacity-50"
         >
           다시 불러오기
         </button>
@@ -249,27 +249,27 @@ export function AdminMainBottomNavPage() {
           type="button"
           disabled={saving || loading || !fromDb}
           onClick={() => void reset()}
-          className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-[14px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+          className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-2 text-[14px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
         >
           DB 설정 지우기(기본값)
         </button>
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
-          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+          className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
         >
           {showAdvanced ? "고급(Tailwind 직접) 접기" : "고급(Tailwind 직접) 펼치기"}
         </button>
       </div>
 
       {loading ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">불러오는 중…</div>
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">불러오는 중…</div>
       ) : !rows ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
           목록을 불러오지 못했습니다. 관리자 권한·Supabase 환경을 확인해 주세요.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="min-w-[1100px] w-full border-collapse text-left text-[12px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">

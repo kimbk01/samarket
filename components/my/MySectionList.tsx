@@ -34,7 +34,7 @@ export function MySectionList({ sections, interestFavoriteCount }: MySectionList
           <Link
             key={sec.section_key}
             href={href}
-            className="flex items-center justify-between rounded-xl border border-ig-border bg-white px-4 py-3 active:bg-ig-highlight"
+            className="flex items-center justify-between rounded-ui-rect border border-ig-border bg-white px-4 py-3 active:bg-ig-highlight"
           >
             <span className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center text-foreground">
               <SectionGlyph sectionKey={sec.section_key} />

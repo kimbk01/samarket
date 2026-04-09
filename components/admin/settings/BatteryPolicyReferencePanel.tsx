@@ -39,7 +39,7 @@ export function BatteryPolicyReferencePanel() {
   const deltas = TRUST_POLICY_CHEATSHEET.eventDeltas;
 
   return (
-    <div className="mt-8 space-y-6 rounded-xl border border-gray-200 bg-gray-50/80 p-5">
+    <div className="mt-8 space-y-6 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-5">
       <div>
         <h3 className="text-[15px] font-semibold text-gray-900">신뢰 점수·배터리(6단) 기준</h3>
         <p className="mt-1 text-[12px] text-gray-500">
@@ -52,7 +52,7 @@ export function BatteryPolicyReferencePanel() {
         </p>
       </div>
 
-      <section className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-emerald-900">0) 배터리 %(UI 표기) 산출</h4>
         <ul className="mt-2 space-y-1.5 text-[13px] text-gray-800">
           <li>
@@ -72,7 +72,7 @@ export function BatteryPolicyReferencePanel() {
         </ul>
       </section>
 
-      <section className="rounded-lg border border-white bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-gray-900">1) 당근 매너 온도 (참고)</h4>
         <p className="mt-2 text-[13px] leading-relaxed text-gray-700">{DAANGN_MANNER_TEMP_REFERENCE.citationNote}</p>
         <ul className="mt-2 list-inside list-disc text-[12px] text-gray-600">
@@ -87,7 +87,7 @@ export function BatteryPolicyReferencePanel() {
         </ul>
       </section>
 
-      <section className="rounded-lg border border-white bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-amber-900">2) 레거시 °C → 점수 (manner_temperature)</h4>
         <p className="mt-2 text-[13px] text-gray-700">
           <code className="text-[12px]">trust_score</code>가 없고{" "}
@@ -105,7 +105,7 @@ export function BatteryPolicyReferencePanel() {
         </ul>
       </section>
 
-      <section className="rounded-lg border border-white bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-sky-900">3) 배터리 단계 — 점수 구간 고정 매핑</h4>
         <p className="mt-2 text-[13px] text-gray-700">
           내부 점수 s(0~100)를 <strong>6등분 ceil이 아니라</strong> 아래 고정 구간으로 단계를 정합니다. 단계 k는 채워지는 칸
@@ -140,7 +140,7 @@ export function BatteryPolicyReferencePanel() {
         </p>
       </section>
 
-      <section className="rounded-lg border border-white bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-gray-900">4) 이벤트·가중·일일 상한 (서버 반영)</h4>
         <ul className="mt-2 list-inside list-disc text-[12px] text-gray-700">
           <li>
@@ -166,14 +166,14 @@ export function BatteryPolicyReferencePanel() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-white bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-gray-900">5) 산출 흐름 도식</h4>
-        <div className="mt-3 rounded-lg bg-gray-50 p-3">
+        <div className="mt-3 rounded-ui-rect bg-gray-50 p-3">
           <BatteryPolicyFlowDiagram />
         </div>
       </section>
 
-      <section className="rounded-lg border border-white bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-gray-900">6) 단계별 아이콘 예시 (1~6칸)</h4>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
           {([1, 2, 3, 4, 5, 6] as const).map((t) => {
@@ -188,7 +188,7 @@ export function BatteryPolicyReferencePanel() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-dashed border-gray-200 bg-signature/5 p-4">
+      <section className="rounded-ui-rect border border-dashed border-gray-200 bg-signature/5 p-4">
         <h4 className="text-[13px] font-semibold text-gray-900">미리보기</h4>
         <div className="mt-2 flex flex-wrap items-end gap-3">
           <label className="block text-[12px] text-gray-600">

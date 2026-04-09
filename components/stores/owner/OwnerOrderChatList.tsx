@@ -34,7 +34,7 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
 
   if (!ownerId) {
     return (
-      <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
+      <p className="rounded-ui-rect bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
         매장(오너) 역할로 전환한 뒤 확인해 주세요.
       </p>
     );
@@ -43,7 +43,7 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
   return (
     <div className="space-y-2">
       {rows.length === 0 ? (
-        <p className="rounded-xl bg-white p-6 text-sm text-gray-500">주문 채팅이 없어요.</p>
+        <p className="rounded-ui-rect bg-white p-6 text-sm text-gray-500">주문 채팅이 없어요.</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => {
@@ -55,7 +55,7 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
               <li key={r.id}>
                 <Link
                   href={`/my/business/store-order-chat/${encodeURIComponent(r.order_id)}`}
-                  className="flex items-start justify-between gap-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
+                  className="flex items-start justify-between gap-2 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">

@@ -21,7 +21,7 @@ export function DisputeActionPanel({ report }: { report: OrderReport | null }) {
   if (!report) return null;
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 text-sm">
+    <div className="rounded-ui-rect border border-amber-200 bg-amber-50/40 p-3 text-sm">
       <p className="font-semibold text-gray-900">분쟁 조치</p>
       {toast ? <p className="mt-2 text-xs text-gray-800">{toast}</p> : null}
       <div className="mt-2 flex flex-wrap gap-2">

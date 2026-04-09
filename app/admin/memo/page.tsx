@@ -14,7 +14,7 @@ function MemoList({
   sectionLabel: string;
 }) {
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5">
+    <section className="rounded-ui-rect border border-gray-200 bg-white p-5">
       <h2 className="mb-3 text-[15px] font-medium text-gray-800">
         {sectionLabel}
       </h2>
@@ -75,7 +75,7 @@ export default function AdminMemoPage() {
         sectionLabel="실서비스 전 처리해야 할 부분"
       />
 
-      <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+      <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
         <p className="font-medium">적용 방법</p>
         <ul className="mt-1 list-inside list-disc space-y-0.5 text-amber-700">
           <li>항목 추가·수정: <code className="rounded bg-amber-100 px-1">web/lib/admin/production-memo.ts</code> 편집</li>

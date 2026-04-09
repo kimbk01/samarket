@@ -389,11 +389,11 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
           ref={menuStickyMeasureRef}
           className={`sticky z-[33] border-b border-stone-200/90 bg-[#f3f4f6]/95 px-3 py-2 backdrop-blur-md ${STORE_DETAIL_MENU_STICKY_TOP_CLASS}`}
         >
-          <div className="mb-2 grid grid-cols-2 gap-2 rounded-xl bg-white p-1">
+          <div className="mb-2 grid grid-cols-2 gap-2 rounded-ui-rect bg-white p-1">
             <button
               type="button"
               onClick={() => setActiveTab("menu")}
-              className={`rounded-lg px-3 py-2 text-[14px] font-semibold ${
+              className={`rounded-ui-rect px-3 py-2 text-[14px] font-semibold ${
                 activeTab === "menu" ? "bg-signature text-white" : "text-stone-700"
               }`}
             >
@@ -402,7 +402,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
             <button
               type="button"
               onClick={() => setActiveTab("review")}
-              className={`rounded-lg px-3 py-2 text-[14px] font-semibold ${
+              className={`rounded-ui-rect px-3 py-2 text-[14px] font-semibold ${
                 activeTab === "review" ? "bg-signature text-white" : "text-stone-700"
               }`}
             >
@@ -488,7 +488,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
 
       {toastMsg ? (
         <div
-          className="pointer-events-none fixed left-1/2 z-[32] max-w-[min(92vw,20rem)] -translate-x-1/2 rounded-2xl bg-stone-900/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg"
+          className="pointer-events-none fixed left-1/2 z-[32] max-w-[min(92vw,20rem)] -translate-x-1/2 rounded-ui-rect bg-stone-900/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg"
           style={{ bottom: "max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px))" }}
           role="status"
         >

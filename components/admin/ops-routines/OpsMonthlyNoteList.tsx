@@ -39,7 +39,7 @@ export function OpsMonthlyNoteList() {
       </p>
 
       {notes.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           해당 월 메모가 없습니다.
         </div>
       ) : (
@@ -47,7 +47,7 @@ export function OpsMonthlyNoteList() {
           {notes.map((n) => (
             <div
               key={n.id}
-              className="rounded-lg border border-gray-200 bg-white p-4"
+              className="rounded-ui-rect border border-gray-200 bg-white p-4"
             >
               <div className="flex items-center justify-between text-[12px] text-gray-500">
                 <span>{n.monthKey}</span>

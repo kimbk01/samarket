@@ -26,7 +26,7 @@ export function ChatButton({
   return (
     <Link
       href={philifeAppPaths.meeting(mid)}
-      className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-signature px-4 text-[16px] font-semibold text-white shadow-md active:opacity-90"
+      className="inline-flex min-h-[52px] w-full items-center justify-center rounded-ui-rect bg-signature px-4 text-[16px] font-semibold text-white shadow-md active:opacity-90"
     >
       {children ?? "모임 보기"}
     </Link>

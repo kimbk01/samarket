@@ -83,7 +83,7 @@ export function MyProductActions({
         <MoreIcon />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-lg border border-gray-200 bg-white py-1">
+        <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-ui-rect border border-gray-200 bg-white py-1">
           <Link
             href={`/products/${product.id}/edit`}
             className="block px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"

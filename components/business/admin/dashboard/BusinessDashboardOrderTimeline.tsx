@@ -28,7 +28,7 @@ export function BusinessDashboardOrderTimeline({
     return (
       <section className="space-y-2">
         <h2 className="text-[15px] font-semibold text-gray-900">최근 주문</h2>
-        <p className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center text-[14px] text-gray-500">
+        <p className="rounded-ui-rect border border-dashed border-gray-200 bg-white px-4 py-8 text-center text-[14px] text-gray-500">
           아직 주문이 없습니다.
         </p>
       </section>
@@ -50,7 +50,7 @@ export function BusinessDashboardOrderTimeline({
         {orders.map((o) => (
           <li
             key={o.id}
-            className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-3"
+            className="rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-3"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -74,13 +74,13 @@ export function BusinessDashboardOrderTimeline({
                   storeId,
                   orderId: o.id,
                 })}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-800"
+                className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-800"
               >
                 상세
               </Link>
               <Link
                 href={`/my/business/store-order-chat/${encodeURIComponent(o.id)}`}
-                className="rounded-lg bg-signature px-3 py-1.5 text-[12px] font-medium text-white"
+                className="rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-medium text-white"
               >
                 채팅
               </Link>

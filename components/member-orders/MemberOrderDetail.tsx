@@ -66,10 +66,10 @@ export function MemberOrderDetail({
 
       <div className="mx-auto max-w-lg space-y-3 px-3 py-4">
         {toast ? (
-          <p className="rounded-xl bg-gray-900 px-3 py-2 text-center text-xs text-white">{toast}</p>
+          <p className="rounded-ui-rect bg-gray-900 px-3 py-2 text-center text-xs text-white">{toast}</p>
         ) : null}
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-lg font-bold text-gray-900">{order.store_name}</p>
@@ -97,13 +97,13 @@ export function MemberOrderDetail({
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <span
-              className={`rounded-md px-2 py-0.5 text-xs font-bold ${
+              className={`rounded-ui-rect px-2 py-0.5 text-xs font-bold ${
                 order.order_type === "delivery" ? "bg-signature/5 text-gray-900" : "bg-teal-50 text-teal-900"
               }`}
             >
               {order.order_type === "delivery" ? t("member_order_delivery_type") : t("member_order_pickup_type")}
             </span>
-            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+            <span className="rounded-ui-rect bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
               {t("member_order_payment")} {tt(MEMBER_PAYMENT_LABEL[order.payment_status])}
             </span>
           </div>
@@ -114,20 +114,20 @@ export function MemberOrderDetail({
         </section>
 
         {order.cancel_request_reason ? (
-          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <section className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
             <p className="font-bold">{t("member_order_cancel_reason_title")}</p>
             <p className="mt-1">{order.cancel_request_reason}</p>
           </section>
         ) : null}
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <h2 className="text-sm font-bold text-gray-900">{t("member_order_menu_title")}</h2>
           <div className="mt-3">
             <MemberOrderItems items={order.items} />
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <h2 className="text-sm font-bold text-gray-900">{t("member_order_amount_title")}</h2>
           <div className="mt-3">
             <MemberOrderSummary order={order} />
@@ -135,7 +135,7 @@ export function MemberOrderDetail({
         </section>
 
         {order.order_type === "delivery" ? (
-          <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+          <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
             <h2 className="text-sm font-bold text-gray-900">{t("member_order_delivery_info_title")}</h2>
             <dl className="mt-3 space-y-2 text-sm">
               <div>
@@ -153,7 +153,7 @@ export function MemberOrderDetail({
             </dl>
           </section>
         ) : (
-          <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+          <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
             <h2 className="text-sm font-bold text-gray-900">{t("member_order_pickup_title")}</h2>
             <dl className="mt-3 space-y-2 text-sm">
               <div>
@@ -178,7 +178,7 @@ export function MemberOrderDetail({
           </section>
         )}
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <h2 className="text-sm font-bold text-gray-900">{t("member_order_status_history")}</h2>
           <div className="mt-4">
             <MemberOrderTimeline logs={order.logs} />
@@ -191,7 +191,7 @@ export function MemberOrderDetail({
           {!issueState ? (
             <Link
               href={`${listHref}/${encodeURIComponent(order.id)}/chat`}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-signature/5 py-3 text-sm font-bold text-gray-900"
+              className="flex w-full items-center justify-center gap-2 rounded-ui-rect border border-gray-200 bg-signature/5 py-3 text-sm font-bold text-gray-900"
             >
               {t("member_order_continue_chat")}
               <UnreadBadge count={chatUnread} />
@@ -201,7 +201,7 @@ export function MemberOrderDetail({
             <button
               type="button"
               onClick={() => setCancelOpen(true)}
-              className="w-full rounded-xl border border-red-200 bg-white py-3 text-sm font-bold text-red-700"
+              className="w-full rounded-ui-rect border border-red-200 bg-white py-3 text-sm font-bold text-red-700"
             >
               {t("member_order_cancel_action")}
             </button>
@@ -216,7 +216,7 @@ export function MemberOrderDetail({
                 setToast(r.ok ? t("member_order_refund_requested") : r.error);
                 setTimeout(() => setToast(null), 2800);
               }}
-              className="w-full rounded-xl border border-amber-200 bg-amber-50 py-3 text-sm font-bold text-amber-900"
+              className="w-full rounded-ui-rect border border-amber-200 bg-amber-50 py-3 text-sm font-bold text-amber-900"
             >
               {t("member_order_refund_action")}
             </button>
@@ -226,14 +226,14 @@ export function MemberOrderDetail({
               <button
                 type="button"
                 onClick={() => alert("샘플: 재주문은 매장 페이지에서 메뉴를 담아 주세요.")}
-                className="w-full rounded-xl bg-gray-900 py-3 text-sm font-bold text-white"
+                className="w-full rounded-ui-rect bg-gray-900 py-3 text-sm font-bold text-white"
               >
                 {t("member_order_reorder_sample")}
               </button>
               <button
                 type="button"
                 onClick={() => alert("샘플: 리뷰 작성은 추정 매장 리뷰 플로우와 연결 예정입니다.")}
-                className="w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-semibold text-gray-800"
+                className="w-full rounded-ui-rect border border-gray-200 bg-white py-3 text-sm font-semibold text-gray-800"
               >
                 {t("member_order_review_sample")}
               </button>

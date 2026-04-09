@@ -19,7 +19,7 @@ const ROW_STAGGER_MS = 52;
 const CLOSE_EXTRA_MS = 96;
 
 const RAIL_LABEL_CLASS =
-  "max-w-[9rem] truncate rounded-lg bg-white px-3 py-1.5 text-center text-[calc(11px+1pt)] font-semibold leading-tight text-neutral-800 shadow-md ring-1 ring-black/[0.06]";
+  "max-w-[9rem] truncate rounded-ui-rect bg-white px-3 py-1.5 text-center text-[calc(11px+1pt)] font-semibold leading-tight text-neutral-800 shadow-md ring-1 ring-black/[0.06]";
 
 const FAB_BASE =
   "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white shadow-[0_4px_14px_rgba(0,0,0,0.22)] ring-2 ring-white/35 [&_svg]:h-5 [&_svg]:w-5 active:opacity-90";

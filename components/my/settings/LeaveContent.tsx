@@ -41,7 +41,7 @@ export function LeaveContent() {
         탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.
       </p>
       {submittedAt ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-[14px] font-medium text-emerald-800">탈퇴 요청이 접수되었습니다.</p>
           <p className="mt-1 text-[13px] text-emerald-700">
             접수 시간: {new Date(submittedAt).toLocaleString("ko-KR")}
@@ -49,7 +49,7 @@ export function LeaveContent() {
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-[13px] text-red-600">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-4 text-[13px] text-red-600">
           {error}
         </div>
       ) : null}
@@ -57,7 +57,7 @@ export function LeaveContent() {
         <div className="flex gap-2">
           <Link
             href={MYPAGE_MAIN_HREF}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700"
           >
             취소
           </Link>
@@ -65,13 +65,13 @@ export function LeaveContent() {
             type="button"
             disabled={submitting || submittedAt != null}
             onClick={() => setStep(2)}
-            className="rounded-lg bg-red-500 px-4 py-2 text-[14px] font-medium text-white"
+            className="rounded-ui-rect bg-red-500 px-4 py-2 text-[14px] font-medium text-white"
           >
             탈퇴하기
           </button>
         </div>
       ) : (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-4">
           <p className="text-[14px] font-medium text-red-800">정말 탈퇴하시겠습니까?</p>
           <div className="mt-3 flex gap-2">
             <button

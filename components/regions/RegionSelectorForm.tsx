@@ -48,7 +48,7 @@ export function RegionSelectorForm({
             setRegionId(e.target.value);
             setCityId("");
           }}
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
         >
           <option value="">Select region</option>
           {REGIONS.map((r) => (
@@ -66,7 +66,7 @@ export function RegionSelectorForm({
           value={cityId}
           onChange={(e) => setCityId(e.target.value)}
           disabled={!regionId}
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
         >
           <option value="">Select area</option>
           {cities.map((c) => (
@@ -85,7 +85,7 @@ export function RegionSelectorForm({
           value={barangay}
           onChange={(e) => setBarangay(e.target.value)}
           placeholder=""
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
         />
       </div>
       <label className="flex items-center gap-2 text-[14px] text-gray-700">
@@ -101,14 +101,14 @@ export function RegionSelectorForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600"
+          className="rounded-ui-rect border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600"
         >
           취소
         </button>
         <button
           type="submit"
           disabled={!regionId || !cityId}
-          className="flex-1 rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
         >
           추가
         </button>

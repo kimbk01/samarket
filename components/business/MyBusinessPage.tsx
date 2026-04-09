@@ -219,11 +219,11 @@ export function MyBusinessPage({
 
   if (state.kind === "unauth") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-amber-50 p-4 text-[14px] text-amber-900`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-amber-50 p-4 text-[14px] text-amber-900`}>
         <p>로그인 후 매장 신청과 주문 운영을 바로 시작할 수 있습니다.</p>
         <Link
           href="/login?next=%2Fmypage%2Fbusiness"
-          className="inline-flex w-fit rounded-lg border border-amber-200 bg-white px-4 py-2 text-[14px] font-medium text-amber-900"
+          className="inline-flex w-fit rounded-ui-rect border border-amber-200 bg-white px-4 py-2 text-[14px] font-medium text-amber-900"
         >
           로그인하고 매장 시작하기
         </Link>
@@ -247,7 +247,7 @@ export function MyBusinessPage({
         <button
           type="button"
           onClick={() => void loadRemote()}
-          className="rounded-lg border border-gray-200 px-4 py-2 text-[14px] text-gray-700"
+          className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] text-gray-700"
         >
           다시 시도
         </button>
@@ -259,7 +259,7 @@ export function MyBusinessPage({
   if (state.kind === "empty") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <div className="rounded-[20px] bg-[#111827] px-5 py-5 text-white shadow-lg md:px-6 md:py-6">
+        <div className="rounded-ui-rect bg-[#111827] px-5 py-5 text-white shadow-lg md:px-6 md:py-6">
           <p className="text-[12px] font-medium text-white/70">배달 매장 시작</p>
           <h2 className="mt-1 text-[20px] font-bold leading-tight md:text-[26px]">
             주문·문의·메뉴를 한곳에서 운영해 보세요.
@@ -271,13 +271,13 @@ export function MyBusinessPage({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Link
             href="/mypage/business/apply"
-            className="rounded-2xl border border-signature/30 bg-signature/5 px-4 py-4 text-[15px] font-semibold text-gray-900 shadow-sm"
+            className="rounded-ui-rect border border-signature/30 bg-signature/5 px-4 py-4 text-[15px] font-semibold text-gray-900 shadow-sm"
           >
             매장 신청하기
           </Link>
           <Link
             href="/mypage/store-orders"
-            className="rounded-2xl border border-gray-200 bg-white px-4 py-4 text-[15px] font-semibold text-gray-800 shadow-sm"
+            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-4 text-[15px] font-semibold text-gray-800 shadow-sm"
           >
             내 주문 보기
           </Link>
@@ -294,7 +294,7 @@ export function MyBusinessPage({
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <BusinessOperationalChecklistRevision storeId={row.id} />
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4">
           <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
           <p className="mt-2 text-[14px] text-amber-900">관리자 보완 요청 상태입니다.</p>
           {profile.adminMemo ? (
@@ -302,7 +302,7 @@ export function MyBusinessPage({
           ) : null}
           <Link
             href={`/my/business/profile?${managementQuery}`}
-            className="mt-3 inline-block rounded-lg bg-signature px-4 py-2.5 text-center text-[14px] font-medium text-white"
+            className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-center text-[14px] font-medium text-white"
           >
             매장 프로필 보완하기
           </Link>
@@ -322,7 +322,7 @@ export function MyBusinessPage({
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <BusinessOperationalChecklistPending storeId={row.id} shopName={profile.shopName} />
-        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4 shadow-sm`}>
+        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4 shadow-sm`}>
           <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
           <p className="text-[14px] text-gray-600">심사 중입니다. 승인 후 매장이 공개됩니다.</p>
           <span className="mt-2 inline-block rounded bg-amber-100 px-2 py-1 text-[13px] text-amber-800">
@@ -330,7 +330,7 @@ export function MyBusinessPage({
           </span>
           <Link
             href={`/my/business/profile?${managementQuery}`}
-            className="mt-3 inline-block rounded-lg border border-gray-200 px-4 py-2 text-[14px] font-medium text-gray-800"
+            className="mt-3 inline-block rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] font-medium text-gray-800"
           >
             매장 프로필·이미지 입력
           </Link>
@@ -341,7 +341,7 @@ export function MyBusinessPage({
 
   if (profile.status === "rejected") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4 shadow-sm`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4 shadow-sm`}>
         <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
         <p className="text-[14px] text-gray-600">신청이 반려되었습니다.</p>
         {profile.adminMemo ? (
@@ -356,7 +356,7 @@ export function MyBusinessPage({
 
   if (profile.status === "paused") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4 shadow-sm`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4 shadow-sm`}>
         <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
         <p className="text-[14px] text-gray-600">운영이 정지된 매장입니다.</p>
         <span className="inline-block rounded bg-gray-200 px-2 py-1 text-[13px] text-gray-700">
@@ -392,7 +392,7 @@ function MockBusinessFallback() {
 function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
   if (profile.status === "pending") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4`}>
         <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
         <p className="text-[14px] text-gray-600">심사 중입니다. 승인 후 상점이 공개됩니다.</p>
         <span className="inline-block rounded bg-amber-100 px-2 py-1 text-[13px] text-amber-800">
@@ -403,7 +403,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
   }
   if (profile.status === "rejected") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4`}>
         <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
         <p className="text-[14px] text-gray-600">신청이 반려되었습니다.</p>
         <span className="inline-block rounded bg-red-50 px-2 py-1 text-[13px] text-red-700">
@@ -414,7 +414,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
   }
   if (profile.status === "paused") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-lg bg-white p-4`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4`}>
         <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
         <p className="text-[14px] text-gray-600">일시중지된 상점입니다.</p>
         <span className="inline-block rounded bg-gray-200 px-2 py-1 text-[13px] text-gray-700">
@@ -430,7 +430,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
       <div className="flex justify-end">
         <Link
           href="/my/business/edit"
-          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
+          className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
         >
           상점 정보 수정
         </Link>

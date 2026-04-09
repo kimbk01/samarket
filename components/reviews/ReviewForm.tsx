@@ -90,14 +90,14 @@ export function ReviewForm({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-lg border border-gray-200 py-2.5 text-[14px] text-gray-700"
+          className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[14px] text-gray-700"
         >
           취소
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
         >
           {loading ? "등록 중..." : "후기 보내기"}
         </button>

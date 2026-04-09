@@ -16,7 +16,7 @@ export function TrustPolicyForm({ values, onChange }: TrustPolicyFormProps) {
         칸 수·이벤트 가산 근거는 코드 기준이며, 하단 <strong className="text-gray-700">「신뢰 점수·배터리 기준」</strong>
         패널에 정리해 두었습니다.
       </p>
-      <div className="rounded-lg border border-gray-200 bg-signature/5 px-3 py-2.5 text-[12px] leading-relaxed text-gray-700">
+      <div className="rounded-ui-rect border border-gray-200 bg-signature/5 px-3 py-2.5 text-[12px] leading-relaxed text-gray-700">
         <p className="font-medium text-gray-900">배터리 % (화면 숫자)</p>
         <p className="mt-1 text-gray-600">
           기본 데이터는 <code className="rounded bg-white/80 px-1 text-[11px]">profiles.trust_score</code>(0~100, 기본

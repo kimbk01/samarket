@@ -48,7 +48,7 @@ export function ReleaseArchiveDetailPage({
 
   if (!archive) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
         릴리즈 아카이브를 찾을 수 없습니다.
       </div>
     );
@@ -56,7 +56,7 @@ export function ReleaseArchiveDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
           <span>{archive.releaseVersion}</span>
           <span>{archive.buildTag}</span>
@@ -95,7 +95,7 @@ export function ReleaseArchiveDetailPage({
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="text-[15px] font-medium text-gray-900">변경 항목</h3>
         {items.length === 0 ? (
           <p className="mt-2 text-[13px] text-gray-500">항목 없음</p>
@@ -129,7 +129,7 @@ export function ReleaseArchiveDetailPage({
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="text-[15px] font-medium text-gray-900">
           회귀 이슈 (detected → fix → verify 흐름)
         </h3>
@@ -148,7 +148,7 @@ export function ReleaseArchiveDetailPage({
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="text-[15px] font-medium text-gray-900">릴리즈 학습 메모</h3>
         {learningNotes.length === 0 ? (
           <p className="mt-2 text-[13px] text-gray-500">학습 메모 없음</p>

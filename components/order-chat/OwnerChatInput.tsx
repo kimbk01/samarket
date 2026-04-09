@@ -31,12 +31,12 @@ export function OwnerChatInput({
         <button
           type="button"
           disabled
-          className="shrink-0 rounded-xl border border-dashed border-gray-300 px-2 text-[11px] text-gray-400"
+          className="shrink-0 rounded-ui-rect border border-dashed border-gray-300 px-2 text-[11px] text-gray-400"
         >
           사진
         </button>
         <input
-          className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
           placeholder="고객에게 답장"
           value={text}
           disabled={disabled}
@@ -54,7 +54,7 @@ export function OwnerChatInput({
         <button
           type="button"
           disabled={disabled || !text.trim()}
-          className="shrink-0 rounded-xl bg-gray-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+          className="shrink-0 rounded-ui-rect bg-gray-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
           onClick={() => {
             if (text.trim()) {
               onSend(text.trim());

@@ -38,7 +38,7 @@ export function SecurityIssueList() {
       </div>
 
       {issues.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           해당 조건의 보안 이슈가 없습니다.
         </div>
       ) : (
@@ -48,7 +48,7 @@ export function SecurityIssueList() {
             return (
               <li
                 key={i.id}
-                className={`rounded-lg border p-4 ${
+                className={`rounded-ui-rect border p-4 ${
                   i.severity === "critical" && i.status === "open"
                     ? "border-red-200 bg-red-50/30"
                     : "border-gray-200 bg-white"

@@ -80,7 +80,7 @@ export function AdminStoreReviewsPage() {
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <li key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <li key={r.id} className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="font-medium text-gray-900">{r.store_name || r.store_id}</span>
                 <span
@@ -97,7 +97,7 @@ export function AdminStoreReviewsPage() {
               <p className="mt-2 text-amber-800">{"★".repeat(r.rating)}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">{r.content}</p>
               {r.owner_reply_content?.trim() ? (
-                <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                <div className="mt-2 rounded-ui-rect border border-gray-200 bg-gray-50 p-2">
                   <p className="text-[12px] font-semibold text-gray-700">사장님 댓글</p>
                   <p className="mt-1 whitespace-pre-wrap text-[13px] text-gray-800">
                     {r.owner_reply_content}
@@ -117,7 +117,7 @@ export function AdminStoreReviewsPage() {
                     type="button"
                     disabled={busyId !== null}
                     onClick={() => void setStatus(r.id, "hidden")}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
+                    className="rounded-ui-rect border border-gray-300 px-3 py-1.5 text-xs"
                   >
                     숨김
                   </button>
@@ -126,7 +126,7 @@ export function AdminStoreReviewsPage() {
                     type="button"
                     disabled={busyId !== null}
                     onClick={() => void setStatus(r.id, "visible")}
-                    className="rounded-lg bg-signature px-3 py-1.5 text-xs text-white"
+                    className="rounded-ui-rect bg-signature px-3 py-1.5 text-xs text-white"
                   >
                     다시 노출
                   </button>

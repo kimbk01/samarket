@@ -137,7 +137,7 @@ export function CommunityWriteFormClient({
           <select
             value={topicSlug}
             onChange={(e) => setTopicSlug(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px]"
+            className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[15px]"
           >
             {writableTopics.length === 0 ? <option value="">주제 없음 — DB 확인</option> : null}
             {writableTopics.map((t) => (
@@ -147,13 +147,13 @@ export function CommunityWriteFormClient({
             ))}
           </select>
         </div>
-        {skinHint ? <p className="rounded-lg bg-sky-50 px-3 py-2 text-[12px] leading-snug text-sky-900">{skinHint}</p> : null}
+        {skinHint ? <p className="rounded-ui-rect bg-sky-50 px-3 py-2 text-[12px] leading-snug text-sky-900">{skinHint}</p> : null}
         <div>
           <label className="text-[12px] font-medium text-gray-500">제목</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px]"
+            className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[15px]"
             placeholder="제목을 입력하세요"
             maxLength={200}
           />
@@ -164,19 +164,19 @@ export function CommunityWriteFormClient({
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={10}
-            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px]"
+            className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[15px]"
             placeholder="이웃과 나누고 싶은 이야기를 적어주세요."
           />
         </div>
         {selectedTopic?.allow_meetup ? (
-          <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-3">
+          <div className="space-y-3 rounded-ui-rect border border-gray-100 bg-gray-50/80 px-3 py-3">
             <p className="text-[12px] font-semibold text-gray-600">모임·장소 (선택)</p>
             <div>
               <label className="text-[11px] font-medium text-gray-500">장소명 · 상호</label>
               <input
                 value={meetupPlace}
                 onChange={(e) => setMeetupPlace(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
                 placeholder="예: 조치원역 2번 출구, ○○식당"
                 maxLength={200}
               />
@@ -187,7 +187,7 @@ export function CommunityWriteFormClient({
                 type="datetime-local"
                 value={meetupDate}
                 onChange={(e) => setMeetupDate(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
               />
             </div>
           </div>
@@ -197,7 +197,7 @@ export function CommunityWriteFormClient({
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={onPickFiles} />
           <div className="mt-2 flex flex-wrap gap-2">
             {imageUrls.map((url, idx) => (
-              <div key={`${url}-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-lg bg-gray-100">
+              <div key={`${url}-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-ui-rect bg-gray-100">
                 <img src={url} alt="" className="h-full w-full object-cover" />
                 <button
                   type="button"
@@ -213,7 +213,7 @@ export function CommunityWriteFormClient({
                 type="button"
                 disabled={uploading || busy}
                 onClick={() => fileRef.current?.click()}
-                className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-gray-300 text-[12px] text-gray-500"
+                className="flex h-20 w-20 items-center justify-center rounded-ui-rect border border-dashed border-gray-300 text-[12px] text-gray-500"
               >
                 {uploading ? "…" : "+ 추가"}
               </button>
@@ -230,7 +230,7 @@ export function CommunityWriteFormClient({
         <button
           type="submit"
           disabled={busy || !title.trim() || !content.trim()}
-          className="w-full rounded-xl bg-gray-900 py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
+          className="w-full rounded-ui-rect bg-gray-900 py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
         >
           {busy ? "등록 중…" : "등록하기"}
         </button>

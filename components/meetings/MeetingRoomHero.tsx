@@ -126,7 +126,7 @@ export function MeetingRoomHero({
   }, [menuOpen]);
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-ui-rect border border-gray-200/80 bg-white shadow-sm">
       <div
         className={`relative flex min-h-[140px] flex-col justify-end px-4 pb-4 pt-12 ${
           hasCover ? "bg-cover bg-center" : "bg-gradient-to-br from-[#1a5f49] via-[#2d7a5e] to-[#256a52]"
@@ -156,7 +156,7 @@ export function MeetingRoomHero({
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="absolute right-0 top-full z-30 mt-1 min-w-[220px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-[13px] shadow-lg"
+                  className="absolute right-0 top-full z-30 mt-1 min-w-[220px] overflow-hidden rounded-ui-rect border border-gray-200 bg-white py-1 text-[13px] shadow-lg"
                 >
                   <button
                     type="button"

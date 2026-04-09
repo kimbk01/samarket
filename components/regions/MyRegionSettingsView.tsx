@@ -49,7 +49,7 @@ export function MyRegionSettingsView() {
         <button
           type="button"
           onClick={() => setShowAddForm(true)}
-          className="mt-4 w-full rounded-lg bg-signature py-3 text-[15px] font-medium text-white"
+          className="mt-4 w-full rounded-ui-rect bg-signature py-3 text-[15px] font-medium text-white"
         >
           동네 추가하기
         </button>
@@ -60,7 +60,7 @@ export function MyRegionSettingsView() {
   return (
     <div className="mx-auto max-w-lg space-y-6 px-4 pb-24">
       {showAddForm ? (
-        <div className="rounded-lg border border-gray-100 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-100 bg-white p-4">
           <h2 className="mb-4 text-[15px] font-semibold text-gray-900">
             동네 추가
           </h2>
@@ -81,7 +81,7 @@ export function MyRegionSettingsView() {
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="w-full rounded-lg border-2 border-dashed border-gray-200 py-3 text-[14px] font-medium text-gray-600"
+            className="w-full rounded-ui-rect border-2 border-dashed border-gray-200 py-3 text-[14px] font-medium text-gray-600"
           >
             + 동네 추가
           </button>

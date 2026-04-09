@@ -27,7 +27,7 @@ interface OpsKnowledgePreviewCardProps {
 
 export function OpsKnowledgePreviewCard({ item, onView }: OpsKnowledgePreviewCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
         <span>{DOC_TYPE_LABELS[item.docType]}</span>
         <span>{CATEGORY_LABELS[item.category]}</span>

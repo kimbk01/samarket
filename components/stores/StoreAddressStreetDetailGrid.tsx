@@ -20,7 +20,7 @@ export type StoreAddressStreetDetailGridProps = {
   addressDetail: string;
   onAddressStreetLineChange: (value: string) => void;
   onAddressDetailChange: (value: string) => void;
-  /** 입력칸 클래스 (주소 시트 등은 `rounded-lg border ... text-[14px]` 로 통일) */
+  /** 입력칸 클래스 (주소 시트 등은 `rounded-ui-rect border ... text-[14px]` 로 통일) */
   inputClassName?: string;
   showStreetHint?: boolean;
 };

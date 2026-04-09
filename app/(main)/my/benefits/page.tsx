@@ -58,7 +58,7 @@ export default function MyBenefitsPage() {
         section="account"
       />
       <div className="mx-auto max-w-lg space-y-4 p-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[13px] text-gray-500">내 회원 구분 (profiles.role)</p>
           <div className="mt-1 flex items-center gap-2">
             {role === undefined ? (
@@ -74,7 +74,7 @@ export default function MyBenefitsPage() {
             )}
           </div>
         </div>
-        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
           혜택 정책 목록은 DB 설계·관리자 연동 후 표시됩니다. 샘플 정책은 사용하지 않습니다.
         </div>
         <div>

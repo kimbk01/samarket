@@ -1126,7 +1126,7 @@ export function ChatDetailView({
   }, [room.id, isChatRoom, router, effectiveListHref]);
 
   const moreMenuPanel = menuOpen ? (
-    <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+    <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-ui-rect border border-gray-200 bg-white py-1 shadow-lg">
       {!isStoreOrderBuyer && amISeller && postId && room.product && (room.product.status ?? "").toLowerCase() !== "sold" ? (
                   <>
                     <button
@@ -1414,7 +1414,7 @@ export function ChatDetailView({
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-800 hover:bg-black/10"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-gray-800 hover:bg-black/10"
                       aria-label="더보기"
                     >
                       <MoreIcon className="h-5 w-5" />
@@ -1568,7 +1568,7 @@ export function ChatDetailView({
 
       {roomInfoSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-lg sm:max-h-[90vh] sm:rounded-2xl">
+          <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-lg sm:max-h-[90vh] sm:rounded-ui-rect">
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
               <div>
                 <h2 className="text-[16px] font-semibold text-gray-900">{t("common_chat_info")}</h2>
@@ -1579,7 +1579,7 @@ export function ChatDetailView({
               </button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              <section className="rounded-2xl border border-gray-200 px-4 py-4">
+              <section className="rounded-ui-rect border border-gray-200 px-4 py-4">
                 <p className="text-[15px] font-semibold text-gray-900">{partnerDisplayNickname}</p>
                 <p className="mt-1 text-[13px] text-gray-500">
                   {isStoreOrderChat && !isStoreOrderBuyer
@@ -1597,7 +1597,7 @@ export function ChatDetailView({
                 ) : null}
               </section>
               {room.product ? (
-                <section className="rounded-2xl border border-gray-200 bg-[#F8FAF9] p-3">
+                <section className="rounded-ui-rect border border-gray-200 bg-[#F8FAF9] p-3">
                   <p className="mb-3 text-[14px] font-semibold text-gray-900">{t("nav_trade_connected_product")}</p>
                   <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
                 </section>
@@ -1609,7 +1609,7 @@ export function ChatDetailView({
 
       {reportSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-2xl bg-white">
+          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">{t("nav_messenger_report")}</h2>
               <button type="button" onClick={() => setReportSheetOpen(false)} className="text-[14px] text-gray-500">
@@ -1632,7 +1632,7 @@ export function ChatDetailView({
 
       {blockSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-2xl bg-white">
+          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">{t("common_block")}</h2>
               <button type="button" onClick={() => setBlockSheetOpen(false)} className="text-[14px] text-gray-500">
@@ -1657,7 +1657,7 @@ export function ChatDetailView({
 
       {reviewSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-lg sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-2xl">
+          <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-lg sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect">
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">후기 작성</h2>
               <button type="button" onClick={() => setReviewSheetOpen(false)} className="text-[14px] text-gray-500">

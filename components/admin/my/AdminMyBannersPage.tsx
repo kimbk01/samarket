@@ -43,7 +43,7 @@ export function AdminMyBannersPage() {
         <h1 className="text-[18px] font-semibold text-gray-900">나의 카마켓 배너</h1>
         <Link
           href="/admin/my/banners/create"
-          className="rounded-lg bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded-ui-rect bg-signature px-3 py-2 text-[14px] font-medium text-white"
         >
           추가
         </Link>
@@ -51,15 +51,15 @@ export function AdminMyBannersPage() {
       {loading ? (
         <p className="text-gray-500">불러오는 중…</p>
       ) : error ? (
-        <p className="rounded-lg bg-red-50 p-4 text-[14px] text-red-700">{error}</p>
+        <p className="rounded-ui-rect bg-red-50 p-4 text-[14px] text-red-700">{error}</p>
       ) : items.length === 0 ? (
-        <p className="rounded-lg bg-white p-4 text-[14px] text-gray-500">
+        <p className="rounded-ui-rect bg-white p-4 text-[14px] text-gray-500">
           등록된 배너가 없습니다.
         </p>
       ) : (
         <ul className="space-y-2">
           {items.map((b) => (
-            <li key={b.id} className="flex items-center justify-between rounded-lg bg-white p-3">
+            <li key={b.id} className="flex items-center justify-between rounded-ui-rect bg-white p-3">
               <div>
                 <span className="font-medium">{b.title}</span>
                 <span className="ml-2 text-[13px] text-gray-500">

@@ -256,7 +256,7 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
               </div>
             </div>
             {isStoreMenuRoot && loading ? (
-              <div className="h-8 w-full animate-pulse rounded-lg bg-stone-100" aria-hidden />
+              <div className="h-8 w-full animate-pulse rounded-ui-rect bg-stone-100" aria-hidden />
             ) : null}
           </div>
         ) : (

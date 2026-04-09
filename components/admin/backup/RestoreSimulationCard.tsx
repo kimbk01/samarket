@@ -51,11 +51,11 @@ export function RestoreSimulationCard() {
         </button>
       </div>
       {simulateResult && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50/30 p-4 text-[13px] text-gray-700">
+        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/30 p-4 text-[13px] text-gray-700">
           {simulateResult}
         </div>
       )}
-      <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-gray-50/50 p-4">
         <p className="text-[13px] font-medium text-gray-800">최근 복구 로그</p>
         {restores.length === 0 ? (
           <p className="mt-2 text-[13px] text-gray-500">복구 이력 없음</p>

@@ -59,7 +59,7 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
 
   if (logs.length === 0 && total === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50/50 py-10 text-center">
+      <div className="rounded-ui-rect border border-gray-200 bg-gray-50/50 py-10 text-center">
         <p className="text-[14px] text-gray-500">설정 변경 이력이 없습니다.</p>
       </div>
     );
@@ -76,7 +76,7 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
         <table className="w-full min-w-[640px] text-left text-[13px]">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">

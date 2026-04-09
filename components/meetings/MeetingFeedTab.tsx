@@ -156,7 +156,7 @@ export function MeetingFeedTab({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-gray-200 bg-white px-3.5 py-3 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-200 bg-white px-3.5 py-3 shadow-sm">
         <p className="text-[12px] font-semibold text-gray-800">연동 상태</p>
         <ul className="mt-2 space-y-1 text-[12px] text-gray-600">
           <li className="flex justify-between gap-2">
@@ -171,7 +171,7 @@ export function MeetingFeedTab({
           </li>
         </ul>
         {!canWrite ? (
-          <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed text-amber-900">
+          <p className="mt-2 rounded-ui-rect bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed text-amber-900">
             모임 설정에서 피드 글 작성이 꺼져 있어 일반 멤버는 글을 쓸 수 없습니다. 글 목록은 모두 볼 수
             있습니다.
           </p>
@@ -190,7 +190,7 @@ export function MeetingFeedTab({
 
       {/* 글쓰기 입력창 스타일 CTA */}
       {canWrite && showForm ? (
-        <form onSubmit={(e) => void onSubmit(e)} className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <form onSubmit={(e) => void onSubmit(e)} className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
           {/* 유형 선택 탭 */}
           <div className="flex gap-1 border-b border-gray-100 px-3 pt-3 pb-2">
             {typeOptions.map((t) => (
@@ -228,14 +228,14 @@ export function MeetingFeedTab({
               <button
                 type="button"
                 onClick={() => { setShowForm(false); setContent(""); setErr(""); }}
-                className="rounded-xl px-3 py-1.5 text-[12px] font-medium text-gray-500 hover:bg-gray-100"
+                className="rounded-ui-rect px-3 py-1.5 text-[12px] font-medium text-gray-500 hover:bg-gray-100"
               >
                 취소
               </button>
               <button
                 type="submit"
                 disabled={submitting || !content.trim()}
-                className="rounded-xl bg-emerald-500 px-4 py-1.5 text-[13px] font-semibold text-white disabled:opacity-40"
+                className="rounded-ui-rect bg-emerald-500 px-4 py-1.5 text-[13px] font-semibold text-white disabled:opacity-40"
               >
                 {submitting ? "게시 중…" : "게시"}
               </button>
@@ -247,7 +247,7 @@ export function MeetingFeedTab({
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-left shadow-sm hover:border-emerald-300"
+          className="flex w-full items-center gap-3 rounded-ui-rect border border-gray-200 bg-white px-4 py-3.5 text-left shadow-sm hover:border-emerald-300"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-semibold text-gray-500">
             +
@@ -258,7 +258,7 @@ export function MeetingFeedTab({
 
       {/* 피드 목록 */}
       {sorted.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-14 text-center">
+        <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-14 text-center">
           <p className="text-[32px]">📝</p>
           <p className="mt-2 text-[14px] text-gray-400">아직 피드 글이 없어요.</p>
           <p className="mt-1 text-[12px] text-gray-400">첫 글을 남겨보세요.</p>
@@ -271,7 +271,7 @@ export function MeetingFeedTab({
           return (
             <div
               key={post.id}
-              className={`rounded-2xl border bg-white p-4 shadow-sm ${
+              className={`rounded-ui-rect border bg-white p-4 shadow-sm ${
                 post.is_pinned ? "border-amber-200 bg-amber-50/40" : "border-gray-100"
               }`}
             >

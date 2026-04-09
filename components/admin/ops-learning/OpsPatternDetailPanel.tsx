@@ -29,7 +29,7 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
 
   if (!patternId || !connections) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 text-center text-[14px] text-gray-500">
         패턴을 선택하면 상세가 표시됩니다.
       </div>
     );

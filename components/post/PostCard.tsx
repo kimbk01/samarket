@@ -95,7 +95,7 @@ export function PostCard({
           </button>
         </div>
         <Link href={`/post/${post.id}`} className="flex min-w-0 flex-1 gap-3">
-          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-gray-100">
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
             {thumbnailUrl ? (
               <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
             ) : isExchangeThumb ? (

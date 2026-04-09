@@ -21,7 +21,7 @@ export function SlowApiTable() {
         API {SLOW_THRESHOLD_MS}ms 이상 또는 로딩 시간이 느린 페이지 (최근 기준)
       </p>
       {slowItems.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           느린 API가 없습니다.
         </div>
       ) : (

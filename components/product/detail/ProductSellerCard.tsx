@@ -44,8 +44,8 @@ export function ProductSellerCard({ seller, trustSummary, onReportUser }: Produc
   const memberType = getMemberType(seller.id);
 
   return (
-    <MemberProfileFrame memberType={memberType} variant="full" className="rounded-lg">
-      <div className="flex items-center gap-3 rounded-lg bg-white p-3">
+    <MemberProfileFrame memberType={memberType} variant="full" className="rounded-ui-rect">
+      <div className="flex items-center gap-3 rounded-ui-rect bg-white p-3">
         <Link href={`/users/${seller.id}`} className="flex min-w-0 flex-1 items-center gap-3">
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-200">
             {seller.avatar ? (
@@ -73,7 +73,7 @@ export function ProductSellerCard({ seller, trustSummary, onReportUser }: Produc
             <MoreIcon className="h-5 w-5" />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-lg border border-gray-200 bg-white py-1">
+            <div className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-ui-rect border border-gray-200 bg-white py-1">
               {onReportUser && (
                 <button
                   type="button"

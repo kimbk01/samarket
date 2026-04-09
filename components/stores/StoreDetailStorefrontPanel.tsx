@@ -143,7 +143,7 @@ export function StoreDetailStorefrontPanel({
         </p>
       </div>
 
-      <details className="group mt-2 rounded-xl border border-stone-200 bg-stone-50/90">
+      <details className="group mt-2 rounded-ui-rect border border-stone-200 bg-stone-50/90">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[13px] font-semibold text-stone-800 [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             매장 안내
@@ -197,7 +197,7 @@ export function StoreDetailStorefrontPanel({
 
           <StorePublicNoticesList lines={deliveryMeta.publicNotices} className="mt-3" />
           {deliveryMeta.deliveryNotice.trim() ? (
-            <p className="mt-3 rounded-lg border border-stone-100 bg-stone-50 px-2.5 py-2 text-[11px] leading-relaxed whitespace-pre-wrap text-stone-600">
+            <p className="mt-3 rounded-ui-rect border border-stone-100 bg-stone-50 px-2.5 py-2 text-[11px] leading-relaxed whitespace-pre-wrap text-stone-600">
               <span className="font-semibold text-stone-800">배달 안내</span>
               <br />
               {deliveryMeta.deliveryNotice}

@@ -17,7 +17,7 @@ export function RecommendationBriefingBoardCard({
 
   if (!board) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
         브리핑 보드가 없습니다.
       </div>
     );
@@ -25,7 +25,7 @@ export function RecommendationBriefingBoardCard({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="mb-2 text-[14px] font-medium text-gray-900">
           오늘 핵심 하이라이트
         </h3>
@@ -35,7 +35,7 @@ export function RecommendationBriefingBoardCard({
           ))}
         </ul>
       </div>
-      <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+      <div className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-4">
         <h3 className="mb-2 text-[14px] font-medium text-amber-900">
           주의/리스크
         </h3>
@@ -46,7 +46,7 @@ export function RecommendationBriefingBoardCard({
         </ul>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <h3 className="mb-2 text-[14px] font-medium text-gray-900">
             주목 섹션 (상승)
           </h3>
@@ -54,7 +54,7 @@ export function RecommendationBriefingBoardCard({
             {board.topWinningSections.join(", ") || "-"}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <h3 className="mb-2 text-[14px] font-medium text-gray-900">
             주목 섹션 (하락)
           </h3>
@@ -63,7 +63,7 @@ export function RecommendationBriefingBoardCard({
           </p>
         </div>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
         <h3 className="mb-2 text-[14px] font-medium text-gray-900">
           배포 / 롤백 / 자동화 요약
         </h3>

@@ -123,12 +123,12 @@ export function PurchaseHistoryCard({
   };
 
   return (
-    <li className="relative rounded-xl border border-gray-100 bg-white shadow-sm">
+    <li className="relative rounded-ui-rect border border-gray-100 bg-white shadow-sm">
       <div
         className={`flex gap-2 p-3 ${needsBuyerTradeConfirm || needsReviewCallToAction ? "pb-2" : ""}`}
       >
         <Link href={purchaseDetailHref} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg bg-gray-100">
+          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
             {row.thumbnail && !thumbFailed ? (
               <img
                 src={row.thumbnail}
@@ -148,13 +148,13 @@ export function PurchaseHistoryCard({
             ) : null}
             <p className="mt-0.5 text-[11px] text-gray-400">거래 {tradeAtLabel}</p>
             <div className="mt-1.5 flex flex-wrap gap-1">
-              <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+              <span className="rounded-ui-rect bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
                 상품 · {productBadge}
               </span>
-              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-800">
+              <span className="rounded-ui-rect bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-800">
                 진행 · {tradeBadge}
               </span>
-              <span className="rounded-md bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
+              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
                 후기 · {reviewBadge}
               </span>
             </div>
@@ -164,13 +164,13 @@ export function PurchaseHistoryCard({
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            className="rounded-ui-rect p-2 text-gray-500 hover:bg-gray-100"
             aria-label="더보기"
           >
             <DotsIcon />
           </button>
           {menuOpen ? (
-            <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-ui-rect border border-gray-200 bg-white py-1 shadow-lg">
               <MenuLink href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}`} onNavigate={() => setMenuOpen(false)}>
                 채팅 보기
               </MenuLink>
@@ -235,7 +235,7 @@ export function PurchaseHistoryCard({
             type="button"
             disabled={!!actionLoading}
             onClick={() => postTrade(`${base}/buyer-confirm`)}
-            className="w-full rounded-lg bg-signature py-2.5 text-[13px] font-medium text-white disabled:opacity-50"
+            className="w-full rounded-ui-rect bg-signature py-2.5 text-[13px] font-medium text-white disabled:opacity-50"
           >
             {actionLoading?.endsWith("/buyer-confirm") ? "처리 중…" : "거래완료 확인"}
           </button>
@@ -253,7 +253,7 @@ export function PurchaseHistoryCard({
           <button
             type="button"
             onClick={() => setReviewSheet(true)}
-            className="w-full rounded-lg bg-signature py-2.5 text-[13px] font-medium text-white"
+            className="w-full rounded-ui-rect bg-signature py-2.5 text-[13px] font-medium text-white"
           >
             평가·후기 보내기
           </button>
@@ -286,7 +286,7 @@ export function PurchaseHistoryCard({
 
       {report.open ? (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-2xl bg-white">
+          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white">
             <ReportActionSheet
               targetType="user"
               targetId={row.sellerId}

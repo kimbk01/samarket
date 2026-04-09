@@ -145,7 +145,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-white shadow-xl">
         <div className="border-b border-gray-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-gray-900">회원 수동 입력</h2>
           <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
@@ -159,7 +159,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
             <p className="text-[14px] text-gray-800">
               <strong className="text-gray-900">{createdLoginId}</strong> 계정을 만들었습니다.
             </p>
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[13px] leading-relaxed text-emerald-950">
+            <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[13px] leading-relaxed text-emerald-950">
               <p className="font-medium">실제 회원(Supabase Auth)으로 들어갑니다.</p>
               <p className="mt-1 text-emerald-900/90">
                 로그인 페이지 <strong>이메일 또는 아이디</strong> 칸에{" "}
@@ -261,7 +261,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 placeholder={PH_LOCAL_09_PLACEHOLDER}
               />
             </div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+            <div className="rounded-ui-rect border border-gray-200 bg-gray-50/80 p-3">
               <LocationSelector
                 embedded
                 showRequired={false}
@@ -309,7 +309,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 ))}
               </select>
             </div>
-            <label className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[13px] text-gray-800">
+            <label className="flex items-center gap-2 rounded-ui-rect border border-amber-200 bg-amber-50/70 px-3 py-2 text-[13px] text-gray-800">
               <input
                 type="checkbox"
                 checked={phoneVerified}

@@ -88,7 +88,7 @@ export function MeetingNoticesTab({
   return (
     <div className="space-y-3">
       {/* 공지 ↔ 피드 연동 상태 */}
-      <div className="rounded-2xl border border-gray-200 bg-white px-3.5 py-3 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-200 bg-white px-3.5 py-3 shadow-sm">
         <p className="text-[12px] font-semibold text-gray-800">연동 상태</p>
         <ul className="mt-2 space-y-1.5 text-[12px] text-gray-600">
           <li className="flex justify-between gap-2">
@@ -121,7 +121,7 @@ export function MeetingNoticesTab({
 
       {/* 모임장 전용 — 공지 작성 안내 */}
       {isHost && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3">
+        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/60 p-3">
           <div className="flex items-center justify-between">
             <p className="text-[13px] font-semibold text-emerald-800">📢 공지 작성</p>
             <button
@@ -143,7 +143,7 @@ export function MeetingNoticesTab({
             <button
               type="button"
               onClick={onGoFeed}
-              className="mt-2 w-full rounded-xl bg-emerald-600 py-2 text-[13px] font-semibold text-white hover:bg-emerald-700"
+              className="mt-2 w-full rounded-ui-rect bg-emerald-600 py-2 text-[13px] font-semibold text-white hover:bg-emerald-700"
             >
               피드에서 공지 작성하기 →
             </button>
@@ -152,7 +152,7 @@ export function MeetingNoticesTab({
       )}
 
       {unified.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center">
+        <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-16 text-center">
           <p className="text-[28px]">📢</p>
           <p className="mt-3 text-[14px] text-gray-400">아직 공지가 없어요.</p>
           {isHost && (
@@ -165,7 +165,7 @@ export function MeetingNoticesTab({
         unified.map((notice) => (
           <div
             key={notice.id}
-            className={`rounded-2xl border bg-white p-4 shadow-sm ${
+            className={`rounded-ui-rect border bg-white p-4 shadow-sm ${
               notice.is_pinned ? "border-amber-200 bg-amber-50/30" : "border-gray-100"
             }`}
           >

@@ -27,7 +27,7 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
   const regionDisplay = regionLines.length > 0 ? regionLines.join("\n") : "지역 미설정";
 
   return (
-    <div className="mx-auto max-w-[480px] rounded-xl bg-white p-4 shadow-sm">
+    <div className="mx-auto max-w-[480px] rounded-ui-rect bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-100">
           {profile.avatar_url ? (

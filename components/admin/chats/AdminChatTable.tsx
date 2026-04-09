@@ -34,7 +34,7 @@ export function AdminChatTable({
   }, [someVisibleSelected, allVisibleSelected]);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
       <table className="w-full min-w-[760px] border-collapse text-[14px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">

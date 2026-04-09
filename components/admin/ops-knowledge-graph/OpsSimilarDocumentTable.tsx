@@ -34,7 +34,7 @@ export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocument
 
   if (!selectedSource && recs.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <label className="mb-2 block text-[14px] font-medium text-gray-700">
           문서 선택 (유사 문서 조회)
         </label>
@@ -63,11 +63,11 @@ export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocument
         />
       </div>
       {recs.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
           유사 문서가 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="w-full min-w-[480px] border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">

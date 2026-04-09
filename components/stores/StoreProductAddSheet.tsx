@@ -379,7 +379,7 @@ export function StoreProductAddSheet({
       <div
         className={`flex w-full justify-center ${STORE_DETAIL_GUTTER} pb-[max(12px,env(safe-area-inset-bottom))]`}
       >
-        <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-zinc-900/10">
+        <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-ui-rect bg-white shadow-2xl ring-1 ring-zinc-900/10">
         <div className="relative flex shrink-0 items-center justify-center border-b border-zinc-200/80 bg-white px-10 py-3">
           <h2 className="line-clamp-2 text-center text-[16px] font-bold leading-snug tracking-tight text-zinc-900">
             {loading ? "불러오는 중…" : product && !notFound ? product.title : "메뉴 담기"}
@@ -411,7 +411,7 @@ export function StoreProductAddSheet({
           ) : (
             <div className="pb-3 pt-1">
               {orderBlocked ? (
-                <p className="mx-3 mt-3 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] font-medium leading-snug text-amber-950">
+                <p className="mx-3 mt-3 rounded-ui-rect border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] font-medium leading-snug text-amber-950">
                   {commerceBlocked && commerceBlockedHint?.trim()
                     ? commerceBlockedHint.trim()
                     : sheetCommerce?.inBreak
@@ -420,13 +420,13 @@ export function StoreProductAddSheet({
                 </p>
               ) : null}
               {soldOut ? (
-                <p className="mx-3 mt-3 rounded-xl bg-zinc-200/60 px-3 py-2 text-sm font-medium text-zinc-700">
+                <p className="mx-3 mt-3 rounded-ui-rect bg-zinc-200/60 px-3 py-2 text-sm font-medium text-zinc-700">
                   품절
                 </p>
               ) : null}
 
-              <div className="mx-3 mt-3 flex gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-200/70">
-                <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-xl bg-zinc-100">
+              <div className="mx-3 mt-3 flex gap-3 rounded-ui-rect bg-white p-3 shadow-sm ring-1 ring-zinc-200/70">
+                <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-zinc-100">
                   {galleryUrls[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -468,7 +468,7 @@ export function StoreProductAddSheet({
                 </div>
               </div>
 
-              <div className="mx-3 mt-3 space-y-1.5 rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-200/70">
+              <div className="mx-3 mt-3 space-y-1.5 rounded-ui-rect bg-white p-3 shadow-sm ring-1 ring-zinc-200/70">
                 <div className="flex items-center justify-between text-[13px] text-zinc-700">
                   <span>기본 단가</span>
                   <span className="font-semibold tabular-nums text-zinc-900">
@@ -500,14 +500,14 @@ export function StoreProductAddSheet({
 
               {galleryUrls.length > 1 ? (
                 <div className="mt-2 px-3">
-                  <div className="flex gap-2 overflow-x-auto rounded-xl bg-white p-2 shadow-sm ring-1 ring-zinc-200/70 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="flex gap-2 overflow-x-auto rounded-ui-rect bg-white p-2 shadow-sm ring-1 ring-zinc-200/70 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {galleryUrls.slice(1).map((url, i) => (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         key={`${url}-${i}`}
                         src={url}
                         alt=""
-                        className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-zinc-200/80"
+                        className="h-14 w-14 shrink-0 rounded-ui-rect object-cover ring-1 ring-zinc-200/80"
                       />
                     ))}
                   </div>
@@ -515,7 +515,7 @@ export function StoreProductAddSheet({
               ) : null}
 
               {reviewSnippets.length > 0 ? (
-                <details className="mx-3 mt-3 rounded-xl border border-zinc-200/80 bg-white shadow-sm">
+                <details className="mx-3 mt-3 rounded-ui-rect border border-zinc-200/80 bg-white shadow-sm">
                   <summary className="cursor-pointer px-3 py-2.5 text-[13px] font-semibold text-zinc-800">
                     리뷰 미리보기 ({reviewSnippets.length})
                   </summary>
@@ -523,7 +523,7 @@ export function StoreProductAddSheet({
                     {reviewSnippets.map((r) => (
                       <div
                         key={`${r.created_at}-${r.content.slice(0, 12)}`}
-                        className="rounded-lg bg-zinc-50 p-2.5 ring-1 ring-zinc-200/60"
+                        className="rounded-ui-rect bg-zinc-50 p-2.5 ring-1 ring-zinc-200/60"
                       >
                         <p className="line-clamp-3 text-[12px] leading-snug text-zinc-800">
                           {r.rating != null && r.rating >= 4 ? "★ " : ""}
@@ -537,7 +537,7 @@ export function StoreProductAddSheet({
               ) : null}
 
               {product.summary ? (
-                <p className="mx-3 mt-3 rounded-xl bg-white px-3 py-2.5 text-[13px] leading-relaxed text-zinc-600 shadow-sm ring-1 ring-zinc-200/70">
+                <p className="mx-3 mt-3 rounded-ui-rect bg-white px-3 py-2.5 text-[13px] leading-relaxed text-zinc-600 shadow-sm ring-1 ring-zinc-200/70">
                   {product.summary}
                 </p>
               ) : null}
@@ -569,7 +569,7 @@ export function StoreProductAddSheet({
                   onChange={(e) => setLineNote(e.target.value)}
                   disabled={soldOut || orderBlocked}
                   placeholder="예: 덜 맵게, 양파 빼주세요"
-                  className="mt-1 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[13px] text-zinc-900 placeholder:text-zinc-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/20 disabled:bg-zinc-100"
+                  className="mt-1 w-full resize-none rounded-ui-rect border border-zinc-200 bg-white px-3 py-2 text-[13px] text-zinc-900 placeholder:text-zinc-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/20 disabled:bg-zinc-100"
                 />
               </div>
 
@@ -628,7 +628,7 @@ export function StoreProductAddSheet({
                   capQty < minQ
                 }
                 onClick={addToCart}
-                className="min-w-0 flex-1 rounded-xl py-3 text-center text-[15px] font-bold leading-tight text-white shadow-sm transition-opacity hover:opacity-95 disabled:bg-zinc-300"
+                className="min-w-0 flex-1 rounded-ui-rect py-3 text-center text-[15px] font-bold leading-tight text-white shadow-sm transition-opacity hover:opacity-95 disabled:bg-zinc-300"
                 style={{ backgroundColor: SHEET_PRIMARY }}
               >
                 <span className="block">{formatMoneyPhp(lineTotal)} 담기</span>

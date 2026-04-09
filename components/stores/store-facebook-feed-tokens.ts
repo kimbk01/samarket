@@ -4,8 +4,8 @@
  */
 export const FB = {
   canvas: "bg-[#F0F2F5] dark:bg-[#18191A]",
-  card: "rounded-lg bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-white/[0.08]",
-  cardFlat: "rounded-lg bg-white dark:bg-[#242526] dark:ring-1 dark:ring-white/[0.08]",
+  card: "rounded-ui-rect bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-white/[0.08]",
+  cardFlat: "rounded-ui-rect bg-white dark:bg-[#242526] dark:ring-1 dark:ring-white/[0.08]",
   name: "text-[15px] font-semibold leading-snug text-[#050505] dark:text-[#E4E6EB]",
   body: "text-[15px] leading-snug text-[#050505] dark:text-[#E4E6EB]",
   meta: "text-[13px] leading-snug text-[#65676B] dark:text-[#B0B3B8]",
@@ -15,7 +15,7 @@ export const FB = {
   hairline: "border-[#CED0D4] dark:border-[#3E4042]",
   searchWell: "rounded-full bg-[#E4E6EB] dark:bg-[#3A3B3C]",
   primaryBtn:
-    "rounded-md bg-[#1877F2] px-3 py-2 text-[13px] font-semibold text-white active:bg-[#166FE5] dark:bg-[#2374E1] dark:active:bg-[#1877F2]",
+    "rounded-ui-rect bg-[#1877F2] px-3 py-2 text-[13px] font-semibold text-white active:bg-[#166FE5] dark:bg-[#2374E1] dark:active:bg-[#1877F2]",
   secondaryBtn:
-    "rounded-md bg-[#E4E6EB] px-3 py-2 text-[13px] font-semibold text-[#050505] active:bg-[#D8DADF] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:active:bg-[#4E4F50]",
+    "rounded-ui-rect bg-[#E4E6EB] px-3 py-2 text-[13px] font-semibold text-[#050505] active:bg-[#D8DADF] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:active:bg-[#4E4F50]",
 } as const;

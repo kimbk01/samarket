@@ -48,7 +48,7 @@ export function DeploymentPreparationPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
         <p className="text-[14px] font-medium text-gray-900">배포 시뮬레이션</p>
         <p className="mt-1 text-[13px] text-gray-600">
           선택한 버전이 해당 surface의 live 버전으로 설정됩니다. 현재 live:{" "}
@@ -56,7 +56,7 @@ export function DeploymentPreparationPanel() {
         </p>
       </div>
       {winnerSummaries.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4">
           <p className="text-[14px] font-medium text-amber-900">
             실험 승자 추천 (자동 배포 추천)
           </p>

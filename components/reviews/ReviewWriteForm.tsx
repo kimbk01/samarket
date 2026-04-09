@@ -106,20 +106,20 @@ export function ReviewWriteForm({
           onChange={(e) => setComment(e.target.value)}
           placeholder="거래는 어떠셨나요?"
           rows={3}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] text-gray-900"
         />
       </div>
       <div className="flex gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600"
+          className="rounded-ui-rect border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600"
         >
           취소
         </button>
         <button
           type="submit"
-          className="flex-1 rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white"
         >
           후기 남기기
         </button>

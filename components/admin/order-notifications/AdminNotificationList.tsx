@@ -27,7 +27,7 @@ export function AdminNotificationList() {
 
   if (!adminId) {
     return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         관리자 역할로 전환한 뒤 운영 알림을 확인하세요.
       </p>
     );
@@ -42,7 +42,7 @@ export function AdminNotificationList() {
         {rows.some((r) => !r.is_read) ? (
           <button
             type="button"
-            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-800"
+            className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-800"
             onClick={() => markAllNotificationsReadForTarget("admin", adminId)}
           >
             전체 읽음
@@ -50,7 +50,7 @@ export function AdminNotificationList() {
         ) : null}
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-sm text-gray-500">
+        <p className="rounded-ui-rect border border-dashed border-gray-200 bg-white p-6 text-sm text-gray-500">
           알림이 없습니다. 주문 시뮬에서 액션을 실행해 보세요.
         </p>
       ) : (
@@ -58,7 +58,7 @@ export function AdminNotificationList() {
           {rows.map((r) => (
             <li
               key={r.id}
-              className={`rounded-xl border px-4 py-3 ${
+              className={`rounded-ui-rect border px-4 py-3 ${
                 r.priority === "high" && !r.is_read
                   ? "border-red-300 bg-red-50 shadow-sm"
                   : r.is_read

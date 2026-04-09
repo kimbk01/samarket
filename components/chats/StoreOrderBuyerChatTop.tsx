@@ -163,7 +163,7 @@ export function StoreOrderBuyerChatTop({
           주문 정보를 불러올 수 없습니다.
         </p>
       ) : (
-        <div className="relative overflow-hidden rounded-[18px] bg-[var(--sub-bg)] px-3.5 py-3.5 shadow-none ring-1 ring-ig-border">
+        <div className="relative overflow-hidden rounded-ui-rect bg-[var(--sub-bg)] px-3.5 py-3.5 shadow-none ring-1 ring-ig-border">
           {statusBannerVisible && statusLabel ? (
             <div className="mb-3 flex items-start justify-end gap-1">
               <span className="inline-flex max-w-[85%] items-center gap-1 rounded-full bg-amber-100 px-3 py-1.5 text-[12px] font-semibold leading-tight text-amber-900 ring-1 ring-amber-200/80">
@@ -355,7 +355,7 @@ export function StoreOrderBuyerChatTop({
           <button
             type="button"
             onClick={() => setDrawerOpen((v) => !v)}
-            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-800 hover:bg-black/[0.05] active:bg-black/[0.06] ${
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-neutral-800 hover:bg-black/[0.05] active:bg-black/[0.06] ${
               !matchAcked ? "ring-2 ring-amber-400/80 ring-offset-2 ring-offset-white" : ""
             }`}
             aria-expanded={drawerOpen}
@@ -376,7 +376,7 @@ export function StoreOrderBuyerChatTop({
           <button
             type="button"
             onClick={() => onBuyerChatSoundOnChange(!buyerChatSoundOn)}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-800 hover:bg-black/[0.05]"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-neutral-800 hover:bg-black/[0.05]"
             aria-label={buyerChatSoundOn ? "채팅 알림음 켜짐 — 탭하면 끔" : "채팅 알림음 꺼짐 — 탭하면 켬"}
             aria-pressed={buyerChatSoundOn}
           >

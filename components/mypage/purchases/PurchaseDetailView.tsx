@@ -123,9 +123,9 @@ export function PurchaseDetailView({
 
   return (
     <div className="space-y-4 pb-28">
-      <section className="overflow-hidden rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="overflow-hidden rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex gap-3">
-          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
             {row.thumbnail ? (
               <img src={row.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : null}
@@ -135,19 +135,19 @@ export function PurchaseDetailView({
             <p className="mt-1 text-[17px] font-bold">{formatPrice(row.price, currency)}</p>
             <p className="mt-1 text-[13px] text-gray-600">판매자 {row.sellerNickname || "—"}</p>
             <div className="mt-2 flex flex-wrap gap-1">
-              <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+              <span className="rounded-ui-rect bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">
                 상품 · {productBadge}
               </span>
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-800">
+              <span className="rounded-ui-rect bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-800">
                 진행 · {tradeBadge}
               </span>
-              <span className="rounded-md bg-signature/5 px-2 py-0.5 text-[11px] font-medium text-gray-800">
+              <span className="rounded-ui-rect bg-signature/5 px-2 py-0.5 text-[11px] font-medium text-gray-800">
                 후기 · {reviewBadge}
               </span>
             </div>
           </div>
         </div>
-        <div className="mt-3 rounded-xl border border-gray-200 bg-signature/5/80 px-3 py-3">
+        <div className="mt-3 rounded-ui-rect border border-gray-200 bg-signature/5/80 px-3 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-signature">구매 맥락</p>
           <p className="mt-1 text-[13px] leading-relaxed text-gray-700">
             거래 진행 상태는 이 내역에서 먼저 확인하고, 가격·약속·거래완료 조율은 관련 채팅으로 다시 돌아가 이어서
@@ -156,7 +156,7 @@ export function PurchaseDetailView({
         </div>
         {flow === "seller_marked_done" ? (
           <>
-            <p className="mt-3 rounded-lg bg-signature/5 px-3 py-2.5 text-[12px] leading-snug text-gray-900">
+            <p className="mt-3 rounded-ui-rect bg-signature/5 px-3 py-2.5 text-[12px] leading-snug text-gray-900">
               판매자가 <strong className="font-semibold">거래완료</strong>를 처리했어요. 물품을 받았다면 아래{" "}
               <strong className="font-semibold">거래완료 확인</strong>을 눌러 마무리한 뒤,{" "}
               <strong className="font-semibold">평가·후기</strong> 단계로 넘어가요.
@@ -166,7 +166,7 @@ export function PurchaseDetailView({
                 type="button"
                 disabled={!!busy}
                 onClick={() => post(`${base}/buyer-confirm`)}
-                className="w-full rounded-xl bg-signature py-3 text-center text-[14px] font-medium text-white disabled:opacity-50"
+                className="w-full rounded-ui-rect bg-signature py-3 text-center text-[14px] font-medium text-white disabled:opacity-50"
               >
                 {busy?.endsWith("/buyer-confirm") ? "처리 중…" : "거래완료 확인"}
               </button>
@@ -174,14 +174,14 @@ export function PurchaseDetailView({
                 type="button"
                 disabled={!!busy}
                 onClick={() => post(`${base}/buyer-issue`)}
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 text-[14px] font-medium text-gray-800 disabled:opacity-50"
+                className="w-full rounded-ui-rect border border-gray-200 bg-white py-2.5 text-[14px] font-medium text-gray-800 disabled:opacity-50"
               >
                 {busy?.endsWith("/buyer-issue") ? "처리 중…" : "문제 신고"}
               </button>
             </div>
             <Link
               href={chatHref}
-              className="mt-3 block w-full rounded-xl border border-gray-200 bg-signature/5 py-3 text-center text-[14px] font-medium text-gray-800"
+              className="mt-3 block w-full rounded-ui-rect border border-gray-200 bg-signature/5 py-3 text-center text-[14px] font-medium text-gray-800"
             >
               관련 채팅으로 돌아가기
             </Link>
@@ -189,13 +189,13 @@ export function PurchaseDetailView({
         ) : (
           <Link
             href={chatHref}
-            className="mt-4 block w-full rounded-xl bg-signature py-3 text-center text-[14px] font-medium text-white"
+            className="mt-4 block w-full rounded-ui-rect bg-signature py-3 text-center text-[14px] font-medium text-white"
           >
             관련 채팅으로 돌아가기
           </Link>
         )}
         {showReview && !row.hasBuyerReview && flow !== "seller_marked_done" ? (
-          <div className="mt-4 rounded-lg border border-gray-200 bg-signature/10 p-3">
+          <div className="mt-4 rounded-ui-rect border border-gray-200 bg-signature/10 p-3">
             <p className="text-[12px] leading-snug text-gray-900">
               거래완료 확인이 완료되었어요. 채팅 내용을 다시 확인할 필요가 없다면 아래에서{" "}
               <strong className="font-semibold">평가·후기</strong>를 작성해 주세요.
@@ -203,7 +203,7 @@ export function PurchaseDetailView({
             <button
               type="button"
               onClick={() => setReviewOpen(true)}
-              className="mt-2 w-full rounded-xl bg-signature py-3 text-center text-[14px] font-medium text-white"
+              className="mt-2 w-full rounded-ui-rect bg-signature py-3 text-center text-[14px] font-medium text-white"
             >
               평가·후기 보내기
             </button>
@@ -211,7 +211,7 @@ export function PurchaseDetailView({
         ) : null}
       </section>
 
-      <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <h3 className="text-[14px] font-semibold text-gray-900">거래 상태</h3>
         <ul className="mt-3 space-y-3 border-l-2 border-gray-200 pl-4">
           <TimelineItem
@@ -296,7 +296,7 @@ export function PurchaseDetailView({
 
       {reportOpen ? (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-2xl bg-white">
+          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white">
             <ReportActionSheet
               targetType="user"
               targetId={row.sellerId}
@@ -352,7 +352,7 @@ function ActionBtn({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-lg px-3 py-2 text-[13px] font-medium ${
+      className={`rounded-ui-rect px-3 py-2 text-[13px] font-medium ${
         outline
           ? "border border-gray-200 bg-white text-gray-800"
           : "bg-signature text-white disabled:opacity-50"

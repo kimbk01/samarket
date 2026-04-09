@@ -21,7 +21,7 @@ export function ProductConditionSelect({
             key={c.value}
             type="button"
             onClick={() => onChange(c.value)}
-            className={`rounded-lg border px-3 py-2 text-[14px] ${
+            className={`rounded-ui-rect border px-3 py-2 text-[14px] ${
               value === c.value
                 ? "border-signature bg-signature/10 text-signature"
                 : "border-gray-300 text-gray-600"

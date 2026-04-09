@@ -13,14 +13,14 @@ export function StableFeedVersionTable() {
 
   if (stable.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         안정 버전 후보가 없습니다. Fallback 우선순위 설정 시 여기서 참조됩니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
       <table className="w-full min-w-[560px] border-collapse text-[14px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">

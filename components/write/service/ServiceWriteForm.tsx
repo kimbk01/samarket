@@ -118,7 +118,7 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="어떤 도움이 필요하신가요?"
                 rows={5}
-                className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+                className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
                 aria-invalid={!!errors.content}
               />
               {errors.content && (
@@ -134,7 +134,7 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
                 value={contactMethod}
                 onChange={(e) => setContactMethod(e.target.value)}
                 placeholder="채팅, 전화 등"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+                className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
               />
             </section>
           </>
@@ -150,7 +150,7 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="제목"
                 maxLength={100}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+                className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
                 aria-invalid={!!errors.title}
               />
               {errors.title && (
@@ -166,7 +166,7 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="서비스 내용을 입력해 주세요"
                 rows={5}
-                className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+                className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
                 aria-invalid={!!errors.content}
               />
               {errors.content && (

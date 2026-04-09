@@ -38,7 +38,7 @@ export function AllServicesSection() {
 
   if (loading) {
     return (
-      <div className="rounded-xl bg-white py-12 text-center text-[14px] text-gray-500 shadow-sm">
+      <div className="rounded-ui-rect bg-white py-12 text-center text-[14px] text-gray-500 shadow-sm">
         {tt("불러오는 중…")}
       </div>
     );
@@ -46,7 +46,7 @@ export function AllServicesSection() {
 
   if (error) {
     return (
-      <div className="rounded-xl bg-white py-8 text-center text-[14px] text-red-500 shadow-sm">
+      <div className="rounded-ui-rect bg-white py-8 text-center text-[14px] text-red-500 shadow-sm">
         {error}
       </div>
     );
@@ -54,7 +54,7 @@ export function AllServicesSection() {
 
   if (!grouped || grouped.all.length === 0) {
     return (
-      <div className="rounded-xl bg-white py-12 text-center text-[14px] text-gray-500 shadow-sm">
+      <div className="rounded-ui-rect bg-white py-12 text-center text-[14px] text-gray-500 shadow-sm">
         {tt("등록된 카테고리가 없습니다.")}
       </div>
     );

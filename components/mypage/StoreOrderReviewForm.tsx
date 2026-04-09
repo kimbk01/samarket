@@ -277,7 +277,7 @@ export function StoreOrderReviewForm({
           rows={6}
           maxLength={2000}
           placeholder="리뷰는 솔직하게 작성해주세요"
-          className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-[15px] leading-relaxed text-gray-900 placeholder:text-gray-400"
+          className="w-full resize-none rounded-ui-rect border border-gray-200 bg-gray-50/80 px-4 py-3 text-[15px] leading-relaxed text-gray-900 placeholder:text-gray-400"
         />
       </div>
 
@@ -292,7 +292,7 @@ export function StoreOrderReviewForm({
         />
         <div className="flex flex-wrap gap-2">
           {imageUrls.map((url, i) => (
-            <div key={url} className="relative h-20 w-20 overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+            <div key={url} className="relative h-20 w-20 overflow-hidden rounded-ui-rect border border-gray-200 bg-gray-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" className="h-full w-full object-cover" />
               <button
@@ -310,7 +310,7 @@ export function StoreOrderReviewForm({
               type="button"
               disabled={uploadBusy}
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-20 w-20 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 text-gray-500 disabled:opacity-50"
+              className="flex h-20 w-20 flex-col items-center justify-center rounded-ui-rect border-2 border-dashed border-gray-200 bg-gray-50 text-gray-500 disabled:opacity-50"
             >
               <CameraIcon />
               <span className="mt-1 text-[10px] font-medium">사진</span>
@@ -319,7 +319,7 @@ export function StoreOrderReviewForm({
         </div>
       </div>
 
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-3">
+      <label className="flex cursor-pointer items-start gap-3 rounded-ui-rect border border-gray-100 bg-gray-50/60 px-3 py-3">
         <input
           type="checkbox"
           checked={ownerOnly}
@@ -341,7 +341,7 @@ export function StoreOrderReviewForm({
               return (
                 <li
                   key={it.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-3 py-3 shadow-sm"
+                  className="flex items-center justify-between gap-3 rounded-ui-rect border border-gray-100 bg-white px-3 py-3 shadow-sm"
                 >
                   <span className="min-w-0 flex-1 text-[14px] font-medium text-gray-900">
                     {it.product_title_snapshot}
@@ -353,7 +353,7 @@ export function StoreOrderReviewForm({
                     <button
                       type="button"
                       onClick={() => setVote(it.id, "up")}
-                      className={`rounded-lg px-3 py-2 text-lg ${
+                      className={`rounded-ui-rect px-3 py-2 text-lg ${
                         v === "up" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-400"
                       }`}
                       aria-label="좋아요"
@@ -363,7 +363,7 @@ export function StoreOrderReviewForm({
                     <button
                       type="button"
                       onClick={() => setVote(it.id, "down")}
-                      className={`rounded-lg px-3 py-2 text-lg ${
+                      className={`rounded-ui-rect px-3 py-2 text-lg ${
                         v === "down" ? "bg-rose-100 text-rose-800" : "bg-gray-100 text-gray-400"
                       }`}
                       aria-label="아쉬워요"
@@ -378,7 +378,7 @@ export function StoreOrderReviewForm({
         </div>
       ) : null}
 
-      <div className="rounded-xl bg-gray-100 px-3 py-3 text-[11px] leading-relaxed text-gray-600">
+      <div className="rounded-ui-rect bg-gray-100 px-3 py-3 text-[11px] leading-relaxed text-gray-600">
         솔직한 리뷰는 다른 이용자에게 큰 도움이 됩니다. 허위·비방·불법적인 내용은 제재 대상이 될 수 있어요.
       </div>
 
@@ -389,7 +389,7 @@ export function StoreOrderReviewForm({
           <button
             type="submit"
             disabled={busy || content.trim().length < 5}
-            className="w-full rounded-xl bg-gray-900 py-3.5 text-[16px] font-semibold text-white disabled:opacity-40"
+            className="w-full rounded-ui-rect bg-gray-900 py-3.5 text-[16px] font-semibold text-white disabled:opacity-40"
           >
             {busy ? "등록 중…" : "리뷰 작성 완료"}
           </button>

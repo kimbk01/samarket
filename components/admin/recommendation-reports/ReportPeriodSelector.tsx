@@ -40,7 +40,7 @@ export function ReportPeriodSelector({
   const range = getDateRange(period);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <h3 className="mb-3 text-[14px] font-medium text-gray-900">
         새 보고서 생성
       </h3>

@@ -247,11 +247,11 @@ export function AdminCommunityTopicsPage({
     <div className="space-y-4">
       <AdminPageHeader title="피드 주제 관리" backHref="/admin/philife/sections" description={headerDescription} />
 
-      <div className="flex flex-wrap gap-2 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm">
+      <div className="flex flex-wrap gap-2 rounded-ui-rect border border-gray-200 bg-white p-1.5 shadow-sm">
         <button
           type="button"
           onClick={() => setMenuTab("general")}
-          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-lg px-4 py-2 text-[14px] font-semibold transition-colors sm:flex-none sm:px-8 ${
+          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-ui-rect px-4 py-2 text-[14px] font-semibold transition-colors sm:flex-none sm:px-8 ${
             menuTab === "general"
               ? "bg-gray-900 text-white shadow-sm"
               : "bg-transparent text-gray-600 hover:bg-gray-50"
@@ -263,7 +263,7 @@ export function AdminCommunityTopicsPage({
         <button
           type="button"
           onClick={() => setMenuTab("meetup")}
-          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-lg px-4 py-2 text-[14px] font-semibold transition-colors sm:flex-none sm:px-8 ${
+          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-ui-rect px-4 py-2 text-[14px] font-semibold transition-colors sm:flex-none sm:px-8 ${
             menuTab === "meetup"
               ? "bg-emerald-600 text-white shadow-sm"
               : "bg-transparent text-gray-600 hover:bg-gray-50"

@@ -24,7 +24,7 @@ export function OpsActionSummaryCards() {
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">체크리스트 완료율</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.checklistCompletionRate.toFixed(0)}%
@@ -33,7 +33,7 @@ export function OpsActionSummaryCards() {
             당일 항목 {summary.todayChecklistCount}건
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">미완료 액션아이템</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.totalOpenActions}
@@ -42,7 +42,7 @@ export function OpsActionSummaryCards() {
             High/Critical {summary.highPriorityOpenActions}건
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">기한 초과</p>
           <p className={`text-[20px] font-semibold ${summary.overdueActions > 0 ? "text-red-600" : "text-gray-900"}`}>
             {summary.overdueActions}

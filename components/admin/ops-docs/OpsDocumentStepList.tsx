@@ -33,7 +33,7 @@ export function OpsDocumentStepList({ documentId }: OpsDocumentStepListProps) {
 
   if (steps.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
         등록된 단계가 없습니다.
       </div>
     );
@@ -44,7 +44,7 @@ export function OpsDocumentStepList({ documentId }: OpsDocumentStepListProps) {
       {steps.map((s, idx) => (
         <li
           key={s.id}
-          className="flex gap-3 rounded-lg border border-gray-200 bg-white p-4"
+          className="flex gap-3 rounded-ui-rect border border-gray-200 bg-white p-4"
         >
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-medium text-gray-700">
             {s.stepOrder}

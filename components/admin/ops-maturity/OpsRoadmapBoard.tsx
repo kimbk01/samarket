@@ -65,7 +65,7 @@ export function OpsRoadmapBoard() {
       </div>
       <div className="grid gap-3 overflow-x-auto lg:grid-cols-6">
         {STATUS_COLUMNS.map((status) => (
-          <div key={status} className="min-w-[200px] rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+          <div key={status} className="min-w-[200px] rounded-ui-rect border border-gray-200 bg-gray-50/50 p-3">
             <h3 className="mb-2 text-[13px] font-medium text-gray-700">
               {STATUS_LABELS[status]} ({byStatus[status].length})
             </h3>

@@ -16,7 +16,7 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-white p-4">
+      <div className="rounded-ui-rect bg-white p-4">
         <div className="flex items-start gap-3">
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-200">
             {profile.logoUrl ? (
@@ -89,7 +89,7 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
       </div>
       {/* 상점 후기 요약 placeholder */}
       {profile.reviewCount > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <h2 className="text-[15px] font-medium text-gray-900">후기 요약</h2>
           <p className="mt-1 text-[13px] text-gray-500">
             후기 {profile.reviewCount}개 · 평균 ★ {profile.averageRating.toFixed(1)}

@@ -45,7 +45,7 @@ export function WriteLauncherPanel({
     <div
       className={`flex w-[280px] max-w-[calc(100vw-2rem)] flex-col items-end ${hideFabClose ? "" : subFabClose ? "gap-3" : "gap-2"}`}
     >
-      <div className="w-full rounded-2xl bg-white py-2 shadow-xl">
+      <div className="w-full rounded-ui-rect bg-white py-2 shadow-xl">
         {loading ? (
           <p className="py-8 text-center text-[14px] text-gray-500">불러오는 중…</p>
         ) : categories.length === 0 ? (

@@ -381,7 +381,7 @@ export function MypageInstagramView({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-ig-border bg-[var(--sub-bg)]">
       <div className="shrink-0 border-b border-ig-border bg-[var(--sub-bg)] px-4 pt-3 pb-4">
-        <div className="rounded-[28px] border border-ig-border bg-background p-4 shadow-sm">
+        <div className="rounded-ui-rect border border-ig-border bg-background p-4 shadow-sm">
           <div className="flex items-start gap-4">
             <Link
               href={editHref}
@@ -939,7 +939,7 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[24px] border border-ig-border bg-background shadow-sm">
+    <section className="overflow-hidden rounded-ui-rect border border-ig-border bg-background shadow-sm">
       <div className="flex items-center justify-between gap-3 border-b border-ig-border px-4 py-3.5">
         <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
         {actionHref ? (
@@ -985,7 +985,7 @@ function QuickActionTile({
   };
 }) {
   const cls =
-    "flex min-h-[86px] flex-col justify-between rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-3 py-3 text-left";
+    "flex min-h-[86px] flex-col justify-between rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-3 py-3 text-left";
   if (item.href && item.suppressNav && item.onSuppressedNav) {
     return (
       <button type="button" onClick={item.onSuppressedNav} className={cls}>
@@ -1113,7 +1113,7 @@ function BottomSheet({
   return (
     <div className="fixed inset-0 z-[120] flex items-end bg-black/45" onClick={onClose}>
       <div
-        className="max-h-[82vh] w-full overflow-hidden rounded-t-[28px] bg-background shadow-2xl"
+        className="max-h-[82vh] w-full overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-background shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-ig-border px-4 py-3">
@@ -1140,14 +1140,14 @@ function BottomSheet({
 function SupportSheetContent() {
   return (
     <div className="space-y-4 pb-4">
-      <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-4">
+      <div className="rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-4 py-4">
         <p className="text-[15px] font-semibold text-foreground">문의 전 확인</p>
         <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">
           주문 문제는 주문 내역에서, 거래 문제는 거래 채팅과 후기 화면에서 먼저 확인해 주세요.
           해결되지 않으면 운영 문의로 접수하는 흐름이 가장 빠릅니다.
         </p>
       </div>
-      <div className="overflow-hidden rounded-2xl border border-ig-border bg-background">
+      <div className="overflow-hidden rounded-ui-rect border border-ig-border bg-background">
         <div className="divide-y divide-ig-border">
           <InfoRow label="운영 문의" value="공지사항 및 관리자 공지 확인 후 진행" />
           <InfoRow label="주문 이슈" value="주문 내역 > 상세 화면에서 상태 확인" />
@@ -1161,13 +1161,13 @@ function SupportSheetContent() {
 function TermsSheetContent() {
   return (
     <div className="space-y-4 pb-4">
-      <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-4">
+      <div className="rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-4 py-4">
         <p className="text-[15px] font-semibold text-foreground">이용 원칙</p>
         <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">
           거래, 커뮤니티, 주문, 매장 운영은 모두 계정 상태와 지역 정보에 따라 노출 범위와 사용 기능이 달라질 수 있습니다.
         </p>
       </div>
-      <div className="overflow-hidden rounded-2xl border border-ig-border bg-background">
+      <div className="overflow-hidden rounded-ui-rect border border-ig-border bg-background">
         <div className="divide-y divide-ig-border">
           <InfoRow label="계정" value="정확한 프로필과 연락처 정보를 유지해야 합니다." />
           <InfoRow label="거래" value="거래 상태와 후기 이력은 서비스 신뢰도에 반영됩니다." />
@@ -1197,7 +1197,7 @@ function SummaryCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-3 py-3">
+    <div className="rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-3 py-3">
       <p className="text-[11px] font-medium text-[var(--text-muted)]">{label}</p>
       <p className="mt-1 text-[18px] font-semibold text-foreground">{value}</p>
       <p className="mt-1 text-[11px] text-[var(--text-muted)]">{detail}</p>

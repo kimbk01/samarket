@@ -23,7 +23,7 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
 
   if (!note) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
         릴리즈 노트를 찾을 수 없습니다.
       </div>
     );
@@ -31,7 +31,7 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
           <span>{note.releaseVersion}</span>
           <span>{note.buildTag}</span>
@@ -64,7 +64,7 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="text-[15px] font-medium text-gray-900">변경 항목</h3>
         {items.length === 0 ? (
           <p className="mt-2 text-[13px] text-gray-500">항목 없음</p>

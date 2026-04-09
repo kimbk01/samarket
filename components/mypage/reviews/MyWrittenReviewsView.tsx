@@ -65,10 +65,10 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
   const detailLabel = isBuyerReview ? "구매 상세" : "판매 내역";
 
   return (
-    <li className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+    <li className="overflow-hidden rounded-ui-rect border border-gray-100 bg-white shadow-sm">
       <div className="flex gap-2 p-3">
         <Link href={detailHref} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg bg-gray-100">
+          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
             {it.thumbnail ? (
               <img src={it.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -82,11 +82,11 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
               {counterpartyLabel} {it.revieweeNickname}
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-md bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
+              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
                 {PUBLIC_LABELS[it.publicReviewType] ?? it.publicReviewType}
               </span>
               {it.isAnonymousNegative ? (
-                <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">익명 표시</span>
+                <span className="rounded-ui-rect bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">익명 표시</span>
               ) : null}
             </div>
             {tags ? (
@@ -176,7 +176,7 @@ export function MyWrittenReviewsView({
   if (variant === "tabPanel") {
     if (items.length === 0) {
       return (
-        <div className="rounded-xl border border-gray-100 bg-white px-4 py-6 text-center">
+        <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-6 text-center">
           <p className="text-[14px] text-gray-600">작성한 거래 후기가 없어요.</p>
           <p className="mt-1 text-[12px] text-gray-500">거래 완료 후 구매·판매 내역에서 평가를 남길 수 있어요.</p>
         </div>
@@ -197,7 +197,7 @@ export function MyWrittenReviewsView({
 
     if (items.length === 0) {
       return (
-        <div className="rounded-xl border border-gray-100 bg-white px-4 py-6 text-center">
+        <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-6 text-center">
           <p className="text-[14px] text-gray-600">아직 작성한 거래 후기가 없어요.</p>
           <p className="mt-1 text-[13px] text-gray-500">거래 완료 후 구매·판매 내역에서 평가를 남길 수 있어요.</p>
         </div>
@@ -238,12 +238,12 @@ export function MyWrittenReviewsView({
 
   if (items.length === 0) {
     return (
-      <div className="space-y-4 rounded-xl border border-gray-200 bg-white px-4 py-8 text-center">
+      <div className="space-y-4 rounded-ui-rect border border-gray-200 bg-white px-4 py-8 text-center">
         <p className="text-[14px] text-gray-600">아직 작성한 거래 후기가 없어요.</p>
         <p className="text-[13px] text-gray-500">거래완료 확인 후 구매내역에서 평가·후기를 남길 수 있어요.</p>
         <Link
           href={hubPurchasesPath}
-          className="inline-block rounded-lg bg-signature px-4 py-2.5 text-[14px] font-medium text-white"
+          className="inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white"
         >
           구매내역 보기
         </Link>

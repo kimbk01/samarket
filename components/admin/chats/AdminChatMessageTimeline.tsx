@@ -17,7 +17,7 @@ export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineP
       {messages.map((m) => (
         <li
           key={m.id}
-          className={`rounded-lg border px-3 py-2 text-[14px] ${
+          className={`rounded-ui-rect border px-3 py-2 text-[14px] ${
             m.isHidden
               ? "border-gray-100 bg-gray-50 text-gray-400"
               : "border-gray-100 bg-white text-gray-800"

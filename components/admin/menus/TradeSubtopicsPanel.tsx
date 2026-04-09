@@ -76,7 +76,7 @@ export function TradeSubtopicsPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-2 py-1 text-[14px] text-gray-500 hover:bg-gray-100"
+            className="rounded-ui-rect px-2 py-1 text-[14px] text-gray-500 hover:bg-gray-100"
             aria-label="닫기"
           >
             ✕
@@ -88,7 +88,7 @@ export function TradeSubtopicsPanel({
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="rounded-lg bg-signature px-3 py-1.5 text-[13px] font-medium text-white hover:bg-signature/90"
+          className="rounded-ui-rect bg-signature px-3 py-1.5 text-[13px] font-medium text-white hover:bg-signature/90"
         >
           주제 추가
         </button>
@@ -96,17 +96,17 @@ export function TradeSubtopicsPanel({
 
       {siblings.length === 0 ? (
         <div className="space-y-3">
-          <p className="rounded-lg border border-dashed border-gray-200 py-6 text-center text-[14px] text-gray-500">
+          <p className="rounded-ui-rect border border-dashed border-gray-200 py-6 text-center text-[14px] text-gray-500">
             아래에서 주제를 추가하면 목록이 여기 표시됩니다. 사용자 화면에서는 주제가 없으면 2행 칩이 나타나지 않습니다.
           </p>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+          <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
             <strong className="font-medium">주제를 저장했는데도 목록·표에 안 보이면</strong> Supabase <code className="rounded bg-amber-100 px-1">categories</code> 테이블에{" "}
             <code className="rounded bg-amber-100 px-1">parent_id</code> 컬럼이 있는지 확인하세요. 없으면 SQL Editor에서 마이그레이션(
             <code className="rounded bg-amber-100 px-1">ALTER TABLE … ADD parent_id</code>)을 실행해야 합니다.
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="w-full min-w-[480px] border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">

@@ -43,7 +43,7 @@ export function OpsGapAnalysisCards() {
       </div>
 
       {highGap.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           목표 대비 갭이 큰 영역이 없습니다.
         </div>
       ) : (
@@ -56,7 +56,7 @@ export function OpsGapAnalysisCards() {
               {highGap.map(({ domain, gapScore }) => (
                 <div
                   key={domain}
-                  className="rounded-lg border border-amber-200 bg-amber-50/50 p-4"
+                  className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-4"
                 >
                   <p className="text-[12px] text-gray-500">
                     {DOMAIN_LABELS[domain]}

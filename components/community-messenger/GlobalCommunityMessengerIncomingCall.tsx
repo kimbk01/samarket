@@ -258,7 +258,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   return (
     <div className="fixed inset-x-0 top-20 z-40 mx-auto w-[min(92vw,420px)]">
-      <div className="rounded-[28px] border border-[#06C755]/20 bg-white p-4 shadow-[0_20px_48px_rgba(17,24,39,0.22)]">
+      <div className="rounded-ui-rect border border-[#06C755]/20 bg-white p-4 shadow-[0_20px_48px_rgba(17,24,39,0.22)]">
         <p className="text-[12px] font-semibold text-[#06C755]">{t("nav_incoming_call")}</p>
         <h2 className="mt-1 text-[18px] font-semibold text-gray-900">{visibleSession.peerLabel}</h2>
         <p className="mt-1 text-[13px] text-gray-500">
@@ -275,7 +275,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             type="button"
             onClick={() => void rejectCall(visibleSession.id)}
             disabled={busyId === `reject:${visibleSession.id}`}
-            className="cursor-pointer touch-manipulation rounded-2xl border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/40 focus-visible:ring-offset-2"
+            className="cursor-pointer touch-manipulation rounded-ui-rect border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/40 focus-visible:ring-offset-2"
           >
             {t("common_reject")}
           </button>
@@ -283,7 +283,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             type="button"
             onClick={() => void acceptCall(visibleSession)}
             disabled={busyId === `accept:${visibleSession.id}` || visibleSession.sessionMode === "group"}
-            className="flex-1 cursor-pointer touch-manipulation select-none rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/50 focus-visible:ring-offset-2"
+            className="flex-1 cursor-pointer touch-manipulation select-none rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/50 focus-visible:ring-offset-2"
           >
             {visibleSession.sessionMode === "group"
               ? t("nav_group_call_coming_soon")

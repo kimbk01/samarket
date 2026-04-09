@@ -33,7 +33,7 @@ export function PostAdProposalModal({
   if (step === "done") {
     return (
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-        <div className="w-full max-w-lg rounded-t-3xl bg-white px-5 pb-12 pt-6 shadow-2xl">
+        <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-5 pb-12 pt-6 shadow-2xl">
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
               <span className="text-[32px]">✅</span>
@@ -47,7 +47,7 @@ export function PostAdProposalModal({
             <button
               type="button"
               onClick={onSkip}
-              className="mt-4 w-full rounded-2xl bg-gray-900 py-3.5 text-[15px] font-bold text-white"
+              className="mt-4 w-full rounded-ui-rect bg-gray-900 py-3.5 text-[15px] font-bold text-white"
             >
               게시글 보기
             </button>
@@ -82,7 +82,7 @@ export function PostAdProposalModal({
   // step === "propose"
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-t-3xl bg-white px-5 pb-10 pt-5 shadow-2xl">
+      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-5 pb-10 pt-5 shadow-2xl">
         {/* 헤더 */}
         <div className="mb-1 flex items-center justify-between">
           <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
@@ -109,7 +109,7 @@ export function PostAdProposalModal({
         </div>
 
         {/* 포인트 잔액 */}
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-sky-50 px-3 py-2.5">
+        <div className="mt-4 flex items-center justify-between rounded-ui-rect bg-sky-50 px-3 py-2.5">
           <span className="text-[13px] text-sky-700">내 포인트 잔액</span>
           <span className="text-[16px] font-bold text-sky-800">{balance.toLocaleString()}P</span>
         </div>
@@ -122,7 +122,7 @@ export function PostAdProposalModal({
           ].map(({ label, point }) => (
             <div
               key={label}
-              className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-center"
+              className="rounded-ui-rect border border-gray-100 bg-gray-50 px-3 py-2 text-center"
             >
               <p className="text-[12px] font-medium text-gray-800">{label}</p>
               <p className="text-[13px] font-bold text-sky-700">{point}</p>
@@ -135,14 +135,14 @@ export function PostAdProposalModal({
           <button
             type="button"
             onClick={() => setStep("select")}
-            className="w-full rounded-2xl bg-amber-500 py-3.5 text-[15px] font-bold text-white shadow-md hover:bg-amber-600"
+            className="w-full rounded-ui-rect bg-amber-500 py-3.5 text-[15px] font-bold text-white shadow-md hover:bg-amber-600"
           >
             광고 상품 선택하기
           </button>
           <button
             type="button"
             onClick={onSkip}
-            className="w-full rounded-2xl border border-gray-200 bg-white py-3 text-[14px] font-medium text-gray-600 hover:bg-gray-50"
+            className="w-full rounded-ui-rect border border-gray-200 bg-white py-3 text-[14px] font-medium text-gray-600 hover:bg-gray-50"
           >
             나중에 할게요
           </button>

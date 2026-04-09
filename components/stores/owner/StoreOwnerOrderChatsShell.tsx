@@ -86,7 +86,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
     return (
       <div className="min-h-screen bg-[#f3f4f6] px-4 py-10 text-center text-sm text-gray-600">
         로그인 후 주문 채팅과 주문 현황을 바로 확인할 수 있습니다.
-        <Link href={loginHref} className="mt-4 inline-flex rounded-lg bg-violet-700 px-4 py-2 font-semibold text-white">
+        <Link href={loginHref} className="mt-4 inline-flex rounded-ui-rect bg-violet-700 px-4 py-2 font-semibold text-white">
           로그인하고 주문 보기
         </Link>
       </div>
@@ -129,7 +129,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
       <ChatHubTopTabs active="order" orderChatsHref={orderChatsHref} />
       <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
         {rows.length === 0 ? (
-          <p className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm ring-1 ring-gray-100">
+          <p className="rounded-ui-rect bg-white p-6 text-sm text-gray-500 shadow-sm ring-1 ring-gray-100">
             열린 주문 채팅이 없어요. 고객이 주문·채팅을 시작하면 여기에 표시됩니다.
           </p>
         ) : (
@@ -138,7 +138,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
               <li key={r.id}>
                 <Link
                   href={`/my/business/store-order-chat/${encodeURIComponent(r.order_id)}`}
-                  className="flex items-start justify-between gap-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
+                  className="flex items-start justify-between gap-2 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm"
                 >
                   <div className="min-w-0">
                     <p className="font-bold text-gray-900">{r.buyer_name}</p>

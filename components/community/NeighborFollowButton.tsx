@@ -67,7 +67,7 @@ export function NeighborFollowButton({ targetUserId }: { targetUserId: string })
       type="button"
       disabled={busy}
       onClick={() => void toggle()}
-      className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[12px] font-medium text-sky-900 disabled:opacity-50"
+      className="rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-1.5 text-[12px] font-medium text-sky-900 disabled:opacity-50"
     >
       {following === true ? "관심이웃 해제" : "관심이웃 추가"}
     </button>

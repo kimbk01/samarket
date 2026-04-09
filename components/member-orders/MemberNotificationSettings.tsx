@@ -69,7 +69,7 @@ export function MemberNotificationSettings() {
 
   if (!userId) {
     return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
         {t("order_notifications_guest_only")}
       </p>
     );
@@ -77,14 +77,14 @@ export function MemberNotificationSettings() {
 
   if (!p) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 text-sm text-gray-500 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-4 text-sm text-gray-500 shadow-sm">
         알림 설정을 준비 중입니다.
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="divide-y divide-gray-100 rounded-ui-rect border border-gray-200 bg-white shadow-sm">
       <div className="px-4 py-3">
         <h2 className="text-sm font-bold text-gray-900">{t("order_notifications_header")}</h2>
         <p className="mt-1 text-[12px] text-gray-500">

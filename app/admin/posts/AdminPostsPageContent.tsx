@@ -287,7 +287,7 @@ export function AdminPostsPageContent() {
         <button
           type="button"
           onClick={() => setTab("community")}
-          className={`rounded-lg px-3 py-2 text-[14px] font-medium ${
+          className={`rounded-ui-rect px-3 py-2 text-[14px] font-medium ${
             tab === "community"
               ? "bg-signature text-white"
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -298,7 +298,7 @@ export function AdminPostsPageContent() {
         <button
           type="button"
           onClick={() => setTab("trade")}
-          className={`rounded-lg px-3 py-2 text-[14px] font-medium ${
+          className={`rounded-ui-rect px-3 py-2 text-[14px] font-medium ${
             tab === "trade"
               ? "bg-signature text-white"
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -309,7 +309,7 @@ export function AdminPostsPageContent() {
       </div>
 
       {actionMsg ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900">
+        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900">
           {actionMsg}
         </div>
       ) : null}
@@ -334,7 +334,7 @@ export function AdminPostsPageContent() {
       )}
 
       {tab === "community" && !loading && communityRows.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-2">
           <span className="text-[13px] text-gray-700">
             선택 <strong>{selectedCommunity.size}</strong>개
           </span>
@@ -342,7 +342,7 @@ export function AdminPostsPageContent() {
             type="button"
             disabled={bulkBusy || selectedCommunity.size === 0}
             onClick={() => void bulkDeleteCommunity()}
-            className="rounded-lg bg-red-600 px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-40"
+            className="rounded-ui-rect bg-red-600 px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-40"
           >
             선택 항목 DB에서 영구 삭제
           </button>
@@ -350,7 +350,7 @@ export function AdminPostsPageContent() {
       ) : null}
 
       {tab === "trade" && !loading && posts.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-2">
           <span className="text-[13px] text-gray-700">
             선택 <strong>{selectedTrade.size}</strong>개
           </span>
@@ -358,7 +358,7 @@ export function AdminPostsPageContent() {
             type="button"
             disabled={bulkBusy || selectedTrade.size === 0}
             onClick={() => void bulkDeleteTrade()}
-            className="rounded-lg bg-red-600 px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-40"
+            className="rounded-ui-rect bg-red-600 px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-40"
           >
             선택 항목 DB에서 영구 삭제
           </button>
@@ -369,11 +369,11 @@ export function AdminPostsPageContent() {
         <div className="py-12 text-center text-[14px] text-gray-500">불러오는 중…</div>
       ) : tab === "trade" ? (
         posts.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+          <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
             게시글이 없습니다.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+          <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
             <table className="w-full text-left text-[14px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
@@ -447,16 +447,16 @@ export function AdminPostsPageContent() {
       ) : (
         <>
           {communityErr ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+            <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
               {communityErr}
             </div>
           ) : null}
           {communityRows.length === 0 && !communityErr ? (
-            <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+            <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
               동네·커뮤니티 글이 없습니다.
             </div>
           ) : communityRows.length > 0 ? (
-            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
               <table className="w-full min-w-[760px] text-left text-[14px]">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">

@@ -13,7 +13,7 @@ export function AdminMemoBox({
   const [saved, setSaved] = useState(false);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <h3 className="text-sm font-semibold text-gray-900">관리자 메모</h3>
       <textarea
         value={v}
@@ -30,7 +30,7 @@ export function AdminMemoBox({
           onSave(v);
           setSaved(true);
         }}
-        className="mt-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white"
+        className="mt-2 rounded-ui-rect bg-gray-900 px-4 py-2 text-sm font-medium text-white"
       >
         메모 저장
       </button>

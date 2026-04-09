@@ -72,8 +72,8 @@ export function StoreOwnerOpsSection({
       id="owner-operations"
       className={
         embedded ?
-          "scroll-mt-28 rounded-xl border border-violet-100 bg-violet-50/40 p-2"
-        : "scroll-mt-28 rounded-2xl border border-violet-200/60 bg-gradient-to-r from-violet-50/90 to-white p-3 shadow-sm ring-1 ring-violet-100/80"
+          "scroll-mt-28 rounded-ui-rect border border-violet-100 bg-violet-50/40 p-2"
+        : "scroll-mt-28 rounded-ui-rect border border-violet-200/60 bg-gradient-to-r from-violet-50/90 to-white p-3 shadow-sm ring-1 ring-violet-100/80"
       }
     >
       {hubBlockedModal}
@@ -118,7 +118,7 @@ export function StoreOwnerOpsSection({
                 e.preventDefault();
               }
             }}
-            className="flex w-[104px] shrink-0 flex-col items-center justify-center rounded-2xl border border-violet-100 bg-white px-2 py-3 text-center shadow-sm"
+            className="flex w-[104px] shrink-0 flex-col items-center justify-center rounded-ui-rect border border-violet-100 bg-white px-2 py-3 text-center shadow-sm"
           >
             <span className="line-clamp-2 text-[11px] font-bold leading-tight text-violet-950">{item.label}</span>
             {typeof item.badge === "number" && item.badge > 0 ?

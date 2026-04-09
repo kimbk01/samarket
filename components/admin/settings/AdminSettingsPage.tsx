@@ -114,13 +114,13 @@ export function AdminSettingsPage() {
           <RegionPolicyForm values={display} onChange={handleChange} />
         )}
         {activeSection === "categories" && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
             <p className="text-[14px] text-gray-700">
               카테고리(거래/서비스/커뮤니티/기능) 및 기능 토글은 전용 페이지에서 관리합니다.
             </p>
             <Link
               href="/admin/categories"
-              className="mt-3 inline-block rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white"
+              className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white"
             >
               카테고리 관리로 이동
             </Link>

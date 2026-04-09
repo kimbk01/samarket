@@ -19,7 +19,7 @@ export default function MyPointsPromotionsPage() {
         hideCtaStrip
       />
       <div className="mx-auto max-w-lg space-y-6 p-4">
-        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
           노출 신청·내 상품 연동은 별도 API 준비 후 제공됩니다. 데모용 목록·폼은 제거했습니다.
         </div>
         <PointBalanceCard balance={balance} />

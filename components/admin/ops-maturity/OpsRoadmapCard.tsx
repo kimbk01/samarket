@@ -35,7 +35,7 @@ interface OpsRoadmapCardProps {
 export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
   return (
     <div
-      className={`rounded-lg border p-4 ${
+      className={`rounded-ui-rect border p-4 ${
         item.status === "blocked"
           ? "border-red-200 bg-red-50/50"
           : item.status === "completed"

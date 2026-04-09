@@ -24,7 +24,7 @@ export function FeedFallbackStateCard() {
 
   if (states.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         상태가 없습니다.
       </div>
     );
@@ -45,7 +45,7 @@ export function FeedFallbackStateCard() {
         return (
           <div
             key={s.id}
-            className={`rounded-lg border p-4 ${
+            className={`rounded-ui-rect border p-4 ${
               mode === "kill_switch"
                 ? "border-amber-200 bg-amber-50/50"
                 : mode === "fallback"

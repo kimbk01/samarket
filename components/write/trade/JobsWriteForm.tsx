@@ -299,7 +299,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                 key={opt.value}
                 type="button"
                 onClick={() => setListingKind(opt.value)}
-                className={`rounded-xl border px-3 py-3 text-[14px] font-medium ${
+                className={`rounded-ui-rect border px-3 py-3 text-[14px] font-medium ${
                   listingKind === opt.value
                     ? "border-gray-900 bg-gray-900 text-white"
                     : "border-gray-200 bg-white text-gray-800"
@@ -325,7 +325,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
             onChange={(e) => setTitle(e.target.value)}
             placeholder={listingKind === "hire" ? "예) 주말 카페 서빙 알바" : "예) 평일 오전 청소 가능해요"}
             maxLength={JOB_TITLE_MAX}
-            className={`w-full rounded-lg border px-3 py-2.5 text-[15px] ${
+            className={`w-full rounded-ui-rect border px-3 py-2.5 text-[15px] ${
               errors.title ? "border-red-400 bg-red-50" : "border-gray-300"
             }`}
           />
@@ -362,7 +362,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                 value={workCategoryOther}
                 onChange={(e) => setWorkCategoryOther(e.target.value.slice(0, WORK_CATEGORY_OTHER_MAX))}
                 placeholder="예) 이벤트 스태프, 물류 피킹"
-                className={`w-full rounded-lg border px-3 py-2.5 text-[15px] ${
+                className={`w-full rounded-ui-rect border px-3 py-2.5 text-[15px] ${
                   errors.workCategoryOther ? "border-red-400 bg-red-50" : "border-gray-300"
                 }`}
               />
@@ -431,7 +431,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                         return end < v ? v : end;
                       });
                     }}
-                    className={`w-full rounded-lg border px-2 py-2 text-[14px] ${
+                    className={`w-full rounded-ui-rect border px-2 py-2 text-[14px] ${
                       errors.workDate ? "border-red-400 bg-red-50" : "border-gray-300"
                     }`}
                   />
@@ -457,7 +457,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                       const v = clampDateNotBefore(e.target.value, min);
                       setWorkDateEnd(v < floor ? floor : v);
                     }}
-                    className={`w-full rounded-lg border px-2 py-2 text-[14px] ${
+                    className={`w-full rounded-ui-rect border px-2 py-2 text-[14px] ${
                       errors.workDateEnd ? "border-red-400 bg-red-50" : "border-gray-300"
                     }`}
                   />
@@ -474,14 +474,14 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                   type="time"
                   value={workTimeStart}
                   onChange={(e) => setWorkTimeStart(e.target.value)}
-                  className="rounded-lg border border-gray-300 px-2 py-2 text-[14px]"
+                  className="rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
                 />
                 <span className="text-gray-400">~</span>
                 <input
                   type="time"
                   value={workTimeEnd}
                   onChange={(e) => setWorkTimeEnd(e.target.value)}
-                  className="rounded-lg border border-gray-300 px-2 py-2 text-[14px]"
+                  className="rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
                 />
               </div>
               <label className="mt-2 flex items-center gap-2">
@@ -501,7 +501,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="브랜드·상호"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px]"
+                className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px]"
               />
             </section>
           </>
@@ -516,7 +516,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                 value={availableTime}
                 onChange={(e) => setAvailableTime(e.target.value)}
                 placeholder="예) 평일 9~15시, 주말 종일"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px]"
+                className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px]"
               />
             </section>
             <section className="border-b border-gray-100 bg-white px-4 py-4">
@@ -559,7 +559,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2.5">
+          <div className="flex items-center gap-2 rounded-ui-rect border border-gray-300 px-3 py-2.5">
             <input
               type="text"
               inputMode="decimal"
@@ -584,7 +584,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
             placeholder="하는 일, 분위기, 준비물 등을 적어 주세요."
             rows={5}
             maxLength={JOB_DESCRIPTION_MAX}
-            className={`w-full resize-none rounded-lg border px-3 py-2.5 text-[14px] ${
+            className={`w-full resize-none rounded-ui-rect border px-3 py-2.5 text-[14px] ${
               errors.description ? "border-red-400 bg-red-50" : "border-gray-300"
             }`}
           />
@@ -602,7 +602,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
             value={contactPhone}
             onChange={(e) => setContactPhone(e.target.value.replace(/[^\d+\s-]/g, "").slice(0, 22))}
             placeholder={PH_MOBILE_PLACEHOLDER}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px]"
+            className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px]"
           />
           <label className="mt-2 flex items-start gap-2">
             <input

@@ -141,7 +141,7 @@ export function BottomNav() {
         const className = [
           "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors",
           storesTabOwnerLite && !isActive
-            ? "rounded-xl bg-white/70 shadow-[0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-gray-300/70"
+            ? "rounded-ui-rect bg-white/70 shadow-[0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-gray-300/70"
             : "",
           ownerStore && !isStoresTab && !isActive ? "opacity-80" : "",
         ]

@@ -19,7 +19,7 @@ export function SavedRegionCard({
   canRemove,
 }: SavedRegionCardProps) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-4">
+    <div className="flex items-center justify-between rounded-ui-rect border border-gray-100 bg-white p-4">
       <div>
         <p className="text-[15px] font-medium text-gray-900">{region.label}</p>
         <div className="mt-1 flex items-center gap-2">

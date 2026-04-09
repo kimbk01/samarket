@@ -15,13 +15,13 @@ export default function HomeReviewsPage() {
           에서 <strong className="text-gray-900">거래완료 확인</strong> 후 평가·후기를 작성할 수 있어요.
         </p>
         <MyWrittenReviewsView />
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
           <p className="mb-2 text-[13px] font-medium text-gray-800">바로가기</p>
           <ul className="space-y-2">
             <li>
               <Link
                 href="/home/purchases"
-                className="block rounded-lg border border-ig-border bg-ig-highlight px-3 py-2.5 text-[14px] font-medium text-foreground"
+                className="block rounded-ui-rect border border-ig-border bg-ig-highlight px-3 py-2.5 text-[14px] font-medium text-foreground"
               >
                 구매내역
               </Link>
@@ -29,7 +29,7 @@ export default function HomeReviewsPage() {
             <li>
               <Link
                 href="/home/sales"
-                className="block rounded-lg border border-ig-border bg-ig-highlight px-3 py-2.5 text-[14px] font-medium text-foreground"
+                className="block rounded-ui-rect border border-ig-border bg-ig-highlight px-3 py-2.5 text-[14px] font-medium text-foreground"
               >
                 판매내역
               </Link>

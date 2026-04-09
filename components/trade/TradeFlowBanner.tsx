@@ -100,7 +100,7 @@ export function TradeFlowBanner({
   const productStatus = room.product?.status ?? "";
   const listingPill = publicListingBadge(displayListing, productStatus);
 
-  const pillClass = "inline-flex items-center rounded-md border border-gray-200 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-900";
+  const pillClass = "inline-flex items-center rounded-ui-rect border border-gray-200 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-900";
 
   const base = `/api/trade/product-chat/${encodeURIComponent(effectiveProductChatId)}`;
   const postNotSold = (productStatus ?? "").toLowerCase() !== "sold";
@@ -149,7 +149,7 @@ export function TradeFlowBanner({
           <button
             type="button"
             onClick={() => onOpenReview()}
-            className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-800"
+            className="mt-2 rounded-ui-rect border border-slate-300 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-800"
           >
             후기 보내기
           </button>
@@ -159,7 +159,7 @@ export function TradeFlowBanner({
   }
 
   const actionBtnBase =
-    "rounded-md border px-2 py-1 text-[10px] font-semibold transition disabled:opacity-50";
+    "rounded-ui-rect border px-2 py-1 text-[10px] font-semibold transition disabled:opacity-50";
   const actionBtnIdle = "border-gray-200 bg-white text-gray-900 hover:bg-signature/10";
   const actionBtnActive = "border-signature bg-signature text-white";
 
@@ -231,7 +231,7 @@ export function TradeFlowBanner({
               type="button"
               disabled={!!loading}
               onClick={() => post(`${base}/buyer-confirm`, {})}
-              className="rounded-lg bg-signature px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+              className="rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
             >
               {loading === `${base}/buyer-confirm` ? "처리 중…" : "거래완료 확인"}
             </button>
@@ -239,14 +239,14 @@ export function TradeFlowBanner({
               type="button"
               disabled={!!loading}
               onClick={() => post(`${base}/buyer-issue`, {})}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-800 disabled:opacity-50"
+              className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-800 disabled:opacity-50"
             >
               문제있어요
             </button>
             <button
               type="button"
               onClick={dismissBuyerActions}
-              className="rounded-lg border border-transparent px-3 py-1.5 text-[12px] font-medium text-signature underline-offset-2 hover:underline"
+              className="rounded-ui-rect border border-transparent px-3 py-1.5 text-[12px] font-medium text-signature underline-offset-2 hover:underline"
             >
               나중에
             </button>
@@ -274,7 +274,7 @@ export function TradeFlowBanner({
                 <button
                   type="button"
                   onClick={() => onOpenReview()}
-                  className="rounded-lg bg-signature px-3 py-1.5 text-[12px] font-medium text-white"
+                  className="rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-medium text-white"
                 >
                   평가·후기 보내기
                 </button>

@@ -163,7 +163,7 @@ export function OrdersHubStoreAdminMenuTrigger() {
     hub.kind === "ok" && storeRow ? (
       <MyBusinessNavList
         groups={groups}
-        className="rounded-md shadow-none ring-1 ring-gray-100"
+        className="rounded-ui-rect shadow-none ring-1 ring-gray-100"
         onNavigate={() => setDrawerOpen(false)}
       />
     ) : hub.kind === "loading" ? (
@@ -215,7 +215,7 @@ export function OrdersHubStoreAdminMenuTrigger() {
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(false)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[20px] leading-none text-gray-600 hover:bg-gray-100"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-[20px] leading-none text-gray-600 hover:bg-gray-100"
                   aria-label="닫기"
                 >
                   ×
@@ -247,7 +247,7 @@ export function OrdersHubStoreAdminMenuTrigger() {
           type="button"
           onClick={() => setDrawerOpen(true)}
           disabled={hub.kind === "loading"}
-          className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-gray-900 hover:bg-gray-100 active:bg-gray-200 disabled:cursor-wait disabled:opacity-50"
+          className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-ui-rect text-gray-900 hover:bg-gray-100 active:bg-gray-200 disabled:cursor-wait disabled:opacity-50"
           aria-label="매장 관리자 메뉴 열기"
           aria-expanded={drawerOpen}
           aria-busy={hub.kind === "loading"}

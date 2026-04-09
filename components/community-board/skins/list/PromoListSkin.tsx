@@ -10,7 +10,7 @@ export function PromoListSkin({
   return (
     <div className="space-y-3">
       {posts.length === 0 ? (
-        <div className="py-12 text-center text-gray-500 bg-white rounded-lg">아직 게시글이 없어요.</div>
+        <div className="py-12 text-center text-gray-500 bg-white rounded-ui-rect">아직 게시글이 없어요.</div>
       ) : (
         posts.map((post) => {
           const thumb = post.images?.[0]?.url;
@@ -18,9 +18,9 @@ export function PromoListSkin({
             <Link
               key={post.id}
               href={`${baseHref}/${post.id}`}
-              className="flex gap-3 p-3 rounded-xl border-2 border-amber-100 bg-amber-50/50 hover:bg-amber-50 transition-colors"
+              className="flex gap-3 p-3 rounded-ui-rect border-2 border-amber-100 bg-amber-50/50 hover:bg-amber-50 transition-colors"
             >
-              <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-white">
+              <div className="w-24 h-24 shrink-0 rounded-ui-rect overflow-hidden bg-white">
                 {thumb ? (
                   <img src={thumb} alt="" className="w-full h-full object-cover" />
                 ) : (

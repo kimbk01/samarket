@@ -99,17 +99,17 @@ export function PostDetailMoreBottomSheet({
         aria-label="닫기"
       />
       <div
-        className={`relative w-full max-w-lg rounded-t-2xl bg-white px-4 pb-8 pt-2 shadow-xl transition-transform duration-300 ease-out ${
+        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 pb-8 pt-2 shadow-xl transition-transform duration-300 ease-out ${
           slideIn ? "translate-y-0" : "translate-y-full"
         }`}
       >
         <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-gray-300" aria-hidden />
 
-        <div className="rounded-xl border border-gray-100 bg-gray-50 p-2">
+        <div className="rounded-ui-rect border border-gray-100 bg-gray-50 p-2">
           <button
             type="button"
             onClick={handleHideAuthor}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[15px] text-gray-900 hover:bg-white"
+            className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-3 text-left text-[15px] text-gray-900 hover:bg-white"
           >
             <IconEyeSlash className="h-5 w-5 shrink-0 text-gray-500" />
             이 사용자의 글 보지 않기
@@ -118,7 +118,7 @@ export function PostDetailMoreBottomSheet({
             <button
               type="button"
               onClick={handleReport}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[15px] font-medium text-red-600 hover:bg-red-50"
+              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-3 text-left text-[15px] font-medium text-red-600 hover:bg-red-50"
             >
               <IconReportAlert className="h-5 w-5 shrink-0 text-red-500" />
               신고하기
@@ -129,7 +129,7 @@ export function PostDetailMoreBottomSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-3 w-full rounded-xl bg-gray-100 py-3.5 text-[15px] font-medium text-gray-800 hover:bg-gray-200"
+          className="mt-3 w-full rounded-ui-rect bg-gray-100 py-3.5 text-[15px] font-medium text-gray-800 hover:bg-gray-200"
         >
           닫기
         </button>

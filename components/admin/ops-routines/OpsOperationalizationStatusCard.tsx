@@ -28,7 +28,7 @@ export function OpsOperationalizationStatusCard() {
 
   return (
     <div className="space-y-4">
-      <div className={`rounded-lg border p-4 ${statusBg}`}>
+      <div className={`rounded-ui-rect border p-4 ${statusBg}`}>
         <p className="text-[12px] text-gray-500">운영 체계 정착 상태</p>
         <p className={`text-[22px] font-semibold ${statusClass}`}>
           {getOperationalizationLabel(status.overallStatus)}
@@ -39,19 +39,19 @@ export function OpsOperationalizationStatusCard() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">루틴 완료율</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {status.routineCompletionRate}%
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">지연 / 이월</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {status.overdueRoutineCount} / {status.carryOverCount}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">문서 최신화 / 액션 마감율</p>
           <p className="text-[14px] text-gray-700">
             {status.documentationFreshnessRate}% / {status.actionClosureRate}%

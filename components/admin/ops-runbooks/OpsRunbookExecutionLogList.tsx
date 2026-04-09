@@ -27,7 +27,7 @@ export function OpsRunbookExecutionLogList({ executionId }: OpsRunbookExecutionL
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
         실행 로그가 없습니다.
       </div>
     );

@@ -96,14 +96,14 @@ export function AdminTradeCompletionPage() {
         {t("admin_page_trade_completion_desc")}
       </p>
       {error ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
           {error}
         </div>
       ) : null}
       {loading ? (
         <p className="text-[14px] text-gray-500">{t("common_loading")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white shadow-sm">
           <table className="w-full min-w-[960px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-gray-600">

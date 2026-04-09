@@ -2,8 +2,8 @@ import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 function SkeletonRow() {
   return (
-    <div className="flex gap-3 rounded-xl border border-black/[0.06] bg-white p-3 shadow-sm">
-      <div className="h-[72px] w-[72px] shrink-0 animate-pulse rounded-lg bg-gray-200/90" aria-hidden />
+    <div className="flex gap-3 rounded-ui-rect border border-black/[0.06] bg-white p-3 shadow-sm">
+      <div className="h-[72px] w-[72px] shrink-0 animate-pulse rounded-ui-rect bg-gray-200/90" aria-hidden />
       <div className="min-w-0 flex-1 space-y-2 py-0.5">
         <div className="h-3 w-16 animate-pulse rounded bg-gray-200/80" />
         <div className="h-4 w-[88%] max-w-md animate-pulse rounded bg-gray-200/90" />

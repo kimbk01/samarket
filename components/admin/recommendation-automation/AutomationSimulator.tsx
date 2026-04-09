@@ -73,7 +73,7 @@ export function AutomationSimulator() {
         </button>
       </div>
       {result && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
           <p className="mb-2 text-[14px] font-medium text-gray-900">결과</p>
           <ul className="space-y-1 text-[13px] text-gray-700">
             <li>Fallback 필요: {result.shouldFallback ? "예" : "아니오"}</li>

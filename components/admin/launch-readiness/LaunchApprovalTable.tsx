@@ -50,7 +50,7 @@ export function LaunchApprovalTable() {
       </p>
 
       {approvals.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           해당 단계 승인 내역이 없습니다.
         </div>
       ) : (

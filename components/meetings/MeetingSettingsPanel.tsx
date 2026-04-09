@@ -61,7 +61,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
   };
 
   return (
-    <div id="meeting-settings-accordion" className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div id="meeting-settings-accordion" className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
       {/* 헤더 (토글) */}
       <button
         type="button"
@@ -88,7 +88,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
               rows={3}
               maxLength={500}
               placeholder="모임에 오신 것을 환영합니다! ..."
-              className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+              className="w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
             />
             <p className="mt-0.5 text-right text-[10px] text-gray-400">{welcomeMsg.length}/500</p>
           </div>
@@ -104,7 +104,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
               max={500}
               value={maxMembers}
               onChange={(e) => setMaxMembers(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-[13px] text-gray-800 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+              className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[13px] text-gray-800 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
               placeholder={String(meeting.max_members || 20)}
             />
           </div>
@@ -160,7 +160,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
             type="button"
             disabled={saving}
             onClick={() => void onSave()}
-            className="w-full rounded-xl bg-emerald-500 py-2.5 text-[14px] font-semibold text-white disabled:opacity-50"
+            className="w-full rounded-ui-rect bg-emerald-500 py-2.5 text-[14px] font-semibold text-white disabled:opacity-50"
           >
             {saving ? "저장 중…" : "설정 저장"}
           </button>

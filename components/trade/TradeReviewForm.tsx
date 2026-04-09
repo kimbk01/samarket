@@ -169,7 +169,7 @@ export function TradeReviewForm({
           value={comment}
           onChange={(e) => setComment(e.target.value.slice(0, 200))}
           rows={2}
-          className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px]"
+          className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[13px]"
           placeholder="짧게 남겨 주세요"
         />
       </div>
@@ -193,14 +193,14 @@ export function TradeReviewForm({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-lg border border-gray-200 py-2.5 text-[14px] text-gray-700"
+            className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[14px] text-gray-700"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+            className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
           >
             {loading ? "등록 중..." : "후기 등록"}
           </button>

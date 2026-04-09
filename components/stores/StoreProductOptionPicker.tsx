@@ -42,7 +42,7 @@ export function StoreProductOptionPicker({ groups, value, onChange, disabled }: 
   };
 
   const btnBase =
-    "flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm transition-colors";
+    "flex w-full items-center justify-between rounded-ui-rect border px-3 py-2.5 text-left text-sm transition-colors";
   const btnOn = "border-signature bg-signature/5 text-gray-900";
   const btnOff = "border-gray-200 bg-white text-gray-900";
 

@@ -5,11 +5,11 @@ export default function MyStoreOrdersLoading() {
   return (
     <div className={`min-h-[50vh] bg-[#F0F2F5] pb-10 dark:bg-[#18191A] ${APP_MAIN_GUTTER_X_CLASS} pt-2 sm:pt-3`}>
       <div
-        className="mb-3 h-12 animate-pulse rounded-lg bg-white/90 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]"
+        className="mb-3 h-12 animate-pulse rounded-ui-rect bg-white/90 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]"
         aria-hidden
       />
       <div
-        className="rounded-lg bg-white px-4 py-12 text-center text-[15px] text-[#65676B] shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:text-[#B0B3B8] dark:ring-white/[0.08]"
+        className="rounded-ui-rect bg-white px-4 py-12 text-center text-[15px] text-[#65676B] shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:text-[#B0B3B8] dark:ring-white/[0.08]"
       >
         불러오는 중…
       </div>

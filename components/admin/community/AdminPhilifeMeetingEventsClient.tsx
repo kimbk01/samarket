@@ -87,7 +87,7 @@ export function AdminPhilifeMeetingEventsClient() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-3">
         <label className="flex flex-col gap-1 text-[12px] text-gray-600">
           모임 ID (UUID)
           <input
@@ -116,20 +116,20 @@ export function AdminPhilifeMeetingEventsClient() {
           type="button"
           disabled={loading}
           onClick={onSearch}
-          className="rounded-lg bg-sky-600 px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50"
+          className="rounded-ui-rect bg-sky-600 px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50"
         >
           조회
         </button>
         <button
           type="button"
           onClick={downloadCsv}
-          className="rounded-lg border border-gray-400 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
+          className="rounded-ui-rect border border-gray-400 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
         >
           CSV 내려받기 (최대 500건)
         </button>
       </div>
       {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
         <table className="min-w-full text-left text-[12px] text-gray-800">
           <thead className="bg-gray-50 text-[11px] uppercase text-gray-500">
             <tr>
@@ -182,7 +182,7 @@ export function AdminPhilifeMeetingEventsClient() {
           type="button"
           disabled={loading}
           onClick={() => void load({ append: true })}
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 text-[13px] disabled:opacity-50"
+          className="w-full rounded-ui-rect border border-gray-300 bg-white py-2 text-[13px] disabled:opacity-50"
         >
           {loading ? "불러오는 중…" : "더보기"}
         </button>

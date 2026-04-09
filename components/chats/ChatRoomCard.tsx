@@ -94,7 +94,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
   const rowInner = (
     <>
       <div className="relative shrink-0 overflow-visible">
-        <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-ig-highlight">
+        <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight">
           {product?.thumbnail ? (
             <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
           ) : isExchangeThumb ? (

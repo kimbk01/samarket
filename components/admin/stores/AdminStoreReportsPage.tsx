@@ -91,7 +91,7 @@ export function AdminStoreReportsPage() {
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <li key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <li key={r.id} className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="font-medium text-gray-900">
                   {r.store_name || r.store_id}
@@ -126,7 +126,7 @@ export function AdminStoreReportsPage() {
                 <div className="mt-3 space-y-2">
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs"
+                    className="w-full rounded-ui-rect border border-gray-200 px-2 py-1.5 text-xs"
                     placeholder="처리 메모 (선택)"
                     value={memoById[r.id] ?? ""}
                     onChange={(e) => setMemoById((m) => ({ ...m, [r.id]: e.target.value }))}
@@ -135,7 +135,7 @@ export function AdminStoreReportsPage() {
                     <button
                       type="button"
                       disabled={busyId === r.id}
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-800 disabled:opacity-50"
+                      className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-800 disabled:opacity-50"
                       onClick={() => void patchStatus(r.id, "dismissed")}
                     >
                       기각
@@ -143,7 +143,7 @@ export function AdminStoreReportsPage() {
                     <button
                       type="button"
                       disabled={busyId === r.id}
-                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                      className="rounded-ui-rect bg-gray-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                       onClick={() => void patchStatus(r.id, "actioned")}
                     >
                       조치 완료

@@ -106,7 +106,7 @@ export function ChatRoomScreen({
     embedded && embeddedFill
       ? "flex min-h-[180px] flex-1 flex-col items-center justify-center px-4 text-center"
       : embedded
-        ? "min-h-[240px] rounded-2xl border border-gray-100 bg-white"
+        ? "min-h-[240px] rounded-ui-rect border border-gray-100 bg-white"
         : "min-h-[50vh]";
 
   if (!roomId) {
@@ -197,7 +197,7 @@ export function ChatRoomScreen({
       : tradeHubColumnLayout && !embedded
         ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-white" : "bg-[#e8e4df]"}`
         : `${igDmOuter ? "bg-white" : "bg-[#e8e4df]"} ${
-            embedded ? "overflow-hidden rounded-2xl border border-gray-100 shadow-sm" : viewportClass
+            embedded ? "overflow-hidden rounded-ui-rect border border-gray-100 shadow-sm" : viewportClass
           }`;
 
   return (

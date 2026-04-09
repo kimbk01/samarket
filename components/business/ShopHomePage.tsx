@@ -17,7 +17,7 @@ export function ShopHomePage({ slug }: ShopHomePageProps) {
 
   if (!profile) {
     return (
-      <div className="rounded-lg bg-white p-8 text-center">
+      <div className="rounded-ui-rect bg-white p-8 text-center">
         <p className="text-[14px] text-gray-500">상점을 찾을 수 없거나 비공개입니다.</p>
         <Link href="/" className="mt-3 inline-block text-[14px] text-signature">
           홈으로
@@ -34,7 +34,7 @@ export function ShopHomePage({ slug }: ShopHomePageProps) {
   return (
     <div className="space-y-6">
       <BusinessProfileView profile={profile} isOwner={false} />
-      <div className="rounded-lg border border-gray-200 bg-white p-3 text-center space-y-2">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-3 text-center space-y-2">
         {!operatorOk && (
           <p className="text-[12px] text-gray-500">
             상점 운영자 계정(ownerUserId)이 로그인 UUID와 연결되면 운영 기능을 더 넓힐 수 있어요.

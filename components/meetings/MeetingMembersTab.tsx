@@ -198,7 +198,7 @@ function MemberItem({
             <button
               type="button"
               onClick={() => { setShowActions(false); onReport?.(member.userId); }}
-              className="rounded-xl bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-gray-700"
+              className="rounded-ui-rect bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-gray-700"
             >
               🚨 신고
             </button>
@@ -209,7 +209,7 @@ function MemberItem({
                 type="button"
                 disabled={busy}
                 onClick={() => void doKick()}
-                className="rounded-xl bg-orange-50 px-3 py-1.5 text-[12px] font-medium text-orange-700 disabled:opacity-50"
+                className="rounded-ui-rect bg-orange-50 px-3 py-1.5 text-[12px] font-medium text-orange-700 disabled:opacity-50"
               >
                 강퇴
               </button>
@@ -217,7 +217,7 @@ function MemberItem({
                 type="button"
                 disabled={busy}
                 onClick={() => void doBan()}
-                className="rounded-xl bg-red-50 px-3 py-1.5 text-[12px] font-medium text-red-700 disabled:opacity-50"
+                className="rounded-ui-rect bg-red-50 px-3 py-1.5 text-[12px] font-medium text-red-700 disabled:opacity-50"
               >
                 차단
               </button>
@@ -226,7 +226,7 @@ function MemberItem({
           <button
             type="button"
             onClick={() => setShowActions(false)}
-            className="rounded-xl border border-gray-200 px-3 py-1.5 text-[12px] text-gray-400"
+            className="rounded-ui-rect border border-gray-200 px-3 py-1.5 text-[12px] text-gray-400"
           >
             닫기
           </button>
@@ -269,7 +269,7 @@ function PendingMemberRow({
   };
 
   return (
-    <li className="rounded-xl border border-amber-100 bg-white px-3 py-3 shadow-sm">
+    <li className="rounded-ui-rect border border-amber-100 bg-white px-3 py-3 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[13px] font-bold text-amber-900">
           {(member.name || "?").charAt(0)}
@@ -293,7 +293,7 @@ function PendingMemberRow({
           type="button"
           disabled={busy}
           onClick={() => void handle("approve")}
-          className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-[13px] font-semibold text-white shadow-sm active:bg-emerald-700 disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-emerald-600 py-2.5 text-[13px] font-semibold text-white shadow-sm active:bg-emerald-700 disabled:opacity-50"
         >
           승인
         </button>
@@ -301,7 +301,7 @@ function PendingMemberRow({
           type="button"
           disabled={busy}
           onClick={() => void handle("reject")}
-          className="flex-1 rounded-xl border border-amber-200 bg-amber-50/80 py-2.5 text-[13px] font-semibold text-amber-900 disabled:opacity-50"
+          className="flex-1 rounded-ui-rect border border-amber-200 bg-amber-50/80 py-2.5 text-[13px] font-semibold text-amber-900 disabled:opacity-50"
         >
           거절
         </button>
@@ -382,7 +382,7 @@ export function MeetingMembersTab({
       )}
 
       {/* ── 정원 현황 + 아바타 미리보기 ────────────────── */}
-      <div className="rounded-2xl border border-gray-100 bg-white px-4 py-4 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-4 shadow-sm">
         <div className="flex items-center justify-between">
           <span className="text-[14px] font-semibold text-gray-900">참여 멤버</span>
           <span className="text-[13px] text-gray-500">
@@ -426,7 +426,7 @@ export function MeetingMembersTab({
       {showPendingEmpty ? (
         <div
           id="meeting-members-pending"
-          className="scroll-mt-4 rounded-2xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-6 text-center shadow-sm"
+          className="scroll-mt-4 rounded-ui-rect border border-dashed border-amber-200 bg-amber-50/40 px-4 py-6 text-center shadow-sm"
         >
           <p className="text-[13px] font-medium text-amber-950">가입 요청 관리</p>
           <p className="mt-1 text-[12px] text-amber-800/80">대기 중인 가입 요청이 없습니다.</p>
@@ -436,7 +436,7 @@ export function MeetingMembersTab({
       {isHost && localPending.length > 0 && meetingId && (
         <div
           id="meeting-members-pending"
-          className="scroll-mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 shadow-sm"
+          className="scroll-mt-4 rounded-ui-rect border border-amber-200 bg-amber-50/70 p-3 shadow-sm"
         >
           <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
             <h2 className="text-[13px] font-semibold text-amber-950">가입 승인</h2>
@@ -460,7 +460,7 @@ export function MeetingMembersTab({
       {/* ── 멤버 목록 (⋮「참여자 관리」앵커) ───────────────── */}
       <div
         id="meeting-members-joined"
-        className="scroll-mt-4 rounded-2xl border border-gray-100 bg-white px-4 shadow-sm"
+        className="scroll-mt-4 rounded-ui-rect border border-gray-100 bg-white px-4 shadow-sm"
       >
         {sorted.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-gray-400">아직 참여자가 없습니다.</p>

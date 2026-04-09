@@ -12,4 +12,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## UI 토큰
 
 - 색·서피스·테두리 등은 **`app/design-tokens.css`** (`--ui-*`) 단일 소스. 신규 화면은 hex 대신 `bg-ui-page` 등 시맨틱 클래스 또는 `var(--ui-*)` 사용. 요약: `docs/design-tokens.md`.
+- 사각형 카드·섹션·시트 모서리는 **`rounded-ui-rect`** (4px, `--ui-radius-rect`). 원·pill만 **`rounded-full`** 유지. 한 줄에 `rounded-full` 과 다른 라운드가 섞인 템플릿 문자열은 수동으로 분기별 클래스 확인.
 <!-- END:nextjs-agent-rules -->

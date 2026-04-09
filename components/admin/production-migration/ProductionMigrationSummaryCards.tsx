@@ -18,26 +18,26 @@ export function ProductionMigrationSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">테이블</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.productionReadyTables} / {summary.totalTables} 준비
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">RLS 정책</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.verifiedRlsChecks} / {summary.totalRlsChecks} 검증
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">인프라</p>
           <p className="text-[20px] font-semibold text-gray-900">
             {summary.readyInfraChecks} / {summary.totalInfraChecks} 준비
           </p>
         </div>
         <div
-          className={`rounded-lg border p-4 ${
+          className={`rounded-ui-rect border p-4 ${
             summary.goLiveRecommendation === "no_go"
               ? "border-red-200 bg-red-50/50"
               : summary.goLiveRecommendation === "conditional_go"
@@ -57,7 +57,7 @@ export function ProductionMigrationSummaryCards() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">배포 체크리스트</p>
         <p className="text-[14px] text-gray-700">
           완료 {summary.doneLaunchChecks} / {summary.totalLaunchChecks}

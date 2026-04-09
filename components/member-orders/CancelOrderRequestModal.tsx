@@ -30,7 +30,7 @@ export function CancelOrderRequestModal({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 sm:items-center">
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl">
+      <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] bg-white p-4 shadow-xl sm:rounded-ui-rect">
         <h2 className="text-base font-bold text-gray-900">{t("member_order_cancel_title")}</h2>
         <p className="mt-1 text-xs text-gray-600">
           {t("member_order_cancel_notice")}
@@ -39,7 +39,7 @@ export function CancelOrderRequestModal({
           {PRESETS.map((p) => (
             <label
               key={p}
-              className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-100 px-3 py-2 text-sm has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50"
+              className="flex cursor-pointer items-center gap-2 rounded-ui-rect border border-gray-100 px-3 py-2 text-sm has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50"
             >
               <input type="radio" name="cancel-reason" checked={preset === p} onChange={() => setPreset(p)} />
               {tt(p)}
@@ -53,7 +53,7 @@ export function CancelOrderRequestModal({
               value={extra}
               onChange={(e) => setExtra(e.target.value)}
               rows={3}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
               placeholder={t("member_order_cancel_detail_placeholder")}
             />
           </label>
@@ -65,7 +65,7 @@ export function CancelOrderRequestModal({
               setExtra("");
               onClose();
             }}
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700"
+            className="rounded-ui-rect border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700"
           >
             {t("nav_close")}
           </button>
@@ -77,7 +77,7 @@ export function CancelOrderRequestModal({
               setExtra("");
               onClose();
             }}
-            className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-ui-rect bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
           >
             {t("member_order_request_action")}
           </button>

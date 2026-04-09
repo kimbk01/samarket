@@ -31,7 +31,7 @@ export function StoreHorizontalStoreTile({
   return (
     <article className="w-[148px] shrink-0">
       <Link href={storeHref} className="block">
-        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-ig-highlight ring-1 ring-black/[0.06]">
+        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-ui-rect bg-ig-highlight ring-1 ring-black/[0.06]">
           {store.profileImageUrl ?
             <img src={store.profileImageUrl} alt="" className="h-full w-full object-cover" />
           : <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-neutral-200 to-neutral-300 text-2xl text-white/90">
@@ -40,12 +40,12 @@ export function StoreHorizontalStoreTile({
               : store.nameKo.slice(0, 1)}
             </div>
           }
-          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-black/[0.04]" />
+          <div className="pointer-events-none absolute inset-0 rounded-ui-rect ring-1 ring-inset ring-black/[0.04]" />
           <div className="absolute right-1.5 top-1.5 pointer-events-auto">
             <StoreCardFavoriteIcon slug={store.slug} className="h-8 w-8 bg-black/25" />
           </div>
           {store.isFeatured ?
-            <span className="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">
+            <span className="absolute left-2 top-2 rounded-ui-rect bg-black/55 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">
               추천
             </span>
           : null}

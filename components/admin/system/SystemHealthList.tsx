@@ -12,7 +12,7 @@ export function SystemHealthList() {
     <div className="space-y-4">
       <p className="text-[12px] text-gray-500">서비스 health 체크</p>
       {health.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           서비스 상태 없음
         </div>
       ) : (
@@ -20,7 +20,7 @@ export function SystemHealthList() {
           {health.map((h) => (
             <li
               key={h.id}
-              className={`flex flex-wrap items-center justify-between rounded-lg border p-3 ${
+              className={`flex flex-wrap items-center justify-between rounded-ui-rect border p-3 ${
                 h.status === "critical"
                   ? "border-red-200 bg-red-50/30"
                   : h.status === "warning"

@@ -85,7 +85,7 @@ export function OwnerStoreOrderChatModal({ open, onClose, storeId, orderId, anch
         onClick={onClose}
       />
       <div
-        className={`absolute inset-x-0 z-10 mx-auto flex max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl ${BOTTOM_OVER_NAV}`}
+        className={`absolute inset-x-0 z-10 mx-auto flex max-w-4xl flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] border border-gray-200 bg-white shadow-2xl ${BOTTOM_OVER_NAV}`}
         style={{ top: layoutTopPx }}
         role="dialog"
         aria-modal="true"

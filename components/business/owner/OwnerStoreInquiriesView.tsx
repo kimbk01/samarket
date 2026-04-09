@@ -150,9 +150,9 @@ export function OwnerStoreInquiriesView() {
   }
   if (state.kind === "unauth") {
     return (
-      <div className="rounded-xl bg-white p-6 text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-600 shadow-sm">
         <p>로그인 후 고객 문의를 확인하고 바로 답변할 수 있습니다.</p>
-        <Link href={loginHref} className="mt-3 inline-flex rounded-lg bg-signature px-4 py-2 font-semibold text-white">
+        <Link href={loginHref} className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white">
           로그인하고 문의 보기
         </Link>
       </div>
@@ -163,7 +163,7 @@ export function OwnerStoreInquiriesView() {
   }
   if (state.kind === "no_store") {
     return (
-      <div className="rounded-xl bg-white p-6 text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-600 shadow-sm">
         <p>등록된 매장이 없습니다.</p>
         <Link href="/my/business/apply" className="mt-2 inline-block text-signature">
           매장 신청
@@ -186,11 +186,11 @@ export function OwnerStoreInquiriesView() {
     <div className={OWNER_STORE_STACK_Y_CLASS}>
       <p className="text-sm text-gray-600">{state.storeName}</p>
       {state.rows.length === 0 ? (
-        <p className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm">받은 문의가 없습니다.</p>
+        <p className="rounded-ui-rect bg-white p-6 text-sm text-gray-500 shadow-sm">받은 문의가 없습니다.</p>
       ) : (
         <ul className={OWNER_STORE_STACK_Y_CLASS}>
           {state.rows.map((r) => (
-            <li key={r.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <li key={r.id} className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
               <p className="text-xs text-gray-500">
                 {STATUS_LABEL[r.status] ?? r.status} ·{" "}
                 <span className="font-mono text-[11px]">{r.from_user_id}</span>
@@ -199,7 +199,7 @@ export function OwnerStoreInquiriesView() {
               <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">{r.content}</p>
               <p className="mt-1 text-[11px] text-gray-400">{formatDate(r.created_at)}</p>
               {r.answer ? (
-                <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-800">
+                <div className="mt-2 rounded-ui-rect bg-gray-50 px-3 py-2 text-sm text-gray-800">
                   <span className="text-xs text-gray-500">내 답변</span>
                   <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                 </div>
@@ -214,14 +214,14 @@ export function OwnerStoreInquiriesView() {
                     placeholder="답변을 입력하세요"
                     rows={3}
                     disabled={busyId !== null}
-                    className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    className="w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
                   />
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       disabled={busyId !== null || !(draftById[r.id] ?? "").trim()}
                       onClick={() => void sendAnswer(r.id)}
-                      className="rounded-lg bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                     >
                       {busyId === r.id ? "…" : "답변 등록"}
                     </button>
@@ -229,7 +229,7 @@ export function OwnerStoreInquiriesView() {
                       type="button"
                       disabled={busyId !== null}
                       onClick={() => void closeThread(r.id)}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700"
+                      className="rounded-ui-rect border border-gray-200 px-4 py-2 text-sm text-gray-700"
                     >
                       종료
                     </button>

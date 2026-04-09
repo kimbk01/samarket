@@ -80,7 +80,7 @@ export function MyReviewsView() {
               const targetLabel = TARGET_LABEL[item.targetUserId] ?? (item.role === "buyer_to_seller" ? "판매자" : "구매자");
               return (
                 <li key={`${item.transaction.id}-${item.role}`}>
-                  <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3">
+                  <div className="flex items-center justify-between rounded-ui-rect border border-gray-100 bg-white p-3">
                     <div>
                       <p className="text-[14px] font-medium text-gray-900">
                         {title}
@@ -102,7 +102,7 @@ export function MyReviewsView() {
                           productTitle: title,
                         })
                       }
-                      className="rounded-lg bg-signature px-3 py-1.5 text-[13px] font-medium text-white"
+                      className="rounded-ui-rect bg-signature px-3 py-1.5 text-[13px] font-medium text-white"
                     >
                       후기 쓰기
                     </button>

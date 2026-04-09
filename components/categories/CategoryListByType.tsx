@@ -66,7 +66,7 @@ export function CategoryListByType({
             <Link
               key={c.id}
               href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
-              className="flex flex-col items-center rounded-xl bg-white p-3 shadow-sm"
+              className="flex flex-col items-center rounded-ui-rect bg-white p-3 shadow-sm"
             >
               <span className="text-[13px] font-medium text-gray-900">{c.name}</span>
               <span className="mt-0.5 text-[11px] text-gray-500">
@@ -93,7 +93,7 @@ export function CategoryListByType({
                 <li key={c.id}>
                   <Link
                     href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
-                    className="block rounded-lg bg-white px-3 py-2 text-[14px] text-gray-900"
+                    className="block rounded-ui-rect bg-white px-3 py-2 text-[14px] text-gray-900"
                   >
                     {c.name}
                   </Link>

@@ -31,7 +31,7 @@ export function SearchInputBar({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-1 gap-2">
-      <div className="flex h-10 flex-1 items-stretch gap-2 rounded-[20px] bg-[#F7F7F7] px-4">
+      <div className="flex h-10 flex-1 items-stretch gap-2 rounded-ui-rect bg-[#F7F7F7] px-4">
         <SearchIcon />
         <input
           ref={inputRef}
@@ -45,7 +45,7 @@ export function SearchInputBar({
       </div>
       <button
         type="submit"
-        className="flex min-h-[44px] shrink-0 items-center rounded-[12px] bg-signature px-4 text-[15px] font-semibold text-white"
+        className="flex min-h-[44px] shrink-0 items-center rounded-ui-rect bg-signature px-4 text-[15px] font-semibold text-white"
       >
         검색
       </button>

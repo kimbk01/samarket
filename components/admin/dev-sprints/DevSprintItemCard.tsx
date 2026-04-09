@@ -17,7 +17,7 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
 
   return (
     <div
-      className={`rounded-lg border p-4 ${
+      className={`rounded-ui-rect border p-4 ${
         isBlocked ? "border-red-200 bg-red-50/50" : "border-gray-200 bg-white"
       }`}
     >

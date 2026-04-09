@@ -29,7 +29,7 @@ export function WriteLauncherItem({ category, onNavigate }: WriteLauncherItemPro
     <button
       type="button"
       onClick={handleClick}
-      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-neutral-100/90"
+      className="flex w-full items-center gap-3 rounded-ui-rect px-4 py-3 text-left transition-colors hover:bg-neutral-100/90"
     >
       <span
         className="box-border flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-700 aspect-square"

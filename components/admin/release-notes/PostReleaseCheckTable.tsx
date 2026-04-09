@@ -87,13 +87,13 @@ export function PostReleaseCheckTable() {
       </div>
 
       {criticalBlocked.length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50/50 p-3 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50/50 p-3 text-[13px] text-red-800">
           critical 배포 후 검증이 블로킹된 항목이 {criticalBlocked.length}건 있습니다.
         </div>
       )}
 
       {checks.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           해당 조건의 배포 후 검증 항목이 없습니다.
         </div>
       ) : (

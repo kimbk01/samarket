@@ -61,7 +61,7 @@ export function QaIssueTable() {
       </p>
 
       {logs.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           QA 이슈가 없습니다.
         </div>
       ) : (

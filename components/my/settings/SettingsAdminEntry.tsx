@@ -14,14 +14,14 @@ export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminE
   const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
   if (!showAdmin && !showStoreOwner) return null;
   return (
-    <section className="mt-6 rounded-xl bg-white px-4 py-4 shadow-sm">
+    <section className="mt-6 rounded-ui-rect bg-white px-4 py-4 shadow-sm">
       <div className="mb-3">
         <h2 className="text-[13px] font-medium text-gray-500">보조 바로가기</h2>
         <p className="mt-1 text-[12px] leading-relaxed text-gray-500">
           운영 기능이 필요할 때만 여는 보조 진입입니다. 주문과 매장 운영 흐름은 매장 메뉴에서 이어집니다.
         </p>
       </div>
-      <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+      <div className="divide-y divide-gray-100 rounded-ui-rect border border-gray-100">
         {showAdmin ? (
           <Link
             href="/admin"

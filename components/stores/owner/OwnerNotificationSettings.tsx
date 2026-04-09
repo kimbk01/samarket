@@ -71,14 +71,14 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
 
   if (!userId || !p) {
     return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
         매장(오너) 역할에서만 알림 설정을 바꿀 수 있어요.
       </p>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm">
       <div className="border-b border-gray-100 px-4 py-3">
         <h2 className="text-sm font-bold text-gray-900">매장 알림 (시뮬)</h2>
         <p className="mt-1 text-[12px] text-gray-500 font-mono">{userId}</p>

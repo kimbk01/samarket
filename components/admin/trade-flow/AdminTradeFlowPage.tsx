@@ -153,7 +153,7 @@ export function AdminTradeFlowPage() {
     <div className="space-y-6">
       <AdminPageHeader title="거래 흐름 · 온도 로그" />
       {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
           {error}
         </div>
       )}
@@ -161,7 +161,7 @@ export function AdminTradeFlowPage() {
         <p className="text-[14px] text-gray-500">불러오는 중…</p>
       ) : (
         <>
-          <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <section className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
             <h2 className="border-b border-gray-100 px-4 py-3 text-[15px] font-semibold text-gray-900">
               product_chats 거래 상태 (최대 200건)
             </h2>
@@ -233,7 +233,7 @@ export function AdminTradeFlowPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <section className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
             <h2 className="flex flex-wrap items-baseline gap-x-2 border-b border-gray-100 px-4 py-3 text-[15px] font-semibold text-gray-900">
               거래 후기 (최근 60건)
               <Link href="/admin/reviews" className="text-[13px] font-normal text-signature hover:underline">
@@ -304,7 +304,7 @@ export function AdminTradeFlowPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <section className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
             <h2 className="border-b border-gray-100 px-4 py-3 text-[15px] font-semibold text-gray-900">
               reputation_logs (최근 80건)
             </h2>

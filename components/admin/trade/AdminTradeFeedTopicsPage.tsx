@@ -50,18 +50,18 @@ export function AdminTradeFeedTopicsPage() {
       </p>
 
       {supabaseAvailable === false && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
           Supabase가 연결되지 않았습니다. <code className="text-[12px]">categories.parent_id</code> 마이그레이션 적용
           후 주제를 저장할 수 있습니다.
         </div>
       )}
 
       {loading ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">
           불러오는 중…
         </div>
       ) : parents.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">
           거래 메뉴가 없습니다.{" "}
           <Link href="/admin/menus/trade" className="text-signature hover:underline">
             메뉴 (거래)
@@ -70,11 +70,11 @@ export function AdminTradeFeedTopicsPage() {
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4">
+          <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-gray-200 bg-white p-4">
             <label className="flex flex-col gap-1 text-[13px]">
               <span className="font-medium text-gray-700">상위 메뉴 (1행 칩)</span>
               <select
-                className="min-w-[240px] rounded-lg border border-gray-200 px-3 py-2 text-[14px]"
+                className="min-w-[240px] rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
                 value={selectedId}
                 onChange={(e) => setSelectedId(e.target.value)}
               >
@@ -88,7 +88,7 @@ export function AdminTradeFeedTopicsPage() {
           </div>
 
           {selected ? (
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
               <TradeSubtopicsPanel
                 parent={selected}
                 allCategories={list}

@@ -41,7 +41,7 @@ export function OpsKnowledgeSearchBar({
   onSearch,
 }: OpsKnowledgeSearchBarProps) {
   return (
-    <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+    <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap gap-2">
         <input
           type="search"

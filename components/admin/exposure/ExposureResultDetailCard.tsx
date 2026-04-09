@@ -16,7 +16,7 @@ export function ExposureResultDetailCard({
   onClose,
 }: ExposureResultDetailCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-[15px] font-medium text-gray-900">
           점수 상세: {candidate.title} ({candidate.id})

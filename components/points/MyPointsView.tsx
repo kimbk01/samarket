@@ -79,7 +79,7 @@ export function MyPointsView() {
         <button
           type="button"
           onClick={() => setShowChargeForm(true)}
-          className="mt-4 rounded-xl border border-white/40 bg-white/20 px-4 py-2 text-[14px] font-semibold text-white backdrop-blur hover:bg-white/30"
+          className="mt-4 rounded-ui-rect border border-white/40 bg-white/20 px-4 py-2 text-[14px] font-semibold text-white backdrop-blur hover:bg-white/30"
         >
           + 포인트 충전 신청
         </button>
@@ -138,7 +138,7 @@ export function MyPointsView() {
                   color: "text-red-600",
                 },
               ].map(({ label, value, color }) => (
-                <div key={label} className="rounded-2xl border border-gray-100 bg-white px-4 py-3 text-center shadow-sm">
+                <div key={label} className="rounded-ui-rect border border-gray-100 bg-white px-4 py-3 text-center shadow-sm">
                   <p className={`text-[18px] font-bold ${color}`}>{value}</p>
                   <p className="mt-1 text-[11px] text-gray-500">{label}</p>
                 </div>
@@ -146,7 +146,7 @@ export function MyPointsView() {
             </div>
 
             {/* 최근 원장 5건 */}
-            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
               <div className="border-b border-gray-100 px-4 py-3">
                 <h3 className="text-[14px] font-semibold text-gray-900">최근 포인트 내역</h3>
               </div>
@@ -190,7 +190,7 @@ export function MyPointsView() {
 
             {/* 충전 신청 현황 */}
             {charges.length > 0 && (
-              <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+              <div className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
                 <div className="border-b border-gray-100 px-4 py-3">
                   <h3 className="text-[14px] font-semibold text-gray-900">충전 신청 현황</h3>
                 </div>
@@ -217,7 +217,7 @@ export function MyPointsView() {
 
         {/* ── 원장 탭 ── */}
         {activeTab === "ledger" && (
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
             {ledger.length === 0 ? (
               <p className="py-10 text-center text-[13px] text-gray-400">포인트 내역이 없습니다.</p>
             ) : (
@@ -260,17 +260,17 @@ export function MyPointsView() {
             <button
               type="button"
               onClick={() => setShowChargeForm(true)}
-              className="w-full rounded-2xl bg-sky-600 py-3.5 text-[15px] font-bold text-white shadow-md"
+              className="w-full rounded-ui-rect bg-sky-600 py-3.5 text-[15px] font-bold text-white shadow-md"
             >
               + 포인트 충전 신청하기
             </button>
 
             {charges.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-10 text-center text-[13px] text-gray-400">
+              <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-10 text-center text-[13px] text-gray-400">
                 충전 신청 내역이 없습니다.
               </div>
             ) : (
-              <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+              <div className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
                 <ul className="divide-y divide-gray-50">
                   {charges.map((c) => (
                     <li key={c.id} className="px-4 py-4">
@@ -308,7 +308,7 @@ export function MyPointsView() {
                               type="button"
                               disabled={cancelling === c.id}
                               onClick={() => void cancelCharge(c.id)}
-                              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-600 disabled:opacity-50"
+                              className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-600 disabled:opacity-50"
                             >
                               {cancelling === c.id ? "취소중…" : "신청 취소"}
                             </button>

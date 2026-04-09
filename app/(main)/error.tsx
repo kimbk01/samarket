@@ -25,7 +25,7 @@ export default function AppError({ error, reset }: ErrorProps) {
         <button
           type="button"
           onClick={reset}
-          className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white"
+          className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white"
         >
           다시 시도
         </button>

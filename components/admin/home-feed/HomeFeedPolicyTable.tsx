@@ -18,14 +18,14 @@ export function HomeFeedPolicyTable({
 }: HomeFeedPolicyTableProps) {
   if (policies.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         등록된 홈 피드 정책이 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
       <table className="w-full min-w-[720px] border-collapse text-[14px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">

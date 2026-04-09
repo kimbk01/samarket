@@ -32,7 +32,7 @@ export function ProductPriceField({
           value={value}
           onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
           placeholder="0"
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+          className="flex-1 rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
           aria-invalid={!!error}
         />
         <span className="text-[15px] text-gray-500">{unit}</span>

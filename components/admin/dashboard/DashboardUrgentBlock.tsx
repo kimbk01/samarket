@@ -12,7 +12,7 @@ const URGENT_LINKS: { href: string; label: string }[] = [
 
 export function DashboardUrgentBlock() {
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4">
+    <div className="rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4">
       <h2 className="mb-3 text-[13px] font-medium text-amber-800">
         긴급 처리
       </h2>

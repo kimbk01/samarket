@@ -53,7 +53,7 @@ export function CommunityWritePage({
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="bg-white rounded-ui-rect border border-gray-200 p-4">
           <Form
             board={board}
             onSubmit={handleSubmit}

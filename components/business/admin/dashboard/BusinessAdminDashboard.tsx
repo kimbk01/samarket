@@ -370,14 +370,14 @@ export function BusinessAdminDashboard({
             void loadRemote();
             void loadDashboard();
           }}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700"
+          className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700"
         >
           새로고침
         </button>
       </div>
 
       {row.approval_status === "approved" && !canSell ? (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+        <p className="rounded-ui-rect bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
           고객에게 판매 노출을 하려면 관리자 <strong>판매 승인</strong>이 필요합니다. 그 전에는 초안·숨김으로 상품을
           준비해 두세요.
         </p>
@@ -399,7 +399,7 @@ export function BusinessAdminDashboard({
 
       <BusinessDashboardQuickRow links={quickLinks} />
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
         <BusinessOwnerOpsStrip row={row} profile={profile} canSell={canSell} />
         <Link
           href={`/my/business/ops-status?${q}`}

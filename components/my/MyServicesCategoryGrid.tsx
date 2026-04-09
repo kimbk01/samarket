@@ -33,7 +33,7 @@ export function MyServicesCategoryGrid() {
 
   if (loading) {
     return (
-      <div className="rounded-xl bg-white py-8 text-center text-[14px] text-gray-500 shadow-sm">
+      <div className="rounded-ui-rect bg-white py-8 text-center text-[14px] text-gray-500 shadow-sm">
         불러오는 중…
       </div>
     );
@@ -41,7 +41,7 @@ export function MyServicesCategoryGrid() {
 
   if (error) {
     return (
-      <div className="rounded-xl bg-white py-6 text-center text-[14px] text-red-500 shadow-sm">
+      <div className="rounded-ui-rect bg-white py-6 text-center text-[14px] text-red-500 shadow-sm">
         {error}
       </div>
     );

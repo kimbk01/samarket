@@ -176,14 +176,14 @@ export function ChatInputBar({
       {showEmojiButton && emojiOpen && (
         <div
           ref={emojiPanelRef}
-          className={`absolute bottom-full left-0 right-0 z-20 mb-1 max-h-[220px] overflow-y-auto rounded-2xl border bg-white p-2 shadow-lg ${ig ? "border-ig-border" : "border-gray-200"}`}
+          className={`absolute bottom-full left-0 right-0 z-20 mb-1 max-h-[220px] overflow-y-auto rounded-ui-rect border bg-white p-2 shadow-lg ${ig ? "border-ig-border" : "border-gray-200"}`}
         >
           <div className="grid grid-cols-10 gap-0.5">
             {EMOJI_GRID.flat().map((emoji, i) => (
               <button
                 key={i}
                 type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-[22px] hover:bg-ig-highlight"
+                className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-[22px] hover:bg-ig-highlight"
                 onClick={() => insertEmoji(emoji)}
                 aria-label={`${t("common_emoji")} ${emoji}`}
               >
@@ -246,7 +246,7 @@ export function ChatInputBar({
           {!preferMobileImageSheet && attachOpen ? (
             <div
               role="menu"
-              className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-xl py-1 shadow-lg ring-1 ring-black/10 ${ig ? "border border-ig-border bg-white" : "border border-gray-200 bg-white"}`}
+              className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-ui-rect py-1 shadow-lg ring-1 ring-black/10 ${ig ? "border border-ig-border bg-white" : "border border-gray-200 bg-white"}`}
             >
               <button
                 type="button"
@@ -281,7 +281,7 @@ export function ChatInputBar({
         </button>
       )}
       <div
-        className={`flex min-h-[44px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-ig-border bg-white px-1.5" : "rounded-[20px] bg-[#F5F5F5] px-1"}`}
+        className={`flex min-h-[44px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-ig-border bg-white px-1.5" : "rounded-ui-rect bg-[#F5F5F5] px-1"}`}
       >
         <textarea
           ref={inputRef}
@@ -300,7 +300,7 @@ export function ChatInputBar({
           }}
           placeholder={placeholder}
           rows={1}
-          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(15px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-foreground placeholder:text-muted` : "min-h-[40px] rounded-[20px] px-3 py-2.5 text-[15px] font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
+          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(15px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-foreground placeholder:text-muted` : "min-h-[40px] rounded-ui-rect px-3 py-2.5 text-[15px] font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
           disabled={inputLocked}
         />
         {showEmojiButton ? (

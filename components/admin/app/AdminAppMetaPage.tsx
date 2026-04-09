@@ -23,13 +23,13 @@ export function AdminAppMetaPage() {
       {loading ? (
         <p className="text-gray-500">불러오는 중…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-lg bg-white p-4 text-[14px] text-gray-500">
+        <p className="rounded-ui-rect bg-white p-4 text-[14px] text-gray-500">
           app_version, app_build 등 키를 Supabase app_meta에 등록하면 여기서 수정할 수 있습니다.
         </p>
       ) : (
         <ul className="space-y-2">
           {items.map((m) => (
-            <li key={m.key} className="flex items-center justify-between rounded-lg bg-white p-3">
+            <li key={m.key} className="flex items-center justify-between rounded-ui-rect bg-white p-3">
               <div>
                 <span className="font-medium">{m.key}</span>
                 <span className="ml-2 text-[13px] text-gray-500">{m.value}</span>

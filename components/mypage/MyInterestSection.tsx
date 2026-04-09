@@ -15,7 +15,7 @@ interface MyInterestSectionProps {
 
 export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
   return (
-    <section className="rounded-xl border border-ig-border bg-white p-4">
+    <section className="rounded-ui-rect border border-ig-border bg-white p-4">
       <h2 className="mb-3 text-[13px] font-semibold text-muted">나의 관심</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (

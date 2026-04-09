@@ -247,7 +247,7 @@ export function StoreOrderSellerOrderPanel({
         type="button"
         disabled={sendBusy || loading || !orderSnap || !!loadErr || sendSummaryDisabled}
         onClick={() => void handleSendSummary()}
-        className="w-full rounded-xl bg-signature px-4 py-3 text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full rounded-ui-rect bg-signature px-4 py-3 text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
       >
         {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
       </button>
@@ -305,7 +305,7 @@ export function StoreOrderSellerOrderPanel({
             <Link
               href={businessHubHref}
               onClick={() => onOpenChange(false)}
-              className="flex w-full items-center justify-center rounded-xl bg-foreground px-4 py-3 text-[15px] font-semibold text-[var(--sub-bg)] hover:bg-black"
+              className="flex w-full items-center justify-center rounded-ui-rect bg-foreground px-4 py-3 text-[15px] font-semibold text-[var(--sub-bg)] hover:bg-black"
             >
               내 상점 관리로 이동
             </Link>
@@ -313,7 +313,7 @@ export function StoreOrderSellerOrderPanel({
               <MyBusinessNavList
                 groups={businessNavGroups}
                 onNavigate={() => onOpenChange(false)}
-                className="rounded-xl border border-ig-border bg-ig-highlight pb-2 shadow-none"
+                className="rounded-ui-rect border border-ig-border bg-ig-highlight pb-2 shadow-none"
               />
             </div>
           </div>
@@ -327,7 +327,7 @@ export function StoreOrderSellerOrderPanel({
                 type="button"
                 disabled={sendBusy || loading || !orderSnap || !!loadErr || sendSummaryDisabled}
                 onClick={() => void handleSendSummary()}
-                className="w-full rounded-xl bg-signature px-4 py-3 text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full rounded-ui-rect bg-signature px-4 py-3 text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
               </button>
@@ -392,7 +392,7 @@ export function StoreOrderSellerOrderPanel({
               >
                 <div
                   id={surfaceId}
-                  className={`flex max-h-[min(90dvh,640px)] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl transition-all duration-300 ease-out sm:rounded-2xl ${
+                  className={`flex max-h-[min(90dvh,640px)] w-full max-w-lg flex-col rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-xl transition-all duration-300 ease-out sm:rounded-ui-rect ${
                     open ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 sm:translate-y-0 sm:scale-95"
                   }`}
                   role="dialog"

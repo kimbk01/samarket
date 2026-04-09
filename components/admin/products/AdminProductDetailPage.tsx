@@ -57,7 +57,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
       <AdminCard title="기본 정보">
         <div className="flex gap-4">
           {images.length > 0 ? (
-            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
               <img
                 src={images[0]}
                 alt=""
@@ -65,7 +65,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
               />
             </div>
           ) : (
-            <div className="h-24 w-24 shrink-0 rounded-lg bg-gray-100" />
+            <div className="h-24 w-24 shrink-0 rounded-ui-rect bg-gray-100" />
           )}
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-semibold text-gray-900">{product.title}</p>

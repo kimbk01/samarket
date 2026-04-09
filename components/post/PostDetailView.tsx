@@ -167,7 +167,7 @@ function JobsMetaBlock({
   if (rows.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+    <div className="mt-4 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
       <h3 className="text-[15px] font-semibold text-gray-700">알바 정보</h3>
       <p className="mb-3 mt-1 text-[12px] text-gray-500">연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
       <dl className="space-y-2.5 text-[14px]">
@@ -239,7 +239,7 @@ function ExchangeMetaBlock({
   if (rows.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+    <div className="mt-4 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
       <h3 className="mb-3 text-[15px] font-semibold text-gray-700">환전 정보</h3>
       <dl className="space-y-2.5 text-[14px]">
         {rows.map(({ label, value }) => (
@@ -295,7 +295,7 @@ function UsedCarMetaBlock({
   }
   if (rows.length === 0) return null;
   return (
-    <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+    <div className="mt-4 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
       <h3 className="mb-3 text-[15px] font-semibold text-gray-700">차량 정보</h3>
       <dl className="space-y-2.5 text-[14px]">
         {rows.map(({ label, value }) => (
@@ -377,7 +377,7 @@ function RealEstateMetaBlock({
   const rightRows = rows.slice(half);
 
   return (
-    <div className={`rounded-xl border border-gray-200 bg-gray-50/80 p-4 ${compactTop ? "mt-1" : "mt-4"}`}>
+    <div className={`rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4 ${compactTop ? "mt-1" : "mt-4"}`}>
       <h3 className="mb-3 text-[15px] font-semibold text-gray-700">부동산 정보</h3>
       <div className="grid grid-cols-[1fr_auto_1fr] gap-x-0 gap-y-4 text-[14px] items-stretch">
         <dl className="space-y-4 pr-6">
@@ -431,7 +431,7 @@ function TradeMetaBlock({
     .map(([k, v]) => [k, labels[k] ?? k, String(v)]);
   if (entries.length === 0) return null;
   return (
-    <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+    <div className="mt-3 rounded-ui-rect border border-gray-100 bg-gray-50 p-3">
       <span className="text-[11px] font-medium text-gray-500">
         {TRADE_SKIN_LABELS[skinKey] ?? skinKey}
       </span>
@@ -1009,7 +1009,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           </div>
           <h2 className="mb-2 text-[16px] font-bold text-gray-900 px-4">{post.title}</h2>
           {post.content && (
-            <div className="mt-2 mb-0 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+            <div className="mt-2 mb-0 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
               <h3 className="mb-2 text-[15px] font-semibold text-gray-700">매물 설명</h3>
               <p className="text-[14px] text-gray-700 whitespace-pre-wrap">{post.content}</p>
             </div>
@@ -1181,21 +1181,21 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
         {reportOpen && (
           <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50">
-            <div className="w-full max-w-lg rounded-t-2xl bg-white px-4 py-4">
+            <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 py-4">
               <h2 className="text-[16px] font-semibold text-gray-900">신고하기</h2>
               <input
                 type="text"
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
                 placeholder="신고 사유"
-                className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                className="mt-3 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
               />
               {reportError ? (
                 <p className="mt-2 text-[13px] text-red-600">{reportError}</p>
               ) : null}
               <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => setReportOpen(false)} className="flex-1 rounded-lg border border-gray-300 py-2 text-[14px] text-gray-700">취소</button>
-                <button type="button" onClick={handleReport} disabled={!reportReason.trim() || reportSubmitting} className="flex-1 rounded-lg bg-red-600 py-2 text-[14px] font-medium text-white disabled:opacity-50">신고</button>
+                <button type="button" onClick={() => setReportOpen(false)} className="flex-1 rounded-ui-rect border border-gray-300 py-2 text-[14px] text-gray-700">취소</button>
+                <button type="button" onClick={handleReport} disabled={!reportReason.trim() || reportSubmitting} className="flex-1 rounded-ui-rect bg-red-600 py-2 text-[14px] font-medium text-white disabled:opacity-50">신고</button>
               </div>
             </div>
           </div>
@@ -1366,7 +1366,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       {post.content && (
         <div className="px-4">
           <div className="-mx-4 mt-0">
-            <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+            <div className="rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
               <h3 className="mb-2 text-[15px] font-semibold text-gray-700">
                 {(category?.icon_key === "jobs" || category?.icon_key === "job") ? "상세 설명" : "내용"}
               </h3>
@@ -1417,7 +1417,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                 const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
                 return (
                   <Link key={p.id} href={`/post/${p.id}`} className="block">
-                    <div className="overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+                    <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-gray-50">
                       <div className="aspect-square w-full bg-gray-100">
                         {thumb ? (
                           <img src={thumb} alt="" className="h-full w-full object-cover" />
@@ -1471,7 +1471,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
               return (
               <Link key={p.id} href={`/post/${p.id}`} className="block">
-                <div className="overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+                <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-gray-50">
                   <div className="aspect-square w-full bg-gray-100">
                     {thumb ? (
                       <img src={thumb} alt="" className="h-full w-full object-cover" />
@@ -1580,14 +1580,14 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
       {reportOpen && (
         <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-2xl bg-white px-4 py-4">
+          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 py-4">
             <h2 className="text-[16px] font-semibold text-gray-900">신고하기</h2>
             <input
               type="text"
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
               placeholder="신고 사유"
-              className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+              className="mt-3 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
             />
             {reportError ? (
               <p className="mt-2 text-[13px] text-red-600">{reportError}</p>
@@ -1596,7 +1596,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               <button
                 type="button"
                 onClick={() => setReportOpen(false)}
-                className="flex-1 rounded-lg border border-gray-300 py-2 text-[14px] text-gray-700"
+                className="flex-1 rounded-ui-rect border border-gray-300 py-2 text-[14px] text-gray-700"
               >
                 취소
               </button>
@@ -1604,7 +1604,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                 type="button"
                 onClick={handleReport}
                 disabled={!reportReason.trim() || reportSubmitting}
-                className="flex-1 rounded-lg bg-red-600 py-2 text-[14px] font-medium text-white disabled:opacity-50"
+                className="flex-1 rounded-ui-rect bg-red-600 py-2 text-[14px] font-medium text-white disabled:opacity-50"
               >
                 신고
               </button>

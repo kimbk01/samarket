@@ -327,7 +327,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
         <code className="rounded bg-gray-100 px-1">?order_status=refund_requested</code> 를 붙이면 됩니다.
       </p>
 
-      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-[13px]">
+      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-gray-200 bg-gray-50 p-3 text-[13px]">
         <label className="flex flex-col gap-0.5">
           <span className="text-gray-600">order_id (UUID)</span>
           <input
@@ -384,16 +384,16 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       </p>
 
       {error ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
       ) : null}
       {actionMessage ? (
-        <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-gray-800">
+        <p className="rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-gray-800">
           {actionMessage}
         </p>
       ) : null}
 
       {!loading && rows.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px]">
+        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px]">
           <span className="text-gray-600">
             선택 <strong className="text-gray-900">{selectedIds.size}</strong>건
           </span>
@@ -429,7 +429,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       ) : rows.length === 0 ? (
         <p className="text-sm text-gray-500">주문이 없습니다.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="min-w-full text-left text-[13px]">
             <thead className="border-b border-gray-200 bg-gray-50 text-gray-600">
               <tr>
@@ -483,7 +483,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                         type="button"
                         disabled={busyId !== null}
                         onClick={() => void approveRefund(r.id)}
-                        className="block rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-800 disabled:opacity-50"
+                        className="block rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-800 disabled:opacity-50"
                       >
                         {busyId === r.id ? "…" : "환불 승인"}
                       </button>

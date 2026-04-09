@@ -39,14 +39,14 @@ export function MeetingPasswordOnlyModal({
       aria-modal="true"
       aria-labelledby="m-pwd-title"
     >
-      <div className="w-full max-w-md rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-xl sm:rounded-ui-rect">
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
           <h2 id="m-pwd-title" className="text-[16px] font-bold text-gray-900">
             {title}
           </h2>
           <button
             type="button"
-            className="rounded-lg px-2 py-1 text-[13px] text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+            className="rounded-ui-rect px-2 py-1 text-[13px] text-gray-500 hover:bg-gray-100 disabled:opacity-40"
             onClick={onClose}
             disabled={busy}
           >
@@ -61,7 +61,7 @@ export function MeetingPasswordOnlyModal({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="off"
-            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] outline-none focus:border-emerald-500"
+            className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[15px] outline-none focus:border-emerald-500"
             placeholder="비밀번호 입력"
             disabled={busy}
           />
@@ -69,7 +69,7 @@ export function MeetingPasswordOnlyModal({
           <button
             type="button"
             disabled={busy || !password.trim()}
-            className="w-full rounded-xl bg-emerald-600 py-3 text-[15px] font-bold text-white disabled:opacity-45"
+            className="w-full rounded-ui-rect bg-emerald-600 py-3 text-[15px] font-bold text-white disabled:opacity-45"
             onClick={() => onSubmit(password.trim())}
           >
             {busy ? "확인 중…" : submitLabel}

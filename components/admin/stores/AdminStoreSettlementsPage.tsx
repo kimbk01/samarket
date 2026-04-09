@@ -84,7 +84,7 @@ export function AdminStoreSettlementsPage() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-gray-500">정산 건이 없습니다.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white shadow-sm">
           <table className="min-w-full text-left text-[13px]">
             <thead className="border-b border-gray-100 bg-gray-50 text-gray-600">
               <tr>

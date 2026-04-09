@@ -29,7 +29,7 @@ function Card({
   links: LinkItem[];
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <h2 className="mb-3 text-[13px] font-medium text-gray-700">
         {title}
       </h2>

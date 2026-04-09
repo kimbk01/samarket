@@ -17,7 +17,7 @@ export function CommunityImageGallery({
           key={`${u}-${i}`}
           src={u}
           alt={`${altBase}-${i}`}
-          className="h-28 w-full rounded-lg object-cover"
+          className="h-28 w-full rounded-ui-rect object-cover"
           loading="lazy"
         />
       ))}

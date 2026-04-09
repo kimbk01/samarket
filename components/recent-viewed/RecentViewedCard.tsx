@@ -33,9 +33,9 @@ export function RecentViewedCard({ record }: RecentViewedCardProps) {
   return (
     <Link
       href={`/products/${record.productId}`}
-      className="flex gap-3 rounded-lg bg-white p-3"
+      className="flex gap-3 rounded-ui-rect bg-white p-3"
     >
-      <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-gray-100">
+      <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
         {product.thumbnail ? (
           <img
             src={product.thumbnail}

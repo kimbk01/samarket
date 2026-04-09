@@ -95,7 +95,7 @@ export function PointRewardSimulator() {
       </form>
 
       {result && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
           <h3 className="text-[15px] font-medium text-gray-900">결과</h3>
           <dl className="mt-2 space-y-1 text-[14px]">
             <div className="flex justify-between">

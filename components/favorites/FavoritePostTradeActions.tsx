@@ -21,9 +21,9 @@ const tradeRoomPath = (roomId: string) =>
   `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(roomId)}`;
 
 const BTN_SECONDARY =
-  "inline-flex min-h-[40px] flex-1 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100";
+  "inline-flex min-h-[40px] flex-1 items-center justify-center rounded-ui-rect border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100";
 const BTN_PRIMARY =
-  "inline-flex min-h-[40px] flex-1 items-center justify-center rounded-lg bg-signature px-3 text-[13px] font-medium text-white hover:opacity-95 disabled:opacity-45";
+  "inline-flex min-h-[40px] flex-1 items-center justify-center rounded-ui-rect bg-signature px-3 text-[13px] font-medium text-white hover:opacity-95 disabled:opacity-45";
 
 /**
  * 찜 목록 카드 하단 — 거래 채팅·상세의 판매자 영역으로 이동

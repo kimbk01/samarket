@@ -46,10 +46,10 @@ export function StoreOrderDashboardSection({
   /** 매장 탭 하단 묶음 안에서 — 카드 테두리·제목 중복 제거 */
   embedded?: boolean;
 }) {
-  const shell = embedded ? "rounded-xl bg-neutral-50/90 p-2" : "rounded-2xl border border-neutral-100 bg-white p-3 shadow-sm";
+  const shell = embedded ? "rounded-ui-rect bg-neutral-50/90 p-2" : "rounded-ui-rect border border-neutral-100 bg-white p-3 shadow-sm";
   const shellReady = embedded ?
     "space-y-2 p-0"
-  : "rounded-2xl border border-neutral-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]";
+  : "rounded-ui-rect border border-neutral-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]";
 
   if (buyerState.kind === "loading") {
     return (
@@ -57,7 +57,7 @@ export function StoreOrderDashboardSection({
         <div className="mb-2 h-4 w-24 animate-pulse rounded bg-neutral-100" />
         <div className={RAIL}>
           {[1, 2, 3].map((k) => (
-            <div key={k} className="h-[100px] w-[132px] shrink-0 animate-pulse rounded-2xl bg-neutral-100" />
+            <div key={k} className="h-[100px] w-[132px] shrink-0 animate-pulse rounded-ui-rect bg-neutral-100" />
           ))}
         </div>
       </section>
@@ -74,13 +74,13 @@ export function StoreOrderDashboardSection({
         <div className={`mt-3 ${RAIL}`}>
           <Link
             href="/login"
-            className="flex w-[120px] shrink-0 flex-col justify-center rounded-2xl bg-neutral-900 px-3 py-3 text-center text-[12px] font-bold text-white"
+            className="flex w-[120px] shrink-0 flex-col justify-center rounded-ui-rect bg-neutral-900 px-3 py-3 text-center text-[12px] font-bold text-white"
           >
             로그인
           </Link>
           <Link
             href="/orders"
-            className="flex w-[120px] shrink-0 flex-col justify-center rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-center text-[12px] font-semibold text-neutral-800"
+            className="flex w-[120px] shrink-0 flex-col justify-center rounded-ui-rect border border-neutral-200 bg-white px-3 py-3 text-center text-[12px] font-semibold text-neutral-800"
           >
             주문 허브
           </Link>
@@ -122,7 +122,7 @@ export function StoreOrderDashboardSection({
       <HorizontalDragScroll className={RAIL} aria-label="주문 바로가기">
         <Link
           href={ordersHubHref("receiving")}
-          className="flex w-[132px] shrink-0 flex-col rounded-2xl bg-neutral-50 p-3 ring-1 ring-neutral-100"
+          className="flex w-[132px] shrink-0 flex-col rounded-ui-rect bg-neutral-50 p-3 ring-1 ring-neutral-100"
         >
           <span className="text-[10px] font-medium text-neutral-500">진행 중</span>
           <span className="mt-1 text-[22px] font-bold tabular-nums text-neutral-900">{b.activeOrders}</span>
@@ -130,7 +130,7 @@ export function StoreOrderDashboardSection({
         </Link>
         <Link
           href="/my/store-orders"
-          className="flex w-[132px] shrink-0 flex-col rounded-2xl bg-neutral-50 p-3 ring-1 ring-neutral-100"
+          className="flex w-[132px] shrink-0 flex-col rounded-ui-rect bg-neutral-50 p-3 ring-1 ring-neutral-100"
         >
           <span className="text-[10px] font-medium text-neutral-500">주문 채팅</span>
           <span className="mt-1 text-[22px] font-bold tabular-nums text-neutral-900">{b.orderChatRooms}</span>
@@ -141,7 +141,7 @@ export function StoreOrderDashboardSection({
         {recentOrder ?
           <Link
             href={`/orders/store/${encodeURIComponent(recentOrder.id)}`}
-            className="flex w-[148px] shrink-0 flex-col rounded-2xl border border-dashed border-signature/30 bg-signature/[0.04] p-3"
+            className="flex w-[148px] shrink-0 flex-col rounded-ui-rect border border-dashed border-signature/30 bg-signature/[0.04] p-3"
           >
             <span className="text-[10px] font-medium text-neutral-500">최근</span>
             <span className="mt-1 line-clamp-2 text-[12px] font-bold leading-tight text-neutral-900">
@@ -151,7 +151,7 @@ export function StoreOrderDashboardSection({
           </Link>
         : <Link
             href="/stores#store-industry-explore"
-            className="flex w-[132px] shrink-0 flex-col rounded-2xl border border-neutral-200 p-3"
+            className="flex w-[132px] shrink-0 flex-col rounded-ui-rect border border-neutral-200 p-3"
           >
             <span className="text-[10px] font-medium text-neutral-500">최근</span>
             <span className="mt-2 text-[12px] text-neutral-600">주문 없음</span>

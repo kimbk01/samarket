@@ -61,7 +61,7 @@ export function OpsRunbookStepWorkflow({
 
   if (steps.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
         실행 단계가 없습니다.
       </div>
     );
@@ -70,12 +70,12 @@ export function OpsRunbookStepWorkflow({
   return (
     <div className="space-y-4">
       {hasBlocked && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-[14px] font-medium text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 text-[14px] font-medium text-red-800">
           차단(blocked) 단계가 있습니다. 원인 해소 후 진행해 주세요.
         </div>
       )}
       {pendingOrBlocked.length > 0 && executionStatus === "in_progress" && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[14px] text-amber-800">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 text-[14px] text-amber-800">
           미완료 단계 {pendingOrBlocked.length}건
         </div>
       )}
@@ -83,7 +83,7 @@ export function OpsRunbookStepWorkflow({
         {steps.map((s) => (
           <li
             key={s.id}
-            className={`rounded-lg border p-4 ${
+            className={`rounded-ui-rect border p-4 ${
               s.status === "blocked"
                 ? "border-red-200 bg-red-50/50"
                 : "border-gray-200 bg-white"

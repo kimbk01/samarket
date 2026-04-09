@@ -27,7 +27,7 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/products/${product.id}`}
-      className={`relative flex gap-3 rounded-md bg-white p-3 ${isSold ? "opacity-60" : ""}`}
+      className={`relative flex gap-3 rounded-ui-rect bg-white p-3 ${isSold ? "opacity-60" : ""}`}
     >
       <div
         className="absolute right-2 top-2 z-[1]"
@@ -36,7 +36,7 @@ export function ProductCard({ product }: ProductCardProps) {
       >
         <FavoriteToggleButton productId={product.id} iconClassName="h-5 w-5" />
       </div>
-      <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-gray-100">
+      <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
         {product.thumbnail ? (
           <img
             src={product.thumbnail}

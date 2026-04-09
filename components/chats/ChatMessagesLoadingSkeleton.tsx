@@ -14,9 +14,9 @@ export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
   const avatar = ig ? "h-8 w-8 rounded-full bg-black/[0.06]" : "h-[34px] w-[34px] rounded-full bg-gray-200/90";
 
   const opponentBubble = ig
-    ? `min-h-[36px] min-w-[120px] rounded-[10px] bg-[#F0F0F0]/80 ${IG_DM_BUBBLE_PAD}`
-    : "min-h-[36px] min-w-[120px] rounded-[14px] bg-white shadow-sm";
-  const mineBubble = ig ? `min-h-[36px] min-w-[100px] rounded-[10px] bg-signature/35 ${IG_DM_BUBBLE_PAD}` : "min-h-[36px] min-w-[100px] rounded-[14px] bg-[#FEE500]/50 shadow-sm";
+    ? `min-h-[36px] min-w-[120px] rounded-ui-rect bg-[#F0F0F0]/80 ${IG_DM_BUBBLE_PAD}`
+    : "min-h-[36px] min-w-[120px] rounded-ui-rect bg-white shadow-sm";
+  const mineBubble = ig ? `min-h-[36px] min-w-[100px] rounded-ui-rect bg-signature/35 ${IG_DM_BUBBLE_PAD}` : "min-h-[36px] min-w-[100px] rounded-ui-rect bg-[#FEE500]/50 shadow-sm";
 
   return (
     <ul

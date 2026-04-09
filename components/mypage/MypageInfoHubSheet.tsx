@@ -51,7 +51,7 @@ export function MypageInfoHubSheet({ open, onClose }: Props) {
     >
       <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="닫기" />
       <div
-        className={`relative flex max-h-[min(92vh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-ig-border bg-[var(--sub-bg)] shadow-2xl transition-transform duration-300 ease-out sm:rounded-2xl ${
+        className={`relative flex max-h-[min(92vh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] border border-ig-border bg-[var(--sub-bg)] shadow-2xl transition-transform duration-300 ease-out sm:rounded-ui-rect ${
           slideIn ? "translate-y-0 sm:scale-100" : "translate-y-full sm:translate-y-0 sm:scale-95"
         }`}
       >

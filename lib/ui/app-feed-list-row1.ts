@@ -9,7 +9,7 @@
  */
 
 export const APP_FEED_LIST_ROW1_LAYOUT =
-  "inline-flex items-center justify-center rounded-xl px-2.5 py-1 font-bold leading-none";
+  "inline-flex items-center justify-center rounded-ui-rect px-2.5 py-1 font-bold leading-none";
 
 /** 카드 리스트(그리드) 행 */
 export const APP_FEED_LIST_ROW1_TEXT_LIST = "text-[12px]";

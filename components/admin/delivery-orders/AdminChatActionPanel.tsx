@@ -25,12 +25,12 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
   if (!order) return null;
 
   return (
-    <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm">
+    <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-gray-50 p-4 text-sm">
       <p className="font-bold text-gray-900">관리자 개입</p>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white"
+          className="rounded-ui-rect bg-amber-600 px-3 py-1.5 text-xs font-bold text-white"
           onClick={() => {
             setOrderChatRoomStatus(orderId, "admin_review");
             notifyAdminInterventionRoom(order);
@@ -41,7 +41,7 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
         </button>
         <button
           type="button"
-          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs"
+          className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-xs"
           onClick={() => {
             setOrderChatRoomStatus(orderId, "active");
             setMsg("채팅방을 활성으로 되돌렸어요.");
@@ -51,7 +51,7 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
         </button>
         <button
           type="button"
-          className="rounded-lg bg-red-700 px-3 py-1.5 text-xs font-bold text-white"
+          className="rounded-ui-rect bg-red-700 px-3 py-1.5 text-xs font-bold text-white"
           onClick={() => {
             setOrderChatMessagingBlocked(order, true);
             setMsg("회원·매장 채팅 전송을 차단했어요.");
@@ -61,7 +61,7 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
         </button>
         <button
           type="button"
-          className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs text-red-800"
+          className="rounded-ui-rect border border-red-300 bg-white px-3 py-1.5 text-xs text-red-800"
           onClick={() => {
             setOrderChatMessagingBlocked(order, false);
             setMsg("채팅 차단을 해제했어요.");
@@ -81,7 +81,7 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
           />
           <button
             type="button"
-            className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-bold text-white"
+            className="rounded-ui-rect bg-gray-900 px-3 py-1.5 text-xs font-bold text-white"
             onClick={() => {
               const r = sendOrderChatFromAdmin(order, text, false);
               setMsg(r.ok ? "전송했어요" : r.error);
@@ -103,7 +103,7 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
           />
           <button
             type="button"
-            className="rounded-lg border border-gray-400 bg-white px-3 py-1.5 text-xs font-semibold"
+            className="rounded-ui-rect border border-gray-400 bg-white px-3 py-1.5 text-xs font-semibold"
             onClick={() => {
               const r = sendOrderChatFromAdmin(order, note, true);
               setMsg(r.ok ? "메모 삽입" : r.error);

@@ -81,7 +81,7 @@ export function PointPromotionOrderForm({
             setTargetType(e.target.value as "product" | "shop");
             setTargetId("");
           }}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
         >
           <option value="product">상품</option>
           <option value="shop">상점</option>
@@ -96,7 +96,7 @@ export function PointPromotionOrderForm({
           <select
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+            className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
           >
             <option value="">선택</option>
             {productOptions.map((p) => (
@@ -116,7 +116,7 @@ export function PointPromotionOrderForm({
           <select
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+            className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
           >
             <option value="">선택</option>
             {shopOptions.map((s) => (
@@ -137,7 +137,7 @@ export function PointPromotionOrderForm({
           onChange={(e) =>
             setPlacement(e.target.value as PointPromotionPlacement)
           }
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
         >
           {PLACEMENTS.map((p) => (
             <option key={p} value={p}>
@@ -156,7 +156,7 @@ export function PointPromotionOrderForm({
           onChange={(e) =>
             setDurationDays(Number(e.target.value))
           }
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
         >
           {DURATION_OPTIONS.map((d) => (
             <option key={d} value={d}>
@@ -166,7 +166,7 @@ export function PointPromotionOrderForm({
         </select>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
         <p className="text-[13px] text-gray-600">예상 차감 포인트</p>
         <p className="mt-1 text-[18px] font-semibold text-gray-900">
           {cost.toLocaleString()}P
@@ -184,7 +184,7 @@ export function PointPromotionOrderForm({
       <button
         type="submit"
         disabled={insufficient}
-        className="w-full rounded-lg bg-signature py-3 text-[15px] font-medium text-white disabled:opacity-50"
+        className="w-full rounded-ui-rect bg-signature py-3 text-[15px] font-medium text-white disabled:opacity-50"
       >
         {submitLabel}
       </button>

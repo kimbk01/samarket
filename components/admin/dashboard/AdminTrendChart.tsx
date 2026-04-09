@@ -23,7 +23,7 @@ export function AdminTrendChart({ data, title = "일별 추이" }: AdminTrendCha
   );
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       {title && (
         <h2 className="mb-3 text-[15px] font-medium text-gray-900">{title}</h2>
       )}

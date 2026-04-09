@@ -278,7 +278,7 @@ export function CategoryFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-4 shadow-lg"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-white p-4 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-4 text-[17px] font-semibold text-gray-900">
@@ -540,15 +540,15 @@ export function CategoryFormModal({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50"
+              className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50"
             >
               {submitting ? "저장 중…" : "저장"}
             </button>
-            <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-[14px] text-gray-700">
+            <button type="button" onClick={onClose} className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] text-gray-700">
               취소
             </button>
             {!isCreate && onDelete && (
-              <button type="button" onClick={onDelete} className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[14px] text-red-700">
+              <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 text-[14px] text-red-700">
                 삭제
               </button>
             )}

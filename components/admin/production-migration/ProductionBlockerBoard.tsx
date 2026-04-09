@@ -26,7 +26,7 @@ export function ProductionBlockerBoard() {
 
   if (!hasAny) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
         차단(blocker) 항목이 없습니다.
       </div>
     );
@@ -43,7 +43,7 @@ export function ProductionBlockerBoard() {
             {blockedTables.map((t) => (
               <div
                 key={t.id}
-                className="rounded-lg border border-red-200 bg-red-50/50 p-4"
+                className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
               >
                 <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-600">
                   <span>{getDomainLabel(t.domain)}</span>
@@ -73,7 +73,7 @@ export function ProductionBlockerBoard() {
             {blockedLaunch.map((c) => (
               <div
                 key={c.id}
-                className="rounded-lg border border-red-200 bg-red-50/50 p-4"
+                className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
               >
                 <p className="font-medium text-gray-900">{c.title}</p>
                 <p className="mt-2 text-[14px] text-red-800">
@@ -104,7 +104,7 @@ export function ProductionBlockerBoard() {
             {infraWithBlocker.map((c) => (
               <div
                 key={c.id}
-                className="rounded-lg border border-red-200 bg-red-50/50 p-4"
+                className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
               >
                 <p className="font-medium text-gray-900">{c.targetName}</p>
                 <p className="mt-1 text-[13px] text-gray-600">

@@ -82,7 +82,7 @@ export function CommunityTab({ section }: { section: string }) {
         title="커뮤니티 친구 / 관심 사용자"
         description="커뮤니티에서 자주 보는 사용자는 전체 사용자 관리와 같은 단일 데이터 소스를 사용합니다."
       >
-        <div className="rounded-[4px] border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <UserListContent type="favorite" emptyMessage="관심 사용자가 없습니다." />
         </div>
       </SectionShell>
@@ -134,7 +134,7 @@ function MyCommunityPostsPanel() {
   return (
     <div className="space-y-4">
       <MyPageSectionHeader description="내가 남긴 커뮤니티 글을 최근순으로 확인합니다." />
-      <div className="rounded-[4px] border border-gray-200 bg-white">
+      <div className="rounded-ui-rect border border-gray-200 bg-white">
         {loading ? (
           <div className="px-4 py-8 text-center text-[12px] text-gray-500">불러오는 중입니다.</div>
         ) : items.length === 0 ? (
@@ -301,7 +301,7 @@ function MyCommunityActivityPanel({
 
   return (
     <SectionShell title={title} description={description}>
-      <div className="rounded-[4px] border border-gray-200 bg-white">{content}</div>
+      <div className="rounded-ui-rect border border-gray-200 bg-white">{content}</div>
     </SectionShell>
   );
 }

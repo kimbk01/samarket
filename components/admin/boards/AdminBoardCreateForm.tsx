@@ -149,7 +149,7 @@ export function AdminBoardCreateForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-board-create-title"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-gray-200 bg-white shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
           <h2 id="admin-board-create-title" className="text-[16px] font-semibold text-gray-900">
@@ -158,7 +158,7 @@ export function AdminBoardCreateForm({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-2 py-1 text-[20px] leading-none text-gray-500 hover:bg-gray-100"
+            className="rounded-ui-rect px-2 py-1 text-[20px] leading-none text-gray-500 hover:bg-gray-100"
             aria-label="닫기"
           >
             ×
@@ -178,7 +178,7 @@ export function AdminBoardCreateForm({
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
               required
-              className="w-full rounded-lg border border-gray-200 px-3 py-2"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2"
             >
               {services.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -195,7 +195,7 @@ export function AdminBoardCreateForm({
               onChange={(e) => setName(e.target.value)}
               required
               maxLength={120}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2"
               placeholder="예: 동네 맛집"
             />
           </label>
@@ -207,7 +207,7 @@ export function AdminBoardCreateForm({
               onChange={(e) => setSlug(normalizeBoardSlug(e.target.value))}
               required
               maxLength={64}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-[13px]"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 font-mono text-[13px]"
               placeholder="예: food"
             />
             <span className="mt-0.5 block text-[12px] text-gray-500">사용자 피드: /community (게시판 slug 미노출)</span>
@@ -220,14 +220,14 @@ export function AdminBoardCreateForm({
               onChange={(e) => setDescription(e.target.value)}
               maxLength={500}
               rows={2}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2"
             />
           </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-1 block text-[13px] font-medium text-gray-700">스킨</span>
-              <select value={skinType} onChange={(e) => setSkinType(e.target.value)} className="w-full rounded-lg border border-gray-200 px-2 py-2 text-[13px]">
+              <select value={skinType} onChange={(e) => setSkinType(e.target.value)} className="w-full rounded-ui-rect border border-gray-200 px-2 py-2 text-[13px]">
                 {ADMIN_BOARD_SKIN_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -237,7 +237,7 @@ export function AdminBoardCreateForm({
             </label>
             <label className="block">
               <span className="mb-1 block text-[13px] font-medium text-gray-700">폼</span>
-              <select value={formType} onChange={(e) => setFormType(e.target.value)} className="w-full rounded-lg border border-gray-200 px-2 py-2 text-[13px]">
+              <select value={formType} onChange={(e) => setFormType(e.target.value)} className="w-full rounded-ui-rect border border-gray-200 px-2 py-2 text-[13px]">
                 {ADMIN_BOARD_SKIN_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -252,7 +252,7 @@ export function AdminBoardCreateForm({
             <select
               value={categoryMode}
               onChange={(e) => setCategoryMode(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px]"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[13px]"
             >
               {ADMIN_BOARD_CATEGORY_MODES.map((m) => (
                 <option key={m} value={m}>
@@ -275,24 +275,24 @@ export function AdminBoardCreateForm({
               max={99999}
               value={sortOrder}
               onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2"
             />
           </label>
 
-          {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-800">{error}</p> : null}
+          {error ? <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] text-red-800">{error}</p> : null}
 
           <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+              className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={submitting || loadingSvc || services.length === 0}
-              className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+              className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
             >
               {submitting ? "저장 중…" : "추가"}
             </button>

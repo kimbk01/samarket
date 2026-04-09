@@ -50,11 +50,11 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
         </select>
       </div>
       {reports.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           보고서가 없습니다. 기간을 선택한 뒤 생성 버튼을 눌러 주세요.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="w-full min-w-[560px] border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">

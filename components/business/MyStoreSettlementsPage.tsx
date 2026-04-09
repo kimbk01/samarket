@@ -81,22 +81,22 @@ export function MyStoreSettlementsPage() {
     <div className="pb-8">
       <div className={`${OWNER_STORE_STACK_Y_CLASS}`}>
         {error ? (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         ) : null}
         {loading ? (
           <p className="text-sm text-gray-500">불러오는 중…</p>
         ) : rows.length === 0 ? (
-          <p className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-500">
+          <p className="rounded-ui-rect border border-gray-100 bg-white p-4 text-sm text-gray-500">
             아직 정산 내역이 없습니다. 주문이 결제 완료되면 예정 건이 표시됩니다.
           </p>
         ) : displayRows.length === 0 ? (
-          <p className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-500">
+          <p className="rounded-ui-rect border border-gray-100 bg-white p-4 text-sm text-gray-500">
             선택한 매장에 해당하는 정산 건이 없습니다. 운영 허브에서 다른 매장을 선택했는지 확인해 주세요.
           </p>
         ) : (
           <ul className="space-y-2">
             {storeIdFilter ? (
-              <li className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-[12px] text-gray-600">
+              <li className="rounded-ui-rect border border-gray-100 bg-gray-50 px-3 py-2 text-[12px] text-gray-600">
                 이 매장 정산만 표시 중입니다.{" "}
                 <Link href="/my/business/settlements" className="font-medium text-signature underline">
                   전체 매장 보기
@@ -104,7 +104,7 @@ export function MyStoreSettlementsPage() {
               </li>
             ) : null}
             {displayRows.map((r) => (
-              <li key={r.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <li key={r.id} className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
                 <div className="flex justify-between gap-2">
                   <span className="text-sm font-medium text-gray-900">{r.store_name}</span>
                   <span className="text-xs text-gray-500">

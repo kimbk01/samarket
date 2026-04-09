@@ -46,7 +46,7 @@ export function OpsRunbookStartForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-4">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-ui-rect border border-gray-200 bg-white p-4">
       <h3 className="text-[14px] font-medium text-gray-900">런북 실행 시작</h3>
       <p className="text-[13px] text-gray-600">
         활성(active) 문서만 선택 가능합니다. 연결 타입과 ID로 35단계 이슈·33단계 배포·34단계 Fallback/킬스위치와 연결할 수 있습니다.

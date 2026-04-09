@@ -14,7 +14,7 @@ export function LaunchWeekBlockerBoard() {
 
   if (!hasAny) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
         차단(blocked) 체크리스트 및 Critical 미해결 이슈가 없습니다.
       </div>
     );
@@ -31,7 +31,7 @@ export function LaunchWeekBlockerBoard() {
             {blockedChecklist.map((c) => (
               <div
                 key={c.id}
-                className="rounded-lg border border-red-200 bg-red-50/50 p-4"
+                className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
               >
                 <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-600">
                   <span>Day {c.dayNumber}</span>
@@ -64,7 +64,7 @@ export function LaunchWeekBlockerBoard() {
             {criticalIssues.map((i) => (
               <div
                 key={i.id}
-                className="rounded-lg border border-red-200 bg-red-50/50 p-4"
+                className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
               >
                 <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-600">
                   <span>Day {i.dayNumber}</span>

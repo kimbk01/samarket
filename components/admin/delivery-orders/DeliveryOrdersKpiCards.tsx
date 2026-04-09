@@ -53,7 +53,7 @@ export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[
   }, [orders]);
 
   const card = (label: string, value: string | number) => (
-    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm">
       <p className="text-xs text-gray-500">{label}</p>
       <p className="mt-1 text-lg font-bold text-gray-900">{value}</p>
     </div>
@@ -71,7 +71,7 @@ export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[
         {card("정산 예정(합계)", formatMoneyPhp(data.schedAmt))}
         {card("정산 보류(합계)", formatMoneyPhp(data.heldAmt))}
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm">
         <p className="text-xs font-semibold text-gray-700">매장별 주문 Top 5</p>
         <ol className="mt-2 space-y-1 text-sm">
           {data.top5.length === 0 ? (

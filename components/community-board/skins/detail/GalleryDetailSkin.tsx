@@ -12,7 +12,7 @@ export function GalleryDetailSkin({
   const firstUrl = images[0]?.url;
 
   return (
-    <article className="bg-white rounded-lg overflow-hidden">
+    <article className="bg-white rounded-ui-rect overflow-hidden">
       <div className="aspect-square max-h-[70vh] bg-gray-100 relative mx-auto">
         {firstUrl ? (
           <img

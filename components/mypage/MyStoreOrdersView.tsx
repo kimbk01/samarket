@@ -220,7 +220,7 @@ function MyStoreOrderCard({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-lg bg-white shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08] ${
+      className={`relative overflow-hidden rounded-ui-rect bg-white shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08] ${
         activeTab ? "before:absolute before:bottom-0 before:left-0 before:top-0 before:w-[3px] before:bg-signature" : ""
       }`}
     >
@@ -268,7 +268,7 @@ function MyStoreOrderCard({
                 )}
                 <span className="relative inline-flex shrink-0 overflow-visible">
                   <span
-                    className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                    className={`rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
                       delivery
                         ? "bg-[#E7F3FF] text-[#1877F2] dark:bg-signature/15 dark:text-signature"
                         : "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/25 dark:text-emerald-200"
@@ -559,14 +559,14 @@ export function MyStoreOrdersView({
         }
       >
         {toast ? (
-          <p className="mb-3 rounded-lg bg-[#050505] px-3 py-2.5 text-center text-[13px] text-white shadow-md dark:bg-[#E4E6EB] dark:text-[#050505]">
+          <p className="mb-3 rounded-ui-rect bg-[#050505] px-3 py-2.5 text-center text-[13px] text-white shadow-md dark:bg-[#E4E6EB] dark:text-[#050505]">
             {toast}
           </p>
         ) : null}
 
         {state.kind === "loading" ? (
           <div
-            className={`mb-3 rounded-lg bg-white px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
+            className={`mb-3 rounded-ui-rect bg-white px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
           >
             불러오는 중…
           </div>
@@ -574,12 +574,12 @@ export function MyStoreOrdersView({
 
         {state.kind === "unauth" ? (
           <div
-            className={`rounded-lg border ${FB_DIVIDER} bg-white px-4 py-4 text-center text-[15px] text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
+            className={`rounded-ui-rect border ${FB_DIVIDER} bg-white px-4 py-4 text-center text-[15px] text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
           >
             <p>로그인 후 매장 주문 내역과 주문 채팅을 확인할 수 있습니다.</p>
             <Link
               href={loginHref}
-              className="mt-3 inline-flex rounded-lg bg-signature px-4 py-2.5 text-[15px] font-semibold text-white"
+              className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 text-[15px] font-semibold text-white"
             >
               로그인하고 주문 보기
             </Link>
@@ -588,7 +588,7 @@ export function MyStoreOrdersView({
 
         {state.kind === "error" ? (
           <div
-            className={`space-y-2 rounded-lg border ${FB_DIVIDER} bg-white px-4 py-4 dark:bg-[#242526]`}
+            className={`space-y-2 rounded-ui-rect border ${FB_DIVIDER} bg-white px-4 py-4 dark:bg-[#242526]`}
           >
             {state.message === "supabase_unconfigured" ? (
               <p className={`text-[15px] text-amber-800 dark:text-amber-200`}>
@@ -611,7 +611,7 @@ export function MyStoreOrdersView({
             <div
               className={
                 embedded
-                  ? `sticky top-0 z-10 mb-3 -mx-3 rounded-md border ${FB_DIVIDER} bg-white shadow-sm dark:bg-[#242526] sm:-mx-4 lg:mx-0`
+                  ? `sticky top-0 z-10 mb-3 -mx-3 rounded-ui-rect border ${FB_DIVIDER} bg-white shadow-sm dark:bg-[#242526] sm:-mx-4 lg:mx-0`
                   : `sticky top-12 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-white/92 backdrop-blur-md dark:bg-[#242526]/95`
               }
             >
@@ -622,12 +622,12 @@ export function MyStoreOrdersView({
 
             {allSorted.length === 0 ? (
               <div
-                className={`rounded-lg bg-white px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
+                className={`rounded-ui-rect bg-white px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
               >
                 <p className={FB_BODY}>아직 매장 주문이 없습니다.</p>
                 <Link
                   href="/stores"
-                  className="mt-4 inline-block rounded-lg bg-signature px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95"
+                  className="mt-4 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95"
                 >
                   매장 둘러보기
                 </Link>

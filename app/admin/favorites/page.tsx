@@ -33,15 +33,15 @@ export default function AdminFavoritesPage() {
         <code className="rounded bg-gray-100 px-1">GET /api/admin/favorite-audit</code>).
       </p>
       {loading ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           불러오는 중…
         </div>
       ) : logs.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           favorite_audit_log 테이블이 없거나 비어 있습니다. 마이그레이션 20250319120000_favorite_count_and_audit.sql 적용 후 찜 동작 시 로그가 쌓입니다.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white">
           <table className="w-full text-left text-[13px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">

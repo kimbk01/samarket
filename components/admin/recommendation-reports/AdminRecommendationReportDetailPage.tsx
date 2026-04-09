@@ -41,7 +41,7 @@ export function AdminRecommendationReportDetailPage({
     return (
       <>
         <AdminPageHeader title="보고서 없음" />
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           해당 보고서를 찾을 수 없습니다.
           <Link href="/admin/recommendation-reports" className="ml-2 text-signature hover:underline">
             목록으로

@@ -190,7 +190,7 @@ export function StoreReviewsSection({
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-          className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[13px] text-stone-700"
+          className="rounded-ui-rect border border-stone-300 bg-white px-2.5 py-1.5 text-[13px] text-stone-700"
         >
           <option value="recommended">추천순</option>
           <option value="latest">최신순</option>
@@ -222,7 +222,7 @@ export function StoreReviewsSection({
                 {r.image_urls.slice(0, 5).map((src) => (
                   <div
                     key={src}
-                    className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-stone-100 bg-stone-100"
+                    className="h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect border border-stone-100 bg-stone-100"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={src} alt="" className="h-full w-full object-cover" />
@@ -234,7 +234,7 @@ export function StoreReviewsSection({
               {r.content}
             </p>
             {r.owner_reply_content?.trim() ? (
-              <div className="mt-2 rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-2">
+              <div className="mt-2 rounded-ui-rect border border-stone-200 bg-stone-50 px-2.5 py-2">
                 <p className="text-[12px] font-semibold text-stone-700">사장님 댓글</p>
                 <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-stone-800">
                   {r.owner_reply_content.trim()}

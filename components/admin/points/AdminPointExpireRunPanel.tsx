@@ -42,7 +42,7 @@ export function AdminPointExpireRunPanel({
   };
 
   return (
-    <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-4">
+    <div className="space-y-4 rounded-ui-rect border border-gray-200 bg-white p-4">
       <h3 className="text-[15px] font-medium text-gray-900">
         만료 시뮬레이션 / 실행
       </h3>

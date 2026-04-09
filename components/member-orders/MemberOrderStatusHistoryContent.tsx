@@ -21,7 +21,7 @@ export function MemberOrderStatusHistoryContent() {
 
   if (!buyerId) {
     return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         {t("member_order_status_history_role_hint")}
       </p>
     );
@@ -29,7 +29,7 @@ export function MemberOrderStatusHistoryContent() {
 
   if (rows.length === 0) {
     return (
-      <p className="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">
+      <p className="rounded-ui-rect bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">
         {t("member_order_status_history_empty")}
       </p>
     );
@@ -40,7 +40,7 @@ export function MemberOrderStatusHistoryContent() {
       {rows.map((r) => (
         <li
           key={r.id}
-          className="rounded-xl border border-gray-100 bg-white px-3 py-3 shadow-sm ring-1 ring-gray-50"
+          className="rounded-ui-rect border border-gray-100 bg-white px-3 py-3 shadow-sm ring-1 ring-gray-50"
         >
           <div className="flex flex-wrap justify-between gap-1 text-[11px] text-gray-400">
             <span className="font-mono">{r.status}</span>

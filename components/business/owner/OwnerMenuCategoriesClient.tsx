@@ -217,14 +217,14 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           {error ? <p className="mb-3 text-[13px] text-red-600">{error}</p> : null}
 
           {editorTab === "basic" ? (
-            <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="space-y-4 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
               <div>
                 <label className="mb-1 block text-[13px] font-medium text-gray-800">이름</label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="카테고리 이름"
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+                  className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
                 />
               </div>
               <div>
@@ -234,7 +234,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="고객에게 보일 수 있는 짧은 설명 (선택)"
                   rows={3}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+                  className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
                 />
               </div>
               <div>
@@ -244,7 +244,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
                   inputMode="numeric"
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value)}
-                  className="w-full max-w-[140px] rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+                  className="w-full max-w-[140px] rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
                 />
               </div>
               <div className="flex items-center justify-between border-t border-gray-100 pt-3">
@@ -271,7 +271,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
               </p>
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-white p-6 text-center">
+            <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white p-6 text-center">
               <p className="text-[14px] text-gray-600">
                 다국어 카테고리 이름·설명은 추후 지원 예정입니다.
               </p>
@@ -287,7 +287,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
               type="button"
               disabled={saving}
               onClick={() => backToList()}
-              className="min-h-[48px] flex-1 rounded-xl border border-gray-300 bg-white py-3 text-[16px] font-semibold text-gray-800 disabled:opacity-45"
+              className="min-h-[48px] flex-1 rounded-ui-rect border border-gray-300 bg-white py-3 text-[16px] font-semibold text-gray-800 disabled:opacity-45"
             >
               취소
             </button>
@@ -295,7 +295,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
               type="button"
               disabled={saving || editorTab !== "basic"}
               onClick={() => void saveEditor()}
-              className="min-h-[48px] flex-1 rounded-xl bg-signature py-3 text-[16px] font-semibold text-white disabled:opacity-45"
+              className="min-h-[48px] flex-1 rounded-ui-rect bg-signature py-3 text-[16px] font-semibold text-white disabled:opacity-45"
             >
               {saving ? "처리 중…" : "확인"}
             </button>
@@ -335,7 +335,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           </button>
           <Link
             href={productsHubHref}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-signature/40 bg-white px-3 py-2 text-[13px] font-semibold leading-tight text-signature shadow-sm transition hover:bg-signature/5 active:bg-signature/10"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-ui-rect border border-signature/40 bg-white px-3 py-2 text-[13px] font-semibold leading-tight text-signature shadow-sm transition hover:bg-signature/5 active:bg-signature/10"
           >
             상품 목록으로
           </Link>
@@ -349,7 +349,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
         {loading ? (
           <p className="text-[14px] text-gray-500">불러오는 중…</p>
         ) : sections.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+          <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
             등록된 카테고리가 없습니다.
             <button
               type="button"
@@ -364,7 +364,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
             {sections.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+                className="flex items-center gap-2 rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm"
               >
                 <button
                   type="button"
@@ -382,7 +382,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
                 <button
                   type="button"
                   onClick={() => void deleteSection(s)}
-                  className="shrink-0 rounded-lg border border-red-100 bg-red-50 px-2 py-1.5 text-[12px] font-medium text-red-700"
+                  className="shrink-0 rounded-ui-rect border border-red-100 bg-red-50 px-2 py-1.5 text-[12px] font-medium text-red-700"
                 >
                   삭제
                 </button>

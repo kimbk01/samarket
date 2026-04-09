@@ -61,7 +61,7 @@ export function CategoryDragList({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-center text-[14px] text-gray-500">
         등록된 카테고리가 없습니다.
       </div>
     );
@@ -78,7 +78,7 @@ export function CategoryDragList({
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, c.id)}
           onDragEnd={handleDragEnd}
-          className={`flex items-center gap-3 rounded-lg border bg-white px-3 py-2 ${
+          className={`flex items-center gap-3 rounded-ui-rect border bg-white px-3 py-2 ${
             draggedId === c.id ? "opacity-50" : ""
           } ${overId === c.id ? "border-signature bg-signature/5" : "border-gray-200"}`}
         >

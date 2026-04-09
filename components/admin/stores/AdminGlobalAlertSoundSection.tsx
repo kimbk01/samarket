@@ -194,14 +194,14 @@ export function AdminGlobalAlertSoundSection({
   }, [loadSound]);
 
   return (
-    <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <section className="mt-6 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
       <h2 className="text-[15px] font-semibold text-gray-900">{title}</h2>
       <div className="mt-1 text-[12px] text-gray-500">{description}</div>
       <p className="mt-1 text-[11px] text-gray-400">
         <code className="rounded bg-gray-100 px-1">{codeKey}</code>
       </p>
       {soundLegacyUrl ? (
-        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mt-2 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
           DB에 프리셋에 없는 URL이 있습니다. 아래에서 항목을 고르면 그 값으로 덮어씁니다.
         </p>
       ) : null}
@@ -214,7 +214,7 @@ export function AdminGlobalAlertSoundSection({
           <label className="block text-[12px] font-medium text-gray-700">
             알림 종류
             <select
-              className="mt-1.5 block w-full max-w-md cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-3 text-[16px] text-gray-900 shadow-sm focus:border-signature focus:outline-none focus:ring-1 focus:ring-signature disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1.5 block w-full max-w-md cursor-pointer rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[16px] text-gray-900 shadow-sm focus:border-signature focus:outline-none focus:ring-1 focus:ring-signature disabled:cursor-not-allowed disabled:opacity-60"
               value={soundSelect}
               disabled={soundSaving}
               onChange={(e) => {
@@ -265,7 +265,7 @@ export function AdminGlobalAlertSoundSection({
                 type="button"
                 disabled={soundSaving}
                 onClick={() => void deleteGlobalSound()}
-                className="shrink-0 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-red-800 disabled:opacity-50"
+                className="shrink-0 rounded-ui-rect border border-red-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-red-800 disabled:opacity-50"
               >
                 DB·Storage 제거
               </button>
@@ -283,7 +283,7 @@ export function AdminGlobalAlertSoundSection({
               type="button"
               disabled={soundSaving}
               onClick={() => adminSoundFileRef.current?.click()}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:opacity-50"
+              className="rounded-ui-rect border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:opacity-50"
             >
               {soundSaving ? "처리 중…" : "내 PC에서 찾기 (업로드)"}
             </button>
@@ -319,7 +319,7 @@ export function AdminGlobalAlertSoundSection({
                   }
                 }
               }}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:opacity-50"
+              className="rounded-ui-rect border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:opacity-50"
             >
               미리듣기
             </button>

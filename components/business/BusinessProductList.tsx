@@ -19,7 +19,7 @@ export function BusinessProductList({
 }: BusinessProductListProps) {
   if (products.length === 0) {
     return (
-      <div className="rounded-lg bg-white p-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">
         {emptyMessage}
       </div>
     );
@@ -33,7 +33,7 @@ export function BusinessProductList({
         <Link
           key={p.id}
           href={href}
-          className="block overflow-hidden rounded-lg border border-gray-100 bg-white"
+          className="block overflow-hidden rounded-ui-rect border border-gray-100 bg-white"
         >
           <div className="aspect-square w-full bg-gray-100">
             {p.thumbnail ? (

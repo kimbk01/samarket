@@ -50,9 +50,9 @@ export function MyStoreCommerceSection() {
 
   if (phase.kind === "loading") {
     return (
-      <section className="rounded-xl border border-ig-border bg-white p-4">
+      <section className="rounded-ui-rect border border-ig-border bg-white p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">동네 매장</h2>
-        <div className="mt-3 h-20 animate-pulse rounded-lg bg-gray-100" />
+        <div className="mt-3 h-20 animate-pulse rounded-ui-rect bg-gray-100" />
       </section>
     );
   }
@@ -65,7 +65,7 @@ export function MyStoreCommerceSection() {
 
   if (!approved) {
     return (
-      <section className="rounded-xl border border-ig-border bg-white p-4">
+      <section className="rounded-ui-rect border border-ig-border bg-white p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">동네 매장 (사장님)</h2>
         <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
           승인된 매장이 있으면 주문·문의·정산을 여기서 관리할 수 있습니다. 매장 등록은 누구나 신청할 수 있습니다.
@@ -73,7 +73,7 @@ export function MyStoreCommerceSection() {
         <div className="mt-3 flex flex-col gap-2">
           <Link
             href="/my/business/apply"
-            className="rounded-lg border border-gray-200 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
+            className="rounded-ui-rect border border-gray-200 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
           >
             매장 등록 신청
           </Link>
@@ -98,30 +98,30 @@ export function MyStoreCommerceSection() {
     : "/my/business/products";
 
   return (
-    <section className="rounded-xl border border-ig-border bg-white p-4">
+    <section className="rounded-ui-rect border border-ig-border bg-white p-4">
       <h2 className="text-[14px] font-semibold text-gray-900">동네 매장 (사장님)</h2>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           href={ordersHref}
-          className="rounded-lg border border-amber-200 bg-amber-50 py-3 text-center text-[13px] font-semibold text-amber-950"
+          className="rounded-ui-rect border border-amber-200 bg-amber-50 py-3 text-center text-[13px] font-semibold text-amber-950"
         >
           신규·접수 주문
         </Link>
         <Link
           href={inquiriesHref}
-          className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
+          className="rounded-ui-rect border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
         >
           받은 문의
         </Link>
         <Link
           href={hubHref}
-          className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
+          className="rounded-ui-rect border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
         >
           운영 허브
         </Link>
         <Link
           href={productsHref}
-          className="rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
+          className="rounded-ui-rect border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
         >
           상품 관리
         </Link>
@@ -131,7 +131,7 @@ export function MyStoreCommerceSection() {
               ? `/my/business/settlements?storeId=${encodeURIComponent(primaryStoreId)}`
               : "/my/business/settlements"
           }
-          className="col-span-2 rounded-lg border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
+          className="col-span-2 rounded-ui-rect border border-gray-100 bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-gray-800"
         >
           정산 내역
         </Link>

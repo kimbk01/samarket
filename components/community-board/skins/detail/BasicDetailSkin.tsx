@@ -37,7 +37,7 @@ export function BasicDetailSkin({
   };
 
   return (
-    <article className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <article className="bg-white rounded-ui-rect border border-gray-200 overflow-hidden">
       <div className="p-4">
         <div className="flex flex-wrap items-start gap-2">
           {post.community_topic?.name ? (

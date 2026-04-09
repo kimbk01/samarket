@@ -53,7 +53,7 @@ export function OpsRetrospectiveForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-4">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-ui-rect border border-gray-200 bg-white p-4">
       <h3 className="text-[14px] font-medium text-gray-900">새 운영 회고</h3>
       <div>
         <label className="mb-1 block text-[12px] text-gray-500">제목</label>

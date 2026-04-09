@@ -91,7 +91,7 @@ export function AdminPostAdManagePage() {
         ].map(({ label, value, color }) => (
           <div
             key={label}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center shadow-sm"
+            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-center shadow-sm"
           >
             <p className={`text-[24px] font-bold ${color}`}>{value}</p>
             <p className="text-[11px] text-gray-500">{label}</p>
@@ -101,7 +101,7 @@ export function AdminPostAdManagePage() {
 
       {/* 승인 대기 강조 배너 */}
       {counts.pending > 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-[13px] text-blue-900">
+        <div className="flex items-center gap-2 rounded-ui-rect border border-blue-300 bg-blue-50 px-4 py-3 text-[13px] text-blue-900">
           <span className="text-[16px]">⏳</span>
           <span>
             관리자 승인 대기 중인 광고 신청 <strong>{counts.pending}건</strong>이 있습니다.
@@ -135,11 +135,11 @@ export function AdminPostAdManagePage() {
       </div>
 
       {err ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-700">{err}</p>
+        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[12px] text-red-700">{err}</p>
       ) : null}
 
       {/* 목록 */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-4 py-3">
           <h2 className="text-[14px] font-semibold text-gray-900">
             광고 신청 목록{" "}
@@ -209,7 +209,7 @@ export function AdminPostAdManagePage() {
                         setNoteInputs((prev) => ({ ...prev, [row.id]: e.target.value }))
                       }
                       placeholder="관리자 메모 (선택)"
-                      className="w-48 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[12px] outline-none focus:border-sky-300"
+                      className="w-48 rounded-ui-rect border border-gray-200 px-2.5 py-1.5 text-[12px] outline-none focus:border-sky-300"
                     />
 
                     {canApprove && (
@@ -218,7 +218,7 @@ export function AdminPostAdManagePage() {
                           type="button"
                           disabled={busy}
                           onClick={() => void doAction(row.id, "approve", note)}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
+                          className="rounded-ui-rect bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
                         >
                           {busy ? "처리중…" : "승인"}
                         </button>
@@ -226,7 +226,7 @@ export function AdminPostAdManagePage() {
                           type="button"
                           disabled={busy}
                           onClick={() => void doAction(row.id, "reject", note)}
-                          className="rounded-lg bg-red-500 px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
+                          className="rounded-ui-rect bg-red-500 px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
                         >
                           반려
                         </button>
@@ -237,7 +237,7 @@ export function AdminPostAdManagePage() {
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(row.id, "expire", note)}
-                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] text-gray-700 disabled:opacity-50"
+                        className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-[12px] text-gray-700 disabled:opacity-50"
                       >
                         강제 종료
                       </button>
@@ -247,7 +247,7 @@ export function AdminPostAdManagePage() {
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(row.id, "cancel", note)}
-                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-500 disabled:opacity-50"
+                        className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-500 disabled:opacity-50"
                       >
                         취소
                       </button>
@@ -256,7 +256,7 @@ export function AdminPostAdManagePage() {
                     {/* 광고주 포인트 내역 바로가기 */}
                     <Link
                       href={`/admin/users/${row.userId}?tab=points`}
-                      className="ml-auto rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-500 hover:text-sky-700"
+                      className="ml-auto rounded-ui-rect border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-500 hover:text-sky-700"
                     >
                       광고주 포인트 조회
                     </Link>
@@ -264,7 +264,7 @@ export function AdminPostAdManagePage() {
 
                   {/* 반려 메모 표시 */}
                   {row.adminNote && row.applyStatus === "rejected" && (
-                    <p className="mt-2 rounded-lg bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
+                    <p className="mt-2 rounded-ui-rect bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
                       반려 사유: {row.adminNote}
                     </p>
                   )}

@@ -202,14 +202,14 @@ export function ProfileEditForm() {
       <div className="flex gap-3">
         <Link
           href="/my"
-          className="flex-1 rounded-lg border border-gray-300 py-2.5 text-center text-[14px] font-medium text-gray-700"
+          className="flex-1 rounded-ui-rect border border-gray-300 py-2.5 text-center text-[14px] font-medium text-gray-700"
         >
           취소
         </Link>
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 rounded-lg bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-60"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-60"
         >
           {saving ? "저장 중…" : "저장"}
         </button>

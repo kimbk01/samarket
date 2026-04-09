@@ -742,7 +742,7 @@ export function CommunityMessengerCallClient({
         <button
           type="button"
           onClick={() => router.replace("/community-messenger")}
-          className="rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+          className="rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
         >
           메신저로 돌아가기
         </button>
@@ -802,7 +802,7 @@ export function CommunityMessengerCallClient({
           {session.callKind === "video" ? (
             <div
               ref={videoStageRef}
-              className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-none bg-neutral-950 shadow-none ring-0 sm:min-h-[min(64dvh,600px)] sm:rounded-[20px] sm:shadow-[0_8px_40px_rgba(0,0,0,0.45)] sm:ring-1 sm:ring-white/[0.08]"
+              className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-none bg-neutral-950 shadow-none ring-0 sm:min-h-[min(64dvh,600px)] sm:rounded-ui-rect sm:shadow-[0_8px_40px_rgba(0,0,0,0.45)] sm:ring-1 sm:ring-white/[0.08]"
             >
               {/* 카카오 페이스톤형 상단 정보 오버레이 */}
               <div className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 bg-gradient-to-b from-black/75 via-black/35 to-transparent px-3 pb-10 pt-[max(0.25rem,env(safe-area-inset-top))]">
@@ -899,7 +899,7 @@ export function CommunityMessengerCallClient({
 
               <div
                 ref={pipWrapRef}
-                className={`absolute z-20 w-[20%] min-w-[76px] max-w-[124px] overflow-hidden rounded-[14px] border border-white/20 bg-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] sm:w-[21%] sm:min-w-[84px] sm:max-w-[136px] sm:rounded-2xl ${
+                className={`absolute z-20 w-[20%] min-w-[76px] max-w-[124px] overflow-hidden rounded-ui-rect border border-white/20 bg-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] sm:w-[21%] sm:min-w-[84px] sm:max-w-[136px] sm:rounded-ui-rect ${
                   pipPixelPosition
                     ? "right-auto bottom-auto"
                     : joined
@@ -967,7 +967,7 @@ export function CommunityMessengerCallClient({
         }
       >
         {errorMessage ? (
-          <div className="mb-4 rounded-3xl bg-white/10 p-4">
+          <div className="mb-4 rounded-ui-rect bg-white/10 p-4">
             <p className="text-[13px] font-semibold text-[#FECACA]">{errorMessage}</p>
             <p className="mt-2 text-[12px] leading-5 text-white/70">{permissionGuide?.description}</p>
             <div className="mt-3 flex gap-2">
@@ -983,7 +983,7 @@ export function CommunityMessengerCallClient({
                   });
                 }}
                 disabled={busy === "accept" || busy === "join"}
-                className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
+                className="flex-1 rounded-ui-rect bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
               >
                 다시 시도
               </button>
@@ -994,7 +994,7 @@ export function CommunityMessengerCallClient({
                     window.alert("브라우저 주소창 왼쪽 사이트 설정에서 카메라/마이크 권한을 허용해 주세요.");
                   }
                 }}
-                className="rounded-2xl border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
+                className="rounded-ui-rect border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
               >
                 권한 안내
               </button>
@@ -1065,7 +1065,7 @@ export function CommunityMessengerCallClient({
                   type="button"
                   onClick={() => void rejectIncoming()}
                   disabled={busy === "reject"}
-                  className="rounded-2xl border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
+                  className="rounded-ui-rect border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
                 >
                   거절
                 </button>
@@ -1080,7 +1080,7 @@ export function CommunityMessengerCallClient({
                     });
                   }}
                   disabled={busy === "accept" || busy === "join"}
-                  className="flex-1 rounded-2xl bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                  className="flex-1 rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                 >
                   {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
                 </button>
@@ -1090,7 +1090,7 @@ export function CommunityMessengerCallClient({
                 type="button"
                 onClick={() => void endCall()}
                 disabled={busy === "end"}
-                className="flex-1 rounded-2xl bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                className="flex-1 rounded-ui-rect bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
               >
                 통화 종료
               </button>

@@ -63,7 +63,7 @@ export function StoreBusinessBlockedModal({
         onClick={onClose}
       />
       <div
-        className="relative z-10 w-full max-w-md rounded-t-2xl border border-gray-200 bg-white p-6 shadow-2xl sm:rounded-2xl"
+        className="relative z-10 w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] border border-gray-200 bg-white p-6 shadow-2xl sm:rounded-ui-rect"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="store-business-blocked-title" className="text-lg font-semibold text-gray-900">
@@ -74,7 +74,7 @@ export function StoreBusinessBlockedModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-gray-900 py-3 text-center text-[14px] font-medium text-white active:opacity-90"
+            className="rounded-ui-rect bg-gray-900 py-3 text-center text-[14px] font-medium text-white active:opacity-90"
           >
             {primaryCloseLabel}
           </button>
@@ -82,7 +82,7 @@ export function StoreBusinessBlockedModal({
             <Link
               href={`/my/business/profile?storeId=${encodeURIComponent(firstStoreId)}`}
               onClick={onClose}
-              className="rounded-lg border border-signature/40 bg-signature/5 py-3 text-center text-[14px] font-medium text-signature active:opacity-90"
+              className="rounded-ui-rect border border-signature/40 bg-signature/5 py-3 text-center text-[14px] font-medium text-signature active:opacity-90"
             >
               매장 설정 (공개 페이지 미리보기용)
             </Link>
@@ -91,7 +91,7 @@ export function StoreBusinessBlockedModal({
             <Link
               href="/my/business/apply"
               onClick={onClose}
-              className="rounded-lg border border-gray-200 py-3 text-center text-[14px] font-medium text-gray-800 active:bg-gray-50"
+              className="rounded-ui-rect border border-gray-200 py-3 text-center text-[14px] font-medium text-gray-800 active:bg-gray-50"
             >
               매장 등록 신청
             </Link>

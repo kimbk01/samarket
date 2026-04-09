@@ -28,7 +28,7 @@ export function StoreReportPageClient({
           {mode === "product" ? "상품 신고" : "매장 신고"}
         </h1>
       </header>
-      <div className="mx-4 mt-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="mx-4 mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <StoreReportForm storeSlug={safeSlug} mode={mode} productId={productId} />
       </div>
     </div>

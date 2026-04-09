@@ -44,7 +44,7 @@ export function NotInterestedCard({ onUndo, onReason }: NotInterestedCardProps) 
 
   if (sent) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-100 p-4">
+      <div className="flex items-center justify-between gap-3 rounded-ui-rect border border-gray-200 bg-gray-100 p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-500 text-white">
             <IconCheck className="h-5 w-5" />
@@ -56,7 +56,7 @@ export function NotInterestedCard({ onUndo, onReason }: NotInterestedCardProps) 
         <button
           type="button"
           onClick={onUndo}
-          className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-200"
+          className="flex shrink-0 items-center gap-1 rounded-ui-rect px-2 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-200"
         >
           <IconUndo className="h-4 w-4" />
           되돌리기
@@ -66,7 +66,7 @@ export function NotInterestedCard({ onUndo, onReason }: NotInterestedCardProps) 
   }
 
   return (
-    <div className="rounded-md border border-gray-200 bg-gray-100 p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-gray-100 p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[15px] font-semibold text-gray-900">
           관심 없는 이유가 있나요?
@@ -74,7 +74,7 @@ export function NotInterestedCard({ onUndo, onReason }: NotInterestedCardProps) 
         <button
           type="button"
           onClick={onUndo}
-          className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-200"
+          className="flex shrink-0 items-center gap-1 rounded-ui-rect px-2 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-200"
         >
           <IconUndo className="h-4 w-4" />
           되돌리기

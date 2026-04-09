@@ -63,7 +63,7 @@ function ActionGroup({ title, children }: { title: string; children: ReactNode }
 }
 
 const ctaBase =
-  "inline-flex w-full min-h-[2.25rem] shrink-0 items-center justify-center rounded-lg px-3 py-2 text-center text-[12px] font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/40 focus-visible:ring-offset-1";
+  "inline-flex w-full min-h-[2.25rem] shrink-0 items-center justify-center rounded-ui-rect px-3 py-2 text-center text-[12px] font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/40 focus-visible:ring-offset-1";
 
 const ctaPrimary = `${ctaBase} bg-signature text-white shadow-sm hover:bg-signature/90 active:bg-signature/95`;
 const ctaSecondary = `${ctaBase} border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 active:bg-gray-100`;
@@ -180,7 +180,7 @@ export function AdminStoresPage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
           {error}
         </div>
       ) : null}
@@ -188,11 +188,11 @@ export function AdminStoresPage() {
       {loading ? (
         <p className="text-[14px] text-gray-500">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           매장이 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
           <table className="min-w-[1420px] w-full border-collapse text-left text-[13px]">
             <thead className="border-b border-gray-200 bg-gray-50 text-[12px] text-gray-600">
               <tr>

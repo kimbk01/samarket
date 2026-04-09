@@ -6,7 +6,7 @@ import { MeetingStatusBadge } from "./MeetingStatusBadge";
 
 export function MeetingDetail({ meeting }: { meeting: NeighborhoodMeetingDetailDTO }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-[16px] font-semibold text-gray-900">{meeting.title}</h3>
         <MeetingStatusBadge status={meeting.status} />

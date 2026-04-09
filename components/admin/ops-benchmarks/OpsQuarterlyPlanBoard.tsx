@@ -79,7 +79,7 @@ export function OpsQuarterlyPlanBoard() {
       </div>
 
       {plans.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
           분기별 개선 계획이 없습니다.
         </div>
       ) : (
@@ -88,7 +88,7 @@ export function OpsQuarterlyPlanBoard() {
             {STATUS_COLUMNS.map((status) => (
               <div
                 key={status}
-                className="w-[180px] shrink-0 rounded-lg border border-gray-200 bg-gray-50/50 p-3"
+                className="w-[180px] shrink-0 rounded-ui-rect border border-gray-200 bg-gray-50/50 p-3"
               >
                 <h3 className="mb-2 text-[13px] font-medium text-gray-700">
                   {STATUS_LABELS[status]} ({byStatus[status].length})

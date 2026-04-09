@@ -140,7 +140,7 @@ export function PostCommunityCommentsSection({
         className={
           opts.isChild
             ? "mt-2 ml-4 border-l-2 border-sky-100 pl-3"
-            : "rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5"
+            : "rounded-ui-rect border border-gray-100 bg-gray-50/80 px-3 py-2.5"
         }
       >
         <div className="flex items-start justify-between gap-2">
@@ -158,7 +158,7 @@ export function PostCommunityCommentsSection({
                 type="button"
                 disabled={reportBusyId === c.id}
                 onClick={() => void onReportComment(c.id)}
-                className="rounded-md border border-red-100 bg-white px-2 py-1 text-[11px] font-medium text-red-700 disabled:opacity-50"
+                className="rounded-ui-rect border border-red-100 bg-white px-2 py-1 text-[11px] font-medium text-red-700 disabled:opacity-50"
               >
                 {reportBusyId === c.id ? "…" : "신고"}
               </button>
@@ -167,7 +167,7 @@ export function PostCommunityCommentsSection({
               <button
                 type="button"
                 onClick={() => setReplyParentId(c.id)}
-                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700"
+                className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700"
               >
                 답글
               </button>
@@ -200,7 +200,7 @@ export function PostCommunityCommentsSection({
 
       <div className="mt-4">
         {replyParentId ? (
-          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] text-sky-900">
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] text-sky-900">
             <span>이 댓글에 답글 작성 중</span>
             <button
               type="button"
@@ -223,13 +223,13 @@ export function PostCommunityCommentsSection({
           }
           disabled={!currentUserId || submitting}
           rows={3}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px] text-gray-900 placeholder:text-gray-400 disabled:bg-gray-50"
+          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] text-gray-900 placeholder:text-gray-400 disabled:bg-gray-50"
         />
         <button
           type="button"
           onClick={() => (currentUserId ? void onSubmitComment() : router.push(LOGIN_REDIRECT))}
           disabled={!!currentUserId && (submitting || !draft.trim())}
-          className="mt-2 w-full rounded-lg bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="mt-2 w-full rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
         >
           {currentUserId
             ? submitting

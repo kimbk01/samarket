@@ -11,7 +11,7 @@ export function PromoDetailSkin({
   const thumb = post.images?.[0]?.url;
 
   return (
-    <article className="bg-gradient-to-b from-amber-50 to-white rounded-xl overflow-hidden border-2 border-amber-100">
+    <article className="bg-gradient-to-b from-amber-50 to-white rounded-ui-rect overflow-hidden border-2 border-amber-100">
       {thumb && (
         <div className="aspect-video bg-amber-50">
           <img src={thumb} alt="" className="w-full h-full object-cover" />

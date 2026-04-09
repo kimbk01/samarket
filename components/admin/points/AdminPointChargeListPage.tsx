@@ -45,7 +45,7 @@ export function AdminPointChargeListPage() {
         ].map(({ label, value, color }) => (
           <div
             key={label}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center shadow-sm"
+            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-center shadow-sm"
           >
             <p className={`text-[22px] font-bold ${color}`}>{value}</p>
             <p className="text-[11px] text-gray-500">{label}</p>
@@ -55,7 +55,7 @@ export function AdminPointChargeListPage() {
 
       {/* 입금확인대기 강조 안내 */}
       {counts.waiting > 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+        <div className="flex items-center gap-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
           <span className="text-[16px]">⚠️</span>
           <span>
             입금 확인이 필요한 신청 <strong>{counts.waiting}건</strong>이 있습니다.
@@ -66,7 +66,7 @@ export function AdminPointChargeListPage() {
 
       <AdminPointChargeFilterBar filters={filters} onChange={setFilters} />
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-4 py-3">
           <h2 className="text-[14px] font-semibold text-gray-900">
             충전 신청 목록 ({filtered.length}건)

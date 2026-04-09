@@ -7,7 +7,7 @@ export const STORE_DETAIL_PAGE = `min-h-screen ${STORE_DETAIL_BG}`;
 
 /** 흰 카드(메뉴 행·정보 블록 공통) */
 export const STORE_DETAIL_CARD =
-  "rounded-xl border border-stone-200 bg-white shadow-sm";
+  "rounded-ui-rect border border-stone-200 bg-white shadow-sm";
 
 /** 가로 여백(본문 카드용) */
 export const STORE_DETAIL_GUTTER = "mx-4";
@@ -18,13 +18,13 @@ export const STORE_DETAIL_SECTION_HEAD =
 
 /** 정보 탭 지표 칩(메뉴 리스트와 동일 보더 톤) */
 export const STORE_DETAIL_METRIC_TILE =
-  "rounded-xl border border-ig-border bg-background px-3 py-2.5";
+  "rounded-ui-rect border border-ig-border bg-background px-3 py-2.5";
 
 /**
  * 뒤로가기 줄 + 메뉴·정보·리뷰 탭(+칩) — 연한 반투명 흰 배경, 하단 보더 동일.
  */
 export const STORE_DETAIL_STICKY_HEADER =
-  "sticky z-[35] rounded-md border-b border-stone-200 bg-white/80 shadow-sm backdrop-blur-md";
+  "sticky z-[35] rounded-ui-rect border-b border-stone-200 bg-white/80 shadow-sm backdrop-blur-md";
 
 export const STORE_DETAIL_STICKY_TOP_SAFE = "top-[env(safe-area-inset-top,0px)]";
 

@@ -115,7 +115,7 @@ const FULFILL_LABEL: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
 
 const CHAT_LINK_CLASS =
-  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-lg border border-signature/35 bg-white px-3 py-3 text-center text-[14px] font-semibold leading-snug text-gray-900 shadow-sm transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
+  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-ui-rect border border-signature/35 bg-white px-3 py-3 text-center text-[14px] font-semibold leading-snug text-gray-900 shadow-sm transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
 
 function OwnerOrderCard({
   storeId,
@@ -139,7 +139,7 @@ function OwnerOrderCard({
   return (
     <li
       id={`owner-order-${order.id}`}
-      className={`scroll-mt-[4.75rem] w-full min-w-0 overflow-hidden rounded-xl border p-3 shadow-sm sm:p-4 ${
+      className={`scroll-mt-[4.75rem] w-full min-w-0 overflow-hidden rounded-ui-rect border p-3 shadow-sm sm:p-4 ${
         order.order_status === "refund_requested"
           ? "border-amber-300 bg-amber-50/40"
           : order.fulfillment_type === "local_delivery" && order.order_status === "pending"
@@ -156,7 +156,7 @@ function OwnerOrderCard({
 
       <div
         data-owner-order-gray
-        className="mt-3 w-full min-w-0 rounded-lg border border-gray-100 bg-gray-50/90 px-3 py-3.5 sm:px-4 sm:py-4"
+        className="mt-3 w-full min-w-0 rounded-ui-rect border border-gray-100 bg-gray-50/90 px-3 py-3.5 sm:px-4 sm:py-4"
       >
         <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 sm:gap-x-4">
           <div className="min-w-0 overflow-hidden">
@@ -204,7 +204,7 @@ function OwnerOrderCard({
       ) : null}
       {(order.fulfillment_type === "local_delivery" || order.fulfillment_type === "shipping") &&
       (order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim()) ? (
-        <div className="mt-2 w-full min-w-0 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5">
+        <div className="mt-2 w-full min-w-0 rounded-ui-rect border border-stone-200 bg-stone-50 px-3 py-2.5">
           <p className={OC_LBL}>배송지</p>
           <p className={`mt-1 whitespace-pre-wrap break-words ${OC_TX}`}>
             {[order.delivery_address_summary?.trim(), order.delivery_address_detail?.trim()]
@@ -214,7 +214,7 @@ function OwnerOrderCard({
         </div>
       ) : null}
       {order.buyer_note?.trim() ? (
-        <div className="mt-2 w-full min-w-0 rounded-lg border border-signature/30 bg-signature/5 px-3 py-2.5">
+        <div className="mt-2 w-full min-w-0 rounded-ui-rect border border-signature/30 bg-signature/5 px-3 py-2.5">
           <p className="text-[14px] font-medium text-signature">고객 요청 사항</p>
           <p className={`mt-1 whitespace-pre-wrap ${OC_TX}`}>{order.buyer_note.trim()}</p>
         </div>
@@ -457,9 +457,9 @@ export function OwnerStoreOrdersView() {
     body = <p className="text-sm text-gray-500">불러오는 중…</p>;
   } else if (state.kind === "unauth") {
     body = (
-      <div className="rounded-xl bg-white p-6 text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-600 shadow-sm">
         <p>로그인 후 매장 주문을 확인하고 바로 고객과 연결할 수 있습니다.</p>
-        <Link href={loginHref} className="mt-3 inline-flex rounded-lg bg-signature px-4 py-2 font-semibold text-white">
+        <Link href={loginHref} className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white">
           로그인하고 주문 보기
         </Link>
       </div>
@@ -468,7 +468,7 @@ export function OwnerStoreOrdersView() {
     body = <p className="text-sm text-gray-600">서버 설정을 확인해 주세요.</p>;
   } else if (state.kind === "no_store") {
     body = (
-      <div className="rounded-xl bg-white p-6 text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-600 shadow-sm">
         <p>등록된 매장이 없습니다.</p>
         <Link href="/my/business/apply" className="mt-2 inline-block text-signature">
           매장 신청
@@ -513,7 +513,7 @@ export function OwnerStoreOrdersView() {
         </div>
         {state.pendingDeliveryCount > 0 ? (
           <div
-            className="rounded-xl border border-rose-200 bg-rose-50/95 px-3 py-2.5 text-[12px] leading-relaxed text-rose-950"
+            className="rounded-ui-rect border border-rose-200 bg-rose-50/95 px-3 py-2.5 text-[12px] leading-relaxed text-rose-950"
             role="status"
             aria-live="polite"
           >
@@ -521,29 +521,29 @@ export function OwnerStoreOrdersView() {
           </div>
         ) : null}
         {state.pendingAcceptCount > 0 && state.pendingDeliveryCount === 0 ? (
-          <div className="rounded-xl border border-violet-200 bg-violet-50/90 px-3 py-2 text-[12px] text-violet-950">
+          <div className="rounded-ui-rect border border-violet-200 bg-violet-50/90 px-3 py-2 text-[12px] text-violet-950">
             접수 대기 중인 주문이 {state.pendingAcceptCount}건 있습니다.
           </div>
         ) : null}
       {state.refundRequestedCount > 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/90 px-3 py-2 text-[12px] text-amber-950">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2 text-[12px] text-amber-950">
           구매자 환불 요청이 접수된 주문이 있습니다. 관리자에서 승인 시 상태가 갱신됩니다.
         </div>
       ) : null}
       {state.orders.length === 0 ? (
-        <div className="rounded-xl bg-white p-6 text-sm text-gray-500 shadow-sm">
+        <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-500 shadow-sm">
           <p className="text-gray-800">아직 주문이 없습니다.</p>
           <p className="mt-1">매장 정보와 메뉴를 점검한 뒤 공유하면 첫 주문을 더 빨리 받을 수 있습니다.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href={`/my/business?storeId=${encodeURIComponent(state.storeId)}`}
-              className="inline-flex rounded-lg bg-signature px-4 py-2 font-semibold text-white"
+              className="inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white"
             >
               매장 운영 보기
             </Link>
             <Link
               href={`/my/business/profile?storeId=${encodeURIComponent(state.storeId)}`}
-              className="inline-flex rounded-lg border border-gray-200 bg-white px-4 py-2 font-medium text-gray-800"
+              className="inline-flex rounded-ui-rect border border-gray-200 bg-white px-4 py-2 font-medium text-gray-800"
             >
               매장 정보 점검
             </Link>

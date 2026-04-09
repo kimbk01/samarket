@@ -106,7 +106,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+        className="w-full max-w-md rounded-ui-rect border border-gray-200 bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-gray-900">회원 수정</h2>
@@ -133,7 +133,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
           구분·전화 인증은 <strong>profiles</strong>(및 개발용 <strong>test_users.role</strong>)에 반영됩니다.
         </p>
         {user.hasProfile === false ? (
-          <p className="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-950">
+          <p className="mt-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-950">
             수동(test_users)만 연결된 계정입니다. <strong>저장 시</strong> 같은 UUID로 Supabase Auth와 profiles가
             없으면 <strong>자동으로 만들어</strong> 정식 회원과 동일하게 맞춥니다.
           </p>
@@ -146,7 +146,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
               value={memberType}
               onChange={(e) => setMemberType(e.target.value as MemberType)}
               disabled={memberLocked}
-              className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-gray-100"
+              className="mt-1.5 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-gray-100"
             >
               {memberOptions.map((v) => (
                 <option key={v} value={v}>
@@ -170,7 +170,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             <select
               value={phoneStatus}
               onChange={(e) => setPhoneStatus(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+              className="mt-1.5 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
             >
               {PHONE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -187,14 +187,14 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-ui-rect border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+            className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
           >
             {submitting ? "저장 중…" : "저장"}
           </button>

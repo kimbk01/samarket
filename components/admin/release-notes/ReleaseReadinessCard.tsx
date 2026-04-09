@@ -22,7 +22,7 @@ export function ReleaseReadinessCard() {
 
   return (
     <div
-      className={`rounded-lg border p-4 ${
+      className={`rounded-ui-rect border p-4 ${
         readiness.ready
           ? "border-emerald-200 bg-emerald-50/30"
           : "border-red-200 bg-red-50/50"

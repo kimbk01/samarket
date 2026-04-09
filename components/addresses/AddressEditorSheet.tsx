@@ -165,7 +165,7 @@ export function AddressEditorSheet(props: {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col justify-end bg-black/40 sm:items-center sm:justify-center sm:p-4">
       <div
-        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl sm:shadow-xl"
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] bg-white sm:max-h-[90vh] sm:max-w-lg sm:rounded-ui-rect sm:shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="addr-editor-title"
@@ -177,7 +177,7 @@ export function AddressEditorSheet(props: {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-2 py-1 text-[13px] text-gray-500"
+            className="rounded-ui-rect px-2 py-1 text-[13px] text-gray-500"
           >
             닫기
           </button>
@@ -189,7 +189,7 @@ export function AddressEditorSheet(props: {
             <select
               value={labelType}
               onChange={(e) => setLabelType(e.target.value as UserAddressLabelType)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px]"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px]"
             >
               {(Object.keys(ADDRESS_LABEL_KO) as UserAddressLabelType[]).map((k) => (
                 <option key={k} value={k}>
@@ -205,7 +205,7 @@ export function AddressEditorSheet(props: {
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               placeholder="예: 케손 집, BGC 사무실"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px]"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px]"
             />
           </div>
 
@@ -230,7 +230,7 @@ export function AddressEditorSheet(props: {
               addressDetail={unitFloorRoom}
               onAddressStreetLineChange={setStreetAddress}
               onAddressDetailChange={setUnitFloorRoom}
-              inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px]"
+              inputClassName="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px]"
             />
           </div>
 
@@ -240,7 +240,7 @@ export function AddressEditorSheet(props: {
               value={neighborhoodName}
               onChange={(e) => setNeighborhoodName(e.target.value)}
               placeholder="Barangay 또는 노출용 한 줄"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[14px]"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px]"
             />
           </div>
 
@@ -250,7 +250,7 @@ export function AddressEditorSheet(props: {
               <input
                 value={province}
                 onChange={(e) => setProvince(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px]"
+                className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
               />
             </div>
             <div>
@@ -258,7 +258,7 @@ export function AddressEditorSheet(props: {
               <input
                 value={cityMunicipality}
                 onChange={(e) => setCityMunicipality(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px]"
+                className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
               />
             </div>
           </div>
@@ -268,7 +268,7 @@ export function AddressEditorSheet(props: {
             <input
               value={barangay}
               onChange={(e) => setBarangay(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px]"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
             />
           </div>
 
@@ -277,7 +277,7 @@ export function AddressEditorSheet(props: {
             <input
               value={landmark}
               onChange={(e) => setLandmark(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px]"
+              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
             />
           </div>
 
@@ -287,7 +287,7 @@ export function AddressEditorSheet(props: {
               <input
                 value={recipientName}
                 onChange={(e) => setRecipientName(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px]"
+                className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
               />
             </div>
             <div>
@@ -299,12 +299,12 @@ export function AddressEditorSheet(props: {
                 value={formatPhMobileDisplay(phoneNumber)}
                 onChange={(e) => setPhoneNumber(parsePhMobileInput(e.target.value))}
                 placeholder={PH_MOBILE_PLACEHOLDER}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px]"
+                className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
               />
             </div>
           </div>
 
-          <div className="rounded-xl bg-gray-50 px-3 py-3">
+          <div className="rounded-ui-rect bg-gray-50 px-3 py-3">
             <p className="text-[12px] font-semibold text-gray-800">사용 용도</p>
             <label className="mt-2 flex items-center gap-2 text-[13px]">
               <input type="checkbox" checked={useLife} onChange={(e) => setUseLife(e.target.checked)} />
@@ -320,7 +320,7 @@ export function AddressEditorSheet(props: {
             </label>
           </div>
 
-          <div className="rounded-xl border border-dashed border-gray-200 px-3 py-3">
+          <div className="rounded-ui-rect border border-dashed border-gray-200 px-3 py-3">
             <p className="text-[12px] font-semibold text-gray-800">저장 시 기본값으로 지정</p>
             <label className="mt-2 flex items-center gap-2 text-[13px]">
               <input type="checkbox" checked={defMaster} onChange={(e) => setDefMaster(e.target.checked)} />
@@ -351,7 +351,7 @@ export function AddressEditorSheet(props: {
             type="button"
             disabled={busy}
             onClick={() => void submit()}
-            className="w-full rounded-xl bg-signature py-3 text-[15px] font-semibold text-white disabled:opacity-50"
+            className="w-full rounded-ui-rect bg-signature py-3 text-[15px] font-semibold text-white disabled:opacity-50"
           >
             {busy ? "저장 중…" : "저장"}
           </button>

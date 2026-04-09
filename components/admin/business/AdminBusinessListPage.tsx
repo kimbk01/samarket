@@ -27,7 +27,7 @@ export function AdminBusinessListPage() {
       <AdminPageHeader title="상점 목록" />
       <AdminBusinessFilterBar filters={filters} onChange={setFilters} />
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           조건에 맞는 상점이 없습니다.
         </div>
       ) : (

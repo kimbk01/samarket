@@ -168,7 +168,7 @@ export function MyBusinessNavList({ groups, className = "", onNavigate }: Props)
       {groups.map((group, gi) => (
         <div
           key={group.title}
-          className="h-full rounded-[28px] border border-ig-border bg-white p-2 shadow-[0_6px_24px_rgba(15,23,42,0.05)]"
+          className="h-full rounded-ui-rect border border-ig-border bg-white p-2 shadow-[0_6px_24px_rgba(15,23,42,0.05)]"
         >
           <h2 className={`px-3 text-[13px] font-medium text-gray-500 ${gi === 0 ? "pt-2" : "pt-2"}`}>
             {group.title}
@@ -226,7 +226,7 @@ function NavRow({
   );
 
   const rowClass =
-    "flex items-center gap-3 rounded-2xl px-3 py-3 text-left active:bg-gray-50 " +
+    "flex items-center gap-3 rounded-ui-rect px-3 py-3 text-left active:bg-gray-50 " +
     (isMuted ? "" : "text-gray-800");
 
   if (item.disabled) {

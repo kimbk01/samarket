@@ -97,7 +97,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
             <section
               key={g.key}
               className={
-                gi > 0 ? "mt-4 rounded-2xl border border-zinc-200/80 bg-white p-1 shadow-sm" : "rounded-2xl border border-zinc-200/80 bg-white p-1 shadow-sm"
+                gi > 0 ? "mt-4 rounded-ui-rect border border-zinc-200/80 bg-white p-1 shadow-sm" : "rounded-ui-rect border border-zinc-200/80 bg-white p-1 shadow-sm"
               }
             >
               <div className="px-3 pb-2 pt-3">
@@ -181,7 +181,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                               if (selected && minS >= 1) return;
                               setPick(g.key, [opt.name]);
                             }}
-                            className={`flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors ${
+                            className={`flex w-full items-center gap-3 rounded-ui-rect px-2 py-2.5 text-left transition-colors ${
                               selected ? "bg-[#E7F3FF]" : "hover:bg-zinc-50"
                             } ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                           >
@@ -220,12 +220,12 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           onClick={() =>
                             !dim && toggleMulti(g.key, opt.name, maxS, minS, value.pick[g.key] ?? [])
                           }
-                          className={`flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors ${
+                          className={`flex w-full items-center gap-3 rounded-ui-rect px-2 py-2.5 text-left transition-colors ${
                             selected ? "bg-[#E7F3FF]" : "hover:bg-zinc-50"
                           } ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                         >
                           <span
-                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md border bg-white text-[11px] font-bold leading-none shadow-sm"
+                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-white text-[11px] font-bold leading-none shadow-sm"
                             style={{
                               borderColor: selected ? SHEET_ACCENT : "#CCD0D5",
                               color: selected ? "#fff" : "transparent",
@@ -308,7 +308,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                   return (
                     <li
                       key={opt.key}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5"
+                      className="flex items-center justify-between gap-3 rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-[14px] font-medium text-gray-900">{opt.name}</p>
@@ -319,7 +319,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           type="button"
                           disabled={disabled || opt.soldOut || q <= 0 || blockDec}
                           onClick={() => setQty(g.key, opt.key, q - 1)}
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-lg leading-none text-gray-800 disabled:opacity-40"
+                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-gray-200 text-lg leading-none text-gray-800 disabled:opacity-40"
                         >
                           −
                         </button>
@@ -328,7 +328,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           type="button"
                           disabled={disabled || opt.soldOut || q >= maxForThis}
                           onClick={() => setQty(g.key, opt.key, q + 1)}
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-lg leading-none text-gray-800 disabled:opacity-40"
+                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-gray-200 text-lg leading-none text-gray-800 disabled:opacity-40"
                         >
                           +
                         </button>
@@ -345,7 +345,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                 {g.options.map((opt) => {
                   const selected = (value.pick[g.key] ?? []).includes(opt.name);
                   const btnBase =
-                    "flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-colors";
+                    "flex w-full items-center justify-between rounded-ui-rect border px-3 py-3 text-left transition-colors";
                   const btnOn = "border-signature bg-signature/5 text-gray-900";
                   const btnOff = "border-gray-200 bg-white text-gray-900";
                   const dim = disabled || opt.soldOut;
@@ -402,7 +402,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
             <details
               key={g.key}
               open={isOpen}
-              className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm"
+              className="rounded-ui-rect border border-gray-100 bg-white p-3 shadow-sm"
               onToggle={(e) => {
                 const el = e.currentTarget;
                 setOpenKeys((k) => ({ ...k, [g.key]: el.open }));
@@ -417,7 +417,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
         }
 
         return (
-          <section key={g.key} className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+          <section key={g.key} className="rounded-ui-rect border border-gray-100 bg-white p-3 shadow-sm">
             {header}
             {body}
           </section>

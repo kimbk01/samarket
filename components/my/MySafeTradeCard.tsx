@@ -10,7 +10,7 @@ export function MySafeTradeCard() {
   return (
     <Link
       href="/mypage/points"
-      className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm"
+      className="flex items-center justify-between rounded-ui-rect bg-white p-4 shadow-sm"
     >
       <div>
         <p className="text-[15px] font-semibold text-gray-900">안전한 거래</p>

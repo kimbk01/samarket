@@ -64,7 +64,7 @@ export function SearchFilterBar({
           onChange={(e) =>
             onChange({ ...filters, regionId: e.target.value })
           }
-          className="min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
+          className="min-h-[44px] rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
         >
           <option value="">{t("common_all_region")}</option>
           {getRegionOptions().map((r) => (
@@ -78,7 +78,7 @@ export function SearchFilterBar({
           onChange={(e) =>
             onChange({ ...filters, category: e.target.value })
           }
-          className="min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
+          className="min-h-[44px] rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
         >
           <option value="">{t("common_all_category")}</option>
           {categories.map((c) => (
@@ -92,7 +92,7 @@ export function SearchFilterBar({
           onChange={(e) =>
             onChange({ ...filters, status: e.target.value })
           }
-          className="min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
+          className="min-h-[44px] rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -105,7 +105,7 @@ export function SearchFilterBar({
           onChange={(e) =>
             onChange({ ...filters, sortKey: e.target.value as SearchSortKey })
           }
-          className="min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
+          className="min-h-[44px] rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800"
         >
           {SEARCH_SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>

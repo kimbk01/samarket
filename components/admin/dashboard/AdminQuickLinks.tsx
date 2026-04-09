@@ -58,7 +58,7 @@ const LINKS: { href: string; label: string }[] = [
 
 export function AdminQuickLinks() {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <h2 className="mb-3 text-[15px] font-medium text-gray-900">빠른 이동</h2>
       <ul className="flex flex-wrap gap-2">
         {LINKS.map(({ href, label }) => (

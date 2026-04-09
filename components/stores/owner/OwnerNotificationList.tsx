@@ -51,7 +51,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
 
   if (!ownerId) {
     return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         매장(오너) 역할로 전환한 뒤 알림을 확인하세요.
       </p>
     );
@@ -76,20 +76,20 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
       <div className="flex justify-end">
         <button
           type="button"
-          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-800"
+          className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-800"
           onClick={() => markAllNotificationsReadForTarget("owner", ownerId, storeId)}
         >
           전체 읽음
         </button>
       </div>
       {filtered.length === 0 ? (
-        <p className="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">알림이 없어요.</p>
+        <p className="rounded-ui-rect bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">알림이 없어요.</p>
       ) : (
         <ul className="space-y-2">
           {filtered.map((r) => (
             <li
               key={r.id}
-              className={`rounded-xl border px-3 py-3 ${
+              className={`rounded-ui-rect border px-3 py-3 ${
                 r.priority === "high" && !r.is_read
                   ? "border-amber-300 bg-amber-50"
                   : r.is_read

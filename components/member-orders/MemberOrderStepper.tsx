@@ -34,7 +34,7 @@ export function MemberOrderStepper({ order }: { order: MemberOrder }) {
 
   if (issue) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+      <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
         <p className="font-semibold">{MEMBER_STATUS_USER_MESSAGE[order.order_status]}</p>
         <p className="mt-1 text-xs text-amber-900">진행 단계는 취소·환불 처리 중에는 표시되지 않아요.</p>
       </div>

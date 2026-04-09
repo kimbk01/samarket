@@ -246,7 +246,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
       </div>
 
       <div className={`px-3 pt-3 ${OWNER_STORE_STACK_Y_CLASS}`}>
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
+        <div className="flex items-center gap-2 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 shadow-sm">
           <svg
             className="h-5 w-5 shrink-0 text-gray-400"
             fill="none"
@@ -268,7 +268,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
           <div className="min-w-0 flex-1">
             <p className="text-[12px] font-semibold text-gray-900">
               {tab === "all" ? "새 상품 등록" : `「${sections.find((s) => s.id === tab)?.name ?? "카테고리"}」에 추가`}
@@ -299,7 +299,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
         </p>
 
         {toast ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
             {toast}
           </p>
         ) : null}
@@ -309,7 +309,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           <p className="text-[14px] text-gray-500">불러오는 중…</p>
         ) : filtered.length === 0 ? (
           <div
-            className={`rounded-xl border border-dashed border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500`}
+            className={`rounded-ui-rect border border-dashed border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500`}
           >
             {products.length === 0 ? (
               <>
@@ -334,7 +334,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
               return (
                 <li
                   key={p.id}
-                  className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                  className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-2">
                     <p className="min-w-0 flex-1 truncate text-[15px] font-semibold text-gray-900">
@@ -361,7 +361,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                     </div>
                   </div>
                   <div className="flex gap-3 p-3">
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
                       {p.thumbnail_url ? (
                         <img
                           src={p.thumbnail_url}
@@ -396,7 +396,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                   <div className="flex justify-end gap-2 border-t border-gray-100 px-3 py-2">
                     <Link
                       href={editHref}
-                      className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-signature"
+                      className="inline-flex items-center gap-1 rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-signature"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path
@@ -412,7 +412,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                       type="button"
                       disabled={busy}
                       onClick={() => onDelete(p)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-red-100 bg-red-50 px-3 py-1.5 text-[13px] font-medium text-red-700 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-ui-rect border border-red-100 bg-red-50 px-3 py-1.5 text-[13px] font-medium text-red-700 disabled:opacity-50"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path

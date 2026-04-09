@@ -90,7 +90,7 @@ export function MeetingReportModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* 바텀 시트 */}
-      <div className="w-full max-w-lg rounded-t-2xl bg-white px-4 pb-8 pt-4 shadow-xl">
+      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 pb-8 pt-4 shadow-xl">
         {/* 핸들 */}
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" />
 
@@ -105,7 +105,7 @@ export function MeetingReportModal({
             <button
               type="button"
               onClick={onClose}
-              className="mt-5 w-full rounded-xl bg-gray-900 py-3 text-[14px] font-semibold text-white"
+              className="mt-5 w-full rounded-ui-rect bg-gray-900 py-3 text-[14px] font-semibold text-white"
             >
               닫기
             </button>
@@ -126,7 +126,7 @@ export function MeetingReportModal({
                   key={r.value}
                   type="button"
                   onClick={() => setReasonType(r.value)}
-                  className={`rounded-xl border py-2.5 text-[13px] font-medium transition-colors ${
+                  className={`rounded-ui-rect border py-2.5 text-[13px] font-medium transition-colors ${
                     reasonType === r.value
                       ? "border-red-400 bg-red-50 text-red-700"
                       : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
@@ -143,7 +143,7 @@ export function MeetingReportModal({
               rows={3}
               maxLength={500}
               placeholder="상세 내용을 입력해 주세요. (선택)"
-              className="mt-3 w-full resize-none rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
+              className="mt-3 w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
             />
 
             {err && <p className="mt-2 text-[12px] text-red-500">{err}</p>}
@@ -152,7 +152,7 @@ export function MeetingReportModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-xl border border-gray-200 py-3 text-[14px] font-medium text-gray-600"
+                className="flex-1 rounded-ui-rect border border-gray-200 py-3 text-[14px] font-medium text-gray-600"
               >
                 취소
               </button>
@@ -160,7 +160,7 @@ export function MeetingReportModal({
                 type="button"
                 disabled={submitting || !reasonType}
                 onClick={() => void onSubmit()}
-                className="flex-1 rounded-xl bg-red-500 py-3 text-[14px] font-semibold text-white disabled:opacity-50"
+                className="flex-1 rounded-ui-rect bg-red-500 py-3 text-[14px] font-semibold text-white disabled:opacity-50"
               >
                 {submitting ? "신고 중…" : "신고하기"}
               </button>

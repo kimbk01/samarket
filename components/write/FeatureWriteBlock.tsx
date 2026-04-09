@@ -27,7 +27,7 @@ export function FeatureWriteBlock({ category }: FeatureWriteBlockProps) {
         </p>
         <Link
           href={backHref}
-          className="mt-6 inline-block rounded-lg bg-signature px-4 py-2.5 text-[14px] font-medium text-white"
+          className="mt-6 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white"
         >
           카테고리로 돌아가기
         </Link>

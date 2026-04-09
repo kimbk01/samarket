@@ -83,7 +83,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
   if (!staff) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="rounded-xl bg-white p-6 shadow-xl">
+        <div className="rounded-ui-rect bg-white p-6 shadow-xl">
           <p className="text-gray-600">해당 관리자를 찾을 수 없습니다.</p>
           <button
             type="button"
@@ -99,7 +99,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-white shadow-xl">
         <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-5 py-4">
           <h2 className="text-lg font-semibold text-gray-900">관리자 수정</h2>
           <p className="mt-1 text-[13px] text-gray-500">

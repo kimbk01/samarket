@@ -68,7 +68,7 @@ export function CommunityBoardPage({
                     ? `${SAMARKET_ROUTES.community.write}?category=${encodeURIComponent(categorySlug)}`
                     : SAMARKET_ROUTES.community.write
                 }
-                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                className="px-3 py-1.5 text-sm font-medium rounded-ui-rect bg-blue-600 text-white hover:bg-blue-700"
               >
                 글쓰기
               </Link>

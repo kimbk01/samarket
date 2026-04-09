@@ -98,7 +98,7 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
         <button
           type="button"
           disabled={selectedCount === 0}
-          className="shrink-0 rounded-lg px-3 py-2 text-[15px] font-semibold text-signature disabled:text-white/25"
+          className="shrink-0 rounded-ui-rect px-3 py-2 text-[15px] font-semibold text-signature disabled:text-white/25"
           onClick={confirm}
         >
           전송

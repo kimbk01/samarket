@@ -52,7 +52,7 @@ export function ImageUploader({
         {value.map((item, index) => (
           <div
             key={index}
-            className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-gray-100"
+            className="relative h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100"
           >
             <img src={item.url} alt="" className="h-full w-full object-cover" />
             <button
@@ -69,7 +69,7 @@ export function ImageUploader({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-gray-400"
+            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-ui-rect border-2 border-dashed border-gray-300 text-gray-400 hover:border-gray-400"
           >
             +
           </button>

@@ -90,7 +90,7 @@ function BaeminSectionCard({
   className?: string;
 }) {
   return (
-    <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${className}`}>
+    <div className={`overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm ${className}`}>
       <div className="border-b border-gray-100 px-4 py-3">
         <h2 className="text-[15px] font-semibold text-gray-900">{title}</h2>
       </div>
@@ -572,7 +572,7 @@ export function OwnerProductForm({
         className="space-y-[18px] px-4 py-4"
       >
         {error ? (
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-800">{error}</div>
+          <div className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] text-red-800">{error}</div>
         ) : null}
 
         {formTab === "basic" ? (
@@ -665,7 +665,7 @@ export function OwnerProductForm({
                     <span className="text-[15px] font-semibold text-gray-700">%</span>
                   </div>
                 </div>
-                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="rounded-ui-rect border border-gray-100 bg-gray-50 px-3 py-2">
                   <p className="text-[12px] text-gray-600">
                     할인 적용가(주문 단가)
                     {saleAfterDiscount != null ? (
@@ -691,7 +691,7 @@ export function OwnerProductForm({
                     <button
                       type="button"
                       onClick={() => setValues((v) => ({ ...v, track_inventory: false }))}
-                      className={`min-h-[44px] flex-1 rounded-xl px-2 text-[13px] font-semibold ${
+                      className={`min-h-[44px] flex-1 rounded-ui-rect px-2 text-[13px] font-semibold ${
                         !values.track_inventory
                           ? "bg-gray-900 text-white"
                           : "border border-gray-200 bg-white text-gray-700"
@@ -702,7 +702,7 @@ export function OwnerProductForm({
                     <button
                       type="button"
                       onClick={() => setValues((v) => ({ ...v, track_inventory: true }))}
-                      className={`min-h-[44px] flex-1 rounded-xl px-2 text-[13px] font-semibold ${
+                      className={`min-h-[44px] flex-1 rounded-ui-rect px-2 text-[13px] font-semibold ${
                         values.track_inventory
                           ? "bg-gray-900 text-white"
                           : "border border-gray-200 bg-white text-gray-700"
@@ -784,7 +784,7 @@ export function OwnerProductForm({
                       <img
                         src={values.thumbnail_url}
                         alt=""
-                        className="h-16 w-16 rounded-lg border border-gray-200 object-cover shadow-sm"
+                        className="h-16 w-16 rounded-ui-rect border border-gray-200 object-cover shadow-sm"
                       />
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
@@ -792,7 +792,7 @@ export function OwnerProductForm({
                       <img
                         src={values.thumbnail_url}
                         alt=""
-                        className="max-h-52 w-full max-w-[280px] rounded-xl border border-gray-200 object-cover shadow-sm"
+                        className="max-h-52 w-full max-w-[280px] rounded-ui-rect border border-gray-200 object-cover shadow-sm"
                       />
                     </div>
                   </div>
@@ -834,7 +834,7 @@ export function OwnerProductForm({
                 type="button"
                 disabled={saving || deleting}
                 onClick={() => void handleDeleteProduct()}
-                className="w-full rounded-xl border border-red-200 bg-red-50 py-3 text-[15px] font-medium text-red-800 disabled:opacity-50"
+                className="w-full rounded-ui-rect border border-red-200 bg-red-50 py-3 text-[15px] font-medium text-red-800 disabled:opacity-50"
               >
                 {deleting ? "처리 중…" : "상품 삭제(목록에서 제거)"}
               </button>
@@ -851,7 +851,7 @@ export function OwnerProductForm({
             </p>
 
             {values.optionGroups.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-white py-10 text-center">
+              <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-10 text-center">
                 <p className="text-[13px] text-gray-500">옵션이 없습니다</p>
                 <button
                   type="button"
@@ -871,7 +871,7 @@ export function OwnerProductForm({
                   return (
                     <li
                       key={group.groupLocalId}
-                      className="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                      className="relative overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm"
                     >
                       <button
                         type="button"
@@ -1019,7 +1019,7 @@ export function OwnerProductForm({
                         <p className="text-[11px] font-medium text-gray-600">선택지 (이름 · 추가 금액 · 품절·기본선택)</p>
                         <ul className="space-y-2">
                           {group.options.map((opt, oi) => (
-                            <li key={opt.id} className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+                            <li key={opt.id} className="flex flex-col gap-2 rounded-ui-rect border border-gray-100 bg-gray-50/80 p-2">
                               <div className="flex flex-wrap items-end gap-2">
                                 <input
                                   value={opt.name}
@@ -1035,7 +1035,7 @@ export function OwnerProductForm({
                                     })
                                   }
                                   placeholder="예: 순한맛, 보통"
-                                  className="min-w-[120px] flex-1 rounded-md border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
+                                  className="min-w-[120px] flex-1 rounded-ui-rect border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
                                 />
                                 <div className="flex items-center gap-1">
                                   <span className="text-[12px] text-gray-500">+</span>
@@ -1053,7 +1053,7 @@ export function OwnerProductForm({
                                         return { ...v, optionGroups: next };
                                       })
                                     }
-                                    className="w-[4.5rem] rounded-md border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
+                                    className="w-[4.5rem] rounded-ui-rect border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
                                   />
                                   <span className="text-[12px] text-gray-500">{priceUnit}</span>
                                 </div>
@@ -1173,25 +1173,25 @@ export function OwnerProductForm({
         <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Link
             href={productsHubHref}
-            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+            className="flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
           >
             메뉴 관리
           </Link>
           <Link
             href={ordersQuickHref}
-            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+            className="flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
           >
             주문
           </Link>
           <Link
             href={categoriesHref}
-            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+            className="flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
           >
             카테고리
           </Link>
           <Link
             href={dashboardHref}
-            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+            className="flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
           >
             대시보드
           </Link>
@@ -1200,7 +1200,7 @@ export function OwnerProductForm({
           type="submit"
           form="owner-product-form"
           disabled={saving || deleting}
-          className="w-full rounded-xl bg-signature py-3.5 text-[16px] font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-ui-rect bg-signature py-3.5 text-[16px] font-semibold text-white disabled:opacity-50"
         >
           {saving ? "저장 중…" : "저장"}
         </button>

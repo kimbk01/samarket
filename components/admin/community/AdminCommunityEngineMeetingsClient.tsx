@@ -232,12 +232,12 @@ export function AdminCommunityEngineMeetingsClient() {
       <button
         type="button"
         onClick={() => void load()}
-        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[13px]"
+        className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-[13px]"
       >
         새로고침
       </button>
       {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
         <table className="min-w-full text-left text-[12px] text-gray-800">
           <thead className="bg-gray-50 text-[11px] uppercase text-gray-500">
             <tr>

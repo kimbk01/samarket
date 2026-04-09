@@ -139,7 +139,7 @@ export function StoreCommerceOrderDetailClient({
         {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type}
       </p>
 
-      <section className="mt-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-bold text-gray-900">진행 상태</h2>
         <p className="mt-1 text-xs text-gray-500">
           주문확인부터 주문완료까지 6단계로 보여 드립니다. 포장 픽업은 배송 단계가 생략 표시됩니다. 매장에서
@@ -154,14 +154,14 @@ export function StoreCommerceOrderDetailClient({
         </div>
       </section>
 
-      <section className="mt-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-bold text-gray-900">매장 문의 채팅</h2>
         <p className="mt-1 text-xs leading-relaxed text-gray-500">
           주문 상태는 위 진행 상태에서 확인하고, 요청 사항이나 조율이 필요할 때만 채팅을 이용해 주세요.
         </p>
         {orderChatDisabled ? (
           <span
-            className="mt-3 block w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-100 py-3 text-center text-sm font-semibold text-gray-400"
+            className="mt-3 block w-full cursor-not-allowed rounded-ui-rect border border-gray-200 bg-gray-100 py-3 text-center text-sm font-semibold text-gray-400"
             aria-disabled
           >
             매장 문의 열기
@@ -169,14 +169,14 @@ export function StoreCommerceOrderDetailClient({
         ) : (
           <Link
             href={`/my/store-orders/${encodeURIComponent(order.id)}/chat`}
-            className="mt-3 block w-full rounded-xl border border-signature bg-signature/5 py-3 text-center text-sm font-semibold text-signature"
+            className="mt-3 block w-full rounded-ui-rect border border-signature bg-signature/5 py-3 text-center text-sm font-semibold text-signature"
           >
             매장 문의 열기
           </Link>
         )}
       </section>
 
-      <section className="mt-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-bold text-gray-900">주문 정보</h2>
         <dl className="mt-2 space-y-1 text-sm">
           <div className="flex justify-between">
@@ -211,7 +211,7 @@ export function StoreCommerceOrderDetailClient({
         </dl>
       </section>
 
-      <section className="mt-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-bold text-gray-900">메뉴</h2>
         <ul className="mt-2 space-y-2 text-sm">
           {items.map((it) => (

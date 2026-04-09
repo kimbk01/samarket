@@ -78,7 +78,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
       </button>
       {open ? (
         <ul
-          className="absolute right-0 top-full z-[25] mt-1 min-w-[168px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 top-full z-[25] mt-1 min-w-[168px] rounded-ui-rect border border-gray-200 bg-white py-1 shadow-lg"
           role="menu"
         >
           <li role="presentation">

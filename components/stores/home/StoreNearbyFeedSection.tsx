@@ -199,7 +199,7 @@ export function StoreNearbyFeedSection({
       </div>
 
       {meta?.source === "supabase_unconfigured" ?
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           Supabase가 연결되지 않았거나 매장 테이블이 아직 없습니다.
         </p>
       : null}

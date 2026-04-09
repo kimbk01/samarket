@@ -34,7 +34,7 @@ export function BusinessOwnerOpsStrip({
 
   return (
     <section
-      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+      className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm"
       aria-label="매장 운영 상태"
     >
       <h2 className="text-[13px] font-semibold text-gray-500">운영·심사 상태</h2>

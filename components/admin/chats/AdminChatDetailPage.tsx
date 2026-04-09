@@ -257,7 +257,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
       <AdminCard title={t("admin_chat_room_info_card")}>
         <div className="flex gap-4">
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
             {room.productThumbnail ? (
               <img
                 src={room.productThumbnail}

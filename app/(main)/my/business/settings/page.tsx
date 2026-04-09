@@ -76,7 +76,7 @@ export default function MyBusinessSettingsPage() {
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS}`}>
-      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-[15px] font-semibold text-gray-900">배달 신규 주문 알림음</h2>
         <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
           신규 배달 주문이 들어올 때 재생되는 소리는 <strong className="font-semibold text-gray-800">모든 매장 공통</strong>
@@ -97,7 +97,7 @@ export default function MyBusinessSettingsPage() {
         </p>
       </section>
 
-      <section className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-[13px] text-gray-600">
+      <section className="rounded-ui-rect border border-dashed border-gray-200 bg-white p-4 text-[13px] text-gray-600">
         주문 자동 처리·직원 권한 등은 준비 중입니다. 매장 프로필·영업 시간은{" "}
         <Link href={`/my/business/profile?${q}`} className="font-medium text-signature underline">
           매장 프로필

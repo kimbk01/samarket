@@ -57,7 +57,7 @@ export function ChatProductSummary({
       <div className="flex min-w-0 flex-1 items-stretch gap-3 p-3">
         <Link
           href={detailHref}
-          className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-ig-highlight transition active:opacity-90"
+          className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight transition active:opacity-90"
           aria-label={`${product.title || "상품"} 썸네일 상세 보기`}
         >
           {product.thumbnail ? (

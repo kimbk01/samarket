@@ -65,7 +65,7 @@ export function OpsRunbookResultForm({
   return (
     <div className="space-y-4">
       {existingResults.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <h3 className="text-[14px] font-medium text-gray-900">기존 결과 기록</h3>
           <ul className="mt-2 space-y-2 text-[13px] text-gray-700">
             {existingResults.map((r) => (
@@ -77,7 +77,7 @@ export function OpsRunbookResultForm({
           </ul>
         </div>
       )}
-      <form onSubmit={handleSubmit} className="rounded-lg border border-gray-200 bg-white p-4">
+      <form onSubmit={handleSubmit} className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <h3 className="mb-3 text-[14px] font-medium text-gray-900">대응 결과 기록</h3>
         <p className="mb-3 text-[12px] text-gray-500">
           후속 조치 필요 시 체크하면 38단계 액션아이템이 생성됩니다.

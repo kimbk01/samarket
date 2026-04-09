@@ -14,7 +14,7 @@ export function ReviewCard({ review, reviewerLabel }: ReviewCardProps) {
   const label = reviewerLabel ?? roleLabel;
 
   return (
-    <div className="rounded-lg border border-gray-100 bg-white p-3">
+    <div className="rounded-ui-rect border border-gray-100 bg-white p-3">
       <div className="flex items-center justify-between">
         <span className="text-[12px] text-gray-500">{label}</span>
         <span className="text-[11px] text-gray-400">

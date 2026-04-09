@@ -386,7 +386,7 @@ export function StoresBrowsePrimaryView({
             ))}
           </ul>
         : showEmptyBlock ?
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-10 text-center dark:border-gray-600 dark:bg-[#242526]">
+          <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white px-4 py-10 text-center dark:border-gray-600 dark:bg-[#242526]">
             <p className="text-sm text-gray-600 dark:text-gray-300">표시할 매장이 없습니다.</p>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
               {feedSource === "supabase_unconfigured" ?

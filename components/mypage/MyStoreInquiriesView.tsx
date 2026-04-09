@@ -89,7 +89,7 @@ export function MyStoreInquiriesView() {
 
   if (state.rows.length === 0) {
     return (
-      <div className="rounded-xl bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
         <p>보낸 문의가 없습니다.</p>
         <Link href="/stores" className="mt-3 inline-block text-signature">
           매장 둘러보기
@@ -101,7 +101,7 @@ export function MyStoreInquiriesView() {
   return (
     <ul className="space-y-3">
       {state.rows.map((r) => (
-        <li key={r.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <li key={r.id} className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-[15px] font-semibold text-gray-900">{r.store_name || "매장"}</p>
           <p className="mt-1 text-sm font-medium text-gray-800">{r.subject}</p>
           <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600">{r.content}</p>
@@ -109,7 +109,7 @@ export function MyStoreInquiriesView() {
             {STATUS_LABEL[r.status] ?? r.status} · {formatDate(r.created_at)}
           </p>
           {r.answer ? (
-            <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
+            <div className="mt-3 rounded-ui-rect bg-gray-50 px-3 py-2">
               <p className="text-xs font-medium text-gray-500">매장 답변</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">{r.answer}</p>
               {r.answered_at ? (

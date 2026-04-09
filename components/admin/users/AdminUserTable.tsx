@@ -19,7 +19,7 @@ interface AdminUserTableProps {
 
 export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: AdminUserTableProps) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
       <table
         className={`w-full border-collapse text-[14px] ${showMemberUuid ? "min-w-[980px]" : "min-w-[720px]"}`}
       >
@@ -134,7 +134,7 @@ export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: 
               <td className="whitespace-nowrap px-3 py-2.5 align-top">
                 <button
                   type="button"
-                  className="rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[12px] font-semibold text-signature shadow-sm hover:bg-gray-50"
+                  className="rounded-ui-rect border border-gray-200 bg-white px-2.5 py-1 text-[12px] font-semibold text-signature shadow-sm hover:bg-gray-50"
                   onClick={() => onEditMember(u)}
                 >
                   수정

@@ -15,7 +15,7 @@ export function MyPageSectionMenuClient({ section }: { section: MyPageMobileSect
       backHref="/mypage"
       notificationUnreadCount={notificationUnreadCount}
     >
-      <div className="overflow-hidden rounded-[4px] border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white">
         {section.items.map((it) => (
           <MyPageMobileMenuRow
             key={it.id}

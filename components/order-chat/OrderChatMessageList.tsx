@@ -12,7 +12,7 @@ function Bubble({
   if (m.sender_type === "system") {
     return (
       <div className="flex justify-center py-1">
-        <div className="max-w-[90%] rounded-2xl bg-gray-100 px-3 py-2 text-center text-xs text-gray-700">
+        <div className="max-w-[90%] rounded-ui-rect bg-gray-100 px-3 py-2 text-center text-xs text-gray-700">
           <span className="font-semibold text-gray-500">시스템 · </span>
           {m.content}
         </div>
@@ -30,7 +30,7 @@ function Bubble({
   return (
     <div className={`flex py-1 ${mine ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+        className={`max-w-[85%] rounded-ui-rect px-3 py-2 text-sm ${
           adminStyle
             ? "bg-amber-100 text-amber-950 ring-1 ring-amber-200"
             : mine

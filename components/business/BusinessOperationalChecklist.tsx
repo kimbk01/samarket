@@ -32,7 +32,7 @@ export function BusinessOperationalChecklistPending({
 }) {
   return (
     <section
-      className="rounded-xl border border-amber-200 bg-amber-50/80 p-4"
+      className="rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4"
       aria-label="매장 오픈 순서"
     >
       <h2 className="text-[14px] font-semibold text-amber-950">오픈 준비 순서</h2>
@@ -68,14 +68,14 @@ export function BusinessOperationalChecklistPending({
 /** 보완 요청 — 우선순위 한 줄 */
 export function BusinessOperationalChecklistRevision({ storeId }: { storeId: string }) {
   return (
-    <section className="rounded-xl border border-amber-300 bg-white p-4 shadow-sm">
+    <section className="rounded-ui-rect border border-amber-300 bg-white p-4 shadow-sm">
       <h2 className="text-[14px] font-semibold text-gray-900">우선 처리</h2>
       <p className="mt-1 text-[13px] text-gray-600">
         관리자 보완 요청 사항을 반영한 뒤, 다시 제출·심사를 기다려 주세요.
       </p>
       <Link
         href={`/my/business/profile?storeId=${encodeURIComponent(storeId)}`}
-        className="mt-3 inline-flex rounded-lg bg-signature px-4 py-2.5 text-[14px] font-medium text-white"
+        className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white"
       >
         프로필에서 보완하기
       </Link>

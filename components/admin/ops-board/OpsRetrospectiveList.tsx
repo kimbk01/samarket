@@ -18,7 +18,7 @@ export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }
 
   if (retros.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         운영 회고가 없습니다. 새 회고를 작성해 주세요.
       </div>
     );
@@ -29,7 +29,7 @@ export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }
       {retros.map((r) => (
         <div
           key={r.id}
-          className="rounded-lg border border-gray-200 bg-white p-4"
+          className="rounded-ui-rect border border-gray-200 bg-white p-4"
         >
           <div className="flex items-start justify-between gap-2">
             <div>

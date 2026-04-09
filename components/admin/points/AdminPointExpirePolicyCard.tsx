@@ -11,7 +11,7 @@ export function AdminPointExpirePolicyCard({
   policy,
 }: AdminPointExpirePolicyCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <h3 className="text-[15px] font-medium text-gray-900">
         {policy.policyName}
       </h3>

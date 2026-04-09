@@ -37,7 +37,7 @@ export function OpsMaturityScoreCards() {
 
   if (!latest) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
         성숙도 점수 데이터가 없습니다.
       </div>
     );
@@ -69,7 +69,7 @@ export function OpsMaturityScoreCards() {
         </label>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
           <p className="text-[12px] text-gray-500">종합 점수</p>
           <p className="text-[24px] font-semibold text-gray-900">{latest.overallScore}</p>
           {comparison && (
@@ -82,7 +82,7 @@ export function OpsMaturityScoreCards() {
           )}
         </div>
         {domainKeys.map((key) => (
-          <div key={key} className="rounded-lg border border-gray-200 bg-white p-4">
+          <div key={key} className="rounded-ui-rect border border-gray-200 bg-white p-4">
             <p className="text-[12px] text-gray-500">{DOMAIN_LABELS[key] ?? key}</p>
             <p className="text-[20px] font-semibold text-gray-900">
               {latest[key]}

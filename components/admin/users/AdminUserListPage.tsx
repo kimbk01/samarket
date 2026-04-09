@@ -111,18 +111,18 @@ export function AdminUserListPage() {
     <div className="space-y-4">
       <AdminPageHeader title="회원 관리" />
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
+        <div className="flex rounded-ui-rect border border-gray-200 bg-white p-0.5">
           <button
             type="button"
             onClick={() => setTab("members")}
-            className={`rounded-md px-4 py-2 text-[14px] font-medium transition ${tab === "members" ? "bg-signature text-white" : "text-gray-600 hover:bg-gray-100"}`}
+            className={`rounded-ui-rect px-4 py-2 text-[14px] font-medium transition ${tab === "members" ? "bg-signature text-white" : "text-gray-600 hover:bg-gray-100"}`}
           >
             회원
           </button>
           <button
             type="button"
             onClick={() => setTab("staff")}
-            className={`rounded-md px-4 py-2 text-[14px] font-medium transition ${tab === "staff" ? "bg-signature text-white" : "text-gray-600 hover:bg-gray-100"}`}
+            className={`rounded-ui-rect px-4 py-2 text-[14px] font-medium transition ${tab === "staff" ? "bg-signature text-white" : "text-gray-600 hover:bg-gray-100"}`}
           >
             관리자
           </button>
@@ -133,7 +133,7 @@ export function AdminUserListPage() {
               <button
                 type="button"
                 onClick={() => setShowCreateMember(true)}
-                className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+                className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
               >
                 수동 입력
               </button>
@@ -142,7 +142,7 @@ export function AdminUserListPage() {
                   type="button"
                   onClick={handleCleanup}
                   disabled={cleanupLoading}
-                  className="rounded-lg border border-amber-600 bg-amber-50 px-4 py-2 text-[14px] font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                  className="rounded-ui-rect border border-amber-600 bg-amber-50 px-4 py-2 text-[14px] font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
                 >
                   {cleanupLoading ? "처리 중…" : "테스트 회원 정리 (aaaa만 유지)"}
                 </button>
@@ -153,7 +153,7 @@ export function AdminUserListPage() {
             <button
               type="button"
               onClick={() => setShowCreateAdmin(true)}
-              className="rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+              className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
             >
               관리자 수동 생성
             </button>
@@ -163,7 +163,7 @@ export function AdminUserListPage() {
 
       {tab === "members" && (
         <>
-          <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-[13px] leading-relaxed text-gray-800">
+          <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-4 py-3 text-[13px] leading-relaxed text-gray-800">
             <p className="font-medium text-amber-950">회원 목록 (실회원 + 개발 로그인 연결)</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[12px] text-gray-700">
               <li>
@@ -197,7 +197,7 @@ export function AdminUserListPage() {
               onSearchChange={setSearchQuery}
               showMemberUuid={showMemberUuid}
             />
-            <label className="flex cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 shadow-sm">
+            <label className="flex cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 shadow-sm">
               <input
                 type="checkbox"
                 className="h-4 w-4 rounded border-gray-300 text-signature focus:ring-signature"
@@ -208,7 +208,7 @@ export function AdminUserListPage() {
             </label>
           </div>
           {filtered.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+            <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
               조건에 맞는 회원이 없습니다. 수동 입력으로 회원을 추가해 보세요.
             </div>
           ) : (
@@ -224,7 +224,7 @@ export function AdminUserListPage() {
       {tab === "staff" && (
         <>
           {staffList.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+            <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
               등록된 관리자가 없습니다.
               {isMaster && " 상단의 ‘관리자 수동 생성’으로 추가하세요."}
             </div>

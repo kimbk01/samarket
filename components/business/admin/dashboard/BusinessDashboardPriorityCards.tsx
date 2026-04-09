@@ -28,7 +28,7 @@ export function BusinessDashboardPriorityCards({ cards }: { cards: Card[] }) {
             <Link
               key={c.href + c.title}
               href={c.href}
-              className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 shadow-sm ${toneClass}`}
+              className={`flex items-start justify-between gap-3 rounded-ui-rect border px-4 py-3 shadow-sm ${toneClass}`}
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">

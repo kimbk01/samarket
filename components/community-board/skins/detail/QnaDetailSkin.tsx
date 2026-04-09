@@ -9,7 +9,7 @@ export function QnaDetailSkin({
   showReport = true,
 }: BoardDetailSkinProps) {
   return (
-    <article className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <article className="bg-white rounded-ui-rect border border-gray-200 overflow-hidden">
       <div className="p-4 border-l-4 border-blue-500 bg-blue-50/50">
         <span className="text-xs font-semibold text-blue-700 uppercase">Question</span>
         <h1 className="text-xl font-semibold text-gray-900 mt-1">{post.title}</h1>

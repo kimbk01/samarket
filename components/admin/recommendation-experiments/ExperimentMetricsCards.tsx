@@ -18,7 +18,7 @@ export function ExperimentMetricsCards() {
 
   if (experiments.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         실험이 없습니다.
       </div>
     );
@@ -41,7 +41,7 @@ export function ExperimentMetricsCards() {
         </select>
       </div>
       {effectiveMetrics.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           해당 실험의 성과 데이터가 없습니다.
         </div>
       ) : (
@@ -51,7 +51,7 @@ export function ExperimentMetricsCards() {
             return (
               <div
                 key={m.id}
-                className="rounded-lg border border-gray-200 bg-white p-4"
+                className="rounded-ui-rect border border-gray-200 bg-white p-4"
               >
                 <p className="text-[14px] font-medium text-gray-900">
                   {version?.versionName ?? m.versionId}

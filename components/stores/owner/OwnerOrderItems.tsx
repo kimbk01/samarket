@@ -5,7 +5,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 
 export function OwnerOrderItems({ items }: { items: OwnerOrderItem[] }) {
   return (
-    <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100 bg-white">
+    <ul className="divide-y divide-gray-100 rounded-ui-rect border border-gray-100 bg-white">
       {items.map((it) => (
         <li key={it.id} className="flex gap-3 px-3 py-3 text-sm">
           <div className="min-w-0 flex-1">

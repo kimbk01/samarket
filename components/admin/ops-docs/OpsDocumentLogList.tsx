@@ -24,7 +24,7 @@ export function OpsDocumentLogList({ documentId }: OpsDocumentLogListProps) {
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
         변경 이력이 없습니다.
       </div>
     );

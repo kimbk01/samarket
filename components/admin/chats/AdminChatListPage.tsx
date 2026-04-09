@@ -382,7 +382,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         onSearchChange={setSearchQuery}
       />
       {!loading && (filtered.length > 0 || rooms.length > 0) ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px]">
+        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px]">
           <span className="text-gray-600">
             {t("admin_chat_selected_summary", {
               selected: selectedIds.size,
@@ -440,11 +440,11 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         </p>
       ) : null}
       {loading ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           {t("admin_chat_loading_room")}
         </div>
       ) : visibleFiltered.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
           {emptyCopy}
         </div>
       ) : (

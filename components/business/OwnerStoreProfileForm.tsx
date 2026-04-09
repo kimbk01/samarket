@@ -500,7 +500,7 @@ export function OwnerStoreProfileForm({
     <>
       {error ? (
         <div
-          className="mb-2 max-h-24 overflow-y-auto rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[12px] leading-snug text-red-800"
+          className="mb-2 max-h-24 overflow-y-auto rounded-ui-rect border border-red-100 bg-red-50 px-3 py-2 text-[12px] leading-snug text-red-800"
           role="alert"
         >
           {error}
@@ -510,7 +510,7 @@ export function OwnerStoreProfileForm({
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-[48px] min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-[15px] font-medium text-gray-800 shadow-sm"
+          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect border border-gray-300 bg-white px-3 py-3 text-[15px] font-medium text-gray-800 shadow-sm"
         >
           취소
         </button>
@@ -518,7 +518,7 @@ export function OwnerStoreProfileForm({
           type="submit"
           form="owner-store-profile-form"
           disabled={submitting}
-          className="min-h-[48px] min-w-0 flex-1 rounded-lg bg-signature px-3 py-3 text-[15px] font-medium text-white shadow-sm disabled:opacity-50"
+          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect bg-signature px-3 py-3 text-[15px] font-medium text-white shadow-sm disabled:opacity-50"
         >
           {submitting ? "저장 중…" : "저장"}
         </button>
@@ -537,7 +537,7 @@ export function OwnerStoreProfileForm({
       }}
       className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]`}
     >
-      <p className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2.5 text-[12px] leading-relaxed text-gray-600">
+      <p className="rounded-ui-rect border border-dashed border-gray-200 bg-white px-3 py-2.5 text-[12px] leading-relaxed text-gray-600">
         로고·매장명·연락처·위치·상세 주소·업종·세부 주제는{" "}
         <Link
           href={`/my/business/basic-info?storeId=${encodeURIComponent(storeId)}`}
@@ -548,7 +548,7 @@ export function OwnerStoreProfileForm({
         에서 수정합니다.
       </p>
 
-      <div className="rounded-lg border border-gray-100 bg-white px-3 py-3">
+      <div className="rounded-ui-rect border border-gray-100 bg-white px-3 py-3">
         <h3 className="text-[14px] font-semibold text-gray-900">서비스 형태</h3>
         <p className="mt-1 text-[12px] text-gray-500">
           매장 상세 화면 상단의 배달·포장·픽업 안내 뱃지와 동일하게 반영됩니다.
@@ -577,7 +577,7 @@ export function OwnerStoreProfileForm({
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-3">
+      <div className="rounded-ui-rect border border-gray-100 bg-gray-50/80 px-3 py-3">
         <h3 className="text-[14px] font-semibold text-gray-900">신규 주문 알림음 (배달)</h3>
         <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
           모든 매장에 동일하게 적용됩니다. 소리 파일은 관리자{" "}
@@ -586,13 +586,13 @@ export function OwnerStoreProfileForm({
         </p>
       </div>
 
-      <div className="rounded-lg border border-gray-100 bg-white px-3 py-3">
+      <div className="rounded-ui-rect border border-gray-100 bg-white px-3 py-3">
         <h3 className="text-[14px] font-semibold text-gray-900">매장 창 영업시간 (현지 시각)</h3>
         <p className="mt-1 text-[12px] leading-relaxed text-gray-500">
           매장 목록·상세·가게정보에 &quot;매일 시작–종료 (타임존)&quot; 안내가 올라가고, 현지 시각이 그
           구간 안이면 영업중·밖이면 준비중으로 바뀝니다.
         </p>
-        <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-3">
+        <div className="mt-3 space-y-3 rounded-ui-rect border border-gray-100 bg-gray-50/80 px-3 py-3">
           <div>
             <label className="mb-1 block text-[13px] font-medium text-gray-700">현지 타임존</label>
             <select
@@ -685,7 +685,7 @@ export function OwnerStoreProfileForm({
             ) : null}
           </div>
         </div>
-        <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5">
+        <div className="mt-3 flex items-start gap-2 rounded-ui-rect border border-amber-100 bg-amber-50/50 px-3 py-2.5">
           <input
             id="temp-closed"
             type="checkbox"
@@ -711,7 +711,7 @@ export function OwnerStoreProfileForm({
       </div>
 
       <div
-        className={`rounded-lg border px-3 py-3 ${
+        className={`rounded-ui-rect border px-3 py-3 ${
           publicCommerceDetailOpen
             ? "border-amber-100 bg-amber-50/40"
             : "border-gray-200 bg-gray-50/90"
@@ -735,7 +735,7 @@ export function OwnerStoreProfileForm({
           <div className="mt-3 space-y-3 border-t border-amber-200/60 pt-3">
             <div>
               <span className="mb-2 block text-[13px] font-medium text-gray-800">결제 방법 안내</span>
-              <div className="rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900">
+              <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900">
                 <div className="flex flex-nowrap items-center gap-x-3 gap-y-0 overflow-x-auto py-0.5 [scrollbar-width:thin] sm:gap-x-5">
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
                     <input
@@ -782,7 +782,7 @@ export function OwnerStoreProfileForm({
                     onChange={(e) => setValues((v) => ({ ...v, payMethodOtherText: e.target.value }))}
                     disabled={!values.payMethodOtherEnabled}
                     placeholder="기타 입력"
-                    className={`min-w-[8rem] max-w-[14rem] flex-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] text-gray-900 disabled:bg-gray-50 disabled:text-gray-400 sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem]`}
+                    className={`min-w-[8rem] max-w-[14rem] flex-1 rounded-ui-rect border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] text-gray-900 disabled:bg-gray-50 disabled:text-gray-400 sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem]`}
                   />
                 </div>
               </div>
@@ -873,7 +873,7 @@ export function OwnerStoreProfileForm({
                             publicNotices: v.publicNotices.filter((_, j) => j !== i),
                           }))
                         }
-                        className="shrink-0 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-[12px] font-medium text-gray-700 active:bg-gray-50"
+                        className="shrink-0 rounded-ui-rect border border-gray-200 bg-white px-2.5 py-2 text-[12px] font-medium text-gray-700 active:bg-gray-50"
                       >
                         삭제
                       </button>
@@ -884,7 +884,7 @@ export function OwnerStoreProfileForm({
               <button
                 type="button"
                 onClick={() => setValues((v) => ({ ...v, publicNotices: [...v.publicNotices, ""] }))}
-                className="rounded-md border border-dashed border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 active:bg-gray-50"
+                className="rounded-ui-rect border border-dashed border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 active:bg-gray-50"
               >
                 공지 추가
               </button>
@@ -933,14 +933,14 @@ export function OwnerStoreProfileForm({
         ) : null}
       </div>
 
-      <div className="max-w-full min-w-0 rounded-lg border border-gray-100 bg-white px-3 py-3">
+      <div className="max-w-full min-w-0 rounded-ui-rect border border-gray-100 bg-white px-3 py-3">
         <h3 className="text-[14px] font-semibold text-gray-900">갤러리 이미지 (전단지·소개 사진)</h3>
         <p className="mt-1 break-words text-[12px] leading-relaxed text-gray-500">
           매장 <strong>메인 상단에는 표시되지 않습니다</strong>. 고객은 「가게정보」→「전단지·소개」에서 봅니다.
           사진은 파일 업로드로만 추가합니다(최대 {GALLERY_MAX}장). Storage에 올라간 뒤 저장 시 함께 반영됩니다.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-50">
+          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-50">
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -970,7 +970,7 @@ export function OwnerStoreProfileForm({
               return (
                 <li
                   key={`${i}-${u.slice(0, 48)}`}
-                  className="relative aspect-square min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                  className="relative aspect-square min-w-0 overflow-hidden rounded-ui-rect border border-gray-200 bg-gray-50"
                 >
                   { }
                   <img
@@ -987,7 +987,7 @@ export function OwnerStoreProfileForm({
                         galleryUrls: v.galleryUrls.filter((_, j) => j !== i),
                       }))
                     }
-                    className="absolute right-1 top-1 rounded-md bg-black/55 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-sm"
+                    className="absolute right-1 top-1 rounded-ui-rect bg-black/55 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-sm"
                   >
                     삭제
                   </button>

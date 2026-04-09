@@ -20,7 +20,7 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
       : null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-500">
         <span>{getCategoryLabel(item.category)}</span>
         <span className="rounded bg-gray-100 px-1.5 py-0.5">

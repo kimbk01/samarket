@@ -23,14 +23,14 @@ export function CategoryTable({
 }: CategoryTableProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
         등록된 카테고리가 없습니다. 새 카테고리를 추가해 주세요.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
       <table className="w-full min-w-[800px] border-collapse text-[14px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">

@@ -48,7 +48,7 @@ export function ChatMobileAttachSheet({
 
   if (!open || typeof document === "undefined") return null;
 
-  const rowClass = `flex w-full shrink-0 items-center gap-3 rounded-xl px-4 py-3.5 text-left text-[15px] font-medium transition active:scale-[0.99] disabled:opacity-45 ${
+  const rowClass = `flex w-full shrink-0 items-center gap-3 rounded-ui-rect px-4 py-3.5 text-left text-[15px] font-medium transition active:scale-[0.99] disabled:opacity-45 ${
     instagram
       ? "text-foreground hover:bg-black/[0.04] active:bg-black/[0.06]"
       : "text-foreground hover:bg-ig-highlight active:bg-ig-highlight"
@@ -73,7 +73,7 @@ export function ChatMobileAttachSheet({
         onClick={onClose}
       />
       <div
-        className={`relative mx-auto max-h-[min(85dvh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] w-full max-w-lg overflow-y-auto rounded-t-[20px] shadow-[0_-8px_32px_rgba(0,0,0,0.12)] ${
+        className={`relative mx-auto max-h-[min(85dvh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] w-full max-w-lg overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] shadow-[0_-8px_32px_rgba(0,0,0,0.12)] ${
           instagram ? "border-t border-ig-border bg-white" : "border-t border-gray-200 bg-white"
         }`}
         style={{

@@ -12,7 +12,7 @@ import {
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 
 const itemClass =
-  "relative flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[#050505] active:bg-[#F0F2F5] dark:text-[#E4E6EB] dark:active:bg-[#3A3B3C]";
+  "relative flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-ui-rect py-2 text-[#050505] active:bg-[#F0F2F5] dark:text-[#E4E6EB] dark:active:bg-[#3A3B3C]";
 
 /** 상단 한 줄 — 배달앱 상단 유틸과 유사 (검색·장바구니·주문) */
 export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeStoreOrderCount?: number }) {
@@ -29,7 +29,7 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
 
   return (
     <div
-      className={`grid grid-cols-4 divide-x divide-[#E4E6EB] overflow-hidden rounded-2xl border border-[#E4E6EB] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:divide-[#3E4042] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-white/[0.06]`}
+      className={`grid grid-cols-4 divide-x divide-[#E4E6EB] overflow-hidden rounded-ui-rect border border-[#E4E6EB] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:divide-[#3E4042] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-white/[0.06]`}
     >
       <Link href="/search" className={itemClass} aria-label="검색">
         <svg className="h-[22px] w-[22px] text-[#1877F2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>

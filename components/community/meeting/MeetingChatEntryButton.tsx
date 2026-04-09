@@ -18,7 +18,7 @@ export function MeetingChatEntryButton({
   return (
     <Link
       href={philifeAppPaths.meeting(mid)}
-      className="inline-block rounded-lg bg-signature px-4 py-2 text-[14px] font-medium text-white"
+      className="inline-block rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white"
     >
       모임 보기
     </Link>

@@ -54,10 +54,10 @@ export function OwnerOrderDetail({
       </header>
 
       <div className="mx-auto max-w-lg space-y-3 px-3 py-4">
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <OwnerOrderStatusBadge status={order.order_status} />
-            <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${fl.cls}`}>{fl.text}</span>
+            <span className={`rounded-ui-rect px-2 py-0.5 text-xs font-bold ${fl.cls}`}>{fl.text}</span>
           </div>
           <p className="mt-2 text-xs text-gray-500">
             주문시각 {new Date(order.created_at).toLocaleString("ko-KR")}
@@ -65,34 +65,34 @@ export function OwnerOrderDetail({
         </section>
 
         {order.buyer_cancel_request ? (
-          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm">
+          <section className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm">
             <p className="font-bold text-amber-950">고객 취소 요청</p>
             <p className="mt-1 text-amber-900">{order.buyer_cancel_request.reason}</p>
           </section>
         ) : null}
 
         {order.order_status === "refund_requested" ? (
-          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <section className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
             <p className="font-bold">환불 요청 접수됨</p>
             <p className="mt-1 text-xs">비즈니스 콘솔·관리자 절차에 따라 처리해 주세요.</p>
           </section>
         ) : null}
 
         {order.cancel_reason ? (
-          <section className="rounded-2xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-800">
+          <section className="rounded-ui-rect border border-gray-200 bg-gray-100 p-4 text-sm text-gray-800">
             <p className="font-bold">거절·취소 사유</p>
             <p className="mt-1">{order.cancel_reason}</p>
           </section>
         ) : null}
 
         {order.problem_memo ? (
-          <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <section className="rounded-ui-rect border border-red-200 bg-red-50 p-4 text-sm text-red-900">
             <p className="font-bold">문제 접수 메모</p>
             <p className="mt-1">{order.problem_memo}</p>
           </section>
         ) : null}
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <h2 className="text-sm font-bold text-gray-900">기본 정보</h2>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-2">
@@ -153,14 +153,14 @@ export function OwnerOrderDetail({
           </dl>
         </section>
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <h2 className="text-sm font-bold text-gray-900">주문 항목</h2>
           <div className="mt-3">
             <OwnerOrderItems items={order.items} />
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <h2 className="text-sm font-bold text-gray-900">금액</h2>
           <dl className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
@@ -184,7 +184,7 @@ export function OwnerOrderDetail({
           </dl>
         </section>
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
           <h2 className="text-sm font-bold text-gray-900">상태 변경 이력</h2>
           <div className="mt-4">
             <OwnerOrderTimeline logs={order.logs} />
@@ -208,7 +208,7 @@ export function OwnerOrderDetail({
 
       {!terminal ? (
         <div className="mx-auto hidden max-w-lg px-3 pb-8 md:block">
-          <section className="rounded-2xl border border-gray-200 bg-white p-4">
+          <section className="rounded-ui-rect border border-gray-200 bg-white p-4">
             <h2 className="text-sm font-bold text-gray-900">주문 처리</h2>
             <div className="mt-3">
               <OwnerOrderActionPanel

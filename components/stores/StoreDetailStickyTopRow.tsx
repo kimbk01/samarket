@@ -12,7 +12,7 @@ import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContex
 import type { StoreFulfillmentPref } from "@/lib/stores/store-fulfillment-pref";
 
 const iconBtnClass =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-stone-800 hover:bg-stone-100/90 active:bg-stone-200/80 disabled:pointer-events-none disabled:opacity-40";
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect text-stone-800 hover:bg-stone-100/90 active:bg-stone-200/80 disabled:pointer-events-none disabled:opacity-40";
 
 export type StoreStickyOrderChrome = {
   isOpenForOrder: boolean;
@@ -115,7 +115,7 @@ export function StoreDetailStickyTopRow({
     <div className="flex w-full min-w-0 max-w-full flex-col gap-1 py-0.5">
     <div className="flex w-full min-w-0 max-w-full min-h-[40px] items-center gap-1.5">
       <StoreDetailBackLink fallbackHref={fallbackHref} />
-      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-stone-200 bg-stone-100">
+      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-ui-rect border border-stone-200 bg-stone-100">
         {profileImageUrl?.trim() ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={profileImageUrl.trim()} alt="" className="h-full w-full object-cover" />
@@ -210,7 +210,7 @@ export function StoreDetailStickyTopRow({
             <span className="text-lg font-bold leading-none text-stone-600">⋯</span>
           </summary>
           <div
-            className="absolute right-0 z-[50] mt-1 w-44 rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
+            className="absolute right-0 z-[50] mt-1 w-44 rounded-ui-rect border border-stone-200 bg-white py-1 shadow-lg"
             role="menu"
           >
             {telHref ? (

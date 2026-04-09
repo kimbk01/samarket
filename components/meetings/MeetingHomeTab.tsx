@@ -75,7 +75,7 @@ function MeetingHomeFullSummary({
     !!meeting.is_closed;
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3.5 shadow-sm">
+    <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-3.5 shadow-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-gray-600">
         {meeting.tenure_type !== "long" &&
         meeting.meeting_date &&
@@ -144,14 +144,14 @@ export function MeetingHomeTab({
     <div className="space-y-3 pb-24 pt-1">
       {/* ── 환영 메시지 ────────────────────────────────── */}
       {meeting.welcome_message ? (
-        <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 px-4 py-3">
+        <div className="flex items-start gap-3 rounded-ui-rect bg-emerald-50 px-4 py-3">
           <span className="mt-0.5 text-[18px]">🙌</span>
           <p className="text-[13px] leading-relaxed text-emerald-900">{meeting.welcome_message}</p>
         </div>
       ) : null}
 
       {isHost && pendingApprovalCount > 0 && onTabChange ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3 rounded-ui-rect border border-amber-200 bg-amber-50/90 px-4 py-3 shadow-sm">
           <span className="text-[22px]">⏳</span>
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-amber-950">
@@ -164,7 +164,7 @@ export function MeetingHomeTab({
           <button
             type="button"
             onClick={() => onTabChange("members")}
-            className="shrink-0 rounded-xl bg-amber-600 px-3 py-2 text-[12px] font-semibold text-white active:bg-amber-700"
+            className="shrink-0 rounded-ui-rect bg-amber-600 px-3 py-2 text-[12px] font-semibold text-white active:bg-amber-700"
           >
             확인
           </button>
@@ -204,7 +204,7 @@ export function MeetingHomeTab({
                   key={tab}
                   type="button"
                   onClick={() => onTabChange(tab)}
-                  className="flex flex-col items-center gap-1 rounded-xl border border-gray-100 bg-white py-3 text-center transition-colors active:bg-gray-50"
+                  className="flex flex-col items-center gap-1 rounded-ui-rect border border-gray-100 bg-white py-3 text-center transition-colors active:bg-gray-50"
                 >
                   <span className="text-[22px]">{emoji}</span>
                   <span className="text-[11px] font-medium text-gray-600">{label}</span>
@@ -217,7 +217,7 @@ export function MeetingHomeTab({
 
       {/* ── 모임 소개 ─────────────────────────────────────── */}
       {desc ? (
-        <div className="rounded-2xl border border-gray-200/80 bg-white px-4 py-3.5 shadow-sm">
+        <div className="rounded-ui-rect border border-gray-200/80 bg-white px-4 py-3.5 shadow-sm">
           <p className="text-[14px] font-semibold text-gray-800">모임 소개</p>
           <p
             className={`mt-2 whitespace-pre-wrap text-[14px] leading-relaxed text-gray-800 ${
@@ -242,9 +242,9 @@ export function MeetingHomeTab({
       {isHost && <MeetingSettingsPanel meeting={meeting} />}
 
       {/* ── 공지 카드 (홈 탭) ─────────────────────────────── */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-ui-rect border border-gray-200/80 bg-white shadow-sm">
         <p className="px-4 pt-3.5 text-[14px] font-semibold text-gray-800">공지</p>
-        <div className="mx-3 mb-1 mt-2 rounded-xl border border-amber-100/90 bg-[#fffbeb] px-3.5 py-3">
+        <div className="mx-3 mb-1 mt-2 rounded-ui-rect border border-amber-100/90 bg-[#fffbeb] px-3.5 py-3">
           <div className="flex gap-2.5">
             <span className="mt-0.5 shrink-0 text-[20px]" aria-hidden>
               📢
@@ -296,7 +296,7 @@ export function MeetingHomeTab({
 
       {/* ── 모임장 · 멤버 프리뷰 (컴팩트 홈) ───────────────── */}
       {compactSummary && joinedMembers.length > 0 && onTabChange ? (
-        <div className="flex items-center justify-between rounded-2xl border border-gray-200/80 bg-white px-4 py-3.5 shadow-sm">
+        <div className="flex items-center justify-between rounded-ui-rect border border-gray-200/80 bg-white px-4 py-3.5 shadow-sm">
           <div className="flex min-w-0 items-center gap-2.5">
             <AvatarCircle
               name={hostMember?.name ?? "?"}

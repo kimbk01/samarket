@@ -507,7 +507,7 @@ export function TradeWriteForm({
                   type="text"
                   value={buildingName}
                   onChange={(e) => setBuildingName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+                  className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
                   placeholder="단지·건물명만 입력 (지역은 위에서 선택)"
                   aria-invalid={!!errors.buildingName}
                 />
@@ -557,7 +557,7 @@ export function TradeWriteForm({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="글 제목"
               maxLength={100}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+              className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
               aria-invalid={!!errors.title}
             />
             {errors.title && <p className="mt-1 text-[13px] text-red-500">{errors.title}</p>}
@@ -572,7 +572,7 @@ export function TradeWriteForm({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="내용을 입력해 주세요"
             rows={5}
-            className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+            className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
             aria-invalid={!!errors.description}
           />
           {errors.description && (
@@ -616,7 +616,7 @@ export function TradeWriteForm({
                 >
                   가격 <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-signature/20">
+                <div className="flex items-center gap-2 rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-signature/20">
                   <span className="shrink-0 text-[15px] font-medium text-gray-600">
                     {getCurrencyUnitLabel(appSettings.defaultCurrency)}
                   </span>
@@ -660,7 +660,7 @@ export function TradeWriteForm({
                   <select
                     value={estateType}
                     onChange={(e) => setEstateType(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                    className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                     aria-invalid={!!errors.estateType}
                   >
                     {REAL_ESTATE_TYPES.map((opt) => (
@@ -678,7 +678,7 @@ export function TradeWriteForm({
                   <select
                     value={dealType}
                     onChange={(e) => setDealType(e.target.value as "임대" | "판매")}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                    className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                   >
                     {REAL_ESTATE_DEAL_TYPES.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -689,7 +689,7 @@ export function TradeWriteForm({
               {dealType === "판매" && (
                 <div>
                   <label className="mb-1 block text-[13px] text-gray-700">판매가 <span className="text-red-500">*</span></label>
-                  <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-signature/20">
+                  <div className="flex items-center gap-2 rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-signature/20">
                     <span className="shrink-0 text-[15px] font-medium text-gray-600">
                       {currencyUnit}
                     </span>
@@ -713,7 +713,7 @@ export function TradeWriteForm({
                       <label className="mb-1 block text-[13px] text-gray-700">
                         보증금 <span className="text-red-500">*</span>
                       </label>
-                      <div className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-2.5">
+                      <div className="flex items-center gap-1 rounded-ui-rect border border-gray-300 px-2 py-2.5">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -732,7 +732,7 @@ export function TradeWriteForm({
                       <label className="mb-1 block text-[13px] text-gray-700">
                         월세 <span className="text-red-500">*</span>
                       </label>
-                      <div className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-2.5">
+                      <div className="flex items-center gap-1 rounded-ui-rect border border-gray-300 px-2 py-2.5">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -749,7 +749,7 @@ export function TradeWriteForm({
                     </div>
                     <div className="min-w-0">
                       <label className="mb-1 block text-[13px] text-gray-700">관리비 (선택)</label>
-                      <div className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-2.5">
+                      <div className="flex items-center gap-1 rounded-ui-rect border border-gray-300 px-2 py-2.5">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -782,7 +782,7 @@ export function TradeWriteForm({
                     inputMode="decimal"
                     value={areaSqm}
                     onChange={(e) => setAreaSqm(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                    className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                     aria-invalid={!!errors.areaSqm}
                   />
                   {errors.areaSqm && (
@@ -799,7 +799,7 @@ export function TradeWriteForm({
                     value={roomCount}
                     onChange={(e) => setRoomCount(e.target.value.replace(/[^0-9]/g, ""))}
                     placeholder="0"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                    className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                     aria-invalid={!!errors.roomCount}
                   />
                   {errors.roomCount && (
@@ -816,7 +816,7 @@ export function TradeWriteForm({
                     value={bathroomCount}
                     onChange={(e) => setBathroomCount(e.target.value.replace(/[^0-9]/g, ""))}
                     placeholder="0"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                    className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                     aria-invalid={!!errors.bathroomCount}
                   />
                   {errors.bathroomCount && (
@@ -831,7 +831,7 @@ export function TradeWriteForm({
                 <select
                   value={moveInDate}
                   onChange={(e) => setMoveInDate(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                  className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                   aria-invalid={!!errors.moveInDate}
                 >
                   {MOVE_IN_OPTIONS.map((opt) => (
@@ -860,7 +860,7 @@ export function TradeWriteForm({
                       value={carModel}
                       onChange={(e) => setCarModel(e.target.value)}
                       placeholder="예: 소나타"
-                      className="w-full rounded-lg border border-gray-300 px-2 py-2 text-[14px]"
+                      className="w-full rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
                     />
                   </div>
                   <div className="min-w-0">
@@ -872,7 +872,7 @@ export function TradeWriteForm({
                       value={carYear}
                       onChange={(e) => setCarYear(e.target.value)}
                       placeholder="2020"
-                      className="w-full rounded-lg border border-gray-300 px-2 py-2 text-[14px]"
+                      className="w-full rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
                       aria-invalid={!!errors.carYearBuy}
                     />
                   </div>
@@ -880,7 +880,7 @@ export function TradeWriteForm({
                     <label className="mb-1 block text-[12px] leading-tight text-gray-700 sm:text-[13px]">
                       금액 (이하) <span className="text-red-500">*</span>
                     </label>
-                    <div className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-2 focus-within:ring-2 focus-within:ring-signature/20">
+                    <div className="flex items-center gap-1 rounded-ui-rect border border-gray-300 px-2 py-2 focus-within:ring-2 focus-within:ring-signature/20">
                       <span className="shrink-0 text-[12px] font-medium text-gray-600">
                         {getCurrencyUnitLabel(appSettings.defaultCurrency)}
                       </span>
@@ -921,7 +921,7 @@ export function TradeWriteForm({
                       value={carModel}
                       onChange={(e) => setCarModel(e.target.value)}
                       placeholder="예: 소나타"
-                      className="w-full rounded-lg border border-gray-300 px-2 py-2 text-[14px]"
+                      className="w-full rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
                     />
                   </div>
                   <label className="flex cursor-pointer items-center gap-2 pt-0.5">
@@ -941,7 +941,7 @@ export function TradeWriteForm({
                     value={carYear}
                     onChange={(e) => setCarYear(e.target.value)}
                     placeholder="2020"
-                    className="w-full rounded-lg border border-gray-300 px-2 py-2 text-[14px]"
+                    className="w-full rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
                   />
                 </div>
                 <div className="min-w-0">
@@ -954,7 +954,7 @@ export function TradeWriteForm({
                     value={mileage}
                     onChange={(e) => setMileage(e.target.value.replace(/[^0-9,]/g, ""))}
                     placeholder="50000"
-                    className="w-full rounded-lg border border-gray-300 px-2 py-2 text-[14px]"
+                    className="w-full rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
                   />
                 </div>
               </div>
@@ -972,7 +972,7 @@ export function TradeWriteForm({
                   value={salary}
                   onChange={(e) => setSalary(e.target.value)}
                   placeholder="예: 시급 ₱150"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                  className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                 />
               </div>
               <div>
@@ -982,7 +982,7 @@ export function TradeWriteForm({
                   value={workPlace}
                   onChange={(e) => setWorkPlace(e.target.value)}
                   placeholder="예: 강남구"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                  className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                 />
               </div>
               <div>
@@ -992,7 +992,7 @@ export function TradeWriteForm({
                   value={workType}
                   onChange={(e) => setWorkType(e.target.value)}
                   placeholder="예: 단기/장기"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                  className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                 />
               </div>
             </div>
@@ -1009,7 +1009,7 @@ export function TradeWriteForm({
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                   placeholder="예: USD, PHP"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                  className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                 />
               </div>
               <div>
@@ -1019,7 +1019,7 @@ export function TradeWriteForm({
                   value={exchangeRate}
                   onChange={(e) => setExchangeRate(e.target.value)}
                   placeholder="예: ₱56 per USD"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px]"
+                  className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
                 />
               </div>
             </div>

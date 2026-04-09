@@ -43,15 +43,15 @@ export function AdminMySectionsPage() {
       {loading ? (
         <p className="text-gray-500">불러오는 중…</p>
       ) : error ? (
-        <p className="rounded-lg bg-red-50 p-4 text-[14px] text-red-700">{error}</p>
+        <p className="rounded-ui-rect bg-red-50 p-4 text-[14px] text-red-700">{error}</p>
       ) : items.length === 0 ? (
-        <p className="rounded-lg bg-white p-4 text-[14px] text-gray-500">
+        <p className="rounded-ui-rect bg-white p-4 text-[14px] text-gray-500">
           섹션이 없습니다.
         </p>
       ) : (
         <ul className="space-y-2">
           {items.map((s) => (
-            <li key={s.section_key} className="flex items-center justify-between rounded-lg bg-white p-3">
+            <li key={s.section_key} className="flex items-center justify-between rounded-ui-rect bg-white p-3">
               <div>
                 <span className="font-medium">{s.title}</span>
                 <span className="ml-2 text-[13px] text-gray-500">

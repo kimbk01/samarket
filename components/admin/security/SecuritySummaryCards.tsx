@@ -27,13 +27,13 @@ export function SecuritySummaryCards() {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">점검 항목</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {summary.totalChecks}건
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">안전 / 주의 / 위험</p>
         <p className="text-[14px] text-gray-700">
           <span className="text-emerald-600">{summary.safe}</span> /{" "}
@@ -41,13 +41,13 @@ export function SecuritySummaryCards() {
           <span className="text-red-600">{summary.critical}</span>
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">미해결 이슈</p>
         <p className="text-[20px] font-semibold text-gray-900">
           {summary.openIssues}건
         </p>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
         <p className="text-[12px] text-gray-500">critical 이슈</p>
         <p
           className={`text-[20px] font-semibold ${
