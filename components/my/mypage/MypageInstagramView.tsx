@@ -514,6 +514,11 @@ export function MypageInstagramView({
               accountHref={accountHref}
               editHref={editHref}
               addressesHref={addressesHref}
+              hasOwnerStore={hasOwnerStore}
+              businessHubHref={businessHubHref}
+              businessApplyHref={businessApplyHref}
+              needsBizEntryModal={needsBizEntryModal}
+              onBizBlocked={openBizBlocked}
               isAdmin={isAdmin}
               currentLanguage={currentLanguage}
               currentCountry={currentCountry}
@@ -823,6 +828,11 @@ function AccountSection({
   accountHref,
   editHref,
   addressesHref,
+  hasOwnerStore,
+  businessHubHref,
+  businessApplyHref,
+  needsBizEntryModal,
+  onBizBlocked,
   isAdmin,
   currentLanguage,
   currentCountry,
@@ -834,6 +844,11 @@ function AccountSection({
   accountHref: string;
   editHref: string;
   addressesHref: string;
+  hasOwnerStore: boolean;
+  businessHubHref: string;
+  businessApplyHref: string;
+  needsBizEntryModal: boolean;
+  onBizBlocked: () => void;
   isAdmin: boolean;
   currentLanguage: string;
   currentCountry: string;
@@ -859,11 +874,29 @@ function AccountSection({
         </SectionCard>
       ) : null}
 
-      <SectionCard title="계정">
+      <SectionCard title="생활 메뉴">
+        <QuickActionGrid
+          items={[
+            { label: "공지사항", href: "/mypage/settings/notice" },
+            { label: "회원 혜택", href: "/mypage/benefits" },
+            { label: "최근 본 글", href: "/mypage/recent-viewed" },
+          ]}
+        />
+      </SectionCard>
+
+      <SectionCard title="주문·관심">
+        <QuickActionGrid
+          items={[
+            { label: "주소 관리", href: addressesHref },
+            { label: "주문 내역", href: "/mypage/store-orders" },
+            { label: "찜 목록", href: MYPAGE_TRADE_FAVORITES_HREF },
+            { label: "포인트", href: "/mypage/points" },
+          ]}
+        />
+      </SectionCard>
+
+      <SectionCard title="환경 설정">
         <div className="divide-y divide-ig-border">
-          <ActionRow href={accountHref} label="계정 상세" />
-          <ActionRow href={editHref} label="프로필 수정" />
-          <ActionRow href={addressesHref} label="주소 관리" />
           <ActionRow
             label="알림 설정"
             value={notificationBadge ? `${notificationBadge} 확인` : "바로 조정"}
@@ -876,8 +909,36 @@ function AccountSection({
           <ActionRow label="자동 재생" value={currentAutoplay} onClick={() => onOpenSheet("autoplay")} />
           <ActionRow label="개인화" onClick={() => onOpenSheet("personalization")} />
           <ActionRow label="앱 설정 전체" onClick={() => onOpenSheet("app")} />
-          <ActionRow href="/mypage/points" label="포인트" />
+          <ActionRow href="/mypage/settings/version" label="현재 버전" />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="계정·보안">
+        <div className="divide-y divide-ig-border">
+          <ActionRow href={accountHref} label="계정 상세" />
+          <ActionRow href={editHref} label="프로필 수정" />
+          <ActionRow href="/mypage/settings/hidden-users" label="숨김 사용자" />
+          <ActionRow href="/mypage/settings/blocked-users" label="차단 사용자" />
+          <ActionRow href="/mypage/settings/leave" label="회원 탈퇴" />
           <ActionRow href="/mypage/logout" label="로그아웃" />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="파트너">
+        <div className="divide-y divide-ig-border">
+          <ActionRow
+            href={hasOwnerStore ? businessHubHref : businessApplyHref}
+            label={hasOwnerStore ? "내 상점 운영" : "내 상점 등록하기"}
+            suppressNav={shouldInterceptMypageBusinessHref(
+              hasOwnerStore ? businessHubHref : businessApplyHref,
+              needsBizEntryModal
+            )}
+            onSuppressedNav={onBizBlocked}
+          />
+          <ActionRow
+            href={hasOwnerStore ? "/mypage/business/orders" : "/mypage/business/apply"}
+            label={hasOwnerStore ? "사장님 주문 관리" : "사업자 신청"}
+          />
           {isAdmin ? <ActionRow href="/admin" label="관리자" /> : null}
         </div>
       </SectionCard>
@@ -999,15 +1060,30 @@ function ActionRow({
   href,
   label,
   value,
+  suppressNav,
+  onSuppressedNav,
   onClick,
 }: {
   href?: string;
   label: string;
   value?: string | null;
+  suppressNav?: boolean;
+  onSuppressedNav?: () => void;
   onClick?: () => void;
 }) {
   const cls =
     "flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-ig-highlight/70";
+  if (href && suppressNav && onSuppressedNav) {
+    return (
+      <button type="button" className={cls} onClick={onSuppressedNav}>
+        <span className="text-[14px] font-medium text-foreground">{label}</span>
+        <span className="flex items-center gap-2">
+          {value ? <span className="text-[12px] text-[var(--text-muted)]">{value}</span> : null}
+          <Chevron />
+        </span>
+      </button>
+    );
+  }
   if (href) {
     return (
       <Link href={href} className={cls}>
