@@ -35,7 +35,13 @@ export async function getPostsByAuthor(authorId: string): Promise<PostWithMeta[]
   if (!supabase || !authorId?.trim()) return [];
 
   try {
-    const base = () => (supabase as any).from("posts").select("*").neq("status", "hidden").order("created_at", { ascending: false }).limit(MAX);
+    const base = () =>
+      (supabase as any)
+        .from("posts")
+        .select("*")
+        .or("status.is.null,status.neq.hidden")
+        .order("created_at", { ascending: false })
+        .limit(MAX);
     const { data: byUser, error: eUser } = await base().eq("user_id", authorId);
     if (eUser || !Array.isArray(byUser)) return [];
     return byUser.map((p: Record<string, unknown>) => mapRowToPostWithMeta(p));

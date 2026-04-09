@@ -57,6 +57,9 @@ function toPrice(raw: unknown): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
+const PRODUCT_FROM_POST_SELECT =
+  "id, title, content, price, images, thumbnail_url, status, view_count, favorite_count, created_at, author_id, user_id, region, city, barangay";
+
 export async function getProductFromPostId(postId: string): Promise<Product | null> {
   if (!postId?.trim()) return null;
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -68,11 +71,17 @@ export async function getProductFromPostId(postId: string): Promise<Product | nu
   try {
     const sbAny = sb as ReturnType<typeof getSupabaseServer>;
 
-    const { data: row, error } = await sbAny
+    let { data: row, error } = await sbAny
       .from("posts")
-      .select("*")
+      .select(PRODUCT_FROM_POST_SELECT)
       .eq("id", postId.trim())
       .maybeSingle();
+
+    if (error && /could not find|does not exist|unknown column|schema cache/i.test(String(error.message))) {
+      const full = await sbAny.from("posts").select("*").eq("id", postId.trim()).maybeSingle();
+      row = full.data;
+      error = full.error;
+    }
 
     if (error || !row) return null;
 
@@ -92,23 +101,17 @@ export async function getProductFromPostId(postId: string): Promise<Product | nu
 
     let nickname = authorId.slice(0, 8);
     if (authorId) {
-      const { data: profile } = await sbAny
-        .from("profiles")
-        .select("nickname, username")
-        .eq("id", authorId)
-        .maybeSingle();
+      const [profileRes, testUserRes] = await Promise.all([
+        sbAny.from("profiles").select("nickname, username").eq("id", authorId).maybeSingle(),
+        sbAny.from("test_users").select("display_name, username").eq("id", authorId).maybeSingle(),
+      ]);
+      const profile = profileRes.data as Record<string, unknown> | null;
       if (profile) {
-        const p = profile as Record<string, unknown>;
-        nickname = (p.nickname ?? p.username ?? nickname) as string;
+        nickname = (profile.nickname ?? profile.username ?? nickname) as string;
       } else {
-        const { data: testUser } = await sbAny
-          .from("test_users")
-          .select("display_name, username")
-          .eq("id", authorId)
-          .maybeSingle();
+        const testUser = testUserRes.data as Record<string, unknown> | null;
         if (testUser) {
-          const t = testUser as Record<string, unknown>;
-          nickname = (t.display_name ?? t.username ?? nickname) as string;
+          nickname = (testUser.display_name ?? testUser.username ?? nickname) as string;
         }
       }
     }

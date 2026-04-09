@@ -9,32 +9,20 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 50;
 const HOME_POSTS_SERVER_CACHE_TTL_MS = 30_000;
 const HOME_POSTS_FAVORITES_CACHE_TTL_MS = 12_000;
-const HOME_POSTS_SELECT_FIELDS = [
-  "id",
-  "category_id",
-  "trade_category_id",
-  "author_id",
-  "user_id",
-  "type",
-  "title",
-  "price",
-  "is_free_share",
-  "region",
-  "city",
-  "status",
-  "seller_listing_state",
-  "reserved_buyer_id",
-  "view_count",
-  "thumbnail_url",
-  "images",
-  "meta",
-  "created_at",
-  "updated_at",
-  "author_nickname",
-  "author_avatar_url",
-  "favorite_count",
-  "comment_count",
-].join(", ");
+/**
+ * 홈 피드 SELECT — 컬럼 누락 DB에서 PostgREST 오류 → 빈 목록이 되는 것을 막기 위해 순차 시도.
+ * (`author_avatar_url`·`author_id` 등은 일부 posts 스키마에 없음)
+ */
+const HOME_POSTS_SELECT_TIERS = [
+  "id, category_id, trade_category_id, user_id, author_id, type, title, price, is_free_share, is_price_offer, region, city, barangay, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
+  "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, is_price_offer, region, city, barangay, status, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
+  "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, region, city, status, view_count, thumbnail_url, images, meta, created_at, updated_at, favorite_count, comment_count",
+  "id, user_id, trade_category_id, category_id, title, price, status, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share",
+  "*",
+] as const;
+
+/** hidden·sold 제외. `status` 가 NULL 인 레거시 행은 `.neq` 만으로는 SQL에서 걸러져 빠지므로 OR 로 포함 */
+const HOME_POSTS_STATUS_OR = "status.is.null,status.not.in.(hidden,sold)";
 
 type HomePostsServerCacheEntry = {
   posts: PostWithMeta[];
@@ -155,32 +143,36 @@ export async function GET(req: NextRequest) {
     posts = cachedPosts.posts;
     hasMore = cachedPosts.hasMore;
   } else {
-    let q = sb
-      .from("posts")
-      .select(HOME_POSTS_SELECT_FIELDS)
-      .neq("status", "hidden")
-      .neq("status", "sold");
-    /**
-     * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
-     * (trade: trade_category_id, community: board_id, service: service_id)
-     */
-    if (type === "trade") {
-      q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
-    } else if (type === "community") {
-      q = q.not("board_id", "is", null).neq("board_id", "");
-    } else if (type === "service") {
-      q = q.not("service_id", "is", null).neq("service_id", "");
-    } else if (type === "feature") {
-      // type 컬럼 없을 때 구분 불가 → 과필터 방지 위해 추가 제한 없음(호출처 거의 없음)
-    }
-    if (sort === "latest") {
-      q = q.order("created_at", { ascending: false });
-    } else {
-      q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+    let data: unknown[] | null = null;
+    for (const selectFields of HOME_POSTS_SELECT_TIERS) {
+      let q = sb.from("posts").select(selectFields).or(HOME_POSTS_STATUS_OR);
+      /**
+       * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
+       * (trade: trade_category_id, community: board_id, service: service_id)
+       */
+      if (type === "trade") {
+        q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
+      } else if (type === "community") {
+        q = q.not("board_id", "is", null).neq("board_id", "");
+      } else if (type === "service") {
+        q = q.not("service_id", "is", null).neq("service_id", "");
+      } else if (type === "feature") {
+        // type 컬럼 없을 때 구분 불가 → 과필터 방지 위해 추가 제한 없음(호출처 거의 없음)
+      }
+      if (sort === "latest") {
+        q = q.order("created_at", { ascending: false });
+      } else {
+        q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+      }
+
+      const res = await q.range(from, from + PAGE_SIZE - 1);
+      if (!res.error && Array.isArray(res.data)) {
+        data = res.data;
+        break;
+      }
     }
 
-    const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
-    if (error || !Array.isArray(data)) {
+    if (!data) {
       return NextResponse.json(
         { posts: [], hasMore: false, favoriteMap: {} },
         { headers: { "Cache-Control": "no-store" } }

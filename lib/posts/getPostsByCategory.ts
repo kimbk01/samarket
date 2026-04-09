@@ -15,6 +15,21 @@ const PAGE_SIZE = 20;
 /** listing_kind 필터 시 DB를 순차 스캔하는 최대 청크 수(성능 상한) */
 const MAX_JOB_LISTING_KIND_CHUNKS = 120;
 
+/**
+ * 목록 카드용 — `content` 등 대용량 텍스트 제외(전송·역직렬화 비용 절감).
+ * 일부 DB에 컬럼이 없으면 PostgREST 오류 → `select('*')` 폴백.
+ */
+const POST_TRADE_LIST_SELECT =
+  "id, user_id, author_id, type, title, price, is_price_offer, is_free_share, region, city, barangay, contact_method, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, category_id, favorite_count, comment_count, chat_count, author_nickname, board_id, service_id, visibility";
+
+function looksLikeMissingColumnOrSchemaError(message: string | undefined | null): boolean {
+  const m = String(message ?? "").toLowerCase();
+  return (
+    /could not find|does not exist|unknown column|schema cache|42703/i.test(m) ||
+    /column .* of relation ['"]posts['"]/i.test(m)
+  );
+}
+
 export interface GetPostsByCategoryOptions {
   page?: number;
   sort?: PostSort;
@@ -62,12 +77,12 @@ async function fetchPostsRangeForTradeCategories(
 ): Promise<PostWithMeta[]> {
   if (!supabase) return [];
   const sb = supabase as any;
-  const run = async (useTradeCol: boolean) => {
+  const run = async (useTradeCol: boolean, selectCols: string) => {
     let q = sb
       .from("posts")
-      .select("*")
-      .neq("status", "hidden")
-      .neq("status", "sold");
+      .select(selectCols)
+      /** NULL status 레거시 행 포함 — `.neq` 만 쓰면 SQL에서 NULL 행이 빠짐 */
+      .or("status.is.null,status.not.in.(hidden,sold)");
     q = useTradeCol ? q.in("trade_category_id", ids) : q.in("category_id", ids);
     if (sort === "latest") {
       q = q.order("created_at", { ascending: false });
@@ -77,9 +92,16 @@ async function fetchPostsRangeForTradeCategories(
     return q.range(rangeFrom, rangeToInclusive);
   };
   try {
-    let { data, error } = await run(true);
+    let selectCols = POST_TRADE_LIST_SELECT;
+    let { data, error } = await run(true, selectCols);
+    if (error && looksLikeMissingColumnOrSchemaError(error.message)) {
+      selectCols = "*";
+      const res = await run(true, selectCols);
+      data = res.data;
+      error = res.error;
+    }
     if (error && typeof error?.message === "string" && error.message.includes("trade_category_id")) {
-      const res = await run(false);
+      const res = await run(false, selectCols);
       data = res.data;
       error = res.error;
     }

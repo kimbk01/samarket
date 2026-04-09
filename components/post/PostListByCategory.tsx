@@ -54,32 +54,35 @@ export function PostListByCategory({
     async (pageNum: number = 1) => {
       if (!categoryId || effectiveIds.length === 0) return;
       setLoading(true);
+      let res: Awaited<ReturnType<typeof getPostsByTradeCategoryIds>> | null = null;
       try {
-        const res = await getPostsByTradeCategoryIds(effectiveIds, {
+        const next = await getPostsByTradeCategoryIds(effectiveIds, {
           page: pageNum,
           sort,
           jobsListingKind,
         });
+        res = next;
         if (pageNum === 1) {
-          setPosts(res.posts);
+          setPosts(next.posts);
           setHiddenPostIds(new Set());
           setNotInterestedPostIds(new Set());
-          if (res.posts.length > 0) {
-            const map = await getFavoriteStatusForPosts(res.posts.map((p) => p.id));
-            setFavoriteMap(map);
-          } else {
-            setFavoriteMap({});
-          }
+          setFavoriteMap({});
         } else {
-          setPosts((prev) => [...prev, ...res.posts]);
-          if (res.posts.length > 0) {
-            const map = await getFavoriteStatusForPosts(res.posts.map((p) => p.id));
-            setFavoriteMap((prev) => ({ ...prev, ...map }));
-          }
+          setPosts((prev) => [...prev, ...next.posts]);
         }
-        setHasMore(res.hasMore);
+        setHasMore(next.hasMore);
       } finally {
         setLoading(false);
+      }
+      /** 찜 상태는 목록 표시를 막지 않음(워터폴 제거 — 체감 로딩 단축) */
+      if (!res) return;
+      if (res.posts.length > 0) {
+        const map = await getFavoriteStatusForPosts(res.posts.map((p) => p.id));
+        if (pageNum === 1) {
+          setFavoriteMap(map);
+        } else {
+          setFavoriteMap((prev) => ({ ...prev, ...map }));
+        }
       }
     },
     [categoryId, sort, effectiveIds, jobsListingKind]

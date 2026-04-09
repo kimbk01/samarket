@@ -30,8 +30,7 @@ export async function searchPosts(
     let select = (supabase as any)
       .from("posts")
       .select("*")
-      .neq("status", "hidden")
-      .neq("status", "sold")
+      .or("status.is.null,status.not.in.(hidden,sold)")
       .ilike("title", `%${q}%`);
 
     if (options.categoryId?.trim()) {
@@ -46,8 +45,7 @@ export async function searchPosts(
       select = (supabase as any)
         .from("posts")
         .select("*")
-        .neq("status", "hidden")
-        .neq("status", "sold")
+        .or("status.is.null,status.not.in.(hidden,sold)")
         .ilike("title", `%${q}%`)
         .eq("category_id", options.categoryId!.trim());
       const res = await select.order("created_at", { ascending: false }).range(from, from + limit - 1);
