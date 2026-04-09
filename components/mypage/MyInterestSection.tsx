@@ -15,16 +15,16 @@ interface MyInterestSectionProps {
 
 export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
   return (
-    <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
-      <h2 className="mb-3 text-[13px] font-semibold text-[#8E8E8E]">나의 관심</h2>
+    <section className="rounded-xl border border-ig-border bg-white p-4">
+      <h2 className="mb-3 text-[13px] font-semibold text-muted">나의 관심</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
           <li key={item.label}>
             <Link
               href={item.href}
-              className="flex items-center gap-3 py-3 text-[14px] text-[#262626]"
+              className="flex items-center gap-3 py-3 text-[14px] text-foreground"
             >
-              <span className="flex h-8 w-8 items-center justify-center text-[#262626]">
+              <span className="flex h-8 w-8 items-center justify-center text-foreground">
                 {item.icon}
               </span>
               <span className="flex-1">
@@ -39,12 +39,12 @@ export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
               </span>
               <ChevronRight />
             </Link>
-            {i < ITEMS.length - 1 && <hr className="border-[#EFEFEF]" />}
+            {i < ITEMS.length - 1 && <hr className="border-ig-border" />}
           </li>
         ))}
       </ul>
       {favoriteCount != null && favoriteCount === 0 && (
-        <p className="-mt-1 pb-1 text-[12px] text-[#8E8E8E]">
+        <p className="-mt-1 pb-1 text-[12px] text-muted">
           찜한 상품이 없으면 홈에서 하트를 눌러 담을 수 있어요.
         </p>
       )}
@@ -78,7 +78,7 @@ function TagIcon() {
 }
 function ChevronRight() {
   return (
-    <svg className="h-5 w-5 text-[#8E8E8E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );

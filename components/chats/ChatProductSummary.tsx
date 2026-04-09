@@ -57,7 +57,7 @@ export function ChatProductSummary({
       <div className="flex min-w-0 flex-1 items-stretch gap-3 p-3">
         <Link
           href={detailHref}
-          className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-[#EFEFEF] transition active:opacity-90"
+          className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-ig-highlight transition active:opacity-90"
           aria-label={`${product.title || "상품"} 썸네일 상세 보기`}
         >
           {product.thumbnail ? (
@@ -98,7 +98,7 @@ export function ChatProductSummary({
                 />
               </Link>
               {(product.regionLabel || rel) && (
-                <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-[#8E8E8E]">
+                <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted">
                   {product.regionLabel ? (
                     <>
                       <span className="shrink-0">{product.regionLabel}</span>
@@ -142,12 +142,12 @@ export function ChatProductSummary({
                   {exchangeRateLine ? (
                     <>환율 {exchangeRateLine}</>
                   ) : (
-                    <span className="text-[#8E8E8E]">환율 미지정</span>
+                    <span className="text-muted">환율 미지정</span>
                   )}
                 </p>
               ) : null}
               {(product.regionLabel || rel) && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-[#8E8E8E]">
+                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted">
                   {product.regionLabel ? (
                     <>
                       <span className="shrink-0">{product.regionLabel}</span>

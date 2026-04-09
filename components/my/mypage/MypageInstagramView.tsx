@@ -391,7 +391,7 @@ export function MypageInstagramView({
               {profile.avatar_url ? (
                 <Image src={profile.avatar_url} alt="" fill className="object-cover" sizes="84px" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-[#A8A8A8]">
+                <div className="flex h-full w-full items-center justify-center text-muted">
                   <UserGlyph />
                 </div>
               )}

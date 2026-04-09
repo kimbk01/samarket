@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { philifeAppPaths } from "@/lib/philife/paths";
 
-export type PhilifeTopTabsVariant = "pills" | "instagram";
+/** `instagram` 은 예전 이름 — 하단 보더 탭(페이스북형) */
+export type PhilifeTopTabsVariant = "pills" | "underline" | "instagram";
 
 interface PhilifeTopTabsProps {
   variant?: PhilifeTopTabsVariant;
@@ -15,14 +16,14 @@ export function PhilifeTopTabs({ variant = "pills" }: PhilifeTopTabsProps) {
   const onCommunity = pathname === philifeAppPaths.home;
   const onChats = pathname === philifeAppPaths.chats;
 
-  if (variant === "instagram") {
+  if (variant === "instagram" || variant === "underline") {
     const tab = (active: boolean) =>
       `flex-1 py-3 text-center text-[13px] font-semibold transition-colors ${
-        active ? "border-b-2 border-gray-900 text-gray-900" : "border-b-2 border-transparent text-gray-400"
+        active ? "border-b-2 border-signature text-signature" : "border-b-2 border-transparent text-muted"
       }`;
     return (
       <nav
-        className="-mx-px mt-1 flex border-b border-gray-100"
+        className="-mx-px mt-1 flex border-b border-ig-border bg-[var(--sub-bg)]"
         aria-label="커뮤니티 메뉴"
       >
         <Link
@@ -49,7 +50,7 @@ export function PhilifeTopTabs({ variant = "pills" }: PhilifeTopTabsProps) {
         href={philifeAppPaths.home}
         aria-current={onCommunity ? "page" : undefined}
         className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-semibold ${
-          onCommunity ? "bg-gray-900 text-white" : "border border-gray-200 bg-white text-gray-700"
+          onCommunity ? "bg-signature text-white" : "border border-ig-border bg-[var(--sub-bg)] text-foreground"
         }`}
       >
         커뮤니티
@@ -58,7 +59,7 @@ export function PhilifeTopTabs({ variant = "pills" }: PhilifeTopTabsProps) {
         href={philifeAppPaths.chats}
         aria-current={onChats ? "page" : undefined}
         className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-semibold ${
-          onChats ? "bg-gray-900 text-white" : "border border-gray-200 bg-white text-gray-700"
+          onChats ? "bg-signature text-white" : "border border-ig-border bg-[var(--sub-bg)] text-foreground"
         }`}
       >
         채팅

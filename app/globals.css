@@ -1,44 +1,40 @@
-/* 상대 경로로 web/node_modules 기준 해석되도록 함 (루트 해석 에러 회피) */
+/* 토큰 → Tailwind 순서 고정 (변수는 design-tokens.css 에만 정의) */
+@import "./design-tokens.css";
 @import "../node_modules/tailwindcss";
 
 /*
- * Instagram(web) 룩 기준 토큰 — 본문: 시스템 산세리프 + 한글(Noto) + 컬러 이모지 폰트.
- * 참고: 배경·본문색·액션 블루(#0095F6)·보조 텍스트(#8E8E8E)·경계(#DBDBDB).
+ * Tailwind 유틸과 레거시 토큰 연결.
+ * 신규 화면·문서: `bg-ui-page`, `text-ui-fg`, `border-ui-border` 등 시맨틱 클래스 권장.
  */
-:root {
-  --background: #fafafa;
-  --foreground: #262626;
-  --signature: #0095f6;
-  --sub-bg: #ffffff;
-  --text-muted: #8e8e8e;
-  --text-meta: #8e8e8e;
-  --ig-border: #dbdbdb;
-  --ig-highlight: #efefef;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-signature: var(--signature);
   --color-ig-border: var(--ig-border);
   --color-ig-highlight: var(--ig-highlight);
-  /* iOS/macOS·Windows·Android 순 + 한글 + 이모지 (OS 네이티브 컬러 글리프) */
+  --color-text-muted: var(--text-muted);
+
+  /* 시맨틱 (design-tokens.css 의 --ui-* 와 1:1) */
+  --color-ui-page: var(--ui-page-bg);
+  --color-ui-surface: var(--ui-surface);
+  --color-ui-fg: var(--ui-text-primary);
+  --color-ui-muted: var(--ui-text-secondary);
+  --color-ui-primary: var(--ui-primary);
+  --color-ui-border: var(--ui-border);
+  --color-ui-hover: var(--ui-hover-surface);
+  --color-ui-danger: var(--ui-danger);
+  --color-ui-success: var(--ui-success);
+
+  --radius-ui-sm: var(--ui-radius-sm);
+  --radius-ui-md: var(--ui-radius-md);
+  --radius-ui-lg: var(--ui-radius-lg);
+  --radius-ui-xl: var(--ui-radius-xl);
+
+  /* iOS/macOS·Windows·Android 순 + 한글 + 이모지 */
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, var(--font-noto-sans-kr),
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #000000;
-    --foreground: #f5f5f5;
-    --sub-bg: #121212;
-    --text-muted: #a8a8a8;
-    --text-meta: #a8a8a8;
-    --ig-border: #262626;
-    --ig-highlight: #1a1a1a;
-  }
 }
 
 /**
@@ -51,14 +47,14 @@ html {
 
 body {
   min-width: 0;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--ui-page-bg);
+  color: var(--ui-text-primary);
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, var(--font-noto-sans-kr),
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
 }
 
-/* 텍스트 입력·플레이스홀더 세로 균형: body 폰트 상속 + 안정적인 line-height (체크·라디오 등 제외) */
+/* 텍스트 입력·플레이스홀더 세로 균형 */
 :is(
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not(
       [type="button"]
@@ -74,23 +70,58 @@ body {
     ),
   textarea
 ) {
-  line-height: 1.375;
+  line-height: var(--ui-font-body-line);
 }
 
-/* 앱·관리자 모두 컴포넌트의 rounded 유틸을 존중 (구버전: 버튼/링크 직각 강제 제거) */
+/**
+ * 정적 문서·공지·약관 등 마크다운/HTML 본문 — 토큰만 사용해 테마와 동기화.
+ */
+.ui-doc-root {
+  color: var(--ui-text-primary);
+  font-size: 15px;
+  line-height: var(--ui-font-body-line);
+}
+.ui-doc-root h1,
+.ui-doc-root h2,
+.ui-doc-root h3 {
+  color: var(--ui-text-primary);
+  font-weight: 600;
+}
+.ui-doc-root p,
+.ui-doc-root li {
+  color: var(--ui-text-primary);
+}
+.ui-doc-root a {
+  color: var(--ui-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ui-doc-root a:hover {
+  color: color-mix(in srgb, var(--ui-primary) 85%, var(--ui-text-primary));
+}
+.ui-doc-muted {
+  color: var(--ui-text-secondary);
+  font-size: 14px;
+}
+.ui-doc-surface {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-card);
+}
 
-/* 매장 주문 진행 단계: 현재 스텝 원형 깜빡임 */
+/* 매장 주문 진행 단계 */
 @keyframes store-order-step-blink {
   0%,
   100% {
     opacity: 1;
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(0, 149, 246, 0.45);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ui-primary) 45%, transparent);
   }
   50% {
     opacity: 0.55;
     transform: scale(1.08);
-    box-shadow: 0 0 0 10px rgba(0, 149, 246, 0.12);
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--ui-primary) 12%, transparent);
   }
 }
 
@@ -105,7 +136,7 @@ body {
     animation: none;
     opacity: 1;
     transform: none;
-    box-shadow: 0 0 0 2px rgba(0, 149, 246, 0.45);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-primary) 45%, transparent);
     will-change: auto;
   }
 }

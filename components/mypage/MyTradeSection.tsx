@@ -16,22 +16,22 @@ const ITEMS: { label: string; href: string; icon: React.ReactNode }[] = [
 
 export function MyTradeSection() {
   return (
-    <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
-      <h2 className="mb-3 text-[13px] font-semibold text-[#8E8E8E]">거래 관리 · 내 정보</h2>
+    <section className="rounded-xl border border-ig-border bg-white p-4">
+      <h2 className="mb-3 text-[13px] font-semibold text-muted">거래 관리 · 내 정보</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
           <li key={item.label}>
             <Link
               href={item.href}
-              className="flex items-center gap-3 py-3 text-[14px] text-[#262626]"
+              className="flex items-center gap-3 py-3 text-[14px] text-foreground"
             >
-              <span className="flex h-8 w-8 items-center justify-center text-[#262626]">
+              <span className="flex h-8 w-8 items-center justify-center text-foreground">
                 {item.icon}
               </span>
               <span className="flex-1">{item.label}</span>
               <ChevronRight />
             </Link>
-            {i < ITEMS.length - 1 && <hr className="border-[#EFEFEF]" />}
+            {i < ITEMS.length - 1 && <hr className="border-ig-border" />}
           </li>
         ))}
       </ul>
@@ -97,7 +97,7 @@ function BookIcon() {
 }
 function ChevronRight() {
   return (
-    <svg className="h-5 w-5 text-[#8E8E8E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );

@@ -61,19 +61,19 @@ export function MyProfileCard({
   if (!profile.realname_verified) chips.push({ key: "realname", label: tt("본인인증 필요"), warn: true });
 
   return (
-    <div className="rounded-[28px] border border-[#E5E7EB] bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
+    <div className="rounded-[28px] border border-ig-border bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
       {/* 1행: 아바타 · 닉네임 · 회원 · 프로필 편집 */}
       <div className="flex items-start gap-3 sm:gap-4">
         <div className="rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] p-[2px]">
           <Link
             href={editHref}
-            className="relative block h-[72px] w-[72px] overflow-hidden rounded-full bg-[#EFEFEF] sm:h-[76px] sm:w-[76px]"
+            className="relative block h-[72px] w-[72px] overflow-hidden rounded-full bg-ig-highlight sm:h-[76px] sm:w-[76px]"
             aria-label={tt("프로필 이미지 편집")}
           >
             {profile.avatar_url ? (
               <Image src={profile.avatar_url} alt="" fill className="object-cover" sizes="76px" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[#8E8E8E]">
+              <div className="flex h-full w-full items-center justify-center text-muted">
                 <UserPlaceholderIcon />
               </div>
             )}
@@ -83,7 +83,7 @@ export function MyProfileCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="truncate text-[17px] font-semibold text-[#262626] sm:text-[18px]">{displayName}</span>
+                <span className="truncate text-[17px] font-semibold text-foreground sm:text-[18px]">{displayName}</span>
                 {isBusinessMember ? (
                   <span className="rounded-full bg-signature/10 px-2 py-0.5 text-[11px] font-medium text-signature">
                     {tt("비즈")}
@@ -96,7 +96,7 @@ export function MyProfileCard({
             </div>
             <Link
               href={editHref}
-              className="inline-flex shrink-0 items-center rounded-full border border-[#DBDBDB] px-2.5 py-1 text-[11px] font-medium text-[#262626] active:bg-[#FAFAFA] sm:px-3 sm:text-[12px]"
+              className="inline-flex shrink-0 items-center rounded-full border border-ig-border px-2.5 py-1 text-[11px] font-medium text-foreground active:bg-ig-highlight sm:px-3 sm:text-[12px]"
             >
               {tt("프로필 편집")}
             </Link>
@@ -164,8 +164,8 @@ function StatMini({
         warn ? "bg-amber-50 ring-1 ring-amber-200/70" : "bg-white/80 ring-1 ring-[#E5E7EB]"
       }`}
     >
-      <p className="text-[10px] text-[#8E8E8E]">{label}</p>
-      <p className={`mt-0.5 truncate text-[13px] font-semibold ${warn ? "text-amber-950" : "text-[#262626]"}`}>
+      <p className="text-[10px] text-muted">{label}</p>
+      <p className={`mt-0.5 truncate text-[13px] font-semibold ${warn ? "text-amber-950" : "text-foreground"}`}>
         {value}
       </p>
     </Link>
@@ -178,8 +178,8 @@ function QuickLink({ href, title, subtitle }: { href: string; title: string; sub
       href={href}
       className="flex flex-col rounded-2xl bg-[#F9FAFB] px-2 py-2 text-center active:bg-[#F3F4F6] sm:px-3"
     >
-      <span className="text-[12px] font-semibold text-[#262626]">{title}</span>
-      <span className="mt-0.5 text-[10px] text-[#8E8E8E]">{subtitle}</span>
+      <span className="text-[12px] font-semibold text-foreground">{title}</span>
+      <span className="mt-0.5 text-[10px] text-muted">{subtitle}</span>
     </Link>
   );
 }

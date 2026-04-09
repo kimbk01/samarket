@@ -326,7 +326,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           <button
             type="button"
             onClick={() => openNew()}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-signature shadow-sm"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ig-border bg-white text-signature shadow-sm"
             aria-label="카테고리 추가"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

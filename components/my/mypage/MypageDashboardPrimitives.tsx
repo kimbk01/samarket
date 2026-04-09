@@ -58,26 +58,26 @@ export function ActionSection({
           onClick={onToggle}
           aria-expanded={isExpanded}
           aria-controls={contentId}
-          className="flex w-full items-start justify-between gap-3 rounded-[24px] border border-[#E5E7EB] bg-white px-4 py-4 text-left shadow-[0_6px_24px_rgba(15,23,42,0.05)] active:bg-[#FAFAFA]"
+          className="flex w-full items-start justify-between gap-3 rounded-[24px] border border-ig-border bg-white px-4 py-4 text-left shadow-[0_6px_24px_rgba(15,23,42,0.05)] active:bg-ig-highlight"
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-[16px] font-semibold text-[#262626] md:text-[17px]">{title}</h2>
+              <h2 className="text-[16px] font-semibold text-foreground md:text-[17px]">{title}</h2>
               {itemCount != null ? (
                 <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-medium text-[#4B5563]">
                   {itemCount}
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 text-[12px] leading-relaxed text-[#8E8E8E]">{description}</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>
             <p className="mt-2 text-[12px] font-medium text-signature">{isExpanded ? "접기" : "펼쳐서 보기"}</p>
           </div>
           <ExpandChevronIcon expanded={isExpanded} />
         </button>
       ) : (
         <div className="px-1">
-          <h2 className="text-[16px] font-semibold text-[#262626] md:text-[17px]">{title}</h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-[#8E8E8E]">{description}</p>
+          <h2 className="text-[16px] font-semibold text-foreground md:text-[17px]">{title}</h2>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>
         </div>
       )}
       {(!collapsible || isExpanded) && (
@@ -121,11 +121,11 @@ function ActionTile({
       ? "border-signature/20 bg-signature/5"
       : action.tone === "dark"
         ? "border-[#111827] bg-[#111827] text-white"
-        : "border-[#DBDBDB] bg-white";
-  const titleClass = action.tone === "dark" ? "text-white" : "text-[#262626]";
-  const descClass = action.tone === "dark" ? "text-white/70" : "text-[#8E8E8E]";
+        : "border-ig-border bg-white";
+  const titleClass = action.tone === "dark" ? "text-white" : "text-foreground";
+  const descClass = action.tone === "dark" ? "text-white/70" : "text-muted";
   const badgeClass =
-    action.tone === "dark" ? "bg-white/15 text-white" : "bg-[#F3F4F6] text-[#262626]";
+    action.tone === "dark" ? "bg-white/15 text-white" : "bg-[#F3F4F6] text-foreground";
   const paddingClass = featured ? "min-h-[88px] py-4 md:min-h-0 md:py-5" : "py-3.5 md:py-4";
 
   return (
@@ -144,7 +144,7 @@ function ActionTile({
         </div>
         <p className={`mt-1 text-[12px] leading-relaxed ${descClass}`}>{action.description}</p>
       </div>
-      <ChevronIcon className={action.tone === "dark" ? "text-white/70" : "text-[#8E8E8E]"} />
+      <ChevronIcon className={action.tone === "dark" ? "text-white/70" : "text-muted"} />
     </Link>
   );
 }
@@ -160,11 +160,11 @@ export function HighlightLink({
 }) {
   return (
     <Link href={href} className="flex flex-col items-center gap-1 text-center">
-      <span className="flex h-[64px] w-[64px] items-center justify-center rounded-full border border-[#E5E7EB] bg-[linear-gradient(180deg,#ffffff_0%,#f6f7f9_100%)] text-[14px] font-semibold text-[#262626] shadow-[0_4px_12px_rgba(15,23,42,0.06)] md:h-[72px] md:w-[72px]">
+      <span className="flex h-[64px] w-[64px] items-center justify-center rounded-full border border-ig-border bg-[linear-gradient(180deg,#ffffff_0%,#f6f7f9_100%)] text-[14px] font-semibold text-foreground shadow-[0_4px_12px_rgba(15,23,42,0.06)] md:h-[72px] md:w-[72px]">
         {label.slice(0, 2)}
       </span>
-      <span className="text-[12px] font-medium text-[#262626]">{label}</span>
-      <span className="text-[10px] text-[#8E8E8E]">{sublabel}</span>
+      <span className="text-[12px] font-medium text-foreground">{label}</span>
+      <span className="text-[10px] text-muted">{sublabel}</span>
     </Link>
   );
 }
@@ -181,13 +181,13 @@ export function InfoShortcutCard({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-2xl border border-[#DBDBDB] bg-white px-4 py-3.5 active:bg-[#FAFAFA]"
+      className="flex items-center justify-between rounded-2xl border border-ig-border bg-white px-4 py-3.5 active:bg-ig-highlight"
     >
       <div className="min-w-0 flex-1 pr-3">
-        <p className="text-[15px] font-medium text-[#262626]">{title}</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-[#8E8E8E]">{description}</p>
+        <p className="text-[15px] font-medium text-foreground">{title}</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>
       </div>
-      <ChevronIcon className="text-[#8E8E8E]" />
+      <ChevronIcon className="text-muted" />
     </Link>
   );
 }
@@ -218,7 +218,7 @@ function ExpandChevronIcon({ expanded }: { expanded: boolean }) {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
-      className={`mt-1 shrink-0 text-[#8E8E8E] transition-transform ${expanded ? "rotate-180" : ""}`}
+      className={`mt-1 shrink-0 text-muted transition-transform ${expanded ? "rotate-180" : ""}`}
       aria-hidden
     >
       <polyline points="6 9 12 15 18 9" />

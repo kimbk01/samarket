@@ -13,12 +13,12 @@ export function ProfileCard({ profile }: ProfileCardProps) {
   if (!profile) {
     return (
       <Link href="/mypage/account" className="block">
-        <div className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+        <div className="rounded-xl border border-ig-border bg-white p-4">
           <div className="flex items-center gap-3">
-            <div className="h-14 w-14 shrink-0 rounded-full bg-[#EFEFEF]" />
+            <div className="h-14 w-14 shrink-0 rounded-full bg-ig-highlight" />
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-medium text-[#8E8E8E]">로그인해 주세요</p>
-              <p className="text-[12px] text-[#8E8E8E]">프로필 보기</p>
+              <p className="text-[15px] font-medium text-muted">로그인해 주세요</p>
+              <p className="text-[12px] text-muted">프로필 보기</p>
             </div>
             <ChevronRight />
           </div>
@@ -29,9 +29,9 @@ export function ProfileCard({ profile }: ProfileCardProps) {
 
   return (
     <Link href="/mypage/account" className="block">
-      <div className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+      <div className="rounded-xl border border-ig-border bg-white p-4">
         <div className="flex items-center gap-3">
-          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#EFEFEF]">
+          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-ig-highlight">
             {profile.avatar_url ? (
               <Image
                 src={profile.avatar_url}
@@ -41,14 +41,14 @@ export function ProfileCard({ profile }: ProfileCardProps) {
                 sizes="56px"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[#8E8E8E]">
+              <div className="flex h-full w-full items-center justify-center text-muted">
                 <UserPlaceholderIcon />
               </div>
             )}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[15px] font-medium text-[#262626]">{profile.nickname}</p>
+              <p className="text-[15px] font-medium text-foreground">{profile.nickname}</p>
             </div>
             <div className="mt-1">
               <MannerBatteryInline raw={profile.temperature} size="sm" />
@@ -72,7 +72,7 @@ function UserPlaceholderIcon() {
 
 function ChevronRight() {
   return (
-    <svg className="h-5 w-5 shrink-0 text-[#8E8E8E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );

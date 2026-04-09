@@ -18,7 +18,7 @@ export function MemberNotificationBell() {
   return (
     <Link
       href="/my/notifications#order-sim"
-      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#DBDBDB] bg-white text-[#262626]"
+      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ig-border bg-white text-foreground"
       aria-label={`주문 알림 ${n > 0 ? `${n}건 읽지 않음` : ""}`}
     >
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>

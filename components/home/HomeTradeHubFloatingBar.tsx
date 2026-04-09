@@ -469,7 +469,7 @@ function HubSheetCloseButton({ onClick, ariaLabel }: { onClick: () => void; aria
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#262626] transition-[transform,background-color] active:scale-95 hover:bg-black/[0.06] md:h-10 md:min-w-[44px] md:rounded-lg md:px-2 md:text-signature"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground transition-[transform,background-color] active:scale-95 hover:bg-black/[0.06] md:h-10 md:min-w-[44px] md:rounded-lg md:px-2 md:text-signature"
     >
       <span
         className="flex h-[26px] w-[26px] items-center justify-center text-[22px] font-light leading-none md:hidden"

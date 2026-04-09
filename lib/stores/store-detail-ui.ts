@@ -18,7 +18,7 @@ export const STORE_DETAIL_SECTION_HEAD =
 
 /** 정보 탭 지표 칩(메뉴 리스트와 동일 보더 톤) */
 export const STORE_DETAIL_METRIC_TILE =
-  "rounded-xl border border-stone-200 bg-[#fafafa] px-3 py-2.5";
+  "rounded-xl border border-ig-border bg-background px-3 py-2.5";
 
 /**
  * 뒤로가기 줄 + 메뉴·정보·리뷰 탭(+칩) — 연한 반투명 흰 배경, 하단 보더 동일.

@@ -28,4 +28,4 @@ export const APP_MARKET_MENU_TEXT_BASE =
 export const APP_MARKET_MENU_TEXT_ACTIVE = "font-semibold text-gray-900";
 
 export const APP_MARKET_MENU_TEXT_INACTIVE =
-  "font-normal text-[#8E8E8E] hover:text-[#262626]";
+  "font-normal text-muted hover:text-foreground";

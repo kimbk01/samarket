@@ -70,7 +70,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
       )}
       {product?.thumbnail || product?.title ? (
         <div className="flex gap-3 border-t border-gray-100 pt-2">
-          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-[#EFEFEF]">
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-ig-highlight">
             {product?.thumbnail ? (
               <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -84,7 +84,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
               {product?.title || title}
             </p>
             {subtitle ? (
-              <p className="mt-1 text-[12px] text-[#8E8E8E]">{subtitle}</p>
+              <p className="mt-1 text-[12px] text-muted">{subtitle}</p>
             ) : null}
             {isStoreOrder ? (
               <p className="mt-2 text-[12px] font-medium text-signature">{t("nav_chat_continue_order_context")}</p>
@@ -99,10 +99,10 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
         </div>
       ) : null}
       {!product?.thumbnail && !product?.title && subtitle ? (
-        <p className="truncate text-[12px] text-[#8E8E8E]">{subtitle}</p>
+        <p className="truncate text-[12px] text-muted">{subtitle}</p>
       ) : null}
       {!product?.thumbnail && !subtitle && product?.title ? (
-        <p className="truncate text-[12px] text-[#8E8E8E]">{product.title}</p>
+        <p className="truncate text-[12px] text-muted">{product.title}</p>
       ) : null}
     </>
   );

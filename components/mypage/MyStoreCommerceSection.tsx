@@ -50,7 +50,7 @@ export function MyStoreCommerceSection() {
 
   if (phase.kind === "loading") {
     return (
-      <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+      <section className="rounded-xl border border-ig-border bg-white p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">동네 매장</h2>
         <div className="mt-3 h-20 animate-pulse rounded-lg bg-gray-100" />
       </section>
@@ -65,7 +65,7 @@ export function MyStoreCommerceSection() {
 
   if (!approved) {
     return (
-      <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+      <section className="rounded-xl border border-ig-border bg-white p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">동네 매장 (사장님)</h2>
         <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
           승인된 매장이 있으면 주문·문의·정산을 여기서 관리할 수 있습니다. 매장 등록은 누구나 신청할 수 있습니다.
@@ -98,7 +98,7 @@ export function MyStoreCommerceSection() {
     : "/my/business/products";
 
   return (
-    <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+    <section className="rounded-xl border border-ig-border bg-white p-4">
       <h2 className="text-[14px] font-semibold text-gray-900">동네 매장 (사장님)</h2>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link

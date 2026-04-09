@@ -154,7 +154,7 @@ export function StoreDetailInquiryActions({ phone }: { phone: string | null }) {
   const href =
     telHrefFromLoosePhPhone(phone) ?? (phone?.replace(/\s/g, "") ? `tel:${phone.replace(/\s/g, "")}` : "");
   const btn =
-    "flex flex-1 items-center justify-center rounded-xl border border-stone-200 bg-[#fafafa] py-2.5 text-center text-[14px] font-semibold text-stone-900 shadow-sm active:bg-stone-100";
+    "flex flex-1 items-center justify-center rounded-xl border border-ig-border bg-background py-2.5 text-center text-[14px] font-semibold text-foreground shadow-sm active:bg-ig-highlight";
   const disabled =
     "flex flex-1 cursor-not-allowed items-center justify-center rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-center text-[14px] text-stone-400";
   return (

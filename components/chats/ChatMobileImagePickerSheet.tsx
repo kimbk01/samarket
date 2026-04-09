@@ -98,7 +98,7 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
         <button
           type="button"
           disabled={selectedCount === 0}
-          className="shrink-0 rounded-lg px-3 py-2 text-[15px] font-semibold text-[#0095F6] disabled:text-white/25"
+          className="shrink-0 rounded-lg px-3 py-2 text-[15px] font-semibold text-signature disabled:text-white/25"
           onClick={confirm}
         >
           전송
@@ -120,7 +120,7 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
                 <span
                   className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-sm ${
                     on
-                      ? "border-[#0095F6] bg-[#0095F6] text-white"
+                      ? "border-signature bg-signature text-white"
                       : "border-white/85 bg-white/35 backdrop-blur-[2px]"
                   }`}
                 >

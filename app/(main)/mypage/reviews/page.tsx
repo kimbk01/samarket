@@ -27,7 +27,7 @@ export default function MypageReviewsHubPage() {
             <li>
               <Link
                 href="/mypage/purchases"
-                className="block rounded-lg border border-[#DBDBDB] bg-[#FAFAFA] px-3 py-2.5 text-[14px] font-medium text-[#262626]"
+                className="block rounded-lg border border-ig-border bg-ig-highlight px-3 py-2.5 text-[14px] font-medium text-foreground"
               >
                 구매내역
               </Link>
@@ -35,7 +35,7 @@ export default function MypageReviewsHubPage() {
             <li>
               <Link
                 href="/mypage/sales"
-                className="block rounded-lg border border-[#DBDBDB] bg-[#FAFAFA] px-3 py-2.5 text-[14px] font-medium text-[#262626]"
+                className="block rounded-lg border border-ig-border bg-ig-highlight px-3 py-2.5 text-[14px] font-medium text-foreground"
               >
                 판매내역
               </Link>

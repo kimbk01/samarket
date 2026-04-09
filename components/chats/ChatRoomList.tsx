@@ -86,7 +86,7 @@ export function ChatRoomList({
 
   if (rooms === null && !sessionDenied) {
     return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-[#8E8E8E]`}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-muted`}>
         {t("common_loading")}
       </div>
     );
@@ -134,7 +134,7 @@ export function ChatRoomList({
             label: t(TRADE_CHAT_SURFACE.emptyCtaLabelKey),
           };
     return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-[#8E8E8E]`}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-muted`}>
         <p>{emptyCopy}</p>
         <Link href={emptyCta.href} className="mt-4 inline-block font-medium text-signature underline">
           {emptyCta.label}

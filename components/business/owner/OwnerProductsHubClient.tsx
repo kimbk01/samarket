@@ -212,7 +212,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
         >
           <Link
             href={categoriesHref}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F9FAFB] text-signature"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ig-border bg-[#F9FAFB] text-signature"
             aria-label="카테고리 추가"
             title="카테고리 추가"
           >

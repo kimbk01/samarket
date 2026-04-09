@@ -57,7 +57,7 @@ export function TradePrimaryColumnStickyAppBar({
         <div className={`flex h-14 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}>
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
             {!hideBackButton ? <AppBackButton {...backButtonProps} /> : null}
-            <h1 className="min-w-0 truncate text-left text-[16px] font-semibold text-[#262626]">{title}</h1>
+            <h1 className="min-w-0 truncate text-left text-[16px] font-semibold text-foreground">{title}</h1>
           </div>
           {actions != null ? (
             <div className="flex shrink-0 items-center gap-0.5">{actions}</div>

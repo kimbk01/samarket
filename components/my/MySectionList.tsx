@@ -34,20 +34,20 @@ export function MySectionList({ sections, interestFavoriteCount }: MySectionList
           <Link
             key={sec.section_key}
             href={href}
-            className="flex items-center justify-between rounded-xl border border-[#DBDBDB] bg-white px-4 py-3 active:bg-[#FAFAFA]"
+            className="flex items-center justify-between rounded-xl border border-ig-border bg-white px-4 py-3 active:bg-ig-highlight"
           >
-            <span className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center text-[#262626]">
+            <span className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center text-foreground">
               <SectionGlyph sectionKey={sec.section_key} />
             </span>
-            <span className="flex-1 text-[15px] font-medium text-[#262626]">
+            <span className="flex-1 text-[15px] font-medium text-foreground">
               {sec.title}
               {showInterestCount && (
-                <span className="ml-2 text-[13px] font-normal text-[#8E8E8E]">
+                <span className="ml-2 text-[13px] font-normal text-muted">
                   관심 {interestFavoriteCount}개
                 </span>
               )}
             </span>
-            <span className="text-[#8E8E8E]">
+            <span className="text-muted">
               <ChevronIcon />
             </span>
           </Link>

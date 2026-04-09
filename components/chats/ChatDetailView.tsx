@@ -1264,18 +1264,18 @@ export function ChatDetailView({
 
   const sellerComposerQuickBar =
     isStoreOrderSeller ? (
-      <div className="flex flex-wrap gap-2 border-b border-[#EFEFEF] bg-white px-3 pb-2 pt-1">
+      <div className="flex flex-wrap gap-2 border-b border-ig-border bg-white px-3 pb-2 pt-1">
         <button
           type="button"
           onClick={() => setSellerDrawerOpenExclusive(true)}
-          className="rounded-full border border-[#DBDBDB] bg-white px-3.5 py-1.5 text-[13px] font-medium leading-tight tracking-[-0.01em] text-[#262626] hover:bg-black/[0.04] active:bg-black/[0.06]"
+          className="rounded-full border border-ig-border bg-white px-3.5 py-1.5 text-[13px] font-medium leading-tight tracking-[-0.01em] text-foreground hover:bg-black/[0.04] active:bg-black/[0.06]"
         >
           주문 패널
         </button>
         <button
           type="button"
           onClick={() => setSellerAdminModalOpenExclusive(true)}
-          className="rounded-full border border-[#0095F6]/35 bg-[#0095F6]/8 px-3.5 py-1.5 text-[13px] font-semibold leading-tight tracking-[-0.01em] text-[#0095F6] hover:bg-[#0095F6]/14 active:bg-[#0095F6]/20"
+          className="rounded-full border border-signature/35 bg-signature/8 px-3.5 py-1.5 text-[13px] font-semibold leading-tight tracking-[-0.01em] text-signature hover:bg-signature/14 active:bg-signature/20"
         >
           관리자 메뉴
         </button>
@@ -1314,7 +1314,7 @@ export function ChatDetailView({
       className={`flex flex-col ${isStoreOrderChat ? "bg-white" : "bg-[#e8e4df]"} ${rootHeightClass}`}
     >
       {isStoreOrderBuyer ? (
-        <header className="shrink-0 border-b border-[#DBDBDB] bg-white">
+        <header className="shrink-0 border-b border-ig-border bg-white">
           <StoreOrderBuyerChatTop
             backHref={effectiveListHref}
             title={
@@ -1479,7 +1479,7 @@ export function ChatDetailView({
       {partnerBlocked ? (
         isStoreOrderSeller ? (
           <div
-            className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-[#DBDBDB]" : "border-gray-200"}`}
+            className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
           >
             {sellerComposerQuickBar}
@@ -1501,7 +1501,7 @@ export function ChatDetailView({
       ) : !canWriteTradeMessage ? (
         isStoreOrderSeller ? (
           <div
-            className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-[#DBDBDB]" : "border-gray-200"}`}
+            className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
           >
             {sellerComposerQuickBar}
@@ -1538,7 +1538,7 @@ export function ChatDetailView({
         )
       ) : (
         <div
-          className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white pt-3 safe-area-pb ${isStoreOrderChat ? "border-[#DBDBDB]" : "border-gray-200"}`}
+          className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white pt-3 safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
         >
           {chatComposerInner}

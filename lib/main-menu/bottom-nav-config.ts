@@ -58,9 +58,9 @@ export type BottomNavItemConfig = {
 
 /** 바 전체(배경·테두리·높이·safe area) */
 export const BOTTOM_NAV_SHELL = {
-  /** 인스타그램 모바일 웹 톤: 흰 탭바 + 상단 1px 보더 */
+  /** 페이스북형: 흰 탭바 + 상단 경계선(토큰) */
   navClassName:
-    "fixed bottom-0 left-0 right-0 z-20 box-border flex border-t border-[#DBDBDB] bg-white",
+    "fixed bottom-0 left-0 right-0 z-20 box-border flex border-t border-ig-border bg-[var(--sub-bg)]",
   /** 아이콘 줄 최소 4rem + 홈 인디케이터(safe-area) — `h-16`만 쓰면 iOS 등에서 CTA·탭 간 어긋남 */
   heightClass:
     "min-h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)]",
@@ -107,9 +107,9 @@ export const STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS =
 export const BOTTOM_NAV_THEME = {
   iconSizeClass: "h-6 w-6",
   iconActiveClass: "text-signature",
-  iconInactiveClass: "text-[#8E8E8E]",
+  iconInactiveClass: "text-muted",
   labelActiveClass: "font-semibold text-signature",
-  labelInactiveClass: "text-[#8E8E8E]",
+  labelInactiveClass: "text-muted",
   labelSizeClass: "text-[11px]",
 } as const;
 
@@ -132,11 +132,11 @@ export const HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS =
 
 /** 다이얼 보조 버튼(로열 블루 원) — 글쓰기 행·런처 닫기 버튼 공통 */
 export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =
-  "pointer-events-auto relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#3457D5] text-white shadow-[0_4px_14px_rgba(52,87,213,0.42)] transition active:scale-95 [&_svg]:h-[22px] [&_svg]:w-[22px]";
+  "pointer-events-auto relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#166FE5] text-white shadow-[0_4px_14px_rgba(24,119,242,0.42)] transition active:scale-95 [&_svg]:h-[22px] [&_svg]:w-[22px]";
 
-/** 다이얼 메인 토글(틸 원) */
+/** 다이얼 메인 토글 — 시그니처 블루 */
 export const HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS =
-  "pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#3EBCB4] text-white shadow-[0_6px_22px_rgba(62,188,180,0.45)] transition active:scale-95 [&_svg]:h-7 [&_svg]:w-7";
+  "pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-signature text-white shadow-[0_6px_22px_rgba(24,119,242,0.45)] transition active:scale-95 [&_svg]:h-7 [&_svg]:w-7";
 
 /**
  * 표시 순서 = 배열 순서. 항목을 빼거나 바꾸면 탭 구성이 바뀝니다.

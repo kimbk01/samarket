@@ -153,17 +153,17 @@ export function StoreOrderBuyerChatTop({
   const orderBody = (
     <>
       {orderLoading ? (
-        <p className="text-center text-[14px] font-normal leading-[1.34] tracking-[-0.01em] text-[#8E8E8E]">
+        <p className="text-center text-[14px] font-normal leading-[1.34] tracking-[-0.01em] text-muted">
           주문 정보 불러오는 중…
         </p>
       ) : orderError ? (
         <p className="text-center text-[14px] font-normal leading-[1.34] text-red-600">{orderError}</p>
       ) : order == null ? (
-        <p className="text-center text-[14px] font-normal leading-[1.34] tracking-[-0.01em] text-[#8E8E8E]">
+        <p className="text-center text-[14px] font-normal leading-[1.34] tracking-[-0.01em] text-muted">
           주문 정보를 불러올 수 없습니다.
         </p>
       ) : (
-        <div className="relative overflow-hidden rounded-[18px] bg-white px-3.5 py-3.5 shadow-none ring-1 ring-[#DBDBDB]">
+        <div className="relative overflow-hidden rounded-[18px] bg-[var(--sub-bg)] px-3.5 py-3.5 shadow-none ring-1 ring-ig-border">
           {statusBannerVisible && statusLabel ? (
             <div className="mb-3 flex items-start justify-end gap-1">
               <span className="inline-flex max-w-[85%] items-center gap-1 rounded-full bg-amber-100 px-3 py-1.5 text-[12px] font-semibold leading-tight text-amber-900 ring-1 ring-amber-200/80">
@@ -180,7 +180,7 @@ export function StoreOrderBuyerChatTop({
             </div>
           ) : null}
 
-          <ul className="space-y-2.5 text-[14px] font-normal leading-[1.34] tracking-[-0.01em] text-[#262626]">
+          <ul className="space-y-2.5 text-[14px] font-normal leading-[1.34] tracking-[-0.01em] text-foreground">
             {order.fulfillment_type === "pickup" &&
             order.store_pickup_address_lines &&
             order.store_pickup_address_lines.length > 0 ?
@@ -189,7 +189,7 @@ export function StoreOrderBuyerChatTop({
                   🏪
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[12px] font-semibold text-[#8E8E8E]">픽업 (매장 주소)</span>
+                  <span className="block text-[12px] font-semibold text-muted">픽업 (매장 주소)</span>
                   {order.store_pickup_address_lines.map((line, i) => (
                     <span key={i} className="mt-0.5 block">
                       {line}
@@ -204,7 +204,7 @@ export function StoreOrderBuyerChatTop({
                   🗺️
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[12px] font-semibold text-[#8E8E8E]">배달 주소</span>
+                  <span className="block text-[12px] font-semibold text-muted">배달 주소</span>
                   <span className="mt-0.5 block">{order.delivery_address_summary}</span>
                 </span>
               </li>
@@ -223,7 +223,7 @@ export function StoreOrderBuyerChatTop({
                   📞
                 </span>
                 {phoneHref != null ? (
-                  <a href={phoneHref} className="min-w-0 font-medium text-[#0095F6] underline">
+                  <a href={phoneHref} className="min-w-0 font-medium text-signature underline">
                     {phoneDisplay}
                   </a>
                 ) : (
@@ -248,16 +248,16 @@ export function StoreOrderBuyerChatTop({
             {order.fulfillment_type !== "pickup" &&
             order.delivery_fee_amount != null &&
             Number(order.delivery_fee_amount) > 0 ?
-              <li className="pl-7 text-[13px] text-[#8E8E8E]">
+              <li className="pl-7 text-[13px] text-muted">
                 배달비 : {formatMoneyPhp(order.delivery_fee_amount)}
               </li>
             : null}
-            <li className="pl-7 text-[15px] font-semibold leading-[1.34] tracking-[-0.02em] text-[#262626]">
+            <li className="pl-7 text-[15px] font-semibold leading-[1.34] tracking-[-0.02em] text-foreground">
               주문 금액 합계 : {formatMoneyPhp(order.payment_amount)}
             </li>
             {order.buyer_note?.trim() ? (
-              <li className="flex gap-2 border-t border-[#EFEFEF] pt-2.5 text-[14px] text-[#262626]">
-                <span className="shrink-0 text-[12px] font-semibold text-[#8E8E8E]">요청</span>
+              <li className="flex gap-2 border-t border-ig-border pt-2.5 text-[14px] text-foreground">
+                <span className="shrink-0 text-[12px] font-semibold text-muted">요청</span>
                 <span className="min-w-0">{order.buyer_note.trim()}</span>
               </li>
             ) : null}
@@ -287,10 +287,10 @@ export function StoreOrderBuyerChatTop({
               aria-modal="true"
               aria-labelledby="store-order-drawer-title"
             >
-              <div className="flex shrink-0 items-center gap-2 border-b border-[#DBDBDB] px-3 py-3">
+              <div className="flex shrink-0 items-center gap-2 border-b border-ig-border px-3 py-3">
                 <h2
                   id="store-order-drawer-title"
-                  className="min-w-0 flex-1 text-[16px] font-semibold leading-[21px] tracking-[-0.02em] text-[#262626]"
+                  className="min-w-0 flex-1 text-[16px] font-semibold leading-[21px] tracking-[-0.02em] text-foreground"
                 >
                   주문 내역
                 </h2>
@@ -298,7 +298,7 @@ export function StoreOrderBuyerChatTop({
                   <button
                     type="button"
                     onClick={onMoreMenuClick}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[20px] font-normal leading-none text-[#262626] hover:bg-black/[0.05]"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[20px] font-normal leading-none text-foreground hover:bg-black/[0.05]"
                     aria-label="메뉴"
                   >
                     ⋯
@@ -308,13 +308,13 @@ export function StoreOrderBuyerChatTop({
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(false)}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[22px] font-light leading-none text-[#262626] hover:bg-black/[0.05]"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[22px] font-light leading-none text-foreground hover:bg-black/[0.05]"
                   aria-label="닫기"
                 >
                   ×
                 </button>
               </div>
-              <div className="shrink-0 border-b border-[#EFEFEF] px-3 py-2.5">
+              <div className="shrink-0 border-b border-ig-border px-3 py-2.5">
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -330,9 +330,9 @@ export function StoreOrderBuyerChatTop({
                   <Link
                     href={`/my/store-orders/${encodeURIComponent(orderId)}`}
                     onClick={() => setDrawerOpen(false)}
-                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#DBDBDB] bg-white px-3.5 text-[14px] font-normal leading-[18px] tracking-[-0.01em] text-[#262626]"
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-ig-border bg-white px-3.5 text-[14px] font-normal leading-[18px] tracking-[-0.01em] text-foreground"
                   >
-                    <DocIcon className="h-[18px] w-[18px] shrink-0 text-[#8E8E8E]" />
+                    <DocIcon className="h-[18px] w-[18px] shrink-0 text-muted" />
                     <span className="flex items-center">주문상세</span>
                   </Link>
                 </div>
@@ -346,9 +346,9 @@ export function StoreOrderBuyerChatTop({
 
   return (
     <>
-      <div className="flex min-h-[44px] items-center gap-2 border-b border-[#DBDBDB] bg-white px-2 py-1.5">
+      <div className="flex min-h-[44px] items-center gap-2 border-b border-ig-border bg-white px-2 py-1.5">
         <AppBackButton preferHistoryBack backHref={backHref} />
-        <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold leading-[21px] tracking-[-0.02em] text-[#262626]">
+        <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold leading-[21px] tracking-[-0.02em] text-foreground">
           {title}
         </h1>
         <div className="flex shrink-0 items-center gap-0.5">

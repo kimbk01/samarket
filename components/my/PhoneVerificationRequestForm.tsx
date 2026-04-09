@@ -91,7 +91,7 @@ export function PhoneVerificationRequestForm() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-[#DBDBDB] bg-signature/5 px-4 py-3">
+      <div className="rounded-xl border border-ig-border bg-signature/5 px-4 py-3">
         <p className="text-sm font-semibold text-gray-900">필리핀 전화번호 인증</p>
         <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
           전화번호 인증 전까지는 열람만 가능하며 글쓰기, 거래, 주문, 채팅은 사용할 수 없습니다. 현재 단계에서는

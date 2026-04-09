@@ -69,8 +69,8 @@ export function OwnerStoreOrderModalSellerToolbar({
 
   if (loading && !snap) {
     return (
-      <div className="shrink-0 border-b border-[#EFEFEF] bg-[#FAFAFA] px-3 py-2">
-        <p className="text-center text-[12px] text-[#8E8E8E]">주문 상태 불러오는 중…</p>
+      <div className="shrink-0 border-b border-ig-border bg-background px-3 py-2">
+        <p className="text-center text-[12px] text-muted">주문 상태 불러오는 중…</p>
       </div>
     );
   }

@@ -120,13 +120,13 @@ export function MyPageHomeDashboard({
         <div className="flex items-start gap-3 rounded-[4px] border border-gray-200 bg-white p-4">
           <Link
             href={MYPAGE_PROFILE_EDIT_HREF}
-            className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-[#EFEFEF]"
+            className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-ig-highlight"
             aria-label="프로필 이미지"
           >
             {profile.avatar_url ? (
               <Image src={profile.avatar_url} alt="" fill className="object-cover" sizes="72px" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[#8E8E8E]">
+              <div className="flex h-full w-full items-center justify-center text-muted">
                 <UserPlaceholderIcon />
               </div>
             )}

@@ -68,7 +68,7 @@ export default function MyBenefitsPage() {
                 로그인 후 프로필을 불러올 수 있습니다.
               </span>
             ) : (
-              <span className="rounded bg-[#EFEFEF] px-2 py-1 text-[14px] font-medium text-[#262626]">
+              <span className="rounded bg-ig-highlight px-2 py-1 text-[14px] font-medium text-foreground">
                 {roleLabel(role)}
               </span>
             )}

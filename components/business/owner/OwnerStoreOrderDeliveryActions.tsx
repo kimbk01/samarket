@@ -162,11 +162,11 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
   const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
 
   return (
-    <div className="shrink-0 border-b border-[#EFEFEF] px-3 py-3">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#8E8E8E]">
+    <div className="shrink-0 border-b border-ig-border px-3 py-3">
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
         배달·주문 처리
       </p>
-      <p className="mb-2 text-[12px] text-[#8E8E8E]">
+      <p className="mb-2 text-[12px] text-muted">
         진행 단계 변경·주문취소는 채팅과 함께 이곳에서 할 수 있습니다. ({statusLabel})
       </p>
       {noticeEl}
@@ -235,14 +235,14 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
   }, [order.order_status, showTransitionButtons]);
 
   return (
-    <div className="shrink-0 border-b border-[#E8E8E8] bg-[#FAFAFA] px-3 py-2">
+    <div className="shrink-0 border-b border-ig-border bg-background px-3 py-2">
       <div className="mb-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
         <p className="min-w-0 truncate text-[13px] font-semibold text-gray-900">
-          <span className="text-[#8E8E8E]">주문</span> {orderNo}
+          <span className="text-muted">주문</span> {orderNo}
         </p>
         <p className="shrink-0 text-[12px] font-medium text-[#555]">{statusLabel}</p>
       </div>
-      <p className="mb-2 text-[10px] leading-snug text-[#8E8E8E]">
+      <p className="mb-2 text-[10px] leading-snug text-muted">
         배달·접수 처리는 여기서 진행하고, 주문 전문·채팅 전송은 우측 ⋯에서 확인하세요.
       </p>
       {noticeEl}

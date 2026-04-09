@@ -62,7 +62,7 @@
              ) : role === null ? (
                <span className="text-[14px] text-gray-600">로그인 후 회원 혜택을 확인할 수 있습니다.</span>
              ) : (
-               <span className="rounded bg-[#EFEFEF] px-2 py-1 text-[14px] font-medium text-[#262626]">
+               <span className="rounded bg-ig-highlight px-2 py-1 text-[14px] font-medium text-foreground">
                  {roleLabel(role)}
                </span>
              )}

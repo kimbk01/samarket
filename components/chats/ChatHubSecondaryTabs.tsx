@@ -20,7 +20,7 @@ export type ChatHubSecondaryTabItem = {
 export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem[] }) {
   const { t, tt } = useI18n();
   return (
-    <div className="border-b border-[#DBDBDB] bg-white">
+    <div className="border-b border-ig-border bg-white">
       <div className="mx-auto flex max-w-lg px-4">
         {items.map((item) => (
           <Link
@@ -32,8 +32,8 @@ export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem
             className={[
               "flex-1 border-b-2 px-2 py-3 text-center text-[16px] transition-colors duration-200",
               item.active
-                ? "border-[#262626] font-semibold text-[#262626]"
-                : "border-transparent font-medium text-[#8E8E8E] hover:text-[#262626]",
+                ? "border-signature font-semibold text-signature"
+                : "border-transparent font-medium text-muted hover:text-foreground",
             ].join(" ")}
           >
             {item.labelKey ? t(item.labelKey) : tt(item.label)}

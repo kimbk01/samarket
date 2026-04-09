@@ -94,7 +94,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
   const rowInner = (
     <>
       <div className="relative shrink-0 overflow-visible">
-        <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-[#EFEFEF]">
+        <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-md bg-ig-highlight">
           {product?.thumbnail ? (
             <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
           ) : isExchangeThumb ? (
@@ -103,7 +103,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
               aria-hidden
             >
               <span>{CURRENCY_SYMBOLS.PHP}</span>
-              <span className="text-[10px] text-[#8E8E8E]">↔</span>
+              <span className="text-[10px] text-muted">↔</span>
               <span>{CURRENCY_SYMBOLS.KRW}</span>
             </div>
           ) : (
@@ -128,7 +128,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
               {roleLabel}
             </span>
             <span
-              className={`shrink-0 rounded-full bg-[#EFEFEF] px-2 py-0.5 text-[11px] font-medium ${tradeToneClass}`}
+              className={`shrink-0 rounded-full bg-ig-highlight px-2 py-0.5 text-[11px] font-medium ${tradeToneClass}`}
               title={tradeStatusLabel}
             >
               {tradeStatusLabel}
@@ -154,7 +154,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
               <p className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-gray-900">
                 {productTitle}
               </p>
-              <p className="mt-0.5 line-clamp-1 text-[12px] leading-snug text-[#8E8E8E]">
+              <p className="mt-0.5 line-clamp-1 text-[12px] leading-snug text-muted">
                 {t("nav_trade_chat_with_partner", { nickname: room.partnerNickname })}
               </p>
               {product && isExchangeLegacy ? (

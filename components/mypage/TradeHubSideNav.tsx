@@ -18,13 +18,13 @@ export function TradeHubSideNav() {
       }}
       aria-label="거래 관리 사이드 메뉴"
     >
-      <nav className="max-h-[calc(100dvh-7.5rem)] overflow-y-auto rounded-xl border border-[#DBDBDB] bg-white py-1 shadow-sm">
+      <nav className="max-h-[calc(100dvh-7.5rem)] overflow-y-auto rounded-xl border border-ig-border bg-white py-1 shadow-sm">
         <ul className="flex flex-col">
           {MENU_ITEMS.map((item) => (
             <li key={item.sectionId} className="border-b border-[#F0F0F0] last:border-b-0">
               <a
                 href={`#${item.sectionId}`}
-                className="block px-2 py-2.5 text-center text-[11px] font-medium leading-snug text-[#262626] transition-colors hover:bg-[#FAFAFA] active:bg-[#F0F0F0] sm:px-3 sm:text-left sm:text-[13px] sm:leading-tight"
+                className="block px-2 py-2.5 text-center text-[11px] font-medium leading-snug text-foreground transition-colors hover:bg-ig-highlight active:bg-ig-highlight sm:px-3 sm:text-left sm:text-[13px] sm:leading-tight"
               >
                 {item.label}
               </a>

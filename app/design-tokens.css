@@ -1,0 +1,55 @@
+/**
+ * SAMarket UI 의도 — 단일 수정 지점.
+ * 브랜드/테마 변경 시 이 파일의 `--ui-*` 만 조정하면 됩니다.
+ * (레거시 `--background`, `--signature`, `--ig-border` 등은 아래에서 `var(--ui-*)` 로 연결됩니다.)
+ */
+
+:root {
+  /* --- 시맨틱 (신규 코드는 이 이름을 기준으로) --- */
+  --ui-page-bg: #f0f2f5;
+  --ui-surface: #ffffff;
+  --ui-text-primary: #050505;
+  --ui-text-secondary: #65676b;
+  --ui-text-meta: #65676b;
+  --ui-primary: #1877f2;
+  --ui-border: #ced0d4;
+  --ui-hover-surface: #e4e6eb;
+  --ui-danger: #e41e3f;
+  --ui-success: #31a24c;
+
+  /* 레이아웃·터치 (문서·마케팅 페이지 확장 시 동일 토큰 사용) */
+  --ui-radius-sm: 0.25rem;
+  --ui-radius-md: 0.5rem;
+  --ui-radius-lg: 0.75rem;
+  --ui-radius-xl: 1rem;
+  --ui-radius-pill: 9999px;
+  --ui-tap-min: 44px;
+  --ui-shadow-card: 0 2px 16px rgba(0, 0, 0, 0.06);
+  --ui-font-body-line: 1.375;
+
+  /* --- 레거시 브리지 (기존 컴포넌트·Tailwind color-signature 등 유지) --- */
+  --background: var(--ui-page-bg);
+  --foreground: var(--ui-text-primary);
+  --signature: var(--ui-primary);
+  --sub-bg: var(--ui-surface);
+  --text-muted: var(--ui-text-secondary);
+  --text-meta: var(--ui-text-meta);
+  --ig-border: var(--ui-border);
+  --ig-highlight: var(--ui-hover-surface);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ui-page-bg: #18191a;
+    --ui-surface: #242526;
+    --ui-text-primary: #e4e6eb;
+    --ui-text-secondary: #b0b3b8;
+    --ui-text-meta: #b0b3b8;
+    --ui-primary: #2374e1;
+    --ui-border: #3e4042;
+    --ui-hover-surface: #3a3b3c;
+    --ui-danger: #ff6b6b;
+    --ui-success: #45bd62;
+    --ui-shadow-card: 0 2px 16px rgba(0, 0, 0, 0.35);
+  }
+}

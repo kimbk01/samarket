@@ -23,7 +23,7 @@ export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId
     <div className="flex flex-col items-end gap-0.5">
       <Link
         href={`/stores/${encodeURIComponent(slug)}/owner/notifications`}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#DBDBDB] bg-white text-[#262626]"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ig-border bg-white text-foreground"
         aria-label={
           refundRequestedCount > 0 ? `알림 · 환불요청 ${refundRequestedCount}건` : "알림"
         }
@@ -42,7 +42,7 @@ export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId
         ) : null}
       </Link>
       {refundRequestedCount > 0 ? (
-        <p className="max-w-[140px] text-right text-[9px] leading-tight text-[#8E8E8E]">
+        <p className="max-w-[140px] text-right text-[9px] leading-tight text-muted">
           환불 요청 {refundRequestedCount}건 ·{" "}
           <Link href={buildStoreOrdersHref({ storeId, tab: "refund" })} className="underline">
             주문 관리

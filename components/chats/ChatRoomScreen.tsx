@@ -128,7 +128,7 @@ export function ChatRoomScreen({
 
   if (!mounted) {
     return (
-      <div className={`flex items-center justify-center text-sm text-[#8E8E8E] ${embeddedEmptyClass}`}>{t("common_loading")}</div>
+      <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
     );
   }
 
@@ -145,7 +145,7 @@ export function ChatRoomScreen({
 
   if (loading) {
     return (
-      <div className={`flex items-center justify-center text-sm text-[#8E8E8E] ${embeddedEmptyClass}`}>{t("common_loading")}</div>
+      <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
     );
   }
 

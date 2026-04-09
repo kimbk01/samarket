@@ -31,7 +31,7 @@ export function StoreHorizontalStoreTile({
   return (
     <article className="w-[148px] shrink-0">
       <Link href={storeHref} className="block">
-        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-[#EFEFEF] ring-1 ring-black/[0.06]">
+        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-ig-highlight ring-1 ring-black/[0.06]">
           {store.profileImageUrl ?
             <img src={store.profileImageUrl} alt="" className="h-full w-full object-cover" />
           : <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-neutral-200 to-neutral-300 text-2xl text-white/90">

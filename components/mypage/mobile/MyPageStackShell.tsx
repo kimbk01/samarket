@@ -16,7 +16,7 @@ export function MyPageStackShell({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAFAFA]">
+    <div className="flex min-h-screen flex-col bg-background">
       <MySubpageHeader
         title={title}
         backHref={backHref}

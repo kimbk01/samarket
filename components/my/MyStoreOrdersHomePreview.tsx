@@ -109,11 +109,11 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
 
   if (state.kind === "idle" || state.kind === "loading") {
     return (
-      <section className="rounded-xl border border-[#DBDBDB] bg-white p-4" aria-busy="true">
+      <section className="rounded-xl border border-ig-border bg-white p-4" aria-busy="true">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-[#262626]">배달 주문</h2>
+          <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
         </div>
-        <p className="text-[13px] text-[#8E8E8E]">불러오는 중…</p>
+        <p className="text-[13px] text-muted">불러오는 중…</p>
       </section>
     );
   }
@@ -124,18 +124,18 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
 
   if (state.kind === "unavailable") {
     return (
-      <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
-        <h2 className="text-[15px] font-semibold text-[#262626]">배달 주문</h2>
-        <p className="mt-2 text-[13px] text-[#8E8E8E]">주문 정보를 불러올 수 없습니다. (서버 설정)</p>
+      <section className="rounded-xl border border-ig-border bg-white p-4">
+        <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
+        <p className="mt-2 text-[13px] text-muted">주문 정보를 불러올 수 없습니다. (서버 설정)</p>
       </section>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+      <section className="rounded-xl border border-ig-border bg-white p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[15px] font-semibold text-[#262626]">배달 주문</h2>
+          <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
           <button
             type="button"
             onClick={() => retry()}
@@ -149,9 +149,9 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
   }
 
   return (
-    <section className="rounded-xl border border-[#DBDBDB] bg-white p-4">
+    <section className="rounded-xl border border-ig-border bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-[#262626]">배달 주문</h2>
+        <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
         <Link href="/my/store-orders" className="shrink-0 text-[13px] font-medium text-signature">
           전체 보기
         </Link>
@@ -159,7 +159,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
 
       {state.kind === "empty" ? (
         <div className="space-y-3">
-          <p className="text-[13px] leading-relaxed text-[#8E8E8E]">아직 배달 주문이 없습니다.</p>
+          <p className="text-[13px] leading-relaxed text-muted">아직 배달 주문이 없습니다.</p>
           <Link
             href="/stores"
             className="inline-block text-[13px] font-medium text-signature underline underline-offset-2"
@@ -172,25 +172,25 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
           {state.orders.map((o) => (
             <li
               key={o.id}
-              className="rounded-xl border border-[#DBDBDB] bg-white p-4"
+              className="rounded-xl border border-ig-border bg-white p-4"
             >
               <Link
                 href={`/my/store-orders/${encodeURIComponent(o.id)}`}
                 className="block transition-colors active:opacity-90"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-[15px] font-semibold text-[#262626]">
+                  <p className="text-[15px] font-semibold text-foreground">
                     {o.store_name?.trim() || "매장"}
                   </p>
-                  <span className="text-xs text-[#8E8E8E]">{o.order_no}</span>
+                  <span className="text-xs text-muted">{o.order_no}</span>
                 </div>
-                <p className="mt-2 text-lg font-bold text-[#262626]">{formatMoneyPhp(o.payment_amount)}</p>
+                <p className="mt-2 text-lg font-bold text-foreground">{formatMoneyPhp(o.payment_amount)}</p>
                 {o.items && o.items.length > 0 ? (
-                  <p className="mt-1 text-[12px] leading-snug text-[#8E8E8E]">
+                  <p className="mt-1 text-[12px] leading-snug text-muted">
                     {o.items.map((it) => `${it.product_title_snapshot}×${it.qty}`).join(", ")}
                   </p>
                 ) : null}
-                <p className="mt-1 text-xs text-[#8E8E8E]">
+                <p className="mt-1 text-xs text-muted">
                   {FULFILL_LABEL[o.fulfillment_type] ?? o.fulfillment_type}
                   {" · "}
                   {ORDER_LABEL[o.order_status] ?? o.order_status}
@@ -199,17 +199,17 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
                   o.order_status === "delivering" ||
                   o.order_status === "arrived") &&
                 o.auto_complete_at ? (
-                  <p className="mt-2 text-[11px] leading-snug text-[#8E8E8E]">
+                  <p className="mt-2 text-[11px] leading-snug text-muted">
                     자동 완료 예정:{" "}
-                    <span className="font-medium text-[#262626]">
+                    <span className="font-medium text-foreground">
                       {new Date(o.auto_complete_at).toLocaleString("ko-KR")}
                     </span>
                   </p>
                 ) : null}
                 {o.buyer_note ? (
-                  <p className="mt-2 text-xs text-[#8E8E8E]">요청: {o.buyer_note}</p>
+                  <p className="mt-2 text-xs text-muted">요청: {o.buyer_note}</p>
                 ) : null}
-                <p className="mt-2 text-[11px] text-[#8E8E8E]">
+                <p className="mt-2 text-[11px] text-muted">
                   {new Date(o.created_at).toLocaleString("ko-KR")}
                 </p>
                 <p className="mt-2 text-right text-xs text-signature">상세 보기 →</p>
