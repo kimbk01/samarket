@@ -271,8 +271,10 @@ export function MypageInstagramView({
 
   return (
     <div className="border-b border-ig-border bg-[var(--sub-bg)]">
+      {/* 스크롤 시 1단(h-12) 바로 아래에 프로필+탭 고정 — 하단 메뉴만 스크롤 */}
+      <div className="sticky top-12 z-10 border-b border-ig-border bg-[var(--sub-bg)] pt-1">
       {/* 프로필 상단 — 인스타 프로필 레이아웃 */}
-      <div className="px-4 pb-3 pt-1">
+      <div className="px-4 pb-3">
         <div className="flex gap-5">
           <Link
             href="/my/edit"
@@ -359,8 +361,8 @@ export function MypageInstagramView({
         ) : null}
       </div>
 
-      {/* 탭 바 */}
-      <div className="sticky top-12 z-[9] flex border-t border-ig-border bg-[var(--sub-bg)]">
+      {/* 탭 바 — 프로필과 동일 스티키 그룹(별도 sticky 제거) */}
+      <div className="flex border-t border-ig-border bg-[var(--sub-bg)]">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -376,6 +378,7 @@ export function MypageInstagramView({
             ) : null}
           </button>
         ))}
+      </div>
       </div>
 
       {/* 탭 패널 — 리스트 행 */}
