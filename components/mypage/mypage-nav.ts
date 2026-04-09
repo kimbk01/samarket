@@ -243,6 +243,9 @@ export function normalizeMyPageSection(
   return matched?.id ?? getMyPageTabNav(tab).sections[0]?.id ?? "";
 }
 
+/** 모바일에서 전체 메뉴 목록만 표시할 때 `1` */
+export const MYPAGE_MOBILE_NAV_QUERY = "nav";
+
 export function buildMyPageHref(tab: MyPageTabId, section?: string): string {
   const normalizedSection = normalizeMyPageSection(tab, section);
   const params = new URLSearchParams();
@@ -251,6 +254,17 @@ export function buildMyPageHref(tab: MyPageTabId, section?: string): string {
     params.set("section", normalizedSection);
   }
   return `/mypage?${params.toString()}`;
+}
+
+/** 모바일: 메뉴 선택 화면(목록만). 본문만 보려면 이 파라미터를 붙이지 않음. */
+export function buildMyPageMobileMenuHref(
+  tab: MyPageTabId,
+  section?: string,
+): string {
+  const base = buildMyPageHref(tab, section);
+  const u = new URL(base, "https://local.local");
+  u.searchParams.set(MYPAGE_MOBILE_NAV_QUERY, "1");
+  return `${u.pathname}${u.search}`;
 }
 
 /** 내정보 콘솔 상단 헤더(제목·부제) — 선택된 하위 메뉴 기준 */

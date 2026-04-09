@@ -10,10 +10,13 @@ import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyTopBanner } from "@/components/my/MyTopBanner";
 import { MyPageConsole } from "@/components/mypage/MyPageConsole";
 import {
+  buildMyPageMobileMenuHref,
+  MYPAGE_MOBILE_NAV_QUERY,
   normalizeMyPageSection,
   normalizeMyPageTab,
   resolveMyPageConsoleHeader,
 } from "@/components/mypage/mypage-nav";
+import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
 import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
@@ -65,6 +68,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const [neighborhoodFromLife, setNeighborhoodFromLife] = useState<LifeDefaultLocationSummary | null>(null);
   const { count: favoriteCount } = useMyFavoriteCount();
   const notificationUnreadCount = useMyNotificationUnreadCount();
+  const isMobileViewport = useIsMobileViewport();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -285,7 +289,10 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   const mypageTab = normalizeMyPageTab(searchParams.get("tab"));
   const mypageSection = normalizeMyPageSection(mypageTab, searchParams.get("section"));
-  const mypageHeader = resolveMyPageConsoleHeader(mypageTab, mypageSection);
+  const mypageNavListMode = searchParams.get(MYPAGE_MOBILE_NAV_QUERY) === "1";
+  const mypageHeader = mypageNavListMode
+    ? { title: "내정보 메뉴", subtitle: "항목을 선택하세요" }
+    : resolveMyPageConsoleHeader(mypageTab, mypageSection);
 
   if (loading) {
     return (
@@ -364,12 +371,18 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     </div>
   );
 
+  const mypageBackFallback =
+    profile && isMobileViewport && !mypageNavListMode
+      ? buildMyPageMobileMenuHref(mypageTab, mypageSection)
+      : "/home";
+
   return (
     <div className="flex min-h-screen flex-col bg-background pb-8">
       <MyPageHeader
         notificationUnreadCount={notificationUnreadCount}
         centerTitle={profile ? mypageHeader.title : null}
         centerSubtitle={profile ? mypageHeader.subtitle ?? null : null}
+        backFallbackHref={profile ? mypageBackFallback : "/home"}
       />
       {column}
     </div>
