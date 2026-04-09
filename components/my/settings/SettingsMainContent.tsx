@@ -46,7 +46,7 @@ export function SettingsMainContent({ className }: { className?: string } = {}) 
     COUNTRY_NAMES[settings.preferred_country ?? "PH"] ?? settings.preferred_country ?? "필리핀";
 
   return (
-    <div className={`mx-auto max-w-[480px] bg-background pb-8${className ? ` ${className}` : ""}`}>
+    <div className={`min-w-0 bg-background pb-8${className ? ` ${className}` : ""}`}>
       <SettingsSection title={t("settings_section_service")}>
         <SettingsRow
           href="/mypage/settings/following"

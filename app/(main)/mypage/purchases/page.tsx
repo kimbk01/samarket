@@ -1,6 +1,7 @@
 import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { MypagePurchaseSalesHubTabs } from "@/components/mypage/MypagePurchaseSalesHubTabs";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function MypagePurchasesPage() {
   return (
@@ -12,7 +13,7 @@ export default function MypagePurchasesPage() {
         hideCtaStrip
         stickyBelow={<MypagePurchaseSalesHubTabs />}
       />
-      <div className="mx-auto max-w-lg space-y-2 px-4 py-4 pb-24">
+      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-2 py-4 pb-24`}>
         <PurchasesView />
       </div>
     </div>

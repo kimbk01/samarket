@@ -1,5 +1,6 @@
 import { SettingsMainContent } from "@/components/my/settings/SettingsMainContent";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function MypageSettingsPage() {
   return (
@@ -10,7 +11,7 @@ export default function MypageSettingsPage() {
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className="mx-auto max-w-[480px] px-4 py-4">
+      <div className={`${APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS} py-4`}>
         <SettingsMainContent />
       </div>
     </div>

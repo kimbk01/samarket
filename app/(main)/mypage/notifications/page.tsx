@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function MypageNotificationsPage() {
   const { t } = useI18n();
@@ -14,7 +15,7 @@ export default function MypageNotificationsPage() {
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
+      <div className={`${APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS} py-4`}>
         <NotificationsSettingsContent />
       </div>
     </div>

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { TradeHubPageBody } from "@/components/mypage/trade/TradeHubPageBody";
 import { TradeHubTopTabs } from "@/components/mypage/trade/TradeHubTopTabs";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function TradeHubLayout({ children }: { children: ReactNode }) {
   return (
@@ -16,7 +17,7 @@ export default function TradeHubLayout({ children }: { children: ReactNode }) {
           </div>
         }
       />
-      <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-lg flex-1 flex-col gap-2 px-4 py-3">
+      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} flex min-h-0 flex-1 flex-col gap-2 py-3`}>
         <TradeHubPageBody>{children}</TradeHubPageBody>
       </div>
     </div>

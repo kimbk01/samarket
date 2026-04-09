@@ -1,6 +1,7 @@
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { PurchaseDetailView } from "@/components/mypage/purchases/PurchaseDetailView";
 import { MypagePurchaseSalesHubTabs } from "@/components/mypage/MypagePurchaseSalesHubTabs";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { parseRoomId } from "@/lib/validate-params";
 
 interface PageProps {
@@ -27,7 +28,7 @@ export default async function PurchaseDetailPage({ params }: PageProps) {
         hideCtaStrip
         stickyBelow={<MypagePurchaseSalesHubTabs />}
       />
-      <div className="mx-auto max-w-lg space-y-2 px-4 py-4 pb-24">
+      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-2 py-4 pb-24`}>
         <PurchaseDetailView chatId={chatId} />
       </div>
     </div>

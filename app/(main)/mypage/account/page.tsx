@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyAccountContent } from "@/components/my/MyAccountContent";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function MypageAccountPage() {
   const { t } = useI18n();
@@ -14,7 +15,7 @@ export default function MypageAccountPage() {
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className="mx-auto max-w-lg px-4 py-4">
+      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} py-4`}>
         <MyAccountContent />
       </div>
     </div>

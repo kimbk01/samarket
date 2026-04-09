@@ -75,7 +75,13 @@ export function MemberNotificationSettings() {
     );
   }
 
-  if (!p) return null;
+  if (!p) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 text-sm text-gray-500 shadow-sm">
+        알림 설정을 준비 중입니다.
+      </div>
+    );
+  }
 
   return (
     <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white shadow-sm">

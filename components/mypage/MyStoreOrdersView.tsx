@@ -605,7 +605,7 @@ export function MyStoreOrdersView({
         {state.kind === "ok" ? (
           <>
             <div
-              className={`sticky top-0 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-white/92 backdrop-blur-md dark:bg-[#242526]/95`}
+              className={`sticky top-12 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-white/92 backdrop-blur-md dark:bg-[#242526]/95`}
             >
               <div className={APP_MAIN_GUTTER_X_CLASS}>
                 <MemberOrderTabs variant="feed" active={tab} onChange={setTab} counts={counts} />

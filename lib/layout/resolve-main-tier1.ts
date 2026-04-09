@@ -201,11 +201,11 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "배달 문의", subtitle: "주문·배달 문의 내역", showHubQuickActions: true });
   }
 
-  if (p === "/my/store-orders") {
+  if (p === "/my/store-orders" || p === "/mypage/store-orders") {
     return backMypage({ titleText: "배달 주문", showHubQuickActions: true });
   }
 
-  if (/^\/my\/store-orders\/[^/]+$/.test(p)) {
+  if (/^\/my\/store-orders\/[^/]+$/.test(p) || /^\/mypage\/store-orders\/[^/]+$/.test(p)) {
     return backMypage({
       titleText: "주문 상세",
       subtitle: "배달·픽업 주문",
@@ -215,7 +215,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     });
   }
 
-  if (/^\/my\/store-orders\/[^/]+\/review$/.test(p)) {
+  if (/^\/my\/store-orders\/[^/]+\/review$/.test(p) || /^\/mypage\/store-orders\/[^/]+\/review$/.test(p)) {
     return backMypage({ titleText: "리뷰 작성", subtitle: "배달 주문 후기", showHubQuickActions: true });
   }
 
@@ -243,6 +243,10 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "알림", subtitle: "거래·주문·서비스", showHubQuickActions: false });
   }
 
+  if (p === "/mypage/order-notifications") {
+    return backMypage({ titleText: "주문 알림", subtitle: "배달·픽업 상태 알림", showHubQuickActions: false });
+  }
+
   if (p === "/my/trust") {
     return backMypage({ titleText: "나의 배터리·신뢰", subtitle: "거래 매너 지표", showHubQuickActions: true });
   }
@@ -263,6 +267,10 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "프로필 수정", subtitle: "닉네임·사진·소개", showHubQuickActions: true });
   }
 
+  if (p === "/mypage/business" || /^\/mypage\/business\/.+/.test(p)) {
+    return backMypage({ titleText: "매장 운영", subtitle: "주문·상품·정산 관리", showHubQuickActions: true });
+  }
+
   if (p === "/my/business/apply") {
     return { ...DEFAULT, backHref: "/my/business", titleText: "배달 입점 신청", showHubQuickActions: true };
   }
@@ -271,7 +279,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "최근 본 글", subtitle: "상품·게시물 다시 보기", showHubQuickActions: true });
   }
 
-  if (starts(p, "/my/settings")) {
+  if (starts(p, "/my/settings") || starts(p, "/mypage/settings")) {
     return backMypage({ titleText: "앱·계정 설정", showHubQuickActions: true });
   }
 

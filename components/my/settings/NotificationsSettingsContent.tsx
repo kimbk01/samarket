@@ -133,6 +133,17 @@ export function NotificationsSettingsContent() {
             </button>
           </div>
         </div>
+        {!commerceEmailLoaded ? (
+          <div className="border-b border-gray-100 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="h-4 w-28 rounded bg-gray-100" />
+                <div className="mt-2 h-3 w-44 rounded bg-gray-50" />
+              </div>
+              <div className="h-7 w-12 rounded-full bg-gray-100" />
+            </div>
+          </div>
+        ) : null}
         {commerceEmailLoaded && commerceEmailShowRow ? (
           <div className="border-b border-gray-100 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
@@ -225,7 +236,7 @@ export function NotificationsSettingsContent() {
             </button>
           </div>
           {(settings.do_not_disturb_enabled ?? false) && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="time"
                 value={settings.do_not_disturb_start ?? "22:00"}

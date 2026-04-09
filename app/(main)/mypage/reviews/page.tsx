@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MyWrittenReviewsView } from "@/components/mypage/reviews/MyWrittenReviewsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function MypageReviewsHubPage() {
   return (
@@ -11,7 +12,7 @@ export default function MypageReviewsHubPage() {
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className="mx-auto max-w-lg space-y-4 px-4 py-6">
+      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-4 py-6`}>
         <p className="text-[14px] leading-relaxed text-gray-600">
           <strong className="text-gray-900">내가 남긴 거래 후기</strong>는 아래에서 확인할 수 있어요. 새 후기는{" "}
           <Link href="/mypage/purchases" className="font-medium text-signature underline">

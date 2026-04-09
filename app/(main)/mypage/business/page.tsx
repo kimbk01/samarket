@@ -1,6 +1,7 @@
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyBusinessPage } from "@/components/business/MyBusinessPage";
 import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function MypageBusinessRoute({ searchParams }: PageProps) {
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className="mx-auto max-w-lg px-4 pt-2 pb-8">
+      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} pt-2 pb-8`}>
         <MyBusinessPage initialServerState={initialServerState} />
       </div>
     </div>

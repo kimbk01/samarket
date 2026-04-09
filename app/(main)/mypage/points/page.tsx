@@ -10,12 +10,23 @@ import { PointExpiringCard } from "@/components/points/PointExpiringCard";
 import { PointChargeRequestList } from "@/components/points/PointChargeRequestList";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 function PointsBackendNotice() {
   const { t } = useI18n();
   return (
     <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
       {t("points_backend_notice")}
+    </div>
+  );
+}
+
+function PointsLoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="h-20 rounded-xl bg-white shadow-sm ring-1 ring-black/[0.06]" />
+      <div className="h-20 rounded-xl bg-white shadow-sm ring-1 ring-black/[0.06]" />
+      <div className="h-40 rounded-xl bg-white shadow-sm ring-1 ring-black/[0.06]" />
     </div>
   );
 }
@@ -70,7 +81,7 @@ export default function MypagePointsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
 
   const expiringSummary = useMemo(
     () => ({
@@ -88,15 +99,21 @@ export default function MypagePointsPage() {
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className="mx-auto max-w-lg space-y-6 p-4">
+      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-6 py-4`}>
         <PointsBackendNotice />
         {loadError ? (
           <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[13px] text-red-700">
             포인트 정보를 불러오지 못했습니다.
           </div>
         ) : null}
-        <PointBalanceCard balance={balance} />
-        <PointExpiringCard summary={expiringSummary} />
+        {loading ? (
+          <PointsLoadingSkeleton />
+        ) : (
+          <>
+            <PointBalanceCard balance={balance} />
+            <PointExpiringCard summary={expiringSummary} />
+          </>
+        )}
         <div className="flex flex-wrap gap-2">
           <Link
             href="/my/points/charge"
