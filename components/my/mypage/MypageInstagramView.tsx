@@ -230,11 +230,12 @@ export function MypageInstagramView({
       subtitle: serviceDescription(service),
     }));
 
+  /** 계정 탭: 상단 프로필(1번)에 이미 프로필 편집·주소 관리가 있으므로 목록에서 중복 제거. 앱 설정은 톱니 대신 이 탭의 「내 정보·앱 설정」으로 통합. */
   const accountRows: MenuRow[] = [
     {
       href: buildMypageInfoHubHref(),
       title: "내 정보 · 앱 설정",
-      subtitle: "한곳에서 확인 · 언어·국가·차단·캐시",
+      subtitle: "언어·국가·차단·캐시·공지·버전",
     },
     { href: "/mypage/account", title: "계정 상세", subtitle: "프로필·연락처·인증" },
     {
@@ -247,8 +248,6 @@ export function MypageInstagramView({
     },
     { href: "/mypage/order-notifications", title: "주문 알림", subtitle: "배달·픽업·주문 상태" },
     { href: "/mypage/points", title: "포인트", subtitle: "잔액·충전·내역" },
-    { href: "/my/edit", title: "프로필 편집", subtitle: "닉네임·사진" },
-    { href: "/my/addresses", title: "주소 관리", subtitle: "생활·배달·거래" },
     { href: "/my/logout", title: "로그아웃", subtitle: "이 기기에서 종료" },
     ...serviceTools,
   ];

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
@@ -8,8 +9,14 @@ type Props = {
   notificationUnreadCount?: number | null;
 };
 
+/**
+ * 내정보 허브(`/mypage`)에서는 상단 톱니를 두지 않음 — 계정 탭·「내 정보·앱 설정」행으로 통합.
+ * 다른 화면에서는 기존처럼 시트 진입용 톱니 유지.
+ */
 export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
+  const pathname = usePathname();
   const { t } = useI18n();
+  const hideSettingsGear = pathname === "/mypage";
   const showBadge = notificationUnreadCount != null && notificationUnreadCount > 0;
   const badgeText =
     notificationUnreadCount != null && notificationUnreadCount > 99
@@ -17,7 +24,9 @@ export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
       : String(notificationUnreadCount ?? "");
 
   return (
-    <div className="flex w-[88px] shrink-0 items-center justify-end gap-0.5">
+    <div
+      className={`flex shrink-0 items-center justify-end gap-0.5 ${hideSettingsGear ? "w-[44px]" : "w-[88px]"}`}
+    >
       <Link
         href="/mypage/notifications"
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
@@ -34,13 +43,15 @@ export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
           </span>
         ) : null}
       </Link>
-      <Link
-        href={buildMypageInfoHubHref()}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-        aria-label={t("hub_settings_aria")}
-      >
-        <SettingsIcon />
-      </Link>
+      {hideSettingsGear ? null : (
+        <Link
+          href={buildMypageInfoHubHref()}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+          aria-label={t("hub_settings_aria")}
+        >
+          <SettingsIcon />
+        </Link>
+      )}
     </div>
   );
 }
