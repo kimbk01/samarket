@@ -16,6 +16,7 @@ import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-deduped";
+import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import {
@@ -219,6 +220,13 @@ export function BottomNav() {
             className={className}
             aria-label={ariaLbl}
             onClick={(e) => onMainTabLinkClick(e, tab.href)}
+            onPointerEnter={
+              tab.icon === "chat"
+                ? () => {
+                    void fetchChatRoomsBySegment("trade");
+                  }
+                : undefined
+            }
           >
             {inner}
           </Link>

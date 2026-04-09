@@ -8,7 +8,6 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
-import { resolvePhilifeMeetingAccessMeetingId } from "@/lib/chats/philife/room-access";
 type ChatRowForRead = {
   room_type?: string | null;
   meeting_id?: string | null;
@@ -74,22 +73,6 @@ export async function POST(
     )
     .eq("id", roomId)
     .maybeSingle();
-  const hasDbChatRoomRead = !!(crRow as { id?: string } | null)?.id && !crErr;
-
-  if (!hasDbChatRoomRead && !crErr && process.env.NODE_ENV !== "production") {
-    const state = (globalThis as {
-      __samarketNeighborhoodDevSampleState?: {
-        inquiryRooms?: Array<{ id: string; initiator_id: string; peer_id: string }>;
-      };
-    }).__samarketNeighborhoodDevSampleState;
-    const inquiry = state?.inquiryRooms?.find(
-      (room) => room.id === roomId && (room.initiator_id === userId || room.peer_id === userId)
-    );
-    if (inquiry) {
-      return NextResponse.json({ ok: true, fallback: "dev_samples" });
-    }
-  }
-
   const sbAny = sb;
   if (crErr || !crRow) {
     return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
@@ -100,10 +83,6 @@ export async function POST(
     meeting_id?: string | null;
     related_group_id?: string | null;
   };
-  const legacyMeetingId = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, cr);
-  if (legacyMeetingId) {
-    return NextResponse.json({ ok: false, error: "삭제된 모임 채팅입니다." }, { status: 404 });
-  }
   if (cr.room_type !== "item_trade") {
     return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
   }

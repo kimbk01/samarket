@@ -13,7 +13,6 @@ import {
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
-import { resolvePhilifeMeetingAccessMeetingId } from "@/lib/chats/philife/room-access";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
 import {
   enforceRateLimit,
@@ -45,59 +44,24 @@ export async function GET(
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
 
-  const { data: roomForGet } = await sb
+  const { data: roomForGet, error: roomForGetErr } = await sb
     .from("chat_rooms")
-    .select("id, room_type, meeting_id, related_group_id, buyer_id, seller_id, store_order_id")
+    .select("id, room_type, buyer_id, seller_id, store_order_id")
     .eq("id", roomId)
     .maybeSingle();
-  const hasDbChatRoom = !!(roomForGet as { id?: string } | null)?.id;
-
-  if (!hasDbChatRoom && process.env.NODE_ENV !== "production") {
-    const state = (globalThis as {
-      __samarketNeighborhoodDevSampleState?: {
-        inquiryRooms?: Array<{ id: string; initiator_id: string; peer_id: string }>;
-        chatMessages?: Map<string, Array<{
-          id: string;
-          roomId: string;
-          senderId: string;
-          messageType?: string;
-          message: string;
-          createdAt: string;
-          readAt: string | null;
-        }>>;
-      };
-    }).__samarketNeighborhoodDevSampleState;
-    const inquiry = state?.inquiryRooms?.find(
-      (room) => room.id === roomId && (room.initiator_id === userId || room.peer_id === userId)
-    );
-    if (inquiry) {
-      const list = (state?.chatMessages?.get(roomId) ?? []).map((message) => ({
-        id: message.id,
-        room_id: roomId,
-        sender_id: message.senderId,
-        message_type: message.messageType ?? "text",
-        body: message.message,
-        created_at: message.createdAt,
-        read_at: message.readAt,
-      }));
-      return NextResponse.json({ messages: list });
-    }
+  if (roomForGetErr || !(roomForGet as { id?: string } | null)?.id) {
+    return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
 
   const sbAny = sb;
-  const rtGet = (roomForGet as { room_type?: string } | null)?.room_type ?? "";
-
-  /* 구 모임 chat_rooms 축은 제거됨 */
-  const philifeMeetingIdGet = await resolvePhilifeMeetingAccessMeetingId(
-    sbAny,
-    roomId,
-    roomForGet as { room_type?: string | null; meeting_id?: string | null; related_group_id?: string | null }
-  );
-  if (philifeMeetingIdGet) {
-    return NextResponse.json({ error: "삭제된 모임 채팅입니다." }, { status: 404 });
-  } else if (rtGet === "store_order") {
+  const rtGet = (roomForGet as { room_type?: string }).room_type ?? "";
+  if (rtGet === "store_order") {
     return NextResponse.json({ error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
-  } else {
+  }
+  if (rtGet !== "item_trade") {
+    return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
+  }
+  {
     const { data: part } = await sbAny
       .from("chat_room_participants")
       .select("id, hidden, left_at, is_active")
@@ -188,49 +152,6 @@ export async function POST(
     )
     .eq("id", roomId)
     .maybeSingle();
-  const hasDbChatRoomPost = !!(room as { id?: string } | null)?.id && !roomFetchErr;
-
-  if (!hasDbChatRoomPost && !roomFetchErr && process.env.NODE_ENV !== "production") {
-    const state = (globalThis as {
-      __samarketNeighborhoodDevSampleState?: {
-        inquiryRooms?: Array<{ id: string; initiator_id: string; peer_id: string }>;
-        chatMessages?: Map<string, Array<{
-          id: string;
-          roomId: string;
-          senderId: string;
-          message: string;
-          messageType?: string;
-          createdAt: string;
-          isRead: boolean;
-          readAt: string | null;
-        }>>;
-      };
-    }).__samarketNeighborhoodDevSampleState;
-    const inquiry = state?.inquiryRooms?.find(
-      (room) => room.id === roomId && (room.initiator_id === userId || room.peer_id === userId)
-    );
-    if (inquiry && state?.chatMessages) {
-      const next = {
-        id: `${roomId}-${Date.now()}`,
-        roomId,
-        senderId: userId,
-        message: messageType === "image" ? text || (imageList.length > 1 ? `사진 ${imageList.length}장` : "사진") : text || "(메시지)",
-        messageType: messageType === "system" ? "system" : messageType === "image" ? "image" : "text",
-        createdAt: new Date().toISOString(),
-        isRead: false,
-        readAt: null,
-      };
-      const current = state.chatMessages.get(roomId) ?? [];
-      current.push(next);
-      state.chatMessages.set(roomId, current);
-      return NextResponse.json({
-        ok: true,
-        message: { id: next.id, createdAt: next.createdAt },
-        fallback: "dev_samples",
-      });
-    }
-  }
-
   const sbAny = sb;
   const access = await assertVerifiedMemberForAction(sbAny as any, userId);
   if (!access.ok) {
@@ -251,12 +172,8 @@ export async function POST(
     initiator_id: string | null;
     peer_id: string | null;
   };
-  const roomTypeSend = String((room as { room_type?: string }).room_type ?? "");
   const adminSuspend = resolveAdminChatSuspension(r);
-  /** 매장 주문 채팅은 완료 후에도 연락이 필요해 `is_locked`(보관 플래그)만으로는 전송을 막지 않음 — 읽기 전용은 `is_readonly` */
-  const bypassLockForStoreOrder =
-    roomTypeSend === "store_order" && adminSuspend.reason === "admin_locked";
-  if (adminSuspend.suspended && !bypassLockForStoreOrder) {
+  if (adminSuspend.suspended) {
     return NextResponse.json({ ok: false, error: ADMIN_CHAT_SUSPENDED_MESSAGE }, { status: 403 });
   }
   if (r.is_readonly === true) {
@@ -276,15 +193,14 @@ export async function POST(
       }
     }
   }
-  const roomForGm = room as { room_type?: string; meeting_id?: string | null; related_group_id?: string | null };
-  const philifeMeetingIdPost = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, roomForGm);
-  if (philifeMeetingIdPost) {
-    return NextResponse.json({ ok: false, error: "삭제된 모임 채팅입니다." }, { status: 404 });
-  } else if (roomForGm.room_type === "store_order") {
+  const roomTypePost = String((room as { room_type?: string }).room_type ?? "");
+  if (roomTypePost === "store_order") {
     return NextResponse.json({ ok: false, error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
-  } else if (roomForGm.room_type !== "item_trade") {
+  }
+  if (roomTypePost !== "item_trade") {
     return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
-  } else {
+  }
+  {
     const { data: part } = await sbAny
       .from("chat_room_participants")
       .select("id, hidden, left_at, is_active")

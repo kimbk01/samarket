@@ -15,11 +15,6 @@ import { normalizeSellerListingState } from "@/lib/products/seller-listing-state
 import { applyProductChatTimeTransitions } from "@/lib/trade/apply-product-chat-time-transitions";
 import { applyBuyerAutoConfirmForRoom } from "@/lib/trade/apply-buyer-auto-confirm";
 import { fetchBuyerReviewSubmitted } from "@/lib/mypage/buyer-review-flag";
-import { generalChatKindFromRoomRow } from "@/lib/chat/general-room-mapping";
-import {
-  getNeighborhoodDevSampleChatRoom,
-  getNeighborhoodDevSamplePost,
-} from "@/lib/neighborhood/dev-sample-data";
 import type { GeneralChatMeta } from "@/lib/types/chat";
 import { reservedBuyerIdFromPost } from "@/lib/trade/reserved-item-chat";
 import { fetchPostRowForChat } from "@/lib/chats/post-select-compat";
@@ -27,12 +22,6 @@ import {
   fetchItemTradeAdminSuspended,
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
-import { buildPhilifeDetailRoom } from "@/lib/chats/philife/room-mappers";
-import {
-  getPhilifeMeetingAccessState,
-  resolvePhilifeMeetingAccessMeetingId,
-} from "@/lib/chats/philife/room-access";
-import type { ChatRoomActiveNotice } from "@/lib/types/chat";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import {
   fetchPartnerDisplayFieldsMap,
@@ -114,129 +103,6 @@ async function tradeFieldsWithCooldown(
 
 export const dynamic = "force-dynamic";
 
-function getDevSampleChatRoomPayload(roomId: string, userId: string) {
-  const meetingRoom = getNeighborhoodDevSampleChatRoom(roomId, userId);
-  if (meetingRoom) {
-    return {
-      ...meetingRoom,
-      product: meetingRoom.product
-        ? {
-            ...meetingRoom.product,
-            detailHref: `/philife/${meetingRoom.product.id}`,
-          }
-        : meetingRoom.product,
-      tradeStatus: meetingRoom.tradeStatus ?? "inquiry",
-      chatDomain: "philife" as const,
-      roomTitle: meetingRoom.roomTitle ?? meetingRoom.partnerNickname,
-      roomSubtitle: meetingRoom.roomSubtitle ?? "커뮤니티 모임 채팅",
-    };
-  }
-  getNeighborhoodDevSamplePost("20000000-0000-4000-8000-000000000001");
-  const state = (globalThis as {
-    __samarketNeighborhoodDevSampleState?: {
-      inquiryRooms?: Array<{
-        id: string;
-        post_id: string;
-        initiator_id: string;
-        peer_id: string;
-        context_type: string;
-        related_comment_id: string | null;
-        created_at: string;
-      }>;
-      chatMessages?: Map<string, Array<{ message: string; createdAt: string }>>;
-    };
-  }).__samarketNeighborhoodDevSampleState;
-  const inquiry = state?.inquiryRooms?.find(
-    (room) => room.id === roomId && (room.initiator_id === userId || room.peer_id === userId)
-  );
-  if (inquiry) {
-    const post = getNeighborhoodDevSamplePost(inquiry.post_id);
-    const partnerId = inquiry.initiator_id === userId ? inquiry.peer_id : inquiry.initiator_id;
-    const latest = state?.chatMessages?.get(roomId)?.at(-1);
-    return {
-      id: roomId,
-      productId: inquiry.post_id,
-      buyerId: inquiry.initiator_id,
-      sellerId: inquiry.peer_id,
-      partnerNickname: partnerId === post?.author_id ? post.author_name : partnerId.slice(0, 8),
-      partnerAvatar: "",
-      lastMessage: latest?.message ?? "게시글 문의 채팅이 시작되었습니다.",
-      lastMessageAt: latest?.createdAt ?? inquiry.created_at,
-      unreadCount: 0,
-      tradeStatus: "inquiry",
-      product: {
-        id: inquiry.post_id,
-        title: post?.title ?? "커뮤니티 문의",
-        detailHref: `/philife/${inquiry.post_id}`,
-        thumbnail: "",
-        price: 0,
-        status: "active",
-        regionLabel: post?.location_label ?? "",
-        updatedAt: latest?.createdAt ?? inquiry.created_at,
-      },
-      source: "chat_room",
-      buyerReviewSubmitted: false,
-      productChatRoomId: null,
-      tradeFlowStatus: "chatting",
-      chatMode: "open",
-      soldBuyerId: null,
-      reservedBuyerId: null,
-      buyerConfirmSource: null,
-      chatDomain: "philife" as const,
-      roomTitle: post?.title ?? "커뮤니티 문의",
-      roomSubtitle: "커뮤니티 1:1 채팅",
-      generalChat: {
-        kind: "community" as const,
-        relatedPostId: inquiry.post_id,
-        relatedCommentId: inquiry.related_comment_id,
-        relatedGroupId: null,
-        relatedBusinessId: null,
-        contextType: inquiry.context_type,
-      },
-    };
-  }
-  return null;
-}
-
-type OpenChatActiveNoticeRow = {
-  id: string;
-  title: string;
-  body: string;
-  visibility: "members" | "public";
-  created_at: string;
-};
-
-async function fetchOpenChatActiveNotice(
-  sbAny: SupabaseClient<any>,
-  openChatRoomId: string,
-  allowMembersOnlyNotice: boolean
-): Promise<ChatRoomActiveNotice | null> {
-  let query = sbAny
-    .from("open_chat_notices")
-    .select("id, title, body, visibility, created_at")
-    .eq("room_id", openChatRoomId)
-    .eq("is_active", true)
-    .order("is_pinned", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (!allowMembersOnlyNotice) {
-    query = query.eq("visibility", "public");
-  }
-
-  const { data } = await query.maybeSingle();
-  const notice = data as OpenChatActiveNoticeRow | null;
-  if (!notice) return null;
-
-  return {
-    id: notice.id,
-    title: notice.title,
-    body: notice.body,
-    visibility: notice.visibility,
-    createdAt: notice.created_at,
-  };
-}
-
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
@@ -268,18 +134,6 @@ export async function GET(
 
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
-
-  const { data: dbRoomProbeDetail } = await sbAny.from("chat_rooms").select("id").eq("id", roomId).maybeSingle();
-  const hasDbChatRoomDetail = !!dbRoomProbeDetail?.id;
-
-  if (!hasDbChatRoomDetail && process.env.NODE_ENV !== "production") {
-    const sampleRoom = getDevSampleChatRoomPayload(roomId, userId);
-    if (sampleRoom) {
-      return NextResponse.json(sampleRoom, {
-        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
-      });
-    }
-  }
 
   const { data: r, error } = await sbAny
     .from("product_chats")
@@ -464,7 +318,7 @@ export async function GET(
     return NextResponse.json(payload);
   }
 
-  // 당근형: chat_rooms (item_trade | 일반 community/group/business/general_chat)
+  // chat_rooms: item_trade · store_order 만 앱 채팅에서 지원
   const { data: cr, error: crErr } = await sbAny
     .from("chat_rooms")
     .select(
@@ -500,95 +354,6 @@ export async function GET(
   };
 
   const roomType = crAny.room_type ?? "";
-
-  const { data: openChatMeta } = await sbAny
-    .from("open_chat_rooms")
-    .select("id, title, description, owner_user_id, status, joined_count, linked_chat_room_id")
-    .eq("linked_chat_room_id", roomId)
-    .maybeSingle();
-  const openChat = openChatMeta as {
-    id?: string;
-    title?: string | null;
-    description?: string | null;
-    owner_user_id?: string | null;
-    status?: string | null;
-    joined_count?: number | null;
-    linked_chat_room_id?: string | null;
-  } | null;
-
-  if (openChat?.id) {
-    const { data: partRowOpenChat } = await sbAny
-      .from("chat_room_participants")
-      .select("unread_count, hidden, left_at, is_active")
-      .eq("room_id", roomId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    const participant = partRowOpenChat as {
-      unread_count?: number;
-      hidden?: boolean;
-      left_at?: string | null;
-      is_active?: boolean | null;
-    } | null;
-    if (!participant || participant.hidden || participant.left_at || participant.is_active === false) {
-      return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
-    }
-
-    const { data: memberRowOpenChat } = await sbAny
-      .from("open_chat_members")
-      .select("id, nickname, role, status")
-      .eq("room_id", String(openChat.id))
-      .eq("user_id", userId)
-      .maybeSingle();
-    const member = memberRowOpenChat as {
-      id?: string;
-      nickname?: string | null;
-      role?: string | null;
-      status?: string | null;
-    } | null;
-    if (!member?.id || member.status !== "joined") {
-      return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
-    }
-
-    const canSend = String(openChat.status ?? "active") === "active";
-    const canManage = member.role === "owner" || member.role === "moderator";
-    const activeNotice = await fetchOpenChatActiveNotice(
-      sbAny,
-      String(openChat.id),
-      true
-    );
-    const payload = {
-        ...buildPhilifeDetailRoom({
-          id: crAny.id,
-          roomKind: "open_chat",
-          title: String(openChat.title ?? "오픈채팅"),
-          subtitle: canSend
-            ? `오픈채팅 멤버 ${Number(openChat.joined_count ?? 0)}명`
-            : "읽기 전용 오픈채팅",
-          lastMessage: crAny.last_message_preview ?? "",
-          lastMessageAt: crAny.last_message_at ?? crAny.created_at,
-          unreadCount: participant.unread_count ?? 0,
-          relatedPostId: null,
-          relatedCommentId: null,
-          relatedGroupId: String(openChat.id),
-          contextType: "open_chat",
-          postRow: null,
-          memberCount: Number(openChat.joined_count ?? 0),
-          joined: true,
-          canSend,
-          canManage,
-          hostUserId: String(openChat.owner_user_id ?? ""),
-          partnerIdFallback: String(openChat.owner_user_id ?? ""),
-          buyerId: userId,
-          sellerId: String(openChat.owner_user_id ?? ""),
-        }),
-        activeNotice,
-      };
-    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
-    return NextResponse.json(
-      payload,
-      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
-    );
-  }
 
   if (roomType === "store_order") {
     const crSo = cr as {
@@ -733,129 +498,8 @@ export async function GET(
     );
   }
 
-  /** 커뮤니티 모임 전용 — `group_meeting` 이 아니어도 meetings.chat_room_id 연결이면 동일 검증 */
-  const philifeMeetingId = await resolvePhilifeMeetingAccessMeetingId(sbAny, roomId, crAny);
-  if (philifeMeetingId) {
-    const access = await getPhilifeMeetingAccessState(sbAny, roomId, userId, {
-      meeting_id: philifeMeetingId,
-      related_group_id: philifeMeetingId,
-    });
-    if (!access.ok) {
-      return NextResponse.json({ error: access.error }, { status: access.statusCode });
-    }
-
-    const ini = crAny.initiator_id ?? "";
-    const peer = crAny.peer_id ?? "";
-    const partnerId2 = userId === ini ? peer : ini;
-    const postIdG = crAny.related_post_id ?? "";
-    const postG = postIdG ? await fetchPostRowForChat(sbAny, postIdG) : null;
-    const nickMeeting = await fetchNicknamesForUserIds(sbAny, [
-      partnerId2,
-      postAuthorUserId(postG ?? undefined) ?? "",
-    ].filter(Boolean));
-    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, nickMeeting) : null;
-    const roomTitle =
-      (postG && typeof postG.title === "string" ? String(postG.title).trim() : "") ||
-      access.title ||
-      "모임 채팅";
-    const payload = buildPhilifeDetailRoom({
-        id: crAny.id,
-        roomKind: "meeting",
-        title: roomTitle,
-        subtitle: access.canSend ? `참여 멤버 ${access.memberCount}명` : "종료된 모임 채팅",
-        lastMessage: crAny.last_message_preview ?? "",
-        lastMessageAt: crAny.last_message_at ?? crAny.created_at,
-        unreadCount: access.unreadCount,
-        relatedPostId: crAny.related_post_id ?? null,
-        relatedCommentId: crAny.related_comment_id ?? null,
-        relatedGroupId: access.meetingId,
-        contextType: "meeting",
-        postRow: enrichedPost,
-        memberCount: access.memberCount,
-        joined: access.joined,
-        canSend: access.canSend,
-        hostUserId: ini,
-        partnerIdFallback: partnerId2,
-        buyerId: peer || ini,
-        sellerId: ini,
-      });
-    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
-    return NextResponse.json(
-      payload,
-      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
-    );
-  }
-
-  const isGeneralChatRoom =
-    roomType === "general_chat" || roomType === "community" || roomType === "group" || roomType === "business";
-
-  if (isGeneralChatRoom) {
-    const { data: partRowG } = await sbAny
-      .from("chat_room_participants")
-      .select("unread_count, hidden, left_at, is_active")
-      .eq("room_id", roomId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    const pr = partRowG as {
-      unread_count?: number;
-      hidden?: boolean;
-      left_at?: string | null;
-      is_active?: boolean | null;
-    } | null;
-    if (!pr || pr.hidden || pr.left_at || pr.is_active === false) {
-      return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
-    }
-    const unreadCount = pr.unread_count ?? 0;
-    const ini = crAny.initiator_id ?? "";
-    const peer = crAny.peer_id ?? "";
-    const partnerId2 = userId === ini ? peer : ini;
-    const postIdG = crAny.related_post_id ?? "";
-    const postG = postIdG ? await fetchPostRowForChat(sbAny, postIdG) : null;
-    const nickDirect = await fetchNicknamesForUserIds(sbAny, [
-      partnerId2,
-      postAuthorUserId(postG ?? undefined) ?? "",
-    ].filter(Boolean));
-    const partnerNickname2 = partnerId2
-      ? nickDirect.get(partnerId2)?.trim() || partnerId2.slice(0, 8)
-      : partnerId2.slice(0, 8);
-    const kind = generalChatKindFromRoomRow(roomType, crAny.context_type ?? null);
-    const titleFallback =
-      kind === "business"
-        ? "비즈 채팅"
-        : kind === "community"
-          ? "커뮤니티 문의"
-          : "일반 채팅";
-    const enrichedPost = postG ? enrichPostWithAuthorNickname(postG, nickDirect) : null;
-    const payload = buildPhilifeDetailRoom({
-        id: crAny.id,
-        roomKind: "direct",
-        title: partnerNickname2.trim() || partnerId2.slice(0, 8) || titleFallback,
-        subtitle:
-          kind === "business"
-            ? "비즈 문의 채팅"
-            : kind === "community"
-              ? "커뮤니티 1:1 채팅"
-              : "일반 채팅",
-        lastMessage: crAny.last_message_preview ?? "",
-        lastMessageAt: crAny.last_message_at ?? crAny.created_at,
-        unreadCount,
-        relatedPostId: crAny.related_post_id ?? null,
-        relatedCommentId: crAny.related_comment_id ?? null,
-        relatedGroupId: crAny.related_group_id ?? null,
-        contextType: crAny.context_type ?? null,
-        postRow: enrichedPost,
-        joined: true,
-        canSend: true,
-        hostUserId: ini,
-        partnerIdFallback: partnerId2,
-        buyerId: peer || ini,
-        sellerId: ini,
-      });
-    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
-    return NextResponse.json(
-      payload,
-      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
-    );
+  if (roomType !== "item_trade") {
+    return NextResponse.json({ error: "지원하지 않는 채팅 유형입니다." }, { status: 404 });
   }
 
   // item_trade
