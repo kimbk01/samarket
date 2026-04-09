@@ -323,34 +323,36 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
         : null;
 
   return (
-    <div className="min-h-screen bg-background pb-8">
+    <div className="flex min-h-screen flex-col bg-background pb-8">
       <MyPageHeader notificationUnreadCount={notificationUnreadCount} centerTitle={headerCenterTitle} />
-      <div className={APP_MAIN_COLUMN_CLASS}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} flex min-h-0 flex-1 flex-col`}>
         {showBanner ? (
-          <div className="px-4 pt-4">
+          <div className="shrink-0 px-4 pt-4">
             <MyTopBanner banner={banner} onDismiss={load} />
           </div>
         ) : null}
 
         {profile ? (
           <>
-            <MypageInstagramView
-              profile={profile}
-              mannerScore={mannerScore}
-              isBusinessMember={isBusinessMember}
-              hasOwnerStore={hasOwnerStore}
-              ownerHubStoreId={ownerHubStoreId}
-              ownerStoreGate={ownerStoreGate}
-              ownerStoreGateFirstId={ownerStoreGateFirstId}
-              isAdmin={isAdmin}
-              addressDefaults={addressDefaults}
-              neighborhoodFromLife={neighborhoodFromLife}
-              overviewCounts={overviewCounts}
-              favoriteBadge={favoriteBadge}
-              notificationBadge={notificationBadge}
-              storeAttentionSummary={storeAttentionSummary}
-              services={services}
-            />
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <MypageInstagramView
+                profile={profile}
+                mannerScore={mannerScore}
+                isBusinessMember={isBusinessMember}
+                hasOwnerStore={hasOwnerStore}
+                ownerHubStoreId={ownerHubStoreId}
+                ownerStoreGate={ownerStoreGate}
+                ownerStoreGateFirstId={ownerStoreGateFirstId}
+                isAdmin={isAdmin}
+                addressDefaults={addressDefaults}
+                neighborhoodFromLife={neighborhoodFromLife}
+                overviewCounts={overviewCounts}
+                favoriteBadge={favoriteBadge}
+                notificationBadge={notificationBadge}
+                storeAttentionSummary={storeAttentionSummary}
+                services={services}
+              />
+            </div>
             <MypageInfoHubSheet open={infoHubOpen} onClose={closeInfoHub} />
           </>
         ) : (

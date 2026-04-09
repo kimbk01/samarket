@@ -269,9 +269,9 @@ export function MypageInstagramView({
   ];
 
   return (
-    <div className="border-b border-ig-border bg-[var(--sub-bg)]">
-      {/* 스크롤 시 1단(h-12) 바로 아래에 프로필+탭 고정 — 하단 메뉴만 스크롤. z·불투명 배경으로 리스트와 겹침(유령 텍스트) 방지 */}
-      <div className="sticky top-12 z-30 isolate border-b border-ig-border bg-[var(--sub-bg)] pt-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-ig-border bg-[var(--sub-bg)]">
+      {/* 상단(프로필+탭)은 고정 높이, 메뉴 목록만 내부 스크롤 — sticky+문서 스크롤 조합으로 탭/리스트가 겹치는 현상 방지 */}
+      <div className="shrink-0 border-b border-ig-border bg-[var(--sub-bg)] pt-1">
       {/* 프로필 상단 — 인스타 프로필 레이아웃 */}
       <div className="px-4 pb-3">
         <div className="flex gap-5">
@@ -360,14 +360,14 @@ export function MypageInstagramView({
         ) : null}
       </div>
 
-      {/* 탭 바 — 버튼 배경을 불투명으로 두어 스크롤되는 메뉴 행이 글자 뒤로 비치지 않게 함 */}
+      {/* 탭 바 */}
       <div className="flex border-t border-ig-border bg-[var(--sub-bg)]">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => persistTab(t.id)}
-            className={`relative z-10 flex-1 bg-[var(--sub-bg)] py-2.5 text-[12px] font-semibold transition-colors ${
+            className={`relative flex-1 py-2.5 text-[12px] font-semibold transition-colors ${
               tab === t.id ? "text-foreground" : "text-[var(--text-muted)]"
             }`}
           >
@@ -380,52 +380,53 @@ export function MypageInstagramView({
       </div>
       </div>
 
-      {/* 탭 패널 — 스티키 탭보다 아래 레이어로만 스크롤 */}
-      <div className="relative z-0 min-h-[200px] bg-[var(--sub-bg)]">
-        {tabRows[tab].map((row) => (
-          <IgMenuRow
-            key={row.href + row.title}
-            {...row}
-            suppressNav={shouldInterceptMypageBusinessHref(row.href, needsBizEntryModal)}
-            onSuppressedNav={openBizBlocked}
-          />
-        ))}
-      </div>
+      {/* 탭별 메뉴 + 운영 — 부모가 부여한 높이 안에서만 세로 스크롤(탭 줄과 레이아웃 겹침 없음) */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--sub-bg)] [scrollbar-gutter:stable]">
+        <div className="min-h-[120px]">
+          {tabRows[tab].map((row) => (
+            <IgMenuRow
+              key={row.href + row.title}
+              {...row}
+              suppressNav={shouldInterceptMypageBusinessHref(row.href, needsBizEntryModal)}
+              onSuppressedNav={openBizBlocked}
+            />
+          ))}
+        </div>
 
-      {/* 운영 / 관리자 */}
-      {(isAdmin || hasOwnerStore) && (
-        <div className="border-t border-ig-border bg-background px-4 py-4">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">운영</p>
-          <div className="space-y-0 divide-y divide-ig-border overflow-hidden rounded-lg border border-ig-border bg-[var(--sub-bg)]">
-            {hasOwnerStore ? (
-              needsBizEntryModal ? (
-                <button
-                  type="button"
-                  onClick={openBizBlocked}
-                  className="flex w-full items-center justify-between px-4 py-3.5 text-left active:bg-ig-highlight"
-                >
-                  <span className="text-[14px] font-medium text-foreground">매장 운영 허브</span>
-                  <Chevron />
-                </button>
-              ) : (
-                <Link
-                  href="/my/business"
-                  className="flex items-center justify-between px-4 py-3.5 active:bg-ig-highlight"
-                >
-                  <span className="text-[14px] font-medium text-foreground">매장 운영 허브</span>
+        {(isAdmin || hasOwnerStore) && (
+          <div className="border-t border-ig-border bg-background px-4 py-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">운영</p>
+            <div className="space-y-0 divide-y divide-ig-border overflow-hidden rounded-lg border border-ig-border bg-[var(--sub-bg)]">
+              {hasOwnerStore ? (
+                needsBizEntryModal ? (
+                  <button
+                    type="button"
+                    onClick={openBizBlocked}
+                    className="flex w-full items-center justify-between px-4 py-3.5 text-left active:bg-ig-highlight"
+                  >
+                    <span className="text-[14px] font-medium text-foreground">매장 운영 허브</span>
+                    <Chevron />
+                  </button>
+                ) : (
+                  <Link
+                    href="/my/business"
+                    className="flex items-center justify-between px-4 py-3.5 active:bg-ig-highlight"
+                  >
+                    <span className="text-[14px] font-medium text-foreground">매장 운영 허브</span>
+                    <Chevron />
+                  </Link>
+                )
+              ) : null}
+              {isAdmin ? (
+                <Link href="/admin" className="flex items-center justify-between px-4 py-3.5 active:bg-ig-highlight">
+                  <span className="text-[14px] font-medium text-foreground">관리자</span>
                   <Chevron />
                 </Link>
-              )
-            ) : null}
-            {isAdmin ? (
-              <Link href="/admin" className="flex items-center justify-between px-4 py-3.5 active:bg-ig-highlight">
-                <span className="text-[14px] font-medium text-foreground">관리자</span>
-                <Chevron />
-              </Link>
-            ) : null}
+              ) : null}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {needsBizEntryModal && ownerStoreGate ? (
         <StoreBusinessBlockedModal
