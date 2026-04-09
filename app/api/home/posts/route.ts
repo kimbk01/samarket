@@ -7,7 +7,34 @@ import { normalizePostImages, normalizePostMeta, normalizePostPrice } from "@/li
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
-const HOME_POSTS_SERVER_CACHE_TTL_MS = 15_000;
+const HOME_POSTS_SERVER_CACHE_TTL_MS = 30_000;
+const HOME_POSTS_FAVORITES_CACHE_TTL_MS = 12_000;
+const HOME_POSTS_SELECT_FIELDS = [
+  "id",
+  "category_id",
+  "trade_category_id",
+  "author_id",
+  "user_id",
+  "type",
+  "title",
+  "price",
+  "is_free_share",
+  "region",
+  "city",
+  "status",
+  "seller_listing_state",
+  "reserved_buyer_id",
+  "view_count",
+  "thumbnail_url",
+  "images",
+  "meta",
+  "created_at",
+  "updated_at",
+  "author_nickname",
+  "author_avatar_url",
+  "favorite_count",
+  "comment_count",
+].join(", ");
 
 type HomePostsServerCacheEntry = {
   posts: PostWithMeta[];
@@ -15,7 +42,13 @@ type HomePostsServerCacheEntry = {
   expiresAt: number;
 };
 
+type HomePostsFavoriteCacheEntry = {
+  favoriteMap: Record<string, boolean>;
+  expiresAt: number;
+};
+
 const homePostsServerCache = new Map<string, HomePostsServerCacheEntry>();
+const homePostsFavoriteCache = new Map<string, HomePostsFavoriteCacheEntry>();
 
 type HomePostSort = "latest" | "popular";
 type HomePostType = "trade" | "community" | "service" | "feature" | null;
@@ -39,6 +72,35 @@ function normalizePage(raw: string | null): number {
 
 function buildHomePostsCacheKey(page: number, sort: HomePostSort, type: HomePostType): string {
   return `${page}:${sort}:${type ?? "all"}`;
+}
+
+function buildHomePostsFavoriteCacheKey(userId: string, page: number, sort: HomePostSort, type: HomePostType): string {
+  return `${userId}:${buildHomePostsCacheKey(page, sort, type)}`;
+}
+
+function pruneExpiredEntries<T extends { expiresAt: number }>(cache: Map<string, T>): void {
+  const now = Date.now();
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt <= now) {
+      cache.delete(key);
+    }
+  }
+}
+
+function maybePruneExpiredEntries<T extends { expiresAt: number }>(cache: Map<string, T>): void {
+  if (cache.size < 150) return;
+  if (Math.random() < 0.08) {
+    pruneExpiredEntries(cache);
+  }
+}
+
+function responseHeaders(authenticated: boolean): HeadersInit {
+  return {
+    "Cache-Control": authenticated
+      ? "private, max-age=15, stale-while-revalidate=45"
+      : "public, max-age=30, stale-while-revalidate=90",
+    Vary: "Cookie",
+  };
 }
 
 function mapPostRow(row: Record<string, unknown>): PostWithMeta {
@@ -82,12 +144,8 @@ export async function GET(req: NextRequest) {
   const type = normalizeType(searchParams.get("type"));
   const from = (page - 1) * PAGE_SIZE;
   const cacheKey = buildHomePostsCacheKey(page, sort, type);
-
-  for (const [key, entry] of homePostsServerCache) {
-    if (entry.expiresAt <= Date.now()) {
-      homePostsServerCache.delete(key);
-    }
-  }
+  maybePruneExpiredEntries(homePostsServerCache);
+  maybePruneExpiredEntries(homePostsFavoriteCache);
 
   const cachedPosts = homePostsServerCache.get(cacheKey);
   let posts: PostWithMeta[];
@@ -97,7 +155,11 @@ export async function GET(req: NextRequest) {
     posts = cachedPosts.posts;
     hasMore = cachedPosts.hasMore;
   } else {
-    let q = sb.from("posts").select("*").neq("status", "hidden").neq("status", "sold");
+    let q = sb
+      .from("posts")
+      .select(HOME_POSTS_SELECT_FIELDS)
+      .neq("status", "hidden")
+      .neq("status", "sold");
     /**
      * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
      * (trade: trade_category_id, community: board_id, service: service_id)
@@ -125,7 +187,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    posts = (data as Record<string, unknown>[]).map(mapPostRow);
+    posts = data.map((row) =>
+      mapPostRow(
+        row && typeof row === "object" ? (row as Record<string, unknown>) : {}
+      )
+    );
     hasMore = posts.length === PAGE_SIZE;
     homePostsServerCache.set(cacheKey, {
       posts,
@@ -135,21 +201,34 @@ export async function GET(req: NextRequest) {
   }
   const favoriteMap: Record<string, boolean> = {};
   const userId = await getOptionalAuthenticatedUserId();
+  const headers = responseHeaders(Boolean(userId));
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);
-    const { data: favorites } = await sb
-      .from("favorites")
-      .select("post_id")
-      .eq("user_id", userId)
-      .in("post_id", postIds);
+    const favoriteCacheKey = buildHomePostsFavoriteCacheKey(userId, page, sort, type);
+    const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);
 
-    for (const postId of postIds) {
-      favoriteMap[postId] = false;
-    }
-    for (const row of favorites ?? []) {
-      const postId = typeof row.post_id === "string" ? row.post_id : "";
-      if (postId) favoriteMap[postId] = true;
+    if (cachedFavorites && cachedFavorites.expiresAt > Date.now()) {
+      Object.assign(favoriteMap, cachedFavorites.favoriteMap);
+    } else {
+      const { data: favorites } = await sb
+        .from("favorites")
+        .select("post_id")
+        .eq("user_id", userId)
+        .in("post_id", postIds);
+
+      for (const postId of postIds) {
+        favoriteMap[postId] = false;
+      }
+      for (const row of favorites ?? []) {
+        const postId = typeof row.post_id === "string" ? row.post_id : "";
+        if (postId) favoriteMap[postId] = true;
+      }
+
+      homePostsFavoriteCache.set(favoriteCacheKey, {
+        favoriteMap: { ...favoriteMap },
+        expiresAt: Date.now() + HOME_POSTS_FAVORITES_CACHE_TTL_MS,
+      });
     }
   }
 
@@ -159,6 +238,6 @@ export async function GET(req: NextRequest) {
       hasMore,
       favoriteMap,
     },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers }
   );
 }

@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import type { AdminChatRoom, RoomStatus } from "@/lib/types/admin-chat";
 import { ADMIN_LEGACY_PRODUCT_CHAT_LIST_LIMIT, CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 
 const DB_ROOM_STATUS: Record<string, RoomStatus> = {
   active: "active",
@@ -19,14 +20,15 @@ const MESSAGE_COUNT_BATCH = 25;
 export async function POST(_req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
+  if (!supabaseEnv.ok) {
+    return NextResponse.json({ error: supabaseEnv.error }, { status: 500 });
+  }
 
-  const anon = createClient(url, anonKey);
+  const anon = createClient(supabaseEnv.url, supabaseEnv.anonKey);
 
-  const supabase = serviceKey
-    ? createClient(url, serviceKey, { auth: { persistSession: false } })
+  const supabase = supabaseEnv.serviceKey
+    ? createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } })
     : anon;
   const sb = supabase as import("@supabase/supabase-js").SupabaseClient<any>;
 

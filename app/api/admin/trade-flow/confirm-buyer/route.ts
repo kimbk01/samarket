@@ -5,14 +5,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
+  if (!supabaseEnv.ok) {
+    return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
+  }
   let body: { roomId?: string };
   try {
     body = await req.json();
@@ -24,7 +26,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
   }
 
-  const sb = getServiceOrAnonClient(url, anonKey, serviceKey);
+  const sb = getServiceOrAnonClient(
+    supabaseEnv.url,
+    supabaseEnv.anonKey,
+    supabaseEnv.serviceKey ?? undefined
+  );
    
   const sbAny = sb as any;
 

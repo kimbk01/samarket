@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { normalizeAdminRole } from "@/lib/auth/admin-policy";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { MemberType } from "@/lib/types/admin-user";
@@ -294,13 +295,14 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) {
-    return NextResponse.json({ ok: false, error: "Supabase 설정 없음" }, { status: 500 });
+  const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
+  if (!supabaseEnv.ok) {
+    return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
   }
 
-  const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
+    auth: { persistSession: false },
+  });
   const [{ data: profile, error: profileError }, { data: testUser, error: testUserError }] = await Promise.all([
     supabase
       .from("profiles")
@@ -386,10 +388,9 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) {
-    return NextResponse.json({ ok: false, error: "Supabase 설정 없음" }, { status: 500 });
+  const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
+  if (!supabaseEnv.ok) {
+    return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
   }
 
   let body: {
@@ -432,7 +433,9 @@ export async function PATCH(
     phoneStatus = p as (typeof PHONE_VERIFICATION_STATUSES)[number];
   }
 
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const sb = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
+    auth: { persistSession: false },
+  });
 
   const { data: initialProfile, error: profileError } = await sb
     .from("profiles")

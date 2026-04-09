@@ -17,7 +17,7 @@ export interface GetPostsForHomeResult {
   favoriteMap: Record<string, boolean>;
 }
 
-const HOME_POSTS_TTL_MS = 20_000;
+const HOME_POSTS_TTL_MS = 45_000;
 
 type HomePostsCacheEntry = {
   data: GetPostsForHomeResult;
@@ -26,6 +26,25 @@ type HomePostsCacheEntry = {
 
 const homePostsCache = new Map<string, HomePostsCacheEntry>();
 
+function normalizeOptions(options: GetPostsForHomeOptions = {}) {
+  const page = Math.max(1, options.page ?? 1);
+  const sort = options.sort ?? "latest";
+  const typeFilter = options.type ?? null;
+  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}`;
+  return { page, sort, typeFilter, cacheKey };
+}
+
+export function peekCachedPostsForHome(
+  options: GetPostsForHomeOptions = {}
+): GetPostsForHomeResult | null {
+  const { cacheKey } = normalizeOptions(options);
+  const cached = homePostsCache.get(cacheKey);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    return null;
+  }
+  return cached.data;
+}
+
 /**
  * 홈/물건 등록 리스트용 게시글 조회 (어드민 posts와 동일 테이블)
  * - status: hidden 제외, sold(거래완료)는 홈 목록 미노출
@@ -33,10 +52,7 @@ const homePostsCache = new Map<string, HomePostsCacheEntry>();
 export async function getPostsForHome(
   options: GetPostsForHomeOptions = {}
 ): Promise<GetPostsForHomeResult> {
-  const page = Math.max(1, options.page ?? 1);
-  const sort = options.sort ?? "latest";
-  const typeFilter = options.type ?? null;
-  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}`;
+  const { page, sort, typeFilter, cacheKey } = normalizeOptions(options);
   const cached = homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
@@ -53,7 +69,6 @@ export async function getPostsForHome(
 
     const res = await fetch(`/api/home/posts?${params.toString()}`, {
       credentials: "include",
-      cache: "no-store",
     });
     if (!res.ok) {
       return { posts: [], hasMore: false, favoriteMap: {} };

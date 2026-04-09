@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 
 /**
  * 서비스 롤 클라이언트.
@@ -6,12 +7,13 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * 서버 전용으로는 스키마를 `any`로 둡니다. (클라이언트 `getSupabaseClient`와 별개)
  */
 export function getSupabaseServer(): SupabaseClient<any> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
+  const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
+  if (!supabaseEnv.ok) {
+    throw new Error(supabaseEnv.error);
   }
-  return createClient<any>(url, serviceKey, { auth: { persistSession: false } });
+  return createClient<any>(supabaseEnv.url, supabaseEnv.serviceKey, {
+    auth: { persistSession: false },
+  });
 }
 
 export type SupabaseServer = SupabaseClient<any>;

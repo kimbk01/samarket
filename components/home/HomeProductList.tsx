@@ -7,20 +7,26 @@ import { HiddenPostCard } from "@/components/post/HiddenPostCard";
 import { NotInterestedCard } from "@/components/post/NotInterestedCard";
 import { ReportReasonModal } from "@/components/post/ReportReasonModal";
 import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
-import { getPostsForHome } from "@/lib/posts/getPostsForHome";
+import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
 
 type ListState = "idle" | "loading" | "error" | "empty";
-const MIN_SILENT_REFRESH_GAP_MS = 15_000;
+const MIN_SILENT_REFRESH_GAP_MS = 30_000;
+const HOME_POST_LIST_OPTIONS = { sort: "latest" as const, type: null };
 
 export function HomeProductList() {
   const { tt } = useI18n();
-  const [listState, setListState] = useState<ListState>("loading");
-  const [posts, setPosts] = useState<PostWithMeta[]>([]);
-  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
+  const cachedInitial = peekCachedPostsForHome(HOME_POST_LIST_OPTIONS);
+  const [listState, setListState] = useState<ListState>(() =>
+    cachedInitial ? (cachedInitial.posts.length === 0 ? "empty" : "idle") : "loading"
+  );
+  const [posts, setPosts] = useState<PostWithMeta[]>(() => cachedInitial?.posts ?? []);
+  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
+    () => cachedInitial?.favoriteMap ?? {}
+  );
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
@@ -29,12 +35,11 @@ export function HomeProductList() {
 
   const load = useCallback(async () => {
     await runSingleFlight("home-product-list:load", async () => {
-      setListState("loading");
+      if (lastLoadedAtRef.current === 0) {
+        setListState("loading");
+      }
       try {
-        const res = await getPostsForHome({
-          sort: "latest",
-          type: null,
-        });
+        const res = await getPostsForHome(HOME_POST_LIST_OPTIONS);
         setPosts(res.posts);
         setFavoriteMap(res.favoriteMap);
         lastLoadedAtRef.current = Date.now();
@@ -48,10 +53,17 @@ export function HomeProductList() {
   }, []);
 
   useEffect(() => {
+    if (cachedInitial && lastLoadedAtRef.current === 0) {
+      lastLoadedAtRef.current = Date.now();
+    }
+  }, [cachedInitial]);
+
+  useEffect(() => {
+    if (cachedInitial) return;
     queueMicrotask(() => {
       void load();
     });
-  }, [load]);
+  }, [cachedInitial, load]);
 
   const refreshSilent = useCallback(async () => {
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
@@ -60,10 +72,7 @@ export function HomeProductList() {
 
     await runSingleFlight("home-product-list:silent-refresh", async () => {
       try {
-        const res = await getPostsForHome({
-          sort: "latest",
-          type: null,
-        });
+        const res = await getPostsForHome(HOME_POST_LIST_OPTIONS);
         setPosts(res.posts);
         setFavoriteMap(res.favoriteMap);
         lastLoadedAtRef.current = Date.now();
@@ -115,7 +124,7 @@ export function HomeProductList() {
 
   const handleRetry = useCallback(() => {
     setListState("loading");
-    load();
+    void load();
   }, [load]);
 
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {

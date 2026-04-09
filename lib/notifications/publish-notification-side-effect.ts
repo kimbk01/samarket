@@ -8,6 +8,7 @@
  * 호출부는 `void` 로 붙여 두어 본 플로우를 막지 않습니다. 내부 실패는 로그만 남깁니다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSiteOrigin } from "@/lib/env/runtime";
 import { abortSignalForTimeout } from "@/lib/http/abort-signal-timeout";
 import { trySendNotificationEmailResend } from "@/lib/notifications/send-notification-email-resend";
 import { parseSafeWebhookUrl } from "@/lib/security/safe-webhook-url";
@@ -29,19 +30,11 @@ export type NotificationSideEffectPayloadOut = NotificationSideEffectPayload & {
 
 const FETCH_MS = 12_000;
 
-function siteOrigin(): string {
-  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
-  if (explicit) return explicit;
-  const vercel = process.env.VERCEL_URL?.trim();
-  if (vercel) return `https://${vercel.replace(/^https?:\/\//, "")}`;
-  return "";
-}
-
 function absolutizeLink(link: string | null | undefined): string | null {
   if (link == null || !String(link).trim()) return null;
   const s = String(link).trim();
   if (/^https?:\/\//i.test(s)) return s;
-  const base = siteOrigin();
+  const base = getSiteOrigin();
   if (!base) return null;
   return s.startsWith("/") ? `${base}${s}` : `${base}/${s}`;
 }

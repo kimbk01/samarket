@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/verify-admin-user-server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
 export async function requireAdminApiUser(): Promise<
   { ok: true; userId: string } | { ok: false; response: NextResponse }
 > {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!url || !anonKey) {
+  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
+  if (!supabaseEnv.ok) {
     return {
       ok: false,
-      response: NextResponse.json({ ok: false, error: "Supabase 설정 없음" }, { status: 500 }),
+      response: NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 }),
     };
   }
   const auth = await requireAuthenticatedUserId();
@@ -26,7 +26,14 @@ export async function requireAdminApiUser(): Promise<
     sessionEmail = user?.email ?? null;
   }
 
-  if (!(await verifyAdminAccess(url, anonKey, auth.userId, sessionEmail))) {
+  if (
+    !(await verifyAdminAccess(
+      supabaseEnv.url,
+      supabaseEnv.anonKey,
+      auth.userId,
+      sessionEmail
+    ))
+  ) {
     return {
       ok: false,
       response: NextResponse.json({ ok: false, error: "관리자만 가능합니다." }, { status: 403 }),

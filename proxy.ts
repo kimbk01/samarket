@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { KASAMA_DEV_UID_COOKIE, KASAMA_DEV_UID_PUB_COOKIE } from "@/lib/auth/dev-session-cookie";
 import { allowKasamaDevSession } from "@/lib/config/deploy-surface";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
 type ProxyAuthCacheStore = Map<string, number>;
@@ -115,6 +116,17 @@ function redirectToLogin(request: NextRequest, pathname: string): NextResponse {
   return preventAuthPageCache(NextResponse.redirect(loginUrl));
 }
 
+function respondServerMisconfigured(message: string): NextResponse {
+  return preventAuthPageCache(
+    new NextResponse(message, {
+      status: 503,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+    })
+  );
+}
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -143,11 +155,11 @@ export async function proxy(request: NextRequest) {
     return preventAuthPageCache(NextResponse.next());
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-
-  if (!url || !anon) {
-    return redirectToLogin(request, pathname);
+  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
+  if (!supabaseEnv.ok) {
+    return respondServerMisconfigured(
+      `${supabaseEnv.error}\n로그인 인증을 초기화할 수 없어 요청을 처리하지 못했습니다.`
+    );
   }
 
   if (!requestHasSupabaseAuthCookies(request)) {
@@ -161,7 +173,7 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
-  const supabase = createServerClient(url, anon, {
+  const supabase = createServerClient(supabaseEnv.url, supabaseEnv.anonKey, {
     cookieOptions: {
       path: "/",
       sameSite: "lax",

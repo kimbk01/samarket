@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
   buildProfileRegionNameForStorage,
   encodeProfileAppLocationStorage,
@@ -16,10 +17,9 @@ import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) {
-    return NextResponse.json({ ok: false, error: "Supabase 설정 없음" }, { status: 500 });
+  const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
+  if (!supabaseEnv.ok) {
+    return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
   }
 
   let body: {
@@ -100,7 +100,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "이메일 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
-  const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
+    auth: { persistSession: false },
+  });
   const { data: created, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,

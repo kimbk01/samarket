@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { batchNicknamesByUserIds } from "@/lib/admin-reviews/batch-nicknames-server";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
   mapTransactionReviewRowToAdminReview,
   type TransactionReviewDbRow,
@@ -13,9 +14,10 @@ const SELECT_FIELDS =
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
+  if (!supabaseEnv.ok) {
+    return NextResponse.json({ error: supabaseEnv.error }, { status: 500 });
+  }
 
   let body: { reviewId?: string };
   try {
@@ -25,10 +27,10 @@ export async function POST(req: NextRequest) {
   }
   const reviewId = typeof body.reviewId === "string" ? body.reviewId.trim() : "";
 
-  const anon = createClient(url, anonKey);
+  const anon = createClient(supabaseEnv.url, supabaseEnv.anonKey);
 
-  const sb = serviceKey
-    ? createClient(url, serviceKey, { auth: { persistSession: false } })
+  const sb = supabaseEnv.serviceKey
+    ? createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } })
     : anon;
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 

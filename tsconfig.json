@@ -79,9 +79,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    "../Users/im2pa/AppData/Local/samarket-next-dev-dist/types/**/*.ts",
-    "../Users/im2pa/AppData/Local/samarket-next-dev-dist/dev/types/**/*.ts"
+    "**/*.mts"
   ],
   "exclude": [
     "node_modules"
