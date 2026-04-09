@@ -9,6 +9,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
 const STORE_HOME_FEED_SERVER_CACHE_TTL_MS = 20_000;
+const STORE_HOME_FEED_HTTP_CACHE_CONTROL = "public, max-age=10, s-maxage=20, stale-while-revalidate=40";
 
 type StoreHomeFeedServerCacheEntry = {
   payload: {
@@ -107,11 +108,14 @@ type FeedRow = {
 export async function GET(req: Request) {
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
-    return NextResponse.json({
-      ok: true,
-      stores: [] as StoreHomeFeedItem[],
-      meta: { source: "supabase_unconfigured" as const },
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        stores: [] as StoreHomeFeedItem[],
+        meta: { source: "supabase_unconfigured" as const },
+      },
+      { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
+    );
   }
 
   const { searchParams } = new URL(req.url);
@@ -136,7 +140,9 @@ export async function GET(req: Request) {
 
   const cached = storeHomeFeedServerCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    return NextResponse.json(cached.payload);
+    return NextResponse.json(cached.payload, {
+      headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
+    });
   }
 
   try {
@@ -184,7 +190,7 @@ export async function GET(req: Request) {
       console.error("[api/stores/home-feed]", error);
       return NextResponse.json(
         { ok: false, stores: [], error: error.message },
-        { status: 500 }
+        { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -330,12 +336,14 @@ export async function GET(req: Request) {
       payload,
       expiresAt: Date.now() + STORE_HOME_FEED_SERVER_CACHE_TTL_MS,
     });
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, {
+      headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
+    });
   } catch (e) {
     console.error("[api/stores/home-feed]", e);
     return NextResponse.json(
       { ok: false, stores: [], error: e instanceof Error ? e.message : "unknown" },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

@@ -8,6 +8,7 @@ import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-ex
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
+const STORE_BROWSE_HTTP_CACHE_CONTROL = "public, max-age=15, s-maxage=30, stale-while-revalidate=60";
 
 function parseCoord(v: string | null): number | null {
   if (v == null || !v.trim()) return null;
@@ -64,11 +65,14 @@ function embedOne(v: RelOne | RelOne[] | null | undefined): RelOne | null {
 export async function GET(req: Request) {
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
-    return NextResponse.json({
-      ok: true,
-      stores: [] as BrowseStoreListItem[],
-      meta: { source: "supabase_unconfigured" as const },
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        stores: [] as BrowseStoreListItem[],
+        meta: { source: "supabase_unconfigured" as const },
+      },
+      { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } }
+    );
   }
 
   const { searchParams } = new URL(req.url);
@@ -81,7 +85,7 @@ export async function GET(req: Request) {
   if (!primary || !sub) {
     return NextResponse.json(
       { ok: false, error: "primary_and_sub_required", stores: [] },
-      { status: 400 }
+      { status: 400, headers: { "Cache-Control": "no-store" } }
     );
   }
 
@@ -128,7 +132,7 @@ export async function GET(req: Request) {
       console.error("[api/stores/browse]", error);
       return NextResponse.json(
         { ok: false, stores: [], error: error.message },
-        { status: 500 }
+        { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -258,19 +262,22 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({
-      ok: true,
-      stores,
-      meta: {
-        source: "supabase" as const,
-        primary,
-        sub,
-        sorted_by:
-          userLat != null && userLng != null
-            ? "district_featured_distance_rating"
-            : "district_featured_rating",
+    return NextResponse.json(
+      {
+        ok: true,
+        stores,
+        meta: {
+          source: "supabase" as const,
+          primary,
+          sub,
+          sorted_by:
+            userLat != null && userLng != null
+              ? "district_featured_distance_rating"
+              : "district_featured_rating",
+        },
       },
-    });
+      { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } }
+    );
   } catch (e) {
     console.error("[api/stores/browse]", e);
     return NextResponse.json(
@@ -279,7 +286,7 @@ export async function GET(req: Request) {
         stores: [],
         error: e instanceof Error ? e.message : "unknown",
       },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
