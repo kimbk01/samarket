@@ -45,7 +45,9 @@ type SettingsSheetKind =
   | "chat"
   | "autoplay"
   | "personalization"
-  | "app";
+  | "app"
+  | "support"
+  | "terms";
 
 const SECTION_STORAGE_KEY = "samarket:mypage:info-section";
 
@@ -275,12 +277,6 @@ export function MypageInstagramView({
   ]);
 
   const displayName = profile.nickname?.trim() || "닉네임 없음";
-  const handle =
-    profile.nickname?.trim() != null && profile.nickname.trim() !== ""
-      ? `@${profile.nickname.trim()}`
-      : profile.email?.split("@")[0]
-        ? `@${profile.email.split("@")[0]}`
-        : "@samarket";
   const profileRegionComplete = isProfileLocationComplete(profile);
   const lifeNeighborhoodComplete = neighborhoodFromLife?.complete === true;
   const hasRegion = profileRegionComplete || lifeNeighborhoodComplete;
@@ -402,23 +398,15 @@ export function MypageInstagramView({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[18px] font-semibold text-foreground">{displayName}</span>
-                {statusPills.map((pill) => (
-                  <span
-                    key={pill}
-                    className="rounded-full border border-ig-border bg-[var(--sub-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)]"
-                  >
-                    {pill}
-                  </span>
-                ))}
               </div>
-              <p className="mt-1 text-[13px] text-[var(--text-muted)]">{handle}</p>
               <p
-                className={`mt-2 whitespace-pre-line text-[13px] ${
+                className={`mt-1 whitespace-pre-line text-[13px] ${
                   !hasRegion ? "text-amber-700 dark:text-amber-400" : "text-[var(--text-muted)]"
                 }`}
               >
                 {regionLine}
               </p>
+              <p className="mt-2 text-[12px] text-[var(--text-muted)]">{statusPills.join(" · ")}</p>
               <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[var(--text-muted)]">
                 <span className="flex items-center gap-1.5">
                   <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1" />
@@ -542,6 +530,8 @@ export function MypageInstagramView({
         {settingsSheet === "autoplay" ? <VideoAutoplayContent /> : null}
         {settingsSheet === "personalization" ? <PersonalizationContent /> : null}
         {settingsSheet === "app" ? <SettingsMainContent className="pb-0" /> : null}
+        {settingsSheet === "support" ? <SupportSheetContent /> : null}
+        {settingsSheet === "terms" ? <TermsSheetContent /> : null}
       </BottomSheet>
 
       {needsBizEntryModal && ownerStoreGate ? (
@@ -860,39 +850,32 @@ function AccountSection({
     <>
       {alerts.length > 0 ? (
         <SectionCard title="확인 필요">
-          <div className="flex flex-wrap gap-2 px-4 py-4">
+          <div className="divide-y divide-ig-border">
             {alerts.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-800"
-              >
-                {item.label}
-              </Link>
+              <ActionRow key={item.label} href={item.href} label={item.label} value="설정 필요" />
             ))}
           </div>
         </SectionCard>
       ) : null}
 
       <SectionCard title="생활 메뉴">
-        <QuickActionGrid
-          items={[
-            { label: "공지사항", href: "/mypage/settings/notice" },
-            { label: "회원 혜택", href: "/mypage/benefits" },
-            { label: "최근 본 글", href: "/mypage/recent-viewed" },
-          ]}
-        />
+        <div className="divide-y divide-ig-border">
+          <ActionRow href="/mypage/settings/notice" label="공지사항" />
+          <ActionRow href="/mypage/benefits" label="회원 혜택" />
+          <ActionRow href="/mypage/recent-viewed" label="최근 본 글" />
+          <ActionRow label="고객센터" onClick={() => onOpenSheet("support")} />
+          <ActionRow label="이용약관" onClick={() => onOpenSheet("terms")} />
+        </div>
       </SectionCard>
 
       <SectionCard title="주문·관심">
-        <QuickActionGrid
-          items={[
-            { label: "주소 관리", href: addressesHref },
-            { label: "주문 내역", href: "/mypage/store-orders" },
-            { label: "찜 목록", href: MYPAGE_TRADE_FAVORITES_HREF },
-            { label: "포인트", href: "/mypage/points" },
-          ]}
-        />
+        <div className="divide-y divide-ig-border">
+          <ActionRow href={addressesHref} label="주소 관리" />
+          <ActionRow href="/mypage/store-orders" label="주문 내역" />
+          <ActionRow href="/mypage/order-notifications" label="주문 알림" />
+          <ActionRow href={MYPAGE_TRADE_FAVORITES_HREF} label="찜 목록" />
+          <ActionRow href="/mypage/points" label="포인트" />
+        </div>
       </SectionCard>
 
       <SectionCard title="환경 설정">
@@ -902,7 +885,6 @@ function AccountSection({
             value={notificationBadge ? `${notificationBadge} 확인` : "바로 조정"}
             onClick={() => onOpenSheet("notifications")}
           />
-          <ActionRow href="/mypage/order-notifications" label="주문 알림" />
           <ActionRow label="언어" value={currentLanguage} onClick={() => onOpenSheet("language")} />
           <ActionRow label="국가" value={currentCountry} onClick={() => onOpenSheet("country")} />
           <ActionRow label="채팅 설정" onClick={() => onOpenSheet("chat")} />
@@ -1076,9 +1058,9 @@ function ActionRow({
   if (href && suppressNav && onSuppressedNav) {
     return (
       <button type="button" className={cls} onClick={onSuppressedNav}>
-        <span className="text-[14px] font-medium text-foreground">{label}</span>
+        <span className="text-[15px] font-medium text-foreground">{label}</span>
         <span className="flex items-center gap-2">
-          {value ? <span className="text-[12px] text-[var(--text-muted)]">{value}</span> : null}
+          {value ? <span className="text-[13px] text-[var(--text-muted)]">{value}</span> : null}
           <Chevron />
         </span>
       </button>
@@ -1087,9 +1069,9 @@ function ActionRow({
   if (href) {
     return (
       <Link href={href} className={cls}>
-        <span className="text-[14px] font-medium text-foreground">{label}</span>
+        <span className="text-[15px] font-medium text-foreground">{label}</span>
         <span className="flex items-center gap-2">
-          {value ? <span className="text-[12px] text-[var(--text-muted)]">{value}</span> : null}
+          {value ? <span className="text-[13px] text-[var(--text-muted)]">{value}</span> : null}
           <Chevron />
         </span>
       </Link>
@@ -1097,9 +1079,9 @@ function ActionRow({
   }
   return (
     <button type="button" className={cls} onClick={onClick}>
-      <span className="text-[14px] font-medium text-foreground">{label}</span>
+      <span className="text-[15px] font-medium text-foreground">{label}</span>
       <span className="flex items-center gap-2">
-        {value ? <span className="text-[12px] text-[var(--text-muted)]">{value}</span> : null}
+        {value ? <span className="text-[13px] text-[var(--text-muted)]">{value}</span> : null}
         <Chevron />
       </span>
     </button>
@@ -1150,6 +1132,56 @@ function BottomSheet({
         </div>
         <div className="overflow-y-auto px-4 py-3">{children}</div>
       </div>
+    </div>
+  );
+}
+
+function SupportSheetContent() {
+  return (
+    <div className="space-y-4 pb-4">
+      <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-4">
+        <p className="text-[15px] font-semibold text-foreground">문의 전 확인</p>
+        <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">
+          주문 문제는 주문 내역에서, 거래 문제는 거래 채팅과 후기 화면에서 먼저 확인해 주세요.
+          해결되지 않으면 운영 문의로 접수하는 흐름이 가장 빠릅니다.
+        </p>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-ig-border bg-background">
+        <div className="divide-y divide-ig-border">
+          <InfoRow label="운영 문의" value="공지사항 및 관리자 공지 확인 후 진행" />
+          <InfoRow label="주문 이슈" value="주문 내역 > 상세 화면에서 상태 확인" />
+          <InfoRow label="매장 문의" value="내 상점 운영 또는 사장님 주문 관리에서 처리" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TermsSheetContent() {
+  return (
+    <div className="space-y-4 pb-4">
+      <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-4">
+        <p className="text-[15px] font-semibold text-foreground">이용 원칙</p>
+        <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">
+          거래, 커뮤니티, 주문, 매장 운영은 모두 계정 상태와 지역 정보에 따라 노출 범위와 사용 기능이 달라질 수 있습니다.
+        </p>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-ig-border bg-background">
+        <div className="divide-y divide-ig-border">
+          <InfoRow label="계정" value="정확한 프로필과 연락처 정보를 유지해야 합니다." />
+          <InfoRow label="거래" value="거래 상태와 후기 이력은 서비스 신뢰도에 반영됩니다." />
+          <InfoRow label="주문·매장" value="주문 취소·환불·정산은 각 주문 상태 기준을 따릅니다." />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-4 py-3.5">
+      <p className="text-[14px] font-medium text-foreground">{label}</p>
+      <p className="mt-1 text-[13px] leading-6 text-[var(--text-muted)]">{value}</p>
     </div>
   );
 }
@@ -1257,6 +1289,10 @@ function sheetTitle(kind: SettingsSheetKind | null): string {
       return "개인화";
     case "app":
       return "앱 설정";
+    case "support":
+      return "고객센터";
+    case "terms":
+      return "이용약관";
     default:
       return "";
   }
