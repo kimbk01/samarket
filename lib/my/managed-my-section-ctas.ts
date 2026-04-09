@@ -1,5 +1,6 @@
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 /**
  * 내정보 하위 화면 공통 UI — 상황(거래/주문/게시판/매장/계정)별 빠른 CTA 프리셋.
@@ -58,10 +59,10 @@ function storeSectionCtas(ownerStoreId?: string | null): ManagedMyCtaLink[] {
 const ACCOUNT_CTAS: ManagedMyCtaLink[] = [
   { href: "/mypage", label: "내정보" },
   { href: "/mypage/account", label: "계정" },
-  { href: "/mypage/notifications", label: "알림설정" },
+  { href: "/mypage/notifications", label: "알림" },
   { href: "/mypage/order-notifications", label: "주문알림" },
   { href: "/mypage/points", label: "포인트" },
-  { href: "/my/settings", label: "설정" },
+  { href: buildMypageInfoHubHref(), label: "앱·설정" },
 ];
 
 export function getManagedSectionCtas(

@@ -4,7 +4,7 @@ import { PersonalizationContent } from "@/components/my/settings/Personalization
 export default function PersonalizationPage() {
   return (
     <div className="min-h-screen bg-background">
-      <SettingsHeader title="맞춤 설정" backHref="/my/settings" />
+      <SettingsHeader title="맞춤 설정" />
       <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
         <PersonalizationContent />
       </div>

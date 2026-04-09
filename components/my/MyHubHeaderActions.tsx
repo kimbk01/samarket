@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 type Props = {
   notificationUnreadCount?: number | null;
@@ -34,7 +35,7 @@ export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
         ) : null}
       </Link>
       <Link
-        href="/my/settings"
+        href={buildMypageInfoHubHref()}
         className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
         aria-label={t("hub_settings_aria")}
       >

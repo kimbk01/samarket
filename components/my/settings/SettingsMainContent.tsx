@@ -17,7 +17,7 @@ import { SettingsAdminEntry } from "./SettingsAdminEntry";
 import { SettingsIcons } from "./settings-icons";
 import { useHasOwnerStores } from "@/hooks/useHasOwnerStores";
 
-export function SettingsMainContent() {
+export function SettingsMainContent({ className }: { className?: string } = {}) {
   const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
@@ -40,7 +40,7 @@ export function SettingsMainContent() {
     COUNTRY_NAMES[settings.preferred_country ?? "PH"] ?? settings.preferred_country ?? "필리핀";
 
   return (
-    <div className="mx-auto max-w-[480px] bg-background pb-8">
+    <div className={`mx-auto max-w-[480px] bg-background pb-8${className ? ` ${className}` : ""}`}>
       <SettingsSection title={t("settings_section_service")}>
         <SettingsRow
           href="/my/settings/favorite-users"

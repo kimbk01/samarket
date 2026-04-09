@@ -4,7 +4,7 @@ import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChan
 export default function BulkRegionChangePage() {
   return (
     <div className="min-h-screen bg-background">
-      <SettingsHeader title="판매 글 동네 일괄 변경" backHref="/my/settings" />
+      <SettingsHeader title="판매 글 동네 일괄 변경" />
       <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
         <BulkRegionChangeContent />
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -19,7 +20,7 @@ export function LogoutContent() {
       <p className="text-[14px] text-gray-700">로그아웃 하시겠습니까?</p>
       <div className="flex gap-3">
         <Link
-          href="/my/settings"
+          href={buildMypageInfoHubHref()}
           className="flex-1 rounded-lg border border-gray-300 py-2.5 text-center text-[14px] font-medium text-gray-700"
         >
           취소

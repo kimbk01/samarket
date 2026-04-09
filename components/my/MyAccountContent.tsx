@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -129,7 +130,7 @@ export function MyAccountContent() {
         ) : null}
       </div>
       <Link
-        href="/my/settings"
+        href={buildMypageInfoHubHref()}
         className="block rounded-xl bg-white px-4 py-3 text-center text-[14px] font-medium text-gray-700 shadow-sm"
       >
         {t("account_to_settings")}

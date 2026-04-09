@@ -272,7 +272,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   }
 
   if (starts(p, "/my/settings")) {
-    return backMypage({ titleText: "설정", showHubQuickActions: true });
+    return backMypage({ titleText: "앱·계정 설정", showHubQuickActions: true });
   }
 
   if (p === "/products/new" || starts(p, "/products/new/")) {

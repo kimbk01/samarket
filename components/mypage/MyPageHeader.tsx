@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 export function MyPageHeader() {
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[#DBDBDB] bg-white px-4 py-3">
       <h1 className="text-[17px] font-semibold text-[#262626]">나의 카마켓</h1>
       <Link
-        href="/my/settings"
+        href={buildMypageInfoHubHref()}
         className="flex h-9 w-9 items-center justify-center rounded-full text-[#262626] hover:bg-[#FAFAFA]"
         aria-label="설정"
       >

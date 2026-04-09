@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 const SECTION_REDIRECTS: Record<string, string> = {
   account: "/mypage/account",
@@ -25,5 +26,5 @@ export default async function SettingsSectionPage({
   params: Promise<{ section: string }>;
 }) {
   const { section } = await params;
-  redirect(SECTION_REDIRECTS[section] ?? "/my/settings");
+  redirect(SECTION_REDIRECTS[section] ?? buildMypageInfoHubHref());
 }

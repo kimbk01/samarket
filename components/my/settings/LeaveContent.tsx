@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 /**
  * 2단계 확인 UI.
@@ -25,7 +26,7 @@ export function LeaveContent() {
       {step === 1 ? (
         <div className="flex gap-2">
           <Link
-            href="/my/settings"
+            href={buildMypageInfoHubHref()}
             className="rounded-lg border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700"
           >
             취소

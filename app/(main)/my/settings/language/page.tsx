@@ -8,7 +8,7 @@ export default function LanguagePage() {
   const { t } = useI18n();
   return (
     <div className="min-h-screen bg-background">
-      <SettingsHeader title={t("language_settings_title")} backHref="/my/settings" />
+      <SettingsHeader title={t("language_settings_title")} />
       <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
         <LanguageSettingsContent />
       </div>

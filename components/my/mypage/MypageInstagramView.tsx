@@ -18,6 +18,7 @@ import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 export type MypageIgTabId = "trade" | "orders" | "board" | "store" | "account";
 
@@ -230,18 +231,24 @@ export function MypageInstagramView({
     }));
 
   const accountRows: MenuRow[] = [
-    { href: "/mypage/account", title: "내 정보", subtitle: "프로필·연락처·인증" },
+    {
+      href: buildMypageInfoHubHref(),
+      title: "내 정보 · 앱 설정",
+      subtitle: "한곳에서 확인 · 언어·국가·차단·캐시",
+    },
+    { href: "/mypage/account", title: "계정 상세", subtitle: "프로필·연락처·인증" },
     {
       href: "/mypage/notifications",
-      title: "알림함",
-      subtitle: notificationBadge ? `읽지 않음 ${notificationBadge}건` : "거래·주문·서비스",
+      title: "알림",
+      subtitle: notificationBadge
+        ? `알림함 ${notificationBadge}건 · 채널·방해금지`
+        : "알림함 · 푸시·이메일·방해금지",
       badge: notificationBadge,
     },
-    { href: "/mypage/notifications", title: "알림 설정", subtitle: "푸시·이메일·방해금지" },
-    { href: "/mypage/order-notifications", title: "주문 알림 설정", subtitle: "배달·픽업·주문 상태" },
+    { href: "/mypage/order-notifications", title: "주문 알림", subtitle: "배달·픽업·주문 상태" },
     { href: "/mypage/points", title: "포인트", subtitle: "잔액·충전·내역" },
-    { href: "/my/settings", title: "설정", subtitle: "언어·국가·캐시·앱 옵션" },
     { href: "/my/edit", title: "프로필 편집", subtitle: "닉네임·사진" },
+    { href: "/my/addresses", title: "주소 관리", subtitle: "생활·배달·거래" },
     { href: "/my/logout", title: "로그아웃", subtitle: "이 기기에서 종료" },
     ...serviceTools,
   ];

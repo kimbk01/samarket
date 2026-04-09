@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 interface SettingsHeaderProps {
   title: string;
@@ -12,7 +13,7 @@ interface SettingsHeaderProps {
 
 export function SettingsHeader({
   title,
-  backHref = "/mypage",
+  backHref = buildMypageInfoHubHref(),
   subtitle,
 }: SettingsHeaderProps) {
   const { t } = useI18n();

@@ -4,7 +4,7 @@ import { CountrySettingsContent } from "@/components/my/settings/CountrySettings
 export default function CountryPage() {
   return (
     <div className="min-h-screen bg-background">
-      <SettingsHeader title="국가 변경" backHref="/my/settings" />
+      <SettingsHeader title="국가 변경" />
       <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
         <CountrySettingsContent />
       </div>

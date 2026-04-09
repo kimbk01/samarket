@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getMyPageData } from "@/lib/my/getMyPageData";
 import type { MyPageData } from "@/lib/my/types";
 import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
@@ -19,6 +20,11 @@ import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getUserSettings } from "@/lib/settings/user-settings-store";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  MYPAGE_INFO_HUB_SHEET_PARAM,
+  MYPAGE_INFO_HUB_SHEET_VALUE,
+} from "@/lib/my/mypage-info-hub";
+import { MypageInfoHubSheet } from "@/components/mypage/MypageInfoHubSheet";
 
 type OverviewCounts = {
   purchases: number | null;
@@ -27,6 +33,14 @@ type OverviewCounts = {
 };
 
 export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const infoHubOpen =
+    searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
+  const closeInfoHub = useCallback(() => {
+    router.replace("/mypage");
+  }, [router]);
+
   const [data, setData] = useState<MyPageData | null>(() =>
     initialMyPageData !== undefined ? initialMyPageData : null
   );
@@ -319,23 +333,32 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
         ) : null}
 
         {profile ? (
-          <MypageInstagramView
-            profile={profile}
-            mannerScore={mannerScore}
-            isBusinessMember={isBusinessMember}
-            hasOwnerStore={hasOwnerStore}
-            ownerHubStoreId={ownerHubStoreId}
-            ownerStoreGate={ownerStoreGate}
-            ownerStoreGateFirstId={ownerStoreGateFirstId}
-            isAdmin={isAdmin}
-            addressDefaults={addressDefaults}
-            neighborhoodFromLife={neighborhoodFromLife}
-            overviewCounts={overviewCounts}
-            favoriteBadge={favoriteBadge}
-            notificationBadge={notificationBadge}
-            storeAttentionSummary={storeAttentionSummary}
-            services={services}
-          />
+          <>
+            <MypageInstagramView
+              profile={profile}
+              mannerScore={mannerScore}
+              isBusinessMember={isBusinessMember}
+              hasOwnerStore={hasOwnerStore}
+              ownerHubStoreId={ownerHubStoreId}
+              ownerStoreGate={ownerStoreGate}
+              ownerStoreGateFirstId={ownerStoreGateFirstId}
+              isAdmin={isAdmin}
+              addressDefaults={addressDefaults}
+              neighborhoodFromLife={neighborhoodFromLife}
+              overviewCounts={overviewCounts}
+              favoriteBadge={favoriteBadge}
+              notificationBadge={notificationBadge}
+              storeAttentionSummary={storeAttentionSummary}
+              services={services}
+            />
+            <MypageInfoHubSheet
+              open={infoHubOpen}
+              onClose={closeInfoHub}
+              profile={profile}
+              mannerScore={mannerScore}
+              notificationBadge={notificationBadge}
+            />
+          </>
         ) : (
           <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)] sm:mx-0">
             프로필을 불러오지 못했어요. 다시 로그인해 주세요.

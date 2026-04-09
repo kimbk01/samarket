@@ -4,7 +4,7 @@ import { CacheSettingsContent } from "@/components/my/settings/CacheSettingsCont
 export default function CachePage() {
   return (
     <div className="min-h-screen bg-background">
-      <SettingsHeader title="캐시 삭제" backHref="/my/settings" />
+      <SettingsHeader title="캐시 삭제" />
       <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
         <CacheSettingsContent />
       </div>

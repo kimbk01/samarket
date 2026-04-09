@@ -1,17 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { SettingsHeader } from "@/components/my/settings/SettingsHeader";
-import { SettingsMainContent } from "@/components/my/settings/SettingsMainContent";
-
+/** 설정 목록은 `/mypage?sheet=info` 통합 시트로 이동 (하위 상세 경로는 유지). */
 export default function MySettingsPage() {
-  const { t } = useI18n();
-  return (
-    <div className="min-h-screen bg-background">
-      <SettingsHeader title={t("common_settings")} backHref="/mypage" />
-      <div className="px-0 pt-2">
-        <SettingsMainContent />
-      </div>
-    </div>
-  );
+  redirect(buildMypageInfoHubHref());
 }
