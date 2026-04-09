@@ -6,7 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MyPageContent } from "./MyPageContent";
-import { buildMyPageHref, normalizeMyPageSection, normalizeMyPageTab } from "./mypage-nav";
+import {
+  buildMyPageHref,
+  getMyPageTabNav,
+  MYPAGE_NAV,
+  normalizeMyPageSection,
+  normalizeMyPageTab,
+} from "./mypage-nav";
 import { MyPageSidebar } from "./MyPageSidebar";
 import type { MyPageConsoleProps } from "./types";
 
@@ -17,6 +23,9 @@ export function MyPageConsole(props: MyPageConsoleProps) {
 
   const activeTab = normalizeMyPageTab(searchParams.get("tab"));
   const activeSection = normalizeMyPageSection(activeTab, searchParams.get("section"));
+  const currentTab = getMyPageTabNav(activeTab);
+  const currentSectionLabel =
+    currentTab.sections.find((item) => item.id === activeSection)?.label ?? currentTab.sections[0]?.label ?? "";
   const displayName = props.profile.nickname?.trim() || props.profile.email?.split("@")[0] || "내정보";
   const regionLine = resolveProfileLocationAddressLines(props.profile).join(" · ") || "지역 설정 필요";
 
@@ -72,10 +81,10 @@ export function MyPageConsole(props: MyPageConsoleProps) {
             </Link>
             <button
               type="button"
-              onClick={() => setMobileOpen(true)}
-              className="rounded-[4px] border border-gray-900 px-3 py-2 text-[12px] font-semibold text-gray-900 lg:hidden"
+              onClick={() => setMobileOpen((current) => !current)}
+              className="rounded-[4px] border border-gray-900 px-3 py-2 text-[12px] font-semibold text-gray-900 xl:hidden"
             >
-              메뉴
+              메뉴 {mobileOpen ? "접기" : "+"}
             </button>
           </div>
         </div>
@@ -94,37 +103,76 @@ export function MyPageConsole(props: MyPageConsoleProps) {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-[260px,minmax(0,1fr)]">
-        <div className="hidden lg:block lg:self-start lg:sticky lg:top-[76px]">
+      <section className="rounded-[4px] border border-gray-200 bg-white xl:hidden">
+        <button
+          type="button"
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((current) => !current)}
+          className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left"
+        >
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-gray-500">내정보 메뉴</p>
+            <p className="mt-1 text-[14px] font-semibold text-gray-900">
+              {currentTab.label} · {currentSectionLabel}
+            </p>
+          </div>
+          <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-[4px] border border-gray-200 px-2 text-[14px] font-semibold text-gray-700">
+            {mobileOpen ? "-" : "+"}
+          </span>
+        </button>
+        {mobileOpen ? (
+          <div className="border-t border-gray-100 px-3 py-3">
+            <div className="grid grid-cols-2 gap-2">
+              {MYPAGE_NAV.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    router.replace(buildMyPageHref(tab.id, tab.sections[0]?.id), { scroll: false });
+                    setMobileOpen(false);
+                  }}
+                  className={`rounded-[4px] border px-3 py-2 text-left text-[12px] font-semibold ${
+                    tab.id === activeTab
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-200 bg-white text-gray-700"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 rounded-[4px] bg-gray-50 p-2">
+              <p className="px-2 py-1 text-[11px] font-semibold text-gray-500">{currentTab.label} 세부 메뉴</p>
+              <div className="space-y-1">
+                {currentTab.sections.map((section) => (
+                  <button
+                    key={`${currentTab.id}:${section.id}`}
+                    type="button"
+                    onClick={() => {
+                      router.replace(buildMyPageHref(currentTab.id, section.id), { scroll: false });
+                      setMobileOpen(false);
+                    }}
+                    className={`block w-full rounded-[4px] px-2 py-2 text-left text-[12px] ${
+                      section.id === activeSection
+                        ? "bg-white font-semibold text-gray-900"
+                        : "text-gray-600"
+                    }`}
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-[260px,minmax(0,1fr)]">
+        <div className="hidden xl:block xl:self-start xl:sticky xl:top-[76px]">
           <MyPageSidebar activeTab={activeTab} activeSection={activeSection} />
         </div>
         <MyPageContent activeTab={activeTab} activeSection={activeSection} {...props} />
       </div>
-
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-[120] bg-black/40 lg:hidden" onClick={() => setMobileOpen(false)}>
-          <div
-            className="h-full w-[85vw] max-w-[320px] overflow-y-auto bg-white p-3"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between border-b border-gray-200 pb-3">
-              <p className="text-[14px] font-semibold text-gray-900">내정보 메뉴</p>
-              <button
-                type="button"
-                onClick={() => setMobileOpen(false)}
-                className="rounded-[4px] border border-gray-200 px-3 py-1.5 text-[12px] text-gray-700"
-              >
-                닫기
-              </button>
-            </div>
-            <MyPageSidebar
-              activeTab={activeTab}
-              activeSection={activeSection}
-              onClose={() => setMobileOpen(false)}
-            />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

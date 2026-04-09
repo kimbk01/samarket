@@ -12,6 +12,7 @@ import { PersonalizationContent } from "@/components/my/settings/Personalization
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
+import { MyPageMobileFold } from "@/components/mypage/MyPageMobileFold";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 
@@ -171,15 +172,16 @@ function TabShell({
 
 function SettingsBlock({
   title,
+  summary,
   children,
 }: {
   title: string;
+  summary?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[4px] border border-gray-200 bg-white p-4">
-      <h3 className="text-[14px] font-semibold text-gray-900">{title}</h3>
-      <div className="mt-3">{children}</div>
-    </section>
+    <MyPageMobileFold title={title} summary={summary}>
+      {children}
+    </MyPageMobileFold>
   );
 }
