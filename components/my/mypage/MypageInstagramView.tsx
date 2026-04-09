@@ -270,8 +270,8 @@ export function MypageInstagramView({
 
   return (
     <div className="border-b border-ig-border bg-[var(--sub-bg)]">
-      {/* 스크롤 시 1단(h-12) 바로 아래에 프로필+탭 고정 — 하단 메뉴만 스크롤 */}
-      <div className="sticky top-12 z-10 border-b border-ig-border bg-[var(--sub-bg)] pt-1">
+      {/* 스크롤 시 1단(h-12) 바로 아래에 프로필+탭 고정 — 하단 메뉴만 스크롤. z·불투명 배경으로 리스트와 겹침(유령 텍스트) 방지 */}
+      <div className="sticky top-12 z-30 isolate border-b border-ig-border bg-[var(--sub-bg)] pt-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
       {/* 프로필 상단 — 인스타 프로필 레이아웃 */}
       <div className="px-4 pb-3">
         <div className="flex gap-5">
@@ -360,14 +360,14 @@ export function MypageInstagramView({
         ) : null}
       </div>
 
-      {/* 탭 바 — 프로필과 동일 스티키 그룹(별도 sticky 제거) */}
+      {/* 탭 바 — 버튼 배경을 불투명으로 두어 스크롤되는 메뉴 행이 글자 뒤로 비치지 않게 함 */}
       <div className="flex border-t border-ig-border bg-[var(--sub-bg)]">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => persistTab(t.id)}
-            className={`relative flex-1 py-2.5 text-[12px] font-semibold transition-colors ${
+            className={`relative z-10 flex-1 bg-[var(--sub-bg)] py-2.5 text-[12px] font-semibold transition-colors ${
               tab === t.id ? "text-foreground" : "text-[var(--text-muted)]"
             }`}
           >
@@ -380,8 +380,8 @@ export function MypageInstagramView({
       </div>
       </div>
 
-      {/* 탭 패널 — 리스트 행 */}
-      <div className="min-h-[200px] bg-[var(--sub-bg)]">
+      {/* 탭 패널 — 스티키 탭보다 아래 레이어로만 스크롤 */}
+      <div className="relative z-0 min-h-[200px] bg-[var(--sub-bg)]">
         {tabRows[tab].map((row) => (
           <IgMenuRow
             key={row.href + row.title}
