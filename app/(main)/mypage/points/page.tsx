@@ -40,7 +40,7 @@ export default function MypagePointsPage() {
         title={t("common_points")}
         subtitle={t("points_subtitle")}
         backHref="/mypage"
-        section="account"
+        hideCtaStrip
       />
       <div className="mx-auto max-w-lg space-y-6 p-4">
         <PointsBackendNotice />

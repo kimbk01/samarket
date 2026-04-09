@@ -56,7 +56,7 @@ type OrderRow = {
 function buyerStoreOrderChatHref(args: { embedded: boolean; orderId: string }): string {
   return args.embedded
     ? `/orders/store/${encodeURIComponent(args.orderId)}/chat`
-    : `/my/store-orders/${encodeURIComponent(args.orderId)}/chat`;
+    : `/mypage/store-orders/${encodeURIComponent(args.orderId)}/chat`;
 }
 
 const MEMBER_STATUSES = new Set<string>([
@@ -383,7 +383,13 @@ function MyStoreOrderCard({
   );
 }
 
-export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) {
+export function MyStoreOrdersView({
+  embedded = false,
+  suppressTier1Sync = false,
+}: {
+  embedded?: boolean;
+  suppressTier1Sync?: boolean;
+}) {
   const pathname = usePathname();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const [tab, setTab] = useState<MemberOrderTab>("all");
@@ -446,6 +452,7 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
 
   useLayoutEffect(() => {
     if (embedded) return;
+    if (suppressTier1Sync) return;
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
       tier1: {
@@ -453,7 +460,7 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
       },
     });
     return () => setMainTier1Extras(null);
-  }, [embedded, setMainTier1Extras]);
+  }, [embedded, setMainTier1Extras, suppressTier1Sync]);
 
   const allSorted = useMemo(() => {
     if (state.kind !== "ok") return [];
@@ -464,7 +471,7 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
 
   const counts = useMemo(() => tabCounts(allSorted), [allSorted]);
   const filtered = useMemo(() => filterByTab(allSorted, tab), [allSorted, tab]);
-  const loginHref = `/login?next=${encodeURIComponent(pathname ?? (embedded ? "/orders?tab=store" : "/my/store-orders"))}`;
+  const loginHref = `/login?next=${encodeURIComponent(pathname ?? (embedded ? "/orders?tab=store" : "/mypage/store-orders"))}`;
 
   const requestCancelPending = useCallback(
     async (orderId: string) => {
@@ -626,7 +633,7 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
                       detailHref={
                         embedded
                           ? `/orders/store/${encodeURIComponent(o.id)}`
-                          : `/my/store-orders/${encodeURIComponent(o.id)}`
+                          : `/mypage/store-orders/${encodeURIComponent(o.id)}`
                       }
                       chatHref={buyerStoreOrderChatHref({
                         embedded,
@@ -637,7 +644,7 @@ export function MyStoreOrdersView({ embedded = false }: { embedded?: boolean }) 
                       reviewHref={
                         embedded
                           ? `/orders/store/${encodeURIComponent(o.id)}/review`
-                          : `/my/store-orders/${encodeURIComponent(o.id)}/review`
+                          : `/mypage/store-orders/${encodeURIComponent(o.id)}/review`
                       }
                       canSubmitReview={o.can_submit_review === true}
                       onCancelPending={requestCancelPending}

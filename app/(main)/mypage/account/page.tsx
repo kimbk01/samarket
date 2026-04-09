@@ -12,7 +12,7 @@ export default function MypageAccountPage() {
         title={t("account_title")}
         subtitle={t("account_subtitle")}
         backHref="/mypage"
-        section="account"
+        hideCtaStrip
       />
       <div className="mx-auto max-w-lg px-4 py-4">
         <MyAccountContent />

@@ -1,26 +1,17 @@
 "use client";
 
-import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { MyStoreOrderDetailView } from "@/components/mypage/MyStoreOrderDetailView";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function MyStoreOrderDetailPage() {
-  return (
-    <div className="min-h-screen bg-background">
-      <MySubpageHeader
-        title="주문 상세"
-        subtitle="배달·픽업 주문"
-        backHref="/my/store-orders"
-        ariaLabel="이전 화면"
-        preferHistoryBack
-        section="orders"
-        hideCtaStrip
-        rightSlot={<CommerceCartHeaderLink />}
-      />
-      <div className={`w-full min-w-0 py-4 ${APP_MAIN_GUTTER_X_CLASS}`}>
-        <MyStoreOrderDetailView />
-      </div>
-    </div>
-  );
+  const params = useParams();
+  const router = useRouter();
+  const orderId = typeof params?.orderId === "string" ? params.orderId : "";
+
+  useEffect(() => {
+    if (!orderId) return;
+    router.replace(`/mypage/store-orders/${encodeURIComponent(orderId)}`);
+  }, [orderId, router]);
+
+  return null;
 }

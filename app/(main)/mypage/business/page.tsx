@@ -1,3 +1,4 @@
+import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyBusinessPage } from "@/components/business/MyBusinessPage";
 import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
 
@@ -18,8 +19,16 @@ export default async function MypageBusinessRoute({ searchParams }: PageProps) {
   const initialServerState = await loadMyBusinessServer(storeId);
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-2 pb-8">
-      <MyBusinessPage initialServerState={initialServerState} />
+    <div className="min-h-screen bg-background">
+      <MySubpageHeader
+        title="매장 운영"
+        subtitle="주문, 상품, 운영 상태, 정산 관리"
+        backHref="/mypage"
+        hideCtaStrip
+      />
+      <div className="mx-auto max-w-lg px-4 pt-2 pb-8">
+        <MyBusinessPage initialServerState={initialServerState} />
+      </div>
     </div>
   );
 }

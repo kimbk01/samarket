@@ -1,14 +1,12 @@
 /**
- * 내정보(`/mypage`) 통합 허브 — 흩어진 계정·알림·앱 설정을 한 화면(모달 시트)에서 열람·이동.
- * 북마크·뒤로가기 호환용으로 URL 쿼리로 시트 오픈 상태를 공유합니다.
+ * 내정보(`/mypage`) 통합 설정 허브.
+ * 상세 화면은 전용 페이지로 통일하고, 예전 `?sheet=info` URL은 호환용으로만 유지합니다.
  */
 export const MYPAGE_INFO_HUB_SHEET_PARAM = "sheet";
 export const MYPAGE_INFO_HUB_SHEET_VALUE = "info";
 
 export function buildMypageInfoHubHref(): string {
-  const q = new URLSearchParams();
-  q.set(MYPAGE_INFO_HUB_SHEET_PARAM, MYPAGE_INFO_HUB_SHEET_VALUE);
-  return `/mypage?${q.toString()}`;
+  return "/mypage/settings";
 }
 
 /** @deprecated 직접 문자열 대신 `buildMypageInfoHubHref()` 사용 권장 */

@@ -14,7 +14,7 @@ export default async function MypageCommunityPostsPage() {
         title="내 활동"
         subtitle="내가 남긴 커뮤니티 글"
         backHref="/mypage"
-        section="board"
+        hideCtaStrip
       />
 
       <div className="mx-auto max-w-4xl space-y-3 px-4 py-4">

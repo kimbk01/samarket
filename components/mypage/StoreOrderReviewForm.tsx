@@ -49,11 +49,11 @@ export function StoreOrderReviewForm({
   const detailHref = orderId
     ? ordersHub
       ? `/orders/store/${encodeURIComponent(orderId)}`
-      : `/my/store-orders/${encodeURIComponent(orderId)}`
+      : `/mypage/store-orders/${encodeURIComponent(orderId)}`
     : ordersHub
       ? "/orders?tab=store"
-      : "/my/store-orders";
-  const listHref = ordersHub ? "/orders?tab=store" : "/my/store-orders";
+      : "/mypage/store-orders";
+  const listHref = ordersHub ? "/orders?tab=store" : "/mypage/store-orders";
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);

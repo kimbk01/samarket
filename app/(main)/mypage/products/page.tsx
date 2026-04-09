@@ -10,7 +10,7 @@ export default function MypageProductsPage() {
         title="내상품 관리"
         subtitle="개인 거래에 등록한 글 관리"
         backHref="/mypage"
-        section="trade"
+        hideCtaStrip
       />
       <div className="pt-4">
         <MyProductsView />

@@ -12,7 +12,7 @@ export default function MypageNotificationsPage() {
         title={t("notifications_settings_title")}
         subtitle={t("notifications_settings_subtitle")}
         backHref="/mypage"
-        section="account"
+        hideCtaStrip
       />
       <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
         <NotificationsSettingsContent />

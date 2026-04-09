@@ -12,7 +12,7 @@ export default function MypageOrderNotificationsPage() {
         title={t("order_notifications_title")}
         subtitle={t("order_notifications_subtitle")}
         backHref="/mypage/notifications"
-        section="account"
+        hideCtaStrip
       />
       <div className="mx-auto max-w-[480px] px-4 py-4">
         <MemberNotificationSettings />

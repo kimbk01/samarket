@@ -105,10 +105,10 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const router = useRouter();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const orderId = typeof params?.orderId === "string" ? params.orderId : "";
-  const listHref = ordersHub ? "/orders?tab=store" : "/my/store-orders";
+  const listHref = ordersHub ? "/orders?tab=store" : "/mypage/store-orders";
   const orderBase = ordersHub
     ? `/orders/store/${encodeURIComponent(orderId)}`
-    : `/my/store-orders/${encodeURIComponent(orderId)}`;
+    : `/mypage/store-orders/${encodeURIComponent(orderId)}`;
   const reviewHref = `${orderBase}/review`;
 
   const [state, setState] = useState<

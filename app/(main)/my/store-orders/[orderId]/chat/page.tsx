@@ -1,10 +1,17 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { RedirectStoreOrderToUnifiedChat } from "@/components/chats/RedirectStoreOrderToUnifiedChat";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 export default function MyStoreOrderChatBridgePage() {
   const params = useParams();
+  const router = useRouter();
   const orderId = typeof params?.orderId === "string" ? params.orderId : "";
-  return <RedirectStoreOrderToUnifiedChat key={orderId || "pending"} variant="buyer" orderId={orderId} />;
+
+  useEffect(() => {
+    if (!orderId) return;
+    router.replace(`/mypage/store-orders/${encodeURIComponent(orderId)}/chat`);
+  }, [orderId, router]);
+
+  return null;
 }

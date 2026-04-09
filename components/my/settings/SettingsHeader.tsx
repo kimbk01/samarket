@@ -22,8 +22,7 @@ export function SettingsHeader({
       title={title}
       subtitle={subtitle === undefined ? t("settings_global_subtitle") : subtitle ?? undefined}
       backHref={backHref}
-      section={subtitle === null ? undefined : "account"}
-      hideCtaStrip={subtitle === null}
+      hideCtaStrip
     />
   );
 }

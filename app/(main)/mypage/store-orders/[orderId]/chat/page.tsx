@@ -1,11 +1,10 @@
-import { redirect } from "next/navigation";
+"use client";
 
-interface PageProps {
-  params: Promise<{ orderId: string }>;
-}
+import { useParams } from "next/navigation";
+import { RedirectStoreOrderToUnifiedChat } from "@/components/chats/RedirectStoreOrderToUnifiedChat";
 
-/** 소비자용 매장 주문 채팅은 `/my/store-orders/:id/chat`으로 통합. */
-export default async function LegacyMypageStoreOrderChatRedirect({ params }: PageProps) {
-  const { orderId } = await params;
-  redirect(`/my/store-orders/${encodeURIComponent(orderId)}/chat`);
+export default function MypageStoreOrderChatBridgePage() {
+  const params = useParams();
+  const orderId = typeof params?.orderId === "string" ? params.orderId : "";
+  return <RedirectStoreOrderToUnifiedChat key={orderId || "pending"} variant="buyer" orderId={orderId} />;
 }

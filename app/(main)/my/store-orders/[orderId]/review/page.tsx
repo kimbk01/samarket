@@ -1,7 +1,17 @@
 "use client";
 
-import { StoreOrderReviewForm } from "@/components/mypage/StoreOrderReviewForm";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 export default function MyStoreOrderReviewPage() {
-  return <StoreOrderReviewForm layout="fullscreen" ordersHub={false} />;
+  const params = useParams();
+  const router = useRouter();
+  const orderId = typeof params?.orderId === "string" ? params.orderId : "";
+
+  useEffect(() => {
+    if (!orderId) return;
+    router.replace(`/mypage/store-orders/${encodeURIComponent(orderId)}/review`);
+  }, [orderId, router]);
+
+  return null;
 }

@@ -74,7 +74,7 @@ export function MyAccountContent() {
         <div className="min-w-0 flex-1">
           <p className="text-[17px] font-semibold text-gray-900">{displayNickname}</p>
           <p className="mt-0.5 truncate text-[13px] text-gray-500">{t("account_nickname_note")}</p>
-          <Link href="/my/edit" className="mt-2 inline-block text-[14px] font-medium text-signature">
+          <Link href="/mypage/edit" className="mt-2 inline-block text-[14px] font-medium text-signature">
             {t("account_edit_profile")}
           </Link>
         </div>
@@ -84,7 +84,7 @@ export function MyAccountContent() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-gray-900">{t("account_info_title")}</h2>
           <Link
-            href="/my/edit"
+            href="/mypage/edit"
             className="text-[14px] font-medium text-signature"
           >
             {t("account_edit")}

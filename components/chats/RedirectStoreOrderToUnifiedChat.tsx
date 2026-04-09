@@ -13,10 +13,10 @@ export function RedirectStoreOrderToUnifiedChat(props: Props) {
   const backHref =
     props.variant === "buyer"
       ? orderId
-        ? `/my/store-orders/${encodeURIComponent(orderId)}`
-        : "/my/store-orders"
+        ? `/mypage/store-orders/${encodeURIComponent(orderId)}`
+        : "/mypage/store-orders"
       : buildStoreOrdersHref({ storeId: props.storeId.trim(), orderId });
   const orderChatsHref =
-    props.variant === "buyer" ? "/my/store-orders" : buildStoreOrdersHref({ storeId: props.storeId.trim() });
+    props.variant === "buyer" ? "/mypage/store-orders" : buildStoreOrdersHref({ storeId: props.storeId.trim() });
   return <OrderChatRoomClient orderId={orderId} backHref={backHref} orderChatsHref={orderChatsHref} />;
 }

@@ -9,7 +9,7 @@ export default function MypageReviewsHubPage() {
         title="후기 관리"
         subtitle="작성·받은 거래 후기"
         backHref="/mypage"
-        section="trade"
+        hideCtaStrip
       />
       <div className="mx-auto max-w-lg space-y-4 px-4 py-6">
         <p className="text-[14px] leading-relaxed text-gray-600">

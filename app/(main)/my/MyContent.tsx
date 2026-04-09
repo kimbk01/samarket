@@ -23,8 +23,8 @@ import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import {
   MYPAGE_INFO_HUB_SHEET_PARAM,
   MYPAGE_INFO_HUB_SHEET_VALUE,
+  buildMypageInfoHubHref,
 } from "@/lib/my/mypage-info-hub";
-import { MypageInfoHubSheet } from "@/components/mypage/MypageInfoHubSheet";
 
 type OverviewCounts = {
   purchases: number | null;
@@ -37,9 +37,6 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const searchParams = useSearchParams();
   const infoHubOpen =
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
-  const closeInfoHub = useCallback(() => {
-    router.replace("/mypage");
-  }, [router]);
 
   const [data, setData] = useState<MyPageData | null>(() =>
     initialMyPageData !== undefined ? initialMyPageData : null
@@ -96,6 +93,11 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
       setNeighborhoodFromLife(null);
     }
   }, []);
+
+  useEffect(() => {
+    if (!infoHubOpen) return;
+    router.replace(buildMypageInfoHubHref());
+  }, [infoHubOpen, router]);
 
   useEffect(() => {
     if (initialMyPageData !== undefined) return;
@@ -355,7 +357,6 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
                 sections={sections}
               />
             </div>
-            <MypageInfoHubSheet open={infoHubOpen} onClose={closeInfoHub} />
           </>
         ) : (
           <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)] sm:mx-0">

@@ -97,7 +97,7 @@ export function AddressManagementClient() {
         title={tt("주소 관리")}
         subtitle={tt("생활·거래·배달 기본 주소")}
         backHref="/mypage"
-        section="orders"
+        hideCtaStrip
       />
       <div className="mx-auto max-w-lg space-y-5 px-4 py-4 pb-28 md:max-w-3xl">
         <p className="text-[13px] leading-relaxed text-gray-600">
