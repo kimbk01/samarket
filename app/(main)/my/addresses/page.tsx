@@ -1,5 +1,5 @@
-import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
+import { redirect } from "next/navigation";
 
 export default function MyAddressesPage() {
-  return <AddressManagementClient />;
+  redirect("/mypage/addresses");
 }

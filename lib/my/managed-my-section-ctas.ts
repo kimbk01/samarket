@@ -1,5 +1,4 @@
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 /**
@@ -19,40 +18,33 @@ const TRADE_CTAS: ManagedMyCtaLink[] = [
   { href: "/mypage/trade/reviews", label: "후기" },
 ];
 
-const ORDERS_CTAS: ManagedMyCtaLink[] = [{ href: "/my/store-orders", label: "매장 주문" }];
-
-const BOARD_CTAS: ManagedMyCtaLink[] = [
-  { href: "/community", label: "동네생활" },
-  { href: "/community/write", label: "글쓰기" },
-  { href: "/my/community-posts", label: "내 글" },
-  { href: "/my/recent-viewed", label: "최근 본" },
+const ORDERS_CTAS: ManagedMyCtaLink[] = [
+  { href: "/mypage/store-orders", label: "주문 내역" },
+  { href: "/mypage/trade/purchases", label: "구매" },
+  { href: "/mypage/trade/sales", label: "판매" },
 ];
+
+const BOARD_CTAS: ManagedMyCtaLink[] = [{ href: "/mypage/community-posts", label: "내 활동" }];
 
 function storeSectionCtas(ownerStoreId?: string | null): ManagedMyCtaLink[] {
   const sid = ownerStoreId?.trim();
   const enc = sid ? encodeURIComponent(sid) : "";
-  const newOrdersHref = sid
-    ? buildStoreOrdersHref({ storeId: sid, tab: "new" })
-    : "/my/business/store-orders";
-  const hubHref = sid ? `/my/business?storeId=${enc}` : "/my/business";
-  const inquiriesHref = sid ? `/my/business/inquiries?storeId=${enc}` : "/my/business/inquiries";
-  const productsHref = sid ? `/my/business/products?storeId=${enc}` : "/my/business/products";
+  const newOrdersHref = sid ? `/mypage/business/orders?storeId=${enc}` : "/mypage/business/orders";
+  const hubHref = sid ? `/mypage/business?storeId=${enc}` : "/mypage/business";
 
   if (sid) {
     return [
       { href: newOrdersHref, label: "신규 주문" },
       { href: hubHref, label: "운영 허브" },
-      { href: inquiriesHref, label: "받은 문의" },
-      { href: productsHref, label: "상품 관리" },
-      { href: "/my/store-orders", label: "내 주문(고객)" },
+      { href: "/mypage/store-orders", label: "내 주문" },
     ];
   }
 
   return [
     { href: newOrdersHref, label: "주문 접수" },
     { href: hubHref, label: "운영 허브" },
-    { href: "/my/store-orders", label: "내 주문" },
-    { href: "/my/business/apply", label: "매장 신청" },
+    { href: "/mypage/store-orders", label: "내 주문" },
+    { href: "/mypage/business/apply", label: "매장 신청" },
   ];
 }
 

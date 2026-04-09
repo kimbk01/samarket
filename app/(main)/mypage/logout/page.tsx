@@ -1,6 +1,13 @@
-import { redirect } from "next/navigation";
+import { LogoutContent } from "@/components/my/settings/LogoutContent";
+import { SettingsHeader } from "@/components/my/settings/SettingsHeader";
 
-/** 로그아웃 화면은 `/my/logout`으로 통합. 기존 마이페이지 링크 호환용. */
-export default function LegacyMypageLogoutRedirect() {
-  redirect("/my/logout");
+export default function MypageLogoutPage() {
+  return (
+    <div className="min-h-screen bg-background">
+      <SettingsHeader title="로그아웃" subtitle={null} />
+      <div className="mx-auto max-w-[480px] bg-white px-4 py-4">
+        <LogoutContent />
+      </div>
+    </div>
+  );
 }

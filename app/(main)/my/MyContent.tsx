@@ -301,6 +301,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     banner,
     bannerHidden,
     services,
+    sections,
     mannerScore,
     isBusinessMember,
     isAdmin,
@@ -351,6 +352,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
                 notificationBadge={notificationBadge}
                 storeAttentionSummary={storeAttentionSummary}
                 services={services}
+                sections={sections}
               />
             </div>
             <MypageInfoHubSheet open={infoHubOpen} onClose={closeInfoHub} />
