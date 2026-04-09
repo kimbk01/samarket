@@ -4,13 +4,23 @@ import {
   createCommunityMessengerCallSignal,
   listCommunityMessengerCallSignals,
 } from "@/lib/community-messenger/service";
+import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = enforceRateLimit({
+    key: `community-messenger:call-signals:get:${getRateLimitKey(req, auth.userId)}`,
+    limit: 240,
+    windowMs: 60_000,
+    message: "통화 시그널 조회가 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_call_signals_get_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
 
   const { sessionId } = await params;
   const signals = await listCommunityMessengerCallSignals(auth.userId, sessionId);
@@ -23,6 +33,15 @@ export async function POST(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = enforceRateLimit({
+    key: `community-messenger:call-signals:post:${getRateLimitKey(req, auth.userId)}`,
+    limit: 600,
+    windowMs: 60_000,
+    message: "통화 시그널 전송이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_call_signals_post_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
 
   let body: {
     toUserId?: string;

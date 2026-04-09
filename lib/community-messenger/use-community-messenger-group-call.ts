@@ -587,15 +587,24 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
     const sessionId = currentSessionId;
     let cancelled = false;
+    let backoffUntil = 0;
 
     async function pollSignals() {
       if (cancelled) return;
+      if (Date.now() < backoffUntil) return;
       try {
         const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
           cache: "no-store",
         });
+        if (res.status === 429) {
+          const ra = res.headers.get("Retry-After");
+          const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
+          backoffUntil = Date.now() + sec * 1000;
+          return;
+        }
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
         if (!res.ok || !json.ok) return;
+        backoffUntil = 0;
         for (const signal of json.signals ?? []) {
           if (cancelled) break;
           await applySignal(signal);

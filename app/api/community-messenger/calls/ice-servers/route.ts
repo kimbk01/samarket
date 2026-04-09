@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +11,18 @@ function parseUrls(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = enforceRateLimit({
+    key: `community-messenger:ice-servers:${getRateLimitKey(req, auth.userId)}`,
+    limit: 60,
+    windowMs: 60_000,
+    message: "ICE 서버 정보를 너무 자주 요청하고 있습니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_ice_servers_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
 
   const stunUrls = parseUrls(
     process.env.COMMUNITY_MESSENGER_STUN_URLS ??
