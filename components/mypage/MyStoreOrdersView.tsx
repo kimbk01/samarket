@@ -215,8 +215,8 @@ function MyStoreOrderCard({
 
   const storeImg = o.store_profile_image_url?.trim() || "";
   const relTime = formatFeedRelativeTime(o.created_at);
-  const actionCell = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[15px] font-semibold transition-colors ${FB_BODY} ${FB_HOVER_ROW}`;
-  const actionCellSignature = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[15px] font-semibold transition-colors text-signature ${FB_HOVER_ROW}`;
+  const actionCell = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[13px] font-semibold transition-colors sm:text-sm ${FB_BODY} ${FB_HOVER_ROW}`;
+  const actionCellSignature = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[13px] font-semibold transition-colors sm:text-sm text-signature ${FB_HOVER_ROW}`;
 
   return (
     <article
@@ -242,7 +242,7 @@ function MyStoreOrderCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className={`truncate text-[15px] font-semibold leading-snug sm:text-[17px] ${FB_BODY}`}>
+                <p className={`truncate text-[15px] font-semibold leading-snug ${FB_BODY}`}>
                   {o.store_name || "매장"}
                 </p>
                 <p className={`mt-0.5 text-[13px] leading-snug ${FB_MUTED}`}>
@@ -301,13 +301,15 @@ function MyStoreOrderCard({
             </div>
 
             <div className={`mt-3 border-t ${FB_DIVIDER} pt-3`}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className={`text-[15px] font-normal ${FB_MUTED}`}>결제 금액</span>
-                <span className={`text-[17px] font-bold tabular-nums sm:text-[20px] ${FB_BODY}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className={`text-[13px] font-medium sm:text-sm ${FB_MUTED}`}>결제 금액</span>
+                <span className={`text-[15px] font-semibold tabular-nums sm:text-base ${FB_BODY}`}>
                   {formatMoneyPhp(o.payment_amount)}
                 </span>
               </div>
-              <p className={`mt-2 text-[15px] leading-snug ${FB_MUTED}`}>{statusUserLine(o.order_status)}</p>
+              <p className={`mt-2 text-[13px] leading-snug sm:text-sm ${FB_MUTED}`}>
+                {statusUserLine(o.order_status)}
+              </p>
               {(o.order_status === "ready_for_pickup" ||
                 o.order_status === "delivering" ||
                 o.order_status === "arrived") &&
@@ -330,7 +332,7 @@ function MyStoreOrderCard({
         </Link>
         {chatDisabled ? (
           <span
-            className={`flex min-h-[44px] min-w-0 flex-1 cursor-not-allowed items-center justify-center px-1 text-center text-[15px] font-medium text-[#BCC0C4] dark:text-[#6F7175]`}
+            className={`flex min-h-[44px] min-w-0 flex-1 cursor-not-allowed items-center justify-center px-1 text-center text-[13px] font-medium text-[#BCC0C4] dark:text-[#6F7175] sm:text-sm`}
           >
             주문 채팅
           </span>
@@ -545,14 +547,16 @@ export function MyStoreOrdersView({
     <div
       className={
         embedded
-          ? "bg-[#F0F2F5] pb-6 dark:bg-[#18191A]"
+          ? "min-w-0 pb-1"
           : "min-h-screen bg-[#F0F2F5] pb-10 dark:bg-[#18191A]"
       }
     >
       <div
-        className={`${APP_MAIN_COLUMN_CLASS} min-w-0 ${APP_MAIN_GUTTER_X_CLASS} ${
-          embedded ? "pt-2" : "pt-2 sm:pt-3"
-        }`}
+        className={
+          embedded
+            ? "mx-auto w-full min-w-0 max-w-none px-0 pt-0"
+            : `${APP_MAIN_COLUMN_CLASS} min-w-0 ${APP_MAIN_GUTTER_X_CLASS} pt-2 sm:pt-3`
+        }
       >
         {toast ? (
           <p className="mb-3 rounded-lg bg-[#050505] px-3 py-2.5 text-center text-[13px] text-white shadow-md dark:bg-[#E4E6EB] dark:text-[#050505]">
@@ -562,7 +566,7 @@ export function MyStoreOrdersView({
 
         {state.kind === "loading" ? (
           <div
-            className={`mb-3 rounded-lg bg-white px-4 py-12 text-center text-[15px] ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
+            className={`mb-3 rounded-lg bg-white px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
           >
             불러오는 중…
           </div>
@@ -605,27 +609,31 @@ export function MyStoreOrdersView({
         {state.kind === "ok" ? (
           <>
             <div
-              className={`sticky top-12 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-white/92 backdrop-blur-md dark:bg-[#242526]/95`}
+              className={
+                embedded
+                  ? `sticky top-0 z-10 mb-3 -mx-3 rounded-md border ${FB_DIVIDER} bg-white shadow-sm dark:bg-[#242526] sm:-mx-4 lg:mx-0`
+                  : `sticky top-12 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-white/92 backdrop-blur-md dark:bg-[#242526]/95`
+              }
             >
-              <div className={APP_MAIN_GUTTER_X_CLASS}>
+              <div className={embedded ? "px-0" : APP_MAIN_GUTTER_X_CLASS}>
                 <MemberOrderTabs variant="feed" active={tab} onChange={setTab} counts={counts} />
               </div>
             </div>
 
             {allSorted.length === 0 ? (
               <div
-                className={`rounded-lg bg-white px-4 py-8 text-center text-[15px] ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
+                className={`rounded-lg bg-white px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
               >
                 <p className={FB_BODY}>아직 매장 주문이 없습니다.</p>
                 <Link
                   href="/stores"
-                  className="mt-4 inline-block rounded-lg bg-signature px-4 py-2.5 text-[15px] font-semibold text-white hover:opacity-95"
+                  className="mt-4 inline-block rounded-lg bg-signature px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95"
                 >
                   매장 둘러보기
                 </Link>
               </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className={embedded ? "space-y-2.5" : "space-y-3"}>
                 {filtered.map((o) => (
                   <li key={o.id}>
                     <MyStoreOrderCard

@@ -4,7 +4,6 @@ import { MessengerTab } from "@/components/mypage/tabs/MessengerTab";
 import { SettingsTab } from "@/components/mypage/tabs/SettingsTab";
 import { StoreTab } from "@/components/mypage/tabs/StoreTab";
 import { TradeTab } from "@/components/mypage/tabs/TradeTab";
-import { getMyPageTabNav } from "./mypage-nav";
 import type { MyPageConsoleProps, MyPageTabId } from "./types";
 
 export function MyPageContent({
@@ -15,17 +14,8 @@ export function MyPageContent({
   activeTab: MyPageTabId;
   activeSection: string;
 }) {
-  const currentTab = getMyPageTabNav(activeTab);
-  const currentSection =
-    currentTab.sections.find((item) => item.id === activeSection)?.label ?? currentTab.sections[0]?.label ?? "";
-
   return (
-    <section className="min-w-0 space-y-4">
-      <div className="rounded-[4px] border border-gray-200 bg-white px-4 py-3">
-        <p className="text-[11px] uppercase tracking-[0.08em] text-gray-500">{currentTab.label}</p>
-        <p className="mt-1 text-[14px] font-semibold text-gray-900">{currentSection}</p>
-      </div>
-
+    <section className="min-w-0 space-y-3">
       {activeTab === "account" ? (
         <AccountTab section={activeSection} {...props} />
       ) : null}

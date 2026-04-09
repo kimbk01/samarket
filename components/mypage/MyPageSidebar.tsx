@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { buildMyPageHref, MYPAGE_NAV } from "./mypage-nav";
+import { MYPAGE_TYPO } from "./mypage-typography";
 import type { MyPageTabId } from "./types";
 import type { ProfileRow } from "@/lib/profile/types";
 
@@ -37,12 +38,8 @@ export function MyPageSidebar({
       <div className="border-b border-gray-200 px-4 py-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold text-gray-900">
-              {displayName}
-            </p>
-            <p className="mt-0.5 truncate text-[12px] text-gray-500">
-              {regionLine}
-            </p>
+            <p className={`truncate ${MYPAGE_TYPO.title}`}>{displayName}</p>
+            <p className={`mt-0.5 truncate ${MYPAGE_TYPO.meta}`}>{regionLine}</p>
             <div className="mt-1.5">
               <MannerBatteryDisplay
                 raw={mannerScore}
@@ -81,7 +78,7 @@ export function MyPageSidebar({
             router.push("/mypage/edit");
             onClose?.();
           }}
-          className="mt-3 w-full rounded-[4px] border border-gray-200 py-1.5 text-center text-[12px] font-medium text-gray-700 hover:bg-gray-50"
+          className={`mt-3 w-full rounded-md border border-gray-200 py-2 text-center font-medium text-gray-700 hover:bg-gray-50 ${MYPAGE_TYPO.navItem}`}
         >
           프로필 수정
         </button>
@@ -95,7 +92,7 @@ export function MyPageSidebar({
               <button
                 type="button"
                 onClick={() => navigate(tab.id, tab.sections[0]?.id)}
-                className={`flex w-full items-center rounded-[4px] px-3 py-2.5 text-left text-[13px] font-semibold transition-colors ${
+                className={`flex w-full items-center rounded-md px-3 py-2.5 text-left font-semibold transition-colors ${MYPAGE_TYPO.navGroup} ${
                   isActive
                     ? "bg-gray-900 text-white"
                     : "text-gray-800 hover:bg-gray-100"
@@ -112,7 +109,7 @@ export function MyPageSidebar({
                         key={section.id}
                         type="button"
                         onClick={() => navigate(tab.id, section.id)}
-                        className={`block w-full rounded-[4px] px-3 py-2 text-left text-[12px] transition-colors ${
+                        className={`block w-full rounded-md px-3 py-2 text-left transition-colors ${MYPAGE_TYPO.navItem} ${
                           isSectionActive
                             ? "bg-blue-50 font-semibold text-blue-700"
                             : "text-gray-600 hover:bg-gray-50"

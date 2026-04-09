@@ -22,7 +22,11 @@ export function StoreTab({
 
   if (section === "orders") {
     return (
-      <TabShell title="주문 내역" description="내 주문 상태와 주문 채팅, 리뷰 작성 흐름을 한곳에서 확인합니다.">
+      <TabShell
+        variant="flush"
+        title="주문 내역"
+        description="내 주문 상태와 주문 채팅, 리뷰 작성 흐름을 한곳에서 확인합니다."
+      >
         <MyStoreOrdersView embedded />
       </TabShell>
     );
@@ -130,6 +134,7 @@ export function StoreTab({
 
   return (
     <TabShell
+      variant="flush"
       title="주문 내역"
       description="내 주문 상태와 주문 채팅, 리뷰 작성 흐름을 한곳에서 확인합니다."
     >
@@ -139,18 +144,28 @@ export function StoreTab({
 }
 
 function TabShell({
+  variant = "boxed",
   title,
   description,
   children,
 }: {
+  variant?: "boxed" | "flush";
   title: string;
   description: string;
   children: ReactNode;
 }) {
+  if (variant === "flush") {
+    return (
+      <div className="space-y-3">
+        <MyPageSectionHeader title={title} description={description} />
+        {children}
+      </div>
+    );
+  }
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <MyPageSectionHeader title={title} description={description} />
-      <div className="rounded-[4px] border border-gray-200 bg-white p-3">{children}</div>
+      <div className="rounded-md border border-gray-200 bg-white p-3">{children}</div>
     </div>
   );
 }

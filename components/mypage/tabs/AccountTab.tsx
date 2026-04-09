@@ -177,9 +177,9 @@ export function AccountTab({
 
 function SummaryBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[4px] border border-gray-200 bg-white px-3 py-3">
-      <p className="text-[11px] text-gray-500">{label}</p>
-      <p className="mt-1 text-[14px] font-semibold text-gray-900">{value}</p>
+    <div className="rounded-md border border-gray-200 bg-white px-3 py-2.5">
+      <p className="text-[12px] text-gray-500">{label}</p>
+      <p className="mt-1 text-[15px] font-semibold tabular-nums text-gray-900">{value}</p>
     </div>
   );
 }

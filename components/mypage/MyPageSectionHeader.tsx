@@ -1,3 +1,5 @@
+import { MYPAGE_TYPO } from "./mypage-typography";
+
 export function MyPageSectionHeader({
   title,
   description,
@@ -6,9 +8,9 @@ export function MyPageSectionHeader({
   description?: string;
 }) {
   return (
-    <div className="space-y-1 border-b border-gray-200 pb-3">
-      <h2 className="text-[14px] font-semibold text-gray-900">{title}</h2>
-      {description ? <p className="text-[12px] leading-5 text-gray-500">{description}</p> : null}
+    <div className="space-y-1 border-b border-gray-200 pb-2.5">
+      <h2 className={MYPAGE_TYPO.title}>{title}</h2>
+      {description ? <p className={MYPAGE_TYPO.description}>{description}</p> : null}
     </div>
   );
 }
