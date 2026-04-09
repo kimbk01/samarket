@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
@@ -134,39 +133,43 @@ export function AccountTab({
     <div className="space-y-4">
       <MyPageSectionHeader
         title="내정보 홈"
-        description="내 계정 상태와 자주 쓰는 관리 항목을 한 곳에서 바로 확인합니다."
-      />
-      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        <SummaryBox label="진행중 거래" value={String((overviewCounts.purchases ?? 0) + (overviewCounts.sales ?? 0))} />
-        <SummaryBox label="미확인 알림" value={notificationBadge ?? "0"} />
-        <SummaryBox label="최근 주문 상태" value={storeAttentionSummary ?? "확인"} />
-        <SummaryBox label="관심 사용자" value={favoriteBadge ?? "0"} />
-      </div>
-      <MyPageQuickActions
-        items={[
-          { label: "주소 관리", href: buildMyPageHref("settings", "address"), caption: "대표 / 거래 / 배달 주소" },
-          { label: "판매 내역", href: buildMyPageHref("trade", "sales"), caption: "거래 관리 바로가기" },
-          { label: "주문 내역", href: buildMyPageHref("store", "orders"), caption: "주문과 배송 상태 확인" },
-          { label: "1:1 채팅", href: buildMyPageHref("messenger", "dm"), caption: "메신저 / 거래 / 주문 채팅" },
-          {
-            label: "언어 / 지역 설정",
-            href: buildMyPageHref("settings", "region-language"),
-            caption: "국가, 언어, 지역 공통 설정",
-          },
-        ]}
+        description="내 계정 상태와 주요 활동을 한눈에 확인합니다."
       />
       <div className="rounded-[4px] border border-gray-200 bg-white p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[14px] font-semibold text-gray-900">프로필 요약</p>
-            <p className="mt-1 text-[12px] text-gray-500">
-              {profile.nickname?.trim() || "닉네임 없음"} · {profile.email ?? "이메일 없음"}
-            </p>
+        <div className="space-y-2">
+          <p className="text-[15px] font-bold text-gray-900">
+            {profile.nickname?.trim() || "닉네임 없음"}
+          </p>
+          <p className="text-[12px] text-gray-500">
+            {profile.email ?? "이메일 없음"}
+          </p>
+          <p className="text-[12px] text-gray-500">
+            연락처 {profile.phone?.trim() || "미등록"} ·{" "}
+            {profile.phone_verified ? "인증 완료" : "인증 필요"}
+          </p>
+          <div className="pt-1">
+            <MannerBatteryDisplay
+              raw={mannerScore}
+              size="sm"
+              layout="inline"
+              className="gap-1.5"
+            />
           </div>
-          <Link href="/mypage/edit" className="text-[12px] font-medium text-blue-600">
-            수정
-          </Link>
         </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryBox
+          label="진행중 거래"
+          value={String(
+            (overviewCounts.purchases ?? 0) + (overviewCounts.sales ?? 0),
+          )}
+        />
+        <SummaryBox label="미확인 알림" value={notificationBadge ?? "0"} />
+        <SummaryBox
+          label="최근 주문 상태"
+          value={storeAttentionSummary ?? "확인"}
+        />
+        <SummaryBox label="관심 사용자" value={favoriteBadge ?? "0"} />
       </div>
     </div>
   );

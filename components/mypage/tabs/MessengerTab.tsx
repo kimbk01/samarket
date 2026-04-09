@@ -59,20 +59,12 @@ export function MessengerTab({ section }: { section: string }) {
   }
 
   return (
-    <div className="space-y-4">
-      <MyPageSectionHeader
-        title="메신저"
-        description="거래 채팅, 주문 채팅과 별개로 1:1 / 그룹 메신저 축을 분리합니다."
-      />
-      <MyPageQuickActions
-        items={[
-          { label: "1:1 채팅", href: "/mypage?tab=messenger&section=dm", caption: "메신저 / 거래 / 주문 채팅 분리" },
-          { label: "그룹 채팅", href: "/mypage?tab=messenger&section=groups", caption: "공개 / 비공개 그룹" },
-          { label: "채팅 설정", href: "/mypage?tab=messenger&section=chat-settings", caption: "공통 채팅 정책" },
-          { label: "알림 설정", href: "/mypage?tab=messenger&section=alerts", caption: "알림과 방해금지" },
-        ]}
-      />
-    </div>
+    <TabShell
+      title="1:1 채팅"
+      description="메신저 1:1 채팅과 거래 / 주문 채팅을 구분해서 관리합니다."
+    >
+      <MessengerOverviewPanel mode="dm" />
+    </TabShell>
   );
 }
 

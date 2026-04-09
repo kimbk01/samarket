@@ -8,12 +8,12 @@ import { LanguageSettingsContent } from "@/components/my/settings/LanguageSettin
 import { LeaveContent } from "@/components/my/settings/LeaveContent";
 import { LogoutContent } from "@/components/my/settings/LogoutContent";
 import { NoticesContent } from "@/components/my/settings/NoticesContent";
+import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { PersonalizationContent } from "@/components/my/settings/PersonalizationContent";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
 import { MyPageMobileFold } from "@/components/mypage/MyPageMobileFold";
-import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 
 export function SettingsTab({ section }: { section: string }) {
@@ -32,10 +32,13 @@ export function SettingsTab({ section }: { section: string }) {
     return (
       <TabShell
         title="서비스"
-        description="채팅 설정, 동영상 자동 재생, 맞춤 설정처럼 서비스 공통 동작을 관리합니다."
+        description="채팅 설정, 알림, 동영상 자동 재생, 맞춤 설정을 관리합니다."
       >
         <SettingsBlock title="채팅 설정">
           <ChatSettingsContent />
+        </SettingsBlock>
+        <SettingsBlock title="알림 설정">
+          <NotificationsSettingsContent />
         </SettingsBlock>
         <SettingsBlock title="동영상 자동 재생">
           <VideoAutoplayContent />
@@ -134,22 +137,12 @@ export function SettingsTab({ section }: { section: string }) {
   }
 
   return (
-    <div className="space-y-4">
-      <MyPageSectionHeader
-        title="설정"
-        description="내정보 안에서 주소, 언어, 국가, 사용자 관리, 시스템 설정을 한 축으로 통합합니다."
-      />
-      <MyPageQuickActions
-        items={[
-          { label: "주소 관리", href: "/mypage?tab=settings&section=address", caption: "생활 / 거래 / 배달 주소" },
-          { label: "서비스", href: "/mypage?tab=settings&section=service", caption: "채팅, 자동재생, 맞춤 설정" },
-          { label: "사용자 관리", href: "/mypage?tab=settings&section=users", caption: "관심 / 차단 / 숨김 사용자" },
-          { label: "지역 / 언어 / 국가", href: "/mypage?tab=settings&section=region-language", caption: "공통 지역 설정" },
-          { label: "시스템", href: "/mypage?tab=settings&section=system", caption: "캐시, 버전, 로그아웃, 탈퇴" },
-          { label: "공지 / 고객센터 / 약관", href: "/mypage?tab=settings&section=support", caption: "보조 정보 영역" },
-        ]}
-      />
-    </div>
+    <TabShell
+      title="주소 관리"
+      description="생활주소, 거래주소, 배달주소를 주소 관리 한 곳에서 분리해 관리합니다."
+    >
+      <AddressManagementClient embedded />
+    </TabShell>
   );
 }
 

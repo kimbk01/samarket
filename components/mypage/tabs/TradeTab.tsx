@@ -5,7 +5,6 @@ import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeReviewsManagementView";
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
 import { RecentViewedList } from "@/components/recent-viewed/RecentViewedList";
-import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 
 export function TradeTab({ section }: { section: string }) {
@@ -81,22 +80,12 @@ export function TradeTab({ section }: { section: string }) {
   }
 
   return (
-    <div className="space-y-4">
-      <MyPageSectionHeader
-        title="거래"
-        description="판매, 구매, 찜, 최근 본 상품, 거래 채팅, 거래 후기를 목적별로 분리해 관리합니다."
-      />
-      <MyPageQuickActions
-        items={[
-          { label: "판매 내역", href: "/mypage?tab=trade&section=sales", caption: "판매 상태 관리" },
-          { label: "구매 내역", href: "/mypage?tab=trade&section=purchases", caption: "구매 상태 확인" },
-          { label: "찜한 상품", href: "/mypage?tab=trade&section=favorites", caption: "관심 상품 모음" },
-          { label: "거래 채팅", href: "/mypage?tab=trade&section=chat", caption: "거래 전용 채팅" },
-          { label: "거래 후기", href: "/mypage?tab=trade&section=reviews", caption: "후기와 평판 관리" },
-          { label: "최근 본 상품", href: "/mypage?tab=trade&section=recent", caption: "최근 본 기록" },
-        ]}
-      />
-    </div>
+    <TabShell
+      title="판매 내역"
+      description="판매중, 예약중, 완료된 거래를 한 화면에서 관리합니다."
+    >
+      <SalesHistoryView />
+    </TabShell>
   );
 }
 

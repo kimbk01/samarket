@@ -129,22 +129,12 @@ export function StoreTab({
   }
 
   return (
-    <div className="space-y-4">
-      <MyPageSectionHeader
-        title="매장 / 주문"
-        description="주문, 주문 채팅, 배송지, 매장회원 진입, 상점 운영을 주문 도메인 기준으로 분리합니다."
-      />
-      <MyPageQuickActions
-        items={[
-          { label: "주문 내역", href: "/mypage?tab=store&section=orders", caption: "주문 상태와 리뷰" },
-          { label: "주문 채팅", href: "/mypage?tab=store&section=order-chat", caption: "주문 상세와 연결" },
-          { label: "배송지 / 주소", href: "/mypage?tab=store&section=address", caption: "주소 관리 통합" },
-          { label: "매장회원 진입", href: "/mypage?tab=store&section=member", caption: "구매자 / 사장님 분리" },
-          { label: "내 상점 관리", href: "/mypage?tab=store&section=manage", caption: "상점 등록 / 운영" },
-          { label: "결제 정보", href: "/mypage?tab=store&section=payment", caption: "포인트와 결제 확인" },
-        ]}
-      />
-    </div>
+    <TabShell
+      title="주문 내역"
+      description="내 주문 상태와 주문 채팅, 리뷰 작성 흐름을 한곳에서 확인합니다."
+    >
+      <MyStoreOrdersView embedded />
+    </TabShell>
   );
 }
 

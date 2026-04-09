@@ -99,23 +99,7 @@ export function CommunityTab({ section }: { section: string }) {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <MyPageSectionHeader
-        title="커뮤니티"
-        description="글, 댓글, 관심 게시물, 관계 사용자, 신고 흐름을 커뮤니티 단위로 구분합니다."
-      />
-      <MyPageQuickActions
-        items={[
-          { label: "내가 쓴 글", href: "/mypage?tab=community&section=posts", caption: "내 활동 보기" },
-          { label: "내가 쓴 댓글", href: "/mypage?tab=community&section=comments", caption: "댓글 활동 정리" },
-          { label: "찜한 게시물", href: "/mypage?tab=community&section=favorites", caption: "관심 게시물" },
-          { label: "관심 사용자", href: "/mypage?tab=community&section=users", caption: "커뮤니티 관계" },
-          { label: "신고 내역", href: "/mypage?tab=community&section=reports", caption: "신고 / 문의 흐름" },
-        ]}
-      />
-    </div>
-  );
+  return <MyCommunityPostsPanel />;
 }
 
 function MyCommunityPostsPanel() {
