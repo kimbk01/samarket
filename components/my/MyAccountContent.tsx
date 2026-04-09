@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
+import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -74,7 +75,7 @@ export function MyAccountContent() {
         <div className="min-w-0 flex-1">
           <p className="text-[17px] font-semibold text-gray-900">{displayNickname}</p>
           <p className="mt-0.5 truncate text-[13px] text-gray-500">{t("account_nickname_note")}</p>
-          <Link href="/mypage/edit" className="mt-2 inline-block text-[14px] font-medium text-signature">
+          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block text-[14px] font-medium text-signature">
             {t("account_edit_profile")}
           </Link>
         </div>
@@ -83,10 +84,7 @@ export function MyAccountContent() {
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-gray-900">{t("account_info_title")}</h2>
-          <Link
-            href="/mypage/edit"
-            className="text-[14px] font-medium text-signature"
-          >
+          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="text-[14px] font-medium text-signature">
             {t("account_edit")}
           </Link>
         </div>

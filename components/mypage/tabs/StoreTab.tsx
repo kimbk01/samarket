@@ -40,7 +40,7 @@ export function StoreTab({
       >
         <MyPageQuickActions
           items={[
-            { label: "주문 내역 열기", href: "/mypage?tab=store&section=orders", caption: "주문 카드에서 채팅 바로 이동" },
+            { label: "주문 내역 열기", href: "/mypage/section/store/orders", caption: "주문 카드에서 채팅 바로 이동" },
             { label: "기존 주문 페이지", href: "/mypage/store-orders", caption: "하위 상세 경로 유지" },
           ]}
         />
@@ -57,7 +57,7 @@ export function StoreTab({
         <MyPageQuickActions
           items={[
             { label: "포인트", href: "/mypage/points", caption: "보유 포인트와 변동 내역" },
-            { label: "주문 내역", href: "/mypage?tab=store&section=orders", caption: "결제된 주문 확인" },
+            { label: "주문 내역", href: "/mypage/section/store/orders", caption: "결제된 주문 확인" },
           ]}
         />
       </TabShell>
@@ -83,7 +83,7 @@ export function StoreTab({
       >
         <MyPageQuickActions
           items={[
-            { label: "내 주문", href: "/mypage?tab=store&section=orders", caption: "구매자 기준 주문 관리" },
+            { label: "내 주문", href: "/mypage/section/store/orders", caption: "구매자 기준 주문 관리" },
             {
               label: hasOwnerStore ? "사장님 주문 관리" : "매장 신청",
               href: hasOwnerStore ? businessOrdersHref : "/mypage/business/apply",
@@ -126,7 +126,7 @@ export function StoreTab({
         description="라이더 전용 권한과 화면은 별도 운영 흐름이 필요해 현재는 기존 배송 / 주문 흐름을 유지합니다."
       >
         <MyPageQuickActions
-          items={[{ label: "주문 내역", href: "/mypage?tab=store&section=orders", caption: "현재 배송 관련 주문 확인" }]}
+          items={[{ label: "주문 내역", href: "/mypage/section/store/orders", caption: "현재 배송 관련 주문 확인" }]}
         />
       </TabShell>
     );

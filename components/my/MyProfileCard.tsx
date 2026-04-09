@@ -9,6 +9,7 @@ import {
   resolveProfileLocationAddressOneLine,
 } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
+import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 
 export type AddressDefaultsFlags = {
   life: boolean;
@@ -39,7 +40,7 @@ export function MyProfileCard({
   mannerScore,
   isBusinessMember,
   accountHref = "/mypage/account",
-  editHref = "/my/edit",
+  editHref = MYPAGE_PROFILE_EDIT_HREF,
   addressDefaults,
 }: MyProfileCardProps) {
   const { tt } = useI18n();

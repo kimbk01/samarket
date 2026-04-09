@@ -16,6 +16,7 @@ import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
 import { FloatingAddButton } from "./FloatingAddButton";
 import { OwnerLiteStoreBar } from "./OwnerLiteStoreBar";
+import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 
 const NotificationSoundPrime = dynamic(
   () => import("@/components/notifications/NotificationSoundPrime").then((mod) => mod.NotificationSoundPrime),
@@ -63,7 +64,7 @@ export function ConditionalAppShell({
   const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
   const isSettings = pathname?.startsWith("/my/settings") ?? false;
   const isLogout = pathname === "/my/logout";
-  const isMyEdit = pathname === "/my/edit";
+  const isMyEdit = isProfileEditPath(pathname);
   const isProductEditPage = pathname?.match(/^\/products\/[^/]+\/edit$/) ?? false;
   /** 개인거래 상품 등록·수정 — 하단 탭은 유지하되 매장 단축 바(OwnerLiteStoreBar)는 노출하지 않음 */
   const isPersonalProductComposerPage =

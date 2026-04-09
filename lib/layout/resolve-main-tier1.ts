@@ -263,7 +263,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "내상품 관리", subtitle: "거래·판매 글", showHubQuickActions: true });
   }
 
-  if (p === "/my/edit") {
+  if (p === "/my/edit" || p === "/mypage/edit" || p === "/mypage/section/account/profile/edit") {
     return backMypage({ titleText: "프로필 수정", subtitle: "닉네임·사진·소개", showHubQuickActions: true });
   }
 

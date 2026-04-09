@@ -3,7 +3,10 @@ import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
-import { buildMyPageHref } from "@/components/mypage/mypage-nav";
+import {
+  MYPAGE_PROFILE_EDIT_HREF,
+  buildMypageItemHref,
+} from "@/lib/mypage/mypage-mobile-nav-registry";
 
 type Props = Pick<
   MyPageConsoleProps,
@@ -44,11 +47,11 @@ export function AccountTab({
         </div>
         <MyPageQuickActions
           items={[
-            { label: "프로필 수정", href: "/mypage/edit", caption: "사진, 닉네임, 소개" },
+            { label: "프로필 수정", href: MYPAGE_PROFILE_EDIT_HREF, caption: "사진, 닉네임, 소개" },
             { label: "계정 기본정보", href: "/mypage/account", caption: "계정 상세와 연락처" },
             {
               label: "주소 관리",
-              href: buildMyPageHref("settings", "address"),
+              href: buildMypageItemHref("settings", "address"),
               caption: "거래 / 생활 / 배달 주소",
             },
           ]}
@@ -64,16 +67,16 @@ export function AccountTab({
         <MyPageQuickActions
           items={[
             { label: "계정 상세", href: "/mypage/account", caption: "내 계정 정보 확인" },
-            { label: "프로필 수정", href: "/mypage/edit", caption: "기본 프로필 편집" },
+            { label: "프로필 수정", href: MYPAGE_PROFILE_EDIT_HREF, caption: "기본 프로필 편집" },
             {
               label: "로그아웃",
-              href: buildMyPageHref("settings", "system"),
-              caption: "설정 > 시스템에서 처리",
+              href: buildMypageItemHref("settings", "logout"),
+              caption: "설정에서 처리",
             },
             {
               label: "탈퇴하기",
-              href: buildMyPageHref("settings", "system"),
-              caption: "설정 > 시스템에서 처리",
+              href: buildMypageItemHref("settings", "leave"),
+              caption: "설정에서 처리",
             },
           ]}
         />

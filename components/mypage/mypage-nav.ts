@@ -1,4 +1,9 @@
 import type { MyPageTabId } from "./types";
+import {
+  buildMypageItemHref,
+  buildMypageSectionHref,
+  mapLegacyMyPageItemSlug,
+} from "@/lib/mypage/mypage-mobile-nav-registry";
 
 export type MyPageSectionItem = {
   id: string;
@@ -246,25 +251,26 @@ export function normalizeMyPageSection(
 /** 모바일에서 전체 메뉴 목록만 표시할 때 `1` */
 export const MYPAGE_MOBILE_NAV_QUERY = "nav";
 
+/** @deprecated 과거 `?tab=&section=` 대신 `/mypage/section/...` 경로로 연결 */
 export function buildMyPageHref(tab: MyPageTabId, section?: string): string {
-  const normalizedSection = normalizeMyPageSection(tab, section);
-  const params = new URLSearchParams();
-  params.set("tab", tab);
-  if (normalizedSection) {
-    params.set("section", normalizedSection);
+  if (!section || section === "home") {
+    return tab === "account" ? "/mypage" : buildMypageSectionHref(tab);
   }
-  return `/mypage?${params.toString()}`;
+  const normalizedSection = normalizeMyPageSection(tab, section);
+  const item = mapLegacyMyPageItemSlug(tab, normalizedSection);
+  return buildMypageItemHref(tab, item);
 }
 
-/** 모바일: 메뉴 선택 화면(목록만). 본문만 보려면 이 파라미터를 붙이지 않음. */
+/** 모바일 메뉴 목록 전용 URL — 현재는 상위 섹션 목록으로 연결 */
 export function buildMyPageMobileMenuHref(
   tab: MyPageTabId,
   section?: string,
 ): string {
-  const base = buildMyPageHref(tab, section);
-  const u = new URL(base, "https://local.local");
-  u.searchParams.set(MYPAGE_MOBILE_NAV_QUERY, "1");
-  return `${u.pathname}${u.search}`;
+  if (section && section !== "home") {
+    const item = mapLegacyMyPageItemSlug(tab, section);
+    return buildMypageItemHref(tab, item);
+  }
+  return buildMypageSectionHref(tab);
 }
 
 /** 내정보 콘솔 상단 헤더(제목·부제) — 선택된 하위 메뉴 기준 */

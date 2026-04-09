@@ -16,8 +16,8 @@ export function MessengerTab({ section }: { section: string }) {
         <div className="mt-4">
           <MyPageQuickActions
             items={[
-              { label: "거래 채팅", href: "/mypage?tab=trade&section=chat", caption: "거래 전용 채팅" },
-              { label: "주문 채팅", href: "/mypage?tab=store&section=order-chat", caption: "주문 전용 채팅" },
+              { label: "거래 채팅", href: "/mypage/section/trade/trade-chat", caption: "거래 전용 채팅" },
+              { label: "주문 채팅", href: "/mypage/section/store/order-chat", caption: "주문 전용 채팅" },
             ]}
           />
         </div>

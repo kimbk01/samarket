@@ -32,6 +32,7 @@ import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
+import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import type { UserSettingsRow } from "@/lib/types/settings-db";
@@ -304,7 +305,7 @@ export function MypageInstagramView({
       : hasOwnerStore
         ? "ON"
         : "–";
-  const editHref = "/mypage/edit";
+  const editHref = MYPAGE_PROFILE_EDIT_HREF;
   const accountHref = "/mypage/account";
   const addressesHref = "/mypage/addresses";
   const storeOrdersHref = "/mypage/store-orders";

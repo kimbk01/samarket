@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import {
   formatPhMobileDisplay,
@@ -113,7 +114,7 @@ export function OwnerStoreBasicInfoForm({
   const hideAppBottomNav =
     (pathname?.startsWith("/my/settings") ?? false) ||
     pathname === "/my/logout" ||
-    pathname === "/my/edit";
+    isProfileEditPath(pathname);
   const dockAboveBottomNav =
     !hideAppBottomNav && (pathname?.startsWith("/my") ?? false);
 

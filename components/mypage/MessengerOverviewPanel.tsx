@@ -127,7 +127,7 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
         </Link>
         {mode === "dm" ? (
           <Link
-            href="/mypage?tab=messenger&section=chat-settings"
+            href="/mypage/section/settings/chat-settings"
             className="rounded-[4px] border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
           >
             채팅 설정

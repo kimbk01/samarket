@@ -12,6 +12,7 @@ import {
   mannerRawToPercent,
 } from "@/lib/trust/manner-battery";
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
+import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 
 export default function MyTrustPage() {
   const [temp, setTemp] = useState<number | null>(() => {
@@ -67,10 +68,10 @@ export default function MyTrustPage() {
           </p>
         </div>
         <Link
-          href="/mypage/account"
+          href={MYPAGE_PROFILE_EDIT_HREF}
           className="mt-6 block text-center text-[14px] font-medium text-signature underline-offset-2 hover:underline"
         >
-          내 계정에서 닉네임·지역 수정
+          프로필 수정에서 닉네임·지역 수정
         </Link>
       </div>
     </div>

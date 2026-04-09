@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 
-export default function MyEditPage() {
-  redirect("/mypage/edit");
+export default function MyEditRedirectPage() {
+  redirect(MYPAGE_PROFILE_EDIT_HREF);
 }

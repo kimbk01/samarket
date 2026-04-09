@@ -159,7 +159,7 @@ export function BusinessApplyForm({
         <p className={OWNER_STORE_FORM_LEAD_CLASS}>신청자 정보</p>
         <p className={OWNER_STORE_FORM_HINT_CLASS}>
           내 프로필에서 가져온 값으로 채워지며, 이 신청서에서만 바꿔도{" "}
-          <span className="font-medium text-gray-600">프로필(/my/edit)은 변경되지 않습니다</span>.
+          <span className="font-medium text-gray-600">개인 프로필(내정보 → 프로필 수정)은 변경되지 않습니다</span>.
         </p>
         <div>
           <label className={OWNER_STORE_FIELD_LABEL_CLASS}>

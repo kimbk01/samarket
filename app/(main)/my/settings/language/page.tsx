@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { buildMyPageHref } from "@/components/mypage/mypage-nav";
 
 export default function LanguagePage() {
-  redirect(buildMyPageHref("settings", "region-language"));
+  redirect("/mypage/section/settings/language");
 }

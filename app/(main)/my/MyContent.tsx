@@ -1,36 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getMyPageData } from "@/lib/my/getMyPageData";
 import type { MyPageData } from "@/lib/my/types";
-import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
-import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyTopBanner } from "@/components/my/MyTopBanner";
-import { MyPageConsole } from "@/components/mypage/MyPageConsole";
-import {
-  buildMyPageMobileMenuHref,
-  MYPAGE_MOBILE_NAV_QUERY,
-  normalizeMyPageSection,
-  normalizeMyPageTab,
-  resolveMyPageConsoleHeader,
-} from "@/components/mypage/mypage-nav";
-import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
-import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
+import { MyPageHomeDashboard } from "@/components/mypage/MyPageHomeDashboard";
+import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
-import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
-import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
-import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
-import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
-import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
-import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import {
-  getUserSettings,
-  subscribeUserSettings,
-  syncUserSettings,
-} from "@/lib/settings/user-settings-store";
+import { MYPAGE_MOBILE_NAV_QUERY, normalizeMyPageTab } from "@/components/mypage/mypage-nav";
+import { mapLegacyMyPageItemSlug } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import {
   MYPAGE_INFO_HUB_SHEET_PARAM,
@@ -38,266 +17,51 @@ import {
   buildMypageInfoHubHref,
 } from "@/lib/my/mypage-info-hub";
 
-type OverviewCounts = {
-  purchases: number | null;
-  sales: number | null;
-  storeAttention: number | null;
-};
-
 export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const infoHubOpen =
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
 
-  const [data, setData] = useState<MyPageData | null>(() =>
-    initialMyPageData !== undefined ? initialMyPageData : null
-  );
-  const [loading, setLoading] = useState(() => initialMyPageData === undefined);
-  const [overviewCounts, setOverviewCounts] = useState<OverviewCounts>({
-    purchases: null,
-    sales: null,
-    storeAttention: null,
-  });
-  /** 매장 CTA(주문·문의 등)에 넣을 대표 매장 id — 허브와 동일 우선순위 */
-  const [ownerHubStoreId, setOwnerHubStoreId] = useState<string | null>(null);
-  /** 심사 중·반려 등 — 매장 진입 시 모달 안내용 */
-  const [ownerStoreGate, setOwnerStoreGate] = useState<OwnerStoreGateState | null>(null);
-  const [ownerStoreGateFirstId, setOwnerStoreGateFirstId] = useState<string | null>(null);
-  const [addressDefaults, setAddressDefaults] = useState<AddressDefaultsFlags>(null);
-  const [neighborhoodFromLife, setNeighborhoodFromLife] = useState<LifeDefaultLocationSummary | null>(null);
-  const { count: favoriteCount } = useMyFavoriteCount();
+  const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined);
   const notificationUnreadCount = useMyNotificationUnreadCount();
-  const isMobileViewport = useIsMobileViewport();
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const d = await getMyPageData();
-    setData(d);
-    setLoading(false);
-  }, []);
-
-  const loadAddressDefaults = useCallback(async () => {
-    try {
-      const res = await fetch("/api/me/address-defaults", { credentials: "include" });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        defaults?: { life?: unknown; trade?: unknown; delivery?: unknown };
-        neighborhoodFromLife?: LifeDefaultLocationSummary;
-      };
-      if (res.ok && json.ok && json.defaults) {
-        setAddressDefaults({
-          life: json.defaults.life != null,
-          trade: json.defaults.trade != null,
-          delivery: json.defaults.delivery != null,
-        });
-        const n = json.neighborhoodFromLife;
-        setNeighborhoodFromLife(
-          n && typeof n === "object" && typeof n.complete === "boolean" && typeof n.label === "string"
-            ? n
-            : null
-        );
-      } else {
-        setAddressDefaults(null);
-        setNeighborhoodFromLife(null);
-      }
-    } catch {
-      setAddressDefaults(null);
-      setNeighborhoodFromLife(null);
-    }
-  }, []);
 
   useEffect(() => {
     if (!infoHubOpen) return;
     router.replace(buildMypageInfoHubHref());
   }, [infoHubOpen, router]);
 
+  /** 레거시 `?tab=&section=` → 계층형 경로 */
   useEffect(() => {
-    if (initialMyPageData !== undefined) return;
+    const tab = searchParams.get("tab");
+    const nav = searchParams.get(MYPAGE_MOBILE_NAV_QUERY);
+    if (nav === "1") {
+      router.replace("/mypage");
+      return;
+    }
+    if (!tab) return;
+    const rawSection = searchParams.get("section");
+    if (tab === "account" && (!rawSection || rawSection === "home")) {
+      router.replace("/mypage");
+      return;
+    }
+    if (!rawSection || rawSection === "home") {
+      router.replace(`/mypage/section/${encodeURIComponent(tab)}`);
+      return;
+    }
+    const normalizedTab = normalizeMyPageTab(tab);
+    const item = mapLegacyMyPageItemSlug(normalizedTab, rawSection);
+    router.replace(`/mypage/section/${encodeURIComponent(normalizedTab)}/${encodeURIComponent(item)}`);
+  }, [router, searchParams]);
+
+  const loadBanner = useCallback(() => {
     void load();
-  }, [load, initialMyPageData]);
-
-  /** 서버 선로딩 시 배너 숨김은 로컬 설정과 맞춤 */
-  useEffect(() => {
-    if (initialMyPageData === undefined || !data?.profile?.id) return;
-    const uid = data.profile.id.trim();
-    if (!uid) return;
-    const applyHidden = () => {
-      const hidden = getUserSettings(uid).app_banner_hidden === true;
-      setData((prev) => (prev && hidden !== prev.bannerHidden ? { ...prev, bannerHidden: hidden } : prev));
-    };
-    applyHidden();
-    void syncUserSettings(uid).then(() => applyHidden());
-    return subscribeUserSettings(({ userId, settings }) => {
-      if (userId === uid && typeof settings.app_banner_hidden === "boolean") {
-        applyHidden();
-      }
-    });
-  }, [initialMyPageData, data?.profile?.id]);
-
-  const loadAddressDefaultsRef = useRef(loadAddressDefaults);
-
-  useEffect(() => {
-    loadAddressDefaultsRef.current = loadAddressDefaults;
-  }, [loadAddressDefaults]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onProfileUpdated = () => {
-      void load();
-      void loadAddressDefaultsRef.current();
-    };
-    window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
-    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
   }, [load]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        void load();
-        if (getCurrentUser()?.id?.trim()) void loadAddressDefaultsRef.current();
-      }
-    };
-    window.addEventListener("pageshow", onPageShow);
-    return () => window.removeEventListener("pageshow", onPageShow);
-  }, [load]);
-
-  const viewerId = data?.profile?.id?.trim() ?? "";
-  const hasOwnerStoreFlag = data?.hasOwnerStore ?? false;
-
-  useEffect(() => {
-    if (!viewerId) {
-      setAddressDefaults(null);
-      setNeighborhoodFromLife(null);
-      return;
-    }
-    void loadAddressDefaults();
-  }, [viewerId, loadAddressDefaults]);
-
-  useEffect(() => {
-    if (!viewerId) {
-      setOwnerHubStoreId(null);
-      setOwnerStoreGate(null);
-      setOwnerStoreGateFirstId(null);
-      setOverviewCounts({ purchases: null, sales: null, storeAttention: null });
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadCounts = async () => {
-      try {
-        const [tradeResult, storesPacket] = await Promise.all([
-          fetchTradeHistoryCounts(viewerId),
-          hasOwnerStoreFlag ? fetchMeStoresListDeduped() : Promise.resolve(null),
-        ]);
-        const { purchaseCount, salesCount } = tradeResult;
-
-        let storeAttention: number | null = null;
-        let hubStoreId: string | null = null;
-        if (hasOwnerStoreFlag && storesPacket) {
-          const { status, json: rawStores } = storesPacket;
-          const storesJson = rawStores as {
-            ok?: boolean;
-            stores?: Array<{
-              id: string;
-              approval_status?: string | null;
-              rejected_reason?: string | null;
-              revision_note?: string | null;
-              is_visible?: boolean | null;
-              sales_permission?: {
-                allowed_to_sell?: boolean;
-                sales_status?: string | null;
-              } | null;
-            }>;
-          };
-
-          if (status !== 401 && storesJson.ok && Array.isArray(storesJson.stores)) {
-            const list = storesJson.stores;
-            if (!cancelled) {
-              const forGate = list.map((s) => ({
-                id: s.id,
-                approval_status: String(s.approval_status ?? ""),
-                rejected_reason: s.rejected_reason ?? null,
-                revision_note: s.revision_note ?? null,
-              }));
-              setOwnerStoreGate(getOwnerStoreGateState(forGate));
-              setOwnerStoreGateFirstId(list[0]?.id?.trim() ?? null);
-            }
-
-            const targetStore =
-              list.find(
-                (store) =>
-                  String(store.approval_status) === "approved" &&
-                  store.is_visible === true &&
-                  store.sales_permission?.allowed_to_sell === true &&
-                  String(store.sales_permission?.sales_status ?? "") === "approved"
-              ) ?? list[0];
-
-            if (targetStore?.id) {
-              hubStoreId = targetStore.id.trim() || null;
-              const { json: rawCounts } = await fetchStoreOrderCountsDeduped(targetStore.id);
-              const countsJson = rawCounts as {
-                ok?: boolean;
-                refund_requested_count?: unknown;
-                pending_accept_count?: unknown;
-              };
-              if (countsJson.ok) {
-                const refund = Math.max(0, Math.floor(Number(countsJson.refund_requested_count) || 0));
-                const pending = Math.max(0, Math.floor(Number(countsJson.pending_accept_count) || 0));
-                storeAttention = refund + pending;
-              }
-            }
-          } else if (!cancelled) {
-            setOwnerStoreGate(null);
-            setOwnerStoreGateFirstId(null);
-          }
-        } else if (!cancelled) {
-          setOwnerStoreGate(null);
-          setOwnerStoreGateFirstId(null);
-        }
-
-        if (!cancelled) {
-          setOwnerHubStoreId(hubStoreId);
-          setOverviewCounts({
-            purchases: purchaseCount,
-            sales: salesCount,
-            storeAttention,
-          });
-        }
-      } catch {
-        if (!cancelled) {
-          setOwnerHubStoreId(null);
-          setOwnerStoreGate(null);
-          setOwnerStoreGateFirstId(null);
-          setOverviewCounts((prev) => ({
-            purchases: prev.purchases,
-            sales: prev.sales,
-            storeAttention: prev.storeAttention,
-          }));
-        }
-      }
-    };
-
-    void loadCounts();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [viewerId, hasOwnerStoreFlag]);
-
-  const mypageTab = normalizeMyPageTab(searchParams.get("tab"));
-  const mypageSection = normalizeMyPageSection(mypageTab, searchParams.get("section"));
-  const mypageNavListMode = searchParams.get(MYPAGE_MOBILE_NAV_QUERY) === "1";
-  const mypageHeader = mypageNavListMode
-    ? { title: "내정보 메뉴", subtitle: "항목을 선택하세요" }
-    : resolveMyPageConsoleHeader(mypageTab, mypageSection);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <MyPageHeader notificationUnreadCount={notificationUnreadCount} />
+        <MyPageHeader notificationUnreadCount={notificationUnreadCount} backFallbackHref="/home" />
         <div className={`${APP_MAIN_COLUMN_CLASS} space-y-4 px-4 pt-4 pb-8`}>
           <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)]">
             내정보를 불러오는 중이에요.
@@ -310,7 +74,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (!data) {
     return (
       <div className="min-h-screen bg-background">
-        <MyPageHeader notificationUnreadCount={notificationUnreadCount} />
+        <MyPageHeader notificationUnreadCount={notificationUnreadCount} backFallbackHref="/home" />
         <div className={`${APP_MAIN_COLUMN_CLASS} space-y-4 px-4 pt-4 pb-8`}>
           <div className="rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)]">
             로그인이 필요합니다.
@@ -320,71 +84,34 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     );
   }
 
-  const { profile, banner, bannerHidden, mannerScore, isBusinessMember, isAdmin, hasOwnerStore } =
-    data;
+  const { profile, banner, bannerHidden, mannerScore } = data;
   const showBanner = banner && !bannerHidden;
-
-  const favoriteBadge =
-    favoriteCount != null && favoriteCount > 0 ? `${favoriteCount > 99 ? "99+" : favoriteCount}` : null;
-  const notificationBadge =
-    notificationUnreadCount != null && notificationUnreadCount > 0
-      ? `${notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}`
-      : null;
-
-  const storeAttentionSummary =
-    hasOwnerStore && overviewCounts.storeAttention != null
-      ? `처리 ${overviewCounts.storeAttention}건`
-      : hasOwnerStore
-        ? "새 주문·문의 확인"
-        : null;
-
-  const column = (
-    <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col max-w-lg sm:max-w-xl md:max-w-2xl lg:max-w-6xl xl:max-w-7xl">
-      {showBanner ? (
-        <div className="shrink-0 px-4 pt-4">
-          <MyTopBanner banner={banner} onDismiss={load} />
-        </div>
-      ) : null}
-
-      {profile ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <MyPageConsole
-            profile={profile}
-            mannerScore={mannerScore}
-            isBusinessMember={isBusinessMember}
-            hasOwnerStore={hasOwnerStore}
-            ownerHubStoreId={ownerHubStoreId}
-            isAdmin={isAdmin}
-            addressDefaults={addressDefaults}
-            neighborhoodFromLife={neighborhoodFromLife}
-            overviewCounts={overviewCounts}
-            favoriteBadge={favoriteBadge}
-            notificationBadge={notificationBadge}
-            storeAttentionSummary={storeAttentionSummary}
-          />
-        </div>
-      ) : (
-        <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)] sm:mx-0">
-          프로필을 불러오지 못했어요. 다시 로그인해 주세요.
-        </div>
-      )}
-    </div>
-  );
-
-  const mypageBackFallback =
-    profile && isMobileViewport && !mypageNavListMode
-      ? buildMyPageMobileMenuHref(mypageTab, mypageSection)
-      : "/home";
 
   return (
     <div className="flex min-h-screen flex-col bg-background pb-8">
       <MyPageHeader
         notificationUnreadCount={notificationUnreadCount}
-        centerTitle={profile ? mypageHeader.title : null}
-        centerSubtitle={profile ? mypageHeader.subtitle ?? null : null}
-        backFallbackHref={profile ? mypageBackFallback : "/home"}
+        centerTitle="내정보"
+        centerSubtitle={null}
+        backFallbackHref="/home"
       />
-      {column}
+      <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col">
+        {profile ? (
+          <MyPageHomeDashboard
+            profile={profile}
+            mannerScore={mannerScore}
+            overviewCounts={overviewCounts}
+            showBanner={Boolean(showBanner)}
+            bannerSlot={
+              showBanner ? <MyTopBanner banner={banner} onDismiss={loadBanner} /> : null
+            }
+          />
+        ) : (
+          <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)] sm:mx-0">
+            프로필을 불러오지 못했어요. 다시 로그인해 주세요.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

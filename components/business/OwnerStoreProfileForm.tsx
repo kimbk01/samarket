@@ -11,6 +11,7 @@ import {
   OWNER_STORE_TIME_BLOCK_BUTTON_CLASS,
 } from "@/lib/business/owner-store-stack";
 import { usePathname } from "next/navigation";
+import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
@@ -326,7 +327,7 @@ export function OwnerStoreProfileForm({
   const hideAppBottomNav =
     (pathname?.startsWith("/my/settings") ?? false) ||
     pathname === "/my/logout" ||
-    pathname === "/my/edit";
+    isProfileEditPath(pathname);
   const dockAboveBottomNav =
     !hideAppBottomNav && (pathname?.startsWith("/my") ?? false);
 

@@ -13,7 +13,7 @@ export const STORE_LOCATION_SECTION_HINT_STORE_PUBLIC =
 /** 로컬 mock 프로필 편집 등 */
 export const STORE_LOCATION_SECTION_HINT_MOCK_EDIT =
   "실제 매장은 기본 정보 화면과 동일하게 지역·동네·ZIP·지번·동·호를 입력합니다.";
-/** /my/edit 프로필 수정 */
+/** `/mypage/section/account/profile/edit` 프로필 수정 */
 export const STORE_LOCATION_SECTION_HINT_PROFILE_EDIT =
   "매장 신청·기본 정보와 같습니다. 지역·동네·ZIP 아래에 지번·건물과 동·호·출입을 입력하세요.";
 /** 생활·거래·배달 주소록 시트 */

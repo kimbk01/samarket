@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
+import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { buildMyPageHref, MYPAGE_NAV } from "./mypage-nav";
 import { MYPAGE_TYPO } from "./mypage-typography";
 import type { MyPageTabId } from "./types";
@@ -47,7 +48,7 @@ export function MyPageSidebar({
         </div>
         <button
           type="button"
-          onClick={() => router.push("/mypage/edit")}
+          onClick={() => router.push(MYPAGE_PROFILE_EDIT_HREF)}
           className={`mt-3 w-full rounded-md border border-gray-200 py-2 text-center font-medium text-gray-700 hover:bg-gray-50 ${MYPAGE_TYPO.navItem}`}
         >
           프로필 수정
