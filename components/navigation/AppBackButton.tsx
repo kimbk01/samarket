@@ -98,7 +98,7 @@ export function AppBackButton({
   return (
     <button
       type="button"
-      onClick={() => (onBack ? onBack() : router.back())}
+      onClick={() => (onBack ? onBack() : runHistoryBackWithFallback(router))}
       className={mergedClass}
       aria-label={resolvedAriaLabel}
     >

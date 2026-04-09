@@ -133,10 +133,7 @@ function MyCommunityPostsPanel() {
 
   return (
     <div className="space-y-4">
-      <MyPageSectionHeader
-        title="내가 쓴 글"
-        description="내가 남긴 커뮤니티 글을 최근순으로 확인합니다."
-      />
+      <MyPageSectionHeader description="내가 남긴 커뮤니티 글을 최근순으로 확인합니다." />
       <div className="rounded-[4px] border border-gray-200 bg-white">
         {loading ? (
           <div className="px-4 py-8 text-center text-[12px] text-gray-500">불러오는 중입니다.</div>
@@ -170,7 +167,6 @@ function MyCommunityPostsPanel() {
 }
 
 function SectionShell({
-  title,
   description,
   children,
 }: {
@@ -180,7 +176,7 @@ function SectionShell({
 }) {
   return (
     <div className="space-y-4">
-      <MyPageSectionHeader title={title} description={description} />
+      <MyPageSectionHeader description={description} />
       {children}
     </div>
   );

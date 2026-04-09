@@ -147,7 +147,6 @@ export function SettingsTab({ section }: { section: string }) {
 }
 
 function TabShell({
-  title,
   description,
   children,
 }: {
@@ -157,7 +156,7 @@ function TabShell({
 }) {
   return (
     <div className="space-y-4">
-      <MyPageSectionHeader title={title} description={description} />
+      <MyPageSectionHeader description={description} />
       <div className="space-y-3">{children}</div>
     </div>
   );

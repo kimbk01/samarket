@@ -90,7 +90,6 @@ export function TradeTab({ section }: { section: string }) {
 }
 
 function TabShell({
-  title,
   description,
   children,
 }: {
@@ -100,7 +99,7 @@ function TabShell({
 }) {
   return (
     <div className="space-y-4">
-      <MyPageSectionHeader title={title} description={description} />
+      <MyPageSectionHeader description={description} />
       <div className="rounded-md border border-gray-200 bg-white p-3">{children}</div>
     </div>
   );

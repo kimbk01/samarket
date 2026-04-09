@@ -1,8 +1,9 @@
 /**
  * App Router 공통 뒤로가기 규칙:
  * 1) 앱 내부 이전 화면이 있으면 history back 우선
- * 2) 외부 사이트로 나갈 가능성이 있으면 back 대신 fallbackHref 유지
- * 3) 내부 히스토리가 없거나 경로가 그대로면 fallbackHref로 이동
+ * 2) 외부 사이트에서 들어온 경우(document.referrer가 다른 오리진)에는 back으로 이탈하지 않고 폴백
+ * 3) 리퍼러가 비어 있는 순수 클라이언트 전환 등은 history.length로 보조 판단 후 back 시도
+ * 4) 내부 히스토리가 없거나 경로가 그대로면 fallbackHref로 이동
  */
 export function runHistoryBackWithFallback(
   router: { back: () => void; push: (href: string) => void },
@@ -15,19 +16,48 @@ export function runHistoryBackWithFallback(
     return;
   }
 
-  if (!canUseSafeInAppHistoryBack()) {
+  const before = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  const pushFallbackIfStale = () => {
+    if (!fallbackHref) return;
+    window.setTimeout(() => {
+      const after = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (after === before) router.push(fallbackHref);
+    }, delayMs);
+  };
+
+  const tryHistoryBack = () => {
+    router.back();
+    pushFallbackIfStale();
+  };
+
+  if (canUseSafeInAppHistoryBack()) {
+    tryHistoryBack();
+    return;
+  }
+
+  if (isReferrerExternalOrigin()) {
     if (fallbackHref) router.push(fallbackHref);
     else router.back();
     return;
   }
 
-  const before = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  router.back();
-  if (!fallbackHref) return;
-  window.setTimeout(() => {
-    const after = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (after === before) router.push(fallbackHref);
-  }, delayMs);
+  if (fallbackHref && window.history.length > 1) {
+    tryHistoryBack();
+    return;
+  }
+
+  if (fallbackHref) router.push(fallbackHref);
+  else router.back();
+}
+
+function isReferrerExternalOrigin(): boolean {
+  if (!document.referrer) return false;
+  try {
+    return new URL(document.referrer).origin !== window.location.origin;
+  } catch {
+    return true;
+  }
 }
 
 function canUseSafeInAppHistoryBack(): boolean {

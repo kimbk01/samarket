@@ -85,6 +85,7 @@ export const myMessages = {
     hub_alert_aria: "알림",
     hub_alert_unread_aria: "알림, 읽지 않음 {count}건",
     hub_settings_aria: "설정",
+    mypage_console_menu_aria: "내정보 메뉴",
     address_manage_title: "주소 관리",
     address_manage_subtitle: "생활·거래·배달 기본 주소",
     address_manage_desc:
@@ -312,6 +313,7 @@ export const myMessages = {
     hub_alert_aria: "Notifications",
     hub_alert_unread_aria: "Notifications, {count} unread",
     hub_settings_aria: "Settings",
+    mypage_console_menu_aria: "My page menu",
     address_manage_title: "Address management",
     address_manage_subtitle: "Default addresses for daily life, trade, and delivery",
     address_manage_desc:
@@ -534,6 +536,7 @@ export const myMessages = {
     hub_alert_aria: "通知",
     hub_alert_unread_aria: "通知，未读 {count} 条",
     hub_settings_aria: "设置",
+    mypage_console_menu_aria: "我的页面菜单",
     address_manage_title: "地址管理",
     address_manage_subtitle: "生活、交易、配送默认地址",
     address_manage_desc:

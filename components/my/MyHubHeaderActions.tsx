@@ -17,17 +17,18 @@ type Props = {
 export function MyHubHeaderActions({ notificationUnreadCount }: Props) {
   const pathname = usePathname();
   const { t } = useI18n();
-  const hideSettingsGear = normalizeAppPathnameForTier1(pathname) === "/mypage";
+  const pathBase = normalizeAppPathnameForTier1(pathname);
+  const hideSettingsGear = pathBase === "/mypage";
   const showBadge = notificationUnreadCount != null && notificationUnreadCount > 0;
   const badgeText =
     notificationUnreadCount != null && notificationUnreadCount > 99
       ? "99+"
       : String(notificationUnreadCount ?? "");
 
+  const widthClass = hideSettingsGear ? "w-[44px]" : "w-[88px]";
+
   return (
-    <div
-      className={`flex shrink-0 items-center justify-end gap-0.5 ${hideSettingsGear ? "w-[44px]" : "w-[88px]"}`}
-    >
+    <div className={`flex shrink-0 items-center justify-end gap-0.5 ${widthClass}`}>
       <Link
         href="/mypage/notifications"
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"

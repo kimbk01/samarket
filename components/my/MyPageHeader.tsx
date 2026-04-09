@@ -6,6 +6,7 @@ type Props = {
   notificationUnreadCount?: number | null;
   backFallbackHref?: string;
   centerTitle?: string | null;
+  centerSubtitle?: string | null;
 };
 
 /**
@@ -16,10 +17,12 @@ export function MyPageHeader({
   notificationUnreadCount,
   backFallbackHref = "/home",
   centerTitle,
+  centerSubtitle,
 }: Props) {
   return (
     <MySubpageHeader
       title={centerTitle?.trim() ? centerTitle.trim() : "내정보"}
+      subtitle={centerSubtitle?.trim() ? centerSubtitle.trim() : undefined}
       backHref={backFallbackHref}
       preferHistoryBack
       hideCtaStrip

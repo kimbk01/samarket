@@ -27,10 +27,7 @@ export function AccountTab({
   if (section === "profile") {
     return (
       <div className="space-y-4">
-        <MyPageSectionHeader
-          title="프로필"
-          description="닉네임, 프로필 사진, 기본 소개와 지역 정보를 확인하고 수정합니다."
-        />
+        <MyPageSectionHeader description="닉네임, 프로필 사진, 기본 소개와 지역 정보를 확인하고 수정합니다." />
         <div className="rounded-[4px] border border-gray-200 bg-white p-4">
           <div className="space-y-2">
             <p className="text-[14px] font-semibold text-gray-900">
@@ -63,10 +60,7 @@ export function AccountTab({
   if (section === "basic") {
     return (
       <div className="space-y-4">
-        <MyPageSectionHeader
-          title="계정 기본정보"
-          description="계정 상세, 연락처 인증, 로그아웃과 탈퇴 같은 계정 단위 작업을 관리합니다."
-        />
+        <MyPageSectionHeader description="계정 상세, 연락처 인증, 로그아웃과 탈퇴 같은 계정 단위 작업을 관리합니다." />
         <MyPageQuickActions
           items={[
             { label: "계정 상세", href: "/mypage/account", caption: "내 계정 정보 확인" },
@@ -90,10 +84,7 @@ export function AccountTab({
   if (section === "favorite-users") {
     return (
       <div className="space-y-4">
-        <MyPageSectionHeader
-          title="친구 / 관심 사용자"
-          description="모아보는 사용자를 관리합니다. 거래, 커뮤니티, 메신저에서 공통으로 참조되는 사용자 목록입니다."
-        />
+        <MyPageSectionHeader description="모아보는 사용자를 관리합니다. 거래, 커뮤니티, 메신저에서 공통으로 참조되는 사용자 목록입니다." />
         <div className="rounded-[4px] border border-gray-200 bg-white p-4">
           <UserListContent type="favorite" emptyMessage="모아보는 사용자가 없습니다." />
         </div>
@@ -104,10 +95,7 @@ export function AccountTab({
   if (section === "blocked-users") {
     return (
       <div className="space-y-4">
-        <MyPageSectionHeader
-          title="차단 사용자"
-          description="차단된 사용자는 거래, 커뮤니티, 메신저에서 공통으로 제한됩니다."
-        />
+        <MyPageSectionHeader description="차단된 사용자는 거래, 커뮤니티, 메신저에서 공통으로 제한됩니다." />
         <div className="rounded-[4px] border border-gray-200 bg-white p-4">
           <UserListContent type="blocked" emptyMessage="차단한 사용자가 없습니다." />
         </div>
@@ -118,10 +106,7 @@ export function AccountTab({
   if (section === "hidden-users") {
     return (
       <div className="space-y-4">
-        <MyPageSectionHeader
-          title="숨긴 사용자"
-          description="숨김 처리한 사용자는 피드와 일부 목록 노출에서 제외됩니다."
-        />
+        <MyPageSectionHeader description="숨김 처리한 사용자는 피드와 일부 목록 노출에서 제외됩니다." />
         <div className="rounded-[4px] border border-gray-200 bg-white p-4">
           <UserListContent type="hidden" emptyMessage="숨긴 사용자가 없습니다." />
         </div>
@@ -131,10 +116,7 @@ export function AccountTab({
 
   return (
     <div className="space-y-4">
-      <MyPageSectionHeader
-        title="내정보 홈"
-        description="내 계정 상태와 주요 활동을 한눈에 확인합니다."
-      />
+      <MyPageSectionHeader description="내 계정 상태와 주요 활동을 한눈에 확인합니다." />
       <div className="rounded-[4px] border border-gray-200 bg-white p-4">
         <div className="space-y-2">
           <p className="text-[15px] font-bold text-gray-900">

@@ -1363,7 +1363,7 @@ export function ChatDetailView({
                 className={`flex h-14 items-center gap-2 ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}
               >
                 <AppBackButton
-                  preferHistoryBack={!isStoreOrderChat}
+                  preferHistoryBack
                   backHref={isStoreOrderChat ? effectiveListHref : undefined}
                   ariaLabel="이전 화면"
                 />

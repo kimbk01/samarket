@@ -9,6 +9,11 @@ import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-lo
 import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyTopBanner } from "@/components/my/MyTopBanner";
 import { MyPageConsole } from "@/components/mypage/MyPageConsole";
+import {
+  normalizeMyPageSection,
+  normalizeMyPageTab,
+  resolveMyPageConsoleHeader,
+} from "@/components/mypage/mypage-nav";
 import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
 import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
@@ -278,10 +283,9 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     };
   }, [viewerId, hasOwnerStoreFlag]);
 
-  const headerCenterTitle =
-    data?.profile?.nickname?.trim() ||
-    data?.profile?.email?.split("@")[0] ||
-    null;
+  const mypageTab = normalizeMyPageTab(searchParams.get("tab"));
+  const mypageSection = normalizeMyPageSection(mypageTab, searchParams.get("section"));
+  const mypageHeader = resolveMyPageConsoleHeader(mypageTab, mypageSection);
 
   if (loading) {
     return (
@@ -327,41 +331,47 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
         ? "새 주문·문의 확인"
         : null;
 
+  const column = (
+    <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col max-w-lg sm:max-w-xl md:max-w-2xl lg:max-w-6xl xl:max-w-7xl">
+      {showBanner ? (
+        <div className="shrink-0 px-4 pt-4">
+          <MyTopBanner banner={banner} onDismiss={load} />
+        </div>
+      ) : null}
+
+      {profile ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <MyPageConsole
+            profile={profile}
+            mannerScore={mannerScore}
+            isBusinessMember={isBusinessMember}
+            hasOwnerStore={hasOwnerStore}
+            ownerHubStoreId={ownerHubStoreId}
+            isAdmin={isAdmin}
+            addressDefaults={addressDefaults}
+            neighborhoodFromLife={neighborhoodFromLife}
+            overviewCounts={overviewCounts}
+            favoriteBadge={favoriteBadge}
+            notificationBadge={notificationBadge}
+            storeAttentionSummary={storeAttentionSummary}
+          />
+        </div>
+      ) : (
+        <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)] sm:mx-0">
+          프로필을 불러오지 못했어요. 다시 로그인해 주세요.
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen flex-col bg-background pb-8">
-      <MyPageHeader notificationUnreadCount={notificationUnreadCount} centerTitle={headerCenterTitle} />
-        <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col max-w-lg sm:max-w-xl md:max-w-2xl lg:max-w-6xl xl:max-w-7xl">
-        {showBanner ? (
-          <div className="shrink-0 px-4 pt-4">
-            <MyTopBanner banner={banner} onDismiss={load} />
-          </div>
-        ) : null}
-
-        {profile ? (
-          <>
-            <div className="flex min-h-0 flex-1 flex-col">
-              <MyPageConsole
-                profile={profile}
-                mannerScore={mannerScore}
-                isBusinessMember={isBusinessMember}
-                hasOwnerStore={hasOwnerStore}
-                ownerHubStoreId={ownerHubStoreId}
-                isAdmin={isAdmin}
-                addressDefaults={addressDefaults}
-                neighborhoodFromLife={neighborhoodFromLife}
-                overviewCounts={overviewCounts}
-                favoriteBadge={favoriteBadge}
-                notificationBadge={notificationBadge}
-                storeAttentionSummary={storeAttentionSummary}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="mx-4 mt-4 rounded-2xl border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)] sm:mx-0">
-            프로필을 불러오지 못했어요. 다시 로그인해 주세요.
-          </div>
-        )}
-      </div>
+      <MyPageHeader
+        notificationUnreadCount={notificationUnreadCount}
+        centerTitle={profile ? mypageHeader.title : null}
+        centerSubtitle={profile ? mypageHeader.subtitle ?? null : null}
+      />
+      {column}
     </div>
   );
 }
