@@ -5,6 +5,7 @@ import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { applyTrustScoreDelta } from "@/lib/trust/trust-score-apply";
 import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
 /** 구매자 문제있어요 — 분쟁 + 온도 보류 로그 + 신고 접수 */
 export async function POST(
@@ -93,7 +94,7 @@ export async function POST(
       notification_type: "report",
       title: "거래 관련 문의가 접수되었어요",
       body: "운영팀 검토 전까지 온도 반영이 보류될 수 있어요.",
-      link_url: `/chats/${resolved.productChatId}`,
+      link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
     });
   } catch {
     /* ignore */

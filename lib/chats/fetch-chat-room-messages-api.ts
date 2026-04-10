@@ -88,7 +88,9 @@ export function integratedChatRowToMessage(
 }
 
 const integratedMessagesKey = (roomId: string) => `chat:integrated-messages:${roomId}`;
-const MESSAGE_CACHE_TTL_MS = 20_000;
+/** 클라이언트 메시지 메모리 캐시 TTL — `ChatDetailView` 초기 로드·스켈레톤 회피와 동일 기준 */
+export const CHAT_MESSAGE_CLIENT_CACHE_TTL_MS = 20_000;
+const MESSAGE_CACHE_TTL_MS = CHAT_MESSAGE_CLIENT_CACHE_TTL_MS;
 type MessageCacheEntry = { messages: ChatMessage[]; updatedAt: number };
 const integratedMessageCache = new Map<string, MessageCacheEntry>();
 const legacyMessageCache = new Map<string, MessageCacheEntry>();

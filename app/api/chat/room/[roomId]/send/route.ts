@@ -14,6 +14,7 @@ import {
   buildProductChatImageContent,
   normalizeIncomingImageUrlList,
 } from "@/lib/chats/chat-image-bundle";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
 export async function POST(
   req: NextRequest,
@@ -146,7 +147,7 @@ export async function POST(
           notification_type: "chat",
           title: "새 메시지",
           body: preview,
-          link_url: `/chats/${roomId}`,
+          link_url: tradeChatNotificationHref(roomId, "product_chat"),
           is_read: false,
         });
       } catch {

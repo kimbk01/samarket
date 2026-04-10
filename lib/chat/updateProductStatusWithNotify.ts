@@ -2,6 +2,7 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import type { PostStatus } from "@/lib/posts/schema";
 
 export type UpdateProductStatusResult = { ok: true } | { ok: false; error: string };
@@ -57,7 +58,7 @@ export async function updateProductStatusWithNotify(
       notification_type: "status",
       title: "거래 상태 변경",
       body: statusLabel,
-      link_url: `/chats/${room.id}`,
+      link_url: tradeChatNotificationHref(room.id, "product_chat"),
       is_read: false,
     });
   }

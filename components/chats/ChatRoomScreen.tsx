@@ -7,7 +7,7 @@ import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getCurrentUserIdForDb, getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { ChatRoom } from "@/lib/types/chat";
+import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { fetchChatRoomDetailApi, peekChatRoomDetailMemory } from "@/lib/chats/fetch-chat-room-detail-api";
@@ -30,6 +30,8 @@ export function ChatRoomScreen({
   embeddedFill = false,
   tradeHubColumnLayout = false,
   ownerStoreOrderModalChrome = false,
+  /** 부트스트랩 시 `?source=` — 상세·메시지 병렬 로드(힌트 일치 시) */
+  chatRoomSourceHint = null,
 }: {
   roomId: string | null;
   openReviewOnMount?: boolean;
@@ -46,6 +48,7 @@ export function ChatRoomScreen({
   tradeHubColumnLayout?: boolean;
   /** 매장 주문 관리 모달 — 상단 탭(채팅·주문)만 표시 */
   ownerStoreOrderModalChrome?: boolean;
+  chatRoomSourceHint?: ChatRoomSource | null;
 }) {
   const { t } = useI18n();
   /**
@@ -68,6 +71,8 @@ export function ChatRoomScreen({
   );
   const [loading, setLoading] = useState(() => Boolean(roomId && !peekChatRoomDetailMemory(roomId)));
   const [err, setErr] = useState<string | null>(null);
+  /** 부트스트랩 응답 메시지 — `ChatDetailView` 가 동일 GET 을 다시 하지 않도록 직접 전달 */
+  const [bootstrapMessages, setBootstrapMessages] = useState<ChatMessage[] | null>(null);
   const chatEntryShellLoggedRef = useRef(false);
   const chatEntryRoomReadyLoggedRef = useRef<string | null>(null);
 
@@ -100,11 +105,13 @@ export function ChatRoomScreen({
     if (!hadPeek) setLoading(true);
     setErr(null);
     try {
-      const result = await fetchChatRoomBootstrapApi(roomId);
+      const result = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint);
       if (!result.ok) {
+        setBootstrapMessages(null);
         if (result.code === "not_found") {
           setErr("not_found");
           setRoom(null);
+          setLoading(false);
           logClientPerf("chat-room-screen.reload", {
             roomId,
             result: "not_found",
@@ -115,6 +122,7 @@ export function ChatRoomScreen({
         if (result.code === "auth") {
           setErr("auth");
           setRoom(null);
+          setLoading(false);
           logClientPerf("chat-room-screen.reload", {
             roomId,
             result: "auth",
@@ -125,6 +133,7 @@ export function ChatRoomScreen({
         if (result.code === "load_failed") {
           setErr("load_failed");
           setRoom(null);
+          setLoading(false);
           logClientPerf("chat-room-screen.reload", {
             roomId,
             result: "load_failed",
@@ -134,6 +143,7 @@ export function ChatRoomScreen({
         }
         setErr("network");
         setRoom(null);
+        setLoading(false);
         logClientPerf("chat-room-screen.reload", {
           roomId,
           result: "network",
@@ -142,6 +152,8 @@ export function ChatRoomScreen({
         return;
       }
       setRoom(result.room);
+      setBootstrapMessages(result.messages);
+      setLoading(false);
       logClientPerf("chat-room-screen.reload", {
         roomId,
         result: "ok",
@@ -150,6 +162,7 @@ export function ChatRoomScreen({
       });
       return;
     } catch {
+      setBootstrapMessages(null);
       /* bootstrap fallback below */
     }
     try {
@@ -195,6 +208,7 @@ export function ChatRoomScreen({
         return;
       }
       setRoom(result.room);
+      setBootstrapMessages(null);
       logClientPerf("chat-room-screen.reload", {
         roomId,
         result: "ok",
@@ -204,7 +218,7 @@ export function ChatRoomScreen({
     } finally {
       setLoading(false);
     }
-  }, [roomId, resolvedUserId]);
+  }, [roomId, resolvedUserId, chatRoomSourceHint]);
 
   /** useEffect 보다 먼저 세션 확인을 시작 — 페인트 직전에 Promise 가 돎 */
   useLayoutEffect(() => {
@@ -237,8 +251,8 @@ export function ChatRoomScreen({
   /** 인증 확인과 병행해 방·메시지 캐시 선채움 — `reload`·`ChatDetailView` 초기 로드가 single-flight 로 합류 */
   useEffect(() => {
     if (!roomId?.trim()) return;
-    warmChatRoomEntryById(roomId);
-  }, [roomId]);
+    warmChatRoomEntryById(roomId, chatRoomSourceHint);
+  }, [roomId, chatRoomSourceHint]);
 
   useEffect(() => {
     if (chatEntryShellLoggedRef.current) return;
@@ -261,10 +275,12 @@ export function ChatRoomScreen({
       setRoom(null);
       setLoading(false);
       setErr(null);
+      setBootstrapMessages(null);
       return;
     }
     const peeked = peekChatRoomDetailMemory(roomId);
     setRoom(peeked);
+    setBootstrapMessages(null);
     setErr(null);
     if (peeked) setLoading(false);
   }, [roomId]);
@@ -276,6 +292,25 @@ export function ChatRoomScreen({
   useRefetchOnPageShowRestore(() => {
     void reload();
   });
+
+  /** 거래 채팅 진입 마커 — early return 앞에 두어 hooks 순서 고정 */
+  useEffect(() => {
+    const viewerForChat = (resolvedUserId ?? getSyncViewerUserIdForClient()) ?? null;
+    if (!room || !viewerForChat) return;
+    if (chatEntryRoomReadyLoggedRef.current === room.id) return;
+    chatEntryRoomReadyLoggedRef.current = room.id;
+    const mark = readTradeChatEntryMark();
+    if (!mark || mark.roomResolvedAt) return;
+    const next = patchTradeChatEntryMark({ roomResolvedAt: Date.now(), roomId: room.id });
+    if (!next?.roomResolvedAt) return;
+    logClientPerf("chat-entry.room-ready", {
+      mode: next.mode,
+      productId: next.productId,
+      roomId: room.id,
+      source: room.source ?? null,
+      elapsedMs: Math.max(0, next.roomResolvedAt - next.startedAt),
+    });
+  }, [room, resolvedUserId]);
 
   const viewportClass =
     embedded && embeddedFill ? "" : embedded ? "" : VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS;
@@ -318,23 +353,6 @@ export function ChatRoomScreen({
   /** 비동기 `getCurrentUserIdForDb` 가 끝나기 전에도 프로필 캐시·테스트 세션이 있으면 즉시 사용 */
   const viewerForChat = (resolvedUserId ?? getSyncViewerUserIdForClient()) ?? null;
 
-  useEffect(() => {
-    if (!room || !viewerForChat) return;
-    if (chatEntryRoomReadyLoggedRef.current === room.id) return;
-    chatEntryRoomReadyLoggedRef.current = room.id;
-    const mark = readTradeChatEntryMark();
-    if (!mark || mark.roomResolvedAt) return;
-    const next = patchTradeChatEntryMark({ roomResolvedAt: Date.now(), roomId: room.id });
-    if (!next?.roomResolvedAt) return;
-    logClientPerf("chat-entry.room-ready", {
-      mode: next.mode,
-      productId: next.productId,
-      roomId: room.id,
-      source: room.source ?? null,
-      elapsedMs: Math.max(0, next.roomResolvedAt - next.startedAt),
-    });
-  }, [room, viewerForChat]);
-
   /** 메모리 peek + 뷰어 ID가 있으면 상세·메시지 로드와 병행해 바로 채팅 UI 표시 */
   if (room && viewerForChat) {
     const isStoreOrderChat = room.generalChat?.kind === "store_order";
@@ -365,6 +383,7 @@ export function ChatRoomScreen({
           embeddedFill={embeddedFill}
           tradeHubColumnLayout={tradeHubColumnLayout}
           ownerStoreOrderModalChrome={ownerStoreOrderModalChrome}
+          initialBootstrapMessages={bootstrapMessages}
         />
       </div>
     );
@@ -382,7 +401,7 @@ export function ChatRoomScreen({
     );
   }
 
-  if (loading && !room) {
+  if (loading && !room && !err) {
     return (
       <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
         <TradeChatLoadingShell

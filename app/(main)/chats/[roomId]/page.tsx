@@ -1,5 +1,6 @@
 import { ChatRoomPageClient } from "./ChatRoomPageClient";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
@@ -35,6 +36,9 @@ export default async function ChatRoomPage({ params, searchParams }: PageProps) 
   const from = firstQueryString(sp.from)?.trim();
   const openReviewOnMount = review === "1";
   const listHref = resolveChatListHref(from);
+  const sourceRaw = firstQueryString(sp.source)?.trim();
+  const chatRoomSourceHint: ChatRoomSource | null =
+    sourceRaw === "chat_room" || sourceRaw === "product_chat" ? sourceRaw : null;
 
   return (
     <ChatRoomPageClient
@@ -42,6 +46,7 @@ export default async function ChatRoomPage({ params, searchParams }: PageProps) 
       openReviewOnMount={openReviewOnMount}
       listHref={listHref}
       initialViewerUserId={initialViewerUserId}
+      chatRoomSourceHint={chatRoomSourceHint}
     />
   );
 }

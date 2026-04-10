@@ -1,5 +1,6 @@
 import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 
 const LIST_HREF = "/mypage/trade/chat";
@@ -22,6 +23,9 @@ export default async function TradeHubChatRoomPage({
   const initialViewerUserId = await getOptionalAuthenticatedUserId();
   const roomId = parseRoomId(raw);
   const openReviewOnMount = firstQueryString(sp.review)?.trim() === "1";
+  const sourceRaw = firstQueryString(sp.source)?.trim();
+  const chatRoomSourceHint: ChatRoomSource | null =
+    sourceRaw === "chat_room" || sourceRaw === "product_chat" ? sourceRaw : null;
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-ig-border bg-white shadow-sm">
@@ -31,6 +35,7 @@ export default async function TradeHubChatRoomPage({
         listHref={LIST_HREF}
         initialViewerUserId={initialViewerUserId}
         tradeHubColumnLayout
+        chatRoomSourceHint={chatRoomSourceHint}
       />
     </section>
   );

@@ -4,6 +4,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getTestAuth } from "@/lib/auth/test-auth-store";
 import { buildProductChatImageContent } from "@/lib/chats/chat-image-bundle";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
 export type SendChatMessageResult =
   | { ok: true; messageId: string }
@@ -164,7 +165,7 @@ export async function sendChatMessage(
     notification_type: "chat",
     title: "새 메시지",
     body: preview,
-    link_url: `/chats/${roomId}`,
+    link_url: tradeChatNotificationHref(roomId, "product_chat"),
     is_read: false,
   });
 

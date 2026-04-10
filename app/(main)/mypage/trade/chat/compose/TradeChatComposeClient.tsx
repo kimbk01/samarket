@@ -104,6 +104,7 @@ export function TradeChatComposeClient({
         listHref={LIST_HREF}
         initialViewerUserId={initialViewerUserId}
         tradeHubColumnLayout
+        chatRoomSourceHint={sourceHint}
       />
     );
   }

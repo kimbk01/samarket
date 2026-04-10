@@ -6,6 +6,7 @@ import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-t
 import { applyTrustScoreDeltaToMany } from "@/lib/trust/trust-score-apply";
 import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
 /** 구매자 거래완료 확인(buyer-confirm) — 평가·후기 작성 가능 상태로 */
 export async function POST(
@@ -79,7 +80,7 @@ export async function POST(
       notification_type: "status",
       title: "구매자가 거래를 확인했어요",
       body: "서로 후기를 남기실 수 있어요.",
-      link_url: `/chats/${resolved.productChatId}`,
+      link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
     });
   } catch {
     /* ignore */

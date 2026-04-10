@@ -57,6 +57,7 @@ import {
   bustIntegratedChatMessagesCache,
   fetchIntegratedChatRoomMessages,
   fetchLegacyChatRoomMessages,
+  CHAT_MESSAGE_CLIENT_CACHE_TTL_MS,
   hasFreshIntegratedChatRoomMessagesCache,
   hasFreshLegacyChatRoomMessagesCache,
   peekIntegratedChatRoomMessagesCache,
@@ -100,6 +101,8 @@ interface ChatDetailViewProps {
   embeddedFill?: boolean;
   tradeHubColumnLayout?: boolean;
   ownerStoreOrderModalChrome?: boolean;
+  /** `ChatRoomScreen` 부트스트랩 직후 — 메시지 GET 이중 호출 방지 */
+  initialBootstrapMessages?: ChatMessage[] | null;
 }
 
 const OPTIMISTIC_MESSAGE_PREFIX = "local:";
@@ -147,6 +150,7 @@ export function ChatDetailView({
   embeddedFill = false,
   tradeHubColumnLayout = false,
   ownerStoreOrderModalChrome: _ownerStoreOrderModalChrome = false,
+  initialBootstrapMessages = null,
 }: ChatDetailViewProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -539,12 +543,26 @@ export function ChatDetailView({
   useEffect(() => {
     const startedAt = perfNow();
     let cancelled = false;
+    if (initialBootstrapMessages != null) {
+      setMessages(initialBootstrapMessages);
+      setMessagesLoading(false);
+      logClientPerf("chat-detail.messages.initial", {
+        roomId: room.id,
+        source: isChatRoom ? "chat_room" : "product_chat",
+        from: "bootstrap_prop",
+        count: initialBootstrapMessages.length,
+        elapsedMs: Math.round(perfNow() - startedAt),
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     const cached = isChatRoom
       ? peekIntegratedChatRoomMessagesCache(room.id)
       : peekLegacyChatRoomMessagesCache(room.id);
     const cacheIsFresh = isChatRoom
-      ? hasFreshIntegratedChatRoomMessagesCache(room.id)
-      : hasFreshLegacyChatRoomMessagesCache(room.id);
+      ? hasFreshIntegratedChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS)
+      : hasFreshLegacyChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS);
     setMessages(cached ?? []);
     setMessagesLoading(cached == null && !cacheIsFresh);
     if (cached && cacheIsFresh) {
@@ -601,7 +619,7 @@ export function ChatDetailView({
       if (!cancelled) setMessagesLoading(false);
     });
     return () => { cancelled = true; };
-  }, [room.id, currentUserId, fetchMessages, isChatRoom]);
+  }, [room.id, currentUserId, fetchMessages, isChatRoom, initialBootstrapMessages]);
 
   useEffect(() => {
     if (messagesLoading) return;
@@ -628,8 +646,8 @@ export function ChatDetailView({
   useEffect(() => {
     if (!room.id || !currentUserId) return;
     const cacheIsFresh = isChatRoom
-      ? hasFreshIntegratedChatRoomMessagesCache(room.id)
-      : hasFreshLegacyChatRoomMessagesCache(room.id);
+      ? hasFreshIntegratedChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS)
+      : hasFreshLegacyChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS);
     const tick = async () => {
       const next = await fetchMessagesForPolling();
       const allowIncomingAlerts = pollTickCountRef.current > 0;

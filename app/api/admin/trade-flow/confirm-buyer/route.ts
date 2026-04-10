@@ -7,6 +7,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
       notification_type: "status",
       title: "구매자 확인이 처리되었어요",
       body: "운영에서 거래완료 확인이 반영되었습니다.",
-      link_url: `/chats/${roomId}`,
+      link_url: tradeChatNotificationHref(roomId, "product_chat"),
     });
   } catch {
     /* ignore */
