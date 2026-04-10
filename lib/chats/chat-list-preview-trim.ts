@@ -40,9 +40,10 @@ function locationOnlyFromPipeRow(text: string): string {
   return (idx >= 0 ? text.slice(0, idx) : text).trim();
 }
 
-/** 부동산: 거래·금액 / 스펙·위치(시간 제외) 두 줄 */
+/** 부동산: 거래·금액 / 스펙·판매자·위치(시간 제외) 두 줄 */
 function compactRealEstateChatRow(preview: PostListPreviewModel): PostListPreviewModel {
-  const blocks = preview.bodyBlocks;
+  const sellerText = preview.bodyBlocks.find((b) => b.row === "seller")?.text?.trim() ?? "";
+  const blocks = preview.bodyBlocks.filter((b) => b.row !== "seller");
   const n = blocks.length;
   const dealPart = preview.listingChips.map((c) => c.text).filter(Boolean).join(" · ");
   const priceText = n >= 1 ? blocks[0].text : "";
@@ -55,7 +56,7 @@ function compactRealEstateChatRow(preview: PostListPreviewModel): PostListPrevie
     locationText = locationOnlyFromPipeRow(blocks[1].text);
   }
   const line1 = [dealPart, priceText].filter(Boolean).join(" · ");
-  const line2 = [specsText, locationText].filter(Boolean).join(" · ");
+  const line2 = [specsText, sellerText, locationText].filter(Boolean).join(" · ");
   const out: PostListBodyBlock[] = [];
   if (line1) out.push({ className: CHAT_LIST_ROW_LINE_PRIMARY, text: line1 });
   if (line2) out.push({ className: CHAT_LIST_ROW_LINE_SECONDARY, text: line2 });
@@ -69,18 +70,21 @@ function compactRealEstateChatRow(preview: PostListPreviewModel): PostListPrevie
   };
 }
 
-/** 알바: 구인유형·제목·급여 한 줄 + 위치(시간 제외) */
+/** 알바: 구인유형·제목·급여 한 줄 + 판매자·위치(시간 제외) */
 function compactJobsChatRow(preview: PostListPreviewModel): PostListPreviewModel {
+  const sellerText = preview.bodyBlocks.find((b) => b.row === "seller")?.text?.trim() ?? "";
+  const rows = preview.bodyBlocks.filter((b) => b.row !== "seller");
   const jobChip = preview.listingChips.map((c) => c.text).filter(Boolean).join(" · ");
-  const [b0, b1, b2] = preview.bodyBlocks;
+  const [b0, b1, b2] = rows;
   const title = b0?.text ?? "";
   const pay = b1?.text ?? "";
   const loc = b2?.text ? locationOnlyFromPipeRow(b2.text) : "";
   const line1 = [jobChip, title, pay].filter(Boolean).join(" · ");
+  const line2 = [sellerText, loc].filter(Boolean).join(" · ");
   const out: PostListBodyBlock[] = [
     { className: CHAT_LIST_ROW_LINE_PRIMARY, text: line1 || title || "상품" },
   ];
-  if (loc) out.push({ className: CHAT_LIST_ROW_LINE_SECONDARY, text: loc });
+  if (line2) out.push({ className: CHAT_LIST_ROW_LINE_SECONDARY, text: line2 });
   return {
     ...preview,
     listingChips: [],
@@ -117,16 +121,19 @@ function compactUsedCarChatRow(preview: PostListPreviewModel): PostListPreviewMo
   };
 }
 
-/** 환전: 1단 칩(페소 팝니다 등)·페소액 / 환율 (피드: 제목은 칩, 본문은 금액→환율→메타) */
+/** 환전: 1단 칩(페소 팝니다 등)·페소액 / 환율·판매자 (피드: 금액→환율→닉→메타) */
 function compactExchangeChatRow(preview: PostListPreviewModel): PostListPreviewModel {
   const chipPart = preview.listingChips.map((c) => c.text).filter(Boolean).join(" · ");
-  const [b0, b1] = preview.bodyBlocks;
+  const sellerText = preview.bodyBlocks.find((b) => b.row === "seller")?.text?.trim() ?? "";
+  const rows = preview.bodyBlocks.filter((b) => b.row !== "seller");
+  const [b0, b1] = rows;
   const php = b0?.text ?? "";
   const rate = b1?.text ?? "";
   const line1 = [chipPart, php].filter(Boolean).join(" · ");
+  const line2 = [rate, sellerText].filter(Boolean).join(" · ");
   const out: PostListBodyBlock[] = [];
   if (line1) out.push({ className: CHAT_LIST_ROW_LINE_PRIMARY, text: line1 });
-  if (rate) out.push({ className: CHAT_LIST_ROW_LINE_SECONDARY, text: rate });
+  if (line2) out.push({ className: CHAT_LIST_ROW_LINE_SECONDARY, text: line2 });
   return {
     ...preview,
     listingChips: [],

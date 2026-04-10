@@ -3,6 +3,8 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { normalizePostImages, normalizePostMeta, normalizePostPrice } from "@/lib/posts/post-normalize";
+import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
+import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +99,7 @@ function mapPostRow(row: Record<string, unknown>): PostWithMeta {
     typeof row.thumbnail_url === "string" && row.thumbnail_url
       ? row.thumbnail_url
       : images?.[0] ?? null;
-  const author_id = (row.author_id as string) ?? (row.user_id as string);
+  const author_id = resolveAuthorIdFromPostRow(row) ?? "";
   const category_id = (row.category_id as string) ?? (row.trade_category_id as string);
   const price = normalizePostPrice(row.price);
   const meta = normalizePostMeta(row.meta);
@@ -194,6 +196,8 @@ export async function GET(req: NextRequest) {
   const favoriteMap: Record<string, boolean> = {};
   const userId = await getOptionalAuthenticatedUserId();
   const headers = responseHeaders(Boolean(userId));
+
+  await enrichPostsAuthorNicknamesFromProfiles(sb, posts);
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);

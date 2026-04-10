@@ -46,21 +46,20 @@ export const POST_LIST_TITLE_CLASS =
   "mt-0.5 line-clamp-2 text-[16px] font-bold leading-snug tracking-tight text-gray-900";
 /**
  * 일반 중고 2단(제목)·부동산 3단(스펙)·환전 환율(`POST_LIST_SUBLINE_CLASS`) 등
- * 본문 보조 줄 공통 — 13~14px Regular(400) #4E4E4E; 단 사이는 `mt-1`
+ * 본문 보조 줄 공통 — 13~14px Regular(400) #4E4E4E; 단 사이는 `mt-0.5`(리스트 밀도)
  */
 export const POST_LIST_TRADE_TITLE_CLASS =
-  "mt-1 line-clamp-2 text-[14px] font-normal leading-snug text-[#4E4E4E]";
+  "mt-0.5 line-clamp-2 text-[14px] font-normal leading-snug text-[#4E4E4E]";
 /**
  * 환전 1단 `페소 팝니다|삽니다` — 배지와 인라인, `POST_LIST_TRADE_TITLE_CLASS`와 동일 타이포(마진 없음)
  */
 export const POST_LIST_EXCHANGE_HEADLINE_CLASS =
   "line-clamp-2 shrink-0 text-[14px] font-normal leading-snug text-[#4E4E4E]";
 /**
- * 중고차 리스트 2단(차량명·연식) — 1~4단 간격을 `mt-1`로 통일할 때 사용
- * (일반 중고 제목과 동일 타이포, 1단 칩 줄과의 간격만 한 단계 키움)
+ * 중고차 리스트 2단(차량명·연식) — 일반 중고와 동일 `mt-0.5` 간격
  */
 export const POST_LIST_USED_CAR_SPEC_CLASS =
-  "mt-1 line-clamp-2 text-[14px] font-normal leading-snug text-[#4E4E4E]";
+  "mt-0.5 line-clamp-2 text-[14px] font-normal leading-snug text-[#4E4E4E]";
 /**
  * 리스트 3단 금액 본문(마진 없음) — 15~16px Bold(700) `#1A1A1A`.
  * 알바 급여·일반/중고차 가격·환전 페소·부동산 금액(매매/보증금|월세) 등 공통.
@@ -68,8 +67,8 @@ export const POST_LIST_USED_CAR_SPEC_CLASS =
 export const POST_LIST_PRICE_TEXT_CLASS =
   "text-[16px] font-bold leading-tight text-[#1A1A1A]";
 
-/** 3단 금액 줄 — 윗 단과 간격 `mt-1` */
-export const POST_LIST_PRICE_CLASS = `mt-1 ${POST_LIST_PRICE_TEXT_CLASS}`;
+/** 3단 금액 줄 — 윗 단과 간격 `mt-0.5` */
+export const POST_LIST_PRICE_CLASS = `mt-0.5 ${POST_LIST_PRICE_TEXT_CLASS}`;
 /** 부동산 3단(스펙)·환전 환율 줄 — `POST_LIST_TRADE_TITLE_CLASS`와 동일 타이포 */
 export const POST_LIST_SUBLINE_CLASS = POST_LIST_TRADE_TITLE_CLASS;
 /** 환전 리스트 3단(환율) — 13~14px Regular(400) #4E4E4E (`POST_LIST_SUBLINE_CLASS`와 동일) */
@@ -81,8 +80,8 @@ export const POST_LIST_EXCHANGE_RATE_CLASS = POST_LIST_SUBLINE_CLASS;
 export const POST_LIST_META_LINE_CLASS =
   "text-[12px] font-normal leading-snug text-[#9E9E9E]";
 
-/** 리스트 4단 메타 줄 — 윗 단과 간격 `mt-1` */
-export const POST_LIST_META_TEXT_CLASS = `mt-1 ${POST_LIST_META_LINE_CLASS}`;
+/** 리스트 4단 메타 줄 — 윗 단과 간격 `mt-0.5` */
+export const POST_LIST_META_TEXT_CLASS = `mt-0.5 ${POST_LIST_META_LINE_CLASS}`;
 /** 환전 리스트 4단(위치|시간) — 11~12px Regular(400) #9E9E9E (`POST_LIST_META_TEXT_CLASS`와 동일) */
 export const POST_LIST_EXCHANGE_META_CLASS = POST_LIST_META_TEXT_CLASS;
 
@@ -105,6 +104,8 @@ export interface ListingChip {
 export interface PostListBodyBlock {
   className: string;
   text: string;
+  /** 판매자 닉네임 전용 줄 — 부동산·알바·환전 본문·채팅 압축에서 구분 */
+  row?: "seller";
 }
 
 export interface PostListPreviewModel {
@@ -117,7 +118,7 @@ export interface PostListPreviewModel {
   bodyBlocks: PostListBodyBlock[];
   /**
    * PostCard 하단 — 환전만 null.
-   * `sellerLine`: 주소·시간 줄(ul) **위**에 같은 메타 타이포(12px)로 표시(닉네임 또는 author_id 축약).
+   * `sellerLine`: 주소·시간 줄(ul) **위** — `profiles`/author_nickname 기반 **닉네임만**(숫자 ID 미표시).
    */
   listFooter: { sellerLine?: string | null; ulClassName: string; items: string[] } | null;
   /** 알바: 1단 `판매중 | 구인유형` — 배지 직후 `|` */
@@ -138,13 +139,10 @@ function exchangeListingIsBuy(meta: Record<string, unknown>, title: string): boo
   return false;
 }
 
-/** 닉네임 없을 때만 짧게 — 리스트 메타 줄과 동일 톤 */
-function sellerLineFromPost(post: Record<string, unknown>): string | null {
+/** API·프로필에서 채운 `author_nickname` 만 — ID·UUID 축약 미표시 */
+function sellerNicknameOnlyFromPost(post: Record<string, unknown>): string | null {
   const nick = str(post.author_nickname);
-  if (nick) return nick;
-  const id = str(post.author_id);
-  if (!id) return null;
-  return id.length > 12 ? `${id.slice(0, 8)}…` : id;
+  return nick || null;
 }
 
 function buildListFooter(
@@ -154,7 +152,7 @@ function buildListFooter(
   locale: string,
   createdAt: string
 ): { sellerLine: string | null; ulClassName: string; items: string[] } {
-  const sellerLine = sellerLineFromPost(post);
+  const sellerLine = sellerNicknameOnlyFromPost(post);
   const t = createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, locale) : "";
   const chatCount = post.comment_count;
   const favCount = post.favorite_count;
@@ -283,6 +281,14 @@ export function buildPostListPreviewModel(
         className: POST_LIST_SUBLINE_CLASS,
         text: row3,
       });
+    const sellerNick = sellerNicknameOnlyFromPost(post);
+    if (sellerNick) {
+      blocks.push({
+        className: `mt-0.5 ${POST_LIST_META_LINE_CLASS}`,
+        text: sellerNick,
+        row: "seller",
+      });
+    }
     blocks.push({
       className: POST_LIST_META_TEXT_CLASS,
       text: row4,
@@ -386,11 +392,19 @@ export function buildPostListPreviewModel(
         className: POST_LIST_PRICE_CLASS,
         text: jobsPayLabel ?? "금액 문의",
       },
-      {
-        className: POST_LIST_META_TEXT_CLASS,
-        text: row4,
-      },
     ];
+    const jobSellerNick = sellerNicknameOnlyFromPost(post);
+    if (jobSellerNick) {
+      blocks.push({
+        className: `mt-0.5 ${POST_LIST_META_LINE_CLASS}`,
+        text: jobSellerNick,
+        row: "seller",
+      });
+    }
+    blocks.push({
+      className: POST_LIST_META_TEXT_CLASS,
+      text: row4,
+    });
 
     return {
       thumbnailMode: "none",
@@ -440,9 +454,17 @@ export function buildPostListPreviewModel(
         className: POST_LIST_EXCHANGE_RATE_CLASS,
         text: rateText,
       },
-      /** 4단 위치|시간 — `POST_LIST_EXCHANGE_META_CLASS` */
-      { className: POST_LIST_EXCHANGE_META_CLASS, text: locTime },
     ];
+    const exSellerNick = sellerNicknameOnlyFromPost(post);
+    if (exSellerNick) {
+      blocks.push({
+        className: `mt-0.5 ${POST_LIST_META_LINE_CLASS}`,
+        text: exSellerNick,
+        row: "seller",
+      });
+    }
+    /** 4단 위치|시간 — `POST_LIST_EXCHANGE_META_CLASS` */
+    blocks.push({ className: POST_LIST_EXCHANGE_META_CLASS, text: locTime });
 
     return {
       thumbnailMode: "exchange",

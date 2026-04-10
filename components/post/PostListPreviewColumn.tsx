@@ -43,7 +43,9 @@ export function PostListPreviewColumn({
 
   const listFooterBlock =
     hasFooter && lf ? (
-      <div className="mt-1 min-w-0 shrink-0 space-y-0.5">
+      <div
+        className={`min-w-0 shrink-0 space-y-0.5 ${matchThumbnailHeight ? "mt-0" : "mt-0.5"}`}
+      >
         {footerSeller ? (
           <p className={`truncate ${POST_LIST_META_LINE_CLASS}`} title={footerSeller}>
             {footerSeller}
@@ -88,7 +90,7 @@ export function PostListPreviewColumn({
 
   const inner = matchThumbnailHeight ? (
     <>
-      <div className="flex min-h-0 flex-1 flex-col justify-between">
+      <div className="flex min-h-0 flex-1 flex-col justify-start gap-y-0.5">
         {listingRow}
         {preview.bodyBlocks.map((b, i) => (
           <p
