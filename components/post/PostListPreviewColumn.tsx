@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  POST_LIST_META_LINE_CLASS,
   POST_LIST_PRICE_TEXT_CLASS,
   stripPostListBlockTopMargin,
   type PostListPreviewModel,
@@ -29,11 +30,34 @@ export function PostListPreviewColumn({
   omitListingBadge?: boolean;
   matchThumbnailHeight?: boolean;
 }) {
-  const footerUlClassStacked =
-    matchThumbnailHeight && preview.listFooter
-      ? stripPostListBlockTopMargin(preview.listFooter.ulClassName)
+  const lf = preview.listFooter;
+  const footerSeller = lf?.sellerLine?.trim() ?? "";
+  const footerItems = lf?.items ?? [];
+  const hasFooter = Boolean(lf && (footerSeller || footerItems.length > 0));
+  const footerUlClass =
+    hasFooter && lf && footerItems.length > 0
+      ? matchThumbnailHeight
+        ? stripPostListBlockTopMargin(lf.ulClassName)
+        : lf.ulClassName
       : null;
-  const footerUlClassPlain = preview.listFooter?.ulClassName;
+
+  const listFooterBlock =
+    hasFooter && lf ? (
+      <div className="mt-1 min-w-0 shrink-0 space-y-0.5">
+        {footerSeller ? (
+          <p className={`truncate ${POST_LIST_META_LINE_CLASS}`} title={footerSeller}>
+            {footerSeller}
+          </p>
+        ) : null}
+        {footerUlClass ? (
+          <ul className={footerUlClass}>
+            {footerItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    ) : null;
 
   const listingRow = (
     <div
@@ -74,15 +98,7 @@ export function PostListPreviewColumn({
             {b.text}
           </p>
         ))}
-        {preview.listFooter &&
-        preview.listFooter.items.length > 0 &&
-        footerUlClassStacked ? (
-          <ul className={`${footerUlClassStacked} shrink-0`}>
-            {preview.listFooter.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        ) : null}
+        {listFooterBlock}
       </div>
     </>
   ) : (
@@ -93,15 +109,7 @@ export function PostListPreviewColumn({
           {b.text}
         </p>
       ))}
-      {preview.listFooter &&
-      preview.listFooter.items.length > 0 &&
-      footerUlClassPlain ? (
-        <ul className={footerUlClassPlain}>
-          {preview.listFooter.items.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      ) : null}
+      {listFooterBlock}
     </>
   );
 

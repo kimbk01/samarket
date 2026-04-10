@@ -115,8 +115,11 @@ export interface PostListPreviewModel {
   listingChips: ListingChip[];
   listingBold: string | null;
   bodyBlocks: PostListBodyBlock[];
-  /** PostCard 하단 ul — 환전만 null */
-  listFooter: { ulClassName: string; items: string[] } | null;
+  /**
+   * PostCard 하단 — 환전만 null.
+   * `sellerLine`: 주소·시간 줄(ul) **위**에 같은 메타 타이포(12px)로 표시(닉네임 또는 author_id 축약).
+   */
+  listFooter: { sellerLine?: string | null; ulClassName: string; items: string[] } | null;
   /** 알바: 1단 `판매중 | 구인유형` — 배지 직후 `|` */
   showPipeAfterListingBadge?: boolean;
 }
@@ -135,34 +138,41 @@ function exchangeListingIsBuy(meta: Record<string, unknown>, title: string): boo
   return false;
 }
 
+/** 닉네임 없을 때만 짧게 — 리스트 메타 줄과 동일 톤 */
+function sellerLineFromPost(post: Record<string, unknown>): string | null {
+  const nick = str(post.author_nickname);
+  if (nick) return nick;
+  const id = str(post.author_id);
+  if (!id) return null;
+  return id.length > 12 ? `${id.slice(0, 8)}…` : id;
+}
+
 function buildListFooter(
   post: Record<string, unknown>,
   variant: "uc" | "jobs" | "trade",
   locationLabel: string | null,
   locale: string,
   createdAt: string
-): { ulClassName: string; items: string[] } {
-  const authorNick = str(post.author_nickname);
+): { sellerLine: string | null; ulClassName: string; items: string[] } {
+  const sellerLine = sellerLineFromPost(post);
   const t = createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, locale) : "";
   const chatCount = post.comment_count;
   const favCount = post.favorite_count;
   const items: string[] = [];
   if (variant === "uc") {
-    if (authorNick) items.push(authorNick);
     if (locationLabel) items.push(locationLabel);
     if (t) items.push(t);
     if (typeof chatCount === "number" && chatCount > 0) items.push(`채팅 ${chatCount}`);
     if (typeof favCount === "number" && favCount > 0) items.push(`관심 ${favCount}`);
   } else {
     if (variant === "trade" && locationLabel) items.push(locationLabel);
-    if (authorNick) items.push(authorNick);
     if (t) items.push(t);
     if (typeof chatCount === "number" && chatCount > 0) items.push(`채팅 ${chatCount}`);
     if (typeof favCount === "number" && favCount > 0) items.push(`관심 ${favCount}`);
   }
-  /** 중고·중고차 리스트 푸터 — 3단(가격)과 동일 `mt-1` 간격 */
-  const ulClassName = `mt-1 flex flex-wrap items-center gap-x-2 ${POST_LIST_META_LINE_CLASS}`;
-  return { ulClassName, items };
+  /** ul 은 `sellerLine` 아래 두 번째 줄 — 블록 전체 `mt-1` 은 PostListPreviewColumn 래퍼에서 */
+  const ulClassName = `flex flex-wrap items-center gap-x-2 gap-y-0.5 ${POST_LIST_META_LINE_CLASS}`;
+  return { sellerLine, ulClassName, items };
 }
 
 /** 부동산 리스트 2단 — 매매가 또는 보증금 | 월세(리스트는 `POST_LIST_PRICE_CLASS`로 표시) */

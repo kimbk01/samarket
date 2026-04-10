@@ -10,17 +10,28 @@ export const CHAT_LIST_ROW_LINE_SECONDARY =
   "mt-0 line-clamp-1 text-[11px] leading-tight text-gray-500";
 
 /**
- * 채팅 상단 카드: 피드와 동일 본문이되, 환전 마지막 줄(위치|시간)은 하단 region·상대시간과 중복되므로 제거
+ * 채팅 상단 카드(`ChatProductSummary`): 피드와 동일 본문이되,
+ * - 환전 마지막 줄(위치|시간)은 본문에서 제거(하단 region·상대시간과 중복)
+ * - `listFooter` 의 ul(지역·시간·채팅수)도 Link 밖 행과 겹치므로 생략하고 **판매자 줄(`sellerLine`)만** 유지
  */
 export function trimPreviewForChatHeader(preview: PostListPreviewModel): PostListPreviewModel {
   const bodyBlocks =
     preview.thumbnailMode === "exchange"
       ? preview.bodyBlocks.slice(0, -1)
       : preview.bodyBlocks;
+  const lf = preview.listFooter;
+  const listFooter =
+    lf && (lf.sellerLine?.trim() || lf.items.length > 0)
+      ? {
+          sellerLine: lf.sellerLine?.trim() ?? null,
+          ulClassName: lf.ulClassName,
+          items: [],
+        }
+      : null;
   return {
     ...preview,
     bodyBlocks,
-    listFooter: null,
+    listFooter,
   };
 }
 
@@ -54,7 +65,7 @@ function compactRealEstateChatRow(preview: PostListPreviewModel): PostListPrevie
     listingBold: null,
     showPipeAfterListingBadge: false,
     bodyBlocks: out.length > 0 ? out : preview.bodyBlocks,
-    listFooter: null,
+    listFooter: preview.listFooter,
   };
 }
 
@@ -76,7 +87,7 @@ function compactJobsChatRow(preview: PostListPreviewModel): PostListPreviewModel
     listingBold: null,
     showPipeAfterListingBadge: false,
     bodyBlocks: out,
-    listFooter: null,
+    listFooter: preview.listFooter,
   };
 }
 
@@ -102,7 +113,7 @@ function compactUsedCarChatRow(preview: PostListPreviewModel): PostListPreviewMo
     listingBold: null,
     showPipeAfterListingBadge: false,
     bodyBlocks: out.length > 0 ? out : preview.bodyBlocks,
-    listFooter: null,
+    listFooter: preview.listFooter,
   };
 }
 
@@ -122,7 +133,7 @@ function compactExchangeChatRow(preview: PostListPreviewModel): PostListPreviewM
     listingBold: null,
     showPipeAfterListingBadge: false,
     bodyBlocks: out.length > 0 ? out : preview.bodyBlocks,
-    listFooter: null,
+    listFooter: preview.listFooter,
   };
 }
 
@@ -140,26 +151,32 @@ function compactTradeChatRow(preview: PostListPreviewModel): PostListPreviewMode
     listingBold: null,
     showPipeAfterListingBadge: false,
     bodyBlocks: out.length > 0 ? out : preview.bodyBlocks,
-    listFooter: null,
+    listFooter: preview.listFooter,
   };
 }
 
 /**
  * 채팅 목록 줄: 행 높이를 맞추기 위해 상품 요약을 1~2줄로 압축 (부동산·알바·중고차·일반거래)
+ *
+ * `trimPreviewForChatHeader` 를 쓰지 않음 — 그 함수는 상단 카드용으로 `listFooter` ul 을 비우므로,
+ * 목록 행에서는 피드와 동일하게 **판매자·지역·시간** 푸터를 유지한다.
  */
 export function trimPreviewForChatRoomRow(preview: PostListPreviewModel): PostListPreviewModel {
-  const base = trimPreviewForChatHeader(preview);
-  const kind = base.listKind;
+  const sliced =
+    preview.thumbnailMode === "exchange"
+      ? { ...preview, bodyBlocks: preview.bodyBlocks.slice(0, -1) }
+      : preview;
+  const kind = sliced.listKind;
 
-  if (kind === "real-estate") return compactRealEstateChatRow(base);
-  if (kind === "jobs") return compactJobsChatRow(base);
-  if (kind === "used-car") return compactUsedCarChatRow(base);
-  if (kind === "exchange") return compactExchangeChatRow(base);
-  if (kind === "trade") return compactTradeChatRow(base);
+  if (kind === "real-estate") return compactRealEstateChatRow(sliced);
+  if (kind === "jobs") return compactJobsChatRow(sliced);
+  if (kind === "used-car") return compactUsedCarChatRow(sliced);
+  if (kind === "exchange") return compactExchangeChatRow(sliced);
+  if (kind === "trade") return compactTradeChatRow(sliced);
 
   return {
-    ...base,
-    bodyBlocks: base.bodyBlocks.map((b, i) => ({
+    ...sliced,
+    bodyBlocks: sliced.bodyBlocks.map((b, i) => ({
       ...b,
       className: i === 0 ? CHAT_LIST_ROW_LINE_PRIMARY : CHAT_LIST_ROW_LINE_SECONDARY,
     })),
