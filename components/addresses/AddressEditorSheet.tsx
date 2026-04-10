@@ -124,7 +124,6 @@ export function AddressEditorSheet(props: {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
         setFullAddress(mapBootstrap.fullAddress.trim());
-        setUnitFloorRoom((mapBootstrap.addressDetail ?? "").trim());
       } else {
         setLatitude(initial.latitude ?? null);
         setLongitude(initial.longitude ?? null);
@@ -155,8 +154,6 @@ export function AddressEditorSheet(props: {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
         setFullAddress(mapBootstrap.fullAddress.trim());
-        const d = (mapBootstrap.addressDetail ?? "").trim();
-        setUnitFloorRoom(d);
       } else {
         setLatitude(null);
         setLongitude(null);
@@ -251,7 +248,12 @@ export function AddressEditorSheet(props: {
             aria-label="닫기"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <path
+                d="M6 6l12 12M18 6L6 18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
           <h2 id="addr-editor-title" className="text-[16px] font-semibold text-gray-900">
@@ -304,28 +306,6 @@ export function AddressEditorSheet(props: {
               <AddressMapThumb lat={latitude} lng={longitude} />
             </div>
           ) : null}
-
-          <div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[14px] font-medium text-gray-900">상세주소</p>
-              {unitFloorRoom.trim() ? (
-                <button
-                  type="button"
-                  onClick={() => setUnitFloorRoom("")}
-                  className="text-[13px] text-gray-400 hover:text-gray-700"
-                  aria-label="상세주소 지우기"
-                >
-                  ✕
-                </button>
-              ) : null}
-            </div>
-            <input
-              value={unitFloorRoom}
-              onChange={(e) => setUnitFloorRoom(e.target.value)}
-              placeholder="지번, 건물명, 동·호 등"
-              className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
 
           {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
         </div>
