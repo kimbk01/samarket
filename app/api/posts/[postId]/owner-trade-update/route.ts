@@ -73,7 +73,7 @@ export async function PATCH(
   let { data: row, error: fetchErr } = await sbAny
     .from("posts")
     .select(
-      "id, user_id, trade_category_id, category_id, title, content, price, region, city, barangay, images, thumbnail_url, meta, status, seller_listing_state, is_free_share, is_price_offer"
+      "id, user_id, trade_category_id, title, content, price, region, city, barangay, images, thumbnail_url, meta, status, seller_listing_state, is_free_share, is_price_offer"
     )
     .eq("id", id)
     .maybeSingle();
@@ -82,7 +82,7 @@ export async function PATCH(
     const r2 = await sbAny
       .from("posts")
       .select(
-        "id, user_id, trade_category_id, category_id, title, content, price, region, city, barangay, images, thumbnail_url, meta, status, is_free_share, is_price_offer"
+        "id, user_id, trade_category_id, title, content, price, region, city, barangay, images, thumbnail_url, meta, status, is_free_share, is_price_offer"
       )
       .eq("id", id)
       .maybeSingle();
@@ -115,9 +115,7 @@ export async function PATCH(
     );
   }
 
-  const catId =
-    String((row as { trade_category_id?: string }).trade_category_id ?? "").trim() ||
-    String((row as { category_id?: string }).category_id ?? "").trim();
+  const catId = String((row as { trade_category_id?: string }).trade_category_id ?? "").trim();
   let catSlug = "market";
   let catIcon = "";
   if (catId) {
