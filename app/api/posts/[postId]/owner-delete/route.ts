@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { ownerCannotEditDeleteReason } from "@/lib/posts/post-list-owner-menu";
+import { allowSoftDelete, deriveTradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ export async function POST(
   const sbAny = sb;
   let { data: post, error: postErr } = await sbAny
     .from("posts")
-    .select("id, user_id, status, seller_listing_state")
+    .select("id, user_id, status, seller_listing_state, meta")
     .eq("id", id)
     .maybeSingle();
 
@@ -41,7 +41,7 @@ export async function POST(
     /seller_listing_state/i.test(String(postErr.message)) &&
     /does not exist|unknown|schema cache|Could not find/i.test(String(postErr.message))
   ) {
-    const r2 = await sbAny.from("posts").select("id, user_id, status").eq("id", id).maybeSingle();
+    const r2 = await sbAny.from("posts").select("id, user_id, status, meta").eq("id", id).maybeSingle();
     post = r2.data
       ? ({ ...r2.data, seller_listing_state: null } as typeof post)
       : null;
@@ -64,13 +64,20 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "본인 글만 삭제할 수 있습니다." }, { status: 403 });
   }
 
-  const block = ownerCannotEditDeleteReason({
-    author_id: ownerId,
+  const lifecycle = deriveTradeLifecycleStatus({
     status: row.status as string,
     seller_listing_state: row.seller_listing_state as string | undefined,
+    meta: row.meta as Record<string, unknown> | null | undefined,
   });
-  if (block) {
-    return NextResponse.json({ ok: false, error: block }, { status: 403 });
+  if (!allowSoftDelete(lifecycle)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "이 상태에서는 삭제할 수 없습니다. 숨김 처리를 이용해 주세요.",
+        code: "delete_not_allowed",
+      },
+      { status: 403 }
+    );
   }
 
   const now = new Date().toISOString();

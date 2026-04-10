@@ -1,3 +1,12 @@
+/** GET /api/posts/[id]/owner-edit `tradePolicy` */
+export type TradePolicyClient = {
+  lifecycleStatus: string;
+  hint: string | null;
+  allowEditCore: boolean;
+  allowAppendOnlyDescription: boolean;
+  canSoftDelete: boolean;
+};
+
 /** GET /api/posts/[id]/owner-edit `post` 와 동일 — 클라이언트 폼 시드용 */
 export type OwnerEditPostSnapshot = {
   id: string;

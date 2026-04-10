@@ -1,7 +1,6 @@
 "use client";
 
 import type { CreatePostPayload } from "./types";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
@@ -20,15 +19,14 @@ type TradeUpdateBody = {
   meta?: Record<string, unknown> | null;
   isFreeShare?: boolean;
   isPriceOfferEnabled?: boolean;
+  /** 협의·진행 단계 본문 append */
+  descriptionAppend?: string | null;
 };
 
 /**
- * 본인 trade 글 수정 — RLS·세션은 Supabase 클라이언트 기준 (createPost 와 동일).
+ * 본인 trade 글 수정 — 서버 API에서 거래 라이프사이클·핵심 필드 검증.
  */
-export async function updateTradePost(
-  postId: string,
-  body: TradeUpdateBody
-): Promise<UpdateTradePostResponse> {
+export async function updateTradePost(postId: string, body: TradeUpdateBody): Promise<UpdateTradePostResponse> {
   const userId = await getCurrentUserIdForDb();
   if (!userId) {
     return { ok: false, error: "로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요." };
@@ -39,61 +37,34 @@ export async function updateTradePost(
     return { ok: false, error: PHONE_VERIFICATION_REQUIRED_MESSAGE };
   }
 
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return { ok: false, error: "저장 기능을 사용할 수 없습니다." };
-  }
-
   const title = body.title?.trim() ?? "";
   const content = body.content?.trim() ?? "";
   if (!title) return { ok: false, error: "제목을 입력해 주세요." };
-  if (!content) return { ok: false, error: "내용을 입력해 주세요." };
-
-  const now = new Date().toISOString();
-  const patch: Record<string, unknown> = {
-    trade_category_id: body.categoryId,
-    title,
-    content,
-    price: body.price != null ? Number(body.price) : null,
-    updated_at: now,
-  };
-
-  if (body.region != null && String(body.region).trim()) patch.region = String(body.region).trim();
-  else patch.region = null;
-  if (body.city != null && String(body.city).trim()) patch.city = String(body.city).trim();
-  else patch.city = null;
-  if (body.barangay != null && String(body.barangay).trim()) patch.barangay = String(body.barangay).trim();
-  else patch.barangay = null;
-
-  if (Array.isArray(body.imageUrls)) {
-    patch.images = body.imageUrls.length > 0 ? body.imageUrls : null;
-    patch.thumbnail_url =
-      body.imageUrls.length > 0 && typeof body.imageUrls[0] === "string" ? body.imageUrls[0] : null;
-  }
-
-  if (body.meta != null && typeof body.meta === "object" && Object.keys(body.meta).length > 0) {
-    patch.meta = body.meta;
-  } else if (body.meta === null) {
-    patch.meta = null;
-  }
-
-  if (typeof body.isFreeShare === "boolean") patch.is_free_share = body.isFreeShare;
-  if (typeof body.isPriceOfferEnabled === "boolean") patch.is_price_offer = body.isPriceOfferEnabled;
+  if (!content && !body.descriptionAppend?.trim()) return { ok: false, error: "내용을 입력해 주세요." };
 
   try {
-    const res = await (supabase as any)
-      .from("posts")
-      .update(patch)
-      .eq("id", postId)
-      .eq("user_id", userId)
-      .select("id")
-      .maybeSingle();
-
-    if (res.error) {
-      return { ok: false, error: (res.error as { message?: string }).message ?? "저장에 실패했습니다." };
-    }
-    if (!res.data) {
-      return { ok: false, error: "글을 찾을 수 없거나 수정 권한이 없습니다." };
+    const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/owner-trade-update`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        categoryId: body.categoryId,
+        title,
+        content,
+        price: body.price,
+        region: body.region,
+        city: body.city,
+        barangay: body.barangay,
+        imageUrls: body.imageUrls,
+        meta: body.meta ?? undefined,
+        isFreeShare: body.isFreeShare,
+        isPriceOfferEnabled: body.isPriceOfferEnabled,
+        descriptionAppend: body.descriptionAppend ?? undefined,
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: typeof data.error === "string" ? data.error : "저장에 실패했습니다." };
     }
     return { ok: true };
   } catch (e) {
@@ -104,7 +75,8 @@ export async function updateTradePost(
 /** createPost trade 페이로드와 동일 형태로 갱신 */
 export async function updateTradePostFromCreatePayload(
   postId: string,
-  payload: Extract<CreatePostPayload, { type: "trade" }>
+  payload: Extract<CreatePostPayload, { type: "trade" }>,
+  opts?: { descriptionAppend?: string | null }
 ): Promise<UpdateTradePostResponse> {
   return updateTradePost(postId, {
     categoryId: payload.categoryId,
@@ -118,5 +90,6 @@ export async function updateTradePostFromCreatePayload(
     meta: payload.meta ?? undefined,
     isFreeShare: payload.isFreeShare,
     isPriceOfferEnabled: payload.isPriceOfferEnabled,
+    descriptionAppend: opts?.descriptionAppend,
   });
 }

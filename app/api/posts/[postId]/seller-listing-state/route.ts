@@ -7,6 +7,14 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
+import {
+  buildListingSnapshotJson,
+  deriveTradeLifecycleStatus,
+  flattenPostForTradeCompare,
+  mapSellerListingTransitionToLifecycle,
+  resolveTradeKindFromCategory,
+} from "@/lib/trade/trade-lifecycle-policy";
+import { insertPostTradeStatusLog } from "@/lib/trade/post-trade-status-log";
 
 const ALLOWED: SellerListingState[] = ["inquiry", "negotiating", "reserved", "completed"];
 
@@ -108,7 +116,9 @@ export async function POST(
   }
   const { data: post, error: postErr } = await sbAny
     .from("posts")
-    .select("id, user_id, status")
+    .select(
+      "id, user_id, status, seller_listing_state, meta, title, content, price, region, city, barangay, images, thumbnail_url, trade_category_id, category_id, is_free_share, is_price_offer"
+    )
     .eq("id", postId.trim())
     .maybeSingle();
 
@@ -157,10 +167,45 @@ export async function POST(
         ? "reserved"
         : "active";
 
+  const prevRow = post as Record<string, unknown>;
+  const prevSeller = String(prevRow.seller_listing_state ?? "inquiry").trim().toLowerCase();
+  const prevLifecycle = deriveTradeLifecycleStatus({
+    status: prevRow.status as string,
+    seller_listing_state: prevRow.seller_listing_state as string | undefined,
+    meta: prevRow.meta as Record<string, unknown> | null,
+  });
+  const nextLifecycle = mapSellerListingTransitionToLifecycle(nextState as SellerListingState);
+
+  const baseMeta =
+    prevRow.meta && typeof prevRow.meta === "object" && prevRow.meta !== null
+      ? ({ ...(prevRow.meta as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  baseMeta.trade_lifecycle_status = nextLifecycle;
+
+  const snapCandidate =
+    (prevSeller === "inquiry" || !prevRow.seller_listing_state) &&
+    (nextState === "negotiating" || nextState === "reserved");
+  if (snapCandidate) {
+    const catId = String(prevRow.trade_category_id ?? prevRow.category_id ?? "").trim();
+    let slug = "market";
+    let iconKey = "";
+    if (catId) {
+      const { data: cat } = await sbAny.from("categories").select("slug, icon_key").eq("id", catId).maybeSingle();
+      if (cat) {
+        slug = String((cat as { slug?: string }).slug ?? "market");
+        iconKey = String((cat as { icon_key?: string }).icon_key ?? "");
+      }
+    }
+    const kind = resolveTradeKindFromCategory({ slug, icon_key: iconKey });
+    const flat = flattenPostForTradeCompare(prevRow);
+    baseMeta.listing_snapshot_json = buildListingSnapshotJson(flat, kind);
+  }
+
   const patch: Record<string, unknown> = {
     seller_listing_state: nextState,
     status: postStatus,
     updated_at: now,
+    meta: baseMeta,
   };
 
   if (nextState === "reserved") {
@@ -243,6 +288,17 @@ export async function POST(
       { status: missingListing ? 503 : 500 }
     );
   }
+
+  await insertPostTradeStatusLog(sbAny, {
+    postId: postId.trim(),
+    fromStatus: prevLifecycle,
+    toStatus: nextLifecycle,
+    userId,
+    snapshot:
+      typeof baseMeta.listing_snapshot_json === "object" && baseMeta.listing_snapshot_json !== null
+        ? (baseMeta.listing_snapshot_json as Record<string, unknown>)
+        : { seller_listing_state: nextState },
+  });
 
   try {
     await sbAny

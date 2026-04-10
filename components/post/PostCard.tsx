@@ -17,8 +17,10 @@ import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
 import {
   isPostListOwnedByViewer,
   isTradePostForOwnerMenu,
-  canOwnerEditDeleteTradePostFromFeed,
-  ownerCannotEditDeleteReason,
+  ownerDeleteLockHint,
+  ownerDeleteLockedFromPost,
+  ownerEditLockHint,
+  ownerEditLockedFromPost,
 } from "@/lib/posts/post-list-owner-menu";
 
 interface PostCardProps {
@@ -49,8 +51,14 @@ export function PostCard({
   const viewerId = getCurrentUser()?.id ?? null;
   const showOwnerTradeActions =
     isTradePostForOwnerMenu(post.type) && isPostListOwnedByViewer(post, viewerId);
-  const ownerEditUnlocked = canOwnerEditDeleteTradePostFromFeed(post);
-  const ownerLockHint = ownerCannotEditDeleteReason(post) ?? "";
+  const ownerMenuPost = {
+    author_id: post.author_id,
+    status: post.status,
+    seller_listing_state: post.seller_listing_state,
+    meta: post.meta ?? null,
+  };
+  const ownerEditLocked = ownerEditLockedFromPost(ownerMenuPost);
+  const ownerDeleteLocked = ownerDeleteLockedFromPost(ownerMenuPost);
   const listPreview = buildPostListPreviewModel(post as unknown as Record<string, unknown>, {
     currency,
     locale: getAppSettings().defaultLocale || "ko-KR",
@@ -122,8 +130,10 @@ export function PostCard({
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         showOwnerTradeActions={showOwnerTradeActions}
-        ownerEditDeleteLocked={showOwnerTradeActions && !ownerEditUnlocked}
-        ownerEditDeleteLockHint={ownerLockHint}
+        ownerEditLocked={showOwnerTradeActions && ownerEditLocked}
+        ownerDeleteLocked={showOwnerTradeActions && ownerDeleteLocked}
+        ownerEditLockHint={ownerEditLockHint(ownerMenuPost)}
+        ownerDeleteLockHint={ownerDeleteLockHint(ownerMenuPost)}
         onAction={(action) => {
           if (action === "edit_own") {
             router.push(`/products/${encodeURIComponent(post.id)}/edit`);

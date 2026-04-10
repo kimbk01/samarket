@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
@@ -34,11 +34,17 @@ import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { LocationSelector } from "../shared/LocationSelector";
+import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
+import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
+import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
 
 interface JobsWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  editPostId?: string;
+  ownerEditSnapshot?: OwnerEditPostSnapshot;
+  tradePolicy?: TradePolicyClient | null;
 }
 
 /** 로컬 기준 YYYY-MM-DD */
@@ -64,7 +70,14 @@ function formatPayReadable(num: number, currency: string): string {
   return formatPrice(num, currency);
 }
 
-export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormProps) {
+export function JobsWriteForm({
+  category,
+  onSuccess,
+  onCancel,
+  editPostId,
+  ownerEditSnapshot,
+  tradePolicy = null,
+}: JobsWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const appSettings = useMemo(() => getAppSettings(), []);
@@ -108,10 +121,45 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [descriptionAppend, setDescriptionAppend] = useState("");
+  const [hydratedEdit, setHydratedEdit] = useState(false);
 
-  const backHref = getCategoryHref(category);
+  const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
+  const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
+
+  const backHref = editPostId ? `/products/${editPostId}` : getCategoryHref(category);
   const payNum = payAmount.replace(/,/g, "");
   const payDisplay = payNum && !Number.isNaN(Number(payNum)) ? formatPayReadable(Number(payNum), currency) : "";
+
+  useEffect(() => {
+    if (!editPostId || !ownerEditSnapshot) return;
+    const h = hydrateJobsWriteFormFromSnapshot(category, ownerEditSnapshot);
+    setListingKind(h.listingKind);
+    setTitle(h.title);
+    setWorkCategory(h.workCategory);
+    setWorkCategoryOther(h.workCategoryOther);
+    setWorkTerm(h.workTerm);
+    setPayType(h.payType);
+    setPayAmount(h.payAmount);
+    setDescription(h.description);
+    setRegion(h.region);
+    setCity(h.city);
+    setTradeTopicChildId(h.tradeTopicChildId);
+    setWorkDate(h.workDate);
+    setWorkDateEnd(h.workDateEnd);
+    setWorkTimeStart(h.workTimeStart);
+    setWorkTimeEnd(h.workTimeEnd);
+    setSameDayPay(h.sameDayPay);
+    setCompanyName(h.companyName);
+    setAvailableTime(h.availableTime);
+    setExperienceLevel(h.experienceLevel);
+    setContactPhone(h.contactPhone);
+    setPhoneAllowed(h.phoneAllowed);
+    setTermsAgreed(h.termsAgreed);
+    setImages(h.images);
+    setDescriptionAppend("");
+    setHydratedEdit(true);
+  }, [editPostId, ownerEditSnapshot, category]);
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
@@ -143,7 +191,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
         next.payAmount = `시급은 ${formatPrice(MIN_WAGE_PHP_HOURLY, "PHP")} 이상으로 입력해 주세요.`;
       }
     }
-    if (listingKind === "hire" && todayMin) {
+    if (!coreLocked && listingKind === "hire" && todayMin) {
       if (workDate.trim() && workDate < todayMin) {
         next.workDate = "근무 시작일은 오늘 이후만 선택할 수 있어요.";
       }
@@ -178,6 +226,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
     termsAgreed,
     contactPhone,
     phoneAllowed,
+    coreLocked,
   ]);
 
   const buildMeta = useCallback((): Record<string, unknown> => {
@@ -232,17 +281,49 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (editPostId && !hydratedEdit) return;
       if (!validate()) return;
       setSubmitting(true);
       try {
         const user = getCurrentUser();
-        if (!ensureClientAccessOrRedirect(router, user, pathname || `/write/${category.slug}`)) {
+        const pathFallback = editPostId
+          ? `/products/${editPostId}/edit`
+          : `/write/${category.slug}`;
+        if (!ensureClientAccessOrRedirect(router, user, pathname || pathFallback)) {
           return;
         }
         const files = images.map((i) => i.file).filter((f): f is File => !!f);
-        const imageUrls = files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
+        const uploaded = files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
+        const existingUrls = images.map((i) => i.url).filter((u): u is string => typeof u === "string" && u.length > 0);
+        const imageUrls = [...existingUrls, ...uploaded];
         const meta = buildMeta();
         const priceNum = payNum ? Number(payNum) : null;
+        if (editPostId) {
+          const res = await updateTradePostFromCreatePayload(
+            editPostId,
+            {
+              type: "trade",
+              categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
+              title: title.trim(),
+              content: description.trim(),
+              price: priceNum,
+              isPriceOfferEnabled: false,
+              isFreeShare: false,
+              region: region || undefined,
+              city: city || undefined,
+              barangay: undefined,
+              imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+              meta: Object.keys(meta).length > 0 ? meta : undefined,
+            },
+            showDescriptionAppend ? { descriptionAppend: descriptionAppend.trim() || null } : undefined
+          );
+          if (res.ok) onSuccess(editPostId);
+          else {
+            if (redirectForBlockedAction(router, res.error, pathname || pathFallback)) return;
+            setErrors({ submit: res.error });
+          }
+          return;
+        }
         const res = await createPost({
           type: "trade",
           categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
@@ -259,7 +340,7 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
         });
         if (res.ok) onSuccess(res.id);
         else {
-          if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
+          if (redirectForBlockedAction(router, res.error, pathname || pathFallback)) return;
           setErrors({ submit: res.error });
         }
       } finally {
@@ -280,18 +361,31 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
       router,
       pathname,
       onSuccess,
+      editPostId,
+      hydratedEdit,
+      showDescriptionAppend,
+      descriptionAppend,
     ]
   );
 
+  const tierTitle = editPostId ? `${category.name} · 글 수정` : `${category.name} · 빠른 등록 · 글쓰기`;
+  const policyHint = tradePolicy?.hint?.trim() ?? "";
+
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      <WriteScreenTier1Sync title={`${category.name} · 빠른 등록 · 글쓰기`} backHref={backHref} />
+      <WriteScreenTier1Sync title={tierTitle} backHref={backHref} />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
         <div className="border-b border-gray-100 bg-white px-4 py-3">
           <p className="text-[13px] text-gray-500">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>
         </div>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
+        {editPostId && policyHint ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">{policyHint}</div>
+        ) : null}
+
+        <section
+          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
           <p className="mb-2 text-[14px] font-semibold text-gray-900">무엇을 올리시나요?</p>
           <div className="grid grid-cols-2 gap-2">
             {JOB_LISTING_KIND_OPTIONS.map((opt) => (
@@ -311,13 +405,17 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
           </div>
         </section>
 
-        <WriteTradeTopicSection
-          category={category}
-          value={tradeTopicChildId}
-          onChange={setTradeTopicChildId}
-        />
+        <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+          <WriteTradeTopicSection
+            category={category}
+            value={tradeTopicChildId}
+            onChange={setTradeTopicChildId}
+          />
+        </div>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
+        <section
+          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
           <p className="mb-2 text-[14px] font-semibold text-gray-900">제목</p>
           <input
             type="text"
@@ -333,7 +431,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
           <p className="mt-1 text-[12px] text-gray-500">{title.length}/{JOB_TITLE_MAX}</p>
         </section>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
+        <section
+          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
           <p className="mb-2 text-[14px] font-semibold text-gray-900">업종</p>
           <div className="flex flex-wrap gap-2">
             {WORK_CATEGORY_OPTIONS.map((cat) => (
@@ -377,7 +477,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
           )}
         </section>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
+        <section
+          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
           <LocationSelector
             embedded
             region={region}
@@ -390,7 +492,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
           />
         </section>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
+        <section
+          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
           <p className="mb-2 text-[14px] font-semibold text-gray-900">근무 형태</p>
           <div className="flex flex-wrap gap-2">
             {JOB_WORK_TYPE_OPTIONS.map((opt) => (
@@ -412,7 +516,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
 
         {listingKind === "hire" && (
           <>
-            <section className="border-b border-gray-100 bg-white px-4 py-4">
+            <section
+              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            >
               <p className="mb-2 text-[14px] font-semibold text-gray-900">근무 날짜</p>
               <p className="mb-2 text-[12px] text-gray-500">오늘 이전 날짜는 선택할 수 없어요. 기본은 오늘입니다.</p>
               <div className="grid grid-cols-2 gap-2">
@@ -467,7 +573,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                 <p className="mt-1 text-[13px] text-red-500">{errors.workDate || errors.workDateEnd}</p>
               )}
             </section>
-            <section className="border-b border-gray-100 bg-white px-4 py-4">
+            <section
+              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            >
               <p className="mb-2 text-[14px] font-semibold text-gray-900">근무 시간 (선택)</p>
               <div className="flex items-center gap-2">
                 <input
@@ -494,7 +602,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                 <span className="text-[14px] text-gray-800">당일 지급</span>
               </label>
             </section>
-            <section className="border-b border-gray-100 bg-white px-4 py-4">
+            <section
+              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            >
               <p className="mb-2 text-[14px] font-semibold text-gray-900">업체명 (선택)</p>
               <input
                 type="text"
@@ -509,7 +619,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
 
         {listingKind === "work" && (
           <>
-            <section className="border-b border-gray-100 bg-white px-4 py-4">
+            <section
+              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            >
               <p className="mb-2 text-[14px] font-semibold text-gray-900">가능한 시간</p>
               <input
                 type="text"
@@ -519,7 +631,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
                 className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px]"
               />
             </section>
-            <section className="border-b border-gray-100 bg-white px-4 py-4">
+            <section
+              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            >
               <p className="mb-2 text-[14px] font-semibold text-gray-900">경력</p>
               <div className="flex flex-wrap gap-2">
                 {EXPERIENCE_LEVEL_OPTIONS.map((opt) => (
@@ -541,7 +655,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
           </>
         )}
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
+        <section
+          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
           <p className="mb-2 text-[14px] font-semibold text-gray-900">급여</p>
           <div className="mb-2 flex flex-wrap gap-2">
             {PAY_TYPE_OPTIONS.map((opt) => (
@@ -581,18 +697,34 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            readOnly={showDescriptionAppend}
             placeholder="하는 일, 분위기, 준비물 등을 적어 주세요."
             rows={5}
             maxLength={JOB_DESCRIPTION_MAX}
             className={`w-full resize-none rounded-ui-rect border px-3 py-2.5 text-[14px] ${
               errors.description ? "border-red-400 bg-red-50" : "border-gray-300"
-            }`}
+            } ${showDescriptionAppend ? "bg-gray-50 text-gray-700" : ""}`}
           />
           <p className="mt-1 text-right text-[12px] text-gray-500">{description.length}/{JOB_DESCRIPTION_MAX}</p>
           {errors.description && <p className="text-[13px] text-red-500">{errors.description}</p>}
+          {showDescriptionAppend ? (
+            <div className="mt-3">
+              <p className="mb-1 text-[13px] font-medium text-gray-800">추가 안내 (선택)</p>
+              <p className="mb-2 text-[12px] text-gray-500">기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.</p>
+              <textarea
+                value={descriptionAppend}
+                onChange={(e) => setDescriptionAppend(e.target.value)}
+                placeholder="예) 면접 장소 변경, 준비물 추가 안내"
+                rows={3}
+                className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px]"
+              />
+            </div>
+          ) : null}
         </section>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
+        <section
+          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
           <p className="mb-2 text-[14px] font-semibold text-gray-900">연락 (선택)</p>
           <p className="mb-2 text-[12px] text-gray-500">기본은 채팅만 사용해요. 전화번호는 글 본문에 나오지 않습니다.</p>
           <input
@@ -617,7 +749,9 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
           </label>
         </section>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
+        <section
+          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
           <label className="flex cursor-pointer items-start gap-2">
             <input
               type="checkbox"
@@ -634,13 +768,19 @@ export function JobsWriteForm({ category, onSuccess, onCancel }: JobsWriteFormPr
 
         <section className="border-b border-gray-100 bg-white px-4 py-4">
           <p className="mb-2 text-[14px] font-semibold text-gray-900">사진 (선택)</p>
-          <ImageUploader value={images} onChange={setImages} maxCount={maxImages} label="사진 추가" />
+          <ImageUploader
+            value={images}
+            onChange={setImages}
+            maxCount={maxImages}
+            label="사진 추가"
+            disabled={coreLocked}
+          />
         </section>
 
         {errors.submit && <p className="px-4 py-2 text-[13px] text-red-500">{errors.submit}</p>}
 
         <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white px-4 py-3 safe-area-pb">
-          <SubmitButton label="등록하기" submitting={submitting} onCancel={onCancel} />
+          <SubmitButton label={editPostId ? "수정하기" : "등록하기"} submitting={submitting} onCancel={onCancel} />
         </div>
       </form>
     </div>

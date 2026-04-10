@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import type { OwnerEditPostSnapshot } from "@/lib/posts/owner-edit-post-snapshot";
+import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   ensureClientAccessOrRedirect,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth/client-access-flow";
 import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
 import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
+import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 
 type Props = {
@@ -25,6 +26,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   const pathname = usePathname();
 
   const [snapshot, setSnapshot] = useState<OwnerEditPostSnapshot | null>(null);
+  const [tradePolicy, setTradePolicy] = useState<TradePolicyClient | null>(null);
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
   const [status, setStatus] = useState<"loading" | "error" | "locked" | "ready" | "no_write">(
     "loading"
@@ -50,6 +52,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
       error?: string;
       locked?: boolean;
       post?: OwnerEditPostSnapshot;
+      tradePolicy?: TradePolicyClient;
     };
     if (!res.ok || !data.ok) {
       const err = typeof data.error === "string" ? data.error : "";
@@ -88,11 +91,13 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
     }
     if (c.settings && !c.settings.can_write) {
       setSnapshot(post);
+      setTradePolicy(data.tradePolicy ?? null);
       setCategory(c);
       setStatus("no_write");
       return;
     }
     setSnapshot(post);
+    setTradePolicy(data.tradePolicy ?? null);
     setCategory(c);
     setStatus("ready");
   }, [id, router, pathname]);
@@ -166,17 +171,14 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
 
   if (category.icon_key === "jobs" || category.icon_key === "job") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 pb-24">
-        <p className="text-[15px] font-medium text-gray-700">알바 공고 수정은 준비 중이에요.</p>
-        <p className="text-center text-[13px] text-gray-500">곧 이 화면에서 수정할 수 있게 할 예정이에요.</p>
-        <button
-          type="button"
-          onClick={() => router.push(`/products/${id}`)}
-          className="text-[14px] font-medium text-signature"
-        >
-          상품으로 돌아가기
-        </button>
-      </div>
+      <JobsWriteForm
+        category={category}
+        onSuccess={handleSuccess}
+        onCancel={handleCancel}
+        editPostId={id}
+        ownerEditSnapshot={snapshot}
+        tradePolicy={tradePolicy}
+      />
     );
   }
 
@@ -188,6 +190,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
         onCancel={handleCancel}
         editPostId={id}
         ownerEditSnapshot={snapshot}
+        tradePolicy={tradePolicy}
       />
     );
   }
@@ -199,6 +202,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
       onCancel={handleCancel}
       editPostId={id}
       ownerEditSnapshot={snapshot}
+      tradePolicy={tradePolicy}
     />
   );
 }

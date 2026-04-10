@@ -24,85 +24,13 @@ import {
   TradeBuyerPickerModal,
   type TradeBuyerPickCandidate,
 } from "./TradeBuyerPickerModal";
-import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
-
-type PostBuyerChatsPayload = {
-  items?: {
-    chatId: string;
-    buyerId: string;
-    buyerNickname: string;
-    tradeFlowStatus?: string;
-  }[];
-  postStatus?: string;
-  sellerListingState?: string | null;
-  reservedBuyerId?: string | null;
-  error?: string;
-};
-
-function isActiveTradeChat(row: { tradeFlowStatus?: string }) {
-  const f = row.tradeFlowStatus ?? "chatting";
-  return f === "chatting" || f === "";
-}
-
-function dedupeBuyerCandidates(
-  items: PostBuyerChatsPayload["items"]
-): TradeBuyerPickCandidate[] {
-  if (!items?.length) return [];
-  const m = new Map<string, TradeBuyerPickCandidate>();
-  for (const it of items) {
-    if (!it.buyerId || !it.chatId) continue;
-    if (!m.has(it.buyerId)) {
-      m.set(it.buyerId, {
-        buyerId: it.buyerId,
-        chatId: it.chatId,
-        buyerNickname: it.buyerNickname || it.buyerId.slice(0, 8),
-      });
-    }
-  }
-  return [...m.values()];
-}
-
-async function fetchPostBuyerChats(postId: string): Promise<PostBuyerChatsPayload> {
-  if (isOfflineMockPostId(postId)) {
-    return { items: [], postStatus: "active", sellerListingState: null, reservedBuyerId: null };
-  }
-  const res = await fetch(`/api/my/post-buyer-chats?postId=${encodeURIComponent(postId)}`);
-  const data = (await res.json().catch(() => ({}))) as PostBuyerChatsPayload;
-  if (!res.ok || data.error) {
-    return { ...data, error: data.error ?? "목록을 불러오지 못했습니다." };
-  }
-  return data;
-}
-
-async function postSellerListingStateApi(
-  productId: string,
-  sellerListingState: SellerListingState,
-  reservedBuyerId?: string
-) {
-  const body: { sellerListingState: SellerListingState; reservedBuyerId?: string } = {
-    sellerListingState,
-  };
-  if (reservedBuyerId) body.reservedBuyerId = reservedBuyerId;
-  const res = await fetch(`/api/posts/${encodeURIComponent(productId)}/seller-listing-state`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return (await res.json().catch(() => ({}))) as {
-    ok?: boolean;
-    error?: string;
-    warning?: string;
-  };
-}
-
-async function postSellerCompleteApi(chatId: string) {
-  const res = await fetch(`/api/trade/product-chat/${encodeURIComponent(chatId)}/seller-complete`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-  return (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-}
+import {
+  dedupeBuyerCandidates,
+  fetchPostBuyerChats,
+  isActiveTradeChat,
+  postSellerCompleteRequest,
+  postSellerListingStateRequest,
+} from "@/lib/trade/seller-trade-flow-client";
 
 function filterByStatus(products: Product[], filter: MyProductFilterKey): Product[] {
   if (filter === "all") return products.filter((p) => p.status !== "hidden");
@@ -128,7 +56,7 @@ export function MyProductsView() {
     setCurrentUserId(user?.id ?? null);
   }, []);
 
-  const fetchMyPosts = useCallback(async (uid: string) => {
+  const fetchMyPosts = useCallback(async (_uid: string) => {
     const res = await fetch("/api/my/posts");
     if (!res.ok) return [];
     const data = await res.json();
@@ -297,7 +225,7 @@ export function MyProductsView() {
               window.alert("예약된 구매자와의 활성 채팅을 찾을 수 없습니다.");
               return;
             }
-            const done = await postSellerCompleteApi(row.chatId);
+            const done = await postSellerCompleteRequest(row.chatId);
             if (!done.ok) {
               window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
               return;
@@ -312,7 +240,7 @@ export function MyProductsView() {
             return;
           }
           if (candidates.length === 1) {
-            const done = await postSellerCompleteApi(candidates[0].chatId);
+            const done = await postSellerCompleteRequest(candidates[0].chatId);
             if (!done.ok) {
               window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
               return;
@@ -337,7 +265,7 @@ export function MyProductsView() {
             return;
           }
           if (candidates.length === 1) {
-            const saved = await postSellerListingStateApi(productId, "reserved", candidates[0].buyerId);
+            const saved = await postSellerListingStateRequest(productId, "reserved", candidates[0].buyerId);
             if (!saved.ok) {
               window.alert(saved.error ?? "저장에 실패했습니다.");
               return;
@@ -350,7 +278,7 @@ export function MyProductsView() {
           return;
         }
 
-        const saved = await postSellerListingStateApi(productId, state);
+        const saved = await postSellerListingStateRequest(productId, state);
         if (!saved.ok) {
           window.alert(saved.error ?? "저장에 실패했습니다.");
           return;
@@ -374,14 +302,14 @@ export function MyProductsView() {
       setSavingListingId(productId);
       try {
         if (mode === "reserve") {
-          const saved = await postSellerListingStateApi(productId, "reserved", c.buyerId);
+          const saved = await postSellerListingStateRequest(productId, "reserved", c.buyerId);
           if (!saved.ok) {
             window.alert(saved.error ?? "저장에 실패했습니다.");
             return;
           }
           if (saved.warning) window.alert(saved.warning);
         } else {
-          const done = await postSellerCompleteApi(c.chatId);
+          const done = await postSellerCompleteRequest(c.chatId);
           if (!done.ok) {
             window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
             return;

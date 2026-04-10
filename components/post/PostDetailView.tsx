@@ -41,7 +41,6 @@ import {
 import { CURRENCY_SYMBOLS, formatPrepKeysForDisplay } from "@/lib/exchange/form-options";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { PostCard } from "./PostCard";
 import { ProductImageGallery } from "@/components/product/detail/ProductImageGallery";
 import {
   PRODUCT_DETAIL_BOTTOM_BAR,
@@ -51,7 +50,6 @@ import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBad
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
-import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import { formatPostListingLocationLine } from "@/lib/posts/post-listing-location-label";
@@ -60,6 +58,7 @@ import type { UserTrustSummary } from "@/lib/types/review";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
+import { PostDetailSellerTradeLifecycleBar } from "@/components/post/PostDetailSellerTradeLifecycleBar";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
@@ -596,10 +595,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     resolvedViewerId !== null &&
     !!listingOwnerId &&
     resolvedViewerId === listingOwnerId;
-  const showSellerCancelBar =
-    isOwnPost &&
-    post.type !== "community" &&
-    !["hidden", "sold", "deleted", "blinded"].includes(String(post.status ?? "").toLowerCase());
+  const postStatusLower = String(post.status ?? "").toLowerCase();
+  const showSellerTradeControls =
+    isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
+  const showSellerMoreMenu =
+    isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
 
   useEffect(() => {
     incrementPostViewCount(post.id);
@@ -655,7 +655,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
     const showBuyerMore = !isOwnPost;
-    const showSellerMore = isOwnPost && showSellerCancelBar;
+    const showSellerMore = showSellerMoreMenu;
     setMainTier1Extras({
       tier1: {
         titleText: tier1Title,
@@ -720,7 +720,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     tier1Title,
     backHref,
     isOwnPost,
-    showSellerCancelBar,
+    showSellerMoreMenu,
     notificationUnreadCount,
   ]);
 
@@ -1028,7 +1028,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           ? [post.thumbnail_url]
           : [];
     return (
-      <div className="w-full min-w-0 pb-24">
+      <div className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
         <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
           {/* 1. 이미지 — 태블릿·데스크톱에서 좌측 고정 폭 + 스티키 */}
           <div className="min-w-0 bg-white md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
@@ -1158,7 +1158,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         )}
 
         {/* 하단 고정: 상품 상세와 동일 규격(찜 + 가격 + 채팅) — 본인 글은 찜 숨김 */}
-        <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30`}>
+        <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}>
           {!isOwnPost && (
             <button
               type="button"
@@ -1201,19 +1201,15 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               </button>
             </div>
           )}
-          {showSellerCancelBar && (
-            <div className="min-w-0 flex-1">
-              <button
-                type="button"
-                disabled={cancelSaleBusy}
-                onClick={() => {
-                  if (!window.confirm(SELLER_CANCEL_SALE_CONFIRM_MESSAGE)) return;
-                  void runCancelOwnSale();
-                }}
-                className={`${PRODUCT_DETAIL_CTA_BUTTON} border-red-200 bg-red-600 text-white hover:bg-red-700`}
-              >
-                {cancelSaleBusy ? "처리 중…" : "물품 판매 취소"}
-              </button>
+          {showSellerTradeControls && (
+            <div className="w-full basis-full border-t border-gray-100 px-2 pt-2">
+              <PostDetailSellerTradeLifecycleBar
+                postId={post.id}
+                status={post.status ?? "active"}
+                sellerListingState={post.seller_listing_state ?? null}
+                meta={(post.meta as Record<string, unknown> | null) ?? null}
+                onRefresh={() => router.refresh()}
+              />
             </div>
           )}
         </div>
@@ -1271,7 +1267,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   }
 
   return (
-    <div className="w-full min-w-0 pb-24">
+    <div className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
       <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
         {/* 1. 이미지 — 태블릿·가로: 좌측 열 + 스크롤 시 고정 */}
         <div className="min-w-0 bg-white md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
@@ -1571,7 +1567,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       )}
 
       {/* 하단 고정: 상품 상세와 동일 규격 — 본인 글은 찜 숨김 */}
-      <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30`}>
+      <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}>
         {!isOwnPost && (
           <button
             type="button"
@@ -1608,19 +1604,15 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             </button>
           </div>
         )}
-        {showSellerCancelBar && (
-          <div className="min-w-0 flex-1">
-            <button
-              type="button"
-              disabled={cancelSaleBusy}
-              onClick={() => {
-                if (!window.confirm(SELLER_CANCEL_SALE_CONFIRM_MESSAGE)) return;
-                void runCancelOwnSale();
-              }}
-              className={`${PRODUCT_DETAIL_CTA_BUTTON} border-red-200 bg-red-600 text-white hover:bg-red-700`}
-            >
-              {cancelSaleBusy ? "처리 중…" : "물품 판매 취소"}
-            </button>
+        {showSellerTradeControls && (
+          <div className="w-full basis-full border-t border-gray-100 px-2 pt-2">
+            <PostDetailSellerTradeLifecycleBar
+              postId={post.id}
+              status={post.status ?? "active"}
+              sellerListingState={post.seller_listing_state ?? null}
+              meta={(post.meta as Record<string, unknown> | null) ?? null}
+              onRefresh={() => router.refresh()}
+            />
           </div>
         )}
       </div>

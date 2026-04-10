@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
-import type { OwnerEditPostSnapshot } from "@/lib/posts/owner-edit-post-snapshot";
+import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
@@ -34,6 +34,7 @@ interface ExchangeWriteFormProps {
   onCancel: () => void;
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
+  tradePolicy?: TradePolicyClient | null;
 }
 
 
@@ -57,6 +58,7 @@ export function ExchangeWriteForm({
   onCancel,
   editPostId,
   ownerEditSnapshot,
+  tradePolicy = null,
 }: ExchangeWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -65,6 +67,9 @@ export function ExchangeWriteForm({
   const hasLocation = true;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [descriptionAppend, setDescriptionAppend] = useState("");
+  const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
+  const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
 
@@ -259,7 +264,12 @@ export function ExchangeWriteForm({
           meta,
         };
         if (editPostId) {
-          const res = await updateTradePostFromCreatePayload(editPostId, payload);
+          const res = await updateTradePostFromCreatePayload(editPostId, payload, {
+            descriptionAppend:
+              showDescriptionAppend && descriptionAppend.trim()
+                ? descriptionAppend.trim()
+                : undefined,
+          });
           if (res.ok) onSuccess(editPostId);
           else {
             if (redirectForBlockedAction(router, res.error, pathname || `/products/${editPostId}/edit`)) return;
@@ -297,6 +307,8 @@ export function ExchangeWriteForm({
       router,
       pathname,
       editPostId,
+      showDescriptionAppend,
+      descriptionAppend,
     ]
   );
 
@@ -315,6 +327,12 @@ export function ExchangeWriteForm({
         backHref={backHref}
       />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
+        {tradePolicy?.hint ? (
+          <div className="mx-4 mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-950">
+            {tradePolicy.hint}
+          </div>
+        ) : null}
+        <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
         {/* 환율 상황판 (자동 조회) */}
         <section className="border-b border-gray-100 bg-white px-4 py-4">
           <h3 className="mb-3 text-[15px] font-bold text-gray-900">환율 상황판</h3>
@@ -350,6 +368,7 @@ export function ExchangeWriteForm({
               <button
                 key={opt.value}
                 type="button"
+                disabled={coreLocked}
                 onClick={() => setDirection(opt.value as "sell" | "buy")}
                 className={`flex-1 rounded-ui-rect border py-2.5 text-[14px] font-medium ${
                   direction === opt.value ? "border-gray-800 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-700"
@@ -494,17 +513,31 @@ export function ExchangeWriteForm({
           </div>
           {errors.prep && <p className="mt-2 text-[13px] text-red-500">{errors.prep}</p>}
         </section>
+        </div>
 
         <section className="border-b border-gray-100 bg-white px-4 py-4">
           <p className="mb-2 text-[14px] font-medium text-gray-800">추가 안내 (선택)</p>
           <textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
+            readOnly={coreLocked || showDescriptionAppend}
             placeholder="매너와 속도가 중요해요. 거래 시 유의사항을 적어주세요."
             rows={3}
             className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px] text-gray-900"
           />
           <p className="mt-1 text-[12px] text-gray-500">매너와 속도가 중요해요.</p>
+          {showDescriptionAppend ? (
+            <div className="mt-3">
+              <label className="mb-1 block text-[13px] text-gray-700">추가 안내 덧붙이기</label>
+              <textarea
+                value={descriptionAppend}
+                onChange={(e) => setDescriptionAppend(e.target.value)}
+                placeholder="협의·진행 중 안내할 내용만 입력해 주세요."
+                rows={2}
+                className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px] text-gray-900"
+              />
+            </div>
+          ) : null}
         </section>
 
         {errors.submit && <p className="px-4 py-2 text-[13px] text-red-500">{errors.submit}</p>}

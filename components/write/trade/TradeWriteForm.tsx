@@ -95,7 +95,7 @@ function buildTradeMeta(
 }
 import { createPost } from "@/lib/posts/createPost";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
-import type { OwnerEditPostSnapshot } from "@/lib/posts/owner-edit-post-snapshot";
+import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
@@ -120,6 +120,8 @@ interface TradeWriteFormProps {
   /** `/products/[id]/edit` — 기존 글 수정 */
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
+  /** GET owner-edit `tradePolicy` */
+  tradePolicy?: TradePolicyClient | null;
 }
 
 export function TradeWriteForm({
@@ -128,6 +130,7 @@ export function TradeWriteForm({
   onCancel,
   editPostId,
   ownerEditSnapshot,
+  tradePolicy = null,
 }: TradeWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -153,6 +156,9 @@ export function TradeWriteForm({
   const [images, setImages] = useState<ImageUploadItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [descriptionAppend, setDescriptionAppend] = useState("");
+  const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
+  const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const skinKey = category.icon_key ?? "general";
   const isUsedCarSkin = skinKey === "used-car";
 
@@ -397,7 +403,12 @@ export function TradeWriteForm({
           meta: Object.keys(meta).length > 0 ? meta : undefined,
         };
         if (editPostId) {
-          const res = await updateTradePostFromCreatePayload(editPostId, payload);
+          const res = await updateTradePostFromCreatePayload(editPostId, payload, {
+            descriptionAppend:
+              showDescriptionAppend && descriptionAppend.trim()
+                ? descriptionAppend.trim()
+                : undefined,
+          });
           if (res.ok) {
             onSuccess(editPostId);
           } else {
@@ -461,6 +472,8 @@ export function TradeWriteForm({
       router,
       pathname,
       editPostId,
+      showDescriptionAppend,
+      descriptionAppend,
     ]
   );
 
@@ -473,19 +486,29 @@ export function TradeWriteForm({
         backHref={backHref}
       />
       <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
+        {tradePolicy?.hint ? (
+          <div className="mx-4 mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-950">
+            {tradePolicy.hint}
+          </div>
+        ) : null}
         <ImageUploader
           value={images}
           onChange={setImages}
           maxCount={maxProductImages}
           label="사진"
+          disabled={coreLocked}
         />
-        <WriteTradeTopicSection
-          category={category}
-          value={tradeTopicChildId}
-          onChange={setTradeTopicChildId}
-        />
+        <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+          <WriteTradeTopicSection
+            category={category}
+            value={tradeTopicChildId}
+            onChange={setTradeTopicChildId}
+          />
+        </div>
         {skinKey === "real-estate" ? (
-          <section className="border-b border-gray-100 bg-white px-4 py-4">
+          <section
+            className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          >
             <div className="space-y-3">
               <LocationSelector
                 embedded
@@ -507,6 +530,7 @@ export function TradeWriteForm({
                   type="text"
                   value={buildingName}
                   onChange={(e) => setBuildingName(e.target.value)}
+                  readOnly={coreLocked}
                   className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
                   placeholder="단지·건물명만 입력 (지역은 위에서 선택)"
                   aria-invalid={!!errors.buildingName}
@@ -518,7 +542,9 @@ export function TradeWriteForm({
             </div>
           </section>
         ) : skinKey === "used-car" ? (
-          <section className="border-b border-gray-100 bg-white px-4 py-4">
+          <section
+            className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          >
             <p className="mb-2 text-[14px] font-medium text-gray-800">
               구분 <span className="text-red-500">*</span>
             </p>
@@ -547,7 +573,9 @@ export function TradeWriteForm({
             )}
           </section>
         ) : (
-          <section className="border-b border-gray-100 bg-white px-4 py-4">
+          <section
+            className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          >
             <label className="mb-2 block text-[14px] font-medium text-gray-800">
               제목 <span className="text-red-500">*</span>
             </label>
@@ -555,6 +583,7 @@ export function TradeWriteForm({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              readOnly={coreLocked}
               placeholder="글 제목"
               maxLength={100}
               className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
@@ -570,6 +599,7 @@ export function TradeWriteForm({
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            readOnly={coreLocked || showDescriptionAppend}
             placeholder="내용을 입력해 주세요"
             rows={5}
             className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
@@ -578,6 +608,18 @@ export function TradeWriteForm({
           {errors.description && (
             <p className="mt-1 text-[13px] text-red-500">{errors.description}</p>
           )}
+          {showDescriptionAppend ? (
+            <div className="mt-3">
+              <label className="mb-1 block text-[13px] text-gray-700">추가 안내 (선택)</label>
+              <textarea
+                value={descriptionAppend}
+                onChange={(e) => setDescriptionAppend(e.target.value)}
+                placeholder="협의·진행 중 추가로 안내할 내용만 입력해 주세요."
+                rows={3}
+                className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+              />
+            </div>
+          ) : null}
         </section>
         {(hasPrice || (hasFreeShare && !isUsedCarSkin)) &&
           skinKey !== "real-estate" &&

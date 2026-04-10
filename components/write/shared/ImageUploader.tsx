@@ -12,6 +12,8 @@ interface ImageUploaderProps {
   onChange: (next: ImageUploadItem[]) => void;
   maxCount?: number;
   label?: string;
+  /** 거래 잠금 시 이미지 변경 불가 */
+  disabled?: boolean;
 }
 
 export function ImageUploader({
@@ -19,11 +21,13 @@ export function ImageUploader({
   onChange,
   maxCount = 10,
   label = "사진",
+  disabled = false,
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback(
     (files: FileList | null) => {
+      if (disabled) return;
       if (!files?.length || value.length >= maxCount) return;
       const next = [...value];
       for (let i = 0; i < files.length && next.length < maxCount; i++) {
@@ -33,20 +37,21 @@ export function ImageUploader({
       }
       onChange(next);
     },
-    [value, maxCount, onChange]
+    [disabled, value, maxCount, onChange]
   );
 
   const removeAt = useCallback(
     (index: number) => {
+      if (disabled) return;
       const item = value[index];
       if (item?.url?.startsWith("blob:")) URL.revokeObjectURL(item.url);
       onChange(value.filter((_, i) => i !== index));
     },
-    [value, onChange]
+    [disabled, value, onChange]
   );
 
   return (
-    <section className="border-b border-gray-100 bg-white px-4 py-4">
+    <section className={`border-b border-gray-100 bg-white px-4 py-4 ${disabled ? "opacity-60" : ""}`}>
       <p className="mb-3 text-[14px] font-medium text-gray-800">{label}</p>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {value.map((item, index) => (
@@ -55,17 +60,19 @@ export function ImageUploader({
             className="relative h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100"
           >
             <img src={item.url} alt="" className="h-full w-full object-cover" />
-            <button
-              type="button"
-              onClick={() => removeAt(index)}
-              className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white"
-              aria-label="삭제"
-            >
-              ×
-            </button>
+            {!disabled ? (
+              <button
+                type="button"
+                onClick={() => removeAt(index)}
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white"
+                aria-label="삭제"
+              >
+                ×
+              </button>
+            ) : null}
           </div>
         ))}
-        {value.length < maxCount && (
+        {value.length < maxCount && !disabled && (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}

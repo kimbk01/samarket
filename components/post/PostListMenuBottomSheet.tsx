@@ -17,9 +17,14 @@ interface PostListMenuBottomSheetProps {
   onAction?: (action: PostListMenuAction) => void;
   /** 거래 글 본인일 때만 — 수정·삭제 블록 표시 */
   showOwnerTradeActions?: boolean;
-  /** 예약중·거래완료 등 — 버튼 비활성 + 안내 */
+  /** 예약중·거래완료 등 — 버튼 비활성 + 안내 (구호환: 둘 다 잠금) */
   ownerEditDeleteLocked?: boolean;
   ownerEditDeleteLockHint?: string;
+  /** 분리 잠금 (거래 라이프사이클) */
+  ownerEditLocked?: boolean;
+  ownerDeleteLocked?: boolean;
+  ownerEditLockHint?: string;
+  ownerDeleteLockHint?: string;
 }
 
 function IconPlusCircle({ className }: { className?: string }) {
@@ -93,6 +98,10 @@ export function PostListMenuBottomSheet({
   showOwnerTradeActions = false,
   ownerEditDeleteLocked = false,
   ownerEditDeleteLockHint = "예약·거래완료된 글은 수정·삭제할 수 없어요.",
+  ownerEditLocked,
+  ownerDeleteLocked,
+  ownerEditLockHint = "",
+  ownerDeleteLockHint = "",
 }: PostListMenuBottomSheetProps) {
   useEffect(() => {
     if (!open) return;
@@ -103,13 +112,19 @@ export function PostListMenuBottomSheet({
 
   if (!open) return null;
 
+  const editLocked = ownerEditLocked ?? ownerEditDeleteLocked;
+  const deleteLocked = ownerDeleteLocked ?? ownerEditDeleteLocked;
+  const showLockBanner =
+    (editLocked || deleteLocked) &&
+    (ownerEditLockHint || ownerDeleteLockHint || ownerEditDeleteLockHint);
+
   const handle = (action: PostListMenuAction) => {
     onAction?.(action);
     onClose();
   };
 
   const confirmDeleteOwn = () => {
-    if (ownerEditDeleteLocked) return;
+    if (deleteLocked) return;
     if (typeof window !== "undefined" && !window.confirm("이 글을 삭제할까요? 삭제 후에는 피드에서 사라져요.")) {
       return;
     }
@@ -132,13 +147,16 @@ export function PostListMenuBottomSheet({
         <div className="mt-4 space-y-2">
           {showOwnerTradeActions ? (
             <div className="rounded-ui-rect border border-gray-100 bg-gray-50/50 p-2">
-              {ownerEditDeleteLocked ? (
-                <p className="px-3 py-2 text-[12px] leading-snug text-amber-800">{ownerEditDeleteLockHint}</p>
+              {showLockBanner ? (
+                <div className="space-y-1 px-3 py-2 text-[12px] leading-snug text-amber-800">
+                  {editLocked ? <p>{ownerEditLockHint || ownerEditDeleteLockHint}</p> : null}
+                  {deleteLocked ? <p>{ownerDeleteLockHint || ownerEditDeleteLockHint}</p> : null}
+                </div>
               ) : null}
               <button
                 type="button"
-                disabled={ownerEditDeleteLocked}
-                onClick={() => !ownerEditDeleteLocked && handle("edit_own")}
+                disabled={editLocked}
+                onClick={() => !editLocked && handle("edit_own")}
                 className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-gray-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <IconPencil className="h-5 w-5 text-gray-500" />
@@ -146,7 +164,7 @@ export function PostListMenuBottomSheet({
               </button>
               <button
                 type="button"
-                disabled={ownerEditDeleteLocked}
+                disabled={deleteLocked}
                 onClick={confirmDeleteOwn}
                 className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
               >
