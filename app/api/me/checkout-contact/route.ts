@@ -62,13 +62,12 @@ export async function GET() {
 
   const { data: prof2 } = await sb
     .from("profiles")
-    .select("region_name, region_code, postal_code, address_street_line, address_detail")
+    .select("region_name, region_code, address_street_line, address_detail")
     .eq("id", uid)
     .maybeSingle();
   const fromProfile = resolveProfileLocationAddressOneLine({
     region_code: prof2?.region_code ?? null,
     region_name: prof2?.region_name ?? null,
-    postal_code: prof2?.postal_code ?? null,
     address_street_line: prof2?.address_street_line ?? null,
     address_detail: prof2?.address_detail ?? null,
   }).trim();

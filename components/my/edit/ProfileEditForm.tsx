@@ -19,8 +19,6 @@ import {
   decodeProfileAppLocationPair,
   encodeProfileAppLocationStorage,
 } from "@/lib/profile/profile-location";
-import { finalizePhilippinesZipCode } from "@/lib/products/zip-to-location";
-
 function validate(p: { nickname: string }): { nickname?: string } {
   const errors: { nickname?: string } = {};
   if (!p.nickname?.trim()) errors.nickname = "닉네임을 입력해 주세요.";
@@ -46,7 +44,6 @@ export function ProfileEditForm() {
   const [bio, setBio] = useState("");
   const [appRegionId, setAppRegionId] = useState("");
   const [appCityId, setAppCityId] = useState("");
-  const [philPostZip, setPhilPostZip] = useState("");
   const [addressStreetLine, setAddressStreetLine] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
   const [phone, setPhone] = useState("");
@@ -65,7 +62,6 @@ export function ProfileEditForm() {
       const loc = decodeProfileAppLocationPair(data.region_code, data.region_name);
       setAppRegionId(loc.regionId);
       setAppCityId(loc.cityId);
-      setPhilPostZip((data.postal_code ?? "").trim());
       setAddressStreetLine((data.address_street_line ?? "").trim());
       setAddressDetail((data.address_detail ?? "").trim());
       setPhone(parsePhMobileInput(data.phone ?? ""));
@@ -74,7 +70,6 @@ export function ProfileEditForm() {
     } else {
       setAppRegionId("");
       setAppCityId("");
-      setPhilPostZip("");
       setAddressStreetLine("");
       setAddressDetail("");
     }
@@ -84,10 +79,6 @@ export function ProfileEditForm() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const commitPhilippinesZip = useCallback((code: string) => {
-    setPhilPostZip(code);
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +97,6 @@ export function ProfileEditForm() {
       bio: bio.trim() || null,
       region_code: encodeProfileAppLocationStorage(appRegionId, appCityId),
       region_name: buildProfileRegionNameForStorage(appRegionId, appCityId),
-      postal_code: finalizePhilippinesZipCode(philPostZip) ?? null,
       address_street_line: addressStreetLine.trim() || null,
       address_detail: addressDetail.trim() || null,
       phone: pr.value,
@@ -177,8 +167,7 @@ export function ProfileEditForm() {
         onAddressStreetLineChange={setAddressStreetLine}
         onAddressDetailChange={setAddressDetail}
         showRequired={false}
-        philippinesZipSeed={philPostZip}
-        onPhilippinesZipCommitted={commitPhilippinesZip}
+        showZipLookup={false}
       />
       <ProfileReadonlyFields profile={profile} />
 

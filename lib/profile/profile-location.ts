@@ -95,38 +95,31 @@ export function isProfileLocationComplete(p: {
   return Boolean(regionId && cityId && isValidRegionCity(regionId, cityId));
 }
 
-/** profiles.postal_code · address_* 와 함께 쓰는 표시용 필드 묶음 */
+/** profiles region · address_* 표시용 */
 export type ProfileLocationAddressDisplayInput = {
   region_code?: string | null;
   region_name?: string | null;
-  postal_code?: string | null;
   address_street_line?: string | null;
   address_detail?: string | null;
 };
 
 /**
- * 동네 한 줄 + ZIP + 지번·동호를 한 줄로 (truncate 카드·StatMini용).
- * 구형 프로필(주소 컬럼 없음)은 기존 `resolveProfileLocationDisplayLine`만 반영됩니다.
+ * 동네 한 줄 + 지번·동호를 한 줄로 (truncate 카드·StatMini용).
  */
 export function resolveProfileLocationAddressOneLine(p: ProfileLocationAddressDisplayInput): string {
   const base = resolveProfileLocationDisplayLine(p).trim();
-  const zip = (p.postal_code ?? "").trim();
   const street = (p.address_street_line ?? "").trim();
   const det = (p.address_detail ?? "").trim();
   const tail = [street, det].filter(Boolean).join(" · ");
-  const head = zip && base ? `${base} · ZIP ${zip}` : zip ? `ZIP ${zip}` : base;
-  if (head && tail) return `${head} · ${tail}`;
-  return head || tail;
+  if (base && tail) return `${base} · ${tail}`;
+  return base || tail;
 }
 
-/** 1~2행 (프로필 영역 등) — 첫 줄: 동네·ZIP, 둘째 줄: 지번·동·호 */
+/** 1~2행 — 첫 줄: 동네, 둘째 줄: 지번·동·호 */
 export function resolveProfileLocationAddressLines(p: ProfileLocationAddressDisplayInput): string[] {
   const lines: string[] = [];
   const base = resolveProfileLocationDisplayLine(p).trim();
-  const zip = (p.postal_code ?? "").trim();
-  if (base || zip) {
-    lines.push(zip && base ? `${base} · ZIP ${zip}` : base || `ZIP ${zip}`);
-  }
+  if (base) lines.push(base);
   const street = (p.address_street_line ?? "").trim();
   const det = (p.address_detail ?? "").trim();
   const sub = [street, det].filter(Boolean).join(" · ");

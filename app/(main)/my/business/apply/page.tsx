@@ -40,7 +40,6 @@ export default function BusinessApplyRoute() {
         phoneDigits: parsePhMobileInput(p.phone ?? ""),
         regionId: loc.regionId,
         cityId: loc.cityId,
-        postalCode: (p.postal_code ?? "").trim(),
         addressStreetLine: (p.address_street_line ?? "").trim(),
         addressDetail: (p.address_detail ?? "").trim(),
         profileBio: (p.bio ?? "").trim(),

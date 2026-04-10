@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { LocationSelector } from "@/components/write/shared/LocationSelector";
 import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
 import { STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER } from "@/lib/stores/store-address-form-ui";
@@ -32,7 +32,6 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   const [contactPhoneDigits, setContactPhoneDigits] = useState("");
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
-  const [postalCode, setPostalCode] = useState("");
   const [addressStreetLine, setAddressStreetLine] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
   const [role, setRole] = useState<"normal" | "premium">("normal");
@@ -80,8 +79,6 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
     const locationLabel = getLocationLabelIfValid(region, city);
     const lines: string[] = [];
     if (locationLabel) lines.push(locationLabel);
-    const z = postalCode.trim();
-    if (z) lines.push(`ZIP ${z}`);
     const sub = [addressStreetLine.trim(), addressDetail.trim()].filter(Boolean).join(" · ");
     if (sub) lines.push(sub);
     const contactAddressOut = lines.length > 0 ? lines.join("\n") : undefined;
@@ -103,7 +100,6 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
           phoneVerified,
           regionCode: region.trim() || undefined,
           cityCode: city.trim() || undefined,
-          postalCode: postalCode.trim() || undefined,
           addressStreetLine: addressStreetLine.trim() || undefined,
           addressDetail: addressDetail.trim() || undefined,
         }),
@@ -138,10 +134,6 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       setSubmitting(false);
     }
   };
-
-  const commitPhilippinesZip = useCallback((code: string) => {
-    setPostalCode(code);
-  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -270,7 +262,6 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 onRegionChange={(id) => {
                   setRegion(id);
                   setCity("");
-                  setPostalCode("");
                   setLocationError(undefined);
                 }}
                 onCityChange={(id) => {
@@ -279,8 +270,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 }}
                 error={locationError}
                 label="거래 지역"
-                philippinesZipSeed={postalCode}
-                onPhilippinesZipCommitted={commitPhilippinesZip}
+                showZipLookup={false}
               />
               <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
                 {STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER}

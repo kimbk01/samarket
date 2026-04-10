@@ -5,7 +5,7 @@
  *
  * 테이블 예시 (Supabase):
  *   id uuid PK references auth.users(id),
- *   email, nickname, avatar_url, bio, region_code, region_name, postal_code, phone,
+ *   email, nickname, avatar_url, bio, region_code, region_name, phone,
  *   phone_verified bool, realname_verified bool, status text, role text,
  *   member_type text default 'normal', points int, manner_score numeric, trust_score numeric default 50,
  *   preferred_language, preferred_country, created_at, updated_at timestamptz
@@ -19,8 +19,6 @@ export interface ProfileRow {
   bio: string | null;
   region_code: string | null;
   region_name: string | null;
-  /** PhilPost 4자리 ZIP (LocationSelector 동기) */
-  postal_code: string | null;
   /** 지번·건물·번지 등 (매장 주소 입력과 동일 의미) */
   address_street_line: string | null;
   /** 동·호·출입 등 */
@@ -56,7 +54,6 @@ export type ProfileUpdatePayload = Partial<
     | "bio"
     | "region_code"
     | "region_name"
-    | "postal_code"
     | "address_street_line"
     | "address_detail"
     | "phone"
@@ -73,7 +70,6 @@ export const DEFAULT_PROFILE_ROW: ProfileRow = {
   bio: null,
   region_code: null,
   region_name: null,
-  postal_code: null,
   address_street_line: null,
   address_detail: null,
   phone: null,

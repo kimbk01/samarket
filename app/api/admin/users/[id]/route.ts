@@ -307,7 +307,7 @@ export async function GET(
     supabase
       .from("profiles")
       .select(
-        "id, username, email, role, nickname, phone, phone_verified, phone_verification_status, created_at, region_code, region_name, postal_code, address_street_line, address_detail"
+        "id, username, email, role, nickname, phone, phone_verified, phone_verification_status, created_at, region_code, region_name, address_street_line, address_detail"
       )
       .eq("id", rawId)
       .maybeSingle(),
@@ -334,7 +334,6 @@ export async function GET(
   const prof = profile as {
     region_code?: string | null;
     region_name?: string | null;
-    postal_code?: string | null;
     address_street_line?: string | null;
     address_detail?: string | null;
   } | null;
@@ -342,7 +341,6 @@ export async function GET(
   const fromProfileLines = resolveProfileLocationAddressLines({
     region_code: prof?.region_code,
     region_name: prof?.region_name,
-    postal_code: prof?.postal_code,
     address_street_line: prof?.address_street_line,
     address_detail: prof?.address_detail,
   });

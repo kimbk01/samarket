@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import {
@@ -28,7 +28,6 @@ export type BusinessApplyProfileSeed = {
   phoneDigits: string;
   regionId: string;
   cityId: string;
-  postalCode: string;
   addressStreetLine: string;
   addressDetail: string;
   /** 상점 소개 초안으로 쓸 프로필 한 줄(비어 있으면 폼 기본 유지) */
@@ -99,12 +98,7 @@ export function BusinessApplyForm({
   }));
   const [regionId, setRegionId] = useState("");
   const [cityId, setCityId] = useState("");
-  const [philPostZip, setPhilPostZip] = useState("");
   const profileHydratedRef = useRef(false);
-
-  const commitPhilippinesZip = useCallback((code: string) => {
-    setPhilPostZip(code);
-  }, []);
 
   useEffect(() => {
     if (!profileSeed || profileHydratedRef.current) return;
@@ -113,7 +107,6 @@ export function BusinessApplyForm({
     const c = r?.cities.find((x) => x.id === profileSeed.cityId);
     setRegionId(profileSeed.regionId);
     setCityId(profileSeed.cityId);
-    setPhilPostZip(profileSeed.postalCode.trim());
     setValues((v) => ({
       ...v,
       applicantNickname: profileSeed.applicantNickname.trim() || v.applicantNickname,
@@ -245,7 +238,6 @@ export function BusinessApplyForm({
         onRegionChange={(id) => {
           setRegionId(id);
           setCityId("");
-          setPhilPostZip("");
           const r = REGIONS.find((x) => x.id === id);
           setValues((v) => ({
             ...v,
@@ -269,8 +261,7 @@ export function BusinessApplyForm({
         }
         onAddressDetailChange={(v) => setValues((x) => ({ ...x, addressDetail: v }))}
         showRequired={false}
-        philippinesZipSeed={philPostZip}
-        onPhilippinesZipCommitted={commitPhilippinesZip}
+        showZipLookup={false}
       />
       <div>
         <p className={OWNER_STORE_FORM_HINT_CLASS}>

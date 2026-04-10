@@ -37,12 +37,11 @@ interface LocationSelectorProps {
   showZipLookup?: boolean;
   /**
    * 저장된 우편번호(4자리) — 편집 시 동네별 ZIP 후보와 맞으면 입력칸에 우선 반영.
-   * (부모 `postalCode` state를 넘기면 됨. 지역·동네가 바뀔 때만 이 값으로 시드합니다.)
+   * (부모 시드 state를 넘기면 됨. 지역·동네가 바뀔 때만 이 값으로 시드합니다.)
    */
   philippinesZipSeed?: string;
   /**
    * PhilPost 4자리가 확정될 때 — 지역·동네 선택으로 자동 채움, 또는 「적용」·ZIP역검색 성공 시.
-   * 주소 시트 등에서는 이 콜백만으로 DB `postal_code`와 맞추면 됩니다.
    */
   onPhilippinesZipCommitted?: (fourDigitZip: string) => void;
 }

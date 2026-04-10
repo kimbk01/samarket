@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
     regionCode?: string;
     /** LocationSelector cityId */
     cityCode?: string;
-    postalCode?: string;
     addressStreetLine?: string;
     addressDetail?: string;
   };
@@ -56,7 +55,6 @@ export async function POST(req: NextRequest) {
   const phoneVerified = body.phoneVerified === true;
   const regionId = String(body.regionCode ?? "").trim();
   const cityId = String(body.cityCode ?? "").trim();
-  const postalCodeIn = String(body.postalCode ?? "").trim().slice(0, 32);
   const streetIn = String(body.addressStreetLine ?? "").trim().slice(0, 500);
   const detailIn = String(body.addressDetail ?? "").trim().slice(0, 500);
 
@@ -71,7 +69,6 @@ export async function POST(req: NextRequest) {
   const contactPhone = phNorm.value;
   const region_code = encodeProfileAppLocationStorage(regionId, cityId);
   const region_name = buildProfileRegionNameForStorage(regionId, cityId);
-  const postal_code = postalCodeIn || null;
   const address_street_line = streetIn || null;
   const address_detail = detailIn || null;
   /** test_users·어드민 상세 호환용 — 폼에서 합친 문자열이 없으면 DB 필드로 동일 규칙 재구성 */
@@ -79,7 +76,6 @@ export async function POST(req: NextRequest) {
     contactAddressRaw ||
     [
       region_name?.trim(),
-      postal_code ? `ZIP ${postal_code}` : "",
       [address_street_line, address_detail].filter(Boolean).join(" · "),
     ]
       .filter(Boolean)
@@ -141,7 +137,6 @@ export async function POST(req: NextRequest) {
     auth_provider: "manual_admin",
     region_code,
     region_name,
-    postal_code,
     address_street_line,
     address_detail,
   };

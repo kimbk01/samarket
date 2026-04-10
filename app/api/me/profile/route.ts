@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 type PatchKey = keyof ProfileUpdatePayload;
 
-const PROFILE_ADDRESS_KEYS = ["postal_code", "address_street_line", "address_detail"] as const;
+const PROFILE_ADDRESS_KEYS = ["address_street_line", "address_detail"] as const;
 
 function serviceUnavailable(why: string) {
   return NextResponse.json({ ok: false, error: why }, { status: 503 });
@@ -21,10 +21,7 @@ function serviceUnavailable(why: string) {
 /** PostgREST 스키마 캐시에 컬럼이 없을 때(마이그레이션 미적용) */
 function isMissingProfileAddressColumnError(message: string): boolean {
   const m = message.toLowerCase();
-  const mentionsCol =
-    m.includes("address_detail") ||
-    m.includes("address_street_line") ||
-    m.includes("postal_code");
+  const mentionsCol = m.includes("address_detail") || m.includes("address_street_line");
   if (!mentionsCol) return false;
   return (
     m.includes("schema cache") ||
@@ -37,8 +34,8 @@ function isMissingProfileAddressColumnError(message: string): boolean {
 function mapProfileDbError(message: string): string {
   if (isMissingProfileAddressColumnError(message)) {
     return (
-      "DB에 프로필 주소 컬럼(postal_code, address_street_line, address_detail)이 없습니다. " +
-      "Supabase SQL Editor에서 저장소의 scripts/profiles-postal-code.sql 을 실행한 뒤 잠시 기다렸다가 다시 저장해 주세요."
+      "DB에 프로필 주소 컬럼(address_street_line, address_detail)이 없습니다. " +
+      "마이그레이션 적용 후 잠시 뒤 다시 저장해 주세요."
     );
   }
   return message;
@@ -89,7 +86,6 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
   optText("bio", true);
   optText("region_code", true);
   optText("region_name", true);
-  optText("postal_code", true);
   optText("address_street_line", true);
   optText("address_detail", true);
   if ("phone" in b) {
@@ -197,7 +193,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({
           ok: true,
           warning:
-            "프로필은 저장되었으나 DB에 주소 컬럼이 없어 우편번호·지번·동호는 반영되지 않았습니다. scripts/profiles-postal-code.sql 을 Supabase에서 실행해 주세요.",
+            "프로필은 저장되었으나 DB에 주소 컬럼이 없어 지번·동호는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.",
         });
       }
     }
@@ -253,7 +249,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         warning:
-          "프로필은 저장되었으나 DB에 주소 컬럼이 없어 우편번호·지번·동호는 반영되지 않았습니다. scripts/profiles-postal-code.sql 을 Supabase에서 실행해 주세요.",
+          "프로필은 저장되었으나 DB에 주소 컬럼이 없어 지번·동호는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.",
       });
     }
   }

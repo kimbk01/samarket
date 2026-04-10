@@ -16,7 +16,6 @@ type ProfileRow = {
   status: string | null;
   region_code: string | null;
   region_name: string | null;
-  postal_code: string | null;
   address_street_line: string | null;
   address_detail: string | null;
   points: number | null;
@@ -59,7 +58,7 @@ export async function GET(_req: NextRequest) {
   const { data: rows, error } = await (supabase as any)
     .from("profiles")
     .select(
-      "id, email, username, nickname, role, member_type, status, region_code, region_name, postal_code, address_street_line, address_detail, points, phone_verified, phone_verification_status, created_at"
+      "id, email, username, nickname, role, member_type, status, region_code, region_name, address_street_line, address_detail, points, phone_verified, phone_verification_status, created_at"
     )
     .order("created_at", { ascending: false });
 
@@ -86,7 +85,6 @@ export async function GET(_req: NextRequest) {
     const fromProfile = resolveProfileLocationAddressOneLine({
       region_code: r.region_code,
       region_name: r.region_name,
-      postal_code: r.postal_code,
       address_street_line: r.address_street_line,
       address_detail: r.address_detail,
     }).trim();

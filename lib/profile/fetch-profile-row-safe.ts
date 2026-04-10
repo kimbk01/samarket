@@ -14,7 +14,6 @@ const SELECT_FULL = [
   "bio",
   "region_code",
   "region_name",
-  "postal_code",
   "address_street_line",
   "address_detail",
   "phone",
@@ -73,7 +72,7 @@ const SELECT_MEMBER =
 const SELECT_LEGACY =
   "id, email, nickname, avatar_url, role, member_type, status, phone, phone_verified, phone_verification_status";
 
-const SELECT_OPTIONAL = "postal_code, address_street_line, address_detail, notify_commerce_email";
+const SELECT_OPTIONAL = "address_street_line, address_detail, notify_commerce_email";
 
 export function isProfileSelectSchemaError(message: string | undefined): boolean {
   if (!message) return false;
