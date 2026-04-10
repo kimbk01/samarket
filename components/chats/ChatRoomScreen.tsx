@@ -337,28 +337,15 @@ export function ChatRoomScreen({
   useEffect(() => {
     if (!roomId?.trim() || resolvedUserId === null) return;
 
-    if (serverBootstrap?.room) {
-      let cancelled = false;
-      const run = () => {
-        if (cancelled) return;
-        void hardRefreshBootstrap();
-      };
-      if (typeof requestIdleCallback !== "undefined") {
-        const ricId = requestIdleCallback(run, { timeout: 800 });
-        return () => {
-          cancelled = true;
-          cancelIdleCallback(ricId);
-        };
-      }
-      const tid = window.setTimeout(run, 0);
-      return () => {
-        cancelled = true;
-        clearTimeout(tid);
-      };
-    }
+    /**
+     * RSC가 이미 `loadChatRoomBootstrapForUser`(entry)로 방·메시지를 내려준 경우
+     * 마운트 직후 동일 `/bootstrap` GET을 다시 하지 않음 — DB·네트워크 이중화와 체감 지연 방지.
+     * 후기 제출 여부 등 `full` 메타는 탭 복귀·bfcache 시 `useRefetchOnPageShowRestore`로 보강.
+     */
+    if (serverBootstrap?.room) return;
 
     void reload();
-  }, [roomId, resolvedUserId, serverBootstrap?.room, reload, hardRefreshBootstrap]);
+  }, [roomId, resolvedUserId, serverBootstrap?.room, reload]);
 
   useRefetchOnPageShowRestore(() => {
     void hardRefreshBootstrap();

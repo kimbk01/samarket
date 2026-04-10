@@ -7,24 +7,45 @@ import type { ChatRoomSource } from "@/lib/types/chat";
 const WARM_TTL_MS = 45_000;
 const warmedAtByHref = new Map<string, number>();
 
-function normalizeHrefPath(hrefRaw: string): string {
-  const href = hrefRaw.trim();
-  if (!href) return "";
-  if (href.startsWith("http://") || href.startsWith("https://")) {
-    try {
-      return new URL(href).pathname;
-    } catch {
-      return href;
-    }
-  }
-  return href;
-}
-
 function extractChatRoomIdFromHrefPath(pathname: string): string | null {
   const tradeSeg = TRADE_CHAT_SURFACE.hubPath.replace(/^\//, "").replace(/\//g, "\\/");
   const m = new RegExp(`^\\/(?:chats|${tradeSeg})\\/([^/?#]+)`).exec(pathname);
   const roomId = m?.[1]?.trim();
   return roomId || null;
+}
+
+/** `/chats/x?source=product_chat` 등 전체 href에서 roomId + 부트스트랩 source 힌트 */
+function extractPrewarmChatParams(hrefRaw: string): {
+  roomId: string | null;
+  sourceHint: ChatRoomSource | null;
+} {
+  const href = hrefRaw.trim();
+  if (!href) return { roomId: null, sourceHint: null };
+  let pathname = href;
+  let search = "";
+  try {
+    const u = href.startsWith("http://") || href.startsWith("https://")
+      ? new URL(href)
+      : new URL(href, "https://samarket.local");
+    pathname = u.pathname;
+    search = u.search;
+  } catch {
+    const q = href.indexOf("?");
+    if (q >= 0) {
+      pathname = href.slice(0, q);
+      search = href.slice(q);
+    }
+  }
+  const roomId = extractChatRoomIdFromHrefPath(pathname);
+  let sourceHint: ChatRoomSource | null = null;
+  try {
+    const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    const s = params.get("source")?.trim();
+    if (s === "chat_room" || s === "product_chat") sourceHint = s;
+  } catch {
+    /* ignore */
+  }
+  return { roomId, sourceHint };
 }
 
 /** 방 상세 → 메시지 GET — source 를 이미 알면 초기 진입에서 두 요청을 병렬로 시작한다. */
@@ -53,8 +74,7 @@ export function shouldWarmChatRoute(hrefRaw: string): boolean {
 }
 
 export function prewarmChatRouteData(hrefRaw: string): void {
-  const pathname = normalizeHrefPath(hrefRaw);
-  const roomId = extractChatRoomIdFromHrefPath(pathname);
+  const { roomId, sourceHint } = extractPrewarmChatParams(hrefRaw);
   if (!roomId) return;
-  void loadRoomDetailAndMessages(roomId);
+  void loadRoomDetailAndMessages(roomId, sourceHint);
 }
