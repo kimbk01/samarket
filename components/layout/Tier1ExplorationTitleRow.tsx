@@ -7,6 +7,7 @@ import {
   neighborhoodLocationMetaFromRegion,
   formatNeighborhoodRegionSubtitle,
 } from "@/lib/neighborhood/location-key";
+import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 
 /** 필라이프·거래 홈 상단 동네 줄 — 주소 관리(대표 주소)로 이동 */
 const ADDRESS_MANAGEMENT_HREF = "/mypage/addresses";
@@ -22,9 +23,15 @@ type Tier1ExplorationTitleRowProps = {
  */
 export function Tier1ExplorationTitleRow({ segmentTitle }: Tier1ExplorationTitleRowProps) {
   const { currentRegion } = useRegion();
+  const rep = useRepresentativeAddressLine();
   const meta = neighborhoodLocationMetaFromRegion(currentRegion);
   const label = neighborhoodLocationLabelFromRegion(currentRegion);
-  const addressLine = formatNeighborhoodRegionSubtitle(meta, (label || currentRegion?.label || "").trim());
+  const fallback = formatNeighborhoodRegionSubtitle(meta, (label || currentRegion?.label || "").trim());
+  /** 대표 주소 로드 후 전체 한 줄 — 로딩 중엔 폴백 쓰지 않음(이전 Manila 깜빡임 방지) */
+  const addressLine =
+    rep.status === "loading"
+      ? "…"
+      : rep.line?.trim() || fallback;
 
   return (
     <span className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden">
