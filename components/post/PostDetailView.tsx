@@ -972,39 +972,41 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           : [];
     return (
       <div className="w-full min-w-0 pb-24">
-        {/* 1. 이미지 — 전역 1단(RegionBar)만 사용, 별도 2단 네비 없음 */}
-        <div className="bg-white">
-          <div className="relative w-full bg-gray-100">
-            <div className="relative w-full">
-              {imgList.length > 0 ? (
-                <ProductImageGallery images={imgList} title={post.title ?? ""} />
-              ) : (
-                <div className="flex aspect-square max-h-[320px] w-full items-center justify-center text-gray-400 sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
-                  이미지
-                </div>
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
+          {/* 1. 이미지 — 태블릿·데스크톱에서 좌측 고정 폭 + 스티키 */}
+          <div className="min-w-0 bg-white md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
+            <div className="relative w-full bg-gray-100">
+              <div className="relative w-full">
+                {imgList.length > 0 ? (
+                  <ProductImageGallery images={imgList} title={post.title ?? ""} />
+                ) : (
+                  <div className="flex aspect-square max-h-[320px] w-full items-center justify-center text-gray-400 sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
+                    이미지
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* 2. 판매자 — profiles 연동 (서버 공개 API + 매너 배터리) */}
-        <div
-          id={POST_DETAIL_SELLER_ANCHOR_ID}
-          className="scroll-mt-14 border-b border-gray-100 bg-white px-4 py-3"
-        >
-          <p className="mb-2 text-[12px] font-medium text-gray-500">판매자</p>
-          <PostDetailSellerProfileRow
-            author={author}
-            regionLine={
-              listingLocationLine ? (
-                <p className="text-[12px] text-gray-500 truncate">{listingLocationLine}</p>
-              ) : null
-            }
-          />
-        </div>
+          <div className="min-w-0 md:col-span-7">
+            {/* 2. 판매자 — profiles 연동 (서버 공개 API + 매너 배터리) */}
+            <div
+              id={POST_DETAIL_SELLER_ANCHOR_ID}
+              className="scroll-mt-14 border-b border-gray-100 bg-white px-4 py-3 md:border-t-0"
+            >
+              <p className="mb-2 text-[12px] font-medium text-gray-500">판매자</p>
+              <PostDetailSellerProfileRow
+                author={author}
+                regionLine={
+                  listingLocationLine ? (
+                    <p className="text-[12px] text-gray-500 truncate">{listingLocationLine}</p>
+                  ) : null
+                }
+              />
+            </div>
 
-        {/* 3. 부동산 정보: 제목 → 매물 설명 → 테이블, 좌우 여백 0 (하단 흰색 제거) */}
-        <div className="border-t border-gray-100 bg-white px-0 pt-2 pb-0">
+            {/* 3. 부동산 정보: 제목 → 매물 설명 → 테이블, 좌우 여백 0 (하단 흰색 제거) */}
+            <div className="border-t border-gray-100 bg-white px-0 pt-2 pb-0 md:border-t-0">
           <div className="mb-2 px-4">
             <TradeListingStatusBadge post={post} size="detail" />
           </div>
@@ -1029,6 +1031,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               return s ? <li>{s}</li> : null;
             })()}
           </ul>
+            </div>
+          </div>
         </div>
 
         {/* 4. 비슷한 조건의 매물 더보기 (하단 고정바 바로 위) */}
@@ -1041,7 +1045,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               <span>비슷한 조건의 매물 더보기</span>
               <span className="text-gray-400">›</span>
             </Link>
-            <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {similarPosts.slice(0, 6).map((p) => {
                 const pMeta = (p.meta as Record<string, unknown> | undefined) ?? {};
                 const pDeal = (pMeta.deal_type as string)?.trim();
@@ -1211,47 +1215,49 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   return (
     <div className="w-full min-w-0 pb-24">
-      {/* 1. 이미지 — 전역 1단만 사용 */}
-      <div className="bg-white">
-        <div className="relative w-full bg-gray-100">
-          <div className="relative w-full">
-            {(() => {
-              const imgArr = Array.isArray(post.images)
-                ? post.images.filter((s): s is string => typeof s === "string")
-                : [];
-              const list: string[] =
-                imgArr.length > 0
-                  ? imgArr
-                  : post.thumbnail_url
-                    ? [post.thumbnail_url]
-                    : [];
-              if (list.length === 0) {
-                const isExchange = hasExchangeMeta(post.meta ?? {});
-                return (
-                  <div className="relative flex aspect-square max-h-[320px] w-full items-center justify-center bg-gray-100 sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
-                    {isExchange ? (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-emerald-50 text-6xl font-semibold text-gray-700" aria-hidden>
-                        <span>₱</span>
-                        <span className="text-2xl text-gray-500">↔</span>
-                        <span>₩</span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-gray-400">이미지</span>
-                    )}
-                  </div>
-                );
-              }
-              return <ProductImageGallery images={list} title={post.title ?? ""} />;
-            })()}
+      <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
+        {/* 1. 이미지 — 태블릿·가로: 좌측 열 + 스크롤 시 고정 */}
+        <div className="min-w-0 bg-white md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
+          <div className="relative w-full bg-gray-100">
+            <div className="relative w-full">
+              {(() => {
+                const imgArr = Array.isArray(post.images)
+                  ? post.images.filter((s): s is string => typeof s === "string")
+                  : [];
+                const list: string[] =
+                  imgArr.length > 0
+                    ? imgArr
+                    : post.thumbnail_url
+                      ? [post.thumbnail_url]
+                      : [];
+                if (list.length === 0) {
+                  const isExchange = hasExchangeMeta(post.meta ?? {});
+                  return (
+                    <div className="relative flex aspect-square max-h-[320px] w-full items-center justify-center bg-gray-100 sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
+                      {isExchange ? (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-emerald-50 text-6xl font-semibold text-gray-700" aria-hidden>
+                          <span>₱</span>
+                          <span className="text-2xl text-gray-500">↔</span>
+                          <span>₩</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">이미지</span>
+                      )}
+                    </div>
+                  );
+                }
+                return <ProductImageGallery images={list} title={post.title ?? ""} />;
+              })()}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 2. 판매자(프로필) — `/api/users/.../public-profile` + TrustSummaryCard(매너 배터리) */}
-      <div
-        id={POST_DETAIL_SELLER_ANCHOR_ID}
-        className="scroll-mt-14 border-b border-gray-100 bg-white px-4 py-3"
-      >
+        <div className="min-w-0 md:col-span-7">
+          {/* 2. 판매자(프로필) — `/api/users/.../public-profile` + TrustSummaryCard(매너 배터리) */}
+          <div
+            id={POST_DETAIL_SELLER_ANCHOR_ID}
+            className="scroll-mt-14 border-b border-gray-100 bg-white px-4 py-3 md:border-t-0"
+          >
         <p className="mb-2 text-[12px] font-medium text-gray-500">판매자</p>
         <PostDetailSellerProfileRow
           author={author}
@@ -1261,12 +1267,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             ) : null
           }
         />
-      </div>
+          </div>
 
-      {isOwnPost ? <PostSellerTradeStrip postId={post.id} isSeller={isOwnPost} /> : null}
+          {isOwnPost ? <PostSellerTradeStrip postId={post.id} isSeller={isOwnPost} /> : null}
 
-      {/* 3. 제목 + 가격 + 메타 — 상품 상세(/products) 타이포와 통일 */}
-      <div className="border-b border-gray-100 bg-white px-4 py-4">
+          {/* 3. 제목 + 가격 + 메타 — 상품 상세(/products) 타이포와 통일 */}
+          <div className="border-b border-gray-100 bg-white px-4 py-4 md:border-t-0">
         <div className="flex flex-wrap items-center gap-2">
           <TradeListingStatusBadge post={post} size="detail" />
           {category?.icon_key === "used-car" &&
@@ -1365,9 +1371,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             defaultCurrency={defaultCurrency}
           />
         )}
+          </div>
+        </div>
       </div>
 
-      {/* 4. 내용 / 상세 설명 (알바는 상세 설명 라벨) */}
+      {/* 4. 내용 / 상세 설명 (알바는 상세 설명 라벨) — 그리드 하단 전체 폭 */}
       {post.content && (
         <div className="px-4">
           <div className="-mx-4 mt-0">
@@ -1416,7 +1424,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           {filteredAuthorPosts.length === 0 ? (
             <p className="mt-4 text-center text-[13px] text-gray-500">이 조건에 맞는 물품이 없어요.</p>
           ) : (
-            <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {filteredAuthorPosts.slice(0, 12).map((p) => {
                 const thumb = p.thumbnail_url || (Array.isArray(p.images) && p.images[0] ? p.images[0] : null);
                 const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
@@ -1470,11 +1478,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             <span>보고 있는 물품과 비슷한 물품</span>
             <span className="text-gray-400">›</span>
           </Link>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            {similarPosts.slice(0, 6).map((p) => {
-              const thumb = p.thumbnail_url || (Array.isArray(p.images) && p.images[0] ? p.images[0] : null);
-              const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
-              return (
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {similarPosts.slice(0, 6).map((p) => {
+                const thumb = p.thumbnail_url || (Array.isArray(p.images) && p.images[0] ? p.images[0] : null);
+                const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
+                return (
               <Link key={p.id} href={`/post/${p.id}`} className="block">
                 <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-gray-50">
                   <div className="aspect-square w-full bg-gray-100">

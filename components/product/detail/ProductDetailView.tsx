@@ -94,65 +94,71 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
         onReport={onReportProduct}
         hideFavorite={amISeller}
       />
-      <ProductImageGallery images={images} title={product.title} />
+      <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
+        <div className="min-w-0 bg-white md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
+          <ProductImageGallery images={images} title={product.title} />
+        </div>
 
-      {/* 상품 정보 */}
-      <section className="border-t border-gray-100 px-4 py-4">
-        {product.isBoosted && (
-          <span className="mb-2 inline-block rounded bg-signature px-1.5 py-0.5 text-[11px] font-medium text-white">
-            끌올
-          </span>
-        )}
-        <span
-          className={`inline-block rounded border-2 border-current px-1.5 py-0.5 text-[11px] font-medium ${
-            isSold
-              ? "bg-gray-100 text-gray-600"
-              : product.status === "reserved"
-                ? "bg-amber-50 text-amber-900"
-                : product.status === "hidden"
-                  ? "bg-gray-100 text-gray-500"
-                  : "bg-slate-100 text-gray-700"
-          }`}
-        >
-          {STATUS_LABEL[product.status]}
-        </span>
-        <h1 className={`mt-2 text-[20px] font-bold leading-7 text-gray-900 ${isSold ? "opacity-80" : ""}`}>
-          {product.title}
-        </h1>
-        <p className="mt-1 text-[22px] font-bold text-gray-900">
-          {formatPrice(product.price, currency)}
-        </p>
-        <ul className="mt-3 space-y-1 text-[13px] text-gray-600">
-          {product.category && <li>카테고리 · {product.category}</li>}
-          <li>지역 · {product.location}</li>
-          <li>등록 · {formatTimeAgo(product.createdAt)}</li>
-          <li>{product.viewCount != null ? `조회 ${product.viewCount} · ` : ""}관심 {product.likesCount} · 채팅 {product.chatCount}</li>
-        </ul>
-      </section>
+        <div className="min-w-0 md:col-span-7">
+          {/* 상품 정보 */}
+          <section className="border-t border-gray-100 px-4 py-4 md:border-t-0">
+            {product.isBoosted && (
+              <span className="mb-2 inline-block rounded bg-signature px-1.5 py-0.5 text-[11px] font-medium text-white">
+                끌올
+              </span>
+            )}
+            <span
+              className={`inline-block rounded border-2 border-current px-1.5 py-0.5 text-[11px] font-medium ${
+                isSold
+                  ? "bg-gray-100 text-gray-600"
+                  : product.status === "reserved"
+                    ? "bg-amber-50 text-amber-900"
+                    : product.status === "hidden"
+                      ? "bg-gray-100 text-gray-500"
+                      : "bg-slate-100 text-gray-700"
+              }`}
+            >
+              {STATUS_LABEL[product.status]}
+            </span>
+            <h1 className={`mt-2 text-[20px] font-bold leading-7 text-gray-900 ${isSold ? "opacity-80" : ""}`}>
+              {product.title}
+            </h1>
+            <p className="mt-1 text-[22px] font-bold text-gray-900">
+              {formatPrice(product.price, currency)}
+            </p>
+            <ul className="mt-3 space-y-1 text-[13px] text-gray-600">
+              {product.category && <li>카테고리 · {product.category}</li>}
+              <li>지역 · {product.location}</li>
+              <li>등록 · {formatTimeAgo(product.createdAt)}</li>
+              <li>{product.viewCount != null ? `조회 ${product.viewCount} · ` : ""}관심 {product.likesCount} · 채팅 {product.chatCount}</li>
+            </ul>
+          </section>
 
-      {/* 판매자 */}
-      {product.seller && (
-        <section className="border-t border-gray-100 px-4 py-4">
-          <ProductSellerCard
-            seller={product.seller}
-            trustSummary={sellerTrustSummary ?? undefined}
-            onReportUser={() =>
-              setReportSheet({
-                targetType: "user",
-                targetId: product.seller!.id,
-                targetUserId: product.seller!.id,
-                targetLabel: product.seller!.nickname,
-              })
-            }
-          />
-        </section>
-      )}
+          {/* 판매자 */}
+          {product.seller && (
+            <section className="border-t border-gray-100 px-4 py-4">
+              <ProductSellerCard
+                seller={product.seller}
+                trustSummary={sellerTrustSummary ?? undefined}
+                onReportUser={() =>
+                  setReportSheet({
+                    targetType: "user",
+                    targetId: product.seller!.id,
+                    targetUserId: product.seller!.id,
+                    targetLabel: product.seller!.nickname,
+                  })
+                }
+              />
+            </section>
+          )}
 
-      {amISeller ? (
-        <PostSellerTradeStrip postId={product.id} isSeller variant="default" />
-      ) : null}
+          {amISeller ? (
+            <PostSellerTradeStrip postId={product.id} isSeller variant="default" />
+          ) : null}
+        </div>
+      </div>
 
-      {/* 상품 설명 */}
+      {/* 상품 설명 — 전체 폭 */}
       {product.description && (
         <section className="border-t border-gray-100 px-4 py-4">
           <p className="text-[15px] leading-6 text-gray-900 whitespace-pre-wrap">
