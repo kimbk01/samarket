@@ -20,6 +20,7 @@ import { reservedBuyerIdFromPost } from "@/lib/trade/reserved-item-chat";
 import {
   fetchPostRowForChat,
   fetchPostRowForChatFirstResolved,
+  fetchPostRowForChatViaProductChatsPair,
 } from "@/lib/chats/post-select-compat";
 import {
   fetchItemTradeAdminSuspended,
@@ -167,9 +168,17 @@ export async function GET(
             .maybeSingle(),
           fetchPostRowForChatFirstResolved(sbAny, [itemIdRaw, relatedSame, String(r.post_id ?? "").trim()]),
         ]);
+        let post2Resolved = post2;
+        if (!post2Resolved) {
+          post2Resolved = await fetchPostRowForChatViaProductChatsPair(sbAny, crRow.seller_id, crRow.buyer_id, [
+            itemIdRaw,
+            relatedSame,
+            String(r.post_id ?? "").trim(),
+          ]);
+        }
         const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
         const batchIdsCr = [
-          ...new Set([partnerId2, postAuthorUserId(post2 ?? undefined) ?? ""].filter(Boolean)),
+          ...new Set([partnerId2, postAuthorUserId(post2Resolved ?? undefined) ?? ""].filter(Boolean)),
         ] as string[];
         const partnerMapCr = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsCr);
         const partnerDisp2 = partnerDisplayFromMap(
@@ -178,10 +187,10 @@ export async function GET(
           (partnerId2 ?? "").slice(0, 8)
         );
         const partnerNickname2 = partnerDisp2.partnerNickname;
-        const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
+        const listing = normalizeSellerListingState(post2Resolved?.seller_listing_state, post2Resolved?.status as string);
         const rowPc = r as Record<string, unknown>;
         scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
-        const tradeExtras = tradeFieldsFromRows(rowPc, post2 ?? undefined);
+        const tradeExtras = tradeFieldsFromRows(rowPc, post2Resolved ?? undefined);
         const buyerReviewSubmitted = await fetchBuyerReviewSubmitted(
           sbAny,
           (tradeExtras.productChatRoomId as string | null) ?? (r.id as string),
@@ -193,7 +202,7 @@ export async function GET(
         ).suspended;
         const payload = {
             id: roomIdCr,
-            productId: postIdForCard,
+            productId: String((post2Resolved as { id?: string } | null)?.id ?? postIdForCard),
             buyerId: crRow.buyer_id ?? "",
             sellerId: crRow.seller_id ?? "",
             partnerNickname: partnerNickname2.trim() || (partnerId2 ?? "").slice(0, 8),
@@ -204,8 +213,8 @@ export async function GET(
             unreadCount,
             tradeStatus: listing,
             product: chatProductSummaryFromPostRow(
-              enrichPostWithAuthorNickname(post2 ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapCr)),
-              String((post2 as { id?: string } | null)?.id ?? postIdForCard)
+              enrichPostWithAuthorNickname(post2Resolved ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapCr)),
+              String((post2Resolved as { id?: string } | null)?.id ?? postIdForCard)
             ),
             source: "chat_room",
             chatDomain: "trade",
@@ -261,6 +270,11 @@ export async function GET(
       post = await fetchPostRowForChatFirstResolved(sbAny, [
         typeof rp === "string" ? rp : "",
         typeof altItem === "string" ? altItem : "",
+      ]);
+    }
+    if (!post) {
+      post = await fetchPostRowForChatViaProductChatsPair(sbAny, r.seller_id, r.buyer_id, [
+        String(r.post_id ?? "").trim(),
       ]);
     }
     const batchIdsPc = [
@@ -510,7 +524,7 @@ export async function GET(
   const itemIdRaw = String((cr as { item_id: string | null }).item_id ?? "").trim();
   const relatedPostId = String(crAny.related_post_id ?? "").trim();
   const postIdForTradeCard = itemIdRaw || relatedPostId;
-  const [{ data: partRow }, post2] = await Promise.all([
+  const [{ data: partRow }, post2First] = await Promise.all([
     sbAny
       .from("chat_room_participants")
       .select("unread_count")
@@ -519,6 +533,13 @@ export async function GET(
       .maybeSingle(),
     fetchPostRowForChatFirstResolved(sbAny, [itemIdRaw, relatedPostId].filter(Boolean)),
   ]);
+  let post2 = post2First;
+  if (!post2) {
+    post2 = await fetchPostRowForChatViaProductChatsPair(sbAny, crRow.seller_id, crRow.buyer_id, [
+      itemIdRaw,
+      relatedPostId,
+    ]);
+  }
   const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
   const amISeller2 = crRow.seller_id === userId;
   const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
@@ -533,7 +554,7 @@ export async function GET(
   );
   const partnerNickname2 = partnerDispTrade.partnerNickname;
   const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
-  const resolvedTradePostId = String((post2 as { id?: string } | null)?.id ?? postIdForTradeCard);
+  const resolvedTradePostId = String((post2 as { id?: string } | null)?.id ?? postIdForTradeCard).trim();
   const { data: pcFallback } = await sbAny
     .from("product_chats")
     .select("*")

@@ -55,6 +55,42 @@ export async function fetchPostRowForChatFirstResolved(
   return null;
 }
 
+/**
+ * chat_rooms.item_id / related_post_id 로 posts 를 못 찾을 때 — 동일 판매자·구매자 `product_chats.post_id` 로 조회
+ * (통합 방만 있고 item_id 가 비어 있는 데이터·스키마 불일치 보정)
+ */
+export async function fetchPostRowForChatViaProductChatsPair(
+  sbAny: SupabaseClient<any>,
+  sellerId: string | null | undefined,
+  buyerId: string | null | undefined,
+  skipPostIds: readonly string[]
+): Promise<Record<string, unknown> | null> {
+  const sid = typeof sellerId === "string" ? sellerId.trim() : "";
+  const bid = typeof buyerId === "string" ? buyerId.trim() : "";
+  if (!sid || !bid) return null;
+
+  const skip = new Set(skipPostIds.map((x) => String(x).trim()).filter(Boolean));
+
+  const { data: rows, error } = await sbAny
+    .from("product_chats")
+    .select("post_id")
+    .eq("seller_id", sid)
+    .eq("buyer_id", bid)
+    .order("updated_at", { ascending: false })
+    .limit(12);
+
+  if (error || !Array.isArray(rows)) return null;
+
+  for (const row of rows) {
+    const pid = typeof (row as { post_id?: unknown }).post_id === "string" ? (row as { post_id: string }).post_id.trim() : "";
+    if (!pid || skip.has(pid)) continue;
+    skip.add(pid);
+    const p = await fetchPostRowForChat(sbAny, pid);
+    if (p) return p;
+  }
+  return null;
+}
+
 export async function fetchPostRowsForChatIn(
   sbAny: SupabaseClient<any>,
   postIds: string[]

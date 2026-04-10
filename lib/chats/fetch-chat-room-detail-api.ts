@@ -7,8 +7,8 @@ type FetchRoomResult =
   | { ok: true; room: ChatRoom; cache: "memory" | "network" }
   | { ok: false; status: number; code: "not_found" | "auth" | "load_failed" | "network" };
 
-/** 짧은 TTL은 재진입·탭 복귀 시 동일 방 중복 요청을 유발 — 체감 지연 완화를 위해 완화 */
-const ROOM_DETAIL_TTL_MS = 30_000;
+/** 상품 카드 API 보정 후에도 이전 빈 응답이 남지 않도록 과도하게 길지 않게 */
+const ROOM_DETAIL_TTL_MS = 12_000;
 const roomDetailCache = new Map<string, { at: number; room: ChatRoom }>();
 
 function isChatRoomPayload(j: unknown): j is ChatRoom {
