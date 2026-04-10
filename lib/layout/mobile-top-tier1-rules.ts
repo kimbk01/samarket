@@ -80,6 +80,7 @@ export function getMobileTopTier1RuleSet(pathname: string | null | undefined): M
 
   const isPhilifeMeetings = startsWithPath(pathNoQuery, "/philife/meetings");
   const isPhilifeMyPage = pathNoQuery === "/philife/my";
+  const isAddressMapSelect = pathNoQuery === "/address/select";
 
   const isCommunityOrPhilifePostDetail =
     COMMUNITY_POST_DETAIL_RE.test(pathNoQuery) || PHILIFE_POST_DETAIL_RE.test(pathNoQuery);
@@ -89,6 +90,7 @@ export function getMobileTopTier1RuleSet(pathname: string | null | undefined): M
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
     isCommunityMessengerCallPage ||
+    isAddressMapSelect ||
     isLegacyChatRoomDetail ||
     suppressStoresTier1ForLocalChrome ||
     isMyBusinessOwnerHubSurface ||

@@ -7,6 +7,15 @@ import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
 export const dynamic = "force-dynamic";
 
+function parseCoord(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 function parsePatch(body: unknown): Partial<UserAddressWritePayload> | null {
   if (!body || typeof body !== "object") return null;
   const o = body as Record<string, unknown>;
@@ -41,11 +50,8 @@ function parsePatch(body: unknown): Partial<UserAddressWritePayload> | null {
     out.unitFloorRoom = String(o.unitFloorRoom ?? o.unit_floor_room ?? "") || null;
   }
   if (o.landmark !== undefined) out.landmark = str("landmark") ?? null;
-  if (o.postalCode !== undefined || o.postal_code !== undefined) {
-    out.postalCode = String(o.postalCode ?? o.postal_code ?? "") || null;
-  }
-  if (o.latitude !== undefined) out.latitude = typeof o.latitude === "number" ? o.latitude : null;
-  if (o.longitude !== undefined) out.longitude = typeof o.longitude === "number" ? o.longitude : null;
+  if (o.latitude !== undefined) out.latitude = parseCoord(o.latitude);
+  if (o.longitude !== undefined) out.longitude = parseCoord(o.longitude);
   if (o.fullAddress !== undefined || o.full_address !== undefined) {
     out.fullAddress = String(o.fullAddress ?? o.full_address ?? "") || null;
   }

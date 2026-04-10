@@ -44,7 +44,6 @@ export function rowToUserAddressDTO(row: Row): UserAddressDTO {
     buildingName: str(row.building_name),
     unitFloorRoom: str(row.unit_floor_room),
     landmark: str(row.landmark),
-    postalCode: str(row.postal_code),
     latitude: num(row.latitude),
     longitude: num(row.longitude),
     fullAddress: str(row.full_address),
@@ -85,7 +84,6 @@ export function payloadToInsertRow(
     building_name: p.buildingName ?? null,
     unit_floor_room: p.unitFloorRoom ?? null,
     landmark: p.landmark ?? null,
-    postal_code: p.postalCode ?? null,
     latitude: p.latitude ?? null,
     longitude: p.longitude ?? null,
     full_address: p.fullAddress ?? null,
@@ -122,7 +120,6 @@ export function payloadToUpdatePatch(
   if (p.buildingName !== undefined) out.building_name = p.buildingName;
   if (p.unitFloorRoom !== undefined) out.unit_floor_room = p.unitFloorRoom;
   if (p.landmark !== undefined) out.landmark = p.landmark;
-  if (p.postalCode !== undefined) out.postal_code = p.postalCode;
   if (p.latitude !== undefined) out.latitude = p.latitude;
   if (p.longitude !== undefined) out.longitude = p.longitude;
   if (p.fullAddress !== undefined) out.full_address = p.fullAddress;

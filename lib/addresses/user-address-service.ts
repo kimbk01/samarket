@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getLocationLabel, getLocationLabelIfValid, REGIONS } from "@/lib/products/form-options";
-import { finalizePhilippinesZipCode } from "@/lib/products/zip-to-location";
 import {
   payloadToInsertRow,
   payloadToUpdatePatch,
@@ -13,7 +12,7 @@ import type {
 } from "@/lib/addresses/user-address-types";
 
 const SEL =
-  "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,postal_code,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
+  "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
 
 function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
   return [...rows].sort((a, b) => {
@@ -152,7 +151,7 @@ export async function syncProfileRegionFromLifeDefault(
 ): Promise<void> {
   const { data, error } = await sb
     .from("user_addresses")
-    .select("app_region_id,app_city_id,neighborhood_name,postal_code")
+    .select("app_region_id,app_city_id,neighborhood_name")
     .eq("user_id", userId)
     .eq("is_active", true)
     .eq("is_default_life", true)
@@ -170,11 +169,9 @@ export async function syncProfileRegionFromLifeDefault(
     (c ? getLocationLabel(rid, c) : REGIONS.find((x) => x.id === rid)?.name) ||
     rid;
   const code = c ? `${rid}|${c}` : rid;
-  const pcRaw = typeof r.postal_code === "string" ? r.postal_code.trim() : "";
-  const postal_code = finalizePhilippinesZipCode(pcRaw) ?? null;
   await sb
     .from("profiles")
-    .update({ region_code: code, region_name: label, postal_code })
+    .update({ region_code: code, region_name: label })
     .eq("id", userId);
 }
 

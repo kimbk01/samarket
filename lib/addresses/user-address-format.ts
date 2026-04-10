@@ -31,11 +31,14 @@ export function buildTradePublicLine(a: UserAddressDTO): string {
 
 export function buildDeliveryDetailLines(a: UserAddressDTO): string {
   const lines: string[] = [];
-  if (a.streetAddress?.trim()) lines.push(a.streetAddress.trim());
+  if (a.fullAddress?.trim()) {
+    lines.push(a.fullAddress.trim());
+  } else if (a.streetAddress?.trim()) {
+    lines.push(a.streetAddress.trim());
+  }
   const unit = [a.buildingName, a.unitFloorRoom].filter((x) => x?.trim()).join(" ");
   if (unit.trim()) lines.push(unit.trim());
   if (a.landmark?.trim()) lines.push(`Landmark: ${a.landmark.trim()}`);
-  if (a.postalCode?.trim()) lines.push(`ZIP ${a.postalCode.trim()}`);
   return lines.join("\n");
 }
 

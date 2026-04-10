@@ -29,6 +29,7 @@
     "sql:copy:meeting-chat-rooms-rls": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331160000_meeting_chat_private_rls.sql"
   },
   "dependencies": {
+    "@googlemaps/js-api-loader": "^2.0.2",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.0",
     "agora-rtc-sdk-ng": "^4.24.3",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/google.maps": "^3.58.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

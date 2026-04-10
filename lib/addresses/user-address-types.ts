@@ -21,7 +21,6 @@ export type UserAddressDTO = {
   buildingName: string | null;
   unitFloorRoom: string | null;
   landmark: string | null;
-  postalCode: string | null;
   latitude: number | null;
   longitude: number | null;
   fullAddress: string | null;
@@ -63,7 +62,6 @@ export type UserAddressWritePayload = {
   buildingName?: string | null;
   unitFloorRoom?: string | null;
   landmark?: string | null;
-  postalCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   fullAddress?: string | null;

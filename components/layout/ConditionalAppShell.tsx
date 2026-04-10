@@ -80,6 +80,7 @@ export function ConditionalAppShell({
   const isMypageTradeChatRoom = pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/) ?? false;
   const isCommunityMessengerRoom = pathname?.match(/^\/community-messenger\/rooms\/[^/]+$/) ?? false;
   const isCommunityMessengerCallPage = pathname?.match(/^\/community-messenger\/calls\/[^/]+$/) ?? false;
+  const isAddressMapSelect = pathname === "/address/select";
   /**
    * 거래 채팅방: AppStickyHeader(1단)은 플로우 상단에 따로 있으므로,
    * 본 셸 높이에서만 1단·상단 safe-area 를 빼면 `1단 + 본문` 이 뷰포트에 맞는다.
@@ -90,6 +91,7 @@ export function ConditionalAppShell({
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
     isCommunityMessengerCallPage ||
+    isAddressMapSelect ||
     ((pathname?.match(/^\/chats\/[^/]+$/) &&
       pathname !== "/chats/new" &&
       pathname !== "/chats/order") ??

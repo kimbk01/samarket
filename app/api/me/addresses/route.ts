@@ -7,6 +7,15 @@ import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
 export const dynamic = "force-dynamic";
 
+function parseCoord(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 function parsePayload(body: unknown): UserAddressWritePayload | null {
   if (!body || typeof body !== "object") return null;
   const o = body as Record<string, unknown>;
@@ -27,9 +36,8 @@ function parsePayload(body: unknown): UserAddressWritePayload | null {
     buildingName: o.buildingName != null ? String(o.buildingName) : null,
     unitFloorRoom: o.unitFloorRoom != null ? String(o.unitFloorRoom) : null,
     landmark: o.landmark != null ? String(o.landmark) : null,
-    postalCode: o.postalCode != null ? String(o.postalCode) : null,
-    latitude: typeof o.latitude === "number" ? o.latitude : null,
-    longitude: typeof o.longitude === "number" ? o.longitude : null,
+    latitude: parseCoord(o.latitude),
+    longitude: parseCoord(o.longitude),
     fullAddress: o.fullAddress != null ? String(o.fullAddress) : null,
     neighborhoodName: o.neighborhoodName != null ? String(o.neighborhoodName) : null,
     appRegionId: o.appRegionId != null ? String(o.appRegionId) : null,

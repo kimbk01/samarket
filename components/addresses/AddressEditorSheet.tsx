@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
-import { LocationSelector } from "@/components/write/shared/LocationSelector";
+import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
 import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
 import { STORE_ADDRESS_BOOK_STREET_BLOCK_INTRO } from "@/lib/stores/store-address-form-ui";
 import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
@@ -23,6 +24,7 @@ export function AddressEditorSheet(props: {
   onSaved: () => void;
 }) {
   const { open, mode, initial, onClose, onSaved } = props;
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -38,7 +40,9 @@ export function AddressEditorSheet(props: {
   const [streetAddress, setStreetAddress] = useState("");
   const [unitFloorRoom, setUnitFloorRoom] = useState("");
   const [landmark, setLandmark] = useState("");
-  const [postalCode, setPostalCode] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [fullAddress, setFullAddress] = useState("");
   const [neighborhoodName, setNeighborhoodName] = useState("");
   const [useLife, setUseLife] = useState(true);
   const [useTrade, setUseTrade] = useState(true);
@@ -69,7 +73,9 @@ export function AddressEditorSheet(props: {
         setUnitFloorRoom(initial.unitFloorRoom ?? "");
       }
       setLandmark(initial.landmark ?? "");
-      setPostalCode(initial.postalCode ?? "");
+      setLatitude(initial.latitude ?? null);
+      setLongitude(initial.longitude ?? null);
+      setFullAddress(initial.fullAddress ?? "");
       setNeighborhoodName(initial.neighborhoodName ?? "");
       setUseLife(initial.useForLife);
       setUseTrade(initial.useForTrade);
@@ -91,7 +97,9 @@ export function AddressEditorSheet(props: {
       setStreetAddress("");
       setUnitFloorRoom("");
       setLandmark("");
-      setPostalCode("");
+      setLatitude(null);
+      setLongitude(null);
+      setFullAddress("");
       setNeighborhoodName("");
       setUseLife(true);
       setUseTrade(true);
@@ -103,9 +111,14 @@ export function AddressEditorSheet(props: {
     }
   }, [open, mode, initial]);
 
-  const commitPhilippinesZip = useCallback((code: string) => {
-    setPostalCode(code);
-  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const pick = consumeMapAddressPick();
+    if (!pick) return;
+    setLatitude(pick.latitude);
+    setLongitude(pick.longitude);
+    setFullAddress(pick.fullAddress);
+  }, [open]);
 
   if (!open) return null;
 
@@ -119,6 +132,11 @@ export function AddressEditorSheet(props: {
       return;
     }
     try {
+      if (latitude == null || longitude == null || !fullAddress.trim()) {
+        setErr("지도에서 위치를 선택해 주세요.");
+        setBusy(false);
+        return;
+      }
       const body = {
         labelType,
         nickname: nickname.trim() || null,
@@ -133,7 +151,9 @@ export function AddressEditorSheet(props: {
         buildingName: null,
         unitFloorRoom: unitFloorRoom.trim() || null,
         landmark: landmark.trim() || null,
-        postalCode: postalCode.trim() || null,
+        latitude,
+        longitude,
+        fullAddress: fullAddress.trim() || null,
         neighborhoodName: neighborhoodName.trim() || null,
         useForLife: useLife,
         useForTrade: useTrade,
@@ -209,18 +229,29 @@ export function AddressEditorSheet(props: {
             />
           </div>
 
-          <LocationSelector
-            embedded
-            className="mt-1"
-            label="앱 거래 지역 (Region · Area)"
-            region={region}
-            city={city}
-            onRegionChange={setRegion}
-            onCityChange={setCity}
-            showRequired={false}
-            philippinesZipSeed={postalCode}
-            onPhilippinesZipCommitted={commitPhilippinesZip}
-          />
+          <div>
+            <p className="mb-1 text-[13px] font-medium text-gray-800">지도 위치</p>
+            <p className="mb-2 text-[12px] text-gray-500">
+              Google 지도에서 핀으로 좌표를 고르고, 아래에 지오코딩된 주소가 저장됩니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/address/select")}
+              className="w-full rounded-ui-rect border border-ig-border bg-white py-3 text-[14px] font-medium text-gray-900"
+            >
+              위치 선택
+            </button>
+            {fullAddress.trim() || latitude != null ? (
+              <p className="mt-2 text-[13px] leading-snug text-gray-700">
+                {fullAddress.trim() ||
+                  (latitude != null && longitude != null
+                    ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+                    : "")}
+              </p>
+            ) : (
+              <p className="mt-2 text-[12px] text-amber-800">지도에서 위치를 선택해 주세요.</p>
+            )}
+          </div>
 
           <div>
             <p className="mb-1 text-[13px] font-medium text-gray-800">지번·건물 / 동·호 (매장·프로필과 동일)</p>
