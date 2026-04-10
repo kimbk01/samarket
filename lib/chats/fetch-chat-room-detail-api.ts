@@ -12,6 +12,25 @@ type FetchRoomResult =
 const ROOM_DETAIL_TTL_MS = 12_000;
 const roomDetailCache = new Map<string, { at: number; room: ChatRoom }>();
 
+/** 네비 직후·워밍 직후 동기 조회 — `fetchChatRoomDetailApi` 와 동일 TTL·품질 규칙 */
+export function peekChatRoomDetailMemory(roomId: string): ChatRoom | null {
+  const key = roomId.trim();
+  if (!key) return null;
+  const now = Date.now();
+  const cached = roomDetailCache.get(key);
+  if (!cached || now - cached.at >= ROOM_DETAIL_TTL_MS) return null;
+  const p = cached.room.product;
+  if (
+    p &&
+    typeof p.title === "string" &&
+    typeof p.id === "string" &&
+    isMissingPostRowChatProductTitle(p.title, p.id)
+  ) {
+    return null;
+  }
+  return cached.room;
+}
+
 function isChatRoomPayload(j: unknown): j is ChatRoom {
   if (!j || typeof j !== "object") return false;
   const o = j as Record<string, unknown>;

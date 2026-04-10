@@ -102,4 +102,18 @@ export async function getCurrentUserIdForDb(): Promise<string | null> {
   return currentUserIdPromise;
 }
 
+/**
+ * 클라이언트에서만 — 프로필 캐시·테스트 세션 기준 사용자 ID.
+ * `getCurrentUserIdForDb` 완료 전에도 채팅 화면에서 뷰어 식별용으로 사용해 체감 지연을 줄인다.
+ */
+export function getSyncViewerUserIdForClient(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  if (!isProductionDeploy()) {
+    const test = getTestAuth();
+    if (test?.userId?.trim()) return test.userId.trim();
+  }
+  const id = getCurrentUser()?.id?.trim();
+  return id || undefined;
+}
+
 export const isAdminUser = checkAdminUser;

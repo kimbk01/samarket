@@ -1,18 +1,34 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
 import { parseRoomId } from "@/lib/validate-params";
 
 const LIST_HREF = "/mypage/trade/chat";
 
+/**
+ * `useSearchParams` 는 Suspense 를 유발해 채팅 상세 전체가 «불러오는 중…» 에 걸린다.
+ * 클라이언트에서만 쿼리 읽기 → 동일 경로에서 첫 페인트부터 `ChatRoomScreen` 마운트.
+ */
+function useClientReviewQueryFlag(): boolean {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      setOpen(q.get("review") === "1");
+    } catch {
+      setOpen(false);
+    }
+  }, []);
+  return open;
+}
+
 /** 거래 허브 레이아웃(상단 탭) 안에서 채팅 상세 — 별도 `/chats` 전체 화면으로 나가지 않음 */
-function TradeHubChatRoomInner() {
+export default function TradeHubChatRoomPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const roomId = useMemo(() => parseRoomId(params.roomId), [params.roomId]);
-  const openReviewOnMount = searchParams.get("review") === "1";
+  const openReviewOnMount = useClientReviewQueryFlag();
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-ig-border bg-white shadow-sm">
@@ -23,17 +39,5 @@ function TradeHubChatRoomInner() {
         tradeHubColumnLayout
       />
     </section>
-  );
-}
-
-export default function TradeHubChatRoomPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500">불러오는 중…</div>
-      }
-    >
-      <TradeHubChatRoomInner />
-    </Suspense>
   );
 }

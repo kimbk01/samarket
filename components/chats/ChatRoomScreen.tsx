@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
-import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { getCurrentUserIdForDb, getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
+import { fetchChatRoomDetailApi, peekChatRoomDetailMemory } from "@/lib/chats/fetch-chat-room-detail-api";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 
@@ -39,11 +39,19 @@ export function ChatRoomScreen({
   ownerStoreOrderModalChrome?: boolean;
 }) {
   const { t } = useI18n();
-  /** `undefined`: 세션 확인 전 — 동기 `getCurrentUser()` 만으로는 Supabase 프로필 캐시가 비어 잘못 로그아웃으로 보일 수 있음 */
-  const [resolvedUserId, setResolvedUserId] = useState<string | null | undefined>(undefined);
+  /**
+   * `undefined`: 세션 확인 전
+   * 프로필 캐시·테스트 세션이 있으면 첫 페인트부터 문자열로 두어 방 상세 fetch·UI 가 한 틱 빨리 진행
+   */
+  const [resolvedUserId, setResolvedUserId] = useState<string | null | undefined>(() => {
+    const sync = getSyncViewerUserIdForClient();
+    return sync ?? undefined;
+  });
 
-  const [room, setRoom] = useState<ChatRoom | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [room, setRoom] = useState<ChatRoom | null>(() =>
+    roomId ? peekChatRoomDetailMemory(roomId) : null
+  );
+  const [loading, setLoading] = useState(() => Boolean(roomId && !peekChatRoomDetailMemory(roomId)));
   const [err, setErr] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -59,8 +67,8 @@ export function ChatRoomScreen({
       });
       return;
     }
-    if (resolvedUserId === undefined) return;
-    if (!resolvedUserId) {
+    /** 확정 로그아웃만 차단 — `undefined` 일 때도 상세 GET 은 세션 쿠키로 진행(인증·fetch 병렬) */
+    if (resolvedUserId === null) {
       setLoading(false);
       setRoom(null);
       setErr(null);
@@ -71,7 +79,8 @@ export function ChatRoomScreen({
       });
       return;
     }
-    setLoading(true);
+    const hadPeek = Boolean(peekChatRoomDetailMemory(roomId));
+    if (!hadPeek) setLoading(true);
     setErr(null);
     try {
       const result = await fetchChatRoomDetailApi(roomId);
@@ -127,7 +136,8 @@ export function ChatRoomScreen({
     }
   }, [roomId, resolvedUserId]);
 
-  useEffect(() => {
+  /** useEffect 보다 먼저 세션 확인을 시작 — 페인트 직전에 Promise 가 돎 */
+  useLayoutEffect(() => {
     let cancelled = false;
     const resolveViewer = async () => {
       const id = (await getCurrentUserIdForDb())?.trim() || null;
@@ -160,10 +170,23 @@ export function ChatRoomScreen({
     warmChatRoomEntryById(roomId);
   }, [roomId]);
 
+  /** 라우트 roomId 변경 시 메모리 peek 로 즉시 복원 — 다른 방으로 바꿀 때만 */
   useEffect(() => {
-    if (resolvedUserId === undefined) return;
+    if (!roomId?.trim()) {
+      setRoom(null);
+      setLoading(false);
+      setErr(null);
+      return;
+    }
+    const peeked = peekChatRoomDetailMemory(roomId);
+    setRoom(peeked);
+    setErr(null);
+    if (peeked) setLoading(false);
+  }, [roomId]);
+
+  useEffect(() => {
     void reload();
-  }, [resolvedUserId, reload]);
+  }, [reload]);
 
   useRefetchOnPageShowRestore(() => {
     void reload();
@@ -196,13 +219,7 @@ export function ChatRoomScreen({
     );
   }
 
-  if (resolvedUserId === undefined) {
-    return (
-      <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
-    );
-  }
-
-  if (!resolvedUserId) {
+  if (resolvedUserId === null) {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
         <p className="text-sm text-gray-600">{t("common_login_required")}</p>
@@ -213,7 +230,51 @@ export function ChatRoomScreen({
     );
   }
 
-  if (loading) {
+  /** 비동기 `getCurrentUserIdForDb` 가 끝나기 전에도 프로필 캐시·테스트 세션이 있으면 즉시 사용 */
+  const viewerForChat = (resolvedUserId ?? getSyncViewerUserIdForClient()) ?? null;
+
+  /** 메모리 peek + 뷰어 ID가 있으면 상세·메시지 로드와 병행해 바로 채팅 UI 표시 */
+  if (room && viewerForChat) {
+    const isStoreOrderChat = room.generalChat?.kind === "store_order";
+    const igDmOuter = isStoreOrderChat || !room.generalChat;
+    const outerClassReady =
+      embedded && embeddedFill
+        ? `flex min-h-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-white" : "bg-[#e8e4df]"}`
+        : tradeHubColumnLayout && !embedded
+          ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-white" : "bg-[#e8e4df]"}`
+          : `${igDmOuter ? "bg-white" : "bg-[#e8e4df]"} ${
+              embedded ? "overflow-hidden rounded-ui-rect border border-gray-100 shadow-sm" : viewportClass
+            }`;
+
+    return (
+      <div
+        className={outerClassReady}
+        data-samarket-chat-room-id={room.id}
+        data-samarket-trade-chat-surface={tradeHubColumnLayout ? "trade-hub" : embedded ? "embedded" : "full"}
+      >
+        <ChatDetailView
+          room={room}
+          currentUserId={viewerForChat}
+          onRoomReload={() => void reload()}
+          openReviewOnMount={openReviewOnMount}
+          listHref={listHref}
+          onListNavigate={onListNavigate}
+          embedded={embedded}
+          embeddedFill={embeddedFill}
+          tradeHubColumnLayout={tradeHubColumnLayout}
+          ownerStoreOrderModalChrome={ownerStoreOrderModalChrome}
+        />
+      </div>
+    );
+  }
+
+  if (resolvedUserId === undefined && !getSyncViewerUserIdForClient() && !room) {
+    return (
+      <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
+    );
+  }
+
+  if (loading && !room) {
     return (
       <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
     );
@@ -258,36 +319,13 @@ export function ChatRoomScreen({
     );
   }
 
-  const isStoreOrderChat = room.generalChat?.kind === "store_order";
-  const igDmOuter = isStoreOrderChat || !room.generalChat;
-
-  const outerClass =
-    embedded && embeddedFill
-      ? `flex min-h-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-white" : "bg-[#e8e4df]"}`
-      : tradeHubColumnLayout && !embedded
-        ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-white" : "bg-[#e8e4df]"}`
-        : `${igDmOuter ? "bg-white" : "bg-[#e8e4df]"} ${
-            embedded ? "overflow-hidden rounded-ui-rect border border-gray-100 shadow-sm" : viewportClass
-          }`;
+  if (room && !viewerForChat) {
+    return (
+      <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
+    );
+  }
 
   return (
-    <div
-      className={outerClass}
-      data-samarket-chat-room-id={room.id}
-      data-samarket-trade-chat-surface={tradeHubColumnLayout ? "trade-hub" : embedded ? "embedded" : "full"}
-    >
-      <ChatDetailView
-        room={room}
-        currentUserId={resolvedUserId}
-        onRoomReload={() => void reload()}
-        openReviewOnMount={openReviewOnMount}
-        listHref={listHref}
-        onListNavigate={onListNavigate}
-        embedded={embedded}
-        embeddedFill={embeddedFill}
-        tradeHubColumnLayout={tradeHubColumnLayout}
-        ownerStoreOrderModalChrome={ownerStoreOrderModalChrome}
-      />
-    </div>
+    <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
   );
 }
