@@ -10,6 +10,7 @@ import type {
   UserAddressDefaultsDTO,
   UserAddressWritePayload,
 } from "@/lib/addresses/user-address-types";
+import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
 
 const SEL =
   "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
@@ -94,6 +95,37 @@ export async function getUserAddressDefaults(
     trade: list.find((x) => x.isDefaultTrade) ?? null,
     delivery: list.find((x) => x.isDefaultDelivery) ?? null,
   };
+}
+
+/**
+ * 같은 사용자 내 주소 표시 이름 중복 방지. 반환값은 DB에 넣을 trim 된 표시 문자열.
+ */
+async function assertAddressNicknameUnique(
+  sb: SupabaseClient<any>,
+  userId: string,
+  rawNickname: string,
+  excludeAddressId?: string
+): Promise<string> {
+  const display = rawNickname.trim();
+  const key = normalizeAddressNicknameKey(display);
+  if (!key) {
+    throw new Error("주소 이름을 입력 하세요");
+  }
+  const { data, error } = await sb
+    .from("user_addresses")
+    .select("id,nickname")
+    .eq("user_id", userId)
+    .eq("is_active", true);
+  if (error) throw new Error(error.message);
+  for (const row of data ?? []) {
+    const rid = String((row as { id: unknown }).id ?? "");
+    if (excludeAddressId && rid === excludeAddressId) continue;
+    const nk = normalizeAddressNicknameKey(String((row as { nickname?: unknown }).nickname ?? ""));
+    if (nk === key) {
+      throw new Error("이미 같은 이름의 주소가 있어요.");
+    }
+  }
+  return display;
 }
 
 async function clearDefaultColumn(
@@ -228,12 +260,14 @@ export async function createUserAddress(
   if (!p.useForLife && !p.useForTrade && !p.useForDelivery) {
     throw new Error("생활·거래·배달 중 최소 한 가지 용도를 선택해 주세요.");
   }
-  const row = payloadToInsertRow(userId, p);
+  const displayNick = await assertAddressNicknameUnique(sb, userId, p.nickname ?? "");
+  const pWithNick: UserAddressWritePayload = { ...p, nickname: displayNick };
+  const row = payloadToInsertRow(userId, pWithNick);
   const { data, error } = await sb.from("user_addresses").insert(row).select(SEL).single();
   if (error) throw new Error(error.message);
   const dto = rowToUserAddressDTO(data as Record<string, unknown>);
-  await applyDefaultFlagsOnCreate(sb, userId, dto.id, p);
-  await ensureSomeoneDefaultIfFirst(sb, userId, dto.id, p);
+  await applyDefaultFlagsOnCreate(sb, userId, dto.id, pWithNick);
+  await ensureSomeoneDefaultIfFirst(sb, userId, dto.id, pWithNick);
   await syncProfileRegionFromLifeDefault(sb, userId);
   const { data: again } = await sb.from("user_addresses").select(SEL).eq("id", dto.id).single();
   return rowToUserAddressDTO((again ?? data) as Record<string, unknown>);
@@ -245,7 +279,12 @@ export async function updateUserAddress(
   id: string,
   p: Partial<UserAddressWritePayload>
 ): Promise<UserAddressDTO> {
-  const patch = payloadToUpdatePatch(p);
+  let merged: Partial<UserAddressWritePayload> = { ...p };
+  if (p.nickname !== undefined) {
+    const displayNick = await assertAddressNicknameUnique(sb, userId, String(p.nickname), id);
+    merged = { ...merged, nickname: displayNick };
+  }
+  const patch = payloadToUpdatePatch(merged);
   delete patch.is_default_master;
   delete patch.is_default_life;
   delete patch.is_default_trade;

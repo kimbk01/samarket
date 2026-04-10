@@ -1,4 +1,5 @@
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
+import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
 import { AppTitle } from "@/components/layout/AppTitle";
@@ -22,6 +23,7 @@ export default async function AppLayout({
   return (
     <RegionProvider>
       <SessionLostRedirect />
+      <MandatoryAddressGate />
       <FavoriteProvider>
         <WriteCategoryProvider>
           <CategoryListHeaderProvider>

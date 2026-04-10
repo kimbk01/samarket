@@ -7,9 +7,12 @@ import { MAP_PICKER_DEFAULT_CENTER, MapPicker } from "@/components/map/MapPicker
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import { getBestCurrentPosition } from "@/lib/map/geolocation";
 import {
+  hideMapAddressRecentRow,
   pushMapAddressRecent,
+  readHiddenMapAddressRecentKeys,
   readMapAddressRecent,
   writeMapAddressPick,
+  mapAddressRecentRowKey,
   type MapAddressRecentItem,
 } from "@/lib/map/map-address-pick-storage";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
@@ -92,6 +95,8 @@ export function AddressSelectClient() {
   } | null>(null);
   /** localStorage 기반 최근 주소는 SSR·첫 페인트에서 제외 — hydration 불일치 방지 */
   const [recentLocalReady, setRecentLocalReady] = useState(false);
+  /** 최근 목록에서 항목 삭제·숨김 후 재계산 */
+  const [recentListVersion, setRecentListVersion] = useState(0);
 
   const { text: geocodedAddress, busy: geocodeBusy } = useReverseGeocode(marker);
   const displayAddress = geocodedAddress;
@@ -197,8 +202,14 @@ export function AddressSelectClient() {
       out.push(x);
       if (out.length >= 10) break;
     }
-    return out;
-  }, [serverAddresses, recentLocalReady]);
+    const hidden = readHiddenMapAddressRecentKeys();
+    return out.filter((r) => !hidden.has(mapAddressRecentRowKey(r)));
+  }, [serverAddresses, recentLocalReady, recentListVersion]);
+
+  const removeRecentRow = useCallback((r: MapAddressRecentItem) => {
+    hideMapAddressRecentRow(r);
+    setRecentListVersion((v) => v + 1);
+  }, []);
 
   useEffect(() => {
     if (!manualAddress || !manualAnchorRef.current) return;
@@ -304,13 +315,21 @@ export function AddressSelectClient() {
                   <li className="text-[13px] text-ui-muted">최근 검색 기록이 없습니다.</li>
                 ) : (
                   recentMerged.map((r) => (
-                    <li key={`${r.latitude},${r.longitude},${r.at}`}>
+                    <li key={mapAddressRecentRowKey(r)} className="flex items-stretch gap-1">
                       <button
                         type="button"
                         onClick={() => goToMap({ lat: r.latitude, lng: r.longitude })}
-                        className="w-full rounded-ui-rect border border-transparent px-2 py-3 text-left text-[14px] text-ui-fg hover:border-ig-border hover:bg-ui-hover"
+                        className="min-w-0 flex-1 rounded-ui-rect border border-transparent px-2 py-3 text-left text-[14px] text-ui-fg hover:border-ig-border hover:bg-ui-hover"
                       >
                         {r.address}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeRecentRow(r)}
+                        className="flex h-auto min-w-[44px] shrink-0 items-center justify-center rounded-ui-rect px-2 text-[13px] text-ui-muted hover:bg-ui-hover hover:text-ui-fg"
+                        aria-label="최근 주소 목록에서 삭제"
+                      >
+                        삭제
                       </button>
                     </li>
                   ))

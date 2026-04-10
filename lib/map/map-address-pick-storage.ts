@@ -139,3 +139,60 @@ export function pushMapAddressRecent(item: Omit<MapAddressRecentItem, "at">): vo
     /* ignore */
   }
 }
+
+/** 최근 주소 한 줄 식별(목록에서 숨김·삭제 시 사용) */
+export function mapAddressRecentRowKey(r: { latitude: number; longitude: number; at: number }): string {
+  return `${r.latitude.toFixed(6)},${r.longitude.toFixed(6)},${r.at}`;
+}
+
+/**
+ * localStorage 최근 목록에서 해당 항목 제거(좌표·시각 일치).
+ */
+export function removeOneMapAddressRecent(item: { latitude: number; longitude: number; at: number }): void {
+  if (typeof localStorage === "undefined") return;
+  const prev = readMapAddressRecent();
+  const next = prev.filter(
+    (p) =>
+      p.at !== item.at ||
+      Math.abs(p.latitude - item.latitude) > 1e-8 ||
+      Math.abs(p.longitude - item.longitude) > 1e-8
+  );
+  if (next.length === prev.length) return;
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
+const RECENT_HIDDEN_KEY = "samarket:map_address_recent_hidden_v1";
+
+function readHiddenRecentKeys(): Set<string> {
+  if (typeof sessionStorage === "undefined") return new Set();
+  try {
+    const raw = sessionStorage.getItem(RECENT_HIDDEN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.filter((x): x is string => typeof x === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+/** 주소 설정 화면의 합쳐진 최근 목록에서 한 줄 제거(DB에서 온 줄은 세션 동안만 숨김) */
+export function hideMapAddressRecentRow(item: { latitude: number; longitude: number; at: number }): void {
+  removeOneMapAddressRecent(item);
+  if (typeof sessionStorage === "undefined") return;
+  const k = mapAddressRecentRowKey(item);
+  const set = readHiddenRecentKeys();
+  set.add(k);
+  try {
+    sessionStorage.setItem(RECENT_HIDDEN_KEY, JSON.stringify([...set]));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readHiddenMapAddressRecentKeys(): Set<string> {
+  return readHiddenRecentKeys();
+}

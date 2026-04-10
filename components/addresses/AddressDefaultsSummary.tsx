@@ -1,7 +1,7 @@
 "use client";
 
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
-import { buildTradePublicLine } from "@/lib/addresses/user-address-format";
+import { buildTradePublicLine, stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 
 function Line({ label, text }: { label: string; text: string | null }) {
   return (
@@ -14,9 +14,15 @@ function Line({ label, text }: { label: string; text: string | null }) {
 
 export function AddressDefaultsSummary({ defaults }: { defaults: UserAddressDefaultsDTO | null }) {
   if (!defaults) return null;
-  const life = defaults.life ? buildTradePublicLine(defaults.life) : null;
-  const trade = defaults.trade ? buildTradePublicLine(defaults.trade) : null;
-  const del = defaults.delivery ? buildTradePublicLine(defaults.delivery) : null;
+  const life = defaults.life
+    ? stripCountryFromAddressDisplayLine(buildTradePublicLine(defaults.life), defaults.life.countryName)
+    : null;
+  const trade = defaults.trade
+    ? stripCountryFromAddressDisplayLine(buildTradePublicLine(defaults.trade), defaults.trade.countryName)
+    : null;
+  const del = defaults.delivery
+    ? stripCountryFromAddressDisplayLine(buildTradePublicLine(defaults.delivery), defaults.delivery.countryName)
+    : null;
   return (
     <section className="grid gap-2 sm:grid-cols-3">
       <Line label="기본 생활 동네" text={life} />

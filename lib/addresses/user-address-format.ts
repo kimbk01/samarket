@@ -29,6 +29,56 @@ function isDisplayNullish(s: string | null | undefined): boolean {
   return lower === "null" || lower === "undefined";
 }
 
+/**
+ * 표시용 한 줄 주소 끝의 국가(필리핀·Philippines 등)를 제거 — 목록·프로필에서 국가는 숨김.
+ * `countryName`은 DB 값과 별도로 흔한 필리핀 표기도 함께 시도합니다.
+ */
+export function stripCountryFromAddressDisplayLine(line: string, countryName?: string | null): string {
+  let t = line.trim();
+  if (!t) return t;
+  const extras = [
+    ...(countryName?.trim() ? [countryName.trim()] : []),
+    "필리핀",
+    "Philippines",
+    "the Philippines",
+    "Republic of the Philippines",
+  ];
+  const seen = new Set<string>();
+  const names = extras
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((x) => {
+      const k = x.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .sort((a, b) => b.length - a.length);
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const name of names) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const withComma = new RegExp(`[,，]\\s*${escaped}\\s*$`, "i");
+      const withSpace = new RegExp(`\\s+${escaped}\\s*$`, "i");
+      let n = t.replace(withComma, "").trim();
+      if (n !== t) {
+        t = n;
+        changed = true;
+        break;
+      }
+      n = t.replace(withSpace, "").trim();
+      if (n !== t) {
+        t = n;
+        changed = true;
+        break;
+      }
+    }
+  }
+  return t.replace(/[,，]\s*$/, "").trim();
+}
+
 /** 목록·헤더 한 줄 — 잘못된 ID·문자열 "null" 은 제외하고 fullAddress 로 폴백 */
 export function buildTradePublicLine(a: UserAddressDTO): string {
   const nn = a.neighborhoodName?.trim();
@@ -50,6 +100,22 @@ export function buildTradePublicLine(a: UserAddressDTO): string {
     return `${a.latitude.toFixed(4)}, ${a.longitude.toFixed(4)}`;
   }
   return "주소 미입력";
+}
+
+/**
+ * 주소 관리 목록 등 — 본문(`mainLine`) 아래에 붙일 상세(건물명·동·호).
+ * 이미 본문 문자열에 포함된 경우는 중복이므로 생략합니다.
+ */
+export function buildAddressListDetailLine(a: UserAddressDTO, mainLine: string): string | null {
+  const parts = [a.buildingName, a.unitFloorRoom]
+    .map((x) => x?.trim())
+    .filter((x) => x && !isDisplayNullish(x));
+  const line = parts.join(" ").trim();
+  if (!line) return null;
+  const ml = mainLine.trim().toLowerCase();
+  const ll = line.toLowerCase();
+  if (ml.includes(ll)) return null;
+  return line;
 }
 
 export function buildDeliveryDetailLines(a: UserAddressDTO): string {

@@ -1,21 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AddressRowCard } from "@/components/addresses/AddressRowCard";
 import { AddressEditorSheet } from "@/components/addresses/AddressEditorSheet";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
   consumeMapAddressPick,
   consumeMapAddressPickContext,
+  writeMapAddressPickContext,
 } from "@/lib/map/map-address-pick-storage";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
   const [list, setList] = useState<UserAddressDTO[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -91,6 +94,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         return;
       }
       setList(aj.addresses ?? []);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
+      }
     } catch {
       setLoadErr(tt("네트워크 오류가 났어요."));
     }
@@ -120,7 +126,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     setMapBootstrap(null);
     setEditorMode("create");
     setEditTarget(null);
-    setEditorOpen(true);
+    writeMapAddressPickContext({ source: "create" });
+    if (embedded) {
+      router.replace("/mypage/addresses");
+    }
+    router.push("/address/select");
   }
 
   function openEdit(row: UserAddressDTO) {
@@ -214,6 +224,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         mode={editorMode}
         initial={editTarget}
         mapBootstrap={mapBootstrap}
+        allAddresses={list}
         onClose={() => {
           setEditorOpen(false);
           setMapBootstrap(null);

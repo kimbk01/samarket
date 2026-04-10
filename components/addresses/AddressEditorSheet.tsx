@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { writeMapAddressPickContext } from "@/lib/map/map-address-pick-storage";
+import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
 
 type Mode = "create" | "edit";
 
@@ -69,8 +70,10 @@ export function AddressEditorSheet(props: {
   } | null;
   onClose: () => void;
   onSaved: () => void;
+  /** 중복 이름 검사용(현재 사용자 주소 목록) */
+  allAddresses?: UserAddressDTO[];
 }) {
-  const { open, mode, initial, mapBootstrap = null, onClose, onSaved } = props;
+  const { open, mode, initial, mapBootstrap = null, onClose, onSaved, allAddresses = [] } = props;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -124,6 +127,7 @@ export function AddressEditorSheet(props: {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
         setFullAddress(mapBootstrap.fullAddress.trim());
+        setUnitFloorRoom((mapBootstrap.addressDetail ?? "").trim());
       } else {
         setLatitude(initial.latitude ?? null);
         setLongitude(initial.longitude ?? null);
@@ -154,6 +158,7 @@ export function AddressEditorSheet(props: {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
         setFullAddress(mapBootstrap.fullAddress.trim());
+        setUnitFloorRoom((mapBootstrap.addressDetail ?? "").trim());
       } else {
         setLatitude(null);
         setLongitude(null);
@@ -181,6 +186,22 @@ export function AddressEditorSheet(props: {
       setBusy(false);
       return;
     }
+    const nameTrimmed = nickname.trim();
+    if (!normalizeAddressNicknameKey(nameTrimmed)) {
+      setErr("주소 이름을 입력 하세요");
+      setBusy(false);
+      return;
+    }
+    const nameKey = normalizeAddressNicknameKey(nameTrimmed);
+    const dup = allAddresses.some((a) => {
+      if (mode === "edit" && initial?.id === a.id) return false;
+      return normalizeAddressNicknameKey(a.nickname ?? "") === nameKey;
+    });
+    if (dup) {
+      setErr("이미 같은 이름의 주소가 있어요.");
+      setBusy(false);
+      return;
+    }
     try {
       if (latitude == null || longitude == null || !fullAddress.trim()) {
         setErr("지도에서 위치를 선택해 주세요.");
@@ -189,7 +210,7 @@ export function AddressEditorSheet(props: {
       }
       const body = {
         labelType,
-        nickname: nickname.trim() || null,
+        nickname: nameTrimmed,
         recipientName: recipientName.trim() || null,
         phoneNumber: ph.value,
         appRegionId: region.trim() || null,
@@ -271,11 +292,18 @@ export function AddressEditorSheet(props: {
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-6">
           <div>
-            <p className="mb-2 text-[14px] font-medium text-gray-900">이름</p>
+            <p className="mb-2 text-[14px] font-medium text-gray-900">
+              이름 <span className="text-red-600">*</span>
+            </p>
             <input
               value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="Home"
+              onChange={(e) => {
+                setNickname(e.target.value);
+                setErr(null);
+              }}
+              placeholder="예: 우리집, 사무실"
+              autoComplete="off"
+              aria-required
               className="w-full border-0 border-b border-gray-200 bg-transparent py-2 text-[17px] text-gray-900 outline-none placeholder:text-gray-400"
             />
           </div>
@@ -306,6 +334,28 @@ export function AddressEditorSheet(props: {
               <AddressMapThumb lat={latitude} lng={longitude} />
             </div>
           ) : null}
+
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-[14px] font-medium text-gray-900">상세주소</p>
+              {unitFloorRoom.trim() ? (
+                <button
+                  type="button"
+                  onClick={() => setUnitFloorRoom("")}
+                  className="text-[13px] text-gray-400 hover:text-gray-700"
+                  aria-label="상세주소 지우기"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
+            <input
+              value={unitFloorRoom}
+              onChange={(e) => setUnitFloorRoom(e.target.value)}
+              placeholder="지번, 건물명, 동·호 등"
+              className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
 
           {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
         </div>

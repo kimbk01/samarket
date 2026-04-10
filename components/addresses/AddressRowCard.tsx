@@ -2,7 +2,11 @@
 
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
-import { buildTradePublicLine } from "@/lib/addresses/user-address-format";
+import {
+  buildAddressListDetailLine,
+  buildTradePublicLine,
+  stripCountryFromAddressDisplayLine,
+} from "@/lib/addresses/user-address-format";
 
 export function AddressRowCard(props: {
   row: UserAddressDTO;
@@ -19,7 +23,8 @@ export function AddressRowCard(props: {
     rawNick && rawNick.toLowerCase() !== "null" && rawNick.toLowerCase() !== "undefined"
       ? rawNick
       : ADDRESS_LABEL_KO[row.labelType];
-  const sub = buildTradePublicLine(row);
+  const sub = stripCountryFromAddressDisplayLine(buildTradePublicLine(row), row.countryName);
+  const detailLine = buildAddressListDetailLine(row, sub);
 
   return (
     <li className="flex items-start gap-3 py-4">
@@ -30,8 +35,8 @@ export function AddressRowCard(props: {
         className="min-w-0 flex-1 rounded-ui-rect px-0 py-0 text-left disabled:opacity-50"
         aria-label={
           row.isDefaultMaster
-            ? `${title}, 현재 대표 주소`
-            : `${title}, 탭하면 대표 주소로 지정`
+            ? `${title}, 현재 대표 주소, ${sub}${detailLine ? `. ${detailLine}` : ""}`
+            : `${title}, 탭하면 대표 주소로 지정, ${sub}${detailLine ? `. ${detailLine}` : ""}`
         }
       >
         <div className="flex flex-wrap items-center gap-1.5">
@@ -45,6 +50,14 @@ export function AddressRowCard(props: {
           )}
         </div>
         <p className="mt-0.5 text-[13px] leading-snug text-gray-500">{sub || "—"}</p>
+        {detailLine ? (
+          <p
+            className="mt-1 text-[13px] leading-snug text-gray-600"
+            translate="no"
+          >
+            ({detailLine})
+          </p>
+        ) : null}
       </button>
       <div className="flex shrink-0 items-center gap-0.5">
         <button
