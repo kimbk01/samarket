@@ -9,6 +9,10 @@ import {
   IG_DM_BUBBLE_ROW_MAX,
 } from "@/lib/chats/instagram-dm-tokens";
 
+/** 기본(당근형) 말풍선 행 — 본문 컬럼이 넓어질 때 `20rem` 고정 상한 완화 */
+const DEFAULT_CHAT_BUBBLE_ROW_MAX =
+  "max-w-[min(82vw,20rem)] sm:max-w-[72%] md:max-w-[min(75%,34rem)]";
+
 interface ChatMessageListProps {
   messages: ChatMessage[];
   currentUserId: string;
@@ -275,7 +279,7 @@ export function ChatMessageList({
       const bubblePadIg = IG_DM_BUBBLE_PAD;
       items.push(
         <li key={`opponent-${msgs[0].id}`} className={`flex justify-start ${gapFromPrev}`}>
-          <div className={`flex ${ig ? IG_DM_BUBBLE_ROW_MAX : "max-w-[min(82vw,20rem)] sm:max-w-[72%]"} items-end ${ig ? "gap-2.5" : "gap-2"}`}>
+          <div className={`flex ${ig ? IG_DM_BUBBLE_ROW_MAX : DEFAULT_CHAT_BUBBLE_ROW_MAX} items-end ${ig ? "gap-2.5" : "gap-2"}`}>
             {/* 프로필: DM은 32px, 기본 34px */}
             <div className="flex shrink-0 flex-col justify-end">
               <div
@@ -384,7 +388,7 @@ export function ChatMessageList({
       items.push(
         <li key={`mine-${msgs[0].id}`} className={`flex justify-end ${gapFromPrev}`}>
           <div
-            className={`flex flex-col items-end ${ig ? IG_DM_BUBBLE_ROW_MAX : "max-w-[min(82vw,20rem)] sm:max-w-[72%]"}`}
+            className={`flex flex-col items-end ${ig ? IG_DM_BUBBLE_ROW_MAX : DEFAULT_CHAT_BUBBLE_ROW_MAX}`}
           >
             {msgs.map((msg, i) => {
               const pos = getBubblePosition(msgs, i);

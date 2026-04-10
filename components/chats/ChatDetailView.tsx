@@ -33,6 +33,7 @@ import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
 import {
+  APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
   APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
@@ -1495,7 +1496,7 @@ export function ChatDetailView({
       {partnerBlocked ? (
         isStoreOrderSeller ? (
           <div
-            className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
+            className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
           >
             {sellerComposerQuickBar}
@@ -1517,7 +1518,7 @@ export function ChatDetailView({
       ) : !canWriteTradeMessage ? (
         isStoreOrderSeller ? (
           <div
-            className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
+            className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
           >
             {sellerComposerQuickBar}
@@ -1554,7 +1555,7 @@ export function ChatDetailView({
         )
       ) : (
         <div
-          className={`sticky bottom-0 z-10 mx-auto w-full max-w-lg shrink-0 border-t bg-white pt-3 safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
+          className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-white pt-3 safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
         >
           {chatComposerInner}
@@ -1584,7 +1585,9 @@ export function ChatDetailView({
 
       {roomInfoSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-lg sm:max-h-[90vh] sm:rounded-ui-rect">
+          <div
+            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-lg sm:max-h-[90vh] sm:rounded-ui-rect`}
+          >
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
               <div>
                 <h2 className="text-[16px] font-semibold text-gray-900">{t("common_chat_info")}</h2>
@@ -1625,7 +1628,9 @@ export function ChatDetailView({
 
       {reportSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white">
+          <div
+            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white`}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">{t("nav_messenger_report")}</h2>
               <button type="button" onClick={() => setReportSheetOpen(false)} className="text-[14px] text-gray-500">
@@ -1648,7 +1653,9 @@ export function ChatDetailView({
 
       {blockSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white">
+          <div
+            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white`}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">{t("common_block")}</h2>
               <button type="button" onClick={() => setBlockSheetOpen(false)} className="text-[14px] text-gray-500">
@@ -1673,7 +1680,9 @@ export function ChatDetailView({
 
       {reviewSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-lg sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect">
+          <div
+            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-lg sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
+          >
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">후기 작성</h2>
               <button type="button" onClick={() => setReviewSheetOpen(false)} className="text-[14px] text-gray-500">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 
 export type ChatHubSecondaryTabItem = {
   href: string;
@@ -21,7 +22,7 @@ export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem
   const { t, tt } = useI18n();
   return (
     <div className="border-b border-ig-border bg-white">
-      <div className="mx-auto flex max-w-lg px-4">
+      <div className={`mx-auto flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4`}>
         {items.map((item) => (
           <Link
             key={`${item.href}-${item.label}`}
