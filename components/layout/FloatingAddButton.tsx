@@ -41,6 +41,7 @@ export function FloatingAddButton() {
       router.push(`/write/${encodeURIComponent(categorySlug)}`);
       return;
     }
+    writeCtx?.ensureLauncherCategoriesLoaded();
     setLauncherOpen(true);
   };
 

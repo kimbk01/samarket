@@ -181,7 +181,7 @@ function SignupPageContent() {
 
         <p className="mt-4 text-center text-[13px] text-gray-500">
           {t("signup_has_account")}{" "}
-          <Link href={`/login?next=${encodeURIComponent(next)}`} className="font-medium text-signature underline">
+          <Link href="/login" className="font-medium text-signature underline">
             {t("common_login")}
           </Link>
         </p>

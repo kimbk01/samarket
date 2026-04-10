@@ -87,14 +87,22 @@ export function BottomNav() {
     }
   }, []);
 
-  /** 최초 로드 + 관리자(/admin/*)에서 나온 뒤에는 DB 반영분을 강제 재조회 — 레이아웃 고정 마운트라 경로만으로는 갱신이 안 되던 문제 */
+  /**
+   * 하단 탭 설정: 최초 마운트 1회 + 관리자(/admin/*) 이탈 시 강제 재조회.
+   * (경로만 바뀔 때마다 호출하면 TTL 캐시 히트여도 불필요한 setState·작업이 반복됨)
+   */
   useEffect(() => {
     const cur = pathname ?? "";
     const prev = prevPathnameForNavRef.current;
     prevPathnameForNavRef.current = cur;
     const leftAdminSurface =
       Boolean(prev && cur) && (prev?.startsWith("/admin") ?? false) && !cur.startsWith("/admin");
-    void applyMainBottomNavItems(leftAdminSurface);
+    if (leftAdminSurface) {
+      void applyMainBottomNavItems(true);
+      return;
+    }
+    if (prev !== null) return;
+    void applyMainBottomNavItems(false);
   }, [pathname, applyMainBottomNavItems]);
 
   useEffect(() => {
@@ -130,12 +138,13 @@ export function BottomNav() {
     for (const h of fromTabs) {
       if (!ordered.includes(h)) ordered.push(h);
     }
-    const candidates = ordered.slice(0, 5);
+    /** 탭·허브가 많을수록 RSC 프리페치가 메인 스레드·대역폭과 겹침 — 인접 위주 3개만 */
+    const candidates = ordered.slice(0, 3);
     const idleId = scheduleWhenBrowserIdle(() => {
       for (const href of candidates) {
         router.prefetch(href);
       }
-    }, 850);
+    }, 950);
     return () => {
       cancelScheduledWhenBrowserIdle(idleId);
     };

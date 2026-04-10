@@ -473,7 +473,7 @@ export function MyStoreOrdersView({
 
   const counts = useMemo(() => tabCounts(allSorted), [allSorted]);
   const filtered = useMemo(() => filterByTab(allSorted, tab), [allSorted, tab]);
-  const loginHref = `/login?next=${encodeURIComponent(pathname ?? (embedded ? "/orders?tab=store" : "/mypage/store-orders"))}`;
+  const loginHref = "/login";
 
   const requestCancelPending = useCallback(
     async (orderId: string) => {

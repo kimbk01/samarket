@@ -7,7 +7,7 @@ import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 export default async function PhilifeMyPage() {
   const uid = await getOptionalAuthenticatedUserId();
-  if (!uid) redirect("/login?next=/philife/my");
+  if (!uid) redirect("/login");
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-24">

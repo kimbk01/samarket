@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { clearTestAuth, TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -33,11 +34,9 @@ export function SessionLostRedirect() {
     } catch {
       /* ignore */
     }
-    const p = pathnameRef.current;
-    const next = p && p !== "/login" ? `?next=${encodeURIComponent(p)}` : "";
-    const url = `/login${next}`;
+    /** `?next=` 로 복귀하면 글쓰기 등 보호 경로로 바로 가며 세션·게이트와 어긋나 로그인 루프가 남 — 항상 `/login` 만 */
     if (typeof window !== "undefined") {
-      window.location.replace(url);
+      window.location.replace("/login");
     }
   }, []);
 
@@ -52,10 +51,7 @@ export function SessionLostRedirect() {
     await runSingleFlight(SESSION_CHECK_FLIGHT, async () => {
       try {
         for (let attempt = 0; attempt < SESSION_UNAUTH_MAX_ATTEMPTS; attempt++) {
-          const res = await fetch("/api/auth/session", {
-            credentials: "include",
-            cache: "no-store",
-          });
+          const res = await fetchAuthSessionNoStore();
           if (res.ok) return;
           if (res.status >= 500 || res.status === 429) return;
           if (res.status === 403) return;

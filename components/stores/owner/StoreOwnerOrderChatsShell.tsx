@@ -72,7 +72,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
 
   const ordersHref = "/my/business/store-orders";
   const orderChatsHref = "/my/store-orders";
-  const loginHref = `/login?next=${encodeURIComponent(ordersHref)}`;
+  const loginHref = "/login";
 
   if (state.kind === "loading") {
     return (

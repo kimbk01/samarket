@@ -810,7 +810,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           <p className="mt-2 text-[13px] text-gray-500">{pageError ?? t("nav_messenger_login_required")}</p>
           <div className="mt-4 flex justify-center">
             <Link
-              href={`/login?next=${encodeURIComponent("/community-messenger")}`}
+              href="/login"
               className="rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
             >
               로그인하러 가기

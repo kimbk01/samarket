@@ -266,7 +266,7 @@ export function OwnerStoreOrdersView() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const loginHref = `/login?next=${encodeURIComponent(pathname ?? "/my/business/store-orders")}`;
+  const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
   const [chatModal, setChatModal] = useState<{
     orderId: string;

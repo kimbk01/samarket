@@ -7,18 +7,31 @@
 import type { CreatePostPayload, CreatePostResponse } from "./types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
-import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
+import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-write";
 
-export async function createPost(payload: CreatePostPayload): Promise<CreatePostResponse> {
-  const userId = await getCurrentUserIdForDb();
-  if (!userId) {
-    return { ok: false, error: "로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요." };
-  }
+/** `TradeWriteForm` 등에서 업로드와 겹쳐 `userId`·전화 게이트를 미리 통과시킨 경우 중복 네트워크 생략 */
+export type CreatePostAuthPreflight = {
+  userId: string;
+  phoneGatePassed: true;
+};
 
-  const profile = await getMyProfile();
-  if (profile && profile.role !== "admin" && profile.role !== "master" && !profile.phone_verified) {
-    return { ok: false, error: PHONE_VERIFICATION_REQUIRED_MESSAGE };
+export async function createPost(
+  payload: CreatePostPayload,
+  authPreflight?: CreatePostAuthPreflight
+): Promise<CreatePostResponse> {
+  let userId: string;
+
+  if (authPreflight?.phoneGatePassed && authPreflight.userId) {
+    userId = authPreflight.userId;
+  } else {
+    const [uid, gate] = await Promise.all([getCurrentUserIdForDb(), assertPhoneAllowsPostWrite()]);
+    if (!uid) {
+      return { ok: false, error: "로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요." };
+    }
+    if (!gate.ok) {
+      return { ok: false, error: gate.error };
+    }
+    userId = uid;
   }
 
   const supabase = getSupabaseClient();

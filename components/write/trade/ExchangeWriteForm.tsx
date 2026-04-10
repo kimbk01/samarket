@@ -157,19 +157,36 @@ export function ExchangeWriteForm({
     };
   }, []);
 
-  /** API 로드 후에도 기준 환율이 비어 있으면 기본값으로 채움 */
+  /**
+   * 기준 환율(1 PHP = ? KRW) — API 값으로 채움.
+   * (이전: 로딩 중 24.99 폴백을 먼저 넣어 두면 `rate`가 비어 있지 않아 API 24.79가 절대 반영되지 않는 버그가 있었음)
+   */
   useEffect(() => {
-    if (!ratesLoading || rate.trim() !== "") return;
-    const fallback = DEFAULT_RATES_PHP_BASE.KRW;
-    if (typeof fallback === "number" && fallback > 0) setRate(String(fallback));
-  }, [ratesLoading, rate]);
-
-  /** 기준 환율(1 PHP = ? KRW) - API 성공 시 자동 채움 */
-  useEffect(() => {
-    if (rate.trim() !== "") return;
     const krw = liveRates?.KRW;
-    if (typeof krw === "number" && krw > 0) setRate(krw.toFixed(2));
-  }, [liveRates, rate]);
+    if (typeof krw !== "number" || krw <= 0) return;
+    const next = krw.toFixed(2);
+    const fallback = DEFAULT_RATES_PHP_BASE.KRW;
+    setRate((prev) => {
+      const t = prev.trim();
+      if (t === "") return next;
+      const n = Number(t.replace(/,/g, ""));
+      if (!Number.isFinite(n)) return next;
+      /** 정적 폴백(24.99)만 들어간 상태면 실시간 환율로 교체 — 수동 입력값은 유지 */
+      if (Math.abs(n - fallback) < 1e-6) return next;
+      return prev;
+    });
+  }, [liveRates]);
+
+  /** API 실패·null 일 때만 빈 칸에 정적 폴백 (로딩 끝난 뒤) */
+  useEffect(() => {
+    if (ratesLoading) return;
+    const krw = liveRates?.KRW;
+    if (typeof krw === "number" && krw > 0) return;
+    setRate((prev) => {
+      if (prev.trim() !== "") return prev;
+      return String(DEFAULT_RATES_PHP_BASE.KRW);
+    });
+  }, [ratesLoading, liveRates]);
 
   const [sellerPrep, setSellerPrep] = useState<string[]>([]);
   const [buyerPrep, setBuyerPrep] = useState<string[]>([]);

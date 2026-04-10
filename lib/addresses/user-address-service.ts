@@ -84,6 +84,39 @@ export async function listUserAddresses(
   return list;
 }
 
+/**
+ * 대표 주소(필수 게이트) 충족 여부 — **항상 DB 기준**.
+ * - 일반: `is_default_master` 한 건만 조회해 부하를 줄임.
+ * - 활성 주소는 있는데 마스터가 없으면 `listUserAddresses`와 동일하게 서버에서 대표 보정 후 판정.
+ */
+export async function isMandatoryAddressGateSatisfied(
+  sb: SupabaseClient<any>,
+  userId: string
+): Promise<boolean> {
+  const { data: masterRows, error: e1 } = await sb
+    .from("user_addresses")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .eq("is_default_master", true)
+    .limit(1);
+
+  if (e1) throw new Error(e1.message);
+  if (masterRows && masterRows.length > 0) return true;
+
+  const { count, error: e2 } = await sb
+    .from("user_addresses")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_active", true);
+
+  if (e2) throw new Error(e2.message);
+  if ((count ?? 0) === 0) return false;
+
+  const list = await listUserAddresses(sb, userId);
+  return list.some((x) => x.isDefaultMaster);
+}
+
 export async function getUserAddressDefaults(
   sb: SupabaseClient<any>,
   userId: string

@@ -23,6 +23,29 @@ const MOVE_IN_OPTIONS = [
   { value: "즉시입주", label: "즉시입주" },
 ] as const;
 
+/** 중고차(차량) 연식 — DB·표시 모두 4자리 연도 */
+const USED_CAR_YEAR_MIN = 1990;
+
+function getUsedCarYearMax(): number {
+  return new Date().getFullYear();
+}
+
+function getUsedCarYearFieldError(raw: string, mode: "buy" | "sell"): string | null {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  if (digits.length === 0) {
+    return mode === "buy" ? "년식 (이하)를 입력해 주세요." : "연식을 입력해 주세요.";
+  }
+  if (digits.length < 4) {
+    return "연식은 네 자리 연도로 입력해 주세요.";
+  }
+  const y = parseInt(digits, 10);
+  const max = getUsedCarYearMax();
+  if (y < USED_CAR_YEAR_MIN || y > max) {
+    return `연식은 ${USED_CAR_YEAR_MIN}년~${max}년 사이로 입력해 주세요.`;
+  }
+  return null;
+}
+
 function buildTradeMeta(
   skinKey: string,
   v: {
@@ -71,11 +94,14 @@ function buildTradeMeta(
     if (v.carTrade === "buy" || v.carTrade === "sell") o.car_trade = v.carTrade;
     if (v.carModel.trim()) o.car_model = v.carModel.trim();
     if (v.carTrade === "sell") {
-      if (v.carYear.trim()) o.car_year = v.carYear.trim();
-      if (v.mileage.trim()) o.mileage = v.mileage.trim();
+      if (v.carYear.trim()) o.car_year = v.carYear.replace(/\D/g, "").slice(0, 4);
+      const mileageDigits = v.mileage.replace(/,/g, "").replace(/\D/g, "");
+      if (mileageDigits) o.mileage = mileageDigits;
       o.has_accident = v.carHasAccident === true;
     }
-    if (v.carTrade === "buy" && v.carYear.trim()) o.car_year_max = v.carYear.trim();
+    if (v.carTrade === "buy" && v.carYear.trim()) {
+      o.car_year_max = v.carYear.replace(/\D/g, "").slice(0, 4);
+    }
     return o;
   }
   if (skinKey === "jobs") {
@@ -94,12 +120,13 @@ function buildTradeMeta(
   return {};
 }
 import { createPost } from "@/lib/posts/createPost";
+import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-write";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import {
   ensureClientAccessOrRedirect,
   redirectForBlockedAction,
@@ -150,7 +177,8 @@ export function TradeWriteForm({
   const [price, setPrice] = useState("");
   const [isPriceOfferEnabled, setIsPriceOfferEnabled] = useState(false);
   const [isFreeShare, setIsFreeShare] = useState(false);
-  const [isDirectDeal, setIsDirectDeal] = useState(false);
+  /** 신규 글: 직거래 기본 — 나눔 선택 시 false 로 전환 */
+  const [isDirectDeal, setIsDirectDeal] = useState(true);
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
   const [images, setImages] = useState<ImageUploadItem[]>([]);
@@ -193,6 +221,26 @@ export function TradeWriteForm({
     setTradeTopicChildId("");
   }, [category.id]);
 
+  /** 신규 작성: 카테고리 바뀔 때마다 직거래·나눔 기본값(직거래 우선) — 수정 모드는 스냅샷이 덮어씀 */
+  useEffect(() => {
+    if (editPostId) return;
+    if (isUsedCarSkin) return;
+    setIsFreeShare(false);
+    setIsDirectDeal(true);
+  }, [category.id, editPostId, isUsedCarSkin]);
+
+  /** 카테고리 설정상 한쪽만 허용일 때 상태 정합 */
+  useEffect(() => {
+    if (isUsedCarSkin) return;
+    if (!hasFreeShare && hasDirectDeal) {
+      setIsFreeShare(false);
+      setIsDirectDeal(true);
+    } else if (hasFreeShare && !hasDirectDeal) {
+      setIsFreeShare(true);
+      setIsDirectDeal(false);
+    }
+  }, [hasFreeShare, hasDirectDeal, isUsedCarSkin]);
+
   const syncTradeRegionCity = useCallback((rid: string, cid: string) => {
     setRegion(rid);
     setCity(cid);
@@ -224,8 +272,11 @@ export function TradeWriteForm({
     setBathroomCount(h.bathroomCount);
     setMoveInDate(h.moveInDate);
     setCarModel(h.carModel);
-    setCarYear(h.carYear);
-    setMileage(h.mileage);
+    setCarYear(h.carYear.replace(/\D/g, "").slice(0, 4));
+    {
+      const mi = String(h.mileage ?? "").replace(/\D/g, "");
+      setMileage(mi ? formatPriceInput(mi) : "");
+    }
     setUsedCarTrade(h.usedCarTrade);
     setCarHasAccident(h.carHasAccident);
     setSalary(h.salary);
@@ -239,8 +290,12 @@ export function TradeWriteForm({
     const next: Record<string, string> = {};
     if (skinKey !== "real-estate" && !isUsedCarSkin && !title.trim()) next.title = "제목을 입력해 주세요.";
     if (isUsedCarSkin && !usedCarTrade) next.usedCarTrade = "삽니다 또는 팝니다를 선택해 주세요.";
-    if (isUsedCarSkin && usedCarTrade === "buy" && !carYear.trim()) {
-      next.carYearBuy = "년식 (이하)를 입력해 주세요.";
+    if (isUsedCarSkin && usedCarTrade === "buy") {
+      const yErr = getUsedCarYearFieldError(carYear, "buy");
+      if (yErr) next.carYear = yErr;
+    } else if (isUsedCarSkin && usedCarTrade === "sell") {
+      const yErr = getUsedCarYearFieldError(carYear, "sell");
+      if (yErr) next.carYear = yErr;
     }
     if (!description.trim()) next.description = "내용을 입력해 주세요.";
     const isRealEstateSale = skinKey === "real-estate" && dealType === "판매";
@@ -310,9 +365,34 @@ export function TradeWriteForm({
         const existingUrls = images
           .filter((item) => !item.file && item.url && !item.url.startsWith("blob:"))
           .map((item) => item.url);
-        const uploaded =
-          files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
-        const mergedImageUrls = [...existingUrls, ...uploaded];
+
+        let mergedImageUrls: string[];
+        /** 신규 등록: 스토리지 업로드 + userId + 전화 게이트 병렬 → `createPost` 에서 프로필 API 중복 호출 생략 */
+        let createPreflight: { userId: string; phoneGatePassed: true } | undefined;
+
+        if (editPostId) {
+          const uploaded =
+            files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
+          mergedImageUrls = [...existingUrls, ...uploaded];
+        } else {
+          const uploadPromise =
+            files.length > 0 && user?.id ? uploadPostImages(files, user.id) : Promise.resolve<string[]>([]);
+          const [uploaded, preflightUserId, phoneGate] = await Promise.all([
+            uploadPromise,
+            getCurrentUserIdForDb(),
+            assertPhoneAllowsPostWrite(),
+          ]);
+          if (!phoneGate.ok) {
+            setErrors({ submit: phoneGate.error });
+            return;
+          }
+          if (!preflightUserId) {
+            setErrors({ submit: "로그인이 필요합니다." });
+            return;
+          }
+          createPreflight = { userId: preflightUserId, phoneGatePassed: true };
+          mergedImageUrls = [...existingUrls, ...uploaded];
+        }
         /** 수정 시 빈 배열을 넘겨야 기존 이미지가 DB에서 제거됨(undefined면 update가 images를 건드리지 않음) */
         const imageUrlsForSave = editPostId
           ? mergedImageUrls
@@ -396,7 +476,7 @@ export function TradeWriteForm({
             setErrors({ submit: res.error });
           }
         } else {
-          const res = await createPost(payload);
+          const res = await createPost(payload, createPreflight);
           if (res.ok) {
             onSuccess(res.id);
           } else {
@@ -606,27 +686,60 @@ export function TradeWriteForm({
           <section className="border-b border-gray-100 bg-white px-4 py-4">
             {((hasFreeShare && !isUsedCarSkin) || (hasDirectDeal && !isUsedCarSkin)) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {hasFreeShare && !isUsedCarSkin && (
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={isFreeShare}
-                      onChange={(e) => setIsFreeShare(e.target.checked)}
-                      className="rounded border-gray-300"
-                    />
-                    <span className="text-[14px] text-gray-700">나눔</span>
-                  </label>
-                )}
-                {hasDirectDeal && !isUsedCarSkin && (
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={isDirectDeal}
-                      onChange={(e) => setIsDirectDeal(e.target.checked)}
-                      className="rounded border-gray-300"
-                    />
-                    <span className="text-[14px] text-gray-700">직거래</span>
-                  </label>
+                {hasFreeShare && hasDirectDeal && !isUsedCarSkin ? (
+                  <div role="radiogroup" aria-label="거래 방식" className="flex flex-wrap gap-x-5 gap-y-2">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="radio"
+                        name="samarket-trade-share-mode"
+                        className="border-gray-300 text-signature focus:ring-signature/30"
+                        checked={!isFreeShare}
+                        onChange={() => {
+                          setIsFreeShare(false);
+                          setIsDirectDeal(true);
+                        }}
+                      />
+                      <span className="text-[14px] text-gray-800">직거래</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="radio"
+                        name="samarket-trade-share-mode"
+                        className="border-gray-300 text-signature focus:ring-signature/30"
+                        checked={isFreeShare}
+                        onChange={() => {
+                          setIsFreeShare(true);
+                          setIsDirectDeal(false);
+                        }}
+                      />
+                      <span className="text-[14px] text-gray-800">나눔</span>
+                    </label>
+                  </div>
+                ) : (
+                  <>
+                    {hasFreeShare && !isUsedCarSkin && (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isFreeShare}
+                          onChange={(e) => setIsFreeShare(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-[14px] text-gray-700">나눔</span>
+                      </label>
+                    )}
+                    {hasDirectDeal && !isUsedCarSkin && (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isDirectDeal}
+                          onChange={(e) => setIsDirectDeal(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-[14px] text-gray-700">직거래</span>
+                      </label>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -890,11 +1003,12 @@ export function TradeWriteForm({
                     </label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       value={carYear}
-                      onChange={(e) => setCarYear(e.target.value)}
-                      placeholder="2020"
+                      onChange={(e) => setCarYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder={`${USED_CAR_YEAR_MIN}~${getUsedCarYearMax()}`}
                       className="w-full rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
-                      aria-invalid={!!errors.carYearBuy}
+                      aria-invalid={!!errors.carYear}
                     />
                   </div>
                   <div className="min-w-0">
@@ -917,8 +1031,8 @@ export function TradeWriteForm({
                     </div>
                   </div>
                 </div>
-                {(errors.price || errors.carYearBuy) && (
-                  <p className="mt-2 text-[13px] text-red-500">{errors.price || errors.carYearBuy}</p>
+                {(errors.price || errors.carYear) && (
+                  <p className="mt-2 text-[13px] text-red-500">{errors.price || errors.carYear}</p>
                 )}
                 {allowPriceOffer && (
                   <label className="mt-3 flex cursor-pointer items-center gap-2">
@@ -956,14 +1070,21 @@ export function TradeWriteForm({
                   </label>
                 </div>
                 <div className="min-w-0">
-                  <label className="mb-1 block text-[13px] text-gray-700">연식</label>
+                  <label className="mb-1 block text-[13px] text-gray-700">
+                    연식 <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
+                    inputMode="numeric"
                     value={carYear}
-                    onChange={(e) => setCarYear(e.target.value)}
-                    placeholder="2020"
+                    onChange={(e) => setCarYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    placeholder={`${USED_CAR_YEAR_MIN}~${getUsedCarYearMax()}`}
                     className="w-full rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
+                    aria-invalid={!!errors.carYear}
                   />
+                  {errors.carYear ? (
+                    <p className="mt-1 text-[12px] text-red-500">{errors.carYear}</p>
+                  ) : null}
                 </div>
                 <div className="min-w-0">
                   <label className="mb-1 block text-[12px] leading-tight text-gray-700 sm:text-[13px]">
@@ -973,8 +1094,8 @@ export function TradeWriteForm({
                     type="text"
                     inputMode="numeric"
                     value={mileage}
-                    onChange={(e) => setMileage(e.target.value.replace(/[^0-9,]/g, ""))}
-                    placeholder="50000"
+                    onChange={(e) => setMileage(formatPriceInput(e.target.value))}
+                    placeholder="50,000"
                     className="w-full rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
                   />
                 </div>

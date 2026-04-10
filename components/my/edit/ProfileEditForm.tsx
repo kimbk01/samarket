@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
@@ -78,9 +77,7 @@ export function ProfileEditForm() {
 
     if (!data) {
       setLoading(false);
-      const next =
-        pathname && pathname.startsWith("/") ? pathname : MYPAGE_PROFILE_EDIT_HREF;
-      const loginUrl = `/login?next=${encodeURIComponent(next)}`;
+      const loginUrl = "/login";
       if (typeof window !== "undefined") {
         window.location.replace(loginUrl);
       } else {

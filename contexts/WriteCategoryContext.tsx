@@ -1,8 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { getWritableRootCategoriesForWriteLauncher } from "@/lib/categories/getWritableRootCategoriesForWriteLauncher";
 import type { CategoryWithSettings } from "@/lib/categories/types";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  cancelScheduledWhenBrowserIdle,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 type WriteCategoryContextValue = {
   /** 포스트 상세 등에서 보고 있는 글의 카테고리 slug → 플로팅 글쓰기 버튼이 이 카테고리로 바로 이동 */
@@ -15,6 +20,10 @@ type WriteCategoryContextValue = {
   launcherRootCategories: CategoryWithSettings[];
   launcherCategoriesLoading: boolean;
   refreshLauncherCategories: () => Promise<void>;
+  /**
+   * 런처 시트를 열 때 호출 — 예약된 지연 로드를 취소하고 즉시 조회(첫 페인트와 Supabase 경쟁 완화).
+   */
+  ensureLauncherCategoriesLoaded: () => void;
 };
 
 const WriteCategoryContext = createContext<WriteCategoryContextValue | null>(null);
@@ -23,19 +32,43 @@ export function WriteCategoryProvider({ children }: { children: React.ReactNode 
   const [writeCategorySlug, setWriteCategorySlug] = useState<string | null>(null);
   const [launcherRootCategories, setLauncherRootCategories] = useState<CategoryWithSettings[]>([]);
   const [launcherCategoriesLoading, setLauncherCategoriesLoading] = useState(true);
+  const deferredIdleIdRef = useRef<number>(-1);
+  const initialFetchAttemptedRef = useRef(false);
 
   const refreshLauncherCategories = useCallback(async () => {
-    setLauncherCategoriesLoading(true);
-    try {
-      const list = await getWritableRootCategoriesForWriteLauncher();
-      setLauncherRootCategories(list);
-    } finally {
-      setLauncherCategoriesLoading(false);
-    }
+    await runSingleFlight("write-launcher-categories", async () => {
+      setLauncherCategoriesLoading(true);
+      try {
+        const list = await getWritableRootCategoriesForWriteLauncher();
+        setLauncherRootCategories(list);
+      } finally {
+        initialFetchAttemptedRef.current = true;
+        setLauncherCategoriesLoading(false);
+      }
+    });
   }, []);
 
-  useEffect(() => {
+  const ensureLauncherCategoriesLoaded = useCallback(() => {
+    if (deferredIdleIdRef.current >= 0) {
+      cancelScheduledWhenBrowserIdle(deferredIdleIdRef.current);
+      deferredIdleIdRef.current = -1;
+    }
+    if (initialFetchAttemptedRef.current) return;
     void refreshLauncherCategories();
+  }, [refreshLauncherCategories]);
+
+  useEffect(() => {
+    deferredIdleIdRef.current = scheduleWhenBrowserIdle(() => {
+      deferredIdleIdRef.current = -1;
+      if (initialFetchAttemptedRef.current) return;
+      void refreshLauncherCategories();
+    }, 650);
+    return () => {
+      if (deferredIdleIdRef.current >= 0) {
+        cancelScheduledWhenBrowserIdle(deferredIdleIdRef.current);
+        deferredIdleIdRef.current = -1;
+      }
+    };
   }, [refreshLauncherCategories]);
 
   return (
@@ -46,6 +79,7 @@ export function WriteCategoryProvider({ children }: { children: React.ReactNode 
         launcherRootCategories,
         launcherCategoriesLoading,
         refreshLauncherCategories,
+        ensureLauncherCategoriesLoaded,
       }}
     >
       {children}

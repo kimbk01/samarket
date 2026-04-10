@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MyTestLoginSection } from "@/components/my/MyTestLoginSection";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -25,18 +25,6 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
   return Promise.race([p, rejectAfter(ms, message)]);
 }
 
-/** 회원가입 링크 등 — `next` 쿼리 오픈 리다이렉트 방지, 앱 내부 경로만 허용 */
-function safeInternalPath(raw: string): string {
-  const t = raw.trim() || POST_LOGIN_PATH;
-  if (!t.startsWith("/") || t.startsWith("//")) return POST_LOGIN_PATH;
-  const noQuery = t.split("?")[0].split("#")[0];
-  if (noQuery.includes(":")) return POST_LOGIN_PATH;
-  /** 로그인/가입 페이지를 `next`로 두면 성공 후 루프·빈 화면 — 홈으로 고정 */
-  if (noQuery === "/login" || noQuery.startsWith("/login/")) return POST_LOGIN_PATH;
-  if (noQuery === "/signup" || noQuery.startsWith("/signup/")) return POST_LOGIN_PATH;
-  return t;
-}
-
 function normalizeEmailForSignIn(raw: string): string {
   const t = raw.trim();
   if (!t) return "";
@@ -45,14 +33,21 @@ function normalizeEmailForSignIn(raw: string): string {
 }
 
 function LoginPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = safeInternalPath(searchParams.get("next")?.trim() || POST_LOGIN_PATH);
-  const nextForSignup = nextPath;
+  /** 세션 만료·프록시가 붙인 `?next=` 는 주소창에서 제거. 성공 후 이동은 항상 `POST_LOGIN_PATH` 로 통일 */
+  const postLoginDestination = POST_LOGIN_PATH;
   const [oauthBusy, setOauthBusy] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.toString().length > 0) {
+      router.replace("/login", { scroll: false });
+    }
+  }, [router, searchParams]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,7 +112,7 @@ function LoginPageContent() {
      * `router.push` 만 쓰면 로그인 직후 RSC/프록시가 쿠키 없이 돌고 `/login` 으로 튕기는 경우가 있음.
      * 전체 네비게이션으로 `sb-*-auth-token` 이 다음 요청에 반드시 실리게 함.
      */
-    window.location.assign(nextPath);
+    window.location.assign(postLoginDestination);
   };
 
   const handleOAuthLogin = async (provider: "google" | "kakao" | "apple") => {
@@ -130,9 +125,7 @@ function LoginPageContent() {
       return;
     }
     const redirectTo =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
-        : undefined;
+      typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined;
     try {
       const { error: oauthError } = await withTimeout(
         supabase.auth.signInWithOAuth({
@@ -223,7 +216,7 @@ function LoginPageContent() {
         </form>
         <p className="mt-4 text-center text-[12px] text-gray-500">
           계정이 없으면{" "}
-          <Link href={`/signup?next=${encodeURIComponent(nextForSignup)}`} className="font-medium text-signature underline">
+          <Link href="/signup" className="font-medium text-signature underline">
             회원가입
           </Link>
         </p>
@@ -232,7 +225,7 @@ function LoginPageContent() {
         </p>
       </div>
       <div className="w-full max-w-sm">
-        <MyTestLoginSection redirectTo={nextPath} />
+        <MyTestLoginSection redirectTo={postLoginDestination} />
       </div>
     </div>
   );

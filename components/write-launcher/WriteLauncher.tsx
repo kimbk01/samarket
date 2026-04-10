@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect } from "react";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import type { CategoryType } from "@/lib/categories/types";
 import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
@@ -31,6 +32,10 @@ export function WriteLauncherPanel({
   const writeCtx = useWriteCategory();
   const categories = writeCtx?.launcherRootCategories ?? [];
   const loading = writeCtx?.launcherCategoriesLoading ?? true;
+
+  useLayoutEffect(() => {
+    writeCtx?.ensureLauncherCategoriesLoaded();
+  }, [writeCtx]);
 
   const typeOrder: CategoryType[] = ["trade", "service", "community", "feature"];
   const sections = typeOrder

@@ -14,9 +14,12 @@ function currentHrefFallback(): string {
   return `${window.location.pathname}${window.location.search}`;
 }
 
-export function buildLoginHref(next?: string): string {
-  const target = next?.trim() || currentHrefFallback();
-  return `/login?next=${encodeURIComponent(target)}`;
+/**
+ * 클라이언트에서 로그인 페이지로 보낼 때 — `?next=` 미부착(프록시·세션만료와 동일).
+ * 로그인 성공 후 이동은 로그인 페이지·`/auth/callback` 이 `POST_LOGIN_PATH` 로 통일.
+ */
+export function buildLoginHref(_next?: string): string {
+  return "/login";
 }
 
 export function buildPhoneVerificationHref(next?: string): string {

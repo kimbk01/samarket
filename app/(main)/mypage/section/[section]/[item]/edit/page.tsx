@@ -1,10 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { ProfileEditForm } from "@/components/my/edit/ProfileEditForm";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import {
-  MYPAGE_PROFILE_EDIT_HREF,
-  buildMypageItemHref,
-} from "@/lib/mypage/mypage-mobile-nav-registry";
+import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 
@@ -20,7 +17,7 @@ export default async function MypageSectionProfileEditPage({
 
   const userId = await getRouteUserId();
   if (!userId) {
-    redirect(`/login?next=${encodeURIComponent(MYPAGE_PROFILE_EDIT_HREF)}`);
+    redirect("/login");
   }
 
   const backHref = buildMypageItemHref("account", "profile");

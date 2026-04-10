@@ -141,7 +141,11 @@ export default function WriteByCategoryPage() {
           />
         );
       }
-      if (category.icon_key === "exchange" || category.slug === "exchange") {
+      if (
+        category.icon_key === "exchange" ||
+        category.slug === "exchange" ||
+        category.slug === "current"
+      ) {
         return (
           <ExchangeWriteForm
             category={category}

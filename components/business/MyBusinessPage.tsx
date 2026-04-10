@@ -222,7 +222,7 @@ export function MyBusinessPage({
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-amber-50 p-4 text-[14px] text-amber-900`}>
         <p>로그인 후 매장 신청과 주문 운영을 바로 시작할 수 있습니다.</p>
         <Link
-          href="/login?next=%2Fmypage%2Fbusiness"
+          href="/login"
           className="inline-flex w-fit rounded-ui-rect border border-amber-200 bg-white px-4 py-2 text-[14px] font-medium text-amber-900"
         >
           로그인하고 매장 시작하기

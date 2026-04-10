@@ -34,7 +34,7 @@ export function OwnerStoreInquiriesView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const preferredStoreId = (searchParams.get("storeId") ?? "").trim();
-  const loginHref = `/login?next=${encodeURIComponent(pathname ?? "/my/business/inquiries")}`;
+  const loginHref = "/login";
 
   const [state, setState] = useState<
     | { kind: "loading" }

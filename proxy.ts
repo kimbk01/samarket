@@ -51,12 +51,11 @@ function preventAuthPageCache(res: NextResponse): NextResponse {
   return res;
 }
 
-function redirectToLogin(request: NextRequest, pathname: string): NextResponse {
+/** 미인증 시 `/login` 만 사용. `?next=` 는 세션 만료·자동 로그아웃 후 로그인 실패·루프를 유발해 붙이지 않음 — 성공 후 경로는 `POST_LOGIN_PATH` */
+function redirectToLogin(request: NextRequest): NextResponse {
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
   loginUrl.search = "";
-  /** 원 경로(딥링크 복귀용). 로그인 성공 후 이동은 `POST_LOGIN_PATH` 고정 — `lib/auth/post-login-path.ts` */
-  loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
   return preventAuthPageCache(NextResponse.redirect(loginUrl));
 }
 
@@ -107,7 +106,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!requestHasSupabaseAuthCookies(request)) {
-    return redirectToLogin(request, pathname);
+    return redirectToLogin(request);
   }
 
   let response = NextResponse.next({ request });
@@ -144,12 +143,12 @@ export async function proxy(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (error || !user?.id) {
-      return redirectToLogin(request, pathname);
+      return redirectToLogin(request);
     }
     return preventAuthPageCache(response);
   } catch {
     /** 네트워크·JWT 파싱 등 실패 시 열어 두지 않고 로그인으로 (fail-closed) */
-    return redirectToLogin(request, pathname);
+    return redirectToLogin(request);
   }
 }
 
