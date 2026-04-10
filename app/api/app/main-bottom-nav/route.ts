@@ -4,7 +4,8 @@ import { MAIN_BOTTOM_NAV_SETTINGS_KEY } from "@/lib/main-menu/main-bottom-nav-ke
 import { resolveMainBottomNavDisplayItems } from "@/lib/main-menu/resolve-main-bottom-nav";
 
 export const dynamic = "force-dynamic";
-const MAIN_BOTTOM_NAV_HTTP_CACHE_CONTROL = "public, max-age=30, s-maxage=60, stale-while-revalidate=120";
+/** 운영에서 순서 변경이 즉시 반영되도록 — CDN/브라우저에 공개 캐시 금지 (구성은 admin_settings 에서 자주 바뀜) */
+const MAIN_BOTTOM_NAV_HTTP_CACHE_CONTROL = "private, no-store, max-age=0, must-revalidate";
 
 /** 앱 하단 탭 공개 조회 (인증 불필요) */
 export async function GET() {

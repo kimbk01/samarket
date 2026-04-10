@@ -73,6 +73,7 @@ import { playCoalescedOrderMatchChatAlert } from "@/lib/notifications/coalesced-
 import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
 import type { UserTrustSummary } from "@/lib/types/review";
 import { clampTrustScore } from "@/lib/trust/trust-score-core";
+import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 
 interface ChatDetailViewProps {
   room: ChatRoom;
@@ -523,6 +524,7 @@ export function ChatDetailView({
 
   // 초기 로드: API 우선 (테스트 로그인·RLS 시 판매자도 동일하게 메시지 수신)
   useEffect(() => {
+    const startedAt = perfNow();
     let cancelled = false;
     const cached = isChatRoom
       ? peekIntegratedChatRoomMessagesCache(room.id)
@@ -535,6 +537,13 @@ export function ChatDetailView({
         const fromApi = await fetchMessages();
         list = Array.isArray(fromApi) ? fromApi : [];
         if (!cancelled) setMessages(list);
+        logClientPerf("chat-detail.messages.initial", {
+          roomId: room.id,
+          source: isChatRoom ? "chat_room" : "product_chat",
+          from: "api",
+          count: list.length,
+          elapsedMs: Math.round(perfNow() - startedAt),
+        });
       } catch {
         /* ignore */
       }
@@ -544,6 +553,13 @@ export function ChatDetailView({
         try {
           const fromDb = await getMessagesFromDb(room.id, currentUserId);
           if (!cancelled && fromDb.length > 0) setMessages(fromDb);
+          logClientPerf("chat-detail.messages.initial", {
+            roomId: room.id,
+            source: "product_chat",
+            from: "db_fallback",
+            count: fromDb.length,
+            elapsedMs: Math.round(perfNow() - startedAt),
+          });
         } catch {
           /* ignore */
         }

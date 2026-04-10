@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import {
@@ -26,6 +26,7 @@ import {
 } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { AdApplyButton } from "@/components/ads/AdApplyButton";
+import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 
 function CommentLockIcon({ className }: { className?: string }) {
   return (
@@ -61,6 +62,7 @@ export function CommunityDetail({
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [comments, setComments] = useState(initialComments);
+  const [commentsLoading, setCommentsLoading] = useState(initialComments.length === 0);
   const [likeCount, setLikeCount] = useState(post.like_count);
   const [viewCount, setViewCount] = useState(post.view_count);
   const [busy, setBusy] = useState(false);
@@ -71,6 +73,8 @@ export function CommunityDetail({
   const [reportText, setReportText] = useState("");
   const [reportErr, setReportErr] = useState("");
   const [deleteErr, setDeleteErr] = useState("");
+  const mountedAtRef = useRef<number>(perfNow());
+  const firstCommentsReadyLoggedRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -78,6 +82,11 @@ export function CommunityDetail({
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const tier1Title = meeting ? "모임" : post.category_label?.trim() || "커뮤니티";
+
+  useEffect(() => {
+    setComments(initialComments);
+    setCommentsLoading(initialComments.length === 0);
+  }, [initialComments, post.id]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -149,35 +158,75 @@ export function CommunityDetail({
     return n;
   }, []);
 
-  const refreshComments = useCallback(async () => {
-    const res = await fetch(philifePostCommentsUrl(post.id), { cache: "no-store" });
-    const data = (await res.json()) as {
-      ok?: boolean;
-      comments?: { id: string; post_id: string; user_id: string; parent_id: string | null; content: string; created_at: string; author_name: string }[];
-    };
-    if (!data.ok || !data.comments) return;
-    const rows = data.comments;
-    const nodes: NeighborhoodCommentNode[] = rows.map((r) => ({
-      id: r.id,
-      post_id: r.post_id,
-      user_id: r.user_id,
-      parent_id: r.parent_id,
-      content: r.content,
-      created_at: r.created_at,
-      author_name: r.author_name,
-      children: [],
-    }));
-    const byId = new Map(nodes.map((x) => [x.id, x]));
-    const roots: NeighborhoodCommentNode[] = [];
-    for (const x of nodes) {
-      if (x.parent_id && byId.has(x.parent_id)) {
-        byId.get(x.parent_id)!.children.push(x);
-      } else {
-        roots.push(x);
+  const refreshComments = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const startedAt = perfNow();
+      const silent = opts?.silent === true;
+      if (!silent) setCommentsLoading(true);
+      try {
+        const res = await fetch(philifePostCommentsUrl(post.id), { cache: "no-store" });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          comments?: {
+            id: string;
+            post_id: string;
+            user_id: string;
+            parent_id: string | null;
+            content: string;
+            created_at: string;
+            author_name: string;
+          }[];
+        };
+        if (!data.ok || !data.comments) return;
+        const rows = data.comments;
+        const nodes: NeighborhoodCommentNode[] = rows.map((r) => ({
+          id: r.id,
+          post_id: r.post_id,
+          user_id: r.user_id,
+          parent_id: r.parent_id,
+          content: r.content,
+          created_at: r.created_at,
+          author_name: r.author_name,
+          children: [],
+        }));
+        const byId = new Map(nodes.map((x) => [x.id, x]));
+        const roots: NeighborhoodCommentNode[] = [];
+        for (const x of nodes) {
+          if (x.parent_id && byId.has(x.parent_id)) {
+            byId.get(x.parent_id)!.children.push(x);
+          } else {
+            roots.push(x);
+          }
+        }
+        setComments(roots);
+        logClientPerf("community-detail.comments", {
+          postId: post.id,
+          silent,
+          count: roots.length,
+          elapsedMs: Math.round(perfNow() - startedAt),
+        });
+      } finally {
+        if (!silent) setCommentsLoading(false);
       }
-    }
-    setComments(roots);
-  }, [post.id]);
+    },
+    [post.id]
+  );
+
+  useEffect(() => {
+    if (initialComments.length > 0) return;
+    void refreshComments();
+  }, [initialComments.length, refreshComments]);
+
+  useEffect(() => {
+    if (firstCommentsReadyLoggedRef.current) return;
+    if (commentsLoading) return;
+    firstCommentsReadyLoggedRef.current = true;
+    logClientPerf("community-detail.first-ready", {
+      postId: post.id,
+      commentsCount: comments.length,
+      sinceMountMs: Math.round(perfNow() - mountedAtRef.current),
+    });
+  }, [commentsLoading, comments.length, post.id]);
 
   const onLike = async () => {
     const prevLikeCount = likeCount;
@@ -213,7 +262,7 @@ export function CommunityDetail({
       if (data.ok) {
         setCommentText("");
         setParentId(null);
-        await refreshComments();
+        await refreshComments({ silent: true });
         setScrollSig((s) => s + 1);
       }
     } finally {
@@ -498,11 +547,15 @@ export function CommunityDetail({
                 </p>
               ) : null}
               <div className="max-h-[420px] overflow-y-auto pr-1">
-                <CommentList
-                  roots={comments}
-                  scrollToBottomSignal={scrollSig}
-                  onReply={(id) => setParentId(id)}
-                />
+                {commentsLoading ? (
+                  <div className="py-6 text-center text-[13px] text-gray-400">댓글 불러오는 중…</div>
+                ) : (
+                  <CommentList
+                    roots={comments}
+                    scrollToBottomSignal={scrollSig}
+                    onReply={(id) => setParentId(id)}
+                  />
+                )}
               </div>
 
               <form onSubmit={onSubmitComment} className="mt-4 border-t border-gray-100 pt-4">

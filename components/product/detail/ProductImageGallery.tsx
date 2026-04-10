@@ -40,13 +40,13 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="mx-auto flex w-full max-w-lg touch-pan-x overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex w-full touch-pan-x overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {list.map((src, i) => (
           <div
             key={i}
-            className="aspect-square max-h-[320px] w-full min-w-full shrink-0 snap-start snap-always"
+            className="aspect-square max-h-[320px] w-full min-w-full shrink-0 snap-start snap-always sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]"
           >
             {src ? (
               <img

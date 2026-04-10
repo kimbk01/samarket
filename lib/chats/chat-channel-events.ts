@@ -12,3 +12,6 @@ export const KASAMA_OWNER_HUB_BADGE_REFRESH = "kasama:owner-hub-badge-refresh";
 
 /** 주문 제출 후 매장 탭「내 주문」배지 — `StoresHub` 가 주문 목록 재조회 */
 export const KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH = "kasama:buyer-store-orders-hub-refresh";
+
+/** 관리자 메인 하단 탭 설정 저장 — `BottomNav` 가 즉시 재조회 */
+export const KASAMA_MAIN_BOTTOM_NAV_UPDATED = "kasama:main-bottom-nav-updated";

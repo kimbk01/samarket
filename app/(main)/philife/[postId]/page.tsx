@@ -46,7 +46,7 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
     notFound();
   }
 
-  const [comments, meeting, joinedFromDb] = await Promise.all([
+  const [initialComments, meeting, joinedFromDb] = await Promise.all([
     listNeighborhoodComments(canonical, viewerId),
     post.meeting_id ? getMeetingDetail(post.meeting_id) : Promise.resolve(null),
     post.meeting_id && viewerId
@@ -72,7 +72,7 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
     <Detail
       post={post}
       meeting={meeting}
-      initialComments={comments}
+      initialComments={initialComments}
       viewerJoinedMeeting={viewerJoinedMeeting}
     />
   );

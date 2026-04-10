@@ -9,6 +9,7 @@ import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
+import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 
 export function ChatRoomScreen({
   roomId,
@@ -43,16 +44,27 @@ export function ChatRoomScreen({
   const [err, setErr] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
+    const startedAt = perfNow();
     if (!roomId) {
       setErr("bad_room");
       setRoom(null);
       setLoading(false);
+      logClientPerf("chat-room-screen.reload", {
+        roomId: roomId ?? null,
+        result: "bad_room",
+        elapsedMs: Math.round(perfNow() - startedAt),
+      });
       return;
     }
     if (!currentUserId) {
       setLoading(false);
       setRoom(null);
       setErr(null);
+      logClientPerf("chat-room-screen.reload", {
+        roomId,
+        result: "no_current_user",
+        elapsedMs: Math.round(perfNow() - startedAt),
+      });
       return;
     }
     setLoading(true);
@@ -63,23 +75,49 @@ export function ChatRoomScreen({
         if (result.code === "not_found") {
           setErr("not_found");
           setRoom(null);
+          logClientPerf("chat-room-screen.reload", {
+            roomId,
+            result: "not_found",
+            elapsedMs: Math.round(perfNow() - startedAt),
+          });
           return;
         }
         if (result.code === "auth") {
           setErr("auth");
           setRoom(null);
+          logClientPerf("chat-room-screen.reload", {
+            roomId,
+            result: "auth",
+            elapsedMs: Math.round(perfNow() - startedAt),
+          });
           return;
         }
         if (result.code === "load_failed") {
           setErr("load_failed");
           setRoom(null);
+          logClientPerf("chat-room-screen.reload", {
+            roomId,
+            result: "load_failed",
+            elapsedMs: Math.round(perfNow() - startedAt),
+          });
           return;
         }
         setErr("network");
         setRoom(null);
+        logClientPerf("chat-room-screen.reload", {
+          roomId,
+          result: "network",
+          elapsedMs: Math.round(perfNow() - startedAt),
+        });
         return;
       }
       setRoom(result.room);
+      logClientPerf("chat-room-screen.reload", {
+        roomId,
+        result: "ok",
+        detailCache: result.cache,
+        elapsedMs: Math.round(perfNow() - startedAt),
+      });
     } finally {
       setLoading(false);
     }

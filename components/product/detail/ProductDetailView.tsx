@@ -16,6 +16,7 @@ import { ProductActionBar } from "./ProductActionBar";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 
 const STATUS_LABEL: Record<Product["status"], string> = {
   active: "판매중",
@@ -87,7 +88,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
   }, [product.id, product.seller?.id, product.title]);
 
   return (
-    <div className="relative mx-auto max-w-lg bg-white pb-20">
+    <div className="relative w-full min-w-0 bg-white pb-20">
       <ProductDetailMainTier1Sync
         product={product}
         onReport={onReportProduct}
@@ -163,7 +164,9 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
       <ProductActionBar product={product} existingRoomId={existingRoomId} amISeller={amISeller} />
       {reportSheet && (
         <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white">
+          <div
+            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white`}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-[16px] font-semibold text-gray-900">신고</h2>
               <button

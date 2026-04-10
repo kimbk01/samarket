@@ -14,6 +14,10 @@ import {
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
 import { tradeChatListLastMessageDisplay } from "@/lib/chats/chat-list-last-message-display";
 import { ChatRoomListMenu } from "@/components/chats/ChatRoomListMenu";
+import {
+  prewarmChatRouteData,
+  shouldWarmChatRoute,
+} from "@/lib/chats/prewarm-chat-room-route";
 
 interface ChatRoomCardProps {
   room: ChatRoom;
@@ -89,6 +93,10 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
     room.source === "chat_room" ? room.id : (room.chatRoomId?.trim() ? room.chatRoomId.trim() : null);
 
   const detailHref = getRoomHref ? getRoomHref(room.id) : `/chats/${room.id}`;
+  const prewarmDetailRoute = () => {
+    if (!shouldWarmChatRoute(detailHref)) return;
+    prewarmChatRouteData(detailHref);
+  };
   const rowClass = "flex min-w-0 flex-1 gap-3 overflow-visible p-3";
 
   const rowInner = (
@@ -183,11 +191,29 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
       className={`flex gap-0 overflow-visible transition-shadow hover:shadow-[0_3px_8px_rgba(0,0,0,0.12)] ${APP_FEED_LIST_CARD_SHELL}`}
     >
       {onSelectRoom ? (
-        <button type="button" className={`${rowClass} text-left`} onClick={() => onSelectRoom(room.id)}>
+        <button
+          type="button"
+          className={`${rowClass} text-left`}
+          onMouseEnter={prewarmDetailRoute}
+          onTouchStart={prewarmDetailRoute}
+          onClick={() => {
+            prewarmDetailRoute();
+            onSelectRoom(room.id);
+          }}
+        >
           {rowInner}
         </button>
       ) : (
-        <Link href={detailHref} replace={!!getRoomHref} scroll={false} className={rowClass}>
+        <Link
+          href={detailHref}
+          replace={!!getRoomHref}
+          scroll={false}
+          prefetch={false}
+          onMouseEnter={prewarmDetailRoute}
+          onTouchStart={prewarmDetailRoute}
+          onClick={prewarmDetailRoute}
+          className={rowClass}
+        >
           {rowInner}
         </Link>
       )}

@@ -12,7 +12,6 @@ import {
   getNeighborhoodDevSampleCommentRows,
   getNeighborhoodDevSamplePost,
 } from "@/lib/neighborhood/dev-sample-data";
-import { getNeighborhoodPostDetail } from "@/lib/neighborhood/queries";
 import { fetchBlockedAuthorIdsForViewer } from "@/lib/neighborhood/social-filter";
 import {
   enforceRateLimit,
@@ -22,8 +21,10 @@ import {
   parseJsonBody,
   safeErrorMessage,
 } from "@/lib/http/api-route";
+import { logServerPerf } from "@/lib/performance/samarket-perf";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
+  const startedAt = Date.now();
   const { postId } = await ctx.params;
   const raw = postId?.trim();
   if (!raw) return jsonError("postId가 필요합니다.", 400);
@@ -34,11 +35,59 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
     const post = getNeighborhoodDevSamplePost(id);
     if (!post) return jsonError("not_found", 404);
     const rows = getNeighborhoodDevSampleCommentRows(id);
+    logServerPerf("community-comments.get", {
+      postId: id,
+      branch: "dev_samples",
+      count: rows.length,
+      elapsedMs: Date.now() - startedAt,
+    });
     return jsonOk({ comments: rows, fallback: "dev_samples" });
   }
-  const post = await getNeighborhoodPostDetail(id, { viewerUserId });
-  if (!post) return jsonError("not_found", 404);
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return jsonError("server_config", 500);
+  }
+  const { data: postRow } = await sb
+    .from("community_posts")
+    .select("id, user_id, status, is_deleted, is_hidden, location_id, is_sample_data")
+    .eq("id", id)
+    .eq("is_sample_data", false)
+    .maybeSingle();
+  const row = postRow as {
+    id?: string;
+    user_id?: string;
+    status?: string;
+    is_deleted?: boolean;
+    is_hidden?: boolean;
+    location_id?: string | null;
+  } | null;
+  const ownerId = String(row?.user_id ?? "");
+  const viewer = viewerUserId?.trim() ?? "";
+  const isOwner = viewer.length > 0 && ownerId === viewer;
+  if (
+    !row?.id ||
+    row.is_deleted === true ||
+    row.is_hidden === true ||
+    String(row.location_id ?? "").trim() === "" ||
+    (!isOwner && String(row.status ?? "").trim().toLowerCase() !== "active")
+  ) {
+    return jsonError("not_found", 404);
+  }
+  if (viewer.length > 0) {
+    const blocked = await fetchBlockedAuthorIdsForViewer(sb, viewer);
+    if (blocked.has(ownerId)) {
+      return jsonError("not_found", 404);
+    }
+  }
   const list = await listCommunityPostComments(id);
+  logServerPerf("community-comments.get", {
+    postId: id,
+    branch: "db",
+    count: list.length,
+    elapsedMs: Date.now() - startedAt,
+  });
   return jsonOk({ comments: list });
 }
 

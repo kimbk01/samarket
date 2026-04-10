@@ -66,39 +66,29 @@ function tradeFieldsFromRows(
   };
 }
 
-async function tradeFieldsAfterTimeTransitions(
-  sbAny: SupabaseClient<any>,
-  productChatId: string,
-  basePcRow: Record<string, unknown>,
-  post: Record<string, unknown> | null | undefined
-) {
-  await applyBuyerAutoConfirmForRoom(sbAny, productChatId);
-  await applyProductChatTimeTransitions(sbAny, productChatId);
-  const { data: fresh } = await sbAny
-    .from("product_chats")
-    .select("id, trade_flow_status, chat_mode, buyer_confirm_source")
-    .eq("id", productChatId)
-    .maybeSingle();
-  const merged = { ...basePcRow, ...(fresh ?? {}) } as Record<string, unknown>;
-  return tradeFieldsFromRows(merged, post);
-}
-
 const tradeTransitionCooldownByProductChatId = new Map<string, number>();
 const TRADE_TRANSITION_COOLDOWN_MS = 15000;
 
-async function tradeFieldsWithCooldown(
+/**
+ * GET 응답 지연을 줄이기 위해 시간 기반 전환·자동 확인은 백그라운드에서만 실행합니다.
+ * 다음 요청·폴링·Realtime 에서 갱신된 trade_flow/chat_mode 를 반영합니다.
+ */
+function scheduleProductChatTransitionsIfCooldownAllows(
   sbAny: SupabaseClient<any>,
-  productChatId: string,
-  basePcRow: Record<string, unknown>,
-  post: Record<string, unknown> | null | undefined
+  productChatId: string
 ) {
   const now = Date.now();
   const lastAt = tradeTransitionCooldownByProductChatId.get(productChatId) ?? 0;
-  if (now - lastAt < TRADE_TRANSITION_COOLDOWN_MS) {
-    return tradeFieldsFromRows(basePcRow, post);
-  }
+  if (now - lastAt < TRADE_TRANSITION_COOLDOWN_MS) return;
   tradeTransitionCooldownByProductChatId.set(productChatId, now);
-  return tradeFieldsAfterTimeTransitions(sbAny, productChatId, basePcRow, post);
+  void (async () => {
+    try {
+      await applyBuyerAutoConfirmForRoom(sbAny, productChatId);
+      await applyProductChatTimeTransitions(sbAny, productChatId);
+    } catch {
+      /* ignore */
+    }
+  })();
 }
 
 export const dynamic = "force-dynamic";
@@ -160,17 +150,19 @@ export async function GET(
       const crRow = crSame as { seller_id: string | null; buyer_id: string | null };
       const crIds = [crRow.seller_id, crRow.buyer_id].filter(Boolean) as string[];
       if (crIds.includes(userId)) {
-        const { data: partRow } = await sbAny
-          .from("chat_room_participants")
-          .select("unread_count")
-          .eq("room_id", roomIdCr)
-          .eq("user_id", userId)
-          .maybeSingle();
-        const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
         const itemId = (crSame as { item_id: string | null }).item_id ?? "";
         const amISeller2 = crRow.seller_id === userId;
         const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
-        const post2 = await fetchPostRowForChat(sbAny, itemId);
+        const [{ data: partRow }, post2] = await Promise.all([
+          sbAny
+            .from("chat_room_participants")
+            .select("unread_count")
+            .eq("room_id", roomIdCr)
+            .eq("user_id", userId)
+            .maybeSingle(),
+          fetchPostRowForChat(sbAny, itemId),
+        ]);
+        const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
         const batchIdsCr = [
           ...new Set([partnerId2, postAuthorUserId(post2 ?? undefined) ?? ""].filter(Boolean)),
         ] as string[];
@@ -183,12 +175,8 @@ export async function GET(
         const partnerNickname2 = partnerDisp2.partnerNickname;
         const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
         const rowPc = r as Record<string, unknown>;
-        const tradeExtras = await tradeFieldsWithCooldown(
-          sbAny,
-          r.id as string,
-          rowPc,
-          post2 ?? undefined
-        );
+        scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
+        const tradeExtras = tradeFieldsFromRows(rowPc, post2 ?? undefined);
         const buyerReviewSubmitted = await fetchBuyerReviewSubmitted(
           sbAny,
           (tradeExtras.productChatRoomId as string | null) ?? (r.id as string),
@@ -268,12 +256,8 @@ export async function GET(
       linkedChatRoomId = (crLinked as { id: string }).id;
     }
     const listing = normalizeSellerListingState(post?.seller_listing_state, post?.status as string);
-    const tradeExtrasPc = await tradeFieldsWithCooldown(
-      sbAny,
-      r.id as string,
-      row,
-      post ?? undefined
-    );
+    scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
+    const tradeExtrasPc = tradeFieldsFromRows(row, post ?? undefined);
     const buyerReviewSubmittedPc = await fetchBuyerReviewSubmitted(
       sbAny,
       (tradeExtrasPc.productChatRoomId as string | null) ?? (r.id as string),
@@ -508,15 +492,17 @@ export async function GET(
   if (!crIds.includes(userId)) {
     return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
   }
-  const { data: partRow } = await sbAny
-    .from("chat_room_participants")
-    .select("unread_count")
-    .eq("room_id", roomId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
   const itemId = (cr as { item_id: string | null }).item_id ?? "";
-  const post2 = await fetchPostRowForChat(sbAny, itemId);
+  const [{ data: partRow }, post2] = await Promise.all([
+    sbAny
+      .from("chat_room_participants")
+      .select("unread_count")
+      .eq("room_id", roomId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+    fetchPostRowForChat(sbAny, itemId),
+  ]);
+  const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
   const amISeller2 = crRow.seller_id === userId;
   const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
   const batchIdsTrade = [
@@ -538,10 +524,10 @@ export async function GET(
     .eq("buyer_id", crRow.buyer_id ?? "")
     .maybeSingle();
   const pcFb = pcFallback as Record<string, unknown> | null;
-  const tradeExtrasFb =
-    pcFb?.id != null
-      ? await tradeFieldsWithCooldown(sbAny, String(pcFb.id), pcFb, post2 ?? undefined)
-      : tradeFieldsFromRows(pcFb, post2);
+  if (pcFb?.id != null) {
+    scheduleProductChatTransitionsIfCooldownAllows(sbAny, String(pcFb.id));
+  }
+  const tradeExtrasFb = tradeFieldsFromRows(pcFb, post2 ?? undefined);
   const pcIdForReview = (tradeExtrasFb.productChatRoomId as string | null) ?? (pcFb?.id != null ? String(pcFb.id) : null);
   const buyerReviewSubmittedFb = await fetchBuyerReviewSubmitted(
     sbAny,

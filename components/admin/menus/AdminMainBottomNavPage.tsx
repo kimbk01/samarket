@@ -16,7 +16,7 @@ import {
   generateCustomBottomNavTabId,
   isBuiltinBottomNavTabId,
 } from "@/lib/main-menu/resolve-main-bottom-nav";
-import { invalidateMainBottomNavDedupedCache } from "@/lib/app/fetch-main-bottom-nav-deduped";
+import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
 
 const ICON_OPTIONS: { value: BottomNavIconKey; label: string }[] = [
   { value: "trade", label: "trade (거래 탭)" },
@@ -159,7 +159,7 @@ export function AdminMainBottomNavPage() {
       }
       setRows(data.items as MainBottomNavAdminRow[]);
       setFromDb(true);
-      invalidateMainBottomNavDedupedCache();
+      notifyMainBottomNavConfigChanged();
       setMessage({ type: "ok", text: "저장되었습니다. 앱 하단 탭에 반영됩니다." });
     } catch {
       setMessage({ type: "err", text: "네트워크 오류" });
@@ -182,7 +182,7 @@ export function AdminMainBottomNavPage() {
       setRows(data.items as MainBottomNavAdminRow[]);
       setFromDb(false);
       setUpdatedAt(null);
-      invalidateMainBottomNavDedupedCache();
+      notifyMainBottomNavConfigChanged();
       setMessage({ type: "ok", text: "초기화되었습니다." });
     } catch {
       setMessage({ type: "err", text: "네트워크 오류" });

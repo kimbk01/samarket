@@ -3,9 +3,12 @@
  * (ConditionalAppShell·BottomNav·피드 등 본문 컬럼에서 동일 토큰 사용)
  */
 
+/** 메인 컬럼 `max-w-*` 체인만 — 고정 하단 바·상세 풀폭 래퍼 등에서 본문과 동일 폭으로 맞출 때 */
+export const APP_MAIN_COLUMN_MAX_WIDTH_CLASS =
+  "max-w-lg sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl";
+
 /** 메인 스크롤 영역 최대 폭 + 가운데 정렬 (태블릿·가로 모드에서 점진적으로 넓힘) */
-export const APP_MAIN_COLUMN_CLASS =
-  "mx-auto w-full min-w-0 max-w-lg sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl";
+export const APP_MAIN_COLUMN_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`;
 
 /** 본문·헤더 내부 좌우 여백 */
 export const APP_MAIN_GUTTER_X_CLASS = "px-3 sm:px-4 md:px-5";

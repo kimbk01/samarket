@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import {
@@ -15,6 +16,10 @@ import {
 import { fetchMeNotificationsListDeduped } from "@/lib/me/fetch-me-notifications-deduped";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import {
+  prewarmChatRouteData,
+  shouldWarmChatRoute,
+} from "@/lib/chats/prewarm-chat-room-route";
 
 /** 구매자 매장 주문 알림: 저장된 링크가 상세/채팅이어도 목록으로 통일 */
 function resolveNotificationShortcutHref(r: Row): string | null {
@@ -48,12 +53,23 @@ type Row = {
 };
 
 export function MyNotificationsView() {
+  const router = useRouter();
   const { language, t } = useI18n();
   const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const prewarmShortcutRoute = useCallback(
+    (hrefRaw: string | null | undefined) => {
+      const href = hrefRaw?.trim();
+      if (!href || !shouldWarmChatRoute(href)) return;
+      router.prefetch(href);
+      prewarmChatRouteData(href);
+    },
+    [router]
+  );
 
   const load = useCallback(async (silent = false, forceFetch = false) => {
     if (!silent) {
@@ -235,6 +251,7 @@ export function MyNotificationsView() {
             const typeLbl = notificationTypeLabel(r.notification_type, language);
             const kindLbl =
               r.notification_type === "commerce" ? commerceMetaKindLabel(r.meta?.kind, language) : null;
+            const shortcutHref = resolveNotificationShortcutHref(r) ?? r.link_url ?? "";
             return (
               <li
                 key={r.id}
@@ -255,10 +272,13 @@ export function MyNotificationsView() {
                 {r.body ? <p className="mt-1 text-[13px] text-gray-700">{r.body}</p> : null}
                 {r.link_url ? (
                   <Link
-                    href={resolveNotificationShortcutHref(r) ?? r.link_url}
+                    href={shortcutHref}
                     className="mt-2 inline-block text-[13px] text-signature underline"
+                    onMouseEnter={() => prewarmShortcutRoute(shortcutHref)}
+                    onTouchStart={() => prewarmShortcutRoute(shortcutHref)}
                     onClick={() => {
                       if (!r.is_read) void markIdsRead([r.id]);
+                      prewarmShortcutRoute(shortcutHref);
                     }}
                   >
                     바로가기

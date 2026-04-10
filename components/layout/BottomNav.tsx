@@ -15,7 +15,11 @@ import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
-import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-deduped";
+import {
+  fetchMainBottomNavDeduped,
+  MAIN_BOTTOM_NAV_LS_REV_KEY,
+} from "@/lib/app/fetch-main-bottom-nav-deduped";
+import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events";
 import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
@@ -46,6 +50,7 @@ export function BottomNav() {
     useStoreBusinessHubEntryModal(t("common_confirm"), { eager: false });
   const storeDeepLinkNavBusyRef = useRef(false);
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
+  const prevPathnameForNavRef = useRef<string | null>(null);
   const isChatRoomDetail =
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/chats\/[^/]+\/?$/) ?? false) ||
@@ -71,21 +76,43 @@ export function BottomNav() {
     [pathname, router]
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { ok, items } = await fetchMainBottomNavDeduped();
-        if (cancelled || !ok || !items?.length) return;
-        setTabs(items);
-      } catch {
-        /* 코드 기본 탭 유지 */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const applyMainBottomNavItems = useCallback(async (force: boolean) => {
+    try {
+      const { ok, items } = await fetchMainBottomNavDeduped({ force });
+      if (!ok || !items?.length) return;
+      setTabs(items);
+    } catch {
+      /* 코드 기본 탭 유지 */
+    }
   }, []);
+
+  /** 최초 로드 + 관리자(/admin/*)에서 나온 뒤에는 DB 반영분을 강제 재조회 — 레이아웃 고정 마운트라 경로만으로는 갱신이 안 되던 문제 */
+  useEffect(() => {
+    const cur = pathname ?? "";
+    const prev = prevPathnameForNavRef.current;
+    prevPathnameForNavRef.current = cur;
+    const leftAdminSurface =
+      Boolean(prev && cur) && (prev?.startsWith("/admin") ?? false) && !cur.startsWith("/admin");
+    void applyMainBottomNavItems(leftAdminSurface);
+  }, [pathname, applyMainBottomNavItems]);
+
+  useEffect(() => {
+    const onRemoteUpdate = () => void applyMainBottomNavItems(true);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== MAIN_BOTTOM_NAV_LS_REV_KEY || e.newValue == null) return;
+      void applyMainBottomNavItems(true);
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener(KASAMA_MAIN_BOTTOM_NAV_UPDATED, onRemoteUpdate);
+      window.addEventListener("storage", onStorage);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener(KASAMA_MAIN_BOTTOM_NAV_UPDATED, onRemoteUpdate);
+        window.removeEventListener("storage", onStorage);
+      }
+    };
+  }, [applyMainBottomNavItems]);
 
   /** 주요 탭 JS·RSC 선로딩 — 커뮤니티(/philife) 등 탭 전환 체감 지연 완화 */
   useEffect(() => {

@@ -54,6 +54,7 @@ import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-s
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 
@@ -970,7 +971,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           ? [post.thumbnail_url]
           : [];
     return (
-      <div className="max-w-lg mx-auto pb-24">
+      <div className="w-full min-w-0 pb-24">
         {/* 1. 이미지 — 전역 1단(RegionBar)만 사용, 별도 2단 네비 없음 */}
         <div className="bg-white">
           <div className="relative w-full bg-gray-100">
@@ -978,7 +979,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               {imgList.length > 0 ? (
                 <ProductImageGallery images={imgList} title={post.title ?? ""} />
               ) : (
-                <div className="flex aspect-square max-h-[320px] w-full items-center justify-center text-gray-400">
+                <div className="flex aspect-square max-h-[320px] w-full items-center justify-center text-gray-400 sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
                   이미지
                 </div>
               )}
@@ -1156,7 +1157,9 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           )}
         </div>
         {chatError && (
-          <p className="fixed bottom-[52px] left-0 right-0 z-20 bg-red-50 px-4 py-2 text-center text-[13px] text-red-600 max-w-lg mx-auto">
+          <p
+            className={`fixed bottom-[52px] left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center text-[13px] text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+          >
             {chatError}
           </p>
         )}
@@ -1181,7 +1184,9 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
         {reportOpen && (
           <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50">
-            <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 py-4">
+            <div
+              className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 py-4`}
+            >
               <h2 className="text-[16px] font-semibold text-gray-900">신고하기</h2>
               <input
                 type="text"
@@ -1205,7 +1210,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   }
 
   return (
-    <div className="pb-24 max-w-lg mx-auto">
+    <div className="w-full min-w-0 pb-24">
       {/* 1. 이미지 — 전역 1단만 사용 */}
       <div className="bg-white">
         <div className="relative w-full bg-gray-100">
@@ -1223,7 +1228,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               if (list.length === 0) {
                 const isExchange = hasExchangeMeta(post.meta ?? {});
                 return (
-                  <div className="relative flex aspect-square max-h-[320px] w-full items-center justify-center bg-gray-100">
+                  <div className="relative flex aspect-square max-h-[320px] w-full items-center justify-center bg-gray-100 sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
                     {isExchange ? (
                       <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-emerald-50 text-6xl font-semibold text-gray-700" aria-hidden>
                         <span>₱</span>
@@ -1555,7 +1560,9 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         )}
       </div>
       {chatError && (
-        <p className="fixed bottom-[52px] left-0 right-0 z-20 bg-red-50 px-4 py-2 text-center text-[13px] text-red-600 max-w-lg mx-auto">
+        <p
+          className={`fixed bottom-[52px] left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center text-[13px] text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+        >
           {chatError}
         </p>
       )}
@@ -1580,7 +1587,9 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
       {reportOpen && (
         <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 py-4">
+          <div
+            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 py-4`}
+          >
             <h2 className="text-[16px] font-semibold text-gray-900">신고하기</h2>
             <input
               type="text"

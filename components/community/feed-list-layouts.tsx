@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { FeedListThumbColumn } from "@/lib/community-feed/topic-feed-skin";
 
 export type FeedListCardViewModel = {
@@ -25,6 +26,9 @@ export type FeedListCardViewModel = {
   /** hashtags_below: 최대 3개 */
   hashtagTags: string[];
 };
+
+const FEED_LINK_PREFETCH_TTL_MS = 60_000;
+const feedLinkPrefetchedAt = new Map<string, number>();
 
 function TopicBadge({ label, color }: { label: string; color: string | null }) {
   const style = color ? { backgroundColor: `${color}18`, color } : undefined;
@@ -52,7 +56,6 @@ function Badges({ isQuestion, isMeetup }: { isQuestion: boolean; isMeetup: boole
 }
 
 function Thumbnail92({ url }: { url: string }) {
-  // eslint-disable-next-line @next/next/no-img-element
   return (
     <img
       src={url}
@@ -100,11 +103,25 @@ function CardShell({
   meetupMeetingId?: string | null;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const prefetchOnIntent = () => {
+    const key = href.trim();
+    if (!key) return;
+    const now = Date.now();
+    const prev = feedLinkPrefetchedAt.get(key) ?? 0;
+    if (now - prev < FEED_LINK_PREFETCH_TTL_MS) return;
+    feedLinkPrefetchedAt.set(key, now);
+    router.prefetch(key);
+  };
+
   return (
     <article className="overflow-hidden rounded-ui-rect border border-neutral-200 bg-white shadow-sm">
       <Link
         href={href}
-        prefetch
+        prefetch={false}
+        onMouseEnter={prefetchOnIntent}
+        onTouchStart={prefetchOnIntent}
+        onClick={prefetchOnIntent}
         className="block px-4 py-3 transition-colors hover:bg-neutral-50/60 active:bg-neutral-100/80"
       >
         {children}
