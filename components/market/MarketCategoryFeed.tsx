@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getChildCategories } from "@/lib/categories/getChildCategories";
-import { getHomeChipCategories } from "@/lib/categories/getHomeChipCategories";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { TradeTopicChipsRow } from "@/components/home/TradeTopicChipsRow";
 import { PostListByCategory } from "@/components/post/PostListByCategory";
@@ -34,14 +33,9 @@ function parseJobListingKindParam(raw: string | null): JobListingKindTab {
 }
 
 /**
- * `/market/trade` 등 **슬러그 trade** 루트 카테고리 — DB에서 하위가 비어 있어도
- * 홈 상단 칩과 동일하게 `parent_id IS NULL` 거래 세그먼트(중고·부동산·알바…)를 쓴다.
- * (운영에서 세그먼트가 trade 의 자식이 아니라 **형제 루트**로만 잡혀 있을 때 주제 칩·OR 필터가 비는 문제 방지)
+ * 마켓 2행 주제 칩 — `categories.parent_id = 이 메뉴 id` 인 하위만 표시.
+ * (`/admin/trade/feed-topics` · TradeSubtopicsPanel 과 동일 소스. 하위가 없으면 2행 숨김)
  */
-function shouldFillTopicsFromHomeChips(c: CategoryWithSettings): boolean {
-  if (c.parent_id != null) return false;
-  return (c.slug?.trim().toLowerCase() ?? "") === "trade";
-}
 
 export function MarketCategoryFeed({ category }: { category: CategoryWithSettings }) {
   const pathname = usePathname();
@@ -55,20 +49,13 @@ export function MarketCategoryFeed({ category }: { category: CategoryWithSetting
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      let list = await getChildCategories(category.id);
-      if (
-        list.length === 0 &&
-        shouldFillTopicsFromHomeChips(category)
-      ) {
-        const home = await getHomeChipCategories();
-        list = home.filter((row) => row.id !== category.id);
-      }
+      const list = await getChildCategories(category.id);
       if (!cancelled) setChildren(list);
     })();
     return () => {
       cancelled = true;
     };
-  }, [category.id, category.parent_id, category.slug]);
+  }, [category.id]);
 
   const topicChild = useMemo(() => {
     if (!topicRaw) return null;
