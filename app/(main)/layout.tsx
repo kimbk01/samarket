@@ -9,6 +9,7 @@ import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { RegionProvider } from "@/contexts/RegionContext";
 import { StoreCommerceCartProvider } from "@/contexts/StoreCommerceCartContext";
 import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
+import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
 
 /**
  * 인증 게이트는 `proxy.ts` 단일 경로에서 처리(getUser·세션 갱신·Set-Cookie).
@@ -25,6 +26,7 @@ export default async function AppLayout({
       <SessionLostRedirect />
       <MandatoryAddressGate />
       <FavoriteProvider>
+        <NotificationSurfaceProvider>
         <WriteCategoryProvider>
           <CategoryListHeaderProvider>
             <StoreCommerceCartProvider>
@@ -37,6 +39,7 @@ export default async function AppLayout({
             </StoreCommerceCartProvider>
           </CategoryListHeaderProvider>
         </WriteCategoryProvider>
+        </NotificationSurfaceProvider>
       </FavoriteProvider>
     </RegionProvider>
   );

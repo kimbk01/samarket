@@ -85,6 +85,8 @@ export async function notifyStoreOwnerNewOrder(
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
+    domain: "store",
+    ref_id: oid,
     title: nt(language, "notify_commerce_new_order_title"),
     body: name
       ? nt(language, "notify_commerce_new_order_body_named", {
@@ -140,6 +142,8 @@ export async function notifyBuyerStorePaymentCompleted(
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
+    domain: "order",
+    ref_id: oid,
     title: nt(language, "notify_commerce_payment_done_title"),
     body: nt(language, "notify_commerce_payment_done_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
@@ -184,6 +188,8 @@ export async function notifyStoreOwnerPaymentCompleted(
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
+    domain: "store",
+    ref_id: oid,
     title: nt(language, "notify_commerce_owner_payment_done_title"),
     body: name
       ? nt(language, "notify_commerce_owner_payment_done_body_named", {
@@ -234,6 +240,8 @@ export async function notifyStoreOwnerBuyerCancelled(
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
+    domain: "store",
+    ref_id: oid,
     title: nt(language, "notify_commerce_buyer_cancelled_title"),
     body: name
       ? nt(language, "notify_commerce_buyer_cancelled_body_named", { store: name, orderNo })
@@ -272,6 +280,8 @@ export async function notifyStoreOwnerRefundRequested(
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
+    domain: "store",
+    ref_id: oid,
     title: nt(language, "notify_commerce_refund_requested_title"),
     body: name
       ? nt(language, "notify_commerce_refund_requested_body_named", { store: name, orderNo })
@@ -376,6 +386,8 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
+    domain: "order",
+    ref_id: oid,
     title: copy.title,
     body: copy.body,
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
@@ -406,6 +418,8 @@ export async function notifyBuyerStorePaymentFailed(
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
+    domain: "order",
+    ref_id: oid,
     title: nt(language, "notify_commerce_payment_failed_title"),
     body: nt(language, "notify_commerce_payment_failed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
@@ -430,6 +444,8 @@ export async function notifyBuyerStoreRefundApproved(
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
+    domain: "order",
+    ref_id: oid,
     title: nt(language, "notify_commerce_refund_processed_title"),
     body: nt(language, "notify_commerce_refund_processed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
@@ -454,6 +470,8 @@ export async function notifyBuyerStoreOrderAutoCompleted(
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
+    domain: "order",
+    ref_id: oid,
     title: nt(language, "notify_commerce_auto_completed_title"),
     body: nt(language, "notify_commerce_auto_completed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,

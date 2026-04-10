@@ -11,7 +11,7 @@ export async function bumpUnreadForChatRoomRecipients(
   senderUserId: string,
   nowIso: string,
   preview: string
-) {
+): Promise<{ recipientUserIds: string[] }> {
   const { data: participants } = await sb
     .from("chat_room_participants")
     .select("user_id, unread_count")
@@ -22,6 +22,7 @@ export async function bumpUnreadForChatRoomRecipients(
 
   const rows = (participants ?? []) as RecipientRow[];
   const recipients = rows.filter((row) => row.user_id && row.user_id !== senderUserId);
+  const recipientUserIds = recipients.map((r) => r.user_id).filter(Boolean) as string[];
   await Promise.all(
     recipients.map(async (row) => {
       const current = Number(row.unread_count ?? 0);
@@ -50,4 +51,5 @@ export async function bumpUnreadForChatRoomRecipients(
       }
     })
   );
+  return { recipientUserIds };
 }

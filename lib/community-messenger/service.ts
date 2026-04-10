@@ -9,6 +9,7 @@ import {
   parseVoiceWaveformPeaksFromMetadata,
 } from "@/lib/community-messenger/voice-waveform";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
+import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallKind,
@@ -3014,6 +3015,19 @@ export async function sendCommunityMessengerMessage(input: {
             .eq("id", participant.id)
         )
       );
+      const recipientUserIds = ((participants ?? []) as Array<{ user_id: string }>)
+        .map((p) => p.user_id)
+        .filter((uid) => uid && uid !== input.userId);
+      const preview =
+        content.length > 120 ? `${content.slice(0, 117)}…` : content || "메시지";
+      const hasMention = /@\S/.test(content);
+      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+        roomId,
+        senderUserId: input.userId,
+        preview,
+        recipientUserIds,
+        hasMention,
+      }).catch(() => {});
       return {
         ok: true,
         message: {

@@ -30,6 +30,7 @@ import type {
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
 import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
 import { VoiceMessageBubble } from "@/components/community-messenger/VoiceMessageBubble";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
@@ -104,6 +105,16 @@ export function CommunityMessengerRoomClient({
   const [openGroupIdentityPolicy, setOpenGroupIdentityPolicy] = useState<"real_name" | "alias_allowed">("alias_allowed");
   const [activeSheet, setActiveSheet] = useState<null | "menu" | "members" | "info">(null);
   const [managedDirectCallError, setManagedDirectCallError] = useState<string | null>(null);
+
+  const notifSurface = useNotificationSurface();
+  useEffect(() => {
+    if (!notifSurface || !roomId?.trim()) return;
+    const id = roomId.trim();
+    notifSurface.setExplicitCommunityChatRoomId(id);
+    return () => {
+      notifSurface.setExplicitCommunityChatRoomId(null);
+    };
+  }, [notifSurface, roomId]);
 
   const refresh = useCallback(async (silent = false) => {
     const primed = !silent && consumeRoomSnapshot(roomId);

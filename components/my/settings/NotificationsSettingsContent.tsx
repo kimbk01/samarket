@@ -23,6 +23,14 @@ export function NotificationsSettingsContent() {
   const [commerceEmailBusy, setCommerceEmailBusy] = useState(false);
   const [commerceEmailPatchError, setCommerceEmailPatchError] = useState<string | null>(null);
 
+  const [domainSoundOn, setDomainSoundOn] = useState(true);
+  const [domainTradeChatOn, setDomainTradeChatOn] = useState(true);
+  const [domainCommunityChatOn, setDomainCommunityChatOn] = useState(true);
+  const [domainOrderOn, setDomainOrderOn] = useState(true);
+  const [domainStoreOn, setDomainStoreOn] = useState(true);
+  const [domainVibrationOn, setDomainVibrationOn] = useState(true);
+  const [domainLoaded, setDomainLoaded] = useState(false);
+
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
   useEffect(() => {
     refresh();
@@ -61,6 +69,61 @@ export function NotificationsSettingsContent() {
       cancelled = true;
     };
   }, [userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/me/notification-settings", { credentials: "include" });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          settings?: {
+            sound_enabled?: boolean;
+            trade_chat_enabled?: boolean;
+            community_chat_enabled?: boolean;
+            order_enabled?: boolean;
+            store_enabled?: boolean;
+            vibration_enabled?: boolean;
+          };
+        };
+        if (cancelled || !j?.ok || !j.settings) return;
+        const s = j.settings;
+        setDomainSoundOn(s.sound_enabled !== false);
+        setDomainTradeChatOn(s.trade_chat_enabled !== false);
+        setDomainCommunityChatOn(s.community_chat_enabled !== false);
+        setDomainOrderOn(s.order_enabled !== false);
+        setDomainStoreOn(s.store_enabled !== false);
+        setDomainVibrationOn(s.vibration_enabled !== false);
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setDomainLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const patchDomain = useCallback(
+    async (partial: Record<string, boolean>) => {
+      try {
+        const res = await fetch("/api/me/notification-settings", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(partial),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (res.ok && j?.ok && typeof window !== "undefined") {
+          window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
+        }
+      } catch {
+        /* ignore */
+      }
+    },
+    []
+  );
 
   const update = useCallback(
     (partial: Parameters<typeof updateUserSettings>[1]) => {
@@ -213,6 +276,157 @@ export function NotificationsSettingsContent() {
               </button>
             </div>
           </div>
+        ) : null}
+        {domainLoaded ? (
+          <>
+            <div className="border-b border-gray-100 px-4 py-3">
+              <p className="mb-2 text-[12px] leading-snug text-gray-500">
+                인앱 알림 (거래/커뮤니티/주문/매장) — 채팅방을 보고 있을 때는 같은 방 알림음이 울리지 않습니다.
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-[15px] text-gray-900">인앱 알림음</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainSoundOn}
+                  onClick={() => {
+                    const next = !domainSoundOn;
+                    setDomainSoundOn(next);
+                    void patchDomain({ sound_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainSoundOn ? "bg-signature" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      domainSoundOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-gray-100 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[15px] text-gray-900">거래 채팅 알림</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainTradeChatOn}
+                  onClick={() => {
+                    const next = !domainTradeChatOn;
+                    setDomainTradeChatOn(next);
+                    void patchDomain({ trade_chat_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainTradeChatOn ? "bg-signature" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      domainTradeChatOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-gray-100 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[15px] text-gray-900">커뮤니티·모임 채팅</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainCommunityChatOn}
+                  onClick={() => {
+                    const next = !domainCommunityChatOn;
+                    setDomainCommunityChatOn(next);
+                    void patchDomain({ community_chat_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainCommunityChatOn ? "bg-signature" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      domainCommunityChatOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-gray-100 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[15px] text-gray-900">주문·배달 알림</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainOrderOn}
+                  onClick={() => {
+                    const next = !domainOrderOn;
+                    setDomainOrderOn(next);
+                    void patchDomain({ order_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainOrderOn ? "bg-signature" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      domainOrderOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-gray-100 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[15px] text-gray-900">매장·상점 알림</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainStoreOn}
+                  onClick={() => {
+                    const next = !domainStoreOn;
+                    setDomainStoreOn(next);
+                    void patchDomain({ store_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainStoreOn ? "bg-signature" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      domainStoreOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-gray-100 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[15px] text-gray-900">진동 (지원 기기)</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainVibrationOn}
+                  onClick={() => {
+                    const next = !domainVibrationOn;
+                    setDomainVibrationOn(next);
+                    void patchDomain({ vibration_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainVibrationOn ? "bg-signature" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      domainVibrationOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </>
         ) : null}
       </SettingsSection>
       <SettingsSection title={t("notifications_dnd")}>

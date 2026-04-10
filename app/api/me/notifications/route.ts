@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
 
   const q = sb
     .from("notifications")
-    .select("id, notification_type, title, body, link_url, is_read, created_at, meta")
+    .select("id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(listLimit);
@@ -154,24 +154,31 @@ export async function GET(req: NextRequest) {
     if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
       return NextResponse.json({ ok: true, notifications: [], table_missing: true });
     }
-    if (error.message?.includes("meta") && error.message.includes("does not exist")) {
-      const { data: rows, error: e2 } = await sb
-        .from("notifications")
-        .select("id, notification_type, title, body, link_url, is_read, created_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(listLimit);
-      if (e2) {
-        return NextResponse.json({ ok: false, error: e2.message }, { status: 500 });
+    const { data: rowsWithMeta, error: eMeta } = await sb
+      .from("notifications")
+      .select("id, notification_type, title, body, link_url, is_read, created_at, meta")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(listLimit);
+    if (!eMeta) {
+      let list = rowsWithMeta ?? [];
+      if (excludeOwnerList) {
+        list = list.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).slice(0, 80);
       }
-      let list = rows ?? [];
+      return NextResponse.json({ ok: true, notifications: list });
+    }
+    const { data: rowsBare, error: eBare } = await sb
+      .from("notifications")
+      .select("id, notification_type, title, body, link_url, is_read, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(listLimit);
+    if (!eBare) {
+      let list = rowsBare ?? [];
       if (excludeOwnerList) {
         list = list.slice(0, 80);
       }
-      return NextResponse.json({
-        ok: true,
-        notifications: list,
-      });
+      return NextResponse.json({ ok: true, notifications: list });
     }
     console.error("[GET notifications]", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

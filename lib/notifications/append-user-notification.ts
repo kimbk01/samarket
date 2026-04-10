@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { publishNotificationSideEffect } from "@/lib/notifications/publish-notification-side-effect";
+import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 
 export type AppNotificationType =
   | "chat"
@@ -22,6 +23,9 @@ export async function appendUserNotification(
     body?: string | null;
     link_url?: string | null;
     meta?: Record<string, unknown> | null;
+    /** v1 도메인 — trade_chat / community_chat / order / store */
+    domain?: NotificationDomain | null;
+    ref_id?: string | null;
   }
 ): Promise<void> {
   const uid = row.user_id.trim();
@@ -36,6 +40,8 @@ export async function appendUserNotification(
     is_read: false,
   };
   if (row.meta != null) insert.meta = row.meta;
+  if (row.domain) insert.domain = row.domain;
+  if (row.ref_id != null && String(row.ref_id).trim()) insert.ref_id = String(row.ref_id).trim();
 
   const { error } = await sb.from("notifications").insert(insert);
   if (!error) {
@@ -109,6 +115,34 @@ export async function appendUserNotification(
     }
     if (e3.message?.includes("notifications") && e3.message?.includes("does not exist")) return;
     console.error("[appendUserNotification] fallback system", e3.message);
+    return;
+  }
+
+  /* domain/ref_id 컬럼 미적용 스키마 → 제거 후 재시도 */
+  if (
+    (error.message?.includes("domain") || error.message?.includes("ref_id")) &&
+    (insert.domain != null || insert.ref_id != null)
+  ) {
+    const fallback = { ...insert };
+    delete fallback.domain;
+    delete fallback.ref_id;
+    const { error: e4 } = await sb.from("notifications").insert(fallback);
+    if (!e4) {
+      void publishNotificationSideEffect(
+        {
+          user_id: uid,
+          notification_type: row.notification_type,
+          title: row.title,
+          body: row.body ?? null,
+          link_url: row.link_url ?? null,
+          meta: row.meta ?? null,
+        },
+        sb
+      );
+      return;
+    }
+    if (e4.message?.includes("notifications") && e4.message?.includes("does not exist")) return;
+    console.error("[appendUserNotification] retry without domain", e4.message);
     return;
   }
 

@@ -89,6 +89,18 @@ export function AdminSettingsPage() {
     <div className="space-y-4">
       <AdminPageHeader title="운영설정" />
 
+      <AdminCard title="알림·알림음 (도메인)">
+        <p className="text-[14px] text-gray-700">
+          거래 채팅·커뮤니티·주문·매장 알림을 분리해 알림음·쿨다운·반복을 설정합니다.
+        </p>
+        <Link
+          href="/admin/settings/notifications"
+          className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white"
+        >
+          도메인별 알림 설정 열기
+        </Link>
+      </AdminCard>
+
       <AdminSettingsTabs active={activeSection} onChange={setActiveSection} />
 
       <AdminCard title={undefined}>

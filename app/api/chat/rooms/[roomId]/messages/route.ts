@@ -14,6 +14,7 @@ import {
 } from "@/lib/chat/chat-room-admin-suspend";
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
+import { notifyTradeChatInAppForRecipients } from "@/lib/notifications/trade-chat-inapp-notify";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -269,9 +270,23 @@ export async function POST(
         })
       : Promise.resolve();
 
-  const bumpOtherPromise = bumpUnreadForChatRoomRecipients(sbAny, roomId, userId, now, preview);
+  const bumpAndNotifyPromise = (async () => {
+    const { recipientUserIds } = await bumpUnreadForChatRoomRecipients(
+      sbAny,
+      roomId,
+      userId,
+      now,
+      preview
+    );
+    await notifyTradeChatInAppForRecipients(sbAny, {
+      roomId,
+      senderUserId: userId,
+      preview,
+      recipientUserIds,
+    });
+  })();
 
-  await Promise.all([updateRoomPromise, touchLegacyPromise, bumpOtherPromise]);
+  await Promise.all([updateRoomPromise, touchLegacyPromise, bumpAndNotifyPromise]);
 
   return jsonOk({
     message: {

@@ -5,11 +5,17 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
-import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import { isNotificationDomain, type NotificationDomain } from "@/lib/notifications/notification-domains";
 
 export type SupabaseNotificationsRealtimeOptions = {
   /** true면 신규 알림(INSERT) 시 MP3 재생 */
   playSoundOnInsert?: boolean;
+  /**
+   * 설정되면 INSERT 시 기본 재생 대신 호출 — 도메인별 당근 스타일 제어용.
+   * false 를 반환하면 무음.
+   */
+  onInsertSound?: (row: Record<string, unknown>) => boolean | void;
 };
 
 function isInsertEvent(payload: unknown): boolean {
@@ -23,8 +29,6 @@ function isInsertEvent(payload: unknown): boolean {
 
 function shouldPlaySoundForNotificationInsert(payload: unknown): boolean {
   if (!isInsertEvent(payload)) return false;
-  const row = (payload as { new?: { meta?: unknown } }).new;
-  if (row && isOwnerStoreCommerceNotificationRow(row)) return false;
   return true;
 }
 
@@ -61,13 +65,29 @@ export function useSupabaseNotificationsRealtime(
           },
           (payload) => {
             if (options?.playSoundOnInsert && shouldPlaySoundForNotificationInsert(payload)) {
-              const row = (payload as { new?: { id?: unknown; notification_type?: unknown } }).new;
+              const row = (payload as { new?: Record<string, unknown> }).new ?? {};
+              if (options?.onInsertSound) {
+                const r = options.onInsertSound(row);
+                if (r === false) {
+                  onChange();
+                  return;
+                }
+                if (r === true) {
+                  onChange();
+                  return;
+                }
+              }
               const nid = row?.id != null && String(row.id).trim() ? String(row.id).trim() : "";
-              const isChat = row?.notification_type === "chat";
-              if (isChat && nid) {
-                playCoalescedChatNotificationSound(`notif:${nid}`);
+              const domain = row?.domain;
+              if (typeof domain === "string" && isNotificationDomain(domain)) {
+                void playDomainNotificationSound(domain as NotificationDomain);
               } else {
-                playNotificationSound();
+                const isChat = row?.notification_type === "chat";
+                if (isChat && nid) {
+                  playCoalescedChatNotificationSound(`notif:${nid}`);
+                } else {
+                  playNotificationSound();
+                }
               }
             }
             onChange();
@@ -98,5 +118,5 @@ export function useSupabaseNotificationsRealtime(
       subscription.unsubscribe();
       if (ch) void sb.removeChannel(ch);
     };
-  }, [onChange, options?.playSoundOnInsert]);
+  }, [onChange, options?.playSoundOnInsert, options?.onInsertSound]);
 }
