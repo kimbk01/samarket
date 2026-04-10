@@ -17,7 +17,10 @@ import { applyBuyerAutoConfirmForRoom } from "@/lib/trade/apply-buyer-auto-confi
 import { fetchBuyerReviewSubmitted } from "@/lib/mypage/buyer-review-flag";
 import type { GeneralChatMeta } from "@/lib/types/chat";
 import { reservedBuyerIdFromPost } from "@/lib/trade/reserved-item-chat";
-import { fetchPostRowForChat } from "@/lib/chats/post-select-compat";
+import {
+  fetchPostRowForChat,
+  fetchPostRowForChatFirstResolved,
+} from "@/lib/chats/post-select-compat";
 import {
   fetchItemTradeAdminSuspended,
   resolveAdminChatSuspension,
@@ -136,7 +139,7 @@ export async function GET(
     const { data: crSameRows } = await sbAny
       .from("chat_rooms")
       .select(
-        "id, item_id, seller_id, buyer_id, last_message_at, last_message_preview, created_at, trade_status, updated_at, is_blocked, blocked_by, is_locked, initiator_id, peer_id"
+        "id, item_id, related_post_id, seller_id, buyer_id, last_message_at, last_message_preview, created_at, trade_status, updated_at, is_blocked, blocked_by, is_locked, initiator_id, peer_id"
       )
       .eq("room_type", "item_trade")
       .eq("item_id", r.post_id)
@@ -150,7 +153,9 @@ export async function GET(
       const crRow = crSame as { seller_id: string | null; buyer_id: string | null };
       const crIds = [crRow.seller_id, crRow.buyer_id].filter(Boolean) as string[];
       if (crIds.includes(userId)) {
-        const itemId = (crSame as { item_id: string | null }).item_id ?? "";
+        const itemIdRaw = String((crSame as { item_id: string | null }).item_id ?? "").trim();
+        const relatedSame = String((crSame as { related_post_id?: string | null }).related_post_id ?? "").trim();
+        const postIdForCard = itemIdRaw || relatedSame || String(r.post_id ?? "").trim();
         const amISeller2 = crRow.seller_id === userId;
         const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
         const [{ data: partRow }, post2] = await Promise.all([
@@ -160,7 +165,7 @@ export async function GET(
             .eq("room_id", roomIdCr)
             .eq("user_id", userId)
             .maybeSingle(),
-          fetchPostRowForChat(sbAny, itemId),
+          fetchPostRowForChatFirstResolved(sbAny, [itemIdRaw, relatedSame, String(r.post_id ?? "").trim()]),
         ]);
         const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
         const batchIdsCr = [
@@ -188,7 +193,7 @@ export async function GET(
         ).suspended;
         const payload = {
             id: roomIdCr,
-            productId: itemId,
+            productId: postIdForCard,
             buyerId: crRow.buyer_id ?? "",
             sellerId: crRow.seller_id ?? "",
             partnerNickname: partnerNickname2.trim() || (partnerId2 ?? "").slice(0, 8),
@@ -200,7 +205,7 @@ export async function GET(
             tradeStatus: listing,
             product: chatProductSummaryFromPostRow(
               enrichPostWithAuthorNickname(post2 ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapCr)),
-              itemId
+              String((post2 as { id?: string } | null)?.id ?? postIdForCard)
             ),
             source: "chat_room",
             chatDomain: "trade",
@@ -225,27 +230,21 @@ export async function GET(
     const row = r as Record<string, unknown>;
     const unreadCount = amISeller ? (row.unread_count_seller ?? 0) : (row.unread_count_buyer ?? 0);
     const partnerId = amISeller ? r.buyer_id : r.seller_id;
-    const [post, crRowsLegacyRes] = await Promise.all([
+    const [postFirst, crRowsLegacyRes] = await Promise.all([
       fetchPostRowForChat(sbAny, r.post_id as string),
       sbAny
         .from("chat_rooms")
-        .select("id, seller_id, buyer_id, updated_at")
+        .select("id, seller_id, buyer_id, updated_at, related_post_id, item_id")
         .eq("room_type", "item_trade")
         .eq("item_id", r.post_id)
         .eq("buyer_id", r.buyer_id)
         .order("updated_at", { ascending: false }),
     ]);
-    const batchIdsPc = [
-      ...new Set([partnerId, postAuthorUserId(post ?? undefined) ?? ""].filter(Boolean)),
-    ] as string[];
-    const partnerMapPc = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsPc);
-    const partnerDispPc = partnerDisplayFromMap(partnerMapPc, partnerId, partnerId.slice(0, 8));
-    const partnerNickname = partnerDispPc.partnerNickname;
     // crSame(판매자 ID 정확 일치)가 없어도 posts.user_id와 맞는 chat_rooms가 있으면 거래 상태 동기화
     const postSellerCandidates = new Set(
       [
         r.seller_id,
-        typeof post?.user_id === "string" ? (post.user_id as string) : "",
+        typeof postFirst?.user_id === "string" ? (postFirst.user_id as string) : "",
       ].filter((x) => typeof x === "string" && x.length > 0)
     );
     let linkedChatRoomId: string | undefined;
@@ -255,6 +254,21 @@ export async function GET(
     if (crLinked) {
       linkedChatRoomId = (crLinked as { id: string }).id;
     }
+    let post = postFirst;
+    if (!post && crLinked) {
+      const rp = (crLinked as { related_post_id?: string | null }).related_post_id;
+      const altItem = (crLinked as { item_id?: string | null }).item_id;
+      post = await fetchPostRowForChatFirstResolved(sbAny, [
+        typeof rp === "string" ? rp : "",
+        typeof altItem === "string" ? altItem : "",
+      ]);
+    }
+    const batchIdsPc = [
+      ...new Set([partnerId, postAuthorUserId(post ?? undefined) ?? ""].filter(Boolean)),
+    ] as string[];
+    const partnerMapPc = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsPc);
+    const partnerDispPc = partnerDisplayFromMap(partnerMapPc, partnerId, partnerId.slice(0, 8));
+    const partnerNickname = partnerDispPc.partnerNickname;
     const listing = normalizeSellerListingState(post?.seller_listing_state, post?.status as string);
     scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
     const tradeExtrasPc = tradeFieldsFromRows(row, post ?? undefined);
@@ -270,9 +284,10 @@ export async function GET(
       String(r.seller_id),
       String(r.buyer_id)
     );
+    const resolvedProductId = String((post as { id?: string } | null)?.id ?? r.post_id ?? "").trim() || String(r.post_id);
     const payload = {
       id: r.id,
-      productId: r.post_id,
+      productId: resolvedProductId,
       buyerId: r.buyer_id,
       sellerId: r.seller_id,
       partnerNickname: partnerNickname.trim() || partnerId.slice(0, 8),
@@ -283,7 +298,7 @@ export async function GET(
       unreadCount: Number(unreadCount),
       product: chatProductSummaryFromPostRow(
         enrichPostWithAuthorNickname(post ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapPc)),
-        r.post_id as string
+        resolvedProductId
       ),
       source: "product_chat",
       chatDomain: "trade",
@@ -492,7 +507,9 @@ export async function GET(
   if (!crIds.includes(userId)) {
     return NextResponse.json({ error: "참여자가 아닙니다." }, { status: 403 });
   }
-  const itemId = (cr as { item_id: string | null }).item_id ?? "";
+  const itemIdRaw = String((cr as { item_id: string | null }).item_id ?? "").trim();
+  const relatedPostId = String(crAny.related_post_id ?? "").trim();
+  const postIdForTradeCard = itemIdRaw || relatedPostId;
   const [{ data: partRow }, post2] = await Promise.all([
     sbAny
       .from("chat_room_participants")
@@ -500,7 +517,7 @@ export async function GET(
       .eq("room_id", roomId)
       .eq("user_id", userId)
       .maybeSingle(),
-    fetchPostRowForChat(sbAny, itemId),
+    fetchPostRowForChatFirstResolved(sbAny, [itemIdRaw, relatedPostId].filter(Boolean)),
   ]);
   const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
   const amISeller2 = crRow.seller_id === userId;
@@ -516,10 +533,11 @@ export async function GET(
   );
   const partnerNickname2 = partnerDispTrade.partnerNickname;
   const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
+  const resolvedTradePostId = String((post2 as { id?: string } | null)?.id ?? postIdForTradeCard);
   const { data: pcFallback } = await sbAny
     .from("product_chats")
     .select("*")
-    .eq("post_id", itemId)
+    .eq("post_id", resolvedTradePostId)
     .eq("seller_id", crRow.seller_id ?? "")
     .eq("buyer_id", crRow.buyer_id ?? "")
     .maybeSingle();
@@ -546,7 +564,7 @@ export async function GET(
   }).suspended;
   const payload = {
       id: cr.id,
-      productId: itemId,
+      productId: resolvedTradePostId,
       buyerId: crRow.buyer_id ?? "",
       sellerId: crRow.seller_id ?? "",
       partnerNickname: partnerNickname2.trim() || (partnerId2 ?? "").slice(0, 8),
@@ -558,7 +576,7 @@ export async function GET(
       tradeStatus: listing,
       product: chatProductSummaryFromPostRow(
         enrichPostWithAuthorNickname(post2 ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapTrade)),
-        itemId
+        resolvedTradePostId
       ),
       source: "chat_room",
       chatDomain: "trade",

@@ -37,6 +37,24 @@ export async function fetchPostRowForChat(
   return (data as Record<string, unknown>) ?? null;
 }
 
+/**
+ * `item_id` 가 비어 있거나 잘못됐을 때 `related_post_id` 등으로 posts 를 찾기 — 채팅 상단 카드·목록과 동일 행 필요
+ */
+export async function fetchPostRowForChatFirstResolved(
+  sbAny: SupabaseClient<any>,
+  candidatePostIds: readonly string[]
+): Promise<Record<string, unknown> | null> {
+  const seen = new Set<string>();
+  for (const raw of candidatePostIds) {
+    const id = typeof raw === "string" ? raw.trim() : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const row = await fetchPostRowForChat(sbAny, id);
+    if (row) return row;
+  }
+  return null;
+}
+
 export async function fetchPostRowsForChatIn(
   sbAny: SupabaseClient<any>,
   postIds: string[]
