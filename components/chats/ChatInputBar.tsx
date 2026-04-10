@@ -169,7 +169,7 @@ export function ChatInputBar({
   return (
     <>
     <div
-      className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center safe-area-pb ${ig ? `gap-1.5 ${APP_MAIN_GUTTER_X_CLASS}` : "gap-2 px-2"}`}
+      className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center safe-area-pb ${ig ? "gap-1.5" : "gap-2"} ${APP_MAIN_GUTTER_X_CLASS}`}
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
     >
       {/* 이모지 패널: 입력창 위, 다양한 이모지 그리드 */}

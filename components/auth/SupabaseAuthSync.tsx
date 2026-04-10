@@ -88,9 +88,10 @@ export function SupabaseAuthSync() {
     const sb = getSupabaseClient();
     if (!sb) return;
 
+    /** 첫 하이드레이션만 너무 미루면 채팅 등에서 `getCurrentUser()` 캐시 공백이 길어짐 — timeout 은 rIC 최대 대기(ms) */
     const idleId = scheduleWhenBrowserIdle(() => {
       void hydrateProfileCacheFromSession(sb);
-    }, 900);
+    }, 240);
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((_event, session) => {

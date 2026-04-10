@@ -22,7 +22,7 @@ export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
 
   return (
     <ul
-      className={`list-none space-y-0 px-2 py-3 ${ig ? "min-h-[200px]" : "min-h-[220px]"}`}
+      className={`list-none space-y-0 py-3 ${ig ? "min-h-[200px]" : "min-h-[220px]"}`}
       aria-busy="true"
       aria-label="메시지 불러오는 중"
     >

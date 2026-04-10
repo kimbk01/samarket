@@ -34,9 +34,13 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
 import {
   APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
+  APP_MAIN_GUTTER_X_CLASS,
   APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
+
+/** 메시지 스크롤·입력창·스티키 하단을 동일 읽기 폭으로 — 거래 허브 전체 페이지 vs 홈 시트 모달 정렬 일치 */
+const CHAT_THREAD_COLUMN_INNER_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 import {
   SELLER_LISTING_LABEL,
   type SellerListingState,
@@ -1475,21 +1479,23 @@ export function ChatDetailView({
         </>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
-          className={`flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-white px-3 py-2" : "bg-[#F7F7F7] px-2 py-1"}`}
+          className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-white py-2" : "bg-[#F7F7F7] py-1"}`}
         >
-          {messagesLoading ? (
-            <ChatMessagesLoadingSkeleton variant={isStoreOrderChat ? "instagram" : "default"} />
-          ) : (
-            <ChatMessageList
-              messages={messages}
-              currentUserId={currentUserId}
-              partnerNickname={partnerDisplayNickname}
-              partnerAvatar={partnerDisplayAvatar || undefined}
-              variant={isStoreOrderChat ? "instagram" : "default"}
-            />
-          )}
+          <div className={CHAT_THREAD_COLUMN_INNER_CLASS}>
+            {messagesLoading ? (
+              <ChatMessagesLoadingSkeleton variant={isStoreOrderChat ? "instagram" : "default"} />
+            ) : (
+              <ChatMessageList
+                messages={messages}
+                currentUserId={currentUserId}
+                partnerNickname={partnerDisplayNickname}
+                partnerAvatar={partnerDisplayAvatar || undefined}
+                variant={isStoreOrderChat ? "instagram" : "default"}
+              />
+            )}
+          </div>
         </div>
       </div>
 

@@ -15,4 +15,10 @@ export const TRADE_CHAT_SURFACE = {
   emptyCtaLabelKey: "nav_chat_trade_cta",
 } as const;
 
+/** 거래 허브 안 채팅 상세 — 알림·구매/판매 상세·홈 시트가 동일 `ChatRoomScreen` 으로 열리도록 경로 단일화 */
+export function tradeHubChatRoomHref(roomId: string): string {
+  const id = roomId.trim();
+  return `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(id)}`;
+}
+
 export type TradeChatSurface = typeof TRADE_CHAT_SURFACE;

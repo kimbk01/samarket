@@ -10,6 +10,7 @@ import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
+import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 
 export function ChatRoomScreen({
@@ -142,6 +143,12 @@ export function ChatRoomScreen({
     };
   }, []);
 
+  /** 인증 확인과 병행해 방·메시지 캐시 선채움 — `reload`·`ChatDetailView` 초기 로드가 single-flight 로 합류 */
+  useEffect(() => {
+    if (!roomId?.trim()) return;
+    warmChatRoomEntryById(roomId);
+  }, [roomId]);
+
   useEffect(() => {
     if (resolvedUserId === undefined) return;
     void reload();
@@ -253,7 +260,11 @@ export function ChatRoomScreen({
           }`;
 
   return (
-    <div className={outerClass}>
+    <div
+      className={outerClass}
+      data-samarket-chat-room-id={room.id}
+      data-samarket-trade-chat-surface={tradeHubColumnLayout ? "trade-hub" : embedded ? "embedded" : "full"}
+    >
       <ChatDetailView
         room={room}
         currentUserId={resolvedUserId}
