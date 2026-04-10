@@ -120,6 +120,17 @@ function displayTitleFromPost(post: Record<string, unknown> | undefined, postId:
 }
 
 /**
+ * `posts` 행을 못 붙였을 때만 나오는 기계적 제목(`displayTitleFromPost` 폴백).
+ * 클라이언트 방 상세 캐시 무효화·서버 조회 실패 진단에 사용.
+ */
+export function isMissingPostRowChatProductTitle(title: string, postId: string): boolean {
+  const pid = typeof postId === "string" ? postId.trim() : "";
+  const t = typeof title === "string" ? title.trim() : "";
+  if (pid.length <= 6) return false;
+  return t === `글 · ${pid.slice(0, 8)}…`;
+}
+
+/**
  * posts 행 → 채팅 목록/방 상단 카드용 요약 (환전은 피드 카드와 동일 필드)
  */
 export function chatProductSummaryFromPostRow(

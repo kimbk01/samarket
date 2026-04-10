@@ -1,6 +1,7 @@
 "use client";
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { isMissingPostRowChatProductTitle } from "@/lib/chats/chat-product-from-post";
 import type { ChatRoom } from "@/lib/types/chat";
 
 type FetchRoomResult =
@@ -29,7 +30,17 @@ export async function fetchChatRoomDetailApi(roomId: string): Promise<FetchRoomR
   const now = Date.now();
   const cached = roomDetailCache.get(key);
   if (cached && now - cached.at < ROOM_DETAIL_TTL_MS) {
-    return { ok: true, room: cached.room, cache: "memory" };
+    const p = cached.room.product;
+    if (
+      p &&
+      typeof p.title === "string" &&
+      typeof p.id === "string" &&
+      isMissingPostRowChatProductTitle(p.title, p.id)
+    ) {
+      roomDetailCache.delete(key);
+    } else {
+      return { ok: true, room: cached.room, cache: "memory" };
+    }
   }
 
   return runSingleFlight(`chat:room-detail:${key}`, async () => {
@@ -42,7 +53,16 @@ export async function fetchChatRoomDetailApi(roomId: string): Promise<FetchRoomR
       if (res.status === 404) return { ok: false, status: 404, code: "not_found" as const };
       if (res.status === 401 || res.status === 403) return { ok: false, status: res.status, code: "auth" as const };
       if (!res.ok || !isChatRoomPayload(j)) return { ok: false, status: res.status, code: "load_failed" as const };
-      roomDetailCache.set(key, { at: Date.now(), room: j });
+      const room = j as ChatRoom;
+      const p = room.product;
+      const isDegradedCard =
+        p &&
+        typeof p.title === "string" &&
+        typeof p.id === "string" &&
+        isMissingPostRowChatProductTitle(p.title, p.id);
+      if (!isDegradedCard) {
+        roomDetailCache.set(key, { at: Date.now(), room: j });
+      }
       return { ok: true, room: j, cache: "network" } as const;
     } catch {
       return { ok: false, status: 0, code: "network" as const };

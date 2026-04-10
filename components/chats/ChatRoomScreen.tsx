@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
@@ -133,13 +134,23 @@ export function ChatRoomScreen({
       if (!cancelled) setResolvedUserId(id);
     };
     void resolveViewer();
-    const onAuthChange = () => {
+    const onTestAuthChange = () => {
       void resolveViewer();
     };
-    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChange);
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuthChange);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void resolveViewer();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    const sb = getSupabaseClient();
+    const authSub = sb?.auth.onAuthStateChange(() => {
+      void resolveViewer();
+    });
     return () => {
       cancelled = true;
-      window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChange);
+      window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuthChange);
+      document.removeEventListener("visibilitychange", onVisibility);
+      authSub?.data.subscription.unsubscribe();
     };
   }, []);
 

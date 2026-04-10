@@ -33,8 +33,21 @@ export async function fetchPostRowForChat(
     data = (r2.data ?? null) as unknown as typeof data;
     error = r2.error;
   }
-  if (error) return null;
-  return (data as Record<string, unknown>) ?? null;
+
+  if (!error && data) return data as Record<string, unknown>;
+
+  /**
+   * 배포·마이그레이션마다 `posts` 컬럼 집합이 달라, 존재하지 않는 컬럼이 SELECT 에 포함되면
+   * PostgREST 가 전체 요청을 거부하고 행이 없는 것처럼 보일 수 있음.
+   * 채팅 상단 카드는 `chatProductSummaryFromPostRow(undefined, postId)` 로 떨어져
+   * 「글 · UUID…」, ₩0, 썸네일 없음 이 됨 → `*` 로 실제 행을 반드시 가져온다.
+   */
+  if (error) {
+    const rStar = await sbAny.from("posts").select("*").eq("id", pid).maybeSingle();
+    if (!rStar.error && rStar.data) return rStar.data as Record<string, unknown>;
+  }
+
+  return null;
 }
 
 /**
@@ -104,6 +117,12 @@ export async function fetchPostRowsForChatIn(
     data = (r2.data ?? null) as unknown as typeof data;
     error = r2.error;
   }
-  if (error || !Array.isArray(data)) return [];
-  return data as Record<string, unknown>[];
+  if (!error && Array.isArray(data)) return data as Record<string, unknown>[];
+
+  if (error) {
+    const rStar = await sbAny.from("posts").select("*").in("id", ids);
+    if (!rStar.error && Array.isArray(rStar.data)) return rStar.data as Record<string, unknown>[];
+  }
+
+  return [];
 }

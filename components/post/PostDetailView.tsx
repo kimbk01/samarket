@@ -20,7 +20,9 @@ import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { getAppSettings } from "@/lib/app-settings";
 import { TRADE_SKIN_LABELS } from "@/lib/types/category";
 import {
@@ -517,8 +519,36 @@ interface PostDetailViewProps {
 
 export function PostDetailView({ post }: PostDetailViewProps) {
   const router = useRouter();
-  const user = getCurrentUser();
+  /** `undefined`: 세션 확인 전 — 동기 프로필 캐시만 쓰면 유휴 후 캐시가 비어 로그아웃으로 오인될 수 있음 */
+  const [resolvedViewerId, setResolvedViewerId] = useState<string | null | undefined>(undefined);
   const notificationUnreadCount = useMyNotificationUnreadCount();
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolveViewer = async () => {
+      const id = (await getCurrentUserIdForDb())?.trim() || null;
+      if (!cancelled) setResolvedViewerId(id);
+    };
+    void resolveViewer();
+    const onTestAuthChange = () => {
+      void resolveViewer();
+    };
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuthChange);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void resolveViewer();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    const sb = getSupabaseClient();
+    const authSub = sb?.auth.onAuthStateChange(() => {
+      void resolveViewer();
+    });
+    return () => {
+      cancelled = true;
+      window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuthChange);
+      document.removeEventListener("visibilitychange", onVisibility);
+      authSub?.data.subscription.unsubscribe();
+    };
+  }, []);
 
   const [backHref, setBackHref] = useState("/home");
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
@@ -555,7 +585,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   const listingOwnerId = postAuthorUserId(post as unknown as Record<string, unknown>);
 
-  const isOwnPost = Boolean(user?.id && listingOwnerId && user.id === listingOwnerId);
+  const isOwnPost =
+    resolvedViewerId !== undefined &&
+    resolvedViewerId !== null &&
+    !!listingOwnerId &&
+    resolvedViewerId === listingOwnerId;
   const showSellerCancelBar =
     isOwnPost &&
     post.type !== "community" &&
@@ -566,11 +600,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   }, [post.id]);
 
   useEffect(() => {
-    if (!user?.id || post.type === "community") {
+    if (resolvedViewerId === undefined) return;
+    if (resolvedViewerId === null || post.type === "community") {
       setExistingTradeRoomId(null);
       return;
     }
-    if (listingOwnerId && user.id === listingOwnerId) {
+    if (listingOwnerId && resolvedViewerId === listingOwnerId) {
       setExistingTradeRoomId(null);
       return;
     }
@@ -586,7 +621,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [post.id, post.type, user?.id, listingOwnerId]);
+  }, [post.id, post.type, resolvedViewerId, listingOwnerId]);
 
   const writeCtx = useWriteCategory();
 
@@ -759,11 +794,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   }, [post.id, post.favorite_count]);
 
   const handleFavorite = useCallback(async () => {
-    if (!user?.id) {
+    const uid = (await getCurrentUserIdForDb())?.trim() || null;
+    if (!uid) {
       router.push(LOGIN_REDIRECT);
       return;
     }
-    if (listingOwnerId && user.id === listingOwnerId) return;
+    if (listingOwnerId && uid === listingOwnerId) return;
     const prevFavorite = isFavorite;
     const prevCount = favoriteCount;
     setIsFavorite(!prevFavorite);
@@ -775,10 +811,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     } else {
       setIsFavorite(res.isFavorite);
     }
-  }, [post.id, listingOwnerId, user, router, isFavorite, favoriteCount]);
+  }, [post.id, listingOwnerId, router, isFavorite, favoriteCount]);
 
   const handleReport = useCallback(async () => {
-    if (!user?.id) {
+    const uid = (await getCurrentUserIdForDb())?.trim() || null;
+    if (!uid) {
       router.push(LOGIN_REDIRECT);
       return;
     }
@@ -797,15 +834,15 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     } finally {
       setReportSubmitting(false);
     }
-  }, [post.id, reportReason, user, router]);
+  }, [post.id, reportReason, router]);
 
   const chatBlockedByOtherReservation = useMemo(() => {
     if (post.type === "community") return false;
-    if (!user?.id) return false;
-    if (listingOwnerId && user.id === listingOwnerId) return false;
+    if (resolvedViewerId === undefined || resolvedViewerId === null) return false;
+    if (listingOwnerId && resolvedViewerId === listingOwnerId) return false;
     if (existingTradeRoomId) return false;
-    return shouldBlockNewItemChatForBuyer(post as unknown as Record<string, unknown>, user.id);
-  }, [post, user?.id, listingOwnerId, existingTradeRoomId]);
+    return shouldBlockNewItemChatForBuyer(post as unknown as Record<string, unknown>, resolvedViewerId);
+  }, [post, resolvedViewerId, listingOwnerId, existingTradeRoomId]);
 
   const navigateToTradeChatRoom = useCallback(
     (roomId: string) => {
@@ -828,7 +865,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   const handleChat = useCallback(async () => {
     setChatError("");
-    if (!user?.id) {
+    const uid = (await getCurrentUserIdForDb())?.trim() || null;
+    if (!uid) {
       router.push(LOGIN_REDIRECT);
       return;
     }
@@ -837,7 +875,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       return;
     }
     const tradeOwnerId = postAuthorUserId(post as unknown as Record<string, unknown>);
-    if (tradeOwnerId && user.id === tradeOwnerId) {
+    if (tradeOwnerId && uid === tradeOwnerId) {
       setChatError("내 상품에는 채팅할 수 없습니다.");
       return;
     }
@@ -859,7 +897,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   }, [
     post.id,
     post.author_id,
-    user,
     router,
     existingTradeRoomId,
     chatBlockedByOtherReservation,
@@ -899,11 +936,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   /** 거래 채팅 허브(및 알려진 기존 거래 방) RSC 선로딩 */
   useEffect(() => {
-    if (!user?.id) return;
-    if (listingOwnerId && user.id === listingOwnerId) return;
+    if (resolvedViewerId === undefined || resolvedViewerId === null) return;
+    if (listingOwnerId && resolvedViewerId === listingOwnerId) return;
     if (!showChat) return;
     prefetchTradeChatShell();
-  }, [user?.id, listingOwnerId, showChat, prefetchTradeChatShell]);
+  }, [resolvedViewerId, listingOwnerId, showChat, prefetchTradeChatShell]);
 
   const chatCtaLabel = "채팅하기";
   const tradeChatCtaLabel = existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
@@ -1392,7 +1429,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       {post.type === "community" && (
         <PostCommunityCommentsSection
           postId={post.id}
-          currentUserId={user?.id ?? null}
+          currentUserId={resolvedViewerId ?? null}
         />
       )}
 
