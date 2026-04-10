@@ -6,7 +6,7 @@ import { HomeFeedView } from "@/components/home-feed/HomeFeedView";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
-import { TRADE_CONTENT_SHELL_CLASS } from "@/lib/trade/ui/content-shell";
+import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { TRADE_GAP_MENU_TO_POSTS_CLASS } from "@/lib/trade/ui/post-spacing";
 
 export function HomeContent() {
@@ -27,15 +27,11 @@ export function HomeContent() {
 
   return (
     <div
-      className="touch-pan-y min-w-0 w-full max-w-full"
+      className={`touch-pan-y min-w-0 w-full max-w-full ${APP_MAIN_GUTTER_X_CLASS} ${TRADE_GAP_MENU_TO_POSTS_CLASS}`}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <div
-        className={`${TRADE_CONTENT_SHELL_CLASS} ${TRADE_GAP_MENU_TO_POSTS_CLASS} min-w-0 max-w-full`}
-      >
-        <HomeFeedView />
-      </div>
+      <HomeFeedView />
     </div>
   );
 }
