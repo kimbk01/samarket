@@ -22,6 +22,7 @@ import {
   parseJsonBody,
   safeErrorMessage,
 } from "@/lib/http/api-route";
+import { loadIntegratedChatRoomMessageRowsForUser } from "@/lib/chats/server/load-chat-room-messages";
 
 export async function GET(
   req: NextRequest,
@@ -29,73 +30,20 @@ export async function GET(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
-  const userId = auth.userId;
-
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
-  }
   const { roomId } = await params;
-  const before = req.nextUrl.searchParams.get("before")?.trim();
-  const limit = Math.min(Number(req.nextUrl.searchParams.get("limit")) || 50, 100);
   if (!roomId) {
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
-
-  const [roomForGetRes, partRes] = await Promise.all([
-    sb
-      .from("chat_rooms")
-      .select("id, room_type, buyer_id, seller_id, store_order_id")
-      .eq("id", roomId)
-      .maybeSingle(),
-    sb
-      .from("chat_room_participants")
-      .select("id, hidden, left_at, is_active")
-      .eq("room_id", roomId)
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
-  const roomForGet = roomForGetRes.data;
-  const roomForGetErr = roomForGetRes.error;
-  if (roomForGetErr || !(roomForGet as { id?: string } | null)?.id) {
-    return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+  const result = await loadIntegratedChatRoomMessageRowsForUser({
+    roomId,
+    userId: auth.userId,
+    before: req.nextUrl.searchParams.get("before"),
+    limit: Number(req.nextUrl.searchParams.get("limit")) || 50,
+  });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
-
-  const sbAny = sb;
-  const rtGet = (roomForGet as { room_type?: string }).room_type ?? "";
-  if (rtGet === "store_order") {
-    return NextResponse.json({ error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
-  }
-  if (rtGet !== "item_trade") {
-    return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
-  }
-  {
-    const prGet = partRes.data as { hidden?: boolean; left_at?: string | null; is_active?: boolean | null } | null;
-    if (!prGet || prGet.hidden || prGet.left_at || prGet.is_active === false) {
-      return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
-    }
-  }
-
-  let q = sbAny
-    .from("chat_messages")
-    .select("id, room_id, sender_id, message_type, body, metadata, deleted_by_sender, is_hidden_by_admin, hidden_reason, created_at, read_at")
-    .eq("room_id", roomId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (before) {
-    const { data: beforeRow } = await sbAny.from("chat_messages").select("created_at").eq("id", before).maybeSingle();
-    if (beforeRow && typeof (beforeRow as { created_at: string }).created_at === "string") {
-      q = q.lt("created_at", (beforeRow as { created_at: string }).created_at);
-    }
-  }
-  const { data: messages, error } = await q;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const list = ((messages ?? []) as Array<Record<string, unknown>>)
-    .reverse()
-    .filter((message) => message.deleted_by_sender !== true);
-  return NextResponse.json({ messages: list });
+  return NextResponse.json({ messages: result.value });
 }
 
 export async function POST(

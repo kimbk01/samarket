@@ -16,10 +16,13 @@ import { getSimilarPosts } from "@/lib/posts/getSimilarPosts";
 import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { createReport } from "@/lib/reports/createReport";
-import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
-import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import {
+  TRADE_CHAT_SURFACE,
+  tradeHubChatComposeHref,
+  tradeHubChatRoomHref,
+} from "@/lib/chats/surfaces/trade-chat-surface";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -61,6 +64,7 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
+import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 
 const META_LABELS: Record<string, Record<string, string>> = {
   "real-estate": {
@@ -569,9 +573,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
   const [isChatNavPending, startChatNavTransition] = useTransition();
-  const chatCtaBusy = chatLoading || isChatNavPending;
+  const chatCtaBusy = isChatNavPending;
   const [chatError, setChatError] = useState("");
   /** 거래 글: 이 글·본인·판매자 기준으로 이미 열린 채팅방 (상품↔채팅 연동) */
   const [existingTradeRoomId, setExistingTradeRoomId] = useState<string | null>(null);
@@ -858,10 +861,9 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   const navigateToTradeChatRoom = useCallback(
     (roomId: string, sourceHint?: ChatRoomSource | null) => {
-      const path = `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(roomId)}`;
       warmChatRoomEntryById(roomId, sourceHint);
       startChatNavTransition(() => {
-        router.push(path);
+        router.push(tradeHubChatRoomHref(roomId));
       });
     },
     [router, startChatNavTransition]
@@ -870,12 +872,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const prefetchTradeChatShell = useCallback(() => {
     void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
     if (existingTradeRoomId) {
-      void router.prefetch(
-        `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(existingTradeRoomId)}`
-      );
+      void router.prefetch(tradeHubChatRoomHref(existingTradeRoomId));
       warmChatRoomEntryById(existingTradeRoomId, existingTradeRoomSource);
+      return;
     }
-  }, [router, existingTradeRoomId, existingTradeRoomSource]);
+    void router.prefetch(tradeHubChatComposeHref({ productId: post.id }));
+  }, [router, existingTradeRoomId, existingTradeRoomSource, post.id]);
 
   const handleChat = useCallback(async () => {
     setChatError("");
@@ -885,6 +887,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       return;
     }
     if (existingTradeRoomId) {
+      startTradeChatEntryMark({
+        mode: "existing",
+        productId: post.id,
+        roomId: existingTradeRoomId,
+        sourceHint: existingTradeRoomSource,
+      });
       navigateToTradeChatRoom(existingTradeRoomId, existingTradeRoomSource);
       return;
     }
@@ -897,17 +905,13 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       setChatError("다른 분과 예약이 진행 중인 상품입니다. 예약자가 아니면 새 채팅을 열 수 없어요.");
       return;
     }
-    setChatLoading(true);
-    const res = await createOrGetChatRoom(post.id);
-    setChatLoading(false);
-    if (res.ok) {
-      void router.prefetch(
-        `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(res.roomId)}`
-      );
-      navigateToTradeChatRoom(res.roomId);
-    } else {
-      setChatError(res.error ?? "채팅방을 열 수 없습니다.");
-    }
+    startTradeChatEntryMark({
+      mode: "create",
+      productId: post.id,
+    });
+    startChatNavTransition(() => {
+      router.push(tradeHubChatComposeHref({ productId: post.id }));
+    });
   }, [
     post.id,
     post.author_id,
@@ -916,6 +920,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     existingTradeRoomSource,
     chatBlockedByOtherReservation,
     navigateToTradeChatRoom,
+    startChatNavTransition,
   ]);
 
   const runCancelOwnSale = useCallback(async () => {

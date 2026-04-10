@@ -1,4 +1,8 @@
-import { NewChatRedirectClient } from "./NewChatRedirectClient";
+import { redirect } from "next/navigation";
+import {
+  TRADE_CHAT_SURFACE,
+  tradeHubChatComposeHref,
+} from "@/lib/chats/surfaces/trade-chat-surface";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
@@ -15,5 +19,8 @@ export default async function NewChatPage({
 }) {
   const sp = await searchParams;
   const productId = firstQueryString(sp.productId)?.trim() || null;
-  return <NewChatRedirectClient productId={productId} />;
+  if (!productId) {
+    redirect(TRADE_CHAT_SURFACE.hubPath);
+  }
+  redirect(tradeHubChatComposeHref({ productId }));
 }

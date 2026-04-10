@@ -80,6 +80,11 @@ import { playCoalescedOrderMatchChatAlert } from "@/lib/notifications/coalesced-
 import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
 import type { UserTrustSummary } from "@/lib/types/review";
 import { clampTrustScore } from "@/lib/trust/trust-score-core";
+import {
+  clearTradeChatEntryMark,
+  patchTradeChatEntryMark,
+  readTradeChatEntryMark,
+} from "@/lib/chats/trade-chat-entry-client";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 
 interface ChatDetailViewProps {
@@ -157,6 +162,7 @@ export function ChatDetailView({
   void _ownerStoreOrderModalChrome;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
+  const chatEntryFirstPaintLoggedRef = useRef<string | null>(null);
   const partnerId =
     room.buyerId === currentUserId ? room.sellerId : room.buyerId;
   const isGeneralPurposeChat = room.generalChat != null;
@@ -596,6 +602,27 @@ export function ChatDetailView({
     });
     return () => { cancelled = true; };
   }, [room.id, currentUserId, fetchMessages, isChatRoom]);
+
+  useEffect(() => {
+    if (messagesLoading) return;
+    if (chatEntryFirstPaintLoggedRef.current === room.id) return;
+    const mark = readTradeChatEntryMark();
+    if (!mark || mark.firstMessagePaintAt) return;
+    const next = patchTradeChatEntryMark({
+      firstMessagePaintAt: Date.now(),
+      roomId: room.id,
+    });
+    if (!next?.firstMessagePaintAt) return;
+    chatEntryFirstPaintLoggedRef.current = room.id;
+    logClientPerf("chat-entry.first-message-paint", {
+      mode: next.mode,
+      productId: next.productId,
+      roomId: room.id,
+      count: messages.length,
+      elapsedMs: Math.max(0, next.firstMessagePaintAt - next.startedAt),
+    });
+    clearTradeChatEntryMark();
+  }, [messages.length, messagesLoading, room.id]);
 
   // 당근형: 상대가 보낸 메시지 실시간 반영 — 판매자/구매자 다른 창에서도 답장 수신
   useEffect(() => {

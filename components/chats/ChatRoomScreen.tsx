@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getCurrentUserIdForDb, getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
@@ -13,7 +13,12 @@ import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-n
 import { fetchChatRoomDetailApi, peekChatRoomDetailMemory } from "@/lib/chats/fetch-chat-room-detail-api";
 import { fetchChatRoomBootstrapApi } from "@/lib/chats/fetch-chat-room-bootstrap-api";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
+import {
+  patchTradeChatEntryMark,
+  readTradeChatEntryMark,
+} from "@/lib/chats/trade-chat-entry-client";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
+import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
 
 export function ChatRoomScreen({
   roomId,
@@ -63,6 +68,8 @@ export function ChatRoomScreen({
   );
   const [loading, setLoading] = useState(() => Boolean(roomId && !peekChatRoomDetailMemory(roomId)));
   const [err, setErr] = useState<string | null>(null);
+  const chatEntryShellLoggedRef = useRef(false);
+  const chatEntryRoomReadyLoggedRef = useRef<string | null>(null);
 
   const reload = useCallback(async () => {
     const startedAt = perfNow();
@@ -233,6 +240,21 @@ export function ChatRoomScreen({
     warmChatRoomEntryById(roomId);
   }, [roomId]);
 
+  useEffect(() => {
+    if (chatEntryShellLoggedRef.current) return;
+    const mark = readTradeChatEntryMark();
+    if (!mark || mark.shellShownAt) return;
+    const next = patchTradeChatEntryMark({ shellShownAt: Date.now() });
+    if (!next?.shellShownAt) return;
+    chatEntryShellLoggedRef.current = true;
+    logClientPerf("chat-entry.shell-open", {
+      mode: next.mode,
+      productId: next.productId,
+      roomId: next.roomId ?? roomId,
+      elapsedMs: Math.max(0, next.shellShownAt - next.startedAt),
+    });
+  }, [roomId]);
+
   /** 라우트 roomId 변경 시 메모리 peek 로 즉시 복원 — 다른 방으로 바꿀 때만 */
   useEffect(() => {
     if (!roomId?.trim()) {
@@ -296,6 +318,23 @@ export function ChatRoomScreen({
   /** 비동기 `getCurrentUserIdForDb` 가 끝나기 전에도 프로필 캐시·테스트 세션이 있으면 즉시 사용 */
   const viewerForChat = (resolvedUserId ?? getSyncViewerUserIdForClient()) ?? null;
 
+  useEffect(() => {
+    if (!room || !viewerForChat) return;
+    if (chatEntryRoomReadyLoggedRef.current === room.id) return;
+    chatEntryRoomReadyLoggedRef.current = room.id;
+    const mark = readTradeChatEntryMark();
+    if (!mark || mark.roomResolvedAt) return;
+    const next = patchTradeChatEntryMark({ roomResolvedAt: Date.now(), roomId: room.id });
+    if (!next?.roomResolvedAt) return;
+    logClientPerf("chat-entry.room-ready", {
+      mode: next.mode,
+      productId: next.productId,
+      roomId: room.id,
+      source: room.source ?? null,
+      elapsedMs: Math.max(0, next.roomResolvedAt - next.startedAt),
+    });
+  }, [room, viewerForChat]);
+
   /** 메모리 peek + 뷰어 ID가 있으면 상세·메시지 로드와 병행해 바로 채팅 UI 표시 */
   if (room && viewerForChat) {
     const isStoreOrderChat = room.generalChat?.kind === "store_order";
@@ -333,13 +372,25 @@ export function ChatRoomScreen({
 
   if (resolvedUserId === undefined && !getSyncViewerUserIdForClient() && !room) {
     return (
-      <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
+      <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
+        <TradeChatLoadingShell
+          label={t("common_loading")}
+          description="채팅 화면을 준비 중이에요."
+          className="min-h-[50vh]"
+        />
+      </div>
     );
   }
 
   if (loading && !room) {
     return (
-      <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
+      <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
+        <TradeChatLoadingShell
+          label={t("common_loading")}
+          description="대화 내용을 불러오는 중이에요."
+          className="min-h-[50vh]"
+        />
+      </div>
     );
   }
 
@@ -384,11 +435,23 @@ export function ChatRoomScreen({
 
   if (room && !viewerForChat) {
     return (
-      <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
+      <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
+        <TradeChatLoadingShell
+          label={t("common_loading")}
+          description="채팅 화면을 이어서 준비 중이에요."
+          className="min-h-[50vh]"
+        />
+      </div>
     );
   }
 
   return (
-    <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
+    <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
+      <TradeChatLoadingShell
+        label={t("common_loading")}
+        description="채팅 화면을 준비 중이에요."
+        className="min-h-[50vh]"
+      />
+    </div>
   );
 }

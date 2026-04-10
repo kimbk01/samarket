@@ -172,6 +172,7 @@ export function CommunityDetail({
         const res = await fetch(philifePostCommentsUrl(post.id), { cache: "no-store" });
         const data = (await res.json()) as {
           ok?: boolean;
+          tree?: NeighborhoodCommentNode[];
           comments?: {
             id: string;
             post_id: string;
@@ -182,27 +183,34 @@ export function CommunityDetail({
             author_name: string;
           }[];
         };
-        if (!data.ok || !data.comments) return;
-        const rows = data.comments;
-        const nodes: NeighborhoodCommentNode[] = rows.map((r) => ({
-          id: r.id,
-          post_id: r.post_id,
-          user_id: r.user_id,
-          parent_id: r.parent_id,
-          content: r.content,
-          created_at: r.created_at,
-          author_name: r.author_name,
-          children: [],
-        }));
-        const byId = new Map(nodes.map((x) => [x.id, x]));
-        const roots: NeighborhoodCommentNode[] = [];
-        for (const x of nodes) {
-          if (x.parent_id && byId.has(x.parent_id)) {
-            byId.get(x.parent_id)!.children.push(x);
-          } else {
-            roots.push(x);
-          }
-        }
+        if (!data.ok) return;
+        const roots = Array.isArray(data.tree)
+          ? data.tree
+          : Array.isArray(data.comments)
+            ? (() => {
+                const nodes: NeighborhoodCommentNode[] = data.comments!.map((r) => ({
+                  id: r.id,
+                  post_id: r.post_id,
+                  user_id: r.user_id,
+                  parent_id: r.parent_id,
+                  content: r.content,
+                  created_at: r.created_at,
+                  author_name: r.author_name,
+                  children: [],
+                }));
+                const byId = new Map(nodes.map((x) => [x.id, x]));
+                const builtRoots: NeighborhoodCommentNode[] = [];
+                for (const x of nodes) {
+                  if (x.parent_id && byId.has(x.parent_id)) {
+                    byId.get(x.parent_id)!.children.push(x);
+                  } else {
+                    builtRoots.push(x);
+                  }
+                }
+                return builtRoots;
+              })()
+            : null;
+        if (!roots) return;
         setComments(roots);
         logClientPerf("community-detail.comments", {
           postId: post.id,
