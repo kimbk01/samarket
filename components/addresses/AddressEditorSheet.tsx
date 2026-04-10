@@ -1,20 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
-import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
-import { STORE_ADDRESS_BOOK_STREET_BLOCK_INTRO } from "@/lib/stores/store-address-form-ui";
-import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
-import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import {
-  formatPhMobileDisplay,
-  normalizeOptionalPhMobileDb,
-  parsePhMobileInput,
-} from "@/lib/utils/ph-mobile";
+import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { writeMapAddressPickContext } from "@/lib/map/map-address-pick-storage";
 
 type Mode = "create" | "edit";
+
+/**
+ * 작은 위치 미리보기 — Google Static Maps 는 Maps Static API·리퍼러 허용이 필요해 로컬에서 자주 깨짐.
+ * 실패 시 OpenStreetMap 정적 타일(키 불필요)로 폴백.
+ */
+function AddressMapThumb({ lat, lng }: { lat: number; lng: number }) {
+  const gkey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const candidates = useMemo(() => {
+    const q = [
+      ...(gkey
+        ? [
+            `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=17&size=128x128&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${gkey}`,
+          ]
+        : []),
+      `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=128x128&maptype=mapnik&markers=${lat},${lng},lightblue1`,
+    ];
+    return q;
+  }, [gkey, lat, lng]);
+
+  const [i, setI] = useState(0);
+  const src = candidates[i];
+
+  if (!src || i >= candidates.length) {
+    return (
+      <div
+        className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-ui-rect bg-gray-100 text-[11px] text-gray-400"
+        aria-hidden
+      >
+        지도
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- 외부 정적 지도 URL
+    <img
+      key={i}
+      src={src}
+      alt=""
+      width={72}
+      height={72}
+      className="h-[72px] w-[72px] shrink-0 rounded-ui-rect object-cover bg-gray-100"
+      loading="lazy"
+      decoding="async"
+      onError={() => setI((x) => x + 1)}
+    />
+  );
+}
 
 export function AddressEditorSheet(props: {
   open: boolean;
@@ -253,149 +293,39 @@ export function AddressEditorSheet(props: {
             >
               위치 선택
             </button>
-            {fullAddress.trim() || latitude != null ? (
-              <p className="mt-3 text-[13px] leading-relaxed text-gray-600">
-                {fullAddress.trim() ||
-                  (latitude != null && longitude != null
-                    ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
-                    : "")}
-              </p>
-            ) : (
-              <p className="mt-3 text-[13px] text-amber-800">위치를 선택해 주세요.</p>
-            )}
           </div>
 
-          <details className="group rounded-ui-rect border border-gray-100 bg-gray-50 open:bg-white">
-            <summary className="cursor-pointer list-none px-3 py-3 text-[14px] font-medium text-gray-800 [&::-webkit-details-marker]:hidden">
-              상세 주소·배달 정보 (선택)
-            </summary>
-            <div className="space-y-4 border-t border-gray-100 px-3 pb-4 pt-2">
-              <div>
-                <p className="mb-1 text-[12px] font-medium text-gray-700">라벨 유형</p>
-                <select
-                  value={labelType}
-                  onChange={(e) => setLabelType(e.target.value as UserAddressLabelType)}
-                  className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
-                >
-                  {(Object.keys(ADDRESS_LABEL_KO) as UserAddressLabelType[]).map((k) => (
-                    <option key={k} value={k}>
-                      {ADDRESS_LABEL_KO[k]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <p className="mb-1 text-[12px] font-medium text-gray-700">지번·건물 / 동·호</p>
-                <p className="mb-2 text-[11px] text-gray-500">{STORE_ADDRESS_BOOK_STREET_BLOCK_INTRO}</p>
-                <StoreAddressStreetDetailGrid
-                  addressStreetLine={streetAddress}
-                  addressDetail={unitFloorRoom}
-                  onAddressStreetLineChange={setStreetAddress}
-                  onAddressDetailChange={setUnitFloorRoom}
-                  inputClassName="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px]"
-                />
-              </div>
-              <div>
-                <p className="mb-1 text-[12px] font-medium text-gray-700">동네 표시명</p>
-                <input
-                  value={neighborhoodName}
-                  onChange={(e) => setNeighborhoodName(e.target.value)}
-                  placeholder="Barangay 등"
-                  className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px]"
-                />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="mb-1 text-[12px] font-medium text-gray-700">Province</p>
-                  <input
-                    value={province}
-                    onChange={(e) => setProvince(e.target.value)}
-                    className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
-                  />
-                </div>
-                <div>
-                  <p className="mb-1 text-[12px] font-medium text-gray-700">City / Municipality</p>
-                  <input
-                    value={cityMunicipality}
-                    onChange={(e) => setCityMunicipality(e.target.value)}
-                    className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
-                  />
-                </div>
-              </div>
-              <div>
-                <p className="mb-1 text-[12px] font-medium text-gray-700">Barangay</p>
-                <input
-                  value={barangay}
-                  onChange={(e) => setBarangay(e.target.value)}
-                  className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
-                />
-              </div>
-              <div>
-                <p className="mb-1 text-[12px] font-medium text-gray-700">Landmark</p>
-                <input
-                  value={landmark}
-                  onChange={(e) => setLandmark(e.target.value)}
-                  className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
-                />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="mb-1 text-[12px] font-medium text-gray-700">수령인</p>
-                  <input
-                    value={recipientName}
-                    onChange={(e) => setRecipientName(e.target.value)}
-                    className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
-                  />
-                </div>
-                <div>
-                  <p className="mb-1 text-[12px] font-medium text-gray-700">연락처</p>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={17}
-                    value={formatPhMobileDisplay(phoneNumber)}
-                    onChange={(e) => setPhoneNumber(parsePhMobileInput(e.target.value))}
-                    placeholder={PH_MOBILE_PLACEHOLDER}
-                    className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
-                  />
-                </div>
-              </div>
-              <div className="rounded-ui-rect bg-white px-2 py-2">
-                <p className="text-[12px] font-semibold text-gray-800">사용 용도</p>
-                <label className="mt-2 flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" checked={useLife} onChange={(e) => setUseLife(e.target.checked)} />
-                  생활 / 동네
-                </label>
-                <label className="mt-1 flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" checked={useTrade} onChange={(e) => setUseTrade(e.target.checked)} />
-                  중고거래
-                </label>
-                <label className="mt-1 flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" checked={useDel} onChange={(e) => setUseDel(e.target.checked)} />
-                  배달
-                </label>
-              </div>
-              <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white px-2 py-2">
-                <p className="text-[12px] font-semibold text-gray-800">저장 시 기본값으로</p>
-                <label className="mt-2 flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" checked={defMaster} onChange={(e) => setDefMaster(e.target.checked)} />
-                  대표 주소
-                </label>
-                <label className="mt-1 flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" checked={defLife} onChange={(e) => setDefLife(e.target.checked)} />
-                  생활 기본
-                </label>
-                <label className="mt-1 flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" checked={defTrade} onChange={(e) => setDefTrade(e.target.checked)} />
-                  거래 기본
-                </label>
-                <label className="mt-1 flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" checked={defDel} onChange={(e) => setDefDel(e.target.checked)} />
-                  배달 기본
-                </label>
-              </div>
+          {latitude != null && longitude != null ? (
+            <div className="flex gap-3">
+              <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-gray-700">
+                {fullAddress.trim() ||
+                  `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
+              </p>
+              <AddressMapThumb lat={latitude} lng={longitude} />
             </div>
-          </details>
+          ) : null}
+
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-[14px] font-medium text-gray-900">상세주소</p>
+              {unitFloorRoom.trim() ? (
+                <button
+                  type="button"
+                  onClick={() => setUnitFloorRoom("")}
+                  className="text-[13px] text-gray-400 hover:text-gray-700"
+                  aria-label="상세주소 지우기"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
+            <input
+              value={unitFloorRoom}
+              onChange={(e) => setUnitFloorRoom(e.target.value)}
+              placeholder="지번, 건물명, 동·호 등"
+              className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
 
           {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
         </div>

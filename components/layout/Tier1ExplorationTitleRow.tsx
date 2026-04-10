@@ -8,8 +8,8 @@ import {
   formatNeighborhoodRegionSubtitle,
 } from "@/lib/neighborhood/location-key";
 
-/** 내정보에서 동네·주소 관리 (필라이프 상단과 동일) */
-const MYPAGE_FOR_REGION_HREF = "/mypage";
+/** 필라이프·거래 홈 상단 동네 줄 — 주소 관리(대표 주소)로 이동 */
+const ADDRESS_MANAGEMENT_HREF = "/mypage/addresses";
 
 type Tier1ExplorationTitleRowProps = {
   /** 탐색 피드 화면 명 — 예: 필라이프, 홈 */
@@ -17,7 +17,7 @@ type Tier1ExplorationTitleRowProps = {
 };
 
 /**
- * 메인 1단 중앙 타이틀 — `페이지명 · (지역·동네…)` 형태, 주소 탭 시 내정보로 이동.
+ * 메인 1단 중앙 타이틀 — `페이지명 · (지역·동네…)` 형태, 주소 탭 시 주소 관리로 이동.
  * `MySubpageHeader`·`RegionBar`(/home)에서 필라이프와 동일 톤으로 사용.
  */
 export function Tier1ExplorationTitleRow({ segmentTitle }: Tier1ExplorationTitleRowProps) {
@@ -33,9 +33,9 @@ export function Tier1ExplorationTitleRow({ segmentTitle }: Tier1ExplorationTitle
         ·
       </span>
       <Link
-        href={MYPAGE_FOR_REGION_HREF}
+        href={ADDRESS_MANAGEMENT_HREF}
         className="min-w-0 flex-1 truncate text-[13px] font-normal leading-none text-[var(--text-muted)] hover:text-foreground hover:underline"
-        aria-label={`내 동네 ${addressLine}, 내 정보에서 변경`}
+        aria-label={`내 동네 ${addressLine}, 주소 관리에서 대표 주소 변경`}
       >
         {addressLine}
       </Link>

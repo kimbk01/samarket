@@ -21,6 +21,7 @@ import {
 } from "@/lib/profile/profile-location";
 import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-full-address";
 import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 
 function validate(p: { nickname: string }): { nickname?: string } {
   const errors: { nickname?: string } = {};
@@ -55,9 +56,12 @@ export function ProfileEditForm() {
   const [preferredLanguage, setPreferredLanguage] = useState("ko");
   const [preferredCountry, setPreferredCountry] = useState("PH");
   const [errors, setErrors] = useState<{ nickname?: string; phone?: string }>({});
+  const [addressList, setAddressList] = useState<UserAddressDTO[] | null>(null);
+  const [addressListErr, setAddressListErr] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setAddressListErr(false);
     const pick = consumeMapAddressPick();
     const data = await getMyProfile();
     if (!data) {
@@ -73,6 +77,19 @@ export function ProfileEditForm() {
       return;
     }
 
+    let rows: UserAddressDTO[] = [];
+    try {
+      const ar = await fetch("/api/me/addresses", { credentials: "include" });
+      const aj = (await ar.json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
+      if (ar.ok && aj.ok && Array.isArray(aj.addresses)) rows = aj.addresses;
+      else setAddressListErr(true);
+    } catch {
+      setAddressListErr(true);
+    }
+    setAddressList(rows);
+
+    const masterAddr = rows.find((a) => a.isDefaultMaster) ?? null;
+
     let merged: ProfileRow = { ...data };
     if (pick) {
       merged = {
@@ -80,6 +97,20 @@ export function ProfileEditForm() {
         latitude: pick.latitude,
         longitude: pick.longitude,
         full_address: pick.fullAddress,
+      };
+    } else if (
+      masterAddr &&
+      masterAddr.latitude != null &&
+      masterAddr.longitude != null &&
+      Number.isFinite(masterAddr.latitude) &&
+      Number.isFinite(masterAddr.longitude)
+    ) {
+      const fa = (masterAddr.fullAddress ?? "").trim();
+      merged = {
+        ...merged,
+        latitude: masterAddr.latitude,
+        longitude: masterAddr.longitude,
+        full_address: fa || (merged.full_address ?? ""),
       };
     }
 
@@ -90,10 +121,13 @@ export function ProfileEditForm() {
     setMapLat(merged.latitude ?? null);
     setMapLng(merged.longitude ?? null);
     setMapFullAddress((merged.full_address ?? "").trim());
-    // 지도에서 돌아온 경우: 역지오코딩 한 줄 + 같은 화면에서 입력한 상세주소
     setAddressStreetLine(pick ? "" : (merged.address_street_line ?? "").trim());
     setAddressDetail(
-      pick ? (pick.addressDetail ?? "").trim() : (merged.address_detail ?? "").trim(),
+      pick
+        ? (pick.addressDetail ?? "").trim()
+        : masterAddr
+          ? (masterAddr.unitFloorRoom ?? "").trim()
+          : (merged.address_detail ?? "").trim(),
     );
     setPhone(parsePhMobileInput(merged.phone ?? ""));
     setPreferredLanguage(merged.preferred_language ?? "ko");
@@ -116,7 +150,10 @@ export function ProfileEditForm() {
 
     const fa = mapFullAddress.trim();
     if (mapLat == null || mapLng == null || !fa) {
-      setMessage({ type: "error", text: "지도에서 위치를 선택해 주세요." });
+      setMessage({
+        type: "error",
+        text: "주소 관리에서 대표 주소를 등록하거나, 지도로 위치를 지정해 주세요.",
+      });
       return;
     }
 
@@ -192,7 +229,7 @@ export function ProfileEditForm() {
         onPreferredCountryChange={setPreferredCountry}
         errors={errors}
       />
-      <ProfileMapLocationBlock latitude={mapLat} longitude={mapLng} fullAddress={mapFullAddress} />
+      <ProfileMapLocationBlock addresses={addressList} listError={addressListErr} />
       <ProfileReadonlyFields profile={profile} />
 
       {message ? (

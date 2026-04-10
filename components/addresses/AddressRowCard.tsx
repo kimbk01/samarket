@@ -8,19 +8,44 @@ export function AddressRowCard(props: {
   row: UserAddressDTO;
   onEdit: () => void;
   onDelete: () => void;
+  /** 본문 탭 — 대표 주소로 지정(거래·동네·배달 기본) */
+  onSetAsRepresentative?: () => void;
   busyId: string | null;
 }) {
-  const { row, onEdit, onDelete, busyId: globalBusy } = props;
+  const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy } = props;
   const rowBusy = globalBusy === row.id;
-  const title = row.nickname?.trim() || ADDRESS_LABEL_KO[row.labelType];
+  const rawNick = row.nickname?.trim();
+  const title =
+    rawNick && rawNick.toLowerCase() !== "null" && rawNick.toLowerCase() !== "undefined"
+      ? rawNick
+      : ADDRESS_LABEL_KO[row.labelType];
   const sub = buildTradePublicLine(row);
 
   return (
     <li className="flex items-start gap-3 py-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-semibold text-gray-900">{title}</p>
+      <button
+        type="button"
+        disabled={rowBusy}
+        onClick={() => onSetAsRepresentative?.()}
+        className="min-w-0 flex-1 rounded-ui-rect px-0 py-0 text-left disabled:opacity-50"
+        aria-label={
+          row.isDefaultMaster
+            ? `${title}, 현재 대표 주소`
+            : `${title}, 탭하면 대표 주소로 지정`
+        }
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[15px] font-semibold text-gray-900">{title}</span>
+          {row.isDefaultMaster ? (
+            <span className="rounded-full bg-signature/10 px-2 py-0.5 text-[10px] font-semibold text-signature">
+              대표
+            </span>
+          ) : (
+            <span className="text-[10px] font-medium text-gray-400">탭하여 대표</span>
+          )}
+        </div>
         <p className="mt-0.5 text-[13px] leading-snug text-gray-500">{sub || "—"}</p>
-      </div>
+      </button>
       <div className="flex shrink-0 items-center gap-0.5">
         <button
           type="button"

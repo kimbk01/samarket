@@ -14,6 +14,8 @@ type MapPickerProps = {
   onMarkerPositionChange: (pos: LatLng) => void;
   /** `center`: 지도 중앙 고정 핀 — 지도를 드래그해 위치 지정 (참고 UI) */
   mode?: MapPickerMode;
+  /** `true`면 지도 드래그·줌을 막고, idle 로 좌표를 올리지 않음(상세 입력 단계 등) */
+  interactionLocked?: boolean;
   className?: string;
 };
 
@@ -24,17 +26,36 @@ function nearlyEqual(a: LatLng, b: LatLng): boolean {
 /**
  * Google Maps — marker: 클릭·핀 드래그 / center: 중앙 고정 + 지도 이동
  */
-export function MapPicker({ marker, onMarkerPositionChange, mode = "marker", className }: MapPickerProps) {
+export function MapPicker({
+  marker,
+  onMarkerPositionChange,
+  mode = "marker",
+  interactionLocked = false,
+  className,
+}: MapPickerProps) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const mkRef = useRef<google.maps.Marker | null>(null);
   const onMoveRef = useRef(onMarkerPositionChange);
   const idleListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const suppressIdleRef = useRef(false);
+  const lockRef = useRef(interactionLocked);
 
   useEffect(() => {
     onMoveRef.current = onMarkerPositionChange;
   }, [onMarkerPositionChange]);
+
+  useEffect(() => {
+    lockRef.current = interactionLocked;
+    const map = mapRef.current;
+    if (!map) return;
+    map.setOptions({
+      draggable: !interactionLocked,
+      scrollwheel: !interactionLocked,
+      disableDoubleClickZoom: interactionLocked,
+      gestureHandling: interactionLocked ? "none" : "auto",
+    });
+  }, [interactionLocked]);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +94,7 @@ export function MapPicker({ marker, onMarkerPositionChange, mode = "marker", cla
         });
       } else {
         idleListenerRef.current = map.addListener("idle", () => {
-          if (suppressIdleRef.current) return;
+          if (suppressIdleRef.current || lockRef.current) return;
           const c = map.getCenter();
           if (!c) return;
           onMoveRef.current({ lat: c.lat(), lng: c.lng() });

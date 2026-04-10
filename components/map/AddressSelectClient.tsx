@@ -20,6 +20,9 @@ type LatLng = { lat: number; lng: number };
 
 type Step = "settings" | "map";
 
+/** 위치 선택 화면: ① 지도에서 핀 맞춤 → ② 같은 화면에서 상세주소·확인 */
+type MapPhase = "pin" | "detail";
+
 function distMeters(a: LatLng, b: LatLng): number {
   const R = 6371000;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -78,8 +81,17 @@ export function AddressSelectClient() {
   /** 연필 수정 또는 지도 이동 전까지 역지오코딩 대신 사용 */
   const [manualAddress, setManualAddress] = useState<string | null>(null);
   const manualAnchorRef = useRef<LatLng | null>(null);
-  /** 같은 화면 하단 — 역지오코딩 줄 아래 상세(지번·건물명 등) */
+  /** ②단계: 상세 한 줄(지번·건물명 등) */
   const [detailLine, setDetailLine] = useState("");
+  const [mapPhase, setMapPhase] = useState<MapPhase>("pin");
+  /** ①단계 끝에서 고정된 좌표·역지오코딩(또는 연필) 한 줄 */
+  const [pinSnapshot, setPinSnapshot] = useState<{
+    lat: number;
+    lng: number;
+    baseAddress: string;
+  } | null>(null);
+  /** localStorage 기반 최근 주소는 SSR·첫 페인트에서 제외 — hydration 불일치 방지 */
+  const [recentLocalReady, setRecentLocalReady] = useState(false);
 
   const { text: geocodedAddress, busy: geocodeBusy } = useReverseGeocode(marker);
   const displayAddress = geocodedAddress;
@@ -101,6 +113,10 @@ export function AddressSelectClient() {
   }, [loadAddresses]);
 
   useEffect(() => {
+    setRecentLocalReady(true);
+  }, []);
+
+  useEffect(() => {
     void (async () => {
       try {
         await loadGoogleMaps();
@@ -116,6 +132,8 @@ export function AddressSelectClient() {
     setManualAddress(null);
     manualAnchorRef.current = null;
     setDetailLine("");
+    setMapPhase("pin");
+    setPinSnapshot(null);
     setGeoHint(null);
     setStep("map");
   }, []);
@@ -160,7 +178,7 @@ export function AddressSelectClient() {
   }, []);
 
   const recentMerged = useMemo(() => {
-    const local = readMapAddressRecent();
+    const local = recentLocalReady ? readMapAddressRecent() : [];
     const fromDb: MapAddressRecentItem[] = serverAddresses
       .filter((a) => a.latitude != null && a.longitude != null && (a.fullAddress?.trim() || a.streetAddress?.trim()))
       .slice(0, 8)
@@ -180,7 +198,7 @@ export function AddressSelectClient() {
       if (out.length >= 10) break;
     }
     return out;
-  }, [serverAddresses]);
+  }, [serverAddresses, recentLocalReady]);
 
   useEffect(() => {
     if (!manualAddress || !manualAnchorRef.current) return;
@@ -190,37 +208,49 @@ export function AddressSelectClient() {
     }
   }, [marker.lat, marker.lng, manualAddress]);
 
-  const shownAddress = (manualAddress ?? displayAddress).trim();
-  const confirmDisabled =
-    !shownAddress || (geocodeBusy && !manualAddress) || Boolean(mapsError);
+  const shownAddressPin = (manualAddress ?? displayAddress).trim();
+  const pinPrimaryDisabled =
+    !shownAddressPin || (geocodeBusy && !manualAddress) || Boolean(mapsError);
 
-  const onConfirm = useCallback(() => {
+  const onPinConfirm = useCallback(() => {
     const addr = (manualAddress ?? displayAddress).trim();
     if (!addr || mapsError) return;
+    setPinSnapshot({ lat: marker.lat, lng: marker.lng, baseAddress: addr });
+    setMapPhase("detail");
+    setDetailLine("");
+  }, [displayAddress, manualAddress, marker.lat, marker.lng, mapsError]);
+
+  const onFinalConfirm = useCallback(() => {
+    if (!pinSnapshot || mapsError) return;
     const detail = detailLine.trim();
     writeMapAddressPick({
-      latitude: marker.lat,
-      longitude: marker.lng,
-      fullAddress: addr,
+      latitude: pinSnapshot.lat,
+      longitude: pinSnapshot.lng,
+      fullAddress: pinSnapshot.baseAddress,
       addressDetail: detail || null,
     });
     pushMapAddressRecent({
-      latitude: marker.lat,
-      longitude: marker.lng,
-      address: detail ? `${addr} · ${detail}` : addr,
+      latitude: pinSnapshot.lat,
+      longitude: pinSnapshot.lng,
+      address: detail ? `${pinSnapshot.baseAddress} · ${detail}` : pinSnapshot.baseAddress,
     });
     router.back();
-  }, [detailLine, displayAddress, manualAddress, marker.lat, marker.lng, mapsError, router]);
+  }, [detailLine, pinSnapshot, mapsError, router]);
+
+  const mapMarkerPos =
+    mapPhase === "detail" && pinSnapshot
+      ? { lat: pinSnapshot.lat, lng: pinSnapshot.lng }
+      : marker;
 
   const openAddressEdit = useCallback(() => {
-    const v = window.prompt("주소 수정", shownAddress || displayAddress.trim());
+    const v = window.prompt("주소 수정", shownAddressPin || displayAddress.trim());
     if (v == null) return;
     const t = v.trim();
     if (t) {
       setManualAddress(t);
       manualAnchorRef.current = marker;
     }
-  }, [displayAddress, marker, shownAddress]);
+  }, [displayAddress, marker, shownAddressPin]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-ui-page">
@@ -305,6 +335,12 @@ export function AddressSelectClient() {
               <button
                 type="button"
                 onClick={() => {
+                  if (mapPhase === "detail") {
+                    setMapPhase("pin");
+                    setPinSnapshot(null);
+                    setDetailLine("");
+                    return;
+                  }
                   setStep("settings");
                   setGeoHint(null);
                   setManualAddress(null);
@@ -332,14 +368,15 @@ export function AddressSelectClient() {
               <>
                 <MapPicker
                   mode="center"
-                  marker={marker}
-                  onMarkerPositionChange={setMarker}
+                  marker={mapMarkerPos}
+                  onMarkerPositionChange={mapPhase === "detail" ? () => {} : setMarker}
+                  interactionLocked={mapPhase === "detail"}
                   className="absolute inset-0 h-full w-full"
                 />
                 <button
                   type="button"
                   onClick={() => void onMapMyLocation()}
-                  disabled={locating}
+                  disabled={locating || mapPhase === "detail"}
                   className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-ig-border bg-ui-surface shadow-md disabled:opacity-50"
                   aria-label="현재 위치로 이동"
                 >
@@ -360,48 +397,68 @@ export function AddressSelectClient() {
           <div className="safe-area-pb shrink-0 border-t border-ig-border bg-ui-surface px-3 pt-3">
             <div className="mx-auto flex max-w-lg flex-col gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               {geoHint ? <p className="text-[12px] text-red-700">{geoHint}</p> : null}
-              <div className="flex items-start gap-2 rounded-ui-rect bg-ui-page px-3 py-2.5">
-                <p className="min-h-[44px] flex-1 text-[14px] leading-snug text-ui-fg">
-                  {geocodeBusy && !manualAddress
-                    ? "주소를 불러오는 중…"
-                    : shownAddress || "지도를 움직여 주소를 지정하세요."}
-                </p>
-                <button
-                  type="button"
-                  onClick={openAddressEdit}
-                  className="shrink-0 rounded-ui-rect p-2 text-ui-muted hover:bg-ui-hover hover:text-ui-fg"
-                  aria-label="주소 수정"
-                >
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
-                    <path
-                      d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.83L17.33 5.5a2 2 0 0 0-2.83 0L4 15.5V20z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+              {mapPhase === "pin" ? (
+                <>
+                  <p className="text-[12px] font-medium text-ui-muted">선택한 위치</p>
+                  <div className="flex items-start gap-2 rounded-ui-rect bg-ui-page px-3 py-2.5">
+                    <p className="min-h-[44px] flex-1 text-[14px] leading-snug text-ui-fg">
+                      {geocodeBusy && !manualAddress
+                        ? "주소를 불러오는 중…"
+                        : shownAddressPin || "지도를 움직여 주소를 지정하세요."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={openAddressEdit}
+                      className="shrink-0 rounded-ui-rect p-2 text-ui-muted hover:bg-ui-hover hover:text-ui-fg"
+                      aria-label="주소 수정"
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path
+                          d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.83L17.33 5.5a2 2 0 0 0-2.83 0L4 15.5V20z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={pinPrimaryDisabled}
+                    onClick={onPinConfirm}
+                    className="w-full rounded-ui-rect bg-signature py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
+                  >
+                    선택한 위치로 설정
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-[12px] font-medium text-ui-muted">선택한 위치</p>
+                  <div className="rounded-ui-rect bg-ui-page px-3 py-2.5 text-[14px] leading-snug text-ui-fg">
+                    {pinSnapshot?.baseAddress ?? ""}
+                  </div>
+                  <label className="block">
+                    <span className="mb-1 block text-[12px] font-medium text-ui-muted">상세주소</span>
+                    <textarea
+                      value={detailLine}
+                      onChange={(e) => setDetailLine(e.target.value)}
+                      rows={2}
+                      placeholder="상세주소 (지번, 건물명, 호텔명을 입력하세요)"
+                      className="w-full resize-none rounded-ui-rect border border-ig-border bg-ui-page px-3 py-2.5 text-[14px] text-ui-fg placeholder:text-ui-muted"
+                      autoComplete="street-address"
                     />
-                  </svg>
-                </button>
-              </div>
-              <label className="block">
-                <span className="sr-only">상세 주소</span>
-                <textarea
-                  value={detailLine}
-                  onChange={(e) => setDetailLine(e.target.value)}
-                  rows={2}
-                  placeholder="상세주소 (지번, 건물명, 호텔명을 입력하세요)"
-                  className="w-full resize-none rounded-ui-rect border border-ig-border bg-ui-page px-3 py-2.5 text-[14px] text-ui-fg placeholder:text-ui-muted"
-                  autoComplete="street-address"
-                />
-              </label>
-              <button
-                type="button"
-                disabled={confirmDisabled}
-                onClick={onConfirm}
-                className="w-full rounded-ui-rect bg-signature py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
-              >
-                확인
-              </button>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={!pinSnapshot || Boolean(mapsError)}
+                    onClick={onFinalConfirm}
+                    className="w-full rounded-ui-rect bg-signature py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
+                  >
+                    확인
+                  </button>
+                </>
+              )}
               <Link
                 href={buildMypageItemHref("settings", "address")}
                 className="pb-1 text-center text-[12px] text-ui-muted underline"

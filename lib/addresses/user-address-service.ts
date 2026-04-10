@@ -27,6 +27,36 @@ function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
   });
 }
 
+/** 대표가 하나도 없으면 목록의 첫 번째(등록 순) 주소를 대표·생활·거래·배달 기본으로 통일 */
+async function assignFirstRowAsFullDefaultIfNoMaster(
+  sb: SupabaseClient<any>,
+  userId: string,
+  list: UserAddressDTO[],
+): Promise<void> {
+  if (list.length === 0 || list.some((x) => x.isDefaultMaster)) return;
+  const ordered = [...list].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+  const pick = ordered[0];
+  await clearDefaultColumn(sb, userId, "is_default_master");
+  await clearDefaultColumn(sb, userId, "is_default_life");
+  await clearDefaultColumn(sb, userId, "is_default_trade");
+  await clearDefaultColumn(sb, userId, "is_default_delivery");
+  const { error } = await sb
+    .from("user_addresses")
+    .update({
+      is_default_master: true,
+      is_default_life: true,
+      is_default_trade: true,
+      is_default_delivery: true,
+    })
+    .eq("id", pick.id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  await syncProfileRegionFromLifeDefault(sb, userId);
+}
+
 export async function listUserAddresses(
   sb: SupabaseClient<any>,
   userId: string
@@ -38,7 +68,19 @@ export async function listUserAddresses(
     .eq("is_active", true)
     .order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return sortAddressList((data ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
+  let list = sortAddressList((data ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
+  if (list.length > 0 && !list.some((x) => x.isDefaultMaster)) {
+    await assignFirstRowAsFullDefaultIfNoMaster(sb, userId, list);
+    const { data: data2, error: e2 } = await sb
+      .from("user_addresses")
+      .select(SEL)
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false });
+    if (e2) throw new Error(e2.message);
+    list = sortAddressList((data2 ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
+  }
+  return list;
 }
 
 export async function getUserAddressDefaults(

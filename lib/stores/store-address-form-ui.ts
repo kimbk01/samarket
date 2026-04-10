@@ -13,7 +13,9 @@ export const STORE_LOCATION_SECTION_HINT_STORE_PUBLIC =
 /** 로컬 mock 프로필 편집 등 */
 export const STORE_LOCATION_SECTION_HINT_MOCK_EDIT =
   "실제 매장은 기본 정보 화면과 동일하게 지역·동네·ZIP·지번·동·호를 입력합니다.";
-/** `/mypage/section/account/profile/edit` 프로필 수정 — 지도 위치(레거시 ZIP·드롭다운 없음) */
+/** `/mypage/section/account/profile/edit` 프로필 수정 — 주소록(대표=거래·동네·배달 기본) */
+export const PROFILE_ADDRESS_SECTION_TITLE = "주소";
+/** @deprecated PROFILE_ADDRESS_SECTION_TITLE 사용 */
 export const PROFILE_MAP_LOCATION_SECTION_TITLE = "위치";
 export const STORE_LOCATION_SECTION_HINT_PROFILE_EDIT =
   "Google 지도에서 핀으로 위치를 고르면 역지오코딩 주소·우편번호가 함께 저장됩니다. 생활·거래·배달 기본지는 주소록에서 따로 지정합니다.";

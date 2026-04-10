@@ -5,7 +5,10 @@ type Row = Record<string, unknown>;
 function str(v: unknown): string | null {
   if (v == null) return null;
   const s = String(v).trim();
-  return s.length ? s : null;
+  if (!s.length) return null;
+  const lower = s.toLowerCase();
+  if (lower === "null" || lower === "undefined" || lower === "nan") return null;
+  return s;
 }
 
 function num(v: unknown): number | null {

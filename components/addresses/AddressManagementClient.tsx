@@ -129,6 +129,33 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     setEditorOpen(true);
   }
 
+  async function setAsRepresentative(id: string) {
+    const row = list.find((a) => a.id === id);
+    if (!row || row.isDefaultMaster) return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/me/addresses/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isDefaultMaster: true,
+          isDefaultLife: true,
+          isDefaultTrade: true,
+          isDefaultDelivery: true,
+        }),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        alert(typeof j.error === "string" ? j.error : tt("대표 주소 설정 실패"));
+        return;
+      }
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className={embedded ? "" : "min-h-screen bg-background"}>
       {!embedded ? (
@@ -159,6 +186,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                   key={row.id}
                   row={row}
                   busyId={busyId}
+                  onSetAsRepresentative={() => void setAsRepresentative(row.id)}
                   onEdit={() => openEdit(row)}
                   onDelete={() => void removeRow(row.id)}
                 />
