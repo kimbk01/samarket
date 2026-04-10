@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
@@ -36,8 +37,8 @@ export function ChatRoomScreen({
   ownerStoreOrderModalChrome?: boolean;
 }) {
   const { t } = useI18n();
-  const [mounted, setMounted] = useState(false);
-  const currentUserId = mounted ? (getCurrentUser()?.id ?? null) : null;
+  /** `undefined`: 세션 확인 전 — 동기 `getCurrentUser()` 만으로는 Supabase 프로필 캐시가 비어 잘못 로그아웃으로 보일 수 있음 */
+  const [resolvedUserId, setResolvedUserId] = useState<string | null | undefined>(undefined);
 
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,8 @@ export function ChatRoomScreen({
       });
       return;
     }
-    if (!currentUserId) {
+    if (resolvedUserId === undefined) return;
+    if (!resolvedUserId) {
       setLoading(false);
       setRoom(null);
       setErr(null);
@@ -121,19 +123,31 @@ export function ChatRoomScreen({
     } finally {
       setLoading(false);
     }
-  }, [roomId, currentUserId]);
+  }, [roomId, resolvedUserId]);
 
   useEffect(() => {
-    setMounted(true);
+    let cancelled = false;
+    const resolveViewer = async () => {
+      const id = (await getCurrentUserIdForDb())?.trim() || null;
+      if (!cancelled) setResolvedUserId(id);
+    };
+    void resolveViewer();
+    const onAuthChange = () => {
+      void resolveViewer();
+    };
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChange);
+    };
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (resolvedUserId === undefined) return;
     void reload();
-  }, [mounted, reload]);
+  }, [resolvedUserId, reload]);
 
   useRefetchOnPageShowRestore(() => {
-    if (!mounted) return;
     void reload();
   });
 
@@ -164,13 +178,13 @@ export function ChatRoomScreen({
     );
   }
 
-  if (!mounted) {
+  if (resolvedUserId === undefined) {
     return (
       <div className={`flex items-center justify-center text-sm text-muted ${embeddedEmptyClass}`}>{t("common_loading")}</div>
     );
   }
 
-  if (!currentUserId) {
+  if (!resolvedUserId) {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
         <p className="text-sm text-gray-600">{t("common_login_required")}</p>
@@ -242,7 +256,7 @@ export function ChatRoomScreen({
     <div className={outerClass}>
       <ChatDetailView
         room={room}
-        currentUserId={currentUserId}
+        currentUserId={resolvedUserId}
         onRoomReload={() => void reload()}
         openReviewOnMount={openReviewOnMount}
         listHref={listHref}
