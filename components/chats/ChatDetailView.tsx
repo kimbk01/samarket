@@ -1454,7 +1454,7 @@ export function ChatDetailView({
               >
                 <AppBackButton
                   preferHistoryBack
-                  backHref={isStoreOrderChat ? effectiveListHref : undefined}
+                  backHref={effectiveListHref}
                   ariaLabel="이전 화면"
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2">

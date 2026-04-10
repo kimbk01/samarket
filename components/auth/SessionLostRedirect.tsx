@@ -10,6 +10,10 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 const SESSION_CHECK_INTERVAL_MS = 90_000;
 const SESSION_CHECK_COOLDOWN_MS = 10_000;
+/** 라우트 전환 직후 쿠키·RSC 타이밍 레이스로 `/api/auth/session` 이 일시 401일 수 있음 — 즉시 검사하지 않음 */
+const PATHNAME_SESSION_DEBOUNCE_MS = 500;
+/** 401 시 refresh 후에도 몇 번 더 재시도(뒤로가기·빠른 전환 시 오탐 로그아웃 방지) */
+const SESSION_UNAUTH_MAX_ATTEMPTS = 4;
 
 /** Supabase 세션이 없는데 (main) 셸이 남은 경우 → 로그인으로 강제 이동 (bfcache·클라 캐시 완화) */
 const SESSION_CHECK_FLIGHT = "client:auth-session-check";
@@ -47,42 +51,42 @@ export function SessionLostRedirect() {
 
     await runSingleFlight(SESSION_CHECK_FLIGHT, async () => {
       try {
-        const res = await fetch("/api/auth/session", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (res.ok) return;
-        /** 서버·게이트웨이 오류는 로그아웃으로 취급하지 않음(일시 장애로 세션 끊김 방지) */
-        if (res.status >= 500 || res.status === 429) return;
-
-        /** 401 등: 브라우저에서 refresh 한 번 시도 후 재검사 — 갱신 쿠키 반영 지연·Route Handler 쿠키 이슈 완화 */
-        if (res.status === 401) {
-          const sb = getSupabaseClient();
-          try {
-            await sb?.auth.refreshSession();
-          } catch {
-            /* ignore */
-          }
-          await new Promise((r) => setTimeout(r, 350));
-          const res2 = await fetch("/api/auth/session", {
+        for (let attempt = 0; attempt < SESSION_UNAUTH_MAX_ATTEMPTS; attempt++) {
+          const res = await fetch("/api/auth/session", {
             credentials: "include",
             cache: "no-store",
           });
-          if (res2.ok) return;
-          if (res2.status >= 500 || res2.status === 429) return;
-        }
+          if (res.ok) return;
+          if (res.status >= 500 || res.status === 429) return;
+          if (res.status === 403) return;
+          if (res.status !== 401) return;
 
-        await handleSessionLost();
+          if (attempt < SESSION_UNAUTH_MAX_ATTEMPTS - 1) {
+            const sb = getSupabaseClient();
+            try {
+              await sb?.auth.refreshSession();
+            } catch {
+              /* ignore */
+            }
+            await new Promise((r) => setTimeout(r, 280 + attempt * 120));
+            continue;
+          }
+          await handleSessionLost();
+          return;
+        }
       } catch {
         /** 네트워크 끊김 등 — 자동 로그아웃 안 함 */
       }
     });
   }, [handleSessionLost]);
 
-  /** 경로가 바뀔 때만 세션 확인(리스너·interval 은 아래 effect 에서 1회만 등록) */
+  /** 경로 변경: 직후 한 틱에 검사하면 전환·쿠키 레이스로 오탐 — 디바운스 */
   useLayoutEffect(() => {
     pathnameRef.current = pathname;
-    void check();
+    const t = window.setTimeout(() => {
+      void check();
+    }, PATHNAME_SESSION_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
   }, [pathname, check]);
 
   useRefetchOnPageShowRestore(() => void check(true), { visibilityDebounceMs: 400 });

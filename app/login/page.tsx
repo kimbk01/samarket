@@ -31,6 +31,9 @@ function safeInternalPath(raw: string): string {
   if (!t.startsWith("/") || t.startsWith("//")) return POST_LOGIN_PATH;
   const noQuery = t.split("?")[0].split("#")[0];
   if (noQuery.includes(":")) return POST_LOGIN_PATH;
+  /** 로그인/가입 페이지를 `next`로 두면 성공 후 루프·빈 화면 — 홈으로 고정 */
+  if (noQuery === "/login" || noQuery.startsWith("/login/")) return POST_LOGIN_PATH;
+  if (noQuery === "/signup" || noQuery.startsWith("/signup/")) return POST_LOGIN_PATH;
   return t;
 }
 
@@ -103,6 +106,12 @@ function LoginPageContent() {
     await new Promise<void>((r) => {
       requestAnimationFrame(() => requestAnimationFrame(() => r()));
     });
+    /** 서버 Route Handler 세션과 동기화 — 바로 다음 HTML 요청이 401·로그인 루프 나는 것 완화 */
+    try {
+      await fetch("/api/auth/session", { credentials: "include", cache: "no-store" });
+    } catch {
+      /* ignore */
+    }
     setLoading(false);
     /**
      * `router.push` 만 쓰면 로그인 직후 RSC/프록시가 쿠키 없이 돌고 `/login` 으로 튕기는 경우가 있음.
