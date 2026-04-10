@@ -54,10 +54,14 @@ export function ChatProductSummary({
     <div
       className={`flex items-stretch overflow-hidden transition-shadow hover:shadow-[0_3px_8px_rgba(0,0,0,0.12)] ${APP_FEED_LIST_CARD_SHELL}`}
     >
-      <div className="flex min-w-0 flex-1 items-stretch gap-3 p-3 sm:gap-3.5 md:gap-4">
+      <div className="flex min-w-0 flex-1 items-start gap-2.5 p-3 sm:items-stretch sm:gap-3.5 md:gap-4">
+        {/*
+          피드 PostCard 와 동일하게 썸네일은 고정 정사각 — self-stretch 금지(텍스트 열이 길어질 때 세로로 늘어나 모바일에서 과도한 높이).
+          좁은 화면에서는 88px 로 조금 더 작게.
+        */}
         <Link
           href={detailHref}
-          className="relative w-[100px] shrink-0 self-stretch overflow-hidden rounded-ui-rect bg-ig-highlight transition active:opacity-90 sm:w-[108px] md:min-h-[108px] md:w-[120px]"
+          className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight transition active:opacity-90 sm:h-[100px] sm:w-[100px]"
           aria-label={`${product.title || "상품"} 썸네일 상세 보기`}
         >
           {product.thumbnail ? (
@@ -82,7 +86,7 @@ export function ChatProductSummary({
             </div>
           )}
         </Link>
-        <div className="flex min-h-[100px] min-w-0 flex-1 flex-col justify-center md:min-h-0 md:justify-start">
+        <div className="flex min-h-[88px] min-w-0 flex-1 flex-col justify-center sm:min-h-[100px] md:min-h-0 md:justify-start">
           {headerPreview && !isPhilifeCard ? (
             <>
               <Link
