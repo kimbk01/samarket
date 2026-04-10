@@ -226,6 +226,17 @@ export function buildDeliveryDetailLines(a: UserAddressDTO): string {
   return lines.join("\n");
 }
 
+/**
+ * 주소 관리 카드 본문 — **전체 주소** 한 줄 (헤더·거래 요약용 `buildTradePublicLine` 과 별개).
+ */
+export function buildAddressManagementListPrimaryLine(a: UserAddressDTO): string {
+  const fa = a.fullAddress?.trim();
+  if (fa && !isDisplayNullish(fa)) return fa;
+  const detail = buildDeliveryDetailLines(a).trim();
+  if (detail) return detail.replace(/\n/g, ", ");
+  return buildTradePublicLine(a);
+}
+
 export type CheckoutDeliveryPayload = {
   user_address_id: string;
   recipient_name: string | null;

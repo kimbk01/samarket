@@ -24,7 +24,7 @@ import {
 } from "@/lib/exchange/form-options";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
-import { LocationSelector } from "../shared/LocationSelector";
+import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 
@@ -72,6 +72,10 @@ export function ExchangeWriteForm({
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
+  const syncTradeRegionCity = useCallback((rid: string, cid: string) => {
+    setRegion(rid);
+    setCity(cid);
+  }, []);
 
   const [direction, setDirection] = useState<"sell" | "buy">("sell");
   const [liveRates, setLiveRates] = useState<ExchangeRates | null>(null);
@@ -215,7 +219,8 @@ export function ExchangeWriteForm({
         "페소 삽니다: 판매자 준비물·구매자 준비물을 각각 한 가지 이상 선택해 주세요.";
     }
     if (hasLocation && (!region || !city)) {
-      next.location = "지역과 동네를 선택해 주세요.";
+      next.location =
+        "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -384,14 +389,16 @@ export function ExchangeWriteForm({
         </section>
 
         {hasLocation && (
-          <LocationSelector
-            region={region}
-            city={city}
-            onRegionChange={setRegion}
-            onCityChange={setCity}
-            error={errors.location}
-            label="거래 지역"
-          />
+          <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+            <TradeDefaultLocationBlock
+              editPostId={editPostId}
+              region={region}
+              city={city}
+              onSyncRegionCity={syncTradeRegionCity}
+              error={errors.location}
+              readOnly={coreLocked}
+            />
+          </div>
         )}
 
         {/* 기준 환율 | 기준 환율 + (가산) — 한 행 50% 분할 */}

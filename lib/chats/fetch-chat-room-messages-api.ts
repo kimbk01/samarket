@@ -94,6 +94,30 @@ const MESSAGE_CACHE_TTL_MS = CHAT_MESSAGE_CLIENT_CACHE_TTL_MS;
 type MessageCacheEntry = { messages: ChatMessage[]; updatedAt: number };
 const integratedMessageCache = new Map<string, MessageCacheEntry>();
 const legacyMessageCache = new Map<string, MessageCacheEntry>();
+/** TTL 지난 항목이 `read` 없이 쌓이면 Map 이 커져 장시간 탭에서 메모리·GC 부담 — 쓰기 시 정리 */
+const MAX_MESSAGE_CACHE_ROOMS = 64;
+
+function pruneExpiredMessageCache(cache: Map<string, MessageCacheEntry>) {
+  const now = Date.now();
+  for (const [k, v] of cache) {
+    if (now - v.updatedAt > MESSAGE_CACHE_TTL_MS) cache.delete(k);
+  }
+}
+
+function evictOldestMessageCacheIfNeeded(cache: Map<string, MessageCacheEntry>) {
+  while (cache.size > MAX_MESSAGE_CACHE_ROOMS) {
+    let oldestKey: string | null = null;
+    let oldestAt = Infinity;
+    for (const [k, v] of cache) {
+      if (v.updatedAt < oldestAt) {
+        oldestAt = v.updatedAt;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey == null) break;
+    cache.delete(oldestKey);
+  }
+}
 
 function cloneChatMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.map((message) => ({
@@ -126,8 +150,10 @@ function hasFreshMessageCache(cache: Map<string, MessageCacheEntry>, roomId: str
 }
 
 function writeMessageCache(cache: Map<string, MessageCacheEntry>, roomId: string, messages: ChatMessage[]): ChatMessage[] {
+  pruneExpiredMessageCache(cache);
   const cloned = cloneChatMessages(messages);
   cache.set(roomId, { messages: cloned, updatedAt: Date.now() });
+  evictOldestMessageCacheIfNeeded(cache);
   return cloneChatMessages(cloned);
 }
 

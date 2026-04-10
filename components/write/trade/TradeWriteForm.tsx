@@ -109,7 +109,7 @@ import { getCurrencyUnitLabel, formatPriceInput } from "@/lib/utils/format";
 import { REGIONS, getLocationLabel } from "@/lib/products/form-options";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
-import { LocationSelector } from "../shared/LocationSelector";
+import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 
@@ -193,31 +193,10 @@ export function TradeWriteForm({
     setTradeTopicChildId("");
   }, [category.id]);
 
-  useEffect(() => {
-    if (editPostId) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/me/address-defaults", { credentials: "include" });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          defaults?: { trade?: { appRegionId?: string | null; appCityId?: string | null } | null };
-        };
-        if (!res.ok || !j.ok || !j.defaults?.trade || cancelled) return;
-        const t = j.defaults.trade;
-        const rid = t.appRegionId?.trim() ?? "";
-        const cid = t.appCityId?.trim() ?? "";
-        if (!rid || !cid) return;
-        setRegion((prev) => prev || rid);
-        setCity((prev) => prev || cid);
-      } catch {
-        /* 미로그인·미마이그레이션 */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [editPostId]);
+  const syncTradeRegionCity = useCallback((rid: string, cid: string) => {
+    setRegion(rid);
+    setCity(cid);
+  }, []);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;
@@ -270,10 +249,9 @@ export function TradeWriteForm({
       const priceNum = price.trim() ? Number(price.replace(/,/g, "")) : NaN;
       if (!price.trim() || isNaN(priceNum) || priceNum < 0) next.price = isRealEstateSale ? "판매가를 입력해 주세요." : "가격을 입력해 주세요.";
     }
-    if (skinKey === "real-estate" && (!region || !city))
-      next.location = "지역과 동네를 선택해 주세요.";
-    else if (hasLocation && (!region || !city))
-      next.location = "지역과 동네를 선택해 주세요.";
+    if (hasLocation && (!region || !city))
+      next.location =
+        "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
     if (skinKey === "real-estate") {
       if (!buildingName.trim()) next.buildingName = "건물명을 입력해 주세요.";
       if (!estateType.trim()) next.estateType = "타입을 선택해 주세요.";
@@ -509,22 +487,20 @@ export function TradeWriteForm({
           />
         </div>
         {skinKey === "real-estate" ? (
-          <section
-            className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-          >
-            <div className="space-y-3">
-              <LocationSelector
-                embedded
+          <>
+            <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+              <TradeDefaultLocationBlock
+                editPostId={editPostId}
                 region={region}
                 city={city}
-                onRegionChange={(id) => {
-                  setRegion(id);
-                  setCity("");
-                }}
-                onCityChange={setCity}
+                onSyncRegionCity={syncTradeRegionCity}
                 error={errors.location}
-                label="지역 · 동네"
+                readOnly={coreLocked}
               />
+            </div>
+            <section
+              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            >
               <div>
                 <label className="mb-1 block text-[13px] text-gray-700">
                   건물명 <span className="text-red-500">*</span>
@@ -535,15 +511,15 @@ export function TradeWriteForm({
                   onChange={(e) => setBuildingName(e.target.value)}
                   readOnly={coreLocked}
                   className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
-                  placeholder="단지·건물명만 입력 (지역은 위에서 선택)"
+                  placeholder="단지·건물명만 입력 (거래 지역은 대표 주소 기준)"
                   aria-invalid={!!errors.buildingName}
                 />
                 {errors.buildingName && (
                   <p className="mt-1 text-[13px] text-red-500">{errors.buildingName}</p>
                 )}
               </div>
-            </div>
-          </section>
+            </section>
+          </>
         ) : skinKey === "used-car" ? (
           <section
             className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
@@ -1071,13 +1047,16 @@ export function TradeWriteForm({
           </section>
         )}
         {hasLocation && skinKey !== "real-estate" && (
-          <LocationSelector
-            region={region}
-            city={city}
-            onRegionChange={setRegion}
-            onCityChange={setCity}
-            error={errors.location}
-          />
+          <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+            <TradeDefaultLocationBlock
+              editPostId={editPostId}
+              region={region}
+              city={city}
+              onSyncRegionCity={syncTradeRegionCity}
+              error={errors.location}
+              readOnly={coreLocked}
+            />
+          </div>
         )}
         {errors.submit && (
           <p className="px-4 py-2 text-[13px] text-red-500">{errors.submit}</p>

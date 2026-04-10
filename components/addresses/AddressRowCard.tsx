@@ -4,7 +4,7 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
 import {
   buildAddressListDetailLine,
-  buildTradePublicLine,
+  buildAddressManagementListPrimaryLine,
   stripCountryFromAddressDisplayLine,
 } from "@/lib/addresses/user-address-format";
 
@@ -23,7 +23,10 @@ export function AddressRowCard(props: {
     rawNick && rawNick.toLowerCase() !== "null" && rawNick.toLowerCase() !== "undefined"
       ? rawNick
       : ADDRESS_LABEL_KO[row.labelType];
-  const sub = stripCountryFromAddressDisplayLine(buildTradePublicLine(row), row.countryName);
+  const sub = stripCountryFromAddressDisplayLine(
+    buildAddressManagementListPrimaryLine(row),
+    row.countryName
+  );
   const detailLine = buildAddressListDetailLine(row, sub);
 
   return (

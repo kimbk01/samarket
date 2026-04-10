@@ -33,7 +33,7 @@ import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
-import { LocationSelector } from "../shared/LocationSelector";
+import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
@@ -94,6 +94,10 @@ export function JobsWriteForm({
   const [description, setDescription] = useState("");
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
+  const syncTradeRegionCity = useCallback((rid: string, cid: string) => {
+    setRegion(rid);
+    setCity(cid);
+  }, []);
   const [tradeTopicChildId, setTradeTopicChildId] = useState("");
 
   const [todayMin, setTodayMin] = useState("");
@@ -175,7 +179,10 @@ export function JobsWriteForm({
         next.workCategoryOther = `기타 업종은 최대 ${WORK_CATEGORY_OTHER_MAX}자예요.`;
       }
     }
-    if (!region.trim() || !city.trim()) next.region = "지역과 동네를 선택해 주세요.";
+    if (!region.trim() || !city.trim()) {
+      next.region =
+        "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
+    }
     if (!description.trim()) next.description = "상세 내용을 입력해 주세요.";
     if (description.trim().length > JOB_DESCRIPTION_MAX) {
       next.description = `설명은 최대 ${JOB_DESCRIPTION_MAX}자까지예요.`;
@@ -480,20 +487,16 @@ export function JobsWriteForm({
           )}
         </section>
 
-        <section
-          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-        >
-          <LocationSelector
-            embedded
+        <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+          <TradeDefaultLocationBlock
+            editPostId={editPostId}
             region={region}
             city={city}
-            onRegionChange={setRegion}
-            onCityChange={setCity}
+            onSyncRegionCity={syncTradeRegionCity}
             error={errors.region}
-            label="지역 · 동네"
-            showRequired
+            readOnly={coreLocked}
           />
-        </section>
+        </div>
 
         <section
           className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}

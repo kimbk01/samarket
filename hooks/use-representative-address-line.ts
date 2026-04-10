@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import {
   buildTradePublicLine,
   stripCountryFromAddressDisplayLine,
@@ -22,46 +23,50 @@ function coerceMaster(raw: unknown): UserAddressDTO | null {
 }
 
 /**
- * 대표(master) 주소 한 줄 — `buildTradePublicLine`(전체 주소 우선)과 동일.
- * 첫 응답 전에는 `loading`만 두어 프로필 폴백(예: Manila만) 깜빡임을 막는다.
+ * 대표(master) 주소 한 줄 — `buildTradePublicLine` 기준.
+ * 경로 변경·뒤로 가기(popstate) 시 다시 불러와 주소 관리 반영.
  */
 export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
+  const pathname = usePathname();
   const [state, setState] = useState<RepresentativeAddressLineState>({ status: "loading" });
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/me/address-defaults", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          defaults?: { master?: unknown };
-        };
-        if (cancelled) return;
-        if (!res.ok || !j.ok) {
-          setState({ status: "ready", line: null });
-          return;
-        }
-        const raw = j.defaults?.master;
-        const m = coerceMaster(raw);
-        if (!m?.id) {
-          setState({ status: "ready", line: null });
-          return;
-        }
-        const s = stripCountryFromAddressDisplayLine(buildTradePublicLine(m), m.countryName).trim();
-        setState({ status: "ready", line: s || null });
-      } catch {
-        if (!cancelled) setState({ status: "ready", line: null });
+  const load = useCallback(async () => {
+    setState({ status: "loading" });
+    try {
+      const res = await fetch("/api/me/address-defaults", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        defaults?: { master?: unknown };
+      };
+      if (!res.ok || !j.ok) {
+        setState({ status: "ready", line: null });
+        return;
       }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
+      const raw = j.defaults?.master;
+      const m = coerceMaster(raw);
+      if (!m?.id) {
+        setState({ status: "ready", line: null });
+        return;
+      }
+      const s = stripCountryFromAddressDisplayLine(buildTradePublicLine(m), m.countryName).trim();
+      setState({ status: "ready", line: s || null });
+    } catch {
+      setState({ status: "ready", line: null });
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [pathname, load]);
+
+  useEffect(() => {
+    const onPop = () => void load();
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [load]);
 
   return state;
 }

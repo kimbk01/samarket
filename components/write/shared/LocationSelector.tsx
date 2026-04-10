@@ -61,7 +61,7 @@ export function LocationSelector({
   embedded = false,
   className = "",
   showRequired = true,
-  showZipLookup = true,
+  showZipLookup = false,
   philippinesZipSeed,
   onPhilippinesZipCommitted,
 }: LocationSelectorProps) {

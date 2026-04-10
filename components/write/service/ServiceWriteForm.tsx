@@ -8,7 +8,7 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
-import { LocationSelector } from "../shared/LocationSelector";
+import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 
 /** post_type: 요청형(request/service_request 등) vs 글쓰기형(post/normal 등) */
@@ -37,6 +37,10 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
   const [contactMethod, setContactMethod] = useState("");
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
+  const syncTradeRegionCity = useCallback((rid: string, cid: string) => {
+    setRegion(rid);
+    setCity(cid);
+  }, []);
   const [images, setImages] = useState<ImageUploadItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +54,8 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
       if (!content.trim()) next.content = "설명을 입력해 주세요.";
     }
     if (hasLocation && !isRequest && (!region || !city)) {
-      next.location = "지역과 동네를 선택해 주세요.";
+      next.location =
+        "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -177,13 +182,11 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
               )}
             </section>
             {hasLocation && (
-              <LocationSelector
+              <TradeDefaultLocationBlock
                 region={region}
                 city={city}
-                onRegionChange={setRegion}
-                onCityChange={setCity}
+                onSyncRegionCity={syncTradeRegionCity}
                 error={errors.location}
-                label="거래 지역"
               />
             )}
           </>

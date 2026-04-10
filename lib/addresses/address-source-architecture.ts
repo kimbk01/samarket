@@ -15,8 +15,8 @@
  *   `is_default_life`, `is_default_trade`, `is_default_delivery` (유저당 기본 1개씩)
  * - 갱신: `POST|PATCH /api/me/addresses`, 주소록 UI
  * - 소비:
- *   - 거래 글 작성 기본 지역: `GET /api/me/address-defaults` → `defaults.trade` 의
- *     `app_region_id` / `app_city_id` (예: `TradeWriteForm`)
+ *   - 거래 글 작성 기본 지역: `GET /api/me/address-defaults` → **`defaults.master`(대표) 우선**,
+ *     없으면 `defaults.trade` 의 `app_region_id` / `app_city_id` (`TradeDefaultLocationBlock`)
  *   - 생활 동네 요약: `defaults.life` + `summarizeLifeDefaultAppLocation`
  *   - 배달 기본: `defaults.delivery` → 체크아웃 등
  * - **프로필만 저장해도 이 테이블은 바뀌지 않음** → 거래/배달 기본을 프로필과 맞추려면
