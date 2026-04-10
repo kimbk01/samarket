@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
-import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
 import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
 import { STORE_ADDRESS_BOOK_STREET_BLOCK_INTRO } from "@/lib/stores/store-address-form-ui";
 import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
@@ -13,6 +12,7 @@ import {
   normalizeOptionalPhMobileDb,
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
+import { writeMapAddressPickContext } from "@/lib/map/map-address-pick-storage";
 
 type Mode = "create" | "edit";
 
@@ -20,10 +20,12 @@ export function AddressEditorSheet(props: {
   open: boolean;
   mode: Mode;
   initial: UserAddressDTO | null;
+  /** 부모가 `/address/select` 복귀 시 sessionStorage 에서 소비한 좌표·주소 */
+  mapBootstrap?: { latitude: number; longitude: number; fullAddress: string } | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { open, mode, initial, onClose, onSaved } = props;
+  const { open, mode, initial, mapBootstrap = null, onClose, onSaved } = props;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -73,9 +75,15 @@ export function AddressEditorSheet(props: {
         setUnitFloorRoom(initial.unitFloorRoom ?? "");
       }
       setLandmark(initial.landmark ?? "");
-      setLatitude(initial.latitude ?? null);
-      setLongitude(initial.longitude ?? null);
-      setFullAddress(initial.fullAddress ?? "");
+      if (mapBootstrap) {
+        setLatitude(mapBootstrap.latitude);
+        setLongitude(mapBootstrap.longitude);
+        setFullAddress(mapBootstrap.fullAddress.trim());
+      } else {
+        setLatitude(initial.latitude ?? null);
+        setLongitude(initial.longitude ?? null);
+        setFullAddress(initial.fullAddress ?? "");
+      }
       setNeighborhoodName(initial.neighborhoodName ?? "");
       setUseLife(initial.useForLife);
       setUseTrade(initial.useForTrade);
@@ -97,9 +105,15 @@ export function AddressEditorSheet(props: {
       setStreetAddress("");
       setUnitFloorRoom("");
       setLandmark("");
-      setLatitude(null);
-      setLongitude(null);
-      setFullAddress("");
+      if (mapBootstrap) {
+        setLatitude(mapBootstrap.latitude);
+        setLongitude(mapBootstrap.longitude);
+        setFullAddress(mapBootstrap.fullAddress.trim());
+      } else {
+        setLatitude(null);
+        setLongitude(null);
+        setFullAddress("");
+      }
       setNeighborhoodName("");
       setUseLife(true);
       setUseTrade(true);
@@ -109,16 +123,7 @@ export function AddressEditorSheet(props: {
       setDefTrade(false);
       setDefDel(false);
     }
-  }, [open, mode, initial]);
-
-  useEffect(() => {
-    if (!open) return;
-    const pick = consumeMapAddressPick();
-    if (!pick) return;
-    setLatitude(pick.latitude);
-    setLongitude(pick.longitude);
-    setFullAddress(pick.fullAddress);
-  }, [open]);
+  }, [open, mode, initial, mapBootstrap]);
 
   if (!open) return null;
 
@@ -236,7 +241,14 @@ export function AddressEditorSheet(props: {
             </p>
             <button
               type="button"
-              onClick={() => router.push("/address/select")}
+              onClick={() => {
+                writeMapAddressPickContext(
+                  mode === "edit" && initial?.id
+                    ? { source: "edit", addressId: initial.id }
+                    : { source: "create" },
+                );
+                router.push("/address/select");
+              }}
               className="w-full rounded-ui-rect border border-ig-border bg-white py-3 text-[14px] font-medium text-gray-900"
             >
               위치 선택

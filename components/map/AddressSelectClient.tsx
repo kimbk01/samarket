@@ -12,6 +12,7 @@ import {
   type MapAddressRecentItem,
 } from "@/lib/map/map-address-pick-storage";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import Link from "next/link";
 
 type LatLng = { lat: number; lng: number };
@@ -254,7 +255,13 @@ export function AddressSelectClient() {
           >
             선택한 위치로 설정
           </button>
-          <Link href="/mypage/addresses" className="pb-1 text-center text-[13px] text-ui-muted underline">
+          <p className="text-center text-[12px] text-ui-muted">
+            다음 화면에서 세부 정보를 입력한 뒤 <span className="font-medium text-ui-fg">저장</span>을 눌러 주세요.
+          </p>
+          <Link
+            href={buildMypageItemHref("settings", "address")}
+            className="pb-1 text-center text-[13px] text-ui-muted underline"
+          >
             주소 목록으로
           </Link>
         </div>

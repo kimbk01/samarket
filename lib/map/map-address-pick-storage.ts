@@ -38,6 +38,41 @@ export function consumeMapAddressPick(): Omit<MapAddressPickPayload, "savedAt"> 
   }
 }
 
+/** 주소 시트에서 지도로 갈 때만 기록 — 복귀 시 생성/수정 모드 복원 */
+export const MAP_ADDRESS_PICK_CONTEXT_KEY = "samarket:map_address_pick_context_v1";
+
+export type MapAddressPickContextWrite =
+  | { source: "create" }
+  | { source: "edit"; addressId: string };
+
+export function writeMapAddressPickContext(ctx: MapAddressPickContextWrite): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(MAP_ADDRESS_PICK_CONTEXT_KEY, JSON.stringify(ctx));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 지도 복귀 후 한 번 읽고 제거. 기록이 없으면 생성 플로우로 간주 */
+export function consumeMapAddressPickContext():
+  | { source: "create" }
+  | { source: "edit"; addressId: string } {
+  if (typeof sessionStorage === "undefined") return { source: "create" };
+  const raw = sessionStorage.getItem(MAP_ADDRESS_PICK_CONTEXT_KEY);
+  if (!raw) return { source: "create" };
+  sessionStorage.removeItem(MAP_ADDRESS_PICK_CONTEXT_KEY);
+  try {
+    const j = JSON.parse(raw) as { source?: string; addressId?: string };
+    if (j.source === "edit" && typeof j.addressId === "string" && j.addressId.length > 0) {
+      return { source: "edit", addressId: j.addressId };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { source: "create" };
+}
+
 const RECENT_KEY = "samarket:map_address_recent_v1";
 const RECENT_MAX = 10;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
@@ -8,9 +9,14 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AddressDefaultsSummary } from "@/components/addresses/AddressDefaultsSummary";
 import { AddressRowCard } from "@/components/addresses/AddressRowCard";
 import { AddressEditorSheet } from "@/components/addresses/AddressEditorSheet";
+import {
+  consumeMapAddressPick,
+  consumeMapAddressPickContext,
+} from "@/lib/map/map-address-pick-storage";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
+  const pathname = usePathname();
   const [list, setList] = useState<UserAddressDTO[]>([]);
   const [defaults, setDefaults] = useState<UserAddressDefaultsDTO | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -18,6 +24,62 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
   const [editTarget, setEditTarget] = useState<UserAddressDTO | null>(null);
+  /** `/address/select` 에서 돌아올 때 sessionStorage 픽을 부모가 소비해 시트에 넘김 (시트가 닫힌 채 복귀하면 기존 useEffect(open) 만으로는 픽이 반영되지 않음) */
+  const [mapBootstrap, setMapBootstrap] = useState<{
+    latitude: number;
+    longitude: number;
+    fullAddress: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!pathname || pathname.startsWith("/address/select")) return;
+    const pick = consumeMapAddressPick();
+    const ctx = consumeMapAddressPickContext();
+    if (!pick) return;
+    const boot = {
+      latitude: pick.latitude,
+      longitude: pick.longitude,
+      fullAddress: pick.fullAddress,
+    };
+
+    const applyMapPickAsCreate = () => {
+      setMapBootstrap(boot);
+      setEditorMode("create");
+      setEditTarget(null);
+      setEditorOpen(true);
+    };
+
+    if (ctx.source === "edit") {
+      const row = list.find((a) => a.id === ctx.addressId);
+      if (row) {
+        setMapBootstrap(boot);
+        setEditorMode("edit");
+        setEditTarget(row);
+        setEditorOpen(true);
+        return;
+      }
+      void (async () => {
+        try {
+          const res = await fetch("/api/me/addresses", { credentials: "include" });
+          const j = (await res.json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
+          const found = res.ok && j.ok ? j.addresses?.find((a) => a.id === ctx.addressId) : undefined;
+          if (found) {
+            setMapBootstrap(boot);
+            setEditorMode("edit");
+            setEditTarget(found);
+            setEditorOpen(true);
+          } else {
+            applyMapPickAsCreate();
+          }
+        } catch {
+          applyMapPickAsCreate();
+        }
+      })();
+      return;
+    }
+
+    applyMapPickAsCreate();
+  }, [pathname, list]);
 
   const load = useCallback(async () => {
     setLoadErr(null);
@@ -80,12 +142,14 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }
 
   function openCreate() {
+    setMapBootstrap(null);
     setEditorMode("create");
     setEditTarget(null);
     setEditorOpen(true);
   }
 
   function openEdit(row: UserAddressDTO) {
+    setMapBootstrap(null);
     setEditorMode("edit");
     setEditTarget(row);
     setEditorOpen(true);
@@ -158,7 +222,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         open={editorOpen}
         mode={editorMode}
         initial={editTarget}
-        onClose={() => setEditorOpen(false)}
+        mapBootstrap={mapBootstrap}
+        onClose={() => {
+          setEditorOpen(false);
+          setMapBootstrap(null);
+        }}
         onSaved={() => void load()}
       />
     </div>
