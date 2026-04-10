@@ -13,6 +13,7 @@ import {
 } from "@/lib/mypage/sales-history-ui";
 import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
 import { BuyerReviewReadSheet } from "@/components/mypage/purchases/BuyerReviewReadSheet";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { SELLER_LISTING_LABEL, type SellerListingState } from "@/lib/products/seller-listing-state";
 import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
 
@@ -222,7 +223,7 @@ export function SalesHistoryCard({
             <div className="absolute right-0 top-9 z-[60] min-w-[200px] rounded-ui-rect border border-gray-200 bg-white py-1 shadow-lg">
               {hasChat ? (
                 <Link
-                  href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}`}
+                  href={tradeHubChatRoomHref(row.chatId, "product_chat")}
                   onClick={() => setMenuOpen(false)}
                   className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-800 hover:bg-gray-50"
                 >
@@ -320,7 +321,7 @@ export function SalesHistoryCard({
       {hasChat ? (
         <div className="border-t border-gray-100 px-3 pb-3 pt-2">
           <Link
-            href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}`}
+            href={tradeHubChatRoomHref(row.chatId, "product_chat")}
             className="block w-full rounded-ui-rect border border-gray-200 bg-signature/5 py-2.5 text-center text-[13px] font-semibold text-gray-800"
           >
             관련 채팅으로 돌아가기

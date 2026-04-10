@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 interface BuyerChatRow {
   chatId: string;
@@ -151,7 +152,7 @@ export function PostSellerTradeStrip({
             <li key={r.chatId}>
               <div className="flex flex-col gap-1.5 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <Link
-                  href={`/mypage/trade/chat/${encodeURIComponent(r.chatId)}`}
+                  href={tradeHubChatRoomHref(r.chatId, "product_chat")}
                   className="min-w-0 flex-1 text-[13px] text-gray-900 active:bg-signature/5"
                 >
                   <span className="truncate font-medium">{r.buyerNickname}</span>

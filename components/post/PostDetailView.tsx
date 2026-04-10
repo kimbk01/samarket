@@ -863,7 +863,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     (roomId: string, sourceHint?: ChatRoomSource | null) => {
       warmChatRoomEntryById(roomId, sourceHint);
       startChatNavTransition(() => {
-        router.push(tradeHubChatRoomHref(roomId));
+        router.push(tradeHubChatRoomHref(roomId, sourceHint));
       });
     },
     [router, startChatNavTransition]
@@ -872,7 +872,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const prefetchTradeChatShell = useCallback(() => {
     void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
     if (existingTradeRoomId) {
-      void router.prefetch(tradeHubChatRoomHref(existingTradeRoomId));
+      void router.prefetch(tradeHubChatRoomHref(existingTradeRoomId, existingTradeRoomSource));
       warmChatRoomEntryById(existingTradeRoomId, existingTradeRoomSource);
       return;
     }

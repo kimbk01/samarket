@@ -26,7 +26,7 @@ interface ChatRoomCardProps {
   /** 나가기·삭제 후 목록 갱신 */
   onRoomMutated?: () => void;
   /** 미지정 시 `/chats/[id]` — 주문 허브 등에서 쿼리 URL 전달 */
-  getRoomHref?: (roomId: string) => string;
+  getRoomHref?: (roomId: string, room: ChatRoom) => string;
   /** 지정 시 라우팅 대신 목록에서 방 열기(모달 등) */
   onSelectRoom?: (roomId: string) => void;
 }
@@ -92,7 +92,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
   const listMenuRoomId =
     room.source === "chat_room" ? room.id : (room.chatRoomId?.trim() ? room.chatRoomId.trim() : null);
 
-  const detailHref = getRoomHref ? getRoomHref(room.id) : `/chats/${room.id}`;
+  const detailHref = getRoomHref ? getRoomHref(room.id, room) : `/chats/${room.id}`;
   const prewarmDetailRoute = () => {
     if (!shouldWarmChatRoute(detailHref)) return;
     prewarmChatRouteData(detailHref);

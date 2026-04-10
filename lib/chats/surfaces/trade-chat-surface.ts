@@ -1,5 +1,15 @@
 import type { ChatRoomSource } from "@/lib/types/chat";
 
+function appendTradeHubRoomSourceQuery(
+  href: string,
+  sourceHint?: ChatRoomSource | null
+): string {
+  if (sourceHint !== "chat_room" && sourceHint !== "product_chat") return href;
+  const u = new URL(href, "https://samarket.local");
+  u.searchParams.set("source", sourceHint);
+  return `${u.pathname}${u.search}`;
+}
+
 /**
  * 거래채팅(상품·중고거래) 표면 — 문구·경로·API `segment=trade` 단일 출처.
  */
@@ -18,10 +28,24 @@ export const TRADE_CHAT_SURFACE = {
   emptyCtaLabelKey: "nav_chat_trade_cta",
 } as const;
 
-/** 거래 허브 안 채팅 상세 — 알림·구매/판매 상세·홈 시트가 동일 `ChatRoomScreen` 으로 열리도록 경로 단일화 */
-export function tradeHubChatRoomHref(roomId: string): string {
+/**
+ * 거래 허브 안 채팅 상세 — 알림·구매/판매 상세·홈 시트가 동일 `ChatRoomScreen` 으로 열리도록 경로 단일화.
+ * `source` 를 넘기면 RSC·`/bootstrap` 이 상세·메시지 로드를 병렬화하고 레거시/통합 이중 조회를 피함.
+ */
+export function tradeHubChatRoomHref(
+  roomId: string,
+  sourceHint?: ChatRoomSource | null,
+  opts?: { review?: boolean }
+): string {
   const id = roomId.trim();
-  return `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(id)}`;
+  const base = `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(id)}`;
+  let href = appendTradeHubRoomSourceQuery(base, sourceHint);
+  if (opts?.review) {
+    const u = new URL(href, "https://samarket.local");
+    u.searchParams.set("review", "1");
+    href = `${u.pathname}${u.search}`;
+  }
+  return href;
 }
 
 export function tradeHubChatComposeHref(input: {

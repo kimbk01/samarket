@@ -1,9 +1,6 @@
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { TradeChatComposeClient } from "./TradeChatComposeClient";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseId, parseRoomId } from "@/lib/validate-params";
-
-const LIST_HREF = "/mypage/trade/chat";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
@@ -16,7 +13,6 @@ export default async function TradeChatComposePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const initialViewerUserId = await getOptionalAuthenticatedUserId();
   const productId = parseId(firstQueryString(sp.productId)?.trim() ?? "") ?? null;
   const roomId = parseRoomId(firstQueryString(sp.roomId)?.trim() ?? "") ?? null;
   const sourceRaw = firstQueryString(sp.source)?.trim();
@@ -31,7 +27,6 @@ export default async function TradeChatComposePage({
         productId={productId}
         initialRoomId={roomId}
         sourceHint={sourceHint}
-        initialViewerUserId={initialViewerUserId}
       />
     </section>
   );

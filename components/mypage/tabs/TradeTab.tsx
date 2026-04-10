@@ -6,6 +6,7 @@ import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeRev
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
 import { RecentViewedList } from "@/components/recent-viewed/RecentViewedList";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 export function TradeTab({ section }: { section: string }) {
   if (section === "sales") {
@@ -61,7 +62,7 @@ export function TradeTab({ section }: { section: string }) {
         <div className="space-y-2 pb-6">
           <ChatRoomList
             segment="trade"
-            getRoomHref={(roomId) => `/mypage/trade/chat/${encodeURIComponent(roomId)}`}
+            getRoomHref={(roomId, room) => tradeHubChatRoomHref(roomId, room.source)}
           />
         </div>
       </TabShell>

@@ -55,7 +55,7 @@ export function ChatButton({
     if (!user?.id) return;
     void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
     if (existingRoomId) {
-      void router.prefetch(tradeHubChatRoomHref(existingRoomId));
+      void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
       return;
     }
     void router.prefetch(tradeHubChatComposeHref({ productId }));
@@ -74,7 +74,7 @@ export function ChatButton({
       });
       warmChatRoomEntryById(existingRoomId, existingRoomSource);
       startTransition(() => {
-        router.push(tradeHubChatRoomHref(existingRoomId));
+        router.push(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
       });
       return;
     }
@@ -95,7 +95,7 @@ export function ChatButton({
         onPointerEnter={() => {
           void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
           if (existingRoomId) {
-            void router.prefetch(tradeHubChatRoomHref(existingRoomId));
+            void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
             warmChatRoomEntryById(existingRoomId, existingRoomSource);
             return;
           }

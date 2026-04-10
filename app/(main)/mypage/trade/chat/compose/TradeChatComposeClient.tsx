@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
 import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import {
@@ -22,15 +21,17 @@ export function TradeChatComposeClient({
   productId,
   initialRoomId,
   sourceHint,
-  initialViewerUserId,
 }: {
   productId: string | null;
   initialRoomId: string | null;
   sourceHint: ChatRoomSource | null;
-  initialViewerUserId?: string | null;
 }) {
   const router = useRouter();
   const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(initialRoomId);
+  /** createOrGetChatRoom 이 돌린 뒤 방 종류 — URL `source` 보다 우선 */
+  const [hubBootstrapSource, setHubBootstrapSource] = useState<ChatRoomSource | null>(() =>
+    initialRoomId ? sourceHint : null
+  );
   const [error, setError] = useState<string | null>(null);
   const replaceStartedRef = useRef<string | null>(null);
   const shellLoggedRef = useRef(false);
@@ -54,7 +55,7 @@ export function TradeChatComposeClient({
 
   useEffect(() => {
     if (activeRoomId) {
-      warmChatRoomEntryById(activeRoomId, sourceHint);
+      warmChatRoomEntryById(activeRoomId, hubBootstrapSource ?? sourceHint);
       return;
     }
     if (!productId) {
@@ -70,6 +71,7 @@ export function TradeChatComposeClient({
         return;
       }
       setResolvedRoomId(result.roomId);
+      setHubBootstrapSource(result.roomSource);
       const mark = patchTradeChatEntryMark({
         roomId: result.roomId,
         roomResolvedAt: Date.now(),
@@ -86,25 +88,23 @@ export function TradeChatComposeClient({
     return () => {
       cancelled = true;
     };
-  }, [activeRoomId, productId, sourceHint]);
+  }, [activeRoomId, productId, sourceHint, hubBootstrapSource]);
 
   useEffect(() => {
     if (!activeRoomId) return;
     if (replaceStartedRef.current === activeRoomId) return;
     replaceStartedRef.current = activeRoomId;
     startTransition(() => {
-      router.replace(tradeHubChatRoomHref(activeRoomId), { scroll: false });
+      router.replace(tradeHubChatRoomHref(activeRoomId, hubBootstrapSource ?? sourceHint), { scroll: false });
     });
-  }, [activeRoomId, router]);
+  }, [activeRoomId, router, hubBootstrapSource, sourceHint]);
 
+  /** 방 ID 확정 후 `ChatRoomScreen` 을 여기서 마운트하지 않음 — 허브 `/mypage/trade/chat/[roomId]` RSC 부트스트랩만 타서 이중 `/bootstrap` 호출 방지 */
   if (activeRoomId) {
     return (
-      <ChatRoomScreen
-        roomId={activeRoomId}
-        listHref={LIST_HREF}
-        initialViewerUserId={initialViewerUserId}
-        tradeHubColumnLayout
-        chatRoomSourceHint={sourceHint}
+      <TradeChatLoadingShell
+        label="채팅으로 이동 중..."
+        description="대화방을 열고 있어요."
       />
     );
   }

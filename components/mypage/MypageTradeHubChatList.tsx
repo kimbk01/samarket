@@ -1,6 +1,7 @@
 "use client";
 
 import { ChatRoomList } from "@/components/chats/ChatRoomList";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 /** `/mypage/trade`용 — Server Component에서 함수 prop을 넘길 수 없어 클라이언트 경계 안에서만 정의 */
 export function MypageTradeHubChatList({
@@ -13,7 +14,7 @@ export function MypageTradeHubChatList({
     <ChatRoomList
       segment="trade"
       getRoomHref={
-        onSelectRoom ? undefined : (roomId) => `/mypage/trade/chat/${encodeURIComponent(roomId)}`
+        onSelectRoom ? undefined : (roomId, room) => tradeHubChatRoomHref(roomId, room.source)
       }
       onSelectRoom={onSelectRoom}
     />

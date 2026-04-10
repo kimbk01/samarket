@@ -15,7 +15,7 @@ interface Props {
   room: ChatRoom;
   onRoomMutated?: () => void;
   /** 미지정 시 `/chats/[id]` */
-  getRoomHref?: (roomId: string) => string;
+  getRoomHref?: (roomId: string, room: ChatRoom) => string;
   onSelectRoom?: (roomId: string) => void;
 }
 
@@ -32,7 +32,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
           : kind === "business"
             ? t("nav_chat_kind_business")
             : t("nav_chat_kind_store_order");
-  const detailHref = getRoomHref ? getRoomHref(room.id) : `/chats/${room.id}`;
+  const detailHref = getRoomHref ? getRoomHref(room.id, room) : `/chats/${room.id}`;
   const prewarmDetailRoute = () => {
     if (!shouldWarmChatRoute(detailHref)) return;
     prewarmChatRouteData(detailHref);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
-import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { TRADE_CHAT_SURFACE, tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 export function NewChatRedirectClient({ productId }: { productId: string | null }) {
   const router = useRouter();
@@ -24,7 +24,7 @@ export function NewChatRedirectClient({ productId }: { productId: string | null 
         router.replace(`${TRADE_CHAT_SURFACE.hubPath}?error=${encodeURIComponent(errorMessage)}`);
         return;
       }
-      router.replace(`/mypage/trade/chat/${encodeURIComponent(result.roomId)}`);
+      router.replace(tradeHubChatRoomHref(result.roomId, result.roomSource));
     })();
     return () => {
       cancelled = true;

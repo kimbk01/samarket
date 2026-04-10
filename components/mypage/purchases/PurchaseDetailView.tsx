@@ -18,6 +18,7 @@ import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
 import { PurchaseReviewSheet } from "./PurchaseReviewSheet";
 import { BuyerReviewReadSheet } from "./BuyerReviewReadSheet";
 import type { PurchaseHistoryRow } from "./PurchaseHistoryCard";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 type DetailPayload = PurchaseHistoryRow & {
   reviewDeadlineAt?: string | null;
@@ -98,7 +99,7 @@ export function PurchaseDetailView({
   const productBadge = purchaseProductStatusBadge(row.sellerListingState, row.status);
   const showReview = canShowPurchaseReviewSend(rowLike);
   const base = `/api/trade/product-chat/${encodeURIComponent(chatId)}`;
-  const chatHref = `/mypage/trade/chat/${encodeURIComponent(row.chatId)}`;
+  const chatHref = tradeHubChatRoomHref(row.chatId, "product_chat");
 
   const post = (path: string) => {
     setBusy(path);

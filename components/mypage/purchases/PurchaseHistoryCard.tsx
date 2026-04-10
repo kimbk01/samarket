@@ -7,6 +7,7 @@ import {
   tradeHubModeFromPathname,
   tradePurchaseDetailPath,
 } from "@/lib/mypage/trade-hub-paths";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { formatPrice } from "@/lib/utils/format";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
@@ -171,7 +172,10 @@ export function PurchaseHistoryCard({
           </button>
           {menuOpen ? (
             <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-ui-rect border border-gray-200 bg-white py-1 shadow-lg">
-              <MenuLink href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}`} onNavigate={() => setMenuOpen(false)}>
+              <MenuLink
+                href={tradeHubChatRoomHref(row.chatId, "product_chat")}
+                onNavigate={() => setMenuOpen(false)}
+              >
                 채팅 보기
               </MenuLink>
               {menuKind === "seller_done" ? (
@@ -196,7 +200,7 @@ export function PurchaseHistoryCard({
                     평가·후기 보내기
                   </MenuButton>
                   <MenuLink
-                    href={`/mypage/trade/chat/${encodeURIComponent(row.chatId)}?review=1`}
+                    href={tradeHubChatRoomHref(row.chatId, "product_chat", { review: true })}
                     onNavigate={() => setMenuOpen(false)}
                   >
                     채팅 상단에서 평가·후기 보내기
