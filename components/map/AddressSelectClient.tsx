@@ -78,6 +78,8 @@ export function AddressSelectClient() {
   /** 연필 수정 또는 지도 이동 전까지 역지오코딩 대신 사용 */
   const [manualAddress, setManualAddress] = useState<string | null>(null);
   const manualAnchorRef = useRef<LatLng | null>(null);
+  /** 같은 화면 하단 — 역지오코딩 줄 아래 상세(지번·건물명 등) */
+  const [detailLine, setDetailLine] = useState("");
 
   const { text: geocodedAddress, busy: geocodeBusy } = useReverseGeocode(marker);
   const displayAddress = geocodedAddress;
@@ -113,6 +115,7 @@ export function AddressSelectClient() {
     setMarker(next);
     setManualAddress(null);
     manualAnchorRef.current = null;
+    setDetailLine("");
     setGeoHint(null);
     setStep("map");
   }, []);
@@ -194,18 +197,20 @@ export function AddressSelectClient() {
   const onConfirm = useCallback(() => {
     const addr = (manualAddress ?? displayAddress).trim();
     if (!addr || mapsError) return;
+    const detail = detailLine.trim();
     writeMapAddressPick({
       latitude: marker.lat,
       longitude: marker.lng,
       fullAddress: addr,
+      addressDetail: detail || null,
     });
     pushMapAddressRecent({
       latitude: marker.lat,
       longitude: marker.lng,
-      address: addr,
+      address: detail ? `${addr} · ${detail}` : addr,
     });
     router.back();
-  }, [displayAddress, manualAddress, marker.lat, marker.lng, mapsError, router]);
+  }, [detailLine, displayAddress, manualAddress, marker.lat, marker.lng, mapsError, router]);
 
   const openAddressEdit = useCallback(() => {
     const v = window.prompt("주소 수정", shownAddress || displayAddress.trim());
@@ -304,6 +309,7 @@ export function AddressSelectClient() {
                   setGeoHint(null);
                   setManualAddress(null);
                   manualAnchorRef.current = null;
+                  setDetailLine("");
                 }}
                 className="flex h-11 min-w-[44px] items-center justify-center rounded-ui-rect text-ui-fg"
                 aria-label="뒤로"
@@ -377,19 +383,30 @@ export function AddressSelectClient() {
                   </svg>
                 </button>
               </div>
+              <label className="block">
+                <span className="sr-only">상세 주소</span>
+                <textarea
+                  value={detailLine}
+                  onChange={(e) => setDetailLine(e.target.value)}
+                  rows={2}
+                  placeholder="상세주소 (지번, 건물명, 호텔명을 입력하세요)"
+                  className="w-full resize-none rounded-ui-rect border border-ig-border bg-ui-page px-3 py-2.5 text-[14px] text-ui-fg placeholder:text-ui-muted"
+                  autoComplete="street-address"
+                />
+              </label>
               <button
                 type="button"
                 disabled={confirmDisabled}
                 onClick={onConfirm}
                 className="w-full rounded-ui-rect bg-signature py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
               >
-                선택한 위치로 설정
+                확인
               </button>
               <Link
                 href={buildMypageItemHref("settings", "address")}
-                className="pb-1 text-center text-[13px] text-ui-muted underline"
+                className="pb-1 text-center text-[12px] text-ui-muted underline"
               >
-                주소 목록으로
+                주소 목록
               </Link>
             </div>
           </div>

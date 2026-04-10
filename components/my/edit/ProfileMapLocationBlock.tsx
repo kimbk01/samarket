@@ -5,14 +5,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddressDefaultsSummary } from "@/components/addresses/AddressDefaultsSummary";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
-import {
-  PROFILE_MAP_LOCATION_SECTION_TITLE,
-  STORE_LOCATION_SECTION_HINT_PROFILE_EDIT,
-} from "@/lib/stores/store-address-form-ui";
-import {
-  OWNER_STORE_FORM_HINT_CLASS,
-  OWNER_STORE_FORM_LEAD_CLASS,
-} from "@/lib/business/owner-store-stack";
+import { PROFILE_MAP_LOCATION_SECTION_TITLE } from "@/lib/stores/store-address-form-ui";
+import { OWNER_STORE_FORM_LEAD_CLASS } from "@/lib/business/owner-store-stack";
 
 type Props = {
   latitude: number | null;
@@ -21,8 +15,7 @@ type Props = {
 };
 
 /**
- * 프로필 수정 전용: `/address/select` 지도 선택 + 기본 주소록 요약(생활·거래·배달).
- * 상세 지번·동호 그리드는 두지 않고, 역지오코딩 full_address 로 저장 가능.
+ * 프로필 수정: `/address/select` 지도 선택 + 기본 주소록 요약.
  */
 export function ProfileMapLocationBlock({ latitude, longitude, fullAddress }: Props) {
   const router = useRouter();
@@ -54,7 +47,6 @@ export function ProfileMapLocationBlock({ latitude, longitude, fullAddress }: Pr
     <div className="space-y-4">
       <div>
         <p className={OWNER_STORE_FORM_LEAD_CLASS}>{PROFILE_MAP_LOCATION_SECTION_TITLE}</p>
-        <p className={OWNER_STORE_FORM_HINT_CLASS}>{STORE_LOCATION_SECTION_HINT_PROFILE_EDIT}</p>
         <button
           type="button"
           onClick={() => router.push("/address/select")}
@@ -75,21 +67,19 @@ export function ProfileMapLocationBlock({ latitude, longitude, fullAddress }: Pr
       </div>
 
       <div className="space-y-2">
-        <p className="text-[13px] font-medium text-ui-fg">기본 주소록</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[13px] font-medium text-ui-fg">기본 주소록</p>
+          <Link href="/mypage/addresses" className="text-[13px] text-signature">
+            관리
+          </Link>
+        </div>
         {defaultsErr ? (
-          <p className="text-[12px] text-ui-muted">기본 주소를 불러오지 못했습니다.</p>
+          <p className="text-[12px] text-ui-muted">불러오지 못했습니다.</p>
         ) : defaults ? (
           <AddressDefaultsSummary defaults={defaults} />
         ) : (
           <p className="text-[12px] text-ui-muted">불러오는 중…</p>
         )}
-        <p className="text-[12px] leading-relaxed text-ui-muted">
-          생활·거래·배달 기본지는{" "}
-          <Link href="/mypage/addresses" className="text-signature underline">
-            주소록
-          </Link>
-          에서 지정합니다. 프로필 지도 위치만 바꿔도 주소록은 자동으로 같이 바뀌지 않습니다.
-        </p>
       </div>
     </div>
   );

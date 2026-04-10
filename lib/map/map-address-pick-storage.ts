@@ -3,11 +3,19 @@ export const MAP_ADDRESS_PICK_STORAGE_KEY = "samarket:map_address_pick_v1";
 export type MapAddressPickPayload = {
   latitude: number;
   longitude: number;
+  /** 역지오코딩(또는 연필로 수정한) 기본 한 줄 */
   fullAddress: string;
+  /** 지번·건물명·호 등 — 같은 화면에서 이어서 입력 */
+  addressDetail?: string | null;
   savedAt: number;
 };
 
-export function writeMapAddressPick(input: { latitude: number; longitude: number; fullAddress: string }): void {
+export function writeMapAddressPick(input: {
+  latitude: number;
+  longitude: number;
+  fullAddress: string;
+  addressDetail?: string | null;
+}): void {
   if (typeof sessionStorage === "undefined") return;
   const payload: MapAddressPickPayload = {
     ...input,
@@ -32,7 +40,15 @@ export function consumeMapAddressPick(): Omit<MapAddressPickPayload, "savedAt"> 
       return null;
     }
     const fullAddress = typeof j.fullAddress === "string" ? j.fullAddress.trim() : "";
-    return { latitude: j.latitude, longitude: j.longitude, fullAddress };
+    const rawDetail = (j as { addressDetail?: unknown }).addressDetail;
+    const detail =
+      typeof rawDetail === "string" ? rawDetail.trim() : undefined;
+    return {
+      latitude: j.latitude,
+      longitude: j.longitude,
+      fullAddress,
+      ...(detail !== undefined ? { addressDetail: detail } : {}),
+    };
   } catch {
     return null;
   }

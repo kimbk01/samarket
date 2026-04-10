@@ -90,9 +90,11 @@ export function ProfileEditForm() {
     setMapLat(merged.latitude ?? null);
     setMapLng(merged.longitude ?? null);
     setMapFullAddress((merged.full_address ?? "").trim());
-    // 지도에서 새 위치를 고른 경우 프로필 상세 줄(지번·동호)은 비우고 역지오코딩 한 줄만 사용
+    // 지도에서 돌아온 경우: 역지오코딩 한 줄 + 같은 화면에서 입력한 상세주소
     setAddressStreetLine(pick ? "" : (merged.address_street_line ?? "").trim());
-    setAddressDetail(pick ? "" : (merged.address_detail ?? "").trim());
+    setAddressDetail(
+      pick ? (pick.addressDetail ?? "").trim() : (merged.address_detail ?? "").trim(),
+    );
     setPhone(parsePhMobileInput(merged.phone ?? ""));
     setPreferredLanguage(merged.preferred_language ?? "ko");
     setPreferredCountry(merged.preferred_country ?? "PH");

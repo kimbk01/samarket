@@ -21,7 +21,12 @@ export function AddressEditorSheet(props: {
   mode: Mode;
   initial: UserAddressDTO | null;
   /** 부모가 `/address/select` 복귀 시 sessionStorage 에서 소비한 좌표·주소 */
-  mapBootstrap?: { latitude: number; longitude: number; fullAddress: string } | null;
+  mapBootstrap?: {
+    latitude: number;
+    longitude: number;
+    fullAddress: string;
+    addressDetail?: string | null;
+  } | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -79,6 +84,7 @@ export function AddressEditorSheet(props: {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
         setFullAddress(mapBootstrap.fullAddress.trim());
+        setUnitFloorRoom((mapBootstrap.addressDetail ?? "").trim());
       } else {
         setLatitude(initial.latitude ?? null);
         setLongitude(initial.longitude ?? null);
@@ -109,6 +115,8 @@ export function AddressEditorSheet(props: {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
         setFullAddress(mapBootstrap.fullAddress.trim());
+        const d = (mapBootstrap.addressDetail ?? "").trim();
+        setUnitFloorRoom(d);
       } else {
         setLatitude(null);
         setLongitude(null);
