@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
+import { AddressDefaultsSummary } from "@/components/addresses/AddressDefaultsSummary";
+import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
 import {
   PROFILE_MAP_LOCATION_SECTION_TITLE,
-  STORE_ADDRESS_BOOK_STREET_BLOCK_INTRO,
   STORE_LOCATION_SECTION_HINT_PROFILE_EDIT,
 } from "@/lib/stores/store-address-form-ui";
 import {
@@ -17,25 +18,37 @@ type Props = {
   latitude: number | null;
   longitude: number | null;
   fullAddress: string;
-  addressStreetLine: string;
-  addressDetail: string;
-  onAddressStreetLineChange: (v: string) => void;
-  onAddressDetailChange: (v: string) => void;
 };
 
 /**
- * 프로필 수정 전용: `/address/select` 지도 선택 + 지번·동호 그리드 (매장 주소록·AddressEditorSheet 와 동일 패턴)
+ * 프로필 수정 전용: `/address/select` 지도 선택 + 기본 주소록 요약(생활·거래·배달).
+ * 상세 지번·동호 그리드는 두지 않고, 역지오코딩 full_address 로 저장 가능.
  */
-export function ProfileMapLocationBlock({
-  latitude,
-  longitude,
-  fullAddress,
-  addressStreetLine,
-  addressDetail,
-  onAddressStreetLineChange,
-  onAddressDetailChange,
-}: Props) {
+export function ProfileMapLocationBlock({ latitude, longitude, fullAddress }: Props) {
   const router = useRouter();
+  const [defaults, setDefaults] = useState<UserAddressDefaultsDTO | null>(null);
+  const [defaultsErr, setDefaultsErr] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/me/address-defaults", { credentials: "include" });
+        const j = (await res.json()) as {
+          ok?: boolean;
+          defaults?: UserAddressDefaultsDTO;
+        };
+        if (cancelled) return;
+        if (res.ok && j.ok && j.defaults) setDefaults(j.defaults);
+        else setDefaultsErr(true);
+      } catch {
+        if (!cancelled) setDefaultsErr(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -61,24 +74,21 @@ export function ProfileMapLocationBlock({
         )}
       </div>
 
-      <div>
-        <p className="mb-1 text-[13px] font-medium text-ui-fg">상세 주소</p>
-        <p className="mb-2 text-[12px] leading-relaxed text-ui-muted">
-          {STORE_ADDRESS_BOOK_STREET_BLOCK_INTRO}
-        </p>
-        <StoreAddressStreetDetailGrid
-          addressStreetLine={addressStreetLine}
-          addressDetail={addressDetail}
-          onAddressStreetLineChange={onAddressStreetLineChange}
-          onAddressDetailChange={onAddressDetailChange}
-        />
-        <p className="mt-3 text-[12px] leading-relaxed text-ui-muted">
-          거래·생활·배달의 <strong className="font-medium text-ui-fg">기본 주소</strong>는{" "}
+      <div className="space-y-2">
+        <p className="text-[13px] font-medium text-ui-fg">기본 주소록</p>
+        {defaultsErr ? (
+          <p className="text-[12px] text-ui-muted">기본 주소를 불러오지 못했습니다.</p>
+        ) : defaults ? (
+          <AddressDefaultsSummary defaults={defaults} />
+        ) : (
+          <p className="text-[12px] text-ui-muted">불러오는 중…</p>
+        )}
+        <p className="text-[12px] leading-relaxed text-ui-muted">
+          생활·거래·배달 기본지는{" "}
           <Link href="/mypage/addresses" className="text-signature underline">
             주소록
           </Link>
-          에서 따로 지정합니다. 프로필 위치만 바꿔도 주소록·매장 배달 주소는 자동으로 같이 바뀌지
-          않습니다.
+          에서 지정합니다. 프로필 지도 위치만 바꿔도 주소록은 자동으로 같이 바뀌지 않습니다.
         </p>
       </div>
     </div>

@@ -90,8 +90,9 @@ export function ProfileEditForm() {
     setMapLat(merged.latitude ?? null);
     setMapLng(merged.longitude ?? null);
     setMapFullAddress((merged.full_address ?? "").trim());
-    setAddressStreetLine((merged.address_street_line ?? "").trim());
-    setAddressDetail((merged.address_detail ?? "").trim());
+    // 지도에서 새 위치를 고른 경우 프로필 상세 줄(지번·동호)은 비우고 역지오코딩 한 줄만 사용
+    setAddressStreetLine(pick ? "" : (merged.address_street_line ?? "").trim());
+    setAddressDetail(pick ? "" : (merged.address_detail ?? "").trim());
     setPhone(parsePhMobileInput(merged.phone ?? ""));
     setPreferredLanguage(merged.preferred_language ?? "ko");
     setPreferredCountry(merged.preferred_country ?? "PH");
@@ -189,15 +190,7 @@ export function ProfileEditForm() {
         onPreferredCountryChange={setPreferredCountry}
         errors={errors}
       />
-      <ProfileMapLocationBlock
-        latitude={mapLat}
-        longitude={mapLng}
-        fullAddress={mapFullAddress}
-        addressStreetLine={addressStreetLine}
-        addressDetail={addressDetail}
-        onAddressStreetLineChange={setAddressStreetLine}
-        onAddressDetailChange={setAddressDetail}
-      />
+      <ProfileMapLocationBlock latitude={mapLat} longitude={mapLng} fullAddress={mapFullAddress} />
       <ProfileReadonlyFields profile={profile} />
 
       {message ? (
