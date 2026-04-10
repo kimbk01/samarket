@@ -485,7 +485,10 @@ export function TradeWriteForm({
         title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
         backHref={backHref}
       />
-      <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
+      >
         {tradePolicy?.hint ? (
           <div className="mx-4 mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-950">
             {tradePolicy.hint}

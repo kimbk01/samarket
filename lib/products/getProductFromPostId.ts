@@ -58,7 +58,7 @@ function toPrice(raw: unknown): number {
 }
 
 const PRODUCT_FROM_POST_SELECT =
-  "id, title, content, price, images, thumbnail_url, status, view_count, favorite_count, created_at, author_id, user_id, region, city, barangay";
+  "id, title, content, price, images, thumbnail_url, status, view_count, favorite_count, created_at, author_id, user_id, region, city";
 
 export async function getProductFromPostId(postId: string): Promise<Product | null> {
   if (!postId?.trim()) return null;

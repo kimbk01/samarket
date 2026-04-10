@@ -20,7 +20,7 @@ const MAX_JOB_LISTING_KIND_CHUNKS = 120;
  * 일부 DB에 컬럼이 없으면 PostgREST 오류 → `select('*')` 폴백.
  */
 const POST_TRADE_LIST_SELECT =
-  "id, user_id, author_id, type, title, price, is_price_offer, is_free_share, region, city, barangay, contact_method, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, category_id, favorite_count, comment_count, chat_count, author_nickname, board_id, service_id, visibility";
+  "id, user_id, author_id, type, title, price, is_price_offer, is_free_share, region, city, contact_method, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, favorite_count, comment_count, chat_count, author_nickname, board_id, service_id, visibility";
 
 function looksLikeMissingColumnOrSchemaError(message: string | undefined | null): boolean {
   const m = String(message ?? "").toLowerCase();

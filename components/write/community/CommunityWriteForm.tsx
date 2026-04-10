@@ -63,7 +63,10 @@ export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityW
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
-      <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
+      >
         <ImageUploader value={images} onChange={setImages} label="사진 (선택)" />
         <section className="border-b border-gray-100 bg-white px-4 py-4">
           <label className="mb-2 block text-[14px] font-medium text-gray-800">

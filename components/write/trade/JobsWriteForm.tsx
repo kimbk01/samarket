@@ -374,7 +374,10 @@ export function JobsWriteForm({
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       <WriteScreenTier1Sync title={tierTitle} backHref={backHref} />
-      <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
+      >
         <div className="border-b border-gray-100 bg-white px-4 py-3">
           <p className="text-[13px] text-gray-500">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>
         </div>

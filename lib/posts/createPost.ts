@@ -61,9 +61,6 @@ export async function createPost(payload: CreatePostPayload): Promise<CreatePost
     if (payload.type === "trade" && "city" in payload && payload.city != null && String(payload.city).trim()) {
       row.city = payload.city.trim();
     }
-    if (payload.type === "trade" && "barangay" in payload && payload.barangay != null && String(payload.barangay).trim()) {
-      row.barangay = String(payload.barangay).trim();
-    }
     if (payload.type === "trade" && "meta" in payload && payload.meta != null && typeof payload.meta === "object" && Object.keys(payload.meta).length > 0) {
       row.meta = payload.meta;
     }

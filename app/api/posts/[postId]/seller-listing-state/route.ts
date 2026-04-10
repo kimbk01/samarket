@@ -117,7 +117,7 @@ export async function POST(
   const { data: post, error: postErr } = await sbAny
     .from("posts")
     .select(
-      "id, user_id, status, seller_listing_state, meta, title, content, price, region, city, barangay, images, thumbnail_url, trade_category_id, is_free_share, is_price_offer"
+      "id, user_id, status, seller_listing_state, meta, title, content, price, region, city, images, thumbnail_url, trade_category_id, is_free_share, is_price_offer"
     )
     .eq("id", postId.trim())
     .maybeSingle();

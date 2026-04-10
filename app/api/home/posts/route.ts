@@ -16,8 +16,8 @@ const HOME_POSTS_FAVORITES_CACHE_TTL_MS = 12_000;
  * (`author_avatar_url`·`author_id` 등은 일부 posts 스키마에 없음)
  */
 const HOME_POSTS_SELECT_TIERS = [
-  "id, category_id, trade_category_id, user_id, author_id, type, title, price, is_free_share, is_price_offer, region, city, barangay, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
-  "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, is_price_offer, region, city, barangay, status, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
+  "id, category_id, trade_category_id, user_id, author_id, type, title, price, is_free_share, is_price_offer, region, city, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
+  "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, is_price_offer, region, city, status, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
   "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, region, city, status, view_count, thumbnail_url, images, meta, created_at, updated_at, favorite_count, comment_count",
   "id, user_id, trade_category_id, category_id, title, price, status, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share",
   "*",

@@ -103,7 +103,10 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
-      <form onSubmit={handleSubmit} className="mx-auto max-w-[480px]">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
+      >
         {!isRequest && (
           <ImageUploader value={images} onChange={setImages} label="사진" />
         )}

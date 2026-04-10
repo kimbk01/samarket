@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * (명시적 컬럼만 사용 — select('*') 나 캐시상 가상 컬럼 이슈 회피)
  */
 const OWNER_EDIT_POST_SELECT_TIERS = [
-  "id, user_id, trade_category_id, title, content, price, region, city, barangay, images, meta, is_free_share, is_price_offer, status, seller_listing_state, thumbnail_url",
+  "id, user_id, trade_category_id, title, content, price, region, city, images, meta, is_free_share, is_price_offer, status, seller_listing_state, thumbnail_url",
   "id, user_id, trade_category_id, title, content, price, region, city, images, status, seller_listing_state",
   "id, user_id, trade_category_id, title, content, price, region, city, images, status",
 ] as const;
