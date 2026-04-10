@@ -8,6 +8,7 @@ import {
   isPhilippinesZipInputComplete,
   lookupLocationByPhilippinesZip,
   normalizePhilippinesZipInput,
+  tryParsePhilippinesZipFourDigits,
 } from "@/lib/products/zip-to-location";
 import {
   OWNER_STORE_AUX_BUTTON_INLINE_COMPACT_CLASS,
@@ -70,13 +71,18 @@ export function LocationSelector({
   const [zipDraft, setZipDraft] = useState("");
   const [zipMessage, setZipMessage] = useState<string | null>(null);
   const prevRegionCityRef = useRef<{ r: string; c: string } | null>(null);
+  /** 동일 ZIP·지역 조합으로 `onPhilippinesZipCommitted` 반복 호출(부모 리렌더 루프) 방지 */
+  const zipAutoCommitKeyRef = useRef<string | null>(null);
 
   const zipCodesForLocation = useMemo(
     () => getPhilippinesZipCodesForLocation(region, city),
     [region, city]
   );
 
-  /** 지역·동네가 바뀔 때만 ZIP 입력칸을 동네 후보(또는 저장분 seed)로 맞춤 — 별도 ZIP `<select>` 없음 */
+  /**
+   * 지역·동네가 바뀔 때만 ZIP 입력칸을 동네 후보(또는 저장분 seed)로 맞춤.
+   * 동네가 비어 있어도 ZIP 초기화하지 않음 — PhilPost 4자리만 먼저 입력해 자동 매칭 가능.
+   */
   useEffect(() => {
     const codes = zipCodesForLocation;
     const prev = prevRegionCityRef.current;
@@ -84,7 +90,6 @@ export function LocationSelector({
     prevRegionCityRef.current = { r: region, c: city };
 
     if (!city || codes.length === 0) {
-      setZipDraft("");
       return;
     }
     if (!locChanged) {
@@ -99,14 +104,39 @@ export function LocationSelector({
     });
   }, [region, city, zipCodesForLocation, philippinesZipSeed]);
 
-  /** 현재 동네에 맞는 4자리가 되면 부모 postal 등과 동기 */
+  /** 숫자 4자리 입력 시 ZIP→지역·동네·우편번호 자동 반영(「적용」 없이) */
   useEffect(() => {
-    if (!onPhilippinesZipCommitted) return;
-    if (!city || zipCodesForLocation.length === 0) return;
-    const fin = finalizePhilippinesZipCode(zipDraft);
-    if (!fin || !zipCodesForLocation.includes(fin)) return;
-    onPhilippinesZipCommitted(fin);
-  }, [zipDraft, region, city, zipCodesForLocation, onPhilippinesZipCommitted]);
+    if (!showZipLookup) return;
+    const code = tryParsePhilippinesZipFourDigits(zipDraft);
+    if (!code) {
+      zipAutoCommitKeyRef.current = null;
+      return;
+    }
+    const hit = lookupLocationByPhilippinesZip(code);
+    if (!hit || !isValidRegionCity(hit.regionId, hit.cityId)) {
+      return;
+    }
+    const key = `${code}|${hit.regionId}|${hit.cityId}`;
+    if (zipAutoCommitKeyRef.current === key) {
+      return;
+    }
+    zipAutoCommitKeyRef.current = key;
+    if (region !== hit.regionId) {
+      onRegionChange(hit.regionId);
+    }
+    if (city !== hit.cityId) {
+      onCityChange(hit.cityId);
+    }
+    onPhilippinesZipCommitted?.(code);
+  }, [
+    zipDraft,
+    showZipLookup,
+    region,
+    city,
+    onRegionChange,
+    onCityChange,
+    onPhilippinesZipCommitted,
+  ]);
 
   /** 4자리 ZIP이면 ZIP→지역·동네, 아니면 현재 동네 기준 확정 ZIP 반영 */
   const applyZipOrNeighborhood = useCallback(() => {
@@ -124,7 +154,11 @@ export function LocationSelector({
       onCityChange(hit.cityId);
       setZipMessage(null);
       const finalized = finalizePhilippinesZipCode(zipDraft);
-      if (finalized) onPhilippinesZipCommitted?.(finalized);
+      if (finalized) {
+        setZipDraft(finalized);
+        zipAutoCommitKeyRef.current = `${finalized}|${hit.regionId}|${hit.cityId}`;
+        onPhilippinesZipCommitted?.(finalized);
+      }
       return;
     }
 
@@ -201,6 +235,10 @@ export function LocationSelector({
       {showZipLookup ? (
         <div className="mt-3">
           <p className={OWNER_STORE_FORM_LEAD_CLASS}>ZIP 코드 (PhilPost 4자리)</p>
+          <p className="mb-2 text-[12px] leading-snug text-gray-500">
+            숫자 4자리를 입력하면 지역·동네가 자동으로 맞춰집니다. 3자리만 입력한 뒤에는 「적용」으로
+            앞에 0을 붙여 확정할 수 있습니다.
+          </p>
           <div className="grid min-w-0 grid-cols-[1fr_auto] items-stretch gap-2">
             <input
               type="text"
@@ -210,6 +248,16 @@ export function LocationSelector({
               onChange={(e) => {
                 setZipDraft(normalizePhilippinesZipInput(e.target.value));
                 setZipMessage(null);
+              }}
+              onBlur={() => {
+                const code = tryParsePhilippinesZipFourDigits(zipDraft);
+                if (!code) return;
+                const hit = lookupLocationByPhilippinesZip(code);
+                if (!hit || !isValidRegionCity(hit.regionId, hit.cityId)) {
+                  setZipMessage("매칭되는 지역이 없습니다.");
+                } else {
+                  setZipMessage(null);
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {

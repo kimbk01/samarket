@@ -189,7 +189,16 @@ export function normalizePhilippinesZipInput(raw: string): string {
 }
 
 /**
- * PhilPost 4자리 코드로 확정 (적용 시).
+ * 입력란에 숫자 4자리가 채워졌을 때만 — 자동 지역 매칭용.
+ * - 3자리 선행 0 패딩 없음 (입력 중 `122` → `0122` 오매칭 방지).
+ */
+export function tryParsePhilippinesZipFourDigits(raw: string): string | null {
+  const d = raw.replace(/\D/g, "").slice(0, 4);
+  return d.length === 4 ? d : null;
+}
+
+/**
+ * PhilPost 4자리 코드로 확정 (「적용」·Enter·저장 시).
  * - 3자리만 입력된 경우 선행 0 패딩 (예: 800 → 0800).
  */
 export function finalizePhilippinesZipCode(raw: string): string | null {

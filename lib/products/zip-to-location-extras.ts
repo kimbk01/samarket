@@ -2,7 +2,11 @@
  * PhilPost 4자리 → 지역·동네 보강 매핑.
  * `regions-data`의 모든 city가 최소 1개 ZIP으로 역조회되도록 하며,
  * `zip-to-location.ts`의 본표와 합쳐집니다.
- * (세부 바랑가이는 PhilPost·행정구역에 맞춘 대표 코드입니다.)
+ *
+ * **Angeles `a3`~`a28` 구간(2001~2028 등):** PhilPost 실제 바랑가이 단위 ZIP이 아니라
+ * 앱 내 동네(Area)마다 역조회·라운드트립 테스트를 맞추기 위한 **대표 코드 분배**입니다.
+ * 실제 우편은 대부분 **2009(Angeles City)** 등 소수 코드를 쓰므로, 정확히 맞추려면
+ * PhilPost 공식 목록(`https://www.phlpost.gov.ph/zip-code-locator/`)으로 본표를 보강하세요.
  */
 
 export type ZipLocationHit = { regionId: string; cityId: string };
