@@ -3,9 +3,11 @@
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { CreateOrJoinRoomResult } from "./createOrJoinRoom";
 import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
+import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
+import type { ChatRoomSource } from "@/lib/types/chat";
 
 const CHAT_ROOM_CACHE_TTL_MS = 60_000;
-const itemRoomCache = new Map<string, { roomId: string; expiresAt: number }>();
+const itemRoomCache = new Map<string, { roomId: string; source: ChatRoomSource; expiresAt: number }>();
 
 /**
  * 당근형 거래 채팅: 채팅방 생성 또는 기존 방 반환 (같은 item + 판매자/구매자 → 재사용·reopen)
@@ -27,6 +29,7 @@ export async function createOrGetChatRoom(productId: string): Promise<CreateOrJo
   }
   const cached = itemRoomCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
+    warmChatRoomEntryById(cached.roomId, cached.source);
     return { ok: true, roomId: cached.roomId };
   }
 
@@ -40,8 +43,10 @@ export async function createOrGetChatRoom(productId: string): Promise<CreateOrJo
     if (data.ok && data.roomId) {
       itemRoomCache.set(cacheKey, {
         roomId: data.roomId,
+        source: "chat_room",
         expiresAt: Date.now() + CHAT_ROOM_CACHE_TTL_MS,
       });
+      warmChatRoomEntryById(data.roomId, "chat_room");
       return { ok: true, roomId: data.roomId };
     }
     const errMsg = data.error ?? "";
@@ -56,8 +61,10 @@ export async function createOrGetChatRoom(productId: string): Promise<CreateOrJo
       if (fallbackData.ok && fallbackData.roomId) {
         itemRoomCache.set(cacheKey, {
           roomId: fallbackData.roomId,
+          source: "product_chat",
           expiresAt: Date.now() + CHAT_ROOM_CACHE_TTL_MS,
         });
+        warmChatRoomEntryById(fallbackData.roomId, "product_chat");
         return { ok: true, roomId: fallbackData.roomId };
       }
       return { ok: false, error: (fallbackData.error ?? errMsg) || "채팅방 생성에 실패했습니다." };

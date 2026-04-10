@@ -44,11 +44,21 @@ export async function GET(
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
 
-  const { data: roomForGet, error: roomForGetErr } = await sb
-    .from("chat_rooms")
-    .select("id, room_type, buyer_id, seller_id, store_order_id")
-    .eq("id", roomId)
-    .maybeSingle();
+  const [roomForGetRes, partRes] = await Promise.all([
+    sb
+      .from("chat_rooms")
+      .select("id, room_type, buyer_id, seller_id, store_order_id")
+      .eq("id", roomId)
+      .maybeSingle(),
+    sb
+      .from("chat_room_participants")
+      .select("id, hidden, left_at, is_active")
+      .eq("room_id", roomId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+  const roomForGet = roomForGetRes.data;
+  const roomForGetErr = roomForGetRes.error;
   if (roomForGetErr || !(roomForGet as { id?: string } | null)?.id) {
     return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
@@ -62,13 +72,7 @@ export async function GET(
     return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
   }
   {
-    const { data: part } = await sbAny
-      .from("chat_room_participants")
-      .select("id, hidden, left_at, is_active")
-      .eq("room_id", roomId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    const prGet = part as { hidden?: boolean; left_at?: string | null; is_active?: boolean | null } | null;
+    const prGet = partRes.data as { hidden?: boolean; left_at?: string | null; is_active?: boolean | null } | null;
     if (!prGet || prGet.hidden || prGet.left_at || prGet.is_active === false) {
       return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
     }

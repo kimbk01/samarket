@@ -1,59 +1,19 @@
-"use client";
+import { NewChatRedirectClient } from "./NewChatRedirectClient";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
-import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
-
-function NewChatRedirectInner() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const productId = searchParams.get("productId");
-  const [message, setMessage] = useState("채팅방으로 이동 중...");
-
-  useEffect(() => {
-    if (!productId?.trim()) {
-      router.replace(TRADE_CHAT_SURFACE.hubPath);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      const result = await createOrGetChatRoom(productId.trim());
-      if (cancelled) return;
-      if (!result.ok) {
-        setMessage(result.error || "채팅방을 열 수 없습니다.");
-        router.replace(
-          `${TRADE_CHAT_SURFACE.hubPath}?error=${encodeURIComponent(result.error || "채팅방을 열 수 없습니다.")}`
-        );
-        return;
-      }
-      router.replace(`/mypage/trade/chat/${encodeURIComponent(result.roomId)}`);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [productId, router]);
-
-  return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <p className="text-center text-[14px] text-gray-500">{message}</p>
-    </div>
-  );
+function firstQueryString(v: string | string[] | undefined): string | undefined {
+  if (Array.isArray(v)) return v[0];
+  return v;
 }
 
 /**
- * 상품 상세 "채팅하기" → 서버 API로 방 생성/조회 후 리다이렉트
+ * 상품 상세 "채팅하기" → 서버에서 `productId` 를 먼저 확정해 클라 Suspense 한 겹 제거
  */
-export default function NewChatPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <p className="text-[14px] text-gray-500">채팅방으로 이동 중...</p>
-        </div>
-      }
-    >
-      <NewChatRedirectInner />
-    </Suspense>
-  );
+export default async function NewChatPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const productId = firstQueryString(sp.productId)?.trim() || null;
+  return <NewChatRedirectClient productId={productId} />;
 }

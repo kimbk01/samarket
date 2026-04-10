@@ -20,7 +20,8 @@ function buildCommunityFeedListViewModel(post: CommunityFeedPostDTO): FeedListCa
     post.created_at && !Number.isNaN(Date.parse(post.created_at)) ? formatTimeAgo(post.created_at, "ko-KR") : "";
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveCommunityFeedListThumbnail(post);
-  const contentForTags = post.is_meetup ? stripMeetupPostMetaFromContent(post.content) : post.content;
+  const previewSource = (post.summary ?? "").trim() || post.content;
+  const contentForTags = post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource;
   const placeLineRaw =
     skin === "location_pin" ? post.meetup_place?.trim() || post.region_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];

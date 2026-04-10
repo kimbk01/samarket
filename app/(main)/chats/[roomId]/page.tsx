@@ -1,4 +1,5 @@
 import { ChatRoomPageClient } from "./ChatRoomPageClient";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { parseRoomId } from "@/lib/validate-params";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
@@ -28,6 +29,7 @@ type PageProps = {
 export default async function ChatRoomPage({ params, searchParams }: PageProps) {
   const { roomId: raw } = await params;
   const sp = await searchParams;
+  const initialViewerUserId = await getOptionalAuthenticatedUserId();
   const roomId = parseRoomId(raw);
   const review = firstQueryString(sp.review)?.trim();
   const from = firstQueryString(sp.from)?.trim();
@@ -39,6 +41,7 @@ export default async function ChatRoomPage({ params, searchParams }: PageProps) 
       roomId={roomId}
       openReviewOnMount={openReviewOnMount}
       listHref={listHref}
+      initialViewerUserId={initialViewerUserId}
     />
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { ChatRoomSource } from "@/lib/types/chat";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import {
   ensureClientAccessOrRedirect,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
+import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
@@ -47,16 +49,19 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
   const isSold = post.status === "sold";
 
   const [existingRoomId, setExistingRoomId] = useState<string | null>(null);
+  const [existingRoomSource, setExistingRoomSource] = useState<ChatRoomSource | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
 
   useEffect(() => {
     if (!user?.id || post.type === "community") {
       setExistingRoomId(null);
+      setExistingRoomSource(null);
       return;
     }
     if (listingOwnerId && user.id === listingOwnerId) {
       setExistingRoomId(null);
+      setExistingRoomSource(null);
       return;
     }
     let cancelled = false;
@@ -65,10 +70,17 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     })
       .then((res) => (res.ok ? res.json() : { roomId: null }))
       .then((data) => {
-        if (!cancelled) setExistingRoomId(typeof data?.roomId === "string" ? data.roomId : null);
+        if (cancelled) return;
+        setExistingRoomId(typeof data?.roomId === "string" ? data.roomId : null);
+        setExistingRoomSource(
+          data?.source === "chat_room" || data?.source === "product_chat" ? data.source : null
+        );
       })
       .catch(() => {
-        if (!cancelled) setExistingRoomId(null);
+        if (!cancelled) {
+          setExistingRoomId(null);
+          setExistingRoomSource(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -111,6 +123,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     if (!ensureClientAccessOrRedirect(router, me)) return;
     if (post.type === "community") return;
     if (existingRoomId) {
+      warmChatRoomEntryById(existingRoomId, existingRoomSource);
       router.push(tradeRoomPath(existingRoomId));
       return;
     }
@@ -126,6 +139,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     const res = await createOrGetChatRoom(post.id);
     setChatLoading(false);
     if (res.ok) {
+      warmChatRoomEntryById(res.roomId);
       router.push(tradeRoomPath(res.roomId));
     } else {
       if (redirectForBlockedAction(router, res.error)) return;
@@ -136,6 +150,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     post.id,
     post.type,
     existingRoomId,
+    existingRoomSource,
     chatBlockedByOtherReservation,
     isSold,
     allowChatAfterSold,
@@ -156,6 +171,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
               void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
               if (existingRoomId) {
                 void router.prefetch(tradeRoomPath(existingRoomId));
+                warmChatRoomEntryById(existingRoomId, existingRoomSource);
               }
             }}
             disabled={chatDisabled}

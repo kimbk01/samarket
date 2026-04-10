@@ -131,7 +131,9 @@ export async function GET(
 
   const { data: r, error } = await sbAny
     .from("product_chats")
-    .select("*")
+    .select(
+      "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, unread_count_seller, unread_count_buyer, trade_flow_status, chat_mode, buyer_confirm_source"
+    )
     .eq("id", roomId)
     .maybeSingle();
 
@@ -180,7 +182,18 @@ export async function GET(
         const batchIdsCr = [
           ...new Set([partnerId2, postAuthorUserId(post2Resolved ?? undefined) ?? ""].filter(Boolean)),
         ] as string[];
-        const partnerMapCr = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsCr);
+        const rowPc = r as Record<string, unknown>;
+        scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
+        const tradeExtras = tradeFieldsFromRows(rowPc, post2Resolved ?? undefined);
+        const [partnerMapCr, buyerReviewSubmitted] = await Promise.all([
+          fetchPartnerDisplayFieldsMap(sbAny, batchIdsCr),
+          fetchBuyerReviewSubmitted(
+            sbAny,
+            (tradeExtras.productChatRoomId as string | null) ?? (r.id as string),
+            userId,
+            r.buyer_id as string
+          ),
+        ]);
         const partnerDisp2 = partnerDisplayFromMap(
           partnerMapCr,
           partnerId2 ?? "",
@@ -188,15 +201,6 @@ export async function GET(
         );
         const partnerNickname2 = partnerDisp2.partnerNickname;
         const listing = normalizeSellerListingState(post2Resolved?.seller_listing_state, post2Resolved?.status as string);
-        const rowPc = r as Record<string, unknown>;
-        scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
-        const tradeExtras = tradeFieldsFromRows(rowPc, post2Resolved ?? undefined);
-        const buyerReviewSubmitted = await fetchBuyerReviewSubmitted(
-          sbAny,
-          (tradeExtras.productChatRoomId as string | null) ?? (r.id as string),
-          userId,
-          r.buyer_id as string
-        );
         const adminChatSuspended = resolveAdminChatSuspension(
           crSame as Parameters<typeof resolveAdminChatSuspension>[0]
         ).suspended;
@@ -280,24 +284,26 @@ export async function GET(
     const batchIdsPc = [
       ...new Set([partnerId, postAuthorUserId(post ?? undefined) ?? ""].filter(Boolean)),
     ] as string[];
-    const partnerMapPc = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsPc);
+    scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
+    const tradeExtrasPc = tradeFieldsFromRows(row, post ?? undefined);
+    const [partnerMapPc, buyerReviewSubmittedPc, adminChatSuspendedPc] = await Promise.all([
+      fetchPartnerDisplayFieldsMap(sbAny, batchIdsPc),
+      fetchBuyerReviewSubmitted(
+        sbAny,
+        (tradeExtrasPc.productChatRoomId as string | null) ?? (r.id as string),
+        userId,
+        r.buyer_id as string
+      ),
+      fetchItemTradeAdminSuspended(
+        sbAny,
+        String(r.post_id),
+        String(r.seller_id),
+        String(r.buyer_id)
+      ),
+    ]);
     const partnerDispPc = partnerDisplayFromMap(partnerMapPc, partnerId, partnerId.slice(0, 8));
     const partnerNickname = partnerDispPc.partnerNickname;
     const listing = normalizeSellerListingState(post?.seller_listing_state, post?.status as string);
-    scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
-    const tradeExtrasPc = tradeFieldsFromRows(row, post ?? undefined);
-    const buyerReviewSubmittedPc = await fetchBuyerReviewSubmitted(
-      sbAny,
-      (tradeExtrasPc.productChatRoomId as string | null) ?? (r.id as string),
-      userId,
-      r.buyer_id as string
-    );
-    const adminChatSuspendedPc = await fetchItemTradeAdminSuspended(
-      sbAny,
-      String(r.post_id),
-      String(r.seller_id),
-      String(r.buyer_id)
-    );
     const resolvedProductId = String((post as { id?: string } | null)?.id ?? r.post_id ?? "").trim() || String(r.post_id);
     const payload = {
       id: r.id,
@@ -543,10 +549,20 @@ export async function GET(
   const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
   const amISeller2 = crRow.seller_id === userId;
   const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
+  const resolvedTradePostId = String((post2 as { id?: string } | null)?.id ?? postIdForTradeCard).trim();
   const batchIdsTrade = [
     ...new Set([partnerId2, postAuthorUserId(post2 ?? undefined) ?? ""].filter(Boolean)),
   ] as string[];
-  const partnerMapTrade = await fetchPartnerDisplayFieldsMap(sbAny, batchIdsTrade);
+  const [partnerMapTrade, pcFallbackRes] = await Promise.all([
+    fetchPartnerDisplayFieldsMap(sbAny, batchIdsTrade),
+    sbAny
+      .from("product_chats")
+      .select("id, trade_flow_status, chat_mode, buyer_confirm_source")
+      .eq("post_id", resolvedTradePostId)
+      .eq("seller_id", crRow.seller_id ?? "")
+      .eq("buyer_id", crRow.buyer_id ?? "")
+      .maybeSingle(),
+  ]);
   const partnerDispTrade = partnerDisplayFromMap(
     partnerMapTrade,
     partnerId2 ?? "",
@@ -554,14 +570,7 @@ export async function GET(
   );
   const partnerNickname2 = partnerDispTrade.partnerNickname;
   const listing = normalizeSellerListingState(post2?.seller_listing_state, post2?.status as string);
-  const resolvedTradePostId = String((post2 as { id?: string } | null)?.id ?? postIdForTradeCard).trim();
-  const { data: pcFallback } = await sbAny
-    .from("product_chats")
-    .select("*")
-    .eq("post_id", resolvedTradePostId)
-    .eq("seller_id", crRow.seller_id ?? "")
-    .eq("buyer_id", crRow.buyer_id ?? "")
-    .maybeSingle();
+  const pcFallback = pcFallbackRes.data;
   const pcFb = pcFallback as Record<string, unknown> | null;
   if (pcFb?.id != null) {
     scheduleProductChatTransitionsIfCooldownAllows(sbAny, String(pcFb.id));

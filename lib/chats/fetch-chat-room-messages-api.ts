@@ -112,6 +112,17 @@ function readMessageCache(cache: Map<string, MessageCacheEntry>, roomId: string)
   return cloneChatMessages(entry.messages);
 }
 
+function hasFreshMessageCache(cache: Map<string, MessageCacheEntry>, roomId: string, maxAgeMs: number): boolean {
+  const entry = cache.get(roomId);
+  if (!entry) return false;
+  const ageMs = Date.now() - entry.updatedAt;
+  if (ageMs > MESSAGE_CACHE_TTL_MS) {
+    cache.delete(roomId);
+    return false;
+  }
+  return ageMs <= maxAgeMs;
+}
+
 function writeMessageCache(cache: Map<string, MessageCacheEntry>, roomId: string, messages: ChatMessage[]): ChatMessage[] {
   const cloned = cloneChatMessages(messages);
   cache.set(roomId, { messages: cloned, updatedAt: Date.now() });
@@ -129,6 +140,14 @@ export function peekIntegratedChatRoomMessagesCache(roomId: string): ChatMessage
 
 export function peekLegacyChatRoomMessagesCache(roomId: string): ChatMessage[] | null {
   return readMessageCache(legacyMessageCache, roomId);
+}
+
+export function hasFreshIntegratedChatRoomMessagesCache(roomId: string, maxAgeMs = 2500): boolean {
+  return hasFreshMessageCache(integratedMessageCache, roomId, maxAgeMs);
+}
+
+export function hasFreshLegacyChatRoomMessagesCache(roomId: string, maxAgeMs = 2500): boolean {
+  return hasFreshMessageCache(legacyMessageCache, roomId, maxAgeMs);
 }
 
 export function updateIntegratedChatRoomMessagesCache(roomId: string, messages: ChatMessage[]): void {

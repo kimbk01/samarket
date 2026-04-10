@@ -167,7 +167,7 @@ export async function listCommunityFeedPosts(options: {
     let q = sb
       .from("community_posts")
       .select(
-        `id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( ${topicCols} )`
+        `id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( ${topicCols} )`
       )
       .eq("section_slug", sectionSlug)
       .eq("is_hidden", false);
@@ -229,7 +229,7 @@ export async function listCommunityFeedPosts(options: {
       color?: string | null;
       feed_list_skin?: unknown;
     } | null;
-    const content = String(r.content ?? "");
+    const summaryRaw = r.summary != null ? String(r.summary) : "";
     return {
       id: String(r.id),
       section_slug: String(r.section_slug ?? sectionSlug),
@@ -238,8 +238,8 @@ export async function listCommunityFeedPosts(options: {
       topic_color: topic?.color ?? null,
       feed_list_skin: normalizeCommunityFeedListSkin(topic?.feed_list_skin),
       title: String(r.title ?? ""),
-      content,
-      summary: r.summary != null ? String(r.summary) : summarize(content),
+      content: summaryRaw,
+      summary: summaryRaw || "",
       region_label: String(r.region_label ?? ""),
       is_question: !!r.is_question,
       is_meetup: !!r.is_meetup,
@@ -419,9 +419,9 @@ export async function listCommunityPostsForUser(
   }
 
   const selUserWith =
-    "id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, slug, color, feed_list_skin )";
+    "id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, slug, color, feed_list_skin )";
   const selUserNo =
-    "id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, slug, color )";
+    "id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, slug, color )";
 
   const u1 = await sb
     .from("community_posts")
@@ -472,7 +472,7 @@ export async function listCommunityPostsForUser(
       color?: string | null;
       feed_list_skin?: unknown;
     } | null;
-    const content = String(r.content ?? "");
+    const summaryRaw = r.summary != null ? String(r.summary) : "";
     return {
       id: String(r.id),
       section_slug: String(r.section_slug ?? ""),
@@ -481,8 +481,8 @@ export async function listCommunityPostsForUser(
       topic_color: topic?.color ?? null,
       feed_list_skin: normalizeCommunityFeedListSkin(topic?.feed_list_skin),
       title: String(r.title ?? ""),
-      content,
-      summary: r.summary != null ? String(r.summary) : summarize(content),
+      content: summaryRaw,
+      summary: summaryRaw || "",
       region_label: String(r.region_label ?? ""),
       is_question: !!r.is_question,
       is_meetup: !!r.is_meetup,

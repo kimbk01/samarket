@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/client-access-flow";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
+import type { ChatRoomSource } from "@/lib/types/chat";
 
 const tradeRoomPath = (roomId: string) =>
   `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(roomId)}`;
@@ -19,6 +20,7 @@ interface ChatButtonProps {
   productId: string;
   /** 당근형: 있으면 "대화중인 채팅" 표시, 클릭 시 해당 방으로 이동 */
   existingRoomId?: string | null;
+  existingRoomSource?: ChatRoomSource | null;
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
@@ -29,7 +31,14 @@ interface ChatButtonProps {
  * - existingRoomId 없음 → "채팅하기", createOrGetChatRoom 후 이동
  * - existingRoomId 있음 → "대화중인 채팅", 해당 방으로 이동
  */
-export function ChatButton({ productId, existingRoomId, disabled, className, children }: ChatButtonProps) {
+export function ChatButton({
+  productId,
+  existingRoomId,
+  existingRoomSource,
+  disabled,
+  className,
+  children,
+}: ChatButtonProps) {
   const { t, tt } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -56,7 +65,7 @@ export function ChatButton({ productId, existingRoomId, disabled, className, chi
     const user = getCurrentUser();
     if (!ensureClientAccessOrRedirect(router, user)) return;
     if (hasExisting) {
-      warmChatRoomEntryById(existingRoomId);
+      warmChatRoomEntryById(existingRoomId, existingRoomSource);
       startTransition(() => {
         router.push(tradeRoomPath(existingRoomId));
       });
@@ -85,6 +94,7 @@ export function ChatButton({ productId, existingRoomId, disabled, className, chi
           void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
           if (existingRoomId) {
             void router.prefetch(tradeRoomPath(existingRoomId));
+            warmChatRoomEntryById(existingRoomId, existingRoomSource);
           }
         }}
         disabled={disabled || loading}

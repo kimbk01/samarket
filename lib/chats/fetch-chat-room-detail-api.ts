@@ -12,6 +12,16 @@ type FetchRoomResult =
 const ROOM_DETAIL_TTL_MS = 12_000;
 const roomDetailCache = new Map<string, { at: number; room: ChatRoom }>();
 
+function isDegradedChatRoom(room: ChatRoom): boolean {
+  const p = room.product;
+  return Boolean(
+    p &&
+      typeof p.title === "string" &&
+      typeof p.id === "string" &&
+      isMissingPostRowChatProductTitle(p.title, p.id)
+  );
+}
+
 /** 네비 직후·워밍 직후 동기 조회 — `fetchChatRoomDetailApi` 와 동일 TTL·품질 규칙 */
 export function peekChatRoomDetailMemory(roomId: string): ChatRoom | null {
   const key = roomId.trim();
@@ -19,16 +29,16 @@ export function peekChatRoomDetailMemory(roomId: string): ChatRoom | null {
   const now = Date.now();
   const cached = roomDetailCache.get(key);
   if (!cached || now - cached.at >= ROOM_DETAIL_TTL_MS) return null;
-  const p = cached.room.product;
-  if (
-    p &&
-    typeof p.title === "string" &&
-    typeof p.id === "string" &&
-    isMissingPostRowChatProductTitle(p.title, p.id)
-  ) {
+  if (isDegradedChatRoom(cached.room)) {
     return null;
   }
   return cached.room;
+}
+
+export function updateChatRoomDetailMemory(roomId: string, room: ChatRoom): void {
+  const key = roomId.trim();
+  if (!key || isDegradedChatRoom(room)) return;
+  roomDetailCache.set(key, { at: Date.now(), room });
 }
 
 function isChatRoomPayload(j: unknown): j is ChatRoom {
@@ -49,13 +59,7 @@ export async function fetchChatRoomDetailApi(roomId: string): Promise<FetchRoomR
   const now = Date.now();
   const cached = roomDetailCache.get(key);
   if (cached && now - cached.at < ROOM_DETAIL_TTL_MS) {
-    const p = cached.room.product;
-    if (
-      p &&
-      typeof p.title === "string" &&
-      typeof p.id === "string" &&
-      isMissingPostRowChatProductTitle(p.title, p.id)
-    ) {
+    if (isDegradedChatRoom(cached.room)) {
       roomDetailCache.delete(key);
     } else {
       return { ok: true, room: cached.room, cache: "memory" };
@@ -73,15 +77,7 @@ export async function fetchChatRoomDetailApi(roomId: string): Promise<FetchRoomR
       if (res.status === 401 || res.status === 403) return { ok: false, status: res.status, code: "auth" as const };
       if (!res.ok || !isChatRoomPayload(j)) return { ok: false, status: res.status, code: "load_failed" as const };
       const room = j as ChatRoom;
-      const p = room.product;
-      const isDegradedCard =
-        p &&
-        typeof p.title === "string" &&
-        typeof p.id === "string" &&
-        isMissingPostRowChatProductTitle(p.title, p.id);
-      if (!isDegradedCard) {
-        roomDetailCache.set(key, { at: Date.now(), room: j });
-      }
+      updateChatRoomDetailMemory(key, room);
       return { ok: true, room: j, cache: "network" } as const;
     } catch {
       return { ok: false, status: 0, code: "network" as const };

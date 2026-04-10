@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { ChatRoomSource } from "@/lib/types/chat";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
@@ -16,6 +17,7 @@ import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { createReport } from "@/lib/reports/createReport";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
+import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
@@ -573,6 +575,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const [chatError, setChatError] = useState("");
   /** 거래 글: 이 글·본인·판매자 기준으로 이미 열린 채팅방 (상품↔채팅 연동) */
   const [existingTradeRoomId, setExistingTradeRoomId] = useState<string | null>(null);
+  const [existingTradeRoomSource, setExistingTradeRoomSource] = useState<ChatRoomSource | null>(null);
   const [detailMoreOpen, setDetailMoreOpen] = useState(false);
   const [sellerMoreOpen, setSellerMoreOpen] = useState(false);
   const [cancelSaleBusy, setCancelSaleBusy] = useState(false);
@@ -603,20 +606,29 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     if (resolvedViewerId === undefined) return;
     if (resolvedViewerId === null || post.type === "community") {
       setExistingTradeRoomId(null);
+      setExistingTradeRoomSource(null);
       return;
     }
     if (listingOwnerId && resolvedViewerId === listingOwnerId) {
       setExistingTradeRoomId(null);
+      setExistingTradeRoomSource(null);
       return;
     }
     let cancelled = false;
     fetch(`/api/chat/item/room-id?itemId=${encodeURIComponent(post.id)}`)
       .then((res) => (res.ok ? res.json() : { roomId: null }))
       .then((data) => {
-        if (!cancelled) setExistingTradeRoomId(typeof data?.roomId === "string" ? data.roomId : null);
+        if (cancelled) return;
+        setExistingTradeRoomId(typeof data?.roomId === "string" ? data.roomId : null);
+        setExistingTradeRoomSource(
+          data?.source === "chat_room" || data?.source === "product_chat" ? data.source : null
+        );
       })
       .catch(() => {
-        if (!cancelled) setExistingTradeRoomId(null);
+        if (!cancelled) {
+          setExistingTradeRoomId(null);
+          setExistingTradeRoomSource(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -845,8 +857,9 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   }, [post, resolvedViewerId, listingOwnerId, existingTradeRoomId]);
 
   const navigateToTradeChatRoom = useCallback(
-    (roomId: string) => {
+    (roomId: string, sourceHint?: ChatRoomSource | null) => {
       const path = `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(roomId)}`;
+      warmChatRoomEntryById(roomId, sourceHint);
       startChatNavTransition(() => {
         router.push(path);
       });
@@ -860,8 +873,9 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       void router.prefetch(
         `${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(existingTradeRoomId)}`
       );
+      warmChatRoomEntryById(existingTradeRoomId, existingTradeRoomSource);
     }
-  }, [router, existingTradeRoomId]);
+  }, [router, existingTradeRoomId, existingTradeRoomSource]);
 
   const handleChat = useCallback(async () => {
     setChatError("");
@@ -871,7 +885,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       return;
     }
     if (existingTradeRoomId) {
-      navigateToTradeChatRoom(existingTradeRoomId);
+      navigateToTradeChatRoom(existingTradeRoomId, existingTradeRoomSource);
       return;
     }
     const tradeOwnerId = postAuthorUserId(post as unknown as Record<string, unknown>);
@@ -899,6 +913,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     post.author_id,
     router,
     existingTradeRoomId,
+    existingTradeRoomSource,
     chatBlockedByOtherReservation,
     navigateToTradeChatRoom,
   ]);

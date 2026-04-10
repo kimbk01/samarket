@@ -50,11 +50,14 @@ export function CommunityDetail({
   post,
   meeting,
   initialComments,
+  initialCommentsLoaded = false,
   viewerJoinedMeeting = false,
 }: {
   post: NeighborhoodFeedPostDTO;
   meeting: NeighborhoodMeetingDetailDTO | null;
   initialComments: NeighborhoodCommentNode[];
+  /** 서버에서 댓글 조회를 이미 완료했는지 표시해 빈 배열일 때의 중복 GET 을 막는다. */
+  initialCommentsLoaded?: boolean;
   /** 모임 글: 참여(또는 호스트)일 때만 댓글 작성·목록 허용 */
   viewerJoinedMeeting?: boolean;
 }) {
@@ -62,7 +65,9 @@ export function CommunityDetail({
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [comments, setComments] = useState(initialComments);
-  const [commentsLoading, setCommentsLoading] = useState(initialComments.length === 0);
+  const [commentsLoading, setCommentsLoading] = useState(
+    !initialCommentsLoaded && initialComments.length === 0
+  );
   const [likeCount, setLikeCount] = useState(post.like_count);
   const [viewCount, setViewCount] = useState(post.view_count);
   const [busy, setBusy] = useState(false);
@@ -85,8 +90,8 @@ export function CommunityDetail({
 
   useEffect(() => {
     setComments(initialComments);
-    setCommentsLoading(initialComments.length === 0);
-  }, [initialComments, post.id]);
+    setCommentsLoading(!initialCommentsLoaded && initialComments.length === 0);
+  }, [initialComments, initialCommentsLoaded, post.id]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -213,9 +218,9 @@ export function CommunityDetail({
   );
 
   useEffect(() => {
-    if (initialComments.length > 0) return;
+    if (initialCommentsLoaded || initialComments.length > 0) return;
     void refreshComments();
-  }, [initialComments.length, refreshComments]);
+  }, [initialCommentsLoaded, initialComments.length, refreshComments]);
 
   useEffect(() => {
     if (firstCommentsReadyLoggedRef.current) return;

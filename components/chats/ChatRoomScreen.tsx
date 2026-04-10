@@ -11,6 +11,7 @@ import type { ChatRoom } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { fetchChatRoomDetailApi, peekChatRoomDetailMemory } from "@/lib/chats/fetch-chat-room-detail-api";
+import { fetchChatRoomBootstrapApi } from "@/lib/chats/fetch-chat-room-bootstrap-api";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 
@@ -18,6 +19,7 @@ export function ChatRoomScreen({
   roomId,
   openReviewOnMount = false,
   listHref,
+  initialViewerUserId,
   onListNavigate,
   embedded = false,
   embeddedFill = false,
@@ -28,6 +30,8 @@ export function ChatRoomScreen({
   openReviewOnMount?: boolean;
   /** 오류·빈 화면에서 «목록으로» 링크 */
   listHref: string;
+  /** 서버에서 이미 확인한 로그인 사용자 ID — 첫 진입 지연 감소용 */
+  initialViewerUserId?: string | null;
   /** 라우팅 없이 거래채팅 목록(시트 등)으로 복귀 */
   onListNavigate?: () => void;
   embedded?: boolean;
@@ -44,6 +48,12 @@ export function ChatRoomScreen({
    * 프로필 캐시·테스트 세션이 있으면 첫 페인트부터 문자열로 두어 방 상세 fetch·UI 가 한 틱 빨리 진행
    */
   const [resolvedUserId, setResolvedUserId] = useState<string | null | undefined>(() => {
+    if (typeof initialViewerUserId === "string" && initialViewerUserId.trim()) {
+      return initialViewerUserId.trim();
+    }
+    if (initialViewerUserId === null) {
+      return null;
+    }
     const sync = getSyncViewerUserIdForClient();
     return sync ?? undefined;
   });
@@ -82,6 +92,59 @@ export function ChatRoomScreen({
     const hadPeek = Boolean(peekChatRoomDetailMemory(roomId));
     if (!hadPeek) setLoading(true);
     setErr(null);
+    try {
+      const result = await fetchChatRoomBootstrapApi(roomId);
+      if (!result.ok) {
+        if (result.code === "not_found") {
+          setErr("not_found");
+          setRoom(null);
+          logClientPerf("chat-room-screen.reload", {
+            roomId,
+            result: "not_found",
+            elapsedMs: Math.round(perfNow() - startedAt),
+          });
+          return;
+        }
+        if (result.code === "auth") {
+          setErr("auth");
+          setRoom(null);
+          logClientPerf("chat-room-screen.reload", {
+            roomId,
+            result: "auth",
+            elapsedMs: Math.round(perfNow() - startedAt),
+          });
+          return;
+        }
+        if (result.code === "load_failed") {
+          setErr("load_failed");
+          setRoom(null);
+          logClientPerf("chat-room-screen.reload", {
+            roomId,
+            result: "load_failed",
+            elapsedMs: Math.round(perfNow() - startedAt),
+          });
+          return;
+        }
+        setErr("network");
+        setRoom(null);
+        logClientPerf("chat-room-screen.reload", {
+          roomId,
+          result: "network",
+          elapsedMs: Math.round(perfNow() - startedAt),
+        });
+        return;
+      }
+      setRoom(result.room);
+      logClientPerf("chat-room-screen.reload", {
+        roomId,
+        result: "ok",
+        detailCache: result.cache,
+        elapsedMs: Math.round(perfNow() - startedAt),
+      });
+      return;
+    } catch {
+      /* bootstrap fallback below */
+    }
     try {
       const result = await fetchChatRoomDetailApi(roomId);
       if (!result.ok) {

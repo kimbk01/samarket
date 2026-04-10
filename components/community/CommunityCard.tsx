@@ -23,7 +23,8 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
       : "";
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveNeighborhoodFeedListThumbnail(post);
-  const contentForTags = post.is_meetup ? stripMeetupPostMetaFromContent(post.content) : post.content;
+  const previewSource = (post.summary ?? "").trim() || post.content;
+  const contentForTags = post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource;
   const placeLineRaw =
     skin === "location_pin" ? post.meetup_place?.trim() || post.location_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];

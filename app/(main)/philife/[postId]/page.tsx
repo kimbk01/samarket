@@ -41,13 +41,15 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
     redirect(`/philife/${canonical}`);
   }
 
-  const post = await getNeighborhoodPostDetail(canonical, { viewerUserId: viewerId });
+  const postPromise = getNeighborhoodPostDetail(canonical, { viewerUserId: viewerId });
+  const commentsPromise = listNeighborhoodComments(canonical, viewerId);
+  const post = await postPromise;
   if (!post) {
     notFound();
   }
 
   const [initialComments, meeting, joinedFromDb] = await Promise.all([
-    listNeighborhoodComments(canonical, viewerId),
+    commentsPromise,
     post.meeting_id ? getMeetingDetail(post.meeting_id) : Promise.resolve(null),
     post.meeting_id && viewerId
       ? isViewerJoinedNeighborhoodMeeting(post.meeting_id, viewerId)
@@ -73,6 +75,7 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
       post={post}
       meeting={meeting}
       initialComments={initialComments}
+      initialCommentsLoaded
       viewerJoinedMeeting={viewerJoinedMeeting}
     />
   );

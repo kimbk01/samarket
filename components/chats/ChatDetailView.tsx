@@ -57,6 +57,8 @@ import {
   bustIntegratedChatMessagesCache,
   fetchIntegratedChatRoomMessages,
   fetchLegacyChatRoomMessages,
+  hasFreshIntegratedChatRoomMessagesCache,
+  hasFreshLegacyChatRoomMessagesCache,
   peekIntegratedChatRoomMessagesCache,
   peekLegacyChatRoomMessagesCache,
   updateIntegratedChatRoomMessagesCache,
@@ -534,8 +536,23 @@ export function ChatDetailView({
     const cached = isChatRoom
       ? peekIntegratedChatRoomMessagesCache(room.id)
       : peekLegacyChatRoomMessagesCache(room.id);
+    const cacheIsFresh = isChatRoom
+      ? hasFreshIntegratedChatRoomMessagesCache(room.id)
+      : hasFreshLegacyChatRoomMessagesCache(room.id);
     setMessages(cached ?? []);
-    setMessagesLoading(cached == null);
+    setMessagesLoading(cached == null && !cacheIsFresh);
+    if (cached && cacheIsFresh) {
+      logClientPerf("chat-detail.messages.initial", {
+        roomId: room.id,
+        source: isChatRoom ? "chat_room" : "product_chat",
+        from: "fresh_cache",
+        count: cached.length,
+        elapsedMs: Math.round(perfNow() - startedAt),
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     (async () => {
       let list: ChatMessage[] = [];
       try {
@@ -583,6 +600,9 @@ export function ChatDetailView({
   // 당근형: 상대가 보낸 메시지 실시간 반영 — 판매자/구매자 다른 창에서도 답장 수신
   useEffect(() => {
     if (!room.id || !currentUserId) return;
+    const cacheIsFresh = isChatRoom
+      ? hasFreshIntegratedChatRoomMessagesCache(room.id)
+      : hasFreshLegacyChatRoomMessagesCache(room.id);
     const tick = async () => {
       const next = await fetchMessagesForPolling();
       const allowIncomingAlerts = pollTickCountRef.current > 0;
@@ -633,7 +653,11 @@ export function ChatDetailView({
         return mergeChatMessagesById(reconcileOptimisticMessages(prev, next), next);
       });
     };
-    tick(); // 마운트 직후 1회 실행 (초기 로드 직후 반영)
+    if (cacheIsFresh) {
+      pollTickCountRef.current = 1;
+    } else {
+      tick(); // 마운트 직후 1회 실행 (초기 로드 직후 반영)
+    }
     /** 통합 채팅: Realtime 구독 성공 시 폴링은 백업용으로만 길게. 미연결 시 기존 간격 유지 */
     const pollMs = isStoreOrderChat
       ? chatRealtimeLive

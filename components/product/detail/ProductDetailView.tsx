@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import type { Product } from "@/lib/types/product";
+import type { ChatRoomSource } from "@/lib/types/chat";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
 import { recordRecentView } from "@/lib/recommendation/mock-recent-viewed-products";
@@ -56,6 +57,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
     targetLabel?: string;
   } | null>(null);
   const [existingRoomId, setExistingRoomId] = useState<string | null>(null);
+  const [existingRoomSource, setExistingRoomSource] = useState<ChatRoomSource | null>(null);
   const userId = getCurrentUserId();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const amISeller = useMemo(() => {
@@ -65,11 +67,23 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
   }, [product.sellerId, product.seller?.id, userId]);
 
   const refetchExistingRoomId = useCallback(() => {
-    if (!product.id || !userId) return;
+    if (!product.id || !userId) {
+      setExistingRoomId(null);
+      setExistingRoomSource(null);
+      return;
+    }
     fetch(`/api/chat/item/room-id?itemId=${encodeURIComponent(product.id)}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : { roomId: null }))
-      .then((data) => setExistingRoomId(data?.roomId ?? null))
-      .catch(() => setExistingRoomId(null));
+      .then((data) => {
+        setExistingRoomId(typeof data?.roomId === "string" ? data.roomId : null);
+        setExistingRoomSource(
+          data?.source === "chat_room" || data?.source === "product_chat" ? data.source : null
+        );
+      })
+      .catch(() => {
+        setExistingRoomId(null);
+        setExistingRoomSource(null);
+      });
   }, [product.id, userId]);
 
   useEffect(() => {
@@ -167,7 +181,12 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
         </section>
       )}
 
-      <ProductActionBar product={product} existingRoomId={existingRoomId} amISeller={amISeller} />
+      <ProductActionBar
+        product={product}
+        existingRoomId={existingRoomId}
+        existingRoomSource={existingRoomSource}
+        amISeller={amISeller}
+      />
       {reportSheet && (
         <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/50">
           <div

@@ -6,20 +6,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
+import type { ChatRoomSource } from "@/lib/types/chat";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const itemId = searchParams.get("itemId")?.trim() ?? "";
   const userId = (await getOptionalAuthenticatedUserId()) ?? "";
   if (!itemId || !userId) {
-    return NextResponse.json({ roomId: null });
+    return NextResponse.json({ roomId: null, source: null });
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ roomId: null });
+    return NextResponse.json({ roomId: null, source: null });
   }
 
   const sbAny = sb;
@@ -30,11 +31,11 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
   const sellerId = postAuthorUserId((post ?? {}) as Record<string, unknown>);
   if (!sellerId) {
-    return NextResponse.json({ roomId: null });
+    return NextResponse.json({ roomId: null, source: null });
   }
   /** 판매자 본인에게는 특정 구매자 방 1개를 고를 수 없으므로 미연동(목록에서 진입) */
   if (userId === sellerId) {
-    return NextResponse.json({ roomId: null });
+    return NextResponse.json({ roomId: null, source: null });
   }
 
   const { data: crRows } = await sbAny
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
     .limit(1);
   const crId = crRows?.[0]?.id as string | undefined;
   if (crId) {
-    return NextResponse.json({ roomId: crId });
+    return NextResponse.json({ roomId: crId, source: "chat_room" satisfies ChatRoomSource });
   }
 
   const { data: pcRows } = await sbAny
@@ -62,5 +63,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     roomId: (pcRows?.[0] as { id?: string } | undefined)?.id ?? null,
+    source: pcRows?.[0] ? ("product_chat" satisfies ChatRoomSource) : null,
   });
 }

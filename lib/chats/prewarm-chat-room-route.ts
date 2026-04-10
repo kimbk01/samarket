@@ -1,11 +1,8 @@
 "use client";
 
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
-import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
-import {
-  fetchIntegratedChatRoomMessages,
-  fetchLegacyChatRoomMessages,
-} from "@/lib/chats/fetch-chat-room-messages-api";
+import { fetchChatRoomBootstrapApi } from "@/lib/chats/fetch-chat-room-bootstrap-api";
+import type { ChatRoomSource } from "@/lib/types/chat";
 
 const WARM_TTL_MS = 45_000;
 const warmedAtByHref = new Map<string, number>();
@@ -30,24 +27,19 @@ function extractChatRoomIdFromHrefPath(pathname: string): string | null {
   return roomId || null;
 }
 
-/** 방 상세 → 메시지 GET — `fetchChatRoomDetailApi`·메시지 모듈의 single-flight 에 합류 */
-async function loadRoomDetailAndMessages(roomId: string): Promise<void> {
-  const detail = await fetchChatRoomDetailApi(roomId);
-  if (detail.ok && detail.room.source === "chat_room") {
-    await fetchIntegratedChatRoomMessages(detail.room.id);
-    return;
-  }
-  await fetchLegacyChatRoomMessages(roomId);
+/** 방 상세 → 메시지 GET — source 를 이미 알면 초기 진입에서 두 요청을 병렬로 시작한다. */
+async function loadRoomDetailAndMessages(roomId: string, sourceHint?: ChatRoomSource | null): Promise<void> {
+  await fetchChatRoomBootstrapApi(roomId, sourceHint);
 }
 
 /**
  * 채팅방 화면 마운트 직후 — 인증(`getCurrentUserIdForDb`)과 병행해 상세·메시지 캐시를 채워 체감 지연 완화.
  * (알림 호버용 `prewarmChatRouteData` 와 달리 TTL 없음)
  */
-export function warmChatRoomEntryById(roomId: string): void {
+export function warmChatRoomEntryById(roomId: string, sourceHint?: ChatRoomSource | null): void {
   const id = roomId.trim();
   if (!id) return;
-  void loadRoomDetailAndMessages(id);
+  void loadRoomDetailAndMessages(id, sourceHint);
 }
 
 export function shouldWarmChatRoute(hrefRaw: string): boolean {

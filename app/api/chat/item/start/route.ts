@@ -43,8 +43,12 @@ export async function POST(req: NextRequest) {
 
   const sbAny = sb;
 
-  // 1) 상품 및 판매자 — posts.user_id (스키마에 author_id 없음)
-  const { data: post, error: postErr } = await sbAny.from("posts").select("*").eq("id", itemId).maybeSingle();
+  // 1) 상품 및 판매자 — 방 생성/차단 판정에 필요한 필드만 조회
+  const { data: post, error: postErr } = await sbAny
+    .from("posts")
+    .select("id, author_id, user_id, status, visibility, is_deleted, seller_listing_state, reserved_buyer_id, meta")
+    .eq("id", itemId)
+    .maybeSingle();
 
   if (postErr || !post) {
     return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 404 });
@@ -111,21 +115,26 @@ export async function POST(req: NextRequest) {
       .eq("room_id", existing.id);
 
     const now = new Date().toISOString();
-    for (const p of participants || []) {
-      const part = p as { id: string; hidden?: boolean; left_at?: string | null; reopen_count?: number };
-      if (part.hidden || part.left_at) {
-        await sbAny
-          .from("chat_room_participants")
-          .update({
-            hidden: false,
-            left_at: null,
-            is_active: true,
-            reopen_count: (part.reopen_count ?? 0) + 1,
-            updated_at: now,
-          })
-          .eq("id", part.id);
-      }
-        }
+    const hiddenOrLeftParticipants = (participants ?? []).filter((p) => {
+      const part = p as { hidden?: boolean; left_at?: string | null };
+      return part.hidden || Boolean(part.left_at);
+    }) as { id: string; reopen_count?: number }[];
+    if (hiddenOrLeftParticipants.length > 0) {
+      await Promise.all(
+        hiddenOrLeftParticipants.map((part) =>
+          sbAny
+            .from("chat_room_participants")
+            .update({
+              hidden: false,
+              left_at: null,
+              is_active: true,
+              reopen_count: (part.reopen_count ?? 0) + 1,
+              updated_at: now,
+            })
+            .eq("id", part.id)
+        )
+      );
+    }
     await sbAny
       .from("chat_rooms")
       .update({ reopened_at: now, updated_at: now })

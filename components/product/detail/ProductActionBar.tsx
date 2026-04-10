@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Product } from "@/lib/types/product";
 import { ChatButton } from "@/components/chats/ChatButton";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import type { ChatRoomSource } from "@/lib/types/chat";
 import {
   PRODUCT_DETAIL_BOTTOM_BAR,
   PRODUCT_DETAIL_CTA_BUTTON,
@@ -22,6 +23,7 @@ interface ProductActionBarProps {
   product: Product;
   /** 당근형: 있으면 CTA "대화중인 채팅"으로 표시 */
   existingRoomId?: string | null;
+  existingRoomSource?: ChatRoomSource | null;
   /** 판매자 본인일 때 true → 채팅하기 대신 "채팅 목록 보기" 표시 */
   amISeller?: boolean;
 }
@@ -30,7 +32,12 @@ interface ProductActionBarProps {
  * 당근형: 하단 CTA 1개 (채팅하기 / 대화중인 채팅) + 상태 뱃지
  * 글 상세(PostDetailView)와 동일 하단 바 규격
  */
-export function ProductActionBar({ product, existingRoomId, amISeller }: ProductActionBarProps) {
+export function ProductActionBar({
+  product,
+  existingRoomId,
+  existingRoomSource,
+  amISeller,
+}: ProductActionBarProps) {
   return (
     <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-10`}>
       <span
@@ -55,6 +62,7 @@ export function ProductActionBar({ product, existingRoomId, amISeller }: Product
           <ChatButton
             productId={product.id}
             existingRoomId={existingRoomId}
+            existingRoomSource={existingRoomSource}
             disabled={product.status === "sold"}
             className={PRODUCT_DETAIL_CTA_BUTTON}
           />

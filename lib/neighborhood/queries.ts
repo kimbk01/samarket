@@ -90,13 +90,13 @@ export async function listNeighborhoodFeed(options: {
   const authorUserId = options.authorUserId?.trim();
 
   const FEED_SELECT_FULL =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
   const FEED_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
   const FEED_SELECT_BASE =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
   const FEED_SELECT_BASE_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
 
   const buildFeedQuery = (selectCols: string, useTopicSlugFilter: boolean) => {
     let qq = sb
@@ -210,7 +210,8 @@ export async function listNeighborhoodFeed(options: {
     const topicUiSlug = neighborhoodPostTopicUiSlug(r);
     const imgs = Array.isArray(r.images) ? (r.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
     const meet = meetByPost.get(String(r.id));
-    const content = String(r.content ?? "");
+    const summaryRaw = r.summary != null ? String(r.summary) : "";
+    const content = summaryRaw;
     const isQuestion = Boolean(r.is_question);
     const isMeetupRow = Boolean(r.is_meetup);
     const meetupPlace = r.meetup_place != null && String(r.meetup_place).trim() !== "" ? String(r.meetup_place).trim() : null;
@@ -229,7 +230,7 @@ export async function listNeighborhoodFeed(options: {
       meetup_place: meetupPlace,
       title: String(r.title ?? ""),
       content,
-      summary: r.summary != null ? String(r.summary) : summarize(content),
+      summary: summaryRaw || summarize(content),
       location_id: String(r.location_id ?? lid),
       location_label: locationLabel,
       images: imgs,
