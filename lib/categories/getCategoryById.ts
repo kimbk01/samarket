@@ -10,6 +10,9 @@ import type { CategorySettingsRaw } from "./normalizeCategorySettings";
 import { normalizeCategorySettings } from "./normalizeCategorySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeMarketSlugParam } from "./tradeMarketPath";
+import { readCategoryCache, writeCategoryCache } from "./category-memory-cache";
+
+const CATEGORY_BY_KEY_TTL_MS = 60_000;
 
 interface CategoryDbRow {
   id: string;
@@ -30,7 +33,7 @@ interface CategoryDbRow {
   category_settings?: CategorySettingsRaw;
 }
 
-function toCategoryWithSettings(row: CategoryDbRow): CategoryWithSettings {
+export function toCategoryWithSettings(row: CategoryDbRow): CategoryWithSettings {
   return {
     id: row.id,
     name: row.name,
@@ -67,6 +70,19 @@ export async function getCategoryBySlugOrId(
   const id = normalizeMarketSlugParam(identifier);
   if (!id) return null;
 
+  const cacheKey = `cat:${id}:${rawTrim}`;
+  const hit = readCategoryCache<CategoryWithSettings>(cacheKey, CATEGORY_BY_KEY_TTL_MS);
+  if (hit) return hit;
+  const row = await getCategoryBySlugOrIdUncached(supabase, rawTrim, id);
+  if (row) writeCategoryCache(cacheKey, row);
+  return row;
+}
+
+async function getCategoryBySlugOrIdUncached(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  rawTrim: string,
+  id: string
+): Promise<CategoryWithSettings | null> {
   try {
     const baseQuery = () =>
       (supabase as any)

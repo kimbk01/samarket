@@ -1,5 +1,3 @@
-"use client";
-
 import type { CategoryWithSettings } from "./types";
 
 /** Supabase 조인 결과: 1:1이면 객체, 1:N이면 배열로 올 수 있음 */

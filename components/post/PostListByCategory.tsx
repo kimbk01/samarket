@@ -16,6 +16,7 @@ import { NotInterestedCard } from "./NotInterestedCard";
 import { ReportReasonModal } from "./ReportReasonModal";
 import type { PostListMenuAction } from "./PostListMenuBottomSheet";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
+import { computeTradeFeedKey } from "@/lib/posts/trade-feed-key";
 
 interface PostListByCategoryProps {
   categoryId: string;
@@ -26,6 +27,8 @@ interface PostListByCategoryProps {
   filterCategoryIds?: string[];
   /** 알바 마켓: 구인/구직 메타 필터 */
   jobsListingKind?: JobListingKindFilter;
+  /** 마켓 bootstrap 첫 페이지 — `feedKey`가 현재 필터와 같을 때만 적용 */
+  initialTradeFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null;
 }
 
 export function PostListByCategory({
@@ -34,6 +37,7 @@ export function PostListByCategory({
   sort = "latest",
   filterCategoryIds,
   jobsListingKind,
+  initialTradeFeed = null,
 }: PostListByCategoryProps) {
   const [posts, setPosts] = useState<PostWithMeta[]>([]);
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
@@ -49,6 +53,11 @@ export function PostListByCategory({
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
     return [categoryId];
   }, [categoryId, filterCategoryIds]);
+
+  const feedKey = useMemo(
+    () => computeTradeFeedKey(effectiveIds, sort, jobsListingKind),
+    [effectiveIds, sort, jobsListingKind]
+  );
 
   const load = useCallback(
     async (pageNum: number = 1) => {
@@ -89,9 +98,30 @@ export function PostListByCategory({
   );
 
   useEffect(() => {
+    let cancelled = false;
     setPage(1);
-    load(1);
-  }, [categoryId, sort, jobsListingKind, load]);
+
+    (async () => {
+      if (initialTradeFeed && initialTradeFeed.feedKey === feedKey) {
+        setPosts(initialTradeFeed.posts);
+        setHasMore(initialTradeFeed.hasMore);
+        setHiddenPostIds(new Set());
+        setNotInterestedPostIds(new Set());
+        setFavoriteMap({});
+        setLoading(false);
+        if (initialTradeFeed.posts.length > 0) {
+          const map = await getFavoriteStatusForPosts(initialTradeFeed.posts.map((p) => p.id));
+          if (!cancelled) setFavoriteMap(map);
+        }
+        return;
+      }
+      await load(1);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [feedKey, initialTradeFeed?.feedKey, load]);
 
   useEffect(() => {
     const onFav = (e: Event) => {

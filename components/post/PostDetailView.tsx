@@ -18,14 +18,12 @@ import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { createReport } from "@/lib/reports/createReport";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
-import {
-  TRADE_CHAT_SURFACE,
-  tradeHubChatComposeHref,
-  tradeHubChatRoomHref,
-} from "@/lib/chats/surfaces/trade-chat-surface";
+import { TRADE_CHAT_SURFACE, tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getAppSettings } from "@/lib/app-settings";
@@ -573,7 +571,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState("");
   const [isChatNavPending, startChatNavTransition] = useTransition();
-  const chatCtaBusy = isChatNavPending;
+  const [chatRoomOpening, setChatRoomOpening] = useState(false);
+  const chatCtaBusy = isChatNavPending || chatRoomOpening;
   const [chatError, setChatError] = useState("");
   /** 거래 글: 이 글·본인·판매자 기준으로 이미 열린 채팅방 (상품↔채팅 연동) */
   const [existingTradeRoomId, setExistingTradeRoomId] = useState<string | null>(null);
@@ -874,10 +873,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     if (existingTradeRoomId) {
       void router.prefetch(tradeHubChatRoomHref(existingTradeRoomId, existingTradeRoomSource));
       warmChatRoomEntryById(existingTradeRoomId, existingTradeRoomSource);
-      return;
     }
-    void router.prefetch(tradeHubChatComposeHref({ productId: post.id }));
-  }, [router, existingTradeRoomId, existingTradeRoomSource, post.id]);
+  }, [router, existingTradeRoomId, existingTradeRoomSource]);
 
   const handleChat = useCallback(async () => {
     setChatError("");
@@ -909,12 +906,27 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       mode: "create",
       productId: post.id,
     });
-    startChatNavTransition(() => {
-      router.push(tradeHubChatComposeHref({ productId: post.id }));
-    });
+    setChatRoomOpening(true);
+    void (async () => {
+      try {
+        const res = await createOrGetChatRoom(post.id);
+        if (!res.ok) {
+          if (redirectForBlockedAction(router, res.error)) return;
+          setChatError(res.error ?? "채팅방을 열 수 없습니다.");
+          return;
+        }
+        const href = tradeHubChatRoomHref(res.roomId, res.roomSource);
+        void router.prefetch(href);
+        warmChatRoomEntryById(res.roomId, res.roomSource);
+        startChatNavTransition(() => {
+          router.push(href);
+        });
+      } finally {
+        setChatRoomOpening(false);
+      }
+    })();
   }, [
     post.id,
-    post.author_id,
     router,
     existingTradeRoomId,
     existingTradeRoomSource,

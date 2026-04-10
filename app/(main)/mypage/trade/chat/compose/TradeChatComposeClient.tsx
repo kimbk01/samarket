@@ -70,6 +70,8 @@ export function TradeChatComposeClient({
         setError(result.error || "채팅방을 열 수 없습니다.");
         return;
       }
+      const dest = tradeHubChatRoomHref(result.roomId, result.roomSource);
+      void router.prefetch(dest);
       setResolvedRoomId(result.roomId);
       setHubBootstrapSource(result.roomSource);
       const mark = patchTradeChatEntryMark({

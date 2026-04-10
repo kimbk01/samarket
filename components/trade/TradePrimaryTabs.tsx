@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -24,6 +24,11 @@ import {
   TRADE_PRIMARY_TABS_STICKY_FALLBACK_SHELL_CLASS,
 } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -47,6 +52,21 @@ export function TradePrimaryTabs({
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const [tabsFit, setTabsFit] = useState(false);
   const { tradeCategories, loading, error, tabs, activeIndex } = useTradeTabs(pathname);
+
+  /** 거래 1단 탭 전환 체감 — 마운트 직후 비활성 탭 RSC 선로딩 */
+  useEffect(() => {
+    if (loading || tabs.length < 2) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const idleId = scheduleWhenBrowserIdle(() => {
+      for (const tab of tabs) {
+        if (tab.href && !tab.isActive) {
+          void router.prefetch(tab.href);
+        }
+      }
+    }, 450);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [loading, tabs, router]);
 
   /** `/home`·`/market/*` 동일: 앱 헤더 안에서는 `/market/trade` 와 같은 1단(밑줄·회색 띠) 규칙 */
   const useCommunityRow1 = appearance === "community";

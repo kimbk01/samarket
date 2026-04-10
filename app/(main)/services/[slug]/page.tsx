@@ -10,7 +10,7 @@ export default function ServiceCategoryPage() {
 
   return (
     <CategoryListLayout slugOrId={slugOrId} expectedType="service" backHref="/services">
-      {() => (
+      {(_category) => (
         <>
           {/* TODO: service 목록 - 신청/예약/문의 구조 추후 연동 */}
           <CategoryEmptyState

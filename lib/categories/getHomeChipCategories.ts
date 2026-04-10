@@ -6,9 +6,12 @@
  * - show_in_home_chips=false 인 카테고리는 칩에 안 보이고 Quick Create(런처)에만 노출 가능
  */
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { getActiveCategories } from "./getActiveCategories";
 import type { CategoryWithSettings } from "./types";
+import { getActiveCategories } from "./getActiveCategories";
+import { cachedCategoryFetch } from "./category-memory-cache";
 import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
+
+const HOME_CHIP_TRADE_TTL_MS = 45_000;
 
 interface CategoryDbRow {
   id: string;
@@ -73,6 +76,14 @@ export async function getHomeChipCategories(): Promise<CategoryWithSettings[]> {
   const supabase = getSupabaseClient();
   if (!supabase) return [];
 
+  return cachedCategoryFetch("homeChips:trade:v1", HOME_CHIP_TRADE_TTL_MS, () =>
+    getHomeChipCategoriesUncached(supabase)
+  );
+}
+
+async function getHomeChipCategoriesUncached(
+  supabase: NonNullable<ReturnType<typeof getSupabaseClient>>
+): Promise<CategoryWithSettings[]> {
   try {
     const { data, error } = await (supabase as any)
       .from("categories")

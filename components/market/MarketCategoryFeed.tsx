@@ -26,6 +26,9 @@ import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 import { useRegisterTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
 import { TRADE_MARKET_TOPIC_SCROLL_NAV_CLASS } from "@/lib/trade/ui/market-topic-scroll";
 import { JobListingKindTabs, type JobListingKindTab } from "@/components/market/JobListingKindTabs";
+import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
+import { computeTradeFeedKey } from "@/lib/posts/trade-feed-key";
+import type { PostWithMeta } from "@/lib/posts/schema";
 
 function parseJobListingKindParam(raw: string | null): JobListingKindTab {
   const t = (raw ?? "").trim().toLowerCase();
@@ -37,16 +40,31 @@ function parseJobListingKindParam(raw: string | null): JobListingKindTab {
  * (`/admin/trade/feed-topics` · TradeSubtopicsPanel 과 동일 소스. 하위가 없으면 2행 숨김)
  */
 
-export function MarketCategoryFeed({ category }: { category: CategoryWithSettings }) {
+export function MarketCategoryFeed({
+  category,
+  initialChildren,
+  bootstrapFeed,
+}: {
+  category: CategoryWithSettings;
+  /** `/api/categories/market-bootstrap` 로 이미 받은 2행 주제 — 추가 왕복 생략 */
+  initialChildren?: CategoryWithSettings[] | null;
+  /** bootstrap 첫 페이지 글(키가 현재 필터와 일치할 때만 목록에 사용) */
+  bootstrapFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const topicRaw = (searchParams.get("topic")?.trim() ?? "").normalize("NFC");
   const jobKindTab = parseJobListingKindParam(searchParams.get("jk"));
-  const [children, setChildren] = useState<CategoryWithSettings[]>([]);
+  const [children, setChildren] = useState<CategoryWithSettings[]>(() => initialChildren ?? []);
   const { tabs, activeIndex } = useTradeTabs(pathname);
 
   useEffect(() => {
+    setChildren(initialChildren ?? []);
+  }, [category.id, initialChildren]);
+
+  useEffect(() => {
+    if (initialChildren !== undefined) return;
     let cancelled = false;
     (async () => {
       const list = await getChildCategories(category.id);
@@ -55,7 +73,7 @@ export function MarketCategoryFeed({ category }: { category: CategoryWithSetting
     return () => {
       cancelled = true;
     };
-  }, [category.id]);
+  }, [category.id, initialChildren]);
 
   const topicChild = useMemo(() => {
     if (!topicRaw) return null;
@@ -70,16 +88,26 @@ export function MarketCategoryFeed({ category }: { category: CategoryWithSetting
   /** 칩 하이라이트: 잘못된 topic 쿼리는 미선택(전체 피드)과 동일 */
   const topicKeyForChips = topicChild ? topicRaw : null;
 
-  const filterIds = useMemo(() => {
-    if (children.length === 0) return [category.id];
-    if (topicChild) return [topicChild.id];
-    return [category.id, ...children.map((c) => c.id)];
-  }, [category.id, children, topicChild]);
+  const filterIds = useMemo(
+    () =>
+      computeMarketFilterIds({
+        parentCategoryId: category.id,
+        children: children.map((c) => ({ id: c.id, slug: c.slug })),
+        topicParam: topicRaw,
+      }),
+    [category.id, children, topicRaw]
+  );
 
   const marketBase = `/market/${encodedTradeMarketSegment(category)}`;
   const isJobMarket =
     category.icon_key === "job" || category.icon_key === "jobs" || category.slug === "job";
   const postSort = sortKeyToHomePostSort("latest");
+  const feedKey = useMemo(
+    () => computeTradeFeedKey(filterIds, postSort, isJobMarket ? jobKindTab : undefined),
+    [filterIds, postSort, isJobMarket, jobKindTab]
+  );
+  const initialTradeFeed =
+    bootstrapFeed && bootstrapFeed.feedKey === feedKey ? bootstrapFeed : null;
   const onNavigate = useCallback(
     (href: string) => {
       router.push(href, { scroll: false });
@@ -149,6 +177,7 @@ export function MarketCategoryFeed({ category }: { category: CategoryWithSetting
           category={category}
           sort={postSort}
           jobsListingKind={isJobMarket ? jobKindTab : undefined}
+          initialTradeFeed={initialTradeFeed}
         />
       </div>
     </div>

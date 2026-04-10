@@ -6,10 +6,11 @@ import { startTransition, useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   ensureClientAccessOrRedirect,
+  redirectForBlockedAction,
 } from "@/lib/auth/client-access-flow";
+import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import {
   TRADE_CHAT_SURFACE,
-  tradeHubChatComposeHref,
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
@@ -42,13 +43,16 @@ export function ChatButton({
   const { t, tt } = useI18n();
   const router = useRouter();
   const [error, setError] = useState("");
+  const [openingRoom, setOpeningRoom] = useState(false);
 
   const hasExisting = !!existingRoomId;
-  const label = hasExisting
-    ? t("common_existing_chat")
-    : typeof children === "string"
-      ? tt(children)
-      : children ?? tt("채팅하기");
+  const label = openingRoom
+    ? "연결 중…"
+    : hasExisting
+      ? t("common_existing_chat")
+      : typeof children === "string"
+        ? tt(children)
+        : children ?? tt("채팅하기");
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -56,10 +60,8 @@ export function ChatButton({
     void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
     if (existingRoomId) {
       void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
-      return;
     }
-    void router.prefetch(tradeHubChatComposeHref({ productId }));
-  }, [existingRoomId, productId, router]);
+  }, [existingRoomId, existingRoomSource, router]);
 
   const handleClick = async () => {
     setError("");
@@ -82,9 +84,23 @@ export function ChatButton({
       mode: "create",
       productId,
     });
-    startTransition(() => {
-      router.push(tradeHubChatComposeHref({ productId }));
-    });
+    setOpeningRoom(true);
+    try {
+      const res = await createOrGetChatRoom(productId);
+      if (!res.ok) {
+        if (redirectForBlockedAction(router, res.error)) return;
+        setError(res.error ?? "채팅방을 열 수 없습니다.");
+        return;
+      }
+      const href = tradeHubChatRoomHref(res.roomId, res.roomSource);
+      void router.prefetch(href);
+      warmChatRoomEntryById(res.roomId, res.roomSource);
+      startTransition(() => {
+        router.push(href);
+      });
+    } finally {
+      setOpeningRoom(false);
+    }
   };
 
   return (
@@ -97,11 +113,9 @@ export function ChatButton({
           if (existingRoomId) {
             void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
             warmChatRoomEntryById(existingRoomId, existingRoomSource);
-            return;
           }
-          void router.prefetch(tradeHubChatComposeHref({ productId }));
         }}
-        disabled={disabled}
+        disabled={disabled || openingRoom}
         className={className ?? "rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
       >
         {label}

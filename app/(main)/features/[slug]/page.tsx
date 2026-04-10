@@ -10,7 +10,7 @@ export default function FeatureCategoryPage() {
 
   return (
     <CategoryListLayout slugOrId={slugOrId} expectedType="feature" backHref="/services">
-      {() => (
+      {(_category) => (
         <>
           {/* TODO: feature 전용 페이지 - 혜택/당근페이 등 소개 구조 */}
           <CategoryEmptyState

@@ -8,8 +8,11 @@ import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
 import type { CategorySettingsRaw } from "./normalizeCategorySettings";
 import { normalizeCategorySettings } from "./normalizeCategorySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { cachedCategoryFetch } from "./category-memory-cache";
 
-interface CategoryDbRow {
+const CHILDREN_BY_PARENT_TTL_MS = 45_000;
+
+export interface CategoryDbRow {
   id: string;
   name: string;
   slug: string;
@@ -28,7 +31,7 @@ interface CategoryDbRow {
   category_settings?: CategorySettingsRaw;
 }
 
-function mapRow(row: CategoryDbRow): CategoryWithSettings {
+export function mapChildCategoryRow(row: CategoryDbRow): CategoryWithSettings {
   return {
     id: row.id,
     name: row.name,
@@ -53,17 +56,22 @@ export async function getChildCategories(parentId: string): Promise<CategoryWith
   const supabase = getSupabaseClient();
   if (!supabase || !parentId?.trim()) return [];
 
-  try {
-    const { data, error } = await (supabase as any)
-      .from("categories")
-      .select("*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)")
-      .eq("parent_id", parentId.trim())
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+  const key = `children:${parentId.trim()}`;
+  return cachedCategoryFetch(key, CHILDREN_BY_PARENT_TTL_MS, async () => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from("categories")
+        .select(
+          "*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)"
+        )
+        .eq("parent_id", parentId.trim())
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
 
-    if (error || !Array.isArray(data)) return [];
-    return (data as CategoryDbRow[]).map(mapRow);
-  } catch {
-    return [];
-  }
+      if (error || !Array.isArray(data)) return [];
+      return (data as CategoryDbRow[]).map(mapChildCategoryRow);
+    } catch {
+      return [];
+    }
+  });
 }

@@ -1,10 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { CategoryType } from "@/lib/categories/types";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
+import type { PostWithMeta } from "@/lib/posts/schema";
+import {
+  getCategoryBySlugOrId,
+  toCategoryWithSettings,
+} from "@/lib/categories/getCategoryById";
+import { mapChildCategoryRow, type CategoryDbRow as TradeChildDbRow } from "@/lib/categories/getChildCategories";
+import { writeCategoryCache } from "@/lib/categories/category-memory-cache";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useRegisterCategoryListStickyHeader } from "@/contexts/CategoryListHeaderContext";
@@ -19,7 +25,13 @@ interface CategoryListLayoutProps {
   expectedType: ExpectedType;
   /** 뒤로가기 링크 (미주입 시 history.back) */
   backHref?: string;
-  children: (category: CategoryWithSettings) => React.ReactNode;
+  children: (
+    category: CategoryWithSettings,
+    extra?: {
+      tradeBootstrapChildren?: CategoryWithSettings[];
+      tradeBootstrapFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null;
+    }
+  ) => React.ReactNode;
 }
 
 export function CategoryListLayout({
@@ -29,7 +41,16 @@ export function CategoryListLayout({
   children,
 }: CategoryListLayoutProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
+  const [tradeBootstrapChildren, setTradeBootstrapChildren] = useState<CategoryWithSettings[] | undefined>(
+    undefined
+  );
+  const [tradeBootstrapFeed, setTradeBootstrapFeed] = useState<
+    { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null | undefined
+  >(undefined);
   const [status, setStatus] = useState<"loading" | "found" | "not_found" | "redirect">("loading");
 
   const load = useCallback(async () => {
@@ -38,6 +59,49 @@ export function CategoryListLayout({
       return;
     }
     setStatus("loading");
+    setTradeBootstrapChildren(undefined);
+    setTradeBootstrapFeed(undefined);
+
+    if (expectedType === "trade") {
+      try {
+        const topic = (searchParamsRef.current.get("topic")?.trim() ?? "").normalize("NFC");
+        const jk = searchParamsRef.current.get("jk")?.trim().toLowerCase();
+        const qs = new URLSearchParams();
+        qs.set("q", slugOrId.trim());
+        qs.set("includePosts", "1");
+        if (topic) qs.set("topic", topic);
+        if (jk === "work" || jk === "hire") qs.set("jk", jk);
+        const res = await fetch(`/api/categories/market-bootstrap?${qs.toString()}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const j = (await res.json()) as {
+          ok?: boolean;
+          category?: Record<string, unknown>;
+          children?: Record<string, unknown>[];
+          initialFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string };
+          error?: string;
+        };
+        if (res.ok && j.ok && j.category) {
+          const c = toCategoryWithSettings(j.category as unknown as Parameters<typeof toCategoryWithSettings>[0]);
+          if (c.type !== expectedType) {
+            setStatus("redirect");
+            router.replace(getCategoryHref(c));
+            return;
+          }
+          const children = (j.children ?? []).map((row) => mapChildCategoryRow(row as unknown as TradeChildDbRow));
+          writeCategoryCache(`children:${c.id}`, children);
+          setCategory(c);
+          setTradeBootstrapChildren(children);
+          setTradeBootstrapFeed(j.initialFeed ?? null);
+          setStatus("found");
+          return;
+        }
+      } catch {
+        /* 폴백: 기존 클라이언트 조회 */
+      }
+    }
+
     const c = await getCategoryBySlugOrId(slugOrId.trim());
     if (!c) {
       setStatus("not_found");
@@ -49,6 +113,8 @@ export function CategoryListLayout({
       return;
     }
     setCategory(c);
+    setTradeBootstrapChildren(undefined);
+    setTradeBootstrapFeed(null);
     setStatus("found");
   }, [slugOrId, expectedType, router]);
 
@@ -95,7 +161,12 @@ export function CategoryListLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className={`${APP_MAIN_GUTTER_X_CLASS} ${tradeInnerY}`}>{children(category)}</div>
+      <div className={`${APP_MAIN_GUTTER_X_CLASS} ${tradeInnerY}`}>
+        {children(category, {
+          tradeBootstrapChildren: expectedType === "trade" ? tradeBootstrapChildren : undefined,
+          tradeBootstrapFeed: expectedType === "trade" ? tradeBootstrapFeed : undefined,
+        })}
+      </div>
     </div>
   );
 }

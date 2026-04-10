@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { isTradeMarketRouteActive } from "@/lib/categories/tradeMarketPath";
@@ -29,6 +29,7 @@ export function HomeCategoryChip({
   appearance = "pill",
 }: HomeCategoryChipProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const href = getCategoryHref(category);
   const pathNoQuery = pathname.split("?")[0] ?? "";
   const safeDec = (s: string) => {
@@ -69,6 +70,12 @@ export function HomeCategoryChip({
   return (
     <Link
       href={href}
+      prefetch
+      onPointerEnter={() => {
+        if (category.type === "trade") {
+          router.prefetch(href);
+        }
+      }}
       className={
         appearance === "inline-text"
           ? textCls

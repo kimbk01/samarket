@@ -28,6 +28,7 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => React.ReactNode> = {
   home: HomeIcon,
@@ -114,19 +115,27 @@ export function BottomNav() {
     };
   }, [applyMainBottomNavItems]);
 
-  /** 주요 탭 JS·RSC 선로딩 — 커뮤니티(/philife) 등 탭 전환 체감 지연 완화 */
+  /** 주요 탭 JS·RSC 선로딩 — 거래채팅 허브·다른 탭 전환 체감 지연 완화 */
   useEffect(() => {
     if (isConstrainedNetwork()) return;
     if (document.visibilityState !== "visible") return;
-    const candidates = tabs
+    const fromTabs = tabs
       .map((tab) => tab.href?.trim() ?? "")
-      .filter((href) => href && href !== pathname)
-      .slice(0, 4);
+      .filter((href) => href && href !== pathname);
+    const ordered: string[] = [];
+    const tradeHub = TRADE_CHAT_SURFACE.hubPath;
+    if (!pathname?.startsWith(tradeHub)) {
+      ordered.push(tradeHub);
+    }
+    for (const h of fromTabs) {
+      if (!ordered.includes(h)) ordered.push(h);
+    }
+    const candidates = ordered.slice(0, 5);
     const idleId = scheduleWhenBrowserIdle(() => {
       for (const href of candidates) {
         router.prefetch(href);
       }
-    }, 1400);
+    }, 850);
     return () => {
       cancelScheduledWhenBrowserIdle(idleId);
     };
