@@ -62,7 +62,7 @@ export async function GET() {
 
   const { data: prof2 } = await sb
     .from("profiles")
-    .select("region_name, region_code, address_street_line, address_detail")
+    .select("region_name, region_code, address_street_line, address_detail, full_address")
     .eq("id", uid)
     .maybeSingle();
   const fromProfile = resolveProfileLocationAddressOneLine({
@@ -70,6 +70,7 @@ export async function GET() {
     region_name: prof2?.region_name ?? null,
     address_street_line: prof2?.address_street_line ?? null,
     address_detail: prof2?.address_detail ?? null,
+    full_address: typeof prof2?.full_address === "string" ? prof2.full_address : null,
   }).trim();
   if (fromProfile) contact_address = fromProfile;
   if (!contact_address && testAddress) contact_address = testAddress;

@@ -12,15 +12,16 @@ import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
 import { ProfileImageField } from "./ProfileImageField";
 import { ProfileBasicFields } from "./ProfileBasicFields";
-import { StoreAddressLocationSection } from "@/components/stores/StoreAddressLocationSection";
-import { STORE_LOCATION_SECTION_HINT_PROFILE_EDIT } from "@/lib/stores/store-address-form-ui";
+import { ProfileMapLocationBlock } from "./ProfileMapLocationBlock";
 import { ProfileReadonlyFields } from "./ProfileReadonlyFields";
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import {
   buildProfileRegionNameForStorage,
-  decodeProfileAppLocationPair,
   encodeProfileAppLocationStorage,
 } from "@/lib/profile/profile-location";
+import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-full-address";
+import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
+
 function validate(p: { nickname: string }): { nickname?: string } {
   const errors: { nickname?: string } = {};
   if (!p.nickname?.trim()) errors.nickname = "닉네임을 입력해 주세요.";
@@ -39,15 +40,15 @@ export function ProfileEditForm() {
   const [message, setMessage] = useState<{
     type: "ok" | "error";
     text: string;
-    /** 주소 컬럼 미마이그레이션 등 부가 안내 */
     detail?: string;
   } | null>(null);
 
   const [nickname, setNickname] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bio, setBio] = useState("");
-  const [appRegionId, setAppRegionId] = useState("");
-  const [appCityId, setAppCityId] = useState("");
+  const [mapLat, setMapLat] = useState<number | null>(null);
+  const [mapLng, setMapLng] = useState<number | null>(null);
+  const [mapFullAddress, setMapFullAddress] = useState("");
   const [addressStreetLine, setAddressStreetLine] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
   const [phone, setPhone] = useState("");
@@ -57,13 +58,13 @@ export function ProfileEditForm() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    const pick = consumeMapAddressPick();
     const data = await getMyProfile();
     if (!data) {
       setLoading(false);
       const next =
         pathname && pathname.startsWith("/") ? pathname : MYPAGE_PROFILE_EDIT_HREF;
       const loginUrl = `/login?next=${encodeURIComponent(next)}`;
-      /** 클라이언트 라우팅만 하면 세션 쿠키·RSC와 어긋날 수 있어 로그인 페이지와 동일하게 전체 이동 */
       if (typeof window !== "undefined") {
         window.location.replace(loginUrl);
       } else {
@@ -71,18 +72,29 @@ export function ProfileEditForm() {
       }
       return;
     }
-    setProfile(data);
-    setNickname(data.nickname ?? "");
-    setAvatarUrl(data.avatar_url ?? null);
-    setBio(data.bio ?? "");
-    const loc = decodeProfileAppLocationPair(data.region_code, data.region_name);
-    setAppRegionId(loc.regionId);
-    setAppCityId(loc.cityId);
-    setAddressStreetLine((data.address_street_line ?? "").trim());
-    setAddressDetail((data.address_detail ?? "").trim());
-    setPhone(parsePhMobileInput(data.phone ?? ""));
-    setPreferredLanguage(data.preferred_language ?? "ko");
-    setPreferredCountry(data.preferred_country ?? "PH");
+
+    let merged: ProfileRow = { ...data };
+    if (pick) {
+      merged = {
+        ...merged,
+        latitude: pick.latitude,
+        longitude: pick.longitude,
+        full_address: pick.fullAddress,
+      };
+    }
+
+    setProfile(merged);
+    setNickname(merged.nickname ?? "");
+    setAvatarUrl(merged.avatar_url ?? null);
+    setBio(merged.bio ?? "");
+    setMapLat(merged.latitude ?? null);
+    setMapLng(merged.longitude ?? null);
+    setMapFullAddress((merged.full_address ?? "").trim());
+    setAddressStreetLine((merged.address_street_line ?? "").trim());
+    setAddressDetail((merged.address_detail ?? "").trim());
+    setPhone(parsePhMobileInput(merged.phone ?? ""));
+    setPreferredLanguage(merged.preferred_language ?? "ko");
+    setPreferredCountry(merged.preferred_country ?? "PH");
     setLoading(false);
   }, [pathname, router]);
 
@@ -99,14 +111,31 @@ export function ProfileEditForm() {
     setErrors(nextErr);
     if (Object.keys(err).length > 0 || !pr.ok) return;
 
+    const fa = mapFullAddress.trim();
+    if (mapLat == null || mapLng == null || !fa) {
+      setMessage({ type: "error", text: "지도에서 위치를 선택해 주세요." });
+      return;
+    }
+
+    const matched = matchRegionCityFromFullAddress(fa);
+    const regionCode = matched
+      ? encodeProfileAppLocationStorage(matched.regionId, matched.cityId)
+      : null;
+    const regionName = matched
+      ? buildProfileRegionNameForStorage(matched.regionId, matched.cityId)
+      : null;
+
     setSaving(true);
     setMessage(null);
     const payload: ProfileUpdatePayload = {
       nickname: nickname.trim(),
       avatar_url: avatarUrl ?? null,
       bio: bio.trim() || null,
-      region_code: encodeProfileAppLocationStorage(appRegionId, appCityId),
-      region_name: buildProfileRegionNameForStorage(appRegionId, appCityId),
+      latitude: mapLat,
+      longitude: mapLng,
+      full_address: fa,
+      region_code: regionCode,
+      region_name: regionName,
       address_street_line: addressStreetLine.trim() || null,
       address_detail: addressDetail.trim() || null,
       phone: pr.value,
@@ -160,21 +189,14 @@ export function ProfileEditForm() {
         onPreferredCountryChange={setPreferredCountry}
         errors={errors}
       />
-      <StoreAddressLocationSection
-        sectionHint={STORE_LOCATION_SECTION_HINT_PROFILE_EDIT}
-        regionId={appRegionId}
-        cityId={appCityId}
-        onRegionChange={(id) => {
-          setAppRegionId(id);
-          setAppCityId("");
-        }}
-        onCityChange={setAppCityId}
+      <ProfileMapLocationBlock
+        latitude={mapLat}
+        longitude={mapLng}
+        fullAddress={mapFullAddress}
         addressStreetLine={addressStreetLine}
         addressDetail={addressDetail}
         onAddressStreetLineChange={setAddressStreetLine}
         onAddressDetailChange={setAddressDetail}
-        showRequired={false}
-        showZipLookup={false}
       />
       <ProfileReadonlyFields profile={profile} />
 

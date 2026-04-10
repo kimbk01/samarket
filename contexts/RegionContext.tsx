@@ -67,6 +67,7 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
         region_code: typeof p.region_code === "string" ? p.region_code : null,
         region_name: typeof p.region_name === "string" ? p.region_name : null,
         address_detail: typeof p.address_detail === "string" ? p.address_detail : null,
+        full_address: typeof p.full_address === "string" ? p.full_address : null,
       });
       setProfileSourcedRegion((prev) => {
         if (next == null && prev == null) return prev;

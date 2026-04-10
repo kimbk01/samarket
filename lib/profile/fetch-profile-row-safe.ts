@@ -16,6 +16,9 @@ const SELECT_FULL = [
   "region_name",
   "address_street_line",
   "address_detail",
+  "latitude",
+  "longitude",
+  "full_address",
   "phone",
   "phone_verified",
   "phone_verification_status",
@@ -72,7 +75,8 @@ const SELECT_MEMBER =
 const SELECT_LEGACY =
   "id, email, nickname, avatar_url, role, member_type, status, phone, phone_verified, phone_verification_status";
 
-const SELECT_OPTIONAL = "address_street_line, address_detail, notify_commerce_email";
+const SELECT_OPTIONAL =
+  "address_street_line, address_detail, latitude, longitude, full_address, notify_commerce_email";
 
 export function isProfileSelectSchemaError(message: string | undefined): boolean {
   if (!message) return false;
@@ -96,9 +100,25 @@ async function mergeOptionalFields(
 }
 
 function toProfileRow(userId: string, row: Record<string, unknown>): ProfileRow {
+  const latRaw = row.latitude;
+  const lngRaw = row.longitude;
+  const lat =
+    typeof latRaw === "number"
+      ? latRaw
+      : latRaw != null && String(latRaw).trim() !== ""
+        ? Number(latRaw)
+        : null;
+  const lng =
+    typeof lngRaw === "number"
+      ? lngRaw
+      : lngRaw != null && String(lngRaw).trim() !== ""
+        ? Number(lngRaw)
+        : null;
   return {
     ...DEFAULT_PROFILE_ROW,
     ...row,
+    latitude: lat != null && Number.isFinite(lat) ? lat : null,
+    longitude: lng != null && Number.isFinite(lng) ? lng : null,
     id: userId,
     phone_verified: Boolean(row.phone_verified),
     realname_verified: Boolean(row.realname_verified),

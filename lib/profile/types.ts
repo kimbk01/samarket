@@ -23,6 +23,12 @@ export interface ProfileRow {
   address_street_line: string | null;
   /** 동·호·출입 등 */
   address_detail: string | null;
+  /** Google Maps 핀 위도 (프로필 위치 선택) */
+  latitude: number | null;
+  /** Google Maps 핀 경도 */
+  longitude: number | null;
+  /** 역지오코딩 전체 주소 */
+  full_address: string | null;
   phone: string | null;
   phone_verified: boolean;
   phone_verification_status: string;
@@ -56,6 +62,9 @@ export type ProfileUpdatePayload = Partial<
     | "region_name"
     | "address_street_line"
     | "address_detail"
+    | "latitude"
+    | "longitude"
+    | "full_address"
     | "phone"
     | "preferred_language"
     | "preferred_country"
@@ -72,6 +81,9 @@ export const DEFAULT_PROFILE_ROW: ProfileRow = {
   region_name: null,
   address_street_line: null,
   address_detail: null,
+  latitude: null,
+  longitude: null,
+  full_address: null,
   phone: null,
   phone_verified: false,
   phone_verification_status: "unverified",

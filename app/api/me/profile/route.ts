@@ -8,11 +8,14 @@ import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
+/** 회원 프로필 위치 — `user_addresses`·매장 주소를 이 핸들러에서 수정하지 않음. @see `lib/addresses/address-source-architecture.ts` */
+
 export const dynamic = "force-dynamic";
 
 type PatchKey = keyof ProfileUpdatePayload;
 
 const PROFILE_ADDRESS_KEYS = ["address_street_line", "address_detail"] as const;
+const PROFILE_MAP_KEYS = ["latitude", "longitude", "full_address"] as const;
 
 function serviceUnavailable(why: string) {
   return NextResponse.json({ ok: false, error: why }, { status: 503 });
@@ -21,33 +24,47 @@ function serviceUnavailable(why: string) {
 /** PostgREST 스키마 캐시에 컬럼이 없을 때(마이그레이션 미적용) */
 function isMissingProfileAddressColumnError(message: string): boolean {
   const m = message.toLowerCase();
-  const mentionsCol = m.includes("address_detail") || m.includes("address_street_line");
+  const mentionsCol =
+    m.includes("address_detail") ||
+    m.includes("address_street_line") ||
+    m.includes("latitude") ||
+    m.includes("longitude") ||
+    m.includes("full_address");
   if (!mentionsCol) return false;
   return (
     m.includes("schema cache") ||
     m.includes("does not exist") ||
     m.includes("unknown column") ||
-    m.includes("column") && m.includes("profiles")
+    (m.includes("column") && m.includes("profiles"))
   );
 }
 
 function mapProfileDbError(message: string): string {
   if (isMissingProfileAddressColumnError(message)) {
     return (
-      "DB에 프로필 주소 컬럼(address_street_line, address_detail)이 없습니다. " +
+      "DB에 프로필 주소·지도 컬럼이 없습니다. " +
       "마이그레이션 적용 후 잠시 뒤 다시 저장해 주세요."
     );
   }
   return message;
 }
 
-/** 컬럼 미존재 시 한 번 더: 주소 필드 없이 나머지만 저장 시도 */
+/** 컬럼 미존재 시 한 번 더: 주소·지도 필드 없이 나머지만 저장 시도 */
 function omitProfileAddressFields(row: Record<string, unknown>): Record<string, unknown> {
   const next = { ...row };
   for (const k of PROFILE_ADDRESS_KEYS) {
     delete next[k];
   }
+  for (const k of PROFILE_MAP_KEYS) {
+    delete next[k];
+  }
   return next;
+}
+
+function rowHasOptionalProfileAddressFields(row: Record<string, unknown>): boolean {
+  return (
+    PROFILE_ADDRESS_KEYS.some((k) => k in row) || PROFILE_MAP_KEYS.some((k) => k in row)
+  );
 }
 
 function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknown> } | { ok: false; error: string } {
@@ -88,6 +105,29 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
   optText("region_name", true);
   optText("address_street_line", true);
   optText("address_detail", true);
+  if ("full_address" in b) {
+    const v = b.full_address;
+    if (v === null || v === "") patch.full_address = null;
+    else patch.full_address = String(v ?? "").trim() || null;
+  }
+  if ("latitude" in b) {
+    const v = b.latitude;
+    if (v === null) patch.latitude = null;
+    else {
+      const n = typeof v === "number" ? v : Number(v);
+      if (!Number.isFinite(n)) return { ok: false, error: "latitude 값이 올바르지 않습니다." };
+      patch.latitude = n;
+    }
+  }
+  if ("longitude" in b) {
+    const v = b.longitude;
+    if (v === null) patch.longitude = null;
+    else {
+      const n = typeof v === "number" ? v : Number(v);
+      if (!Number.isFinite(n)) return { ok: false, error: "longitude 값이 올바르지 않습니다." };
+      patch.longitude = n;
+    }
+  }
   if ("phone" in b) {
     const v = b.phone;
     if (v === null || v === "") {
@@ -178,7 +218,7 @@ export async function PATCH(req: NextRequest) {
     if (
       error &&
       isMissingProfileAddressColumnError(error.message ?? "") &&
-      PROFILE_ADDRESS_KEYS.some((k) => k in row)
+      rowHasOptionalProfileAddressFields(row)
     ) {
       attemptRow = omitProfileAddressFields(row);
       const second = await serviceSb
@@ -193,7 +233,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({
           ok: true,
           warning:
-            "프로필은 저장되었으나 DB에 주소 컬럼이 없어 지번·동호는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.",
+            "프로필은 저장되었으나 DB에 주소·지도 컬럼이 없어 위치는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.",
         });
       }
     }
@@ -234,7 +274,7 @@ export async function PATCH(req: NextRequest) {
   if (
     error &&
     isMissingProfileAddressColumnError(error.message ?? "") &&
-    PROFILE_ADDRESS_KEYS.some((k) => k in row)
+    rowHasOptionalProfileAddressFields(row)
   ) {
     attemptRow = omitProfileAddressFields(row);
     const second = await routeSb
@@ -249,7 +289,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         warning:
-          "프로필은 저장되었으나 DB에 주소 컬럼이 없어 지번·동호는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.",
+          "프로필은 저장되었으나 DB에 주소·지도 컬럼이 없어 위치는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.",
       });
     }
   }

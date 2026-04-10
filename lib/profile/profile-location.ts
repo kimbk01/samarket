@@ -72,7 +72,13 @@ export function buildProfileRegionNameForStorage(regionId: string, cityId: strin
 export function resolveProfileLocationDisplayLine(p: {
   region_code?: string | null;
   region_name?: string | null;
+  full_address?: string | null;
 }): string {
+  const fa = (p.full_address ?? "").trim();
+  if (fa) {
+    const first = fa.split(/\r?\n|,/).map((s) => s.trim()).filter(Boolean)[0];
+    return (first ?? fa).slice(0, 200);
+  }
   const { regionId, cityId } = decodeProfileAppLocationPair(p.region_code, p.region_name);
   if (regionId && cityId && isValidRegionCity(regionId, cityId)) {
     const lbl = getLocationLabelIfValid(regionId, cityId);
@@ -90,17 +96,31 @@ export function resolveProfileLocationDisplayLine(p: {
 export function isProfileLocationComplete(p: {
   region_code?: string | null;
   region_name?: string | null;
+  full_address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }): boolean {
+  const fa = (p.full_address ?? "").trim();
+  if (
+    fa &&
+    typeof p.latitude === "number" &&
+    typeof p.longitude === "number" &&
+    Number.isFinite(p.latitude) &&
+    Number.isFinite(p.longitude)
+  ) {
+    return true;
+  }
   const { regionId, cityId } = decodeProfileAppLocationPair(p.region_code, p.region_name);
   return Boolean(regionId && cityId && isValidRegionCity(regionId, cityId));
 }
 
-/** profiles region · address_* 표시용 */
+/** profiles region · address_* · 지도 주소 표시용 */
 export type ProfileLocationAddressDisplayInput = {
   region_code?: string | null;
   region_name?: string | null;
   address_street_line?: string | null;
   address_detail?: string | null;
+  full_address?: string | null;
 };
 
 /**

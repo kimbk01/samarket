@@ -17,12 +17,16 @@ export function userRegionFromProfileSlice(p: {
   region_code?: string | null;
   region_name?: string | null;
   address_detail?: string | null;
+  full_address?: string | null;
 }): UserRegion | null {
   if (!isProfileLocationComplete(p)) return null;
   const { regionId, cityId } = decodeProfileAppLocationPair(p.region_code, p.region_name);
   if (!regionId || !cityId) return null;
   const barangay = (p.address_detail ?? "").trim();
-  const label = resolveProfileLocationDisplayLine(p).trim() || barangay;
+  const label =
+    resolveProfileLocationDisplayLine(p).trim() ||
+    barangay ||
+    (p.full_address ?? "").trim();
   return {
     id: PROFILE_LOCATION_ID,
     userId: getCurrentUser()?.id ?? "guest",
