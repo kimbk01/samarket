@@ -1,7 +1,7 @@
 "use client";
 
 import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
-import type { ChatRoomSource } from "@/lib/types/chat";
+import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 
 export function ChatRoomPageClient({
   roomId,
@@ -9,12 +9,14 @@ export function ChatRoomPageClient({
   listHref,
   initialViewerUserId,
   chatRoomSourceHint = null,
+  serverBootstrap = null,
 }: {
   roomId: string | null;
   openReviewOnMount: boolean;
   listHref: string;
   initialViewerUserId: string | null;
   chatRoomSourceHint?: ChatRoomSource | null;
+  serverBootstrap?: { room: ChatRoom; messages: ChatMessage[] } | null;
 }) {
   return (
     <ChatRoomScreen
@@ -23,6 +25,7 @@ export function ChatRoomPageClient({
       listHref={listHref}
       initialViewerUserId={initialViewerUserId}
       chatRoomSourceHint={chatRoomSourceHint}
+      serverBootstrap={serverBootstrap}
     />
   );
 }

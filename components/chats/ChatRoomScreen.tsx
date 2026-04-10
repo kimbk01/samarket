@@ -10,7 +10,17 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { fetchChatRoomDetailApi, peekChatRoomDetailMemory } from "@/lib/chats/fetch-chat-room-detail-api";
+import {
+  fetchChatRoomDetailApi,
+  peekChatRoomDetailMemory,
+  updateChatRoomDetailMemory,
+} from "@/lib/chats/fetch-chat-room-detail-api";
+import {
+  peekIntegratedChatRoomMessagesCache,
+  peekLegacyChatRoomMessagesCache,
+  updateIntegratedChatRoomMessagesCache,
+  updateLegacyChatRoomMessagesCache,
+} from "@/lib/chats/fetch-chat-room-messages-api";
 import { fetchChatRoomBootstrapApi } from "@/lib/chats/fetch-chat-room-bootstrap-api";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import {
@@ -32,6 +42,8 @@ export function ChatRoomScreen({
   ownerStoreOrderModalChrome = false,
   /** 부트스트랩 시 `?source=` — 상세·메시지 병렬 로드(힌트 일치 시) */
   chatRoomSourceHint = null,
+  /** RSC에서 이미 로드한 방·메시지 — 첫 페인트 전 클라이언트 fetch 대기 제거 */
+  serverBootstrap = null,
 }: {
   roomId: string | null;
   openReviewOnMount?: boolean;
@@ -49,6 +61,7 @@ export function ChatRoomScreen({
   /** 매장 주문 관리 모달 — 상단 탭(채팅·주문)만 표시 */
   ownerStoreOrderModalChrome?: boolean;
   chatRoomSourceHint?: ChatRoomSource | null;
+  serverBootstrap?: { room: ChatRoom; messages: ChatMessage[] } | null;
 }) {
   const { t } = useI18n();
   /**
@@ -66,17 +79,23 @@ export function ChatRoomScreen({
     return sync ?? undefined;
   });
 
-  const [room, setRoom] = useState<ChatRoom | null>(() =>
-    roomId ? peekChatRoomDetailMemory(roomId) : null
-  );
-  const [loading, setLoading] = useState(() => Boolean(roomId && !peekChatRoomDetailMemory(roomId)));
+  const [room, setRoom] = useState<ChatRoom | null>(() => {
+    if (serverBootstrap?.room) return serverBootstrap.room;
+    return roomId ? peekChatRoomDetailMemory(roomId) : null;
+  });
+  const [loading, setLoading] = useState(() => {
+    if (serverBootstrap?.room) return false;
+    return Boolean(roomId && !peekChatRoomDetailMemory(roomId));
+  });
   const [err, setErr] = useState<string | null>(null);
   /** 부트스트랩 응답 메시지 — `ChatDetailView` 가 동일 GET 을 다시 하지 않도록 직접 전달 */
-  const [bootstrapMessages, setBootstrapMessages] = useState<ChatMessage[] | null>(null);
+  const [bootstrapMessages, setBootstrapMessages] = useState<ChatMessage[] | null>(() =>
+    serverBootstrap?.room ? serverBootstrap.messages : null
+  );
   const chatEntryShellLoggedRef = useRef(false);
   const chatEntryRoomReadyLoggedRef = useRef<string | null>(null);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (options?: { bypassPeek?: boolean }) => {
     const startedAt = perfNow();
     if (!roomId) {
       setErr("bad_room");
@@ -102,10 +121,12 @@ export function ChatRoomScreen({
       return;
     }
     const hadPeek = Boolean(peekChatRoomDetailMemory(roomId));
-    if (!hadPeek) setLoading(true);
+    if (!hadPeek && !options?.bypassPeek) setLoading(true);
     setErr(null);
     try {
-      const result = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint);
+      const result = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint, {
+        bypassPeek: options?.bypassPeek === true,
+      });
       if (!result.ok) {
         setBootstrapMessages(null);
         if (result.code === "not_found") {
@@ -220,6 +241,24 @@ export function ChatRoomScreen({
     }
   }, [roomId, resolvedUserId, chatRoomSourceHint]);
 
+  const hardRefreshBootstrap = useCallback(async () => {
+    if (!roomId?.trim() || resolvedUserId === null) return;
+    await reload({ bypassPeek: true });
+  }, [roomId, resolvedUserId, reload]);
+
+  /** 서버(RSC)에서 받은 데이터를 클라이언트 peek 캐시에 넣어 목록·재진입과 일치 */
+  useLayoutEffect(() => {
+    const id = roomId?.trim();
+    if (!id || !serverBootstrap?.room) return;
+    const r = serverBootstrap.room;
+    updateChatRoomDetailMemory(id, r);
+    if (r.source === "chat_room") {
+      updateIntegratedChatRoomMessagesCache(r.id, serverBootstrap.messages);
+    } else {
+      updateLegacyChatRoomMessagesCache(r.id, serverBootstrap.messages);
+    }
+  }, [roomId, serverBootstrap]);
+
   /** useEffect 보다 먼저 세션 확인을 시작 — 페인트 직전에 Promise 가 돎 */
   useLayoutEffect(() => {
     let cancelled = false;
@@ -248,11 +287,11 @@ export function ChatRoomScreen({
     };
   }, []);
 
-  /** 인증 확인과 병행해 방·메시지 캐시 선채움 — `reload`·`ChatDetailView` 초기 로드가 single-flight 로 합류 */
+  /** 인증 확인과 병행해 방·메시지 캐시 선채움 — RSC에서 이미 내려준 경우 중복 요청 생략 */
   useEffect(() => {
-    if (!roomId?.trim()) return;
+    if (!roomId?.trim() || serverBootstrap?.room) return;
     warmChatRoomEntryById(roomId, chatRoomSourceHint);
-  }, [roomId, chatRoomSourceHint]);
+  }, [roomId, chatRoomSourceHint, serverBootstrap?.room]);
 
   useEffect(() => {
     if (chatEntryShellLoggedRef.current) return;
@@ -269,7 +308,7 @@ export function ChatRoomScreen({
     });
   }, [roomId]);
 
-  /** 라우트 roomId 변경 시 메모리 peek 로 즉시 복원 — 다른 방으로 바꿀 때만 */
+  /** 라우트 roomId 변경 시 메모리 peek 로 즉시 복원(메시지 캐시까지) */
   useEffect(() => {
     if (!roomId?.trim()) {
       setRoom(null);
@@ -279,18 +318,50 @@ export function ChatRoomScreen({
       return;
     }
     const peeked = peekChatRoomDetailMemory(roomId);
-    setRoom(peeked);
-    setBootstrapMessages(null);
     setErr(null);
-    if (peeked) setLoading(false);
+    if (peeked) {
+      setRoom(peeked);
+      const msgs =
+        peeked.source === "chat_room"
+          ? peekIntegratedChatRoomMessagesCache(peeked.id)
+          : peekLegacyChatRoomMessagesCache(peeked.id);
+      setBootstrapMessages(msgs ?? null);
+      setLoading(false);
+    } else {
+      setRoom(null);
+      setBootstrapMessages(null);
+      setLoading(true);
+    }
   }, [roomId]);
 
   useEffect(() => {
+    if (!roomId?.trim() || resolvedUserId === null) return;
+
+    if (serverBootstrap?.room) {
+      let cancelled = false;
+      const run = () => {
+        if (cancelled) return;
+        void hardRefreshBootstrap();
+      };
+      if (typeof requestIdleCallback !== "undefined") {
+        const ricId = requestIdleCallback(run, { timeout: 800 });
+        return () => {
+          cancelled = true;
+          cancelIdleCallback(ricId);
+        };
+      }
+      const tid = window.setTimeout(run, 0);
+      return () => {
+        cancelled = true;
+        clearTimeout(tid);
+      };
+    }
+
     void reload();
-  }, [reload]);
+  }, [roomId, resolvedUserId, serverBootstrap?.room, reload, hardRefreshBootstrap]);
 
   useRefetchOnPageShowRestore(() => {
-    void reload();
+    void hardRefreshBootstrap();
   });
 
   /** 거래 채팅 진입 마커 — early return 앞에 두어 hooks 순서 고정 */
@@ -375,7 +446,7 @@ export function ChatRoomScreen({
         <ChatDetailView
           room={room}
           currentUserId={viewerForChat}
-          onRoomReload={() => void reload()}
+          onRoomReload={() => void reload({ bypassPeek: true })}
           openReviewOnMount={openReviewOnMount}
           listHref={listHref}
           onListNavigate={onListNavigate}

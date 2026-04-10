@@ -7,6 +7,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createClient } from "@supabase/supabase-js";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { parseRoomId } from "@/lib/validate-params";
 
 export async function POST(
   _req: NextRequest,
@@ -21,9 +22,10 @@ export async function POST(
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
-  const { roomId } = await params;
+  const { roomId: raw } = await params;
+  const roomId = parseRoomId(raw);
   if (!roomId) {
-    return NextResponse.json({ ok: false }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });

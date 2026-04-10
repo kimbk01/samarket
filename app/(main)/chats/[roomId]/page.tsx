@@ -1,6 +1,7 @@
 import { ChatRoomPageClient } from "./ChatRoomPageClient";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import type { ChatRoomSource } from "@/lib/types/chat";
+import { loadChatRoomBootstrapForUser } from "@/lib/chats/server/load-chat-room-bootstrap";
+import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
@@ -40,6 +41,19 @@ export default async function ChatRoomPage({ params, searchParams }: PageProps) 
   const chatRoomSourceHint: ChatRoomSource | null =
     sourceRaw === "chat_room" || sourceRaw === "product_chat" ? sourceRaw : null;
 
+  let serverBootstrap: { room: ChatRoom; messages: ChatMessage[] } | null = null;
+  if (initialViewerUserId && roomId) {
+    const boot = await loadChatRoomBootstrapForUser({
+      roomId,
+      userId: initialViewerUserId,
+      sourceHint: chatRoomSourceHint,
+      detailScope: "entry",
+    });
+    if (boot.ok) {
+      serverBootstrap = { room: boot.room, messages: boot.messages };
+    }
+  }
+
   return (
     <ChatRoomPageClient
       roomId={roomId}
@@ -47,6 +61,7 @@ export default async function ChatRoomPage({ params, searchParams }: PageProps) 
       listHref={listHref}
       initialViewerUserId={initialViewerUserId}
       chatRoomSourceHint={chatRoomSourceHint}
+      serverBootstrap={serverBootstrap}
     />
   );
 }

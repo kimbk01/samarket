@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadLegacyProductChatMessagesForUser } from "@/lib/chats/server/load-chat-room-messages";
+import { parseRoomId } from "@/lib/validate-params";
 
 export async function GET(
   _req: NextRequest,
@@ -13,9 +14,10 @@ export async function GET(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const { roomId } = await params;
+  const { roomId: raw } = await params;
+  const roomId = parseRoomId(raw);
   if (!roomId) {
-    return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   const result = await loadLegacyProductChatMessagesForUser(roomId, auth.userId);

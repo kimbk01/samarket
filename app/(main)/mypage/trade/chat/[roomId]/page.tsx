@@ -1,6 +1,7 @@
 import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import type { ChatRoomSource } from "@/lib/types/chat";
+import { loadChatRoomBootstrapForUser } from "@/lib/chats/server/load-chat-room-bootstrap";
+import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 
 const LIST_HREF = "/mypage/trade/chat";
@@ -27,6 +28,19 @@ export default async function TradeHubChatRoomPage({
   const chatRoomSourceHint: ChatRoomSource | null =
     sourceRaw === "chat_room" || sourceRaw === "product_chat" ? sourceRaw : null;
 
+  let serverBootstrap: { room: ChatRoom; messages: ChatMessage[] } | null = null;
+  if (initialViewerUserId && roomId) {
+    const boot = await loadChatRoomBootstrapForUser({
+      roomId,
+      userId: initialViewerUserId,
+      sourceHint: chatRoomSourceHint,
+      detailScope: "entry",
+    });
+    if (boot.ok) {
+      serverBootstrap = { room: boot.room, messages: boot.messages };
+    }
+  }
+
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-ig-border bg-white shadow-sm">
       <ChatRoomScreen
@@ -36,6 +50,7 @@ export default async function TradeHubChatRoomPage({
         initialViewerUserId={initialViewerUserId}
         tradeHubColumnLayout
         chatRoomSourceHint={chatRoomSourceHint}
+        serverBootstrap={serverBootstrap}
       />
     </section>
   );

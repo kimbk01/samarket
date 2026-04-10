@@ -15,6 +15,7 @@ import {
   normalizeIncomingImageUrlList,
 } from "@/lib/chats/chat-image-bundle";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { parseRoomId } from "@/lib/validate-params";
 
 export async function POST(
   req: NextRequest,
@@ -26,7 +27,11 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
 
-  const { roomId } = await params;
+  const { roomId: rawRoomId } = await params;
+  const roomId = parseRoomId(rawRoomId);
+  if (!roomId) {
+    return NextResponse.json({ ok: false, error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
+  }
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
@@ -44,9 +49,6 @@ export async function POST(
     imageUrl: body.imageUrl,
     imageUrls: body.imageUrls,
   });
-  if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
-  }
   if (messageType === "image") {
     if (imageList.length === 0) {
       return NextResponse.json({ ok: false, error: "이미지 URL이 필요합니다." }, { status: 400 });

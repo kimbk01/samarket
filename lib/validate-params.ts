@@ -31,8 +31,13 @@ export function parseSlug(value: unknown): string | null {
 
 /**
  * 채팅방 id 검증 (예: chats/[roomId])
+ *
+ * RSC 페이지·`GET /api/chat/room/*`·`loadChatRoomDetailForUser` 등 **모든 서버 진입**에서 동일하게 사용한다.
+ * (검증 분기가 갈라지면 400/404 불일치·감사 추적이 어려워진다.)
  */
 export function parseRoomId(value: unknown): string | null {
-  if (!isNonEmptyString(value)) return null;
-  return ROOM_ID_PATTERN.test(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > MAX_LENGTH) return null;
+  return ROOM_ID_PATTERN.test(trimmed) ? trimmed : null;
 }

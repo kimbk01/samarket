@@ -28,6 +28,7 @@ import { applyProductChatTimeTransitions } from "@/lib/trade/apply-product-chat-
 import { reservedBuyerIdFromPost } from "@/lib/trade/reserved-item-chat";
 import type { ChatRoom, GeneralChatMeta } from "@/lib/types/chat";
 import { getChatServiceRoleSupabase } from "./service-role-supabase";
+import { parseRoomId } from "@/lib/validate-params";
 
 type RoomDetailCacheEntry = { at: number; payload: ChatRoom };
 const ROOM_DETAIL_CACHE_TTL_MS = 2500;
@@ -110,18 +111,28 @@ function scheduleProductChatTransitionsIfCooldownAllows(
   })();
 }
 
+export type ChatRoomDetailScope = "full" | "entry";
+
 export async function loadChatRoomDetailForUser(input: {
   roomId: string;
   userId: string;
+  /**
+   * `entry`: RSC 첫 페인트용 — `buyerReviewSubmitted` 조회(transaction_reviews) 생략·false.
+   * `full`: 기본 — API·재검증과 동일한 메타(캐시 대상).
+   */
+  detailScope?: ChatRoomDetailScope;
 }): Promise<LoadChatRoomDetailResult> {
   const startedAt = Date.now();
-  const roomId = input.roomId.trim();
-  if (!roomId) return fail(400, "roomId 필요");
+  const roomId = parseRoomId(input.roomId);
+  if (!roomId) return fail(400, "roomId 형식이 올바르지 않습니다.");
 
+  const detailScope: ChatRoomDetailScope = input.detailScope ?? "full";
   const cacheKey = `${input.userId}:${roomId}`;
-  const cached = roomDetailCache.get(cacheKey);
-  if (cached && Date.now() - cached.at < ROOM_DETAIL_CACHE_TTL_MS) {
-    return ok(cached.payload, true);
+  if (detailScope === "full") {
+    const cached = roomDetailCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < ROOM_DETAIL_CACHE_TTL_MS) {
+      return ok(cached.payload, true);
+    }
   }
 
   const sb = getChatServiceRoleSupabase();
@@ -190,14 +201,18 @@ export async function loadChatRoomDetailForUser(input: {
         const rowPc = r as Record<string, unknown>;
         scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
         const tradeExtras = tradeFieldsFromRows(rowPc, post2Resolved ?? undefined);
+        const buyerReviewPromiseCr =
+          detailScope === "entry"
+            ? Promise.resolve(false)
+            : fetchBuyerReviewSubmitted(
+                sbAny,
+                (tradeExtras.productChatRoomId as string | null) ?? (r.id as string),
+                input.userId,
+                r.buyer_id as string
+              );
         const [partnerMapCr, buyerReviewSubmitted] = await Promise.all([
           fetchPartnerDisplayFieldsMap(sbAny, batchIdsCr),
-          fetchBuyerReviewSubmitted(
-            sbAny,
-            (tradeExtras.productChatRoomId as string | null) ?? (r.id as string),
-            input.userId,
-            r.buyer_id as string
-          ),
+          buyerReviewPromiseCr,
         ]);
         const partnerDisp2 = partnerDisplayFromMap(
           partnerMapCr,
@@ -242,12 +257,15 @@ export async function loadChatRoomDetailForUser(input: {
           adminChatSuspended,
           ...tradeExtras,
         } satisfies ChatRoom;
-        roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+        if (detailScope === "full") {
+          roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+        }
         if (process.env.CHAT_PERF_LOG === "1") {
           console.info("[chat.room.detail]", {
             roomId,
             userId: input.userId,
             branch: "trade-crsame",
+            detailScope,
             elapsedMs: Date.now() - startedAt,
           });
         }
@@ -302,14 +320,18 @@ export async function loadChatRoomDetailForUser(input: {
     ] as string[];
     scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
     const tradeExtrasPc = tradeFieldsFromRows(row, post ?? undefined);
+    const buyerReviewPromisePc =
+      detailScope === "entry"
+        ? Promise.resolve(false)
+        : fetchBuyerReviewSubmitted(
+            sbAny,
+            (tradeExtrasPc.productChatRoomId as string | null) ?? (r.id as string),
+            input.userId,
+            r.buyer_id as string
+          );
     const [partnerMapPc, buyerReviewSubmittedPc, adminChatSuspendedPc] = await Promise.all([
       fetchPartnerDisplayFieldsMap(sbAny, batchIdsPc),
-      fetchBuyerReviewSubmitted(
-        sbAny,
-        (tradeExtrasPc.productChatRoomId as string | null) ?? (r.id as string),
-        input.userId,
-        r.buyer_id as string
-      ),
+      buyerReviewPromisePc,
       fetchItemTradeAdminSuspended(sbAny, String(r.post_id), String(r.seller_id), String(r.buyer_id)),
     ]);
     const partnerDispPc = partnerDisplayFromMap(partnerMapPc, partnerId, partnerId.slice(0, 8));
@@ -342,12 +364,15 @@ export async function loadChatRoomDetailForUser(input: {
       ...(linkedChatRoomId ? { chatRoomId: linkedChatRoomId } : {}),
       ...tradeExtrasPc,
     } satisfies ChatRoom;
-    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    if (detailScope === "full") {
+      roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    }
     if (process.env.CHAT_PERF_LOG === "1") {
       console.info("[chat.room.detail]", {
         roomId,
         userId: input.userId,
         branch: "trade-legacy",
+        detailScope,
         elapsedMs: Date.now() - startedAt,
       });
     }
@@ -477,7 +502,9 @@ export async function loadChatRoomDetailForUser(input: {
           contextType: null,
         } satisfies GeneralChatMeta,
       } satisfies ChatRoom;
-      roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+      if (detailScope === "full") {
+        roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+      }
       return ok(payload);
     }
     partnerDispSo = partnerDisplayFromMap(await partnerPromise, partnerIdSo, partnerIdSo.slice(0, 8));
@@ -521,7 +548,9 @@ export async function loadChatRoomDetailForUser(input: {
         contextType: null,
       } satisfies GeneralChatMeta,
     } satisfies ChatRoom;
-    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    if (detailScope === "full") {
+      roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    }
     return ok(payload);
   }
 
@@ -586,12 +615,15 @@ export async function loadChatRoomDetailForUser(input: {
   const pcIdForReview =
     (tradeExtrasFb.productChatRoomId as string | null) ??
     (pcFb?.id != null ? String(pcFb.id) : null);
-  const buyerReviewSubmittedFb = await fetchBuyerReviewSubmitted(
-    sbAny,
-    pcIdForReview,
-    input.userId,
-    (crRow.buyer_id ?? "") as string
-  );
+  const buyerReviewSubmittedFb =
+    detailScope === "entry"
+      ? false
+      : await fetchBuyerReviewSubmitted(
+          sbAny,
+          pcIdForReview,
+          input.userId,
+          (crRow.buyer_id ?? "") as string
+        );
   const adminChatSuspendedTrade = resolveAdminChatSuspension({
     is_blocked: crAny.is_blocked,
     is_locked: crAny.is_locked,
@@ -627,12 +659,15 @@ export async function loadChatRoomDetailForUser(input: {
     adminChatSuspended: adminChatSuspendedTrade,
     ...tradeExtrasFb,
   } satisfies ChatRoom;
-  roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+  if (detailScope === "full") {
+    roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+  }
   if (process.env.CHAT_PERF_LOG === "1") {
     console.info("[chat.room.detail]", {
       roomId,
       userId: input.userId,
       branch: "trade-item",
+      detailScope,
       elapsedMs: Date.now() - startedAt,
     });
   }

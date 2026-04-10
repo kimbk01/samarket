@@ -35,23 +35,28 @@ function normalizeBootstrapMessages(_room: ChatRoom, raw: unknown): ChatMessage[
 
 export async function fetchChatRoomBootstrapApi(
   roomId: string,
-  sourceHint?: ChatRoomSource | null
+  sourceHint?: ChatRoomSource | null,
+  opts?: { bypassPeek?: boolean }
 ): Promise<FetchBootstrapResult> {
   const key = roomId.trim();
   if (!key) return { ok: false, status: 400, code: "load_failed" };
 
-  const cachedRoom = peekChatRoomDetailMemory(key);
-  if (cachedRoom) {
-    const cachedMessages =
-      cachedRoom.source === "chat_room"
-        ? peekIntegratedChatRoomMessagesCache(cachedRoom.id)
-        : peekLegacyChatRoomMessagesCache(cachedRoom.id);
-    if (cachedMessages) {
-      return { ok: true, room: cachedRoom, messages: cachedMessages, cache: "memory" };
+  if (!opts?.bypassPeek) {
+    const cachedRoom = peekChatRoomDetailMemory(key);
+    if (cachedRoom) {
+      const cachedMessages =
+        cachedRoom.source === "chat_room"
+          ? peekIntegratedChatRoomMessagesCache(cachedRoom.id)
+          : peekLegacyChatRoomMessagesCache(cachedRoom.id);
+      if (cachedMessages) {
+        return { ok: true, room: cachedRoom, messages: cachedMessages, cache: "memory" };
+      }
     }
   }
 
-  return runSingleFlight(`chat:room-bootstrap:${key}`, async () => {
+  const flightKey = opts?.bypassPeek ? `chat:room-bootstrap:${key}:network` : `chat:room-bootstrap:${key}`;
+
+  return runSingleFlight(flightKey, async () => {
     try {
       const qs =
         sourceHint === "chat_room" || sourceHint === "product_chat"
