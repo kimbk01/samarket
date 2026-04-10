@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
@@ -27,6 +29,8 @@ function validate(p: { nickname: string }): { nickname?: string } {
 }
 
 export function ProfileEditForm() {
+  const router = useRouter();
+  const pathname = usePathname();
   const { setLanguage } = useI18n();
   const { refreshProfileLocation } = useRegion();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -54,27 +58,33 @@ export function ProfileEditForm() {
   const load = useCallback(async () => {
     setLoading(true);
     const data = await getMyProfile();
-    setProfile(data);
-    if (data) {
-      setNickname(data.nickname ?? "");
-      setAvatarUrl(data.avatar_url ?? null);
-      setBio(data.bio ?? "");
-      const loc = decodeProfileAppLocationPair(data.region_code, data.region_name);
-      setAppRegionId(loc.regionId);
-      setAppCityId(loc.cityId);
-      setAddressStreetLine((data.address_street_line ?? "").trim());
-      setAddressDetail((data.address_detail ?? "").trim());
-      setPhone(parsePhMobileInput(data.phone ?? ""));
-      setPreferredLanguage(data.preferred_language ?? "ko");
-      setPreferredCountry(data.preferred_country ?? "PH");
-    } else {
-      setAppRegionId("");
-      setAppCityId("");
-      setAddressStreetLine("");
-      setAddressDetail("");
+    if (!data) {
+      setLoading(false);
+      const next =
+        pathname && pathname.startsWith("/") ? pathname : MYPAGE_PROFILE_EDIT_HREF;
+      const loginUrl = `/login?next=${encodeURIComponent(next)}`;
+      /** 클라이언트 라우팅만 하면 세션 쿠키·RSC와 어긋날 수 있어 로그인 페이지와 동일하게 전체 이동 */
+      if (typeof window !== "undefined") {
+        window.location.replace(loginUrl);
+      } else {
+        router.replace(loginUrl);
+      }
+      return;
     }
+    setProfile(data);
+    setNickname(data.nickname ?? "");
+    setAvatarUrl(data.avatar_url ?? null);
+    setBio(data.bio ?? "");
+    const loc = decodeProfileAppLocationPair(data.region_code, data.region_name);
+    setAppRegionId(loc.regionId);
+    setAppCityId(loc.cityId);
+    setAddressStreetLine((data.address_street_line ?? "").trim());
+    setAddressDetail((data.address_detail ?? "").trim());
+    setPhone(parsePhMobileInput(data.phone ?? ""));
+    setPreferredLanguage(data.preferred_language ?? "ko");
+    setPreferredCountry(data.preferred_country ?? "PH");
     setLoading(false);
-  }, []);
+  }, [pathname, router]);
 
   useEffect(() => {
     load();
@@ -129,10 +139,7 @@ export function ProfileEditForm() {
   if (!profile) {
     return (
       <div className="py-8 text-center text-[14px] text-gray-500">
-        로그인이 필요합니다.
-        <Link href="/my" className="ml-1 text-signature">
-          내정보로 이동
-        </Link>
+        로그인 화면으로 이동 중…
       </div>
     );
   }

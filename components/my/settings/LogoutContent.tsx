@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 
 /** Supabase auth signOut 후 `/home` 요청 → 세션 없으면 `proxy` 가 `/login` 으로 보냄 */
 export function LogoutContent() {
@@ -12,6 +13,7 @@ export function LogoutContent() {
     if (supabase && typeof (supabase as { auth?: { signOut?: () => Promise<unknown> } }).auth?.signOut === "function") {
       await (supabase as { auth: { signOut: () => Promise<unknown> } }).auth.signOut();
     }
+    invalidateMeProfileDedupedCache();
     window.location.href = POST_LOGIN_PATH;
   };
 

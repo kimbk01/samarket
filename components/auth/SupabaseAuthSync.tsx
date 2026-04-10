@@ -12,6 +12,7 @@ import {
   cancelScheduledWhenBrowserIdle,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 
 /** INITIAL_SESSION·SIGNED_IN 등 짧은 간격에 ensure 가 여러 번 때리는 것 방지 */
 let profileEnsureInFlight: Promise<Response> | null = null;
@@ -39,6 +40,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
     error,
   } = await sb.auth.getUser();
   if (error || !user) {
+    invalidateMeProfileDedupedCache();
     setSupabaseProfileCache(null);
     dispatchTestAuthChanged();
     return;
@@ -96,10 +98,13 @@ export function SupabaseAuthSync() {
       data: { subscription },
     } = sb.auth.onAuthStateChange((_event, session) => {
       if (!session) {
+        invalidateMeProfileDedupedCache();
         setSupabaseProfileCache(null);
         dispatchTestAuthChanged();
         return;
       }
+      /** 이전 탭·401 캐시 등으로 GET /api/me/profile 이 오래된 결과를 쓰지 않도록 */
+      invalidateMeProfileDedupedCache();
       void hydrateProfileCacheFromSession(sb);
     });
 
