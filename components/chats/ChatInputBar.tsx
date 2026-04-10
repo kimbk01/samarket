@@ -39,6 +39,10 @@ const EMOJI_GRID: string[][] = [
   ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"],
 ];
 
+const ALL_CHAT_EMOJIS = EMOJI_GRID.flat();
+/** 첫 패널에만 표시 — 태블릿에서도 한눈에 들어오게; 나머지는 더보기 */
+const EMOJI_PANEL_PREVIEW_COUNT = 35;
+
 function draftKey(k: string) {
   return `kasama-chat-draft:${k}`;
 }
@@ -61,6 +65,7 @@ export function ChatInputBar({
   const [mobileAttachSheetOpen, setMobileAttachSheetOpen] = useState(false);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [emojiShowAll, setEmojiShowAll] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const emojiPanelRef = useRef<HTMLDivElement>(null);
@@ -141,6 +146,10 @@ export function ChatInputBar({
   }, [emojiOpen]);
 
   useEffect(() => {
+    if (!emojiOpen) setEmojiShowAll(false);
+  }, [emojiOpen]);
+
+  useEffect(() => {
     if (!attachOpen || preferMobileImageSheet) return;
     const close = (e: MouseEvent) => {
       if (attachWrapRef.current?.contains(e.target as Node)) return;
@@ -176,20 +185,37 @@ export function ChatInputBar({
       {showEmojiButton && emojiOpen && (
         <div
           ref={emojiPanelRef}
-          className={`absolute bottom-full left-0 right-0 z-20 mb-1 max-h-[220px] overflow-y-auto rounded-ui-rect border bg-white p-2 shadow-lg ${ig ? "border-ig-border" : "border-gray-200"}`}
+          className={`absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-ui-rect border bg-white shadow-lg sm:max-h-[min(48dvh,380px)] md:max-w-lg md:mx-auto ${ig ? "border-ig-border" : "border-gray-200"}`}
         >
-          <div className="grid grid-cols-10 gap-0.5">
-            {EMOJI_GRID.flat().map((emoji, i) => (
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-2.5 py-2">
+            <span className="text-[13px] font-semibold text-gray-900">{t("common_emoji")}</span>
+            <span className="text-[11px] text-gray-500">{t("common_emoji_panel_hint")}</span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pt-2.5">
+            <div className="grid grid-cols-7 gap-1 touch-manipulation sm:grid-cols-8 md:grid-cols-7 md:gap-1.5">
+              {(emojiShowAll ? ALL_CHAT_EMOJIS : ALL_CHAT_EMOJIS.slice(0, EMOJI_PANEL_PREVIEW_COUNT)).map(
+                (emoji, i) => (
+                  <button
+                    key={`${emoji}-${i}`}
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-[24px] hover:bg-ig-highlight active:scale-[0.96] sm:h-11 sm:w-11 sm:text-[25px] md:text-[26px]"
+                    onClick={() => insertEmoji(emoji)}
+                    aria-label={`${t("common_emoji")} ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                )
+              )}
+            </div>
+            {!emojiShowAll && ALL_CHAT_EMOJIS.length > EMOJI_PANEL_PREVIEW_COUNT ? (
               <button
-                key={i}
                 type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-[22px] hover:bg-ig-highlight"
-                onClick={() => insertEmoji(emoji)}
-                aria-label={`${t("common_emoji")} ${emoji}`}
+                className="mt-2 w-full rounded-ui-rect border border-gray-200 bg-[var(--sub-bg)] py-2.5 text-[13px] font-medium text-gray-900 hover:bg-black/[0.04] active:bg-black/[0.06]"
+                onClick={() => setEmojiShowAll(true)}
               >
-                {emoji}
+                {t("common_emoji_show_more")} · {ALL_CHAT_EMOJIS.length - EMOJI_PANEL_PREVIEW_COUNT}+
               </button>
-            ))}
+            ) : null}
           </div>
         </div>
       )}
@@ -307,12 +333,12 @@ export function ChatInputBar({
           <button
             type="button"
             onClick={() => setEmojiOpen((v) => !v)}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${emojiOpen ? (ig ? "bg-black/[0.08] text-foreground" : "bg-ig-highlight text-foreground") : ig ? "text-foreground hover:bg-black/[0.05]" : "text-foreground hover:bg-ig-highlight"}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 md:h-[52px] md:w-[52px] ${emojiOpen ? (ig ? "bg-black/[0.08] text-foreground" : "bg-ig-highlight text-foreground") : ig ? "text-foreground hover:bg-black/[0.05]" : "text-foreground hover:bg-ig-highlight"}`}
             aria-label={t("common_emoji")}
             aria-expanded={emojiOpen}
             disabled={inputLocked}
           >
-            <EmojiIcon className="h-5 w-5" />
+            <EmojiIcon className="h-5 w-5 md:h-7 md:w-7" />
           </button>
         ) : null}
       </div>
