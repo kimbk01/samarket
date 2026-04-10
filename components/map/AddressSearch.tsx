@@ -61,7 +61,7 @@ export function AddressSearch({
 
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-2.5 shadow-sm">
+      <div className="flex items-center gap-2 rounded-ui-rect border border-ig-border bg-ui-page px-3 py-3">
         <svg className="h-5 w-5 shrink-0 text-ui-muted" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path
             d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm9.2 2-4.2-4.2"
