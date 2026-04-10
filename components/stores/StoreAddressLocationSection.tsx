@@ -28,8 +28,9 @@ export type StoreAddressLocationSectionProps = {
 };
 
 /**
- * 매장 신청·기본 정보·모의 편집 등 동일 UI:
- * 위치(안내) → 지역·동네(+ PhilPost ZIP) → 지번·건물·번지 | 동·호·출입 (한 행)
+ * 매장 신청·기본 정보·프로필·모의 편집 등 동일 UI:
+ * 위치(안내) → 지역·동네 → 지번·건물·번지 | 동·호·출입 (한 행)
+ * PhilPost ZIP 조회는 기본 비활성(레거시); 필요 시 `showZipLookup`으로 켭니다.
  */
 export function StoreAddressLocationSection({
   sectionTitle = "위치",
@@ -42,7 +43,7 @@ export function StoreAddressLocationSection({
   addressDetail,
   onAddressStreetLineChange,
   onAddressDetailChange,
-  showZipLookup = true,
+  showZipLookup = false,
   philippinesZipSeed,
   onPhilippinesZipCommitted,
   locationLabel = "지역 · 동네",
