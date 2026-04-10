@@ -5,7 +5,7 @@ import {
   MYPAGE_PROFILE_EDIT_HREF,
   buildMypageItemHref,
 } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 
 export default async function MypageSectionProfileEditPage({
@@ -33,7 +33,7 @@ export default async function MypageSectionProfileEditPage({
         backHref={backHref}
         hideCtaStrip
       />
-      <div className={`${APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS} py-4`}>
+      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} py-4`}>
         <ProfileEditForm />
       </div>
     </div>

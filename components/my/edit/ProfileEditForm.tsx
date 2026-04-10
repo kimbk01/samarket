@@ -63,7 +63,19 @@ export function ProfileEditForm() {
     setLoading(true);
     setAddressListErr(false);
     const pick = consumeMapAddressPick();
-    const data = await getMyProfile();
+
+    const addressesPromise = fetch("/api/me/addresses", { credentials: "include" })
+      .then(async (res) => {
+        const j = (await res.json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
+        if (res.ok && j.ok && Array.isArray(j.addresses)) {
+          return { ok: true as const, rows: j.addresses };
+        }
+        return { ok: false as const, rows: [] as UserAddressDTO[] };
+      })
+      .catch((): { ok: false; rows: UserAddressDTO[] } => ({ ok: false, rows: [] }));
+
+    const [data, addrPack] = await Promise.all([getMyProfile(), addressesPromise]);
+
     if (!data) {
       setLoading(false);
       const next =
@@ -77,15 +89,8 @@ export function ProfileEditForm() {
       return;
     }
 
-    let rows: UserAddressDTO[] = [];
-    try {
-      const ar = await fetch("/api/me/addresses", { credentials: "include" });
-      const aj = (await ar.json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
-      if (ar.ok && aj.ok && Array.isArray(aj.addresses)) rows = aj.addresses;
-      else setAddressListErr(true);
-    } catch {
-      setAddressListErr(true);
-    }
+    if (!addrPack.ok) setAddressListErr(true);
+    const rows = addrPack.rows;
     setAddressList(rows);
 
     const masterAddr = rows.find((a) => a.isDefaultMaster) ?? null;

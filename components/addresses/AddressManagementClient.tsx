@@ -11,6 +11,7 @@ import {
   consumeMapAddressPick,
   consumeMapAddressPickContext,
 } from "@/lib/map/map-address-pick-storage";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
@@ -162,7 +163,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <MySubpageHeader title={tt("주소 관리")} backHref="/mypage" hideCtaStrip />
       ) : null}
       <div
-        className={`mx-auto space-y-4 px-0 py-0 ${embedded ? "max-w-none pb-0" : "max-w-lg px-4 py-4 pb-28 md:max-w-3xl"}`}
+        className={
+          embedded
+            ? "mx-auto max-w-none space-y-4 px-0 py-0 pb-0"
+            : `${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-4 py-4 pb-28`
+        }
       >
         {loadErr ? (
           <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] text-amber-950">

@@ -43,7 +43,11 @@ export function ProfileMapLocationBlock({ addresses, listError }: Props) {
       ) : (
         <ul className="divide-y divide-ig-border rounded-ui-rect border border-ig-border bg-ui-surface">
           {sorted.map((row) => {
-            const title = row.nickname?.trim() || ADDRESS_LABEL_KO[row.labelType];
+            const nick = row.nickname?.trim();
+            const title =
+              nick && nick.toLowerCase() !== "null" && nick.toLowerCase() !== "undefined"
+                ? nick
+                : ADDRESS_LABEL_KO[row.labelType];
             const sub = buildTradePublicLine(row);
             return (
               <li key={row.id} className="flex items-start gap-2 px-3 py-3">
