@@ -27,6 +27,15 @@ export type CommunityMessengerCallSessionStatus =
 export function communityMessengerCallSessionIsLive(status: CommunityMessengerCallSessionStatus): boolean {
   return status === "ringing" || status === "active";
 }
+
+/**
+ * 채팅방 하단 「통화 진행 중」 플로팅 배너 — 실제 미디어 연결 후에만 표시.
+ * `ringing`(발신/수신 대기)은 통화 로그·헤더 버튼으로 충분하고, 여기까지 켜 두면 종료 후에도
+ * DB가 잠시 `ringing`으로 남을 때 배너가 떠 있는 것처럼 보이는 문제가 생긴다.
+ */
+export function communityMessengerCallSessionIsActiveConnected(status: CommunityMessengerCallSessionStatus): boolean {
+  return status === "active";
+}
 export type CommunityMessengerCallSessionMode = "direct" | "group";
 export type CommunityMessengerCallSignalType = "offer" | "answer" | "ice-candidate" | "hangup";
 export type CommunityMessengerCallParticipantStatus = "invited" | "joined" | "left" | "rejected";

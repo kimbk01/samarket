@@ -3,12 +3,25 @@ import { Redis } from "@upstash/redis";
 
 let redisSingleton: Redis | null | undefined;
 
+/** `Redis.fromEnv()` 호출 전에 검사 — 비어 있으면 클라이언트를 만들지 않아 터미널 스팸 로그를 막는다 */
+function hasRateLimitRedisEnv(): boolean {
+  const upstash =
+    Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim()) && Boolean(process.env.UPSTASH_REDIS_REST_TOKEN?.trim());
+  const vercelKv =
+    Boolean(process.env.KV_REST_API_URL?.trim()) && Boolean(process.env.KV_REST_API_TOKEN?.trim());
+  return upstash || vercelKv;
+}
+
 /**
  * Upstash REST (`UPSTASH_REDIS_REST_*` 또는 Vercel KV `KV_REST_API_*`)가 있으면 공유 카운터.
  * 없거나 `Redis.fromEnv()` 실패 시 null → `enforceRateLimit`은 인메모리로 폴백.
  */
 export function getOptionalRateLimitRedis(): Redis | null {
   if (redisSingleton !== undefined) return redisSingleton;
+  if (!hasRateLimitRedisEnv()) {
+    redisSingleton = null;
+    return null;
+  }
   try {
     redisSingleton = Redis.fromEnv();
   } catch {

@@ -3006,6 +3006,9 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
   return { ok: true };
 }
 
+/** 스냅샷에 담는 최근 메시지 개수(쿼리 부하·첫 페인트 속도 균형). `listCommunityMessengerRoomMessagesBefore`와 함께 동작 */
+const COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_LIMIT = 80;
+
 export async function getCommunityMessengerRoomSnapshot(
   userId: string,
   roomId: string
@@ -3040,12 +3043,13 @@ export async function getCommunityMessengerRoomSnapshot(
           .from("community_messenger_messages")
           .select("id, room_id, sender_id, message_type, content, metadata, created_at")
           .eq("room_id", id)
-          .order("created_at", { ascending: true })
-          .limit(120),
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .limit(COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_LIMIT),
       ]);
       room = (roomData as RoomRow | null) ?? null;
       participants = (participantData ?? []) as ParticipantRow[];
-      messages = (messageData ?? []) as MessageRow[];
+      messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
       void (sb as any)
         .from("community_messenger_participants")
         .update({ unread_count: 0, last_read_at: nowIso() })
@@ -3064,7 +3068,13 @@ export async function getCommunityMessengerRoomSnapshot(
     if (!room) return null;
     participants = dev.participants.filter((row) => row.roomId === id);
     if (!participants.some((row) => ("user_id" in row ? row.user_id : row.userId) === userId)) return null;
-    messages = dev.messages.filter((row) => row.roomId === id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    {
+      const sorted = dev.messages.filter((row) => row.roomId === id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      messages =
+        sorted.length <= COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_LIMIT
+          ? sorted
+          : sorted.slice(sorted.length - COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_LIMIT);
+    }
     const mine = participants.find((row) => ("user_id" in row ? row.user_id : row.userId) === userId);
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
   }
@@ -3136,7 +3146,7 @@ export async function getCommunityMessengerRoomSnapshot(
 const COMMUNITY_MESSENGER_MESSAGE_PAGE_DEFAULT = 50;
 const COMMUNITY_MESSENGER_MESSAGE_PAGE_MAX = 100;
 
-/** 스냅샷 `limit(120)` 보다 오래된 메시지를 커서(`beforeMessageId`) 기준으로 페이지 로드 */
+/** 스냅샷 초기 윈도우보다 오래된 메시지를 커서(`beforeMessageId`) 기준으로 페이지 로드 */
 export async function listCommunityMessengerRoomMessagesBefore(input: {
   userId: string;
   roomId: string;

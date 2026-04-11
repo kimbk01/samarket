@@ -6,6 +6,10 @@ import AgoraRTC, {
   type ILocalVideoTrack,
 } from "agora-rtc-sdk-ng";
 import { consumePrimedCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
+import {
+  readPreferredCommunityMessengerDeviceIds,
+  writePreferredCommunityMessengerDeviceIds,
+} from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 export type CommunityMessengerAgoraLocalTracks = {
@@ -15,6 +19,44 @@ export type CommunityMessengerAgoraLocalTracks = {
 
 export function createCommunityMessengerAgoraClient(): IAgoraRTCClient {
   return AgoraRTC.createClient({ codec: "vp8", mode: "rtc" });
+}
+
+async function createAgoraMicWithPreferredDevice(): Promise<ILocalAudioTrack> {
+  const { audioDeviceId } = readPreferredCommunityMessengerDeviceIds();
+  const base = { encoderConfig: "music_standard" as const };
+  try {
+    if (audioDeviceId) {
+      return await AgoraRTC.createMicrophoneAudioTrack({
+        ...base,
+        microphoneId: audioDeviceId,
+      });
+    }
+    return await AgoraRTC.createMicrophoneAudioTrack(base);
+  } catch {
+    writePreferredCommunityMessengerDeviceIds(null, null);
+    return AgoraRTC.createMicrophoneAudioTrack(base);
+  }
+}
+
+async function createAgoraCamWithPreferredDevice(): Promise<ILocalVideoTrack> {
+  const { videoDeviceId } = readPreferredCommunityMessengerDeviceIds();
+  const base = {
+    encoderConfig: "720p_2" as const,
+    optimizationMode: "motion" as const,
+  };
+  try {
+    if (videoDeviceId) {
+      return await AgoraRTC.createCameraVideoTrack({
+        ...base,
+        cameraId: videoDeviceId,
+      });
+    }
+    return await AgoraRTC.createCameraVideoTrack(base);
+  } catch {
+    const cur = readPreferredCommunityMessengerDeviceIds();
+    writePreferredCommunityMessengerDeviceIds(cur.audioDeviceId, null);
+    return AgoraRTC.createCameraVideoTrack(base);
+  }
 }
 
 export async function createCommunityMessengerAgoraLocalTracks(
@@ -44,10 +86,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
         }
       }
       try {
-        const videoTrack = await AgoraRTC.createCameraVideoTrack({
-          encoderConfig: "720p_2",
-          optimizationMode: "motion",
-        });
+        const videoTrack = await createAgoraCamWithPreferredDevice();
         return { audioTrack, videoTrack };
       } catch (error) {
         await audioTrack.close();
@@ -56,17 +95,12 @@ export async function createCommunityMessengerAgoraLocalTracks(
     }
   }
 
-  const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-    encoderConfig: "music_standard",
-  });
+  const audioTrack = await createAgoraMicWithPreferredDevice();
   if (kind !== "video") {
     return { audioTrack, videoTrack: null };
   }
   try {
-    const videoTrack = await AgoraRTC.createCameraVideoTrack({
-      encoderConfig: "720p_2",
-      optimizationMode: "motion",
-    });
+    const videoTrack = await createAgoraCamWithPreferredDevice();
     return { audioTrack, videoTrack };
   } catch (error) {
     await audioTrack.close();

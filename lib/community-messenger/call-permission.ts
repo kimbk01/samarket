@@ -1,3 +1,4 @@
+import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 type PrimedDeviceStreamState = {
@@ -120,10 +121,33 @@ function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream
   primedDeviceStreamState = {
     kind,
     stream,
+    /** 방↔통화 이동·토큰 요청 등으로 조인이 늦어져도 한 번 허용한 스트림을 재사용할 수 있게 여유를 둔다 */
     timeoutId: window.setTimeout(() => {
       clearPrimedDeviceStream(true);
-    }, 20_000),
+    }, 90_000),
   };
+}
+
+/** 브라우저에 이미 거부로 기록된 경우 불필요한 getUserMedia 반복을 줄인다(지원 브라우저 한정). */
+async function assertPersistentPermissionNotDenied(kind: CommunityMessengerCallKind): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.permissions?.query) return;
+  try {
+    const mic = await navigator.permissions.query({ name: "microphone" as PermissionName });
+    if (mic.state === "denied") {
+      throw new DOMException("Microphone permission denied", "NotAllowedError");
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "NotAllowedError") throw e;
+  }
+  if (kind !== "video") return;
+  try {
+    const cam = await navigator.permissions.query({ name: "camera" as PermissionName });
+    if (cam.state === "denied") {
+      throw new DOMException("Camera permission denied", "NotAllowedError");
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "NotAllowedError") throw e;
+  }
 }
 
 /**
@@ -147,11 +171,10 @@ export function primeCommunityMessengerDevicePermissionFromUserGesture(
     }
     clearPrimedDeviceStream(true);
   }
-  return navigator.mediaDevices
-    .getUserMedia({
-      audio: true,
-      video: kind === "video",
-    })
+  return assertPersistentPermissionNotDenied(kind)
+    .then(() =>
+      navigator.mediaDevices.getUserMedia(buildCommunityMessengerMediaStreamConstraints(kind))
+    )
     .then((stream) => {
       if (typeof window === "undefined") {
         for (const track of stream.getTracks()) {

@@ -25,7 +25,7 @@ import {
   type CommunityMessengerRoomRealtimeMessageEvent,
 } from "@/lib/community-messenger/use-community-messenger-realtime";
 import {
-  communityMessengerCallSessionIsLive,
+  communityMessengerCallSessionIsActiveConnected,
   communityMessengerRoomIsGloballyUsable,
   type CommunityMessengerMessage,
   type CommunityMessengerProfileLite,
@@ -86,7 +86,7 @@ export function CommunityMessengerRoomClient({
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
   /** 서버 스냅샷이 한 번에 실어 오는 메시지 개수와 맞춤 — 그만큼이면 더 있을 수 있음 */
-  const CM_SNAPSHOT_FIRST_PAGE = 120;
+  const CM_SNAPSHOT_FIRST_PAGE = 80;
   const olderMessagesExhaustedRef = useRef(false);
   const topOlderSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadOlderMessagesRef = useRef<() => void>(() => {});
@@ -170,6 +170,20 @@ export function CommunityMessengerRoomClient({
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
+  useEffect(() => {
+    const bump = () => {
+      if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+      void refresh(true);
+    };
+    document.addEventListener("visibilitychange", bump);
+    window.addEventListener("pageshow", bump);
+    return () => {
+      document.removeEventListener("visibilitychange", bump);
+      window.removeEventListener("pageshow", bump);
+    };
   }, [refresh]);
 
   const handleRealtimeMessageEvent = useCallback((event: CommunityMessengerRoomRealtimeMessageEvent) => {
@@ -425,14 +439,14 @@ export function CommunityMessengerRoomClient({
     }
   }, [snapshot]);
 
-  /** 미니화 힌트(sessionStorage)에 의존하지 않음 — 종료·거절 후에도 힌트가 남으면 「통화 진행 중」이 떠 있던 원인 */
+  /** 미니화 힌트(sessionStorage)에 의존하지 않음 — `active`(연결됨)일 때만 배너(벨 울리는 ringing 제외) */
   const returnToCallSessionId = useMemo(() => {
     const ac = snapshot?.activeCall;
     if (
       ac &&
       ac.sessionMode === "direct" &&
       ac.roomId === roomId &&
-      communityMessengerCallSessionIsLive(ac.status)
+      communityMessengerCallSessionIsActiveConnected(ac.status)
     ) {
       return ac.id;
     }
@@ -605,7 +619,6 @@ export function CommunityMessengerRoomClient({
       setManagedDirectCallError(null);
       setBusy(`managed-call:${kind}`);
       try {
-        void primeCommunityMessengerDevicePermissionFromUserGesture(kind).catch(() => null);
         const existingSession = snapshot?.activeCall;
         if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
           openDirectCallPage(existingSession.id);

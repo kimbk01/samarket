@@ -20,6 +20,7 @@ import {
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
+import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
 import {
   peekRoomSnapshot,
   prefetchCommunityMessengerRoomSnapshot,
@@ -103,6 +104,15 @@ function normalizeLegacyFilter(value: string | null): RoomFilterId {
 export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) {
   const { t } = useI18n();
   const router = useRouter();
+  const navigateToCommunityRoom = useCallback(
+    (roomId: string) => {
+      const id = String(roomId ?? "").trim();
+      if (!id) return;
+      void prefetchCommunityMessengerRoomSnapshot(id);
+      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
+    },
+    [router]
+  );
   const searchParams = useSearchParams();
   const loadedRef = useRef(false);
   /** 언어 전환 시에도 부트스트랩 effect 가 재실행되지 않도록 번역 함수만 최신으로 유지 */
@@ -424,7 +434,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         if (!peekRoomSnapshot(existingRoom.id)) {
           await prefetchCommunityMessengerRoomSnapshot(existingRoom.id);
         }
-        router.push(`/community-messenger/rooms/${encodeURIComponent(existingRoom.id)}`);
+        navigateToCommunityRoom(existingRoom.id);
         return;
       }
       setBusyId(`room:${peerUserId}`);
@@ -444,7 +454,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           if (json.snapshot) {
             primeRoomSnapshot(json.roomId, json.snapshot);
           }
-          router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
+          navigateToCommunityRoom(json.roomId);
           return;
         }
         if (res.status === 401 || res.status === 403) {
@@ -457,7 +467,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setBusyId(null);
       }
     },
-    [data?.chats, getMessengerActionErrorMessage, router, t]
+    [data?.chats, getMessengerActionErrorMessage, navigateToCommunityRoom, t]
   );
 
   const startDirectCall = useCallback(
@@ -504,7 +514,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setBusyId(null);
       }
     },
-    [data?.chats, getMessengerActionErrorMessage, router, t]
+    [data?.chats, getMessengerActionErrorMessage, router]
   );
 
   const searchUsers = useCallback(async () => {
@@ -642,7 +652,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setGroupTitle("");
         setGroupMembers([]);
         setGroupCreateStep("closed");
-        router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
+        navigateToCommunityRoom(json.roomId);
         return;
       }
       if (res.status === 401 || res.status === 403) {
@@ -654,7 +664,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     } finally {
       setBusyId(null);
     }
-  }, [getMessengerActionErrorMessage, groupMembers, groupTitle, refresh, router, t]);
+  }, [getMessengerActionErrorMessage, groupMembers, groupTitle, navigateToCommunityRoom, refresh, t]);
 
   const createOpenGroup = useCallback(async () => {
     if (!openGroupTitle.trim()) return;
@@ -698,7 +708,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setOpenGroupCreatorAliasBio("");
         setOpenGroupCreatorAliasAvatarUrl("");
         setGroupCreateStep("closed");
-        router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
+        navigateToCommunityRoom(json.roomId);
         return;
       }
       if (res.status === 401 || res.status === 403) {
@@ -712,6 +722,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     }
   }, [
     getMessengerActionErrorMessage,
+    navigateToCommunityRoom,
     openGroupCreatorAliasAvatarUrl,
     openGroupCreatorAliasBio,
     openGroupCreatorAliasName,
@@ -724,7 +735,6 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     openGroupSummary,
     openGroupTitle,
     refresh,
-    router,
     t,
   ]);
 
@@ -758,7 +768,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setJoinAliasAvatarUrl("");
         setJoinTargetGroup(null);
         setPublicGroupFindOpen(false);
-        router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
+        navigateToCommunityRoom(json.roomId);
         return;
       }
       setActionError(getMessengerActionErrorMessage(json.error));
@@ -773,8 +783,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     joinIdentityMode,
     joinPassword,
     joinTargetGroup,
+    navigateToCommunityRoom,
     refresh,
-    router,
   ]);
 
   const openJoinModal = useCallback(async (groupId: string) => {
@@ -1483,7 +1493,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                       onOpen={() => {
                         setRequestSheetOpen(false);
                         if (item.call.roomId) {
-                          router.push(`/community-messenger/rooms/${encodeURIComponent(item.call.roomId)}`);
+                          navigateToCommunityRoom(item.call.roomId);
                         }
                       }}
                     />
@@ -1663,6 +1673,8 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                     </label>
                   </div>
                 </section>
+
+                <CommunityMessengerDeviceSettingsSection visible={Boolean(settingsSheetOpen && data)} />
 
                 <section>
                   <p className="mb-2 text-[13px] font-semibold text-gray-500">차단</p>
@@ -2385,6 +2397,15 @@ function RoomListCard({
   compact?: boolean;
 }) {
   const router = useRouter();
+  const navigateToCommunityRoom = useCallback(
+    (rid: string) => {
+      const id = String(rid ?? "").trim();
+      if (!id) return;
+      void prefetchCommunityMessengerRoomSnapshot(id);
+      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
+    },
+    [router]
+  );
   const room = item.room;
   const badgeLabel = getRoomTypeBadgeLabel(room);
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
@@ -2518,6 +2539,7 @@ function RoomListCard({
       <Link
         href={`/community-messenger/rooms/${room.id}`}
         onPointerEnter={() => void prefetchCommunityMessengerRoomSnapshot(room.id)}
+        onPointerDown={() => void prefetchCommunityMessengerRoomSnapshot(room.id)}
         className="block px-3 py-2.5 transition hover:bg-gray-50"
       >
         {rowContent}
@@ -2598,7 +2620,7 @@ function RoomListCard({
             longPressTriggeredRef.current = false;
             return;
           }
-          router.push(`/community-messenger/rooms/${room.id}`);
+          navigateToCommunityRoom(room.id);
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -2607,7 +2629,7 @@ function RoomListCard({
               closeActions();
               return;
             }
-            router.push(`/community-messenger/rooms/${room.id}`);
+            navigateToCommunityRoom(room.id);
           }
         }}
         className="relative bg-white px-3.5 py-3 transition hover:bg-gray-50 touch-pan-y"
@@ -2631,7 +2653,7 @@ function RoomListCard({
                 type="button"
                 onClick={() => {
                   setMenuOpen(false);
-                  router.push(`/community-messenger/rooms/${room.id}`);
+                  navigateToCommunityRoom(room.id);
                 }}
                 className="rounded-ui-rect border border-gray-200 px-4 py-3 text-left text-[14px] font-medium text-gray-900"
               >
