@@ -24,7 +24,13 @@ export function isAgoraJoinRetryableError(error: unknown): boolean {
     if ([2, 109, 110, 111, 118, 119, 120, 501, 504, 506].includes(code)) return true;
   }
   const msg = String(error instanceof Error ? error.message : error);
-  if (/token|invalid.*channel|network|timeout|unreachable|gateway|JOIN/i.test(msg)) return true;
+  if (
+    /token|invalid.*channel|network|timeout|unreachable|gateway|JOIN|failed to fetch|load failed|networkerror|502|503|504/i.test(
+      msg
+    )
+  ) {
+    return true;
+  }
   return false;
 }
 
