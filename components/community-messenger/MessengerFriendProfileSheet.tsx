@@ -12,6 +12,9 @@ type Props = {
   onVideoCall: () => void;
   onChat: () => void;
   onToggleFavorite: () => void;
+  onRemoveFriend?: () => void;
+  onBlock?: () => void;
+  onReport?: () => void;
 };
 
 /**
@@ -25,6 +28,9 @@ export function MessengerFriendProfileSheet({
   onVideoCall,
   onChat,
   onToggleFavorite,
+  onRemoveFriend,
+  onBlock,
+  onReport,
 }: Props) {
   const pid = profile.id;
   const bVoice = busyId === `call:voice:${pid}`;
@@ -117,6 +123,41 @@ export function MessengerFriendProfileSheet({
         >
           {bFav ? "처리 중…" : profile.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기에 추가"}
         </button>
+
+        {profile.isFriend ? (
+          <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+            {onRemoveFriend ? (
+              <button
+                type="button"
+                onClick={onRemoveFriend}
+                disabled={anyBusy}
+                className="w-full rounded-ui-rect border border-gray-200 py-2.5 text-[13px] font-medium text-gray-800 disabled:opacity-50"
+              >
+                친구 삭제
+              </button>
+            ) : null}
+            {onBlock ? (
+              <button
+                type="button"
+                onClick={onBlock}
+                disabled={anyBusy}
+                className="w-full rounded-ui-rect border border-red-200 py-2.5 text-[13px] font-medium text-red-700 disabled:opacity-50"
+              >
+                {profile.blocked ? "차단 해제" : "차단"}
+              </button>
+            ) : null}
+            {onReport ? (
+              <button
+                type="button"
+                onClick={onReport}
+                disabled={anyBusy}
+                className="w-full py-2 text-[12px] font-medium text-gray-500 disabled:opacity-50"
+              >
+                신고
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         <button type="button" onClick={onClose} className="mt-3 w-full py-3 text-[14px] font-medium text-gray-600">
           닫기

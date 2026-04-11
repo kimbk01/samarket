@@ -8,7 +8,14 @@ import {
   writePreferredCommunityMessengerDeviceIds,
 } from "@/lib/community-messenger/media-preflight";
 
-export function CommunityMessengerDeviceSettingsSection({ visible }: { visible: boolean }) {
+export function CommunityMessengerDeviceSettingsSection({
+  visible,
+  /** 설정 시트의 「통화」 묶음 안에 넣을 때 바깥 제목·섹션 중복 제거 */
+  embedded = false,
+}: {
+  visible: boolean;
+  embedded?: boolean;
+}) {
   const [audioList, setAudioList] = useState<MediaDeviceInfo[]>([]);
   const [videoList, setVideoList] = useState<MediaDeviceInfo[]>([]);
   const [audioId, setAudioId] = useState("");
@@ -59,12 +66,20 @@ export function CommunityMessengerDeviceSettingsSection({ visible }: { visible: 
 
   if (!visible) return null;
 
-  return (
-    <section>
-      <p className="mb-2 text-[13px] font-semibold text-gray-500">통화 장치</p>
-      <p className="mb-3 text-[12px] leading-snug text-gray-500">
-        메신저에 처음 들어올 때 한 번만 권한을 묻고, 이후에는 여기서 고른 마이크·카메라로 바로 연결합니다.
-      </p>
+  const body = (
+    <>
+      {!embedded ? (
+        <>
+          <p className="mb-2 text-[13px] font-semibold text-gray-500">통화 장치</p>
+          <p className="mb-3 text-[12px] leading-snug text-gray-500">
+            메신저에 처음 들어올 때 한 번만 권한을 묻고, 이후에는 여기서 고른 마이크·카메라로 바로 연결합니다.
+          </p>
+        </>
+      ) : (
+        <p className="mb-3 text-[12px] leading-snug text-gray-500">
+          마이크·카메라 기본 장치와 테스트입니다.
+        </p>
+      )}
       <div className="space-y-3 rounded-ui-rect border border-gray-100 bg-gray-50 px-4 py-3">
         <label className="block">
           <span className="mb-1 block text-[12px] font-medium text-gray-700">마이크</span>
@@ -113,6 +128,9 @@ export function CommunityMessengerDeviceSettingsSection({ visible }: { visible: 
         </div>
         {hint ? <p className="text-[12px] text-gray-600">{hint}</p> : null}
       </div>
-    </section>
+    </>
   );
+
+  if (embedded) return <div className="py-1">{body}</div>;
+  return <section>{body}</section>;
 }

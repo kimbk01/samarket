@@ -722,7 +722,7 @@ export function CommunityMessengerRoomClient({
         alert(getRoomActionErrorMessage(json.error));
         return;
       }
-      router.replace("/community-messenger?tab=groups");
+      router.replace("/community-messenger?section=chats&filter=private_group");
     } finally {
       setBusy(null);
     }
@@ -1387,7 +1387,7 @@ export function CommunityMessengerRoomClient({
         <p className="text-[16px] font-semibold text-gray-900">채팅방을 찾을 수 없습니다.</p>
         <button
           type="button"
-          onClick={() => router.replace("/community-messenger?tab=chats")}
+          onClick={() => router.replace("/community-messenger?section=chats")}
           className="rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white"
         >
           {t("nav_messenger_home")}
@@ -1402,7 +1402,13 @@ export function CommunityMessengerRoomClient({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => router.replace(`/community-messenger?tab=${isGroupRoom ? "groups" : "chats"}`)}
+            onClick={() =>
+              router.replace(
+                isGroupRoom
+                  ? "/community-messenger?section=chats&filter=private_group"
+                  : "/community-messenger?section=chats"
+              )
+            }
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
             aria-label={t("tier1_back")}
           >

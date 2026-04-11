@@ -1,18 +1,17 @@
 "use client";
 
 /**
- * 메신저 홈 상단 우측 액션: 검색 / 새 대화 / 알림 / 설정.
+ * 메신저 홈 상단 우측 액션: 검색 / 알림 / 설정.
+ * 새 대화는 하단 FAB 한 곳만 사용(중복 CTA 제거).
  */
 export function CommunityMessengerHeaderActions({
   incomingRequestCount,
   onOpenSearch,
-  onOpenComposer,
   onOpenRequestList,
   onOpenSettings,
 }: {
   incomingRequestCount: number;
   onOpenSearch: () => void;
-  onOpenComposer: () => void;
   onOpenRequestList: () => void;
   onOpenSettings: () => void;
 }) {
@@ -25,14 +24,6 @@ export function CommunityMessengerHeaderActions({
         aria-label="메신저 검색"
       >
         <SearchIcon />
-      </button>
-      <button
-        type="button"
-        onClick={onOpenComposer}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
-        aria-label="새 대화"
-      >
-        <ComposeIcon />
       </button>
       <button
         type="button"
@@ -64,15 +55,6 @@ function SearchIcon() {
     <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
       <circle cx="11" cy="11" r="6" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 20l-4.2-4.2" />
-    </svg>
-  );
-}
-
-function ComposeIcon() {
-  return (
-    <svg className="h-[21px] w-[21px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 20h4l10-10a2.121 2.121 0 10-3-3L5 17v3z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6.5l4 4" />
     </svg>
   );
 }

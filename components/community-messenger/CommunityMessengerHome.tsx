@@ -31,6 +31,14 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
+import { MessengerPrimarySectionNav } from "@/components/community-messenger/MessengerPrimarySectionNav";
+import {
+  type MessengerChatSubFilter,
+  type MessengerMainSection,
+  messengerChatSubFilterLabel,
+  resolveMessengerChatSubFilter,
+  resolveMessengerSection,
+} from "@/lib/community-messenger/messenger-ia";
 import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
@@ -42,18 +50,16 @@ import {
   type CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 
-const ROOM_FILTERS = [
-  { id: "all", label: "전체" },
-  { id: "unread", label: "안읽음" },
-  { id: "friend", label: "친구" },
-  { id: "group", label: "그룹" },
-  { id: "open", label: "오픈채팅" },
-  { id: "trade", label: "거래" },
-  { id: "delivery", label: "배달" },
-  { id: "archived", label: "보관됨" },
-] as const;
-
-type RoomFilterId = (typeof ROOM_FILTERS)[number]["id"];
+/** 채팅 탭 2차 필터 순서 (1차 IA와 분리). */
+const CHAT_SUB_FILTER_ORDER: MessengerChatSubFilter[] = [
+  "all",
+  "unread",
+  "pinned",
+  "direct",
+  "private_group",
+  "trade",
+  "delivery",
+];
 type UnifiedRoomListItem = {
   room: CommunityMessengerRoomSummary;
   preview: string;
@@ -88,20 +94,15 @@ type MessengerNotificationSettings = {
   vibration_enabled: boolean;
 };
 
-/** URL `tab=settings` 는 하위 호환용 — 탭은 쓰지 않고 설정 시트만 연다 */
-function normalizeLegacyFilter(value: string | null): RoomFilterId {
-  if (value === "groups") return "group";
-  if (value === "friends") return "friend";
-  if (value === "calls") return "all";
-  if (value === "chats") return "all";
-  if (value === "settings") return "all";
-  if (value === "all" || value === "unread" || value === "friend" || value === "group" || value === "open" || value === "trade" || value === "delivery" || value === "archived") {
-    return value;
-  }
-  return "all";
-}
-
-export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) {
+export function CommunityMessengerHome({
+  initialTab,
+  initialSection,
+  initialFilter,
+}: {
+  initialTab?: string;
+  initialSection?: string;
+  initialFilter?: string;
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const navigateToCommunityRoom = useCallback(
@@ -124,12 +125,51 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const [composerOpen, setComposerOpen] = useState(false);
   const [requestSheetOpen, setRequestSheetOpen] = useState(false);
   const [friendManagerOpen, setFriendManagerOpen] = useState(false);
+  const [friendAddTab, setFriendAddTab] = useState<"contacts" | "id">("id");
+  const [friendUserSearchAttempted, setFriendUserSearchAttempted] = useState(false);
   const [searchSheetOpen, setSearchSheetOpen] = useState(false);
   const [sheetProfile, setSheetProfile] = useState<CommunityMessengerProfileLite | null>(null);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(initialTab === "settings");
   const [publicGroupFindOpen, setPublicGroupFindOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<RoomFilterId>(normalizeLegacyFilter(initialTab ?? null));
+  const [mainSection, setMainSection] = useState<MessengerMainSection>(() =>
+    resolveMessengerSection(initialSection, initialTab)
+  );
+  const [chatSubFilter, setChatSubFilter] = useState<MessengerChatSubFilter>(() =>
+    resolveMessengerChatSubFilter(initialFilter, initialTab)
+  );
+  const [friendsHiddenOpen, setFriendsHiddenOpen] = useState(false);
+  const applyMessengerUrl = useCallback(
+    (section: MessengerMainSection, filter: MessengerChatSubFilter) => {
+      const qs = new URLSearchParams();
+      qs.set("section", section);
+      if (section === "chats" && filter !== "all") {
+        qs.set("filter", filter);
+      }
+      router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
+    },
+    [router]
+  );
+  const onPrimarySectionChange = useCallback(
+    (next: MessengerMainSection) => {
+      setMainSection(next);
+      if (next === "chats") {
+        applyMessengerUrl("chats", chatSubFilter);
+      } else {
+        const qs = new URLSearchParams();
+        qs.set("section", next);
+        router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
+      }
+    },
+    [applyMessengerUrl, chatSubFilter, router]
+  );
+  const onChatSubFilterChange = useCallback(
+    (next: MessengerChatSubFilter) => {
+      setChatSubFilter(next);
+      applyMessengerUrl("chats", next);
+    },
+    [applyMessengerUrl]
+  );
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(null);
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
@@ -353,12 +393,21 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       return;
     }
     if (tab === "friends") {
-      setFriendManagerOpen(true);
-      router.replace("/community-messenger", { scroll: false });
+      setMainSection("friends");
+      router.replace("/community-messenger?section=friends", { scroll: false });
       return;
     }
-    setActiveFilter(normalizeLegacyFilter(tab));
+    const section = searchParams.get("section");
+    const filter = searchParams.get("filter");
+    setMainSection(resolveMessengerSection(section ?? undefined, tab ?? undefined));
+    setChatSubFilter(resolveMessengerChatSubFilter(filter ?? undefined, tab ?? undefined));
   }, [searchParams, router]);
+
+  useEffect(() => {
+    if (!friendManagerOpen) return;
+    setFriendUserSearchAttempted(false);
+    setSearchResults([]);
+  }, [friendManagerOpen]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -368,7 +417,6 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           <CommunityMessengerHeaderActions
             incomingRequestCount={incomingRequestCount}
             onOpenSearch={() => setSearchSheetOpen(true)}
-            onOpenComposer={() => setComposerOpen(true)}
             onOpenRequestList={() => setRequestSheetOpen(true)}
             onOpenSettings={() => setSettingsSheetOpen(true)}
           />
@@ -521,6 +569,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     const keyword = searchKeyword.trim();
     if (!keyword) {
       setSearchResults([]);
+      setFriendUserSearchAttempted(true);
       return;
     }
     setBusyId("user-search");
@@ -530,6 +579,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       });
       const json = (await res.json()) as { ok?: boolean; users?: CommunityMessengerProfileLite[] };
       setSearchResults(res.ok && json.ok ? json.users ?? [] : []);
+      setFriendUserSearchAttempted(true);
     } finally {
       setBusyId(null);
     }
@@ -925,41 +975,88 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       return new Date(b.lastEventAt).getTime() - new Date(a.lastEventAt).getTime();
     });
   }, [sortedChats, sortedGroups, sortedCalls]);
-  const visibleRooms = useMemo(() => {
-    const keyword = roomSearchKeyword.trim().toLowerCase();
+  /** 채팅 탭: 오픈채팅·보관 제외한 통합 스레드 */
+  const baseChatListItems = useMemo(() => {
     return unifiedRooms.filter((item) => {
+      if (item.room.roomType === "open_group") return false;
+      if (communityMessengerRoomIsInboxHidden(item.room)) return false;
+      return true;
+    });
+  }, [unifiedRooms]);
+
+  const archiveListItems = useMemo(() => {
+    return unifiedRooms.filter((item) => communityMessengerRoomIsInboxHidden(item.room));
+  }, [unifiedRooms]);
+
+  const openChatJoinedItems = useMemo(() => {
+    return unifiedRooms.filter((item) => {
+      if (item.room.roomType !== "open_group") return false;
+      if (communityMessengerRoomIsInboxHidden(item.room)) return false;
+      return true;
+    });
+  }, [unifiedRooms]);
+
+  const visibleChatListItems = useMemo(() => {
+    const keyword = roomSearchKeyword.trim().toLowerCase();
+    return baseChatListItems.filter((item) => {
       const room = item.room;
-      if (activeFilter === "unread" && room.unreadCount < 1) return false;
-      if (activeFilter === "friend" && room.roomType !== "direct") return false;
-      if (activeFilter === "group" && room.roomType !== "private_group") return false;
-      if (activeFilter === "open" && room.roomType !== "open_group") return false;
-      const inboxHidden = communityMessengerRoomIsInboxHidden(room);
-      if (activeFilter !== "archived" && inboxHidden) return false;
-      if (activeFilter === "archived" && !inboxHidden) return false;
-      if (activeFilter === "trade") {
+      if (chatSubFilter === "unread" && room.unreadCount < 1) return false;
+      if (chatSubFilter === "pinned" && !room.isPinned) return false;
+      if (chatSubFilter === "direct" && room.roomType !== "direct") return false;
+      if (chatSubFilter === "private_group" && room.roomType !== "private_group") return false;
+      if (chatSubFilter === "trade") {
         const tradeRoom = room.title.includes("거래") || room.summary.includes("거래") || room.subtitle.includes("거래");
         if (!tradeRoom) return false;
       }
-      if (activeFilter === "delivery") {
-        const deliveryRoom = room.title.includes("주문") || room.title.includes("배달") || room.summary.includes("주문") || room.summary.includes("배달") || room.subtitle.includes("주문") || room.subtitle.includes("배달");
+      if (chatSubFilter === "delivery") {
+        const deliveryRoom =
+          room.title.includes("주문") ||
+          room.title.includes("배달") ||
+          room.summary.includes("주문") ||
+          room.summary.includes("배달") ||
+          room.subtitle.includes("주문") ||
+          room.subtitle.includes("배달");
         if (!deliveryRoom) return false;
       }
       if (!keyword) return true;
       const haystack = [room.title, room.subtitle, room.summary, item.preview].join(" ").toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [activeFilter, roomSearchKeyword, unifiedRooms]);
-  const recentConversationFriends = useMemo(() => {
-    const directPeerIds = unifiedRooms
-      .filter((item) => item.room.roomType === "direct")
-      .map((item) => item.room.peerUserId)
-      .filter((id): id is string => Boolean(id));
-    const friendMap = new Map((data?.friends ?? []).map((friend) => [friend.id, friend]));
-    return directPeerIds.map((id) => friendMap.get(id)).filter((friend): friend is CommunityMessengerProfileLite => Boolean(friend)).slice(0, 8);
-  }, [data?.friends, unifiedRooms]);
+  }, [baseChatListItems, chatSubFilter, roomSearchKeyword]);
+
+  const searchSheetRoomItems = useMemo(() => {
+    const keyword = roomSearchKeyword.trim().toLowerCase();
+    if (!keyword) return [];
+    return unifiedRooms
+      .filter((item) => {
+        const room = item.room;
+        const haystack = [room.title, room.subtitle, room.summary, item.preview].join(" ").toLowerCase();
+        return haystack.includes(keyword);
+      })
+      .slice(0, 24);
+  }, [roomSearchKeyword, unifiedRooms]);
+
+  const primaryListItems = useMemo(() => {
+    if (mainSection === "chats") return visibleChatListItems;
+    if (mainSection === "archive") return archiveListItems;
+    if (mainSection === "open_chat") return openChatJoinedItems;
+    return [];
+  }, [archiveListItems, mainSection, openChatJoinedItems, visibleChatListItems]);
+
+  const sectionNavBadges = useMemo((): Partial<Record<MessengerMainSection, number>> => {
+    if (!data) return {};
+    const chatsUnread = baseChatListItems.reduce((s, i) => s + Math.max(0, i.room.unreadCount), 0);
+    const openHint = openChatJoinedItems.length + (data.discoverableGroups?.length ?? 0);
+    return {
+      friends: data.friends.length,
+      chats: chatsUnread,
+      open_chat: openHint,
+      archive: archiveListItems.length,
+    };
+  }, [archiveListItems.length, baseChatListItems, data, openChatJoinedItems.length]);
   const totalUnreadCount = useMemo(
-    () => unifiedRooms.reduce((sum, item) => sum + Math.max(0, item.room.unreadCount), 0),
-    [unifiedRooms]
+    () => baseChatListItems.reduce((sum, item) => sum + Math.max(0, item.room.unreadCount), 0),
+    [baseChatListItems]
   );
   const updateRoomSummaryState = useCallback(
     (roomId: string, updater: (room: CommunityMessengerRoomSummary) => CommunityMessengerRoomSummary) => {
@@ -1106,75 +1203,295 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     [getMessengerActionErrorMessage]
   );
 
+  const reportCommunityUser = useCallback(async (userId: string) => {
+    const detail = window.prompt("신고 내용을 입력해 주세요.")?.trim() ?? "";
+    if (!detail) return;
+    setBusyId(`report:${userId}`);
+    try {
+      const res = await fetch("/api/community-messenger/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportType: "user",
+          reportedUserId: userId,
+          reasonType: "etc",
+          reasonDetail: detail,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (res.ok && json.ok) {
+        window.alert("접수되었습니다.");
+        setSheetProfile(null);
+      } else {
+        setActionError("신고 접수에 실패했습니다.");
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }, []);
+
   return (
     <div className="space-y-4 px-4 py-3 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
-      {!loading && !authRequired ? (
+      {!loading && !authRequired && data ? (
         <>
-          <section>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <button
-                type="button"
-                onClick={() => setActiveFilter("all")}
-                className={`shrink-0 rounded-full px-4 py-2.5 text-[13px] font-semibold ${
-                  activeFilter === "all" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                전체
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveFilter("unread")}
-                className={`shrink-0 rounded-full border px-3 py-2 text-[13px] font-semibold ${
-                  activeFilter === "unread"
-                    ? "border-orange-200 bg-orange-50 text-orange-700"
-                    : "border-gray-200 bg-white text-gray-700"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>안읽음</span>
-                  {totalUnreadCount > 0 ? (
-                    <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[11px] font-bold leading-none text-white">
-                      {totalUnreadCount > 999 ? "999+" : totalUnreadCount}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-              {ROOM_FILTERS.filter((filter) => filter.id !== "all" && filter.id !== "unread").map((filter) => (
+          <MessengerPrimarySectionNav value={mainSection} onChange={onPrimarySectionChange} badge={sectionNavBadges} />
+
+          {mainSection === "friends" ? (
+            <section className="space-y-4 pt-3">
+              <div className="border-b border-gray-200 pb-4">
+                <p className="text-[12px] font-medium text-gray-500">내 프로필</p>
                 <button
-                  key={filter.id}
                   type="button"
-                  onClick={() => setActiveFilter(filter.id)}
-                  className={`shrink-0 rounded-full px-3 py-2 text-[12px] font-medium ${
-                    activeFilter === filter.id ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
-                  }`}
+                  onClick={() => data.me && setSheetProfile(data.me)}
+                  className="mt-2 flex w-full items-center gap-3 border border-gray-200 bg-white px-3 py-3 text-left rounded-ui-rect"
                 >
-                  {filter.label}
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100 text-center text-lg leading-[48px] text-gray-500">
+                    {data.me?.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={data.me.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      (data.me?.label ?? "?").slice(0, 1)
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-semibold text-gray-900">{data.me?.label ?? "프로필"}</p>
+                    <p className="truncate text-[12px] text-gray-500">{data.me?.subtitle ?? "상태 메시지를 설정해 보세요."}</p>
+                  </div>
+                  <span className="text-[12px] text-gray-400">편집</span>
                 </button>
-              ))}
-            </div>
-            {visibleRooms.length ? (
-              <div className="mt-2 divide-y divide-gray-100 overflow-hidden rounded-[20px] bg-white">
-                {visibleRooms.map((item) => (
-                  <RoomListCard
-                    key={item.room.id}
-                    item={item}
-                    favoriteFriendIds={favoriteFriendIds}
-                    busyId={busyId}
-                    onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
-                    onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
-                    onMarkRead={(room) => void markRoomRead(room.id)}
-                    onToggleArchive={(room) =>
-                      void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))
-                    }
-                  />
+              </div>
+
+              {favoriteFriends.length ? (
+                <div>
+                  <p className="text-[12px] font-medium text-gray-500">즐겨찾기</p>
+                  <div className="mt-2 flex gap-3 overflow-x-auto pb-1">
+                    {favoriteFriends.map((friend) => (
+                      <div
+                        key={friend.id}
+                        className="flex w-[92px] shrink-0 flex-col items-center gap-2 border border-gray-200 bg-white px-2 py-3 rounded-ui-rect"
+                      >
+                        <button type="button" onClick={() => setSheetProfile(friend)} className="flex flex-col items-center gap-1">
+                          <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-100 text-center text-[14px] leading-[44px] text-gray-600">
+                            {friend.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={friend.avatarUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              friend.label.slice(0, 1)
+                            )}
+                          </div>
+                          <span className="w-full truncate text-center text-[11px] font-medium text-gray-900">{friend.label}</span>
+                        </button>
+                        <div className="flex w-full gap-1">
+                          <button
+                            type="button"
+                            className="flex-1 border border-gray-200 py-1 text-[10px] text-gray-700 rounded-ui-rect"
+                            onClick={() => void startDirectRoom(friend.id)}
+                          >
+                            채팅
+                          </button>
+                          <button
+                            type="button"
+                            className="flex-1 border border-gray-200 py-1 text-[10px] text-gray-700 rounded-ui-rect"
+                            onClick={() => void startDirectCall(friend.id, "voice")}
+                          >
+                            음성
+                          </button>
+                          <button
+                            type="button"
+                            className="flex-1 border border-gray-200 py-1 text-[10px] text-gray-700 rounded-ui-rect"
+                            onClick={() => void startDirectCall(friend.id, "video")}
+                          >
+                            영상
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div>
+                <p className="text-[12px] font-medium text-gray-500">친구 요청</p>
+                <div className="mt-2 space-y-2">
+                  {(data.requests ?? []).length ? (
+                    (data.requests ?? []).map((request) => <RequestCard key={request.id} request={request} busyId={busyId} onAction={respondRequest} />)
+                  ) : (
+                    <p className="border border-dashed border-gray-200 px-4 py-6 text-center text-[12px] text-gray-500 rounded-ui-rect">새 요청이 없습니다.</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[12px] font-medium text-gray-500">친구 {sortedFriends.length}</p>
+                <div className="mt-2 divide-y divide-gray-100 border border-gray-200 bg-white rounded-ui-rect">
+                  {sortedFriends.length ? (
+                    sortedFriends.map((friend) => (
+                      <MessengerLineFriendRow
+                        key={friend.id}
+                        friend={friend}
+                        busyFavorite={busyId === `favorite:${friend.id}`}
+                        busyDelete={busyId === `remove-friend:${friend.id}`}
+                        onRowPress={() => setSheetProfile(friend)}
+                        onToggleFavorite={() => void toggleFavoriteFriend(friend.id)}
+                        onDelete={() => void removeFriend(friend.id, { confirm: false })}
+                      />
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-[13px] text-gray-500">아직 친구가 없습니다.</div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setFriendsHiddenOpen((v) => !v)}
+                  className="flex w-full items-center justify-between border border-gray-200 bg-white px-3 py-3 text-[13px] text-gray-800 rounded-ui-rect"
+                >
+                  <span>숨김 · 차단</span>
+                  <span className="text-gray-400">{friendsHiddenOpen ? "접기" : "펼치기"}</span>
+                </button>
+                {friendsHiddenOpen ? (
+                  <div className="mt-2 space-y-3">
+                    <p className="text-[12px] text-gray-500">차단된 계정</p>
+                    <div className="divide-y divide-gray-100 border border-gray-200 bg-white rounded-ui-rect">
+                      {(data.blocked ?? []).length ? (
+                        (data.blocked ?? []).map((p) => (
+                          <div key={p.id} className="flex items-center justify-between gap-2 px-3 py-2.5">
+                            <span className="truncate text-[14px] text-gray-900">{p.label}</span>
+                            <button
+                              type="button"
+                              className="shrink-0 text-[12px] text-gray-500"
+                              onClick={() => void toggleBlock(p.id)}
+                            >
+                              해제
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-3 py-6 text-center text-[12px] text-gray-500">차단된 친구가 없습니다.</div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {mainSection === "chats" ? (
+            <section className="pt-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                {CHAT_SUB_FILTER_ORDER.map((fid) => (
+                  <button
+                    key={fid}
+                    type="button"
+                    onClick={() => onChatSubFilterChange(fid)}
+                    className={`shrink-0 rounded-full px-3 py-2 text-[12px] font-medium ${
+                      chatSubFilter === fid ? "bg-gray-900 text-white" : "border border-gray-200 bg-white text-gray-600"
+                    }`}
+                  >
+                    {fid === "unread" ? (
+                      <span className="flex items-center gap-1">
+                        {messengerChatSubFilterLabel(fid)}
+                        {totalUnreadCount > 0 ? (
+                          <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{totalUnreadCount > 99 ? "99+" : totalUnreadCount}</span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      messengerChatSubFilterLabel(fid)
+                    )}
+                  </button>
                 ))}
               </div>
-            ) : (
-              <div className="mt-3 rounded-[20px] bg-gray-50 px-4 py-8 text-center text-[13px] text-gray-500">
-                조건에 맞는 대화방이 없습니다.
+              {primaryListItems.length ? (
+                <div className="divide-y divide-gray-100 border border-gray-200 bg-white rounded-ui-rect">
+                  {primaryListItems.map((item) => (
+                    <RoomListCard
+                      key={item.room.id}
+                      item={item}
+                      favoriteFriendIds={favoriteFriendIds}
+                      busyId={busyId}
+                      onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
+                      onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
+                      onMarkRead={(room) => void markRoomRead(room.id)}
+                      onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-2 border border-dashed border-gray-200 px-4 py-10 text-center text-[13px] text-gray-500 rounded-ui-rect">조건에 맞는 대화가 없습니다.</div>
+              )}
+            </section>
+          ) : null}
+
+          {mainSection === "open_chat" ? (
+            <section className="space-y-4 pt-3">
+              <div>
+                <p className="mb-2 text-[12px] font-medium text-gray-500">참여 중인 오픈채팅</p>
+                {openChatJoinedItems.length ? (
+                  <div className="divide-y divide-gray-100 border border-gray-200 bg-white rounded-ui-rect">
+                    {openChatJoinedItems.map((item) => (
+                      <RoomListCard
+                        key={item.room.id}
+                        item={item}
+                        favoriteFriendIds={favoriteFriendIds}
+                        busyId={busyId}
+                        onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
+                        onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
+                        onMarkRead={(room) => void markRoomRead(room.id)}
+                        onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="border border-dashed border-gray-200 px-4 py-8 text-center text-[13px] text-gray-500 rounded-ui-rect">참여 중인 오픈채팅이 없습니다.</p>
+                )}
               </div>
-            )}
-          </section>
+              <div>
+                <p className="mb-2 text-[12px] font-medium text-gray-500">탐색</p>
+                <div className="space-y-2">
+                  {filteredDiscoverableGroups.length ? (
+                    filteredDiscoverableGroups.map((group) => (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => void openJoinModal(group.id)}
+                        className="flex w-full items-center justify-between gap-2 border border-gray-200 bg-white px-3 py-3 text-left rounded-ui-rect"
+                      >
+                        <span className="truncate text-[14px] font-medium text-gray-900">{group.title}</span>
+                        <span className="shrink-0 text-[12px] text-gray-400">{group.isJoined ? "참여중" : "보기"}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-[13px] text-gray-500">표시할 오픈채팅이 없습니다.</p>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {mainSection === "archive" ? (
+            <section className="pt-3">
+              {primaryListItems.length ? (
+                <div className="divide-y divide-gray-100 border border-gray-200 bg-white rounded-ui-rect">
+                  {primaryListItems.map((item) => (
+                    <RoomListCard
+                      key={item.room.id}
+                      item={item}
+                      favoriteFriendIds={favoriteFriendIds}
+                      busyId={busyId}
+                      onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
+                      onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
+                      onMarkRead={(room) => void markRoomRead(room.id)}
+                      onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="border border-dashed border-gray-200 px-4 py-10 text-center text-[13px] text-gray-500 rounded-ui-rect">보관된 대화가 없습니다.</div>
+              )}
+            </section>
+          ) : null}
         </>
       ) : null}
 
@@ -1243,6 +1560,9 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
           onToggleFavorite={() => {
             void toggleFavoriteFriend(sheetProfile.id);
           }}
+          onRemoveFriend={sheetProfile.isFriend ? () => void removeFriend(sheetProfile.id) : undefined}
+          onBlock={sheetProfile.id !== data?.me?.id ? () => void toggleBlock(sheetProfile.id) : undefined}
+          onReport={sheetProfile.id !== data?.me?.id ? () => void reportCommunityUser(sheetProfile.id) : undefined}
         />
       ) : null}
 
@@ -1258,7 +1578,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
               className="mt-4 h-11 w-full rounded-ui-rect border border-gray-200 px-3 text-[14px] outline-none focus:border-gray-400"
             />
             <div className="mt-3 space-y-2">
-              {visibleRooms.slice(0, 8).map((item) => (
+              {searchSheetRoomItems.map((item) => (
                 <RoomListCard
                   key={`search-${item.room.id}`}
                   item={item}
@@ -1273,7 +1593,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                   compact
                 />
               ))}
-              {visibleRooms.length === 0 ? (
+              {searchSheetRoomItems.length === 0 ? (
                 <div className="rounded-ui-rect bg-gray-50 px-4 py-8 text-center text-[13px] text-gray-500">검색 결과가 없습니다.</div>
               ) : null}
             </div>
@@ -1294,11 +1614,24 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
               className="mt-4 w-full rounded-ui-rect border border-gray-200 py-3.5 text-[15px] font-medium text-gray-900"
               onClick={() => {
                 setComposerOpen(false);
+                setFriendAddTab("id");
                 setFriendManagerOpen(true);
                 requestAnimationFrame(() => friendSearchRef.current?.focus());
               }}
             >
               친구와 대화 시작
+            </button>
+            <button
+              type="button"
+              className="mt-2 w-full rounded-ui-rect border border-gray-200 py-3.5 text-[15px] font-medium text-gray-900"
+              onClick={() => {
+                setComposerOpen(false);
+                setFriendAddTab("id");
+                setFriendManagerOpen(true);
+                requestAnimationFrame(() => friendSearchRef.current?.focus());
+              }}
+            >
+              친구 추가
             </button>
             <button
               type="button"
@@ -1320,17 +1653,6 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
             >
               오픈채팅 찾기
             </button>
-            <button
-              type="button"
-              className="mt-2 w-full rounded-ui-rect bg-gray-900 py-3.5 text-[15px] font-semibold text-white"
-              onClick={() => {
-                setComposerOpen(false);
-                setFriendManagerOpen(true);
-                requestAnimationFrame(() => friendSearchRef.current?.focus());
-              }}
-            >
-              친구 찾기
-            </button>
             <button type="button" className="mt-3 w-full py-2 text-[14px] text-gray-500" onClick={() => setComposerOpen(false)}>
               취소
             </button>
@@ -1342,128 +1664,176 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/45">
           <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={() => setFriendManagerOpen(false)} />
           <div className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[14px] border-t border-gray-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)]">
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3.5">
-              <p className="text-[17px] font-semibold text-gray-900">친구 관리</p>
-              <button type="button" className="rounded-ui-rect px-3 py-1.5 text-[15px] text-gray-600" onClick={() => setFriendManagerOpen(false)}>
-                닫기
+            <div className="flex shrink-0 items-center justify-between px-4 py-3.5">
+              <p className="text-[17px] font-semibold text-gray-900">친구 추가</p>
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+                aria-label="닫기"
+                onClick={() => setFriendManagerOpen(false)}
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex shrink-0 border-b border-gray-200 px-4">
+              <button
+                type="button"
+                onClick={() => setFriendAddTab("contacts")}
+                className={`relative flex-1 py-3 text-[15px] ${
+                  friendAddTab === "contacts" ? "font-semibold text-gray-900" : "font-medium text-gray-500"
+                }`}
+              >
+                연락처로 추가
+                {friendAddTab === "contacts" ? (
+                  <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-gray-900" />
+                ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFriendAddTab("id")}
+                className={`relative flex-1 py-3 text-[15px] ${
+                  friendAddTab === "id" ? "font-semibold text-gray-900" : "font-medium text-gray-500"
+                }`}
+              >
+                ID로 추가
+                {friendAddTab === "id" ? (
+                  <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-gray-900" />
+                ) : null}
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-              <section className="rounded-ui-rect border border-gray-200 bg-white p-4">
-                <div className="flex gap-2">
-                  <input
-                    ref={friendSearchRef}
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
-                    placeholder="닉네임 또는 아이디로 친구 찾기"
-                    className="h-11 flex-1 rounded-ui-rect border border-gray-200 px-3 text-[14px] outline-none focus:border-gray-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void searchUsers()}
-                    disabled={busyId === "user-search"}
-                    className="rounded-ui-rect bg-gray-900 px-4 text-[14px] font-semibold text-white disabled:opacity-50"
-                  >
-                    검색
-                  </button>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {searchResults.length === 0 ? (
-                    <p className="text-[13px] text-gray-500">검색 후 친구 요청, 대화 시작, 차단 관리를 할 수 있습니다.</p>
-                  ) : (
-                    searchResults.map((user) => (
-                      <ProfileCard
-                        key={user.id}
-                        profile={user}
-                        actionSlot={
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => void toggleFollow(user.id)}
-                              disabled={busyId === `follow:${user.id}`}
-                              className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
-                            >
-                              {user.following ? "팔로우 해제" : "팔로우"}
-                            </button>
-                            {user.isFriend ? (
-                              <button
-                                type="button"
-                                onPointerEnter={() => maybePrefetchDirectRoom(user.id)}
-                                onClick={() => setSheetProfile(user)}
-                                disabled={busyId === `room:${user.id}` || busyId === `call:voice:${user.id}` || busyId === `call:video:${user.id}`}
-                                className="rounded-ui-rect bg-gray-900 px-3 py-2 text-[12px] font-semibold text-white"
-                              >
-                                선택
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => void requestFriend(user.id)}
-                                disabled={busyId === `friend:${user.id}` || user.blocked}
-                                className="rounded-ui-rect bg-[#111827] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
-                              >
-                                친구 요청
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => void toggleBlock(user.id)}
-                              disabled={busyId === `block:${user.id}`}
-                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-medium ${
-                                user.blocked ? "bg-red-50 text-red-700" : "border border-red-200 text-red-600"
-                              }`}
-                            >
-                              {user.blocked ? "차단 해제" : "차단"}
-                            </button>
-                          </>
+              {friendAddTab === "contacts" ? (
+                <p className="rounded-ui-rect border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-[13px] leading-relaxed text-gray-600">
+                  웹에서는 휴대폰 연락처를 불러오지 않습니다. ID로 추가 탭에서 닉네임 또는 아이디로 검색해 주세요.
+                </p>
+              ) : (
+                <>
+                  <div className="relative">
+                    <div className="flex justify-end text-[12px] tabular-nums text-gray-400">{searchKeyword.length}/20</div>
+                    <input
+                      ref={friendSearchRef}
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value.slice(0, 20))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void searchUsers();
                         }
+                      }}
+                      maxLength={20}
+                      placeholder="닉네임 또는 아이디"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      className="w-full border-0 border-b-2 border-gray-900 bg-transparent px-0 py-2 text-[16px] text-gray-900 outline-none ring-0 placeholder:text-gray-400 focus:border-gray-900"
+                    />
+                    <p className="mt-2 text-[12px] text-gray-500">
+                      검색을 허용한 사용자만 찾을 수 있습니다. 친구가 되면 아래 목록에 표시됩니다.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void searchUsers()}
+                      disabled={busyId === "user-search"}
+                      className="mt-4 w-full rounded-ui-rect bg-gray-900 py-3 text-[15px] font-semibold text-white disabled:opacity-50"
+                    >
+                      {busyId === "user-search" ? "검색 중…" : "검색"}
+                    </button>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {searchResults.length === 0 ? (
+                      <p className="rounded-ui-rect bg-gray-50 px-3 py-4 text-center text-[13px] text-gray-500">
+                        {!friendUserSearchAttempted
+                          ? "닉네임 또는 아이디를 입력한 뒤 검색을 눌러 주세요."
+                          : "검색 결과가 없습니다."}
+                      </p>
+                    ) : (
+                      searchResults.map((user) => (
+                        <ProfileCard
+                          key={user.id}
+                          profile={user}
+                          actionSlot={
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => void toggleFollow(user.id)}
+                                disabled={busyId === `follow:${user.id}`}
+                                className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
+                              >
+                                {user.following ? "팔로우 해제" : "팔로우"}
+                              </button>
+                              {user.isFriend ? (
+                                <button
+                                  type="button"
+                                  onPointerEnter={() => maybePrefetchDirectRoom(user.id)}
+                                  onClick={() => setSheetProfile(user)}
+                                  disabled={busyId === `room:${user.id}` || busyId === `call:voice:${user.id}` || busyId === `call:video:${user.id}`}
+                                  className="rounded-ui-rect bg-gray-900 px-3 py-2 text-[12px] font-semibold text-white"
+                                >
+                                  선택
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => void requestFriend(user.id)}
+                                  disabled={busyId === `friend:${user.id}` || user.blocked}
+                                  className="rounded-ui-rect bg-[#111827] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
+                                >
+                                  친구 요청
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void toggleBlock(user.id)}
+                                disabled={busyId === `block:${user.id}`}
+                                className={`rounded-ui-rect px-3 py-2 text-[12px] font-medium ${
+                                  user.blocked ? "bg-red-50 text-red-700" : "border border-red-200 text-red-600"
+                                }`}
+                              >
+                                {user.blocked ? "차단 해제" : "차단"}
+                              </button>
+                            </>
+                          }
+                        />
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+              <div className="mt-6 space-y-4">
+                <InfoSection title="내 프로필">
+                  <ProfileCard
+                    profile={
+                      data.me ?? {
+                        id: "me",
+                        label: "내 프로필",
+                        avatarUrl: null,
+                        following: false,
+                        blocked: false,
+                        isFriend: false,
+                        isFavoriteFriend: false,
+                      }
+                    }
+                    actionSlot={<span className="text-[12px] text-gray-500">메신저 기본 프로필</span>}
+                  />
+                </InfoSection>
+                <InfoSection title={`친구 ${sortedFriends.length}`}>
+                  {sortedFriends.length ? (
+                    sortedFriends.map((friend) => (
+                      <MessengerLineFriendRow
+                        key={friend.id}
+                        friend={friend}
+                        busyFavorite={busyId === `favorite:${friend.id}`}
+                        busyDelete={busyId === `remove-friend:${friend.id}`}
+                        onRowPress={() => setSheetProfile(friend)}
+                        onToggleFavorite={() => void toggleFavoriteFriend(friend.id)}
+                        onDelete={() => void removeFriend(friend.id, { confirm: false })}
                       />
                     ))
+                  ) : (
+                    <EmptyCard message="아직 친구가 없습니다. ID로 추가 탭에서 검색해 보세요." />
                   )}
-                </div>
-              </section>
-              <div className="mt-4 space-y-4">
-                <InfoSection title="내 프로필">
-                  <ProfileCard profile={data.me ?? { id: "me", label: "내 프로필", avatarUrl: null, following: false, blocked: false, isFriend: false, isFavoriteFriend: false }} actionSlot={<span className="text-[12px] text-gray-500">메신저 기본 프로필</span>} />
-                </InfoSection>
-                <InfoSection title="즐겨찾기 친구">
-                  {favoriteFriends.length ? favoriteFriends.map((friend) => (
-                    <MessengerLineFriendRow
-                      key={friend.id}
-                      friend={friend}
-                      busyFavorite={busyId === `favorite:${friend.id}`}
-                      busyDelete={busyId === `remove-friend:${friend.id}`}
-                      onRowPress={() => setSheetProfile(friend)}
-                      onToggleFavorite={() => void toggleFavoriteFriend(friend.id)}
-                      onDelete={() => void removeFriend(friend.id, { confirm: false })}
-                    />
-                  )) : <EmptyCard message="즐겨찾기 친구가 없습니다." />}
-                </InfoSection>
-                <InfoSection title="최근 대화한 친구">
-                  {recentConversationFriends.length ? recentConversationFriends.map((friend) => (
-                    <MessengerLineFriendRow
-                      key={`recent-${friend.id}`}
-                      friend={friend}
-                      busyFavorite={busyId === `favorite:${friend.id}`}
-                      busyDelete={busyId === `remove-friend:${friend.id}`}
-                      onRowPress={() => setSheetProfile(friend)}
-                      onToggleFavorite={() => void toggleFavoriteFriend(friend.id)}
-                      onDelete={() => void removeFriend(friend.id, { confirm: false })}
-                    />
-                  )) : <EmptyCard message="최근 대화한 친구가 없습니다." />}
-                </InfoSection>
-                <InfoSection title="전체 친구">
-                  {sortedFriends.length ? sortedFriends.map((friend) => (
-                    <MessengerLineFriendRow
-                      key={friend.id}
-                      friend={friend}
-                      busyFavorite={busyId === `favorite:${friend.id}`}
-                      busyDelete={busyId === `remove-friend:${friend.id}`}
-                      onRowPress={() => setSheetProfile(friend)}
-                      onToggleFavorite={() => void toggleFavoriteFriend(friend.id)}
-                      onDelete={() => void removeFriend(friend.id, { confirm: false })}
-                    />
-                  )) : <EmptyCard message="아직 친구가 없습니다. 검색으로 친구를 추가해 보세요." />}
                 </InfoSection>
               </div>
             </div>
@@ -1534,203 +1904,117 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-              <div className="space-y-4">
-                <section>
-                  <p className="mb-2 text-[13px] font-semibold text-gray-500">알림</p>
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600">
-                          <ChatBellIcon />
-                        </span>
-                        <span>
-                          <span className="block text-[15px] font-medium text-gray-900">메신저 채팅 알림</span>
-                          <span className="mt-0.5 block text-[12px] text-gray-500">일반 1:1 대화 알림을 받습니다.</span>
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.community_chat_enabled}
-                        onChange={(event) => void updateNotificationSetting("community_chat_enabled", event.target.checked)}
-                        disabled={busyId === "notification-setting:community_chat_enabled"}
-                        className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                          <TradeBellIcon />
-                        </span>
-                        <span>
-                          <span className="block text-[15px] font-medium text-gray-900">거래 채팅 알림</span>
-                          <span className="mt-0.5 block text-[12px] text-gray-500">거래 연결 채팅 알림을 따로 관리합니다.</span>
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.trade_chat_enabled}
-                        onChange={(event) => void updateNotificationSetting("trade_chat_enabled", event.target.checked)}
-                        disabled={busyId === "notification-setting:trade_chat_enabled"}
-                        className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-orange-600">
-                          <OrderBellIcon />
-                        </span>
-                        <span>
-                          <span className="block text-[15px] font-medium text-gray-900">주문 알림</span>
-                          <span className="mt-0.5 block text-[12px] text-gray-500">주문/배달 관련 알림을 받습니다.</span>
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.order_enabled}
-                        onChange={(event) => void updateNotificationSetting("order_enabled", event.target.checked)}
-                        disabled={busyId === "notification-setting:order_enabled"}
-                        className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-50 text-violet-600">
-                          <StoreBellIcon />
-                        </span>
-                        <span>
-                          <span className="block text-[15px] font-medium text-gray-900">매장 알림</span>
-                          <span className="mt-0.5 block text-[12px] text-gray-500">매장 공지와 운영성 알림을 관리합니다.</span>
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.store_enabled}
-                        onChange={(event) => void updateNotificationSetting("store_enabled", event.target.checked)}
-                        disabled={busyId === "notification-setting:store_enabled"}
-                        className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-                          <BellSettingsIcon />
-                        </span>
-                        <span>
-                          <span className="block text-[15px] font-medium text-gray-900">수신 통화 알림음</span>
-                          <span className="mt-0.5 block text-[12px] text-gray-500">전화가 올 때 소리로 먼저 알려줍니다.</span>
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={incomingCallSoundEnabled && notificationSettings.sound_enabled}
-                        onChange={(event) => {
-                          const next = event.target.checked;
-                          setIncomingCallSoundEnabled(next);
-                          setCommunityMessengerIncomingCallSoundEnabled(next);
-                          void updateNotificationSetting("sound_enabled", next);
-                        }}
-                        className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-600">
-                          <BellBannerIcon />
-                        </span>
-                        <span>
-                          <span className="block text-[15px] font-medium text-gray-900">수신 통화 안내</span>
-                          <span className="mt-0.5 block text-[12px] text-gray-500">통화가 오면 배너와 팝업으로 바로 보여줍니다.</span>
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={incomingCallBannerEnabled}
-                        onChange={(event) => {
-                          const next = event.target.checked;
-                          setIncomingCallBannerEnabled(next);
-                          setCommunityMessengerIncomingCallBannerEnabled(next);
-                        }}
-                        className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600">
-                          <VibrationIcon />
-                        </span>
-                        <span>
-                          <span className="block text-[15px] font-medium text-gray-900">진동 알림</span>
-                          <span className="mt-0.5 block text-[12px] text-gray-500">무음 환경에서도 진동으로 알려줍니다.</span>
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.vibration_enabled}
-                        onChange={(event) => void updateNotificationSetting("vibration_enabled", event.target.checked)}
-                        disabled={busyId === "notification-setting:vibration_enabled"}
-                        className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
-                      />
-                    </label>
-                  </div>
-                </section>
+              <div className="space-y-5">
+                <MessengerSettingsBlock title="알림">
+                  <SettingsToggleRow
+                    title="메신저·1:1 채팅"
+                    description="일반 대화 알림"
+                    checked={notificationSettings.community_chat_enabled}
+                    disabled={busyId === "notification-setting:community_chat_enabled"}
+                    onChange={(next) => void updateNotificationSetting("community_chat_enabled", next)}
+                  />
+                  <SettingsToggleRow
+                    title="거래 채팅"
+                    description="중고·거래 연결 알림"
+                    checked={notificationSettings.trade_chat_enabled}
+                    disabled={busyId === "notification-setting:trade_chat_enabled"}
+                    onChange={(next) => void updateNotificationSetting("trade_chat_enabled", next)}
+                  />
+                  <SettingsToggleRow
+                    title="주문·배달"
+                    checked={notificationSettings.order_enabled}
+                    disabled={busyId === "notification-setting:order_enabled"}
+                    onChange={(next) => void updateNotificationSetting("order_enabled", next)}
+                  />
+                  <SettingsToggleRow
+                    title="매장"
+                    description="매장 공지·운영 알림"
+                    checked={notificationSettings.store_enabled}
+                    disabled={busyId === "notification-setting:store_enabled"}
+                    onChange={(next) => void updateNotificationSetting("store_enabled", next)}
+                  />
+                  <SettingsToggleRow
+                    title="벨소리·수신 통화 톤"
+                    checked={incomingCallSoundEnabled && notificationSettings.sound_enabled}
+                    onChange={(next) => {
+                      setIncomingCallSoundEnabled(next);
+                      setCommunityMessengerIncomingCallSoundEnabled(next);
+                      void updateNotificationSetting("sound_enabled", next);
+                    }}
+                  />
+                  <SettingsToggleRow
+                    title="수신 통화 화면 안내"
+                    description="배너·오버레이"
+                    checked={incomingCallBannerEnabled}
+                    onChange={(next) => {
+                      setIncomingCallBannerEnabled(next);
+                      setCommunityMessengerIncomingCallBannerEnabled(next);
+                    }}
+                  />
+                  <SettingsToggleRow
+                    title="진동"
+                    checked={notificationSettings.vibration_enabled}
+                    disabled={busyId === "notification-setting:vibration_enabled"}
+                    onChange={(next) => void updateNotificationSetting("vibration_enabled", next)}
+                  />
+                </MessengerSettingsBlock>
 
-                <CommunityMessengerDeviceSettingsSection visible={Boolean(settingsSheetOpen && data)} />
+                <MessengerSettingsBlock title="통화">
+                  <CommunityMessengerDeviceSettingsSection visible={Boolean(settingsSheetOpen && data)} embedded />
+                </MessengerSettingsBlock>
 
-                <section>
-                  <p className="mb-2 text-[13px] font-semibold text-gray-500">차단</p>
-                  {data.blocked.length ? (
-                    <div className="space-y-2">
-                      {data.blocked.map((user) => (
-                        <ProfileCard
-                          key={user.id}
-                          profile={user}
-                          actionSlot={
+                <MessengerSettingsBlock title="친구">
+                  <div className="px-3 py-2">
+                    <p className="text-[12px] font-medium text-gray-800">차단</p>
+                    {data.blocked.length ? (
+                      <div className="mt-2 space-y-2">
+                        {data.blocked.map((user) => (
+                          <div key={user.id} className="flex items-center justify-between gap-2 border-b border-gray-100 py-2 last:border-0">
+                            <span className="truncate text-[14px] text-gray-900">{user.label}</span>
                             <button
                               type="button"
                               onClick={() => void toggleBlock(user.id)}
                               disabled={busyId === `block:${user.id}`}
-                              className="rounded-ui-rect bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-700"
+                              className="shrink-0 text-[12px] font-medium text-gray-600"
                             >
                               해제
                             </button>
-                          }
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-ui-rect border border-dashed border-gray-200 px-4 py-8 text-center text-[13px] text-gray-500">
-                      차단된 사용자가 없습니다.
-                    </div>
-                  )}
-                </section>
-
-                <section>
-                  <p className="mb-2 text-[13px] font-semibold text-gray-500">즐겨찾기</p>
-                  {favoriteFriends.length ? (
-                    <div className="space-y-2">
-                      {favoriteFriends.map((friend) => (
-                        <ProfileCard
-                          key={friend.id}
-                          profile={friend}
-                          actionSlot={
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-[12px] text-gray-500">차단된 사용자가 없습니다.</p>
+                    )}
+                  </div>
+                  <div className="px-3 py-2">
+                    <p className="text-[12px] font-medium text-gray-800">즐겨찾기 관리</p>
+                    {favoriteFriends.length ? (
+                      <div className="mt-2 space-y-2">
+                        {favoriteFriends.map((friend) => (
+                          <div key={friend.id} className="flex items-center justify-between gap-2 border-b border-gray-100 py-2 last:border-0">
+                            <span className="truncate text-[14px] text-gray-900">{friend.label}</span>
                             <button
                               type="button"
                               onClick={() => void removeFriend(friend.id)}
                               disabled={busyId === `remove-friend:${friend.id}`}
-                              className="rounded-ui-rect border border-red-200 px-3 py-2 text-[12px] font-medium text-red-600"
+                              className="shrink-0 text-[12px] font-medium text-gray-600"
                             >
                               삭제
                             </button>
-                          }
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-ui-rect border border-dashed border-gray-200 px-4 py-8 text-center text-[13px] text-gray-500">
-                      즐겨찾기 친구가 없습니다.
-                    </div>
-                  )}
-                </section>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-[12px] text-gray-500">즐겨찾기 친구가 없습니다.</p>
+                    )}
+                  </div>
+                </MessengerSettingsBlock>
+
+                <MessengerSettingsBlock title="채팅 · 보관">
+                  <p className="px-3 py-3 text-[12px] leading-relaxed text-gray-500">
+                    링크 미리보기, 미디어 자동 저장, 대화 백업 등은 이후 버전에서 연결됩니다. 지금은 방 단위 보관은 채팅 목록에서 스와이프로 할 수 있습니다.
+                  </p>
+                </MessengerSettingsBlock>
               </div>
             </div>
           </div>
@@ -2202,6 +2486,45 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   );
 }
 
+function MessengerSettingsBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{title}</h3>
+      <div className="divide-y divide-gray-100 rounded-ui-rect border border-gray-200 bg-white">{children}</div>
+    </section>
+  );
+}
+
+function SettingsToggleRow({
+  title,
+  description,
+  checked,
+  disabled,
+  onChange,
+}: {
+  title: string;
+  description?: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className={`flex cursor-pointer items-start justify-between gap-3 px-3 py-2.5 ${disabled ? "opacity-50" : ""}`}>
+      <span className="min-w-0">
+        <span className="block text-[14px] font-medium text-gray-900">{title}</span>
+        {description ? <span className="mt-0.5 block text-[12px] leading-snug text-gray-500">{description}</span> : null}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+      />
+    </label>
+  );
+}
+
 function InfoSection({
   title,
   subtitle,
@@ -2420,14 +2743,14 @@ function RoomListCard({
   const dragAxis = useRef<"x" | "y" | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
-  const stateBadges = [
+  const secondaryHint =
     item.previewKind === "call" && item.callStatus === "missed"
-      ? { label: "부재중", className: "bg-red-50 text-red-600" }
-      : null,
-    room.isMuted ? { label: "알림끔", className: "bg-amber-50 text-amber-700" } : null,
-    room.isReadonly ? { label: "읽기 전용", className: "bg-gray-100 text-gray-600" } : null,
-    communityMessengerRoomIsInboxHidden(room) ? { label: "보관됨", className: "bg-amber-50 text-amber-700" } : null,
-  ].filter((badge): badge is { label: string; className: string } => Boolean(badge));
+      ? "부재중"
+      : room.isReadonly
+        ? "읽기 전용"
+        : communityMessengerRoomIsInboxHidden(room)
+          ? "보관됨"
+          : null;
   const closeActions = useCallback(() => setOffset(0), []);
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current != null) {
@@ -2491,47 +2814,52 @@ function RoomListCard({
 
   const rowContent = (
     <div className="flex items-start gap-3">
-        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-12 w-12" textClassName="text-[15px]" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <p className="truncate text-[17px] font-semibold leading-tight text-gray-900">{room.title}</p>
-            {titleSuffix ? <span className="shrink-0 text-[13px] font-semibold text-gray-400">{titleSuffix}</span> : null}
-            {room.isMuted ? (
-              <span className="shrink-0 text-amber-600" aria-label="알림 끔">
-                <MuteIcon />
-              </span>
-            ) : null}
-            {isFavorite ? <span className="shrink-0 text-[12px] text-amber-600">★</span> : null}
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
-            <span className={`rounded-full px-1.5 py-0.5 font-medium ${getRoomTypeBadgeClassName(badgeLabel)}`}>{badgeLabel}</span>
-            {stateBadges.map((badge) => (
-              <span key={badge.label} className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}>
-                {badge.label}
-              </span>
-            ))}
-            {room.isPinned ? <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">고정</span> : null}
-          </div>
-          <p className={`mt-1 truncate text-[14px] ${room.unreadCount > 0 ? "font-medium text-gray-900" : "text-gray-600"}`}>
-            {item.preview}
-          </p>
+      <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-11 w-11" textClassName="text-[14px]" />
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <p className="min-w-0 truncate text-[15px] font-semibold leading-tight text-gray-900">{room.title}</p>
+          {titleSuffix ? (
+            <span className="shrink-0 text-[12px] tabular-nums text-gray-400">{titleSuffix}</span>
+          ) : null}
+          <span
+            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${getRoomTypeBadgeClassName(badgeLabel)}`}
+          >
+            {badgeLabel}
+          </span>
+          {secondaryHint ? (
+            <span className="shrink-0 rounded border border-red-100 bg-red-50/80 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+              {secondaryHint}
+            </span>
+          ) : null}
+          {isFavorite ? <span className="shrink-0 text-[11px] text-amber-600">★</span> : null}
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2 pl-2">
-          <span className="text-[12px] text-gray-400">{formatConversationTimestamp(item.lastEventAt)}</span>
-          <div className="flex items-center gap-1.5">
-            {room.isPinned ? (
-              <span className="text-gray-500" aria-label="고정됨">
-                <PinIcon />
-              </span>
-            ) : null}
+        <p
+          className={`mt-0.5 truncate text-[13px] leading-snug ${room.unreadCount > 0 ? "font-medium text-gray-900" : "text-gray-600"}`}
+        >
+          {item.preview}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1 pl-1">
+        <span className="text-[11px] tabular-nums text-gray-400">{formatConversationTimestamp(item.lastEventAt)}</span>
+        <div className="flex items-center gap-1">
+          {room.isPinned ? (
+            <span className="text-gray-500" aria-label="고정됨">
+              <PinIcon />
+            </span>
+          ) : null}
+          {room.isMuted ? (
+            <span className="text-amber-600" aria-label="알림 끔">
+              <MuteIcon />
+            </span>
+          ) : null}
           {room.unreadCount > 0 ? (
-            <span className="min-w-[24px] rounded-full bg-orange-500 px-2 py-0.5 text-center text-[11px] font-semibold text-white">
+            <span className="min-w-[20px] rounded-full bg-gray-900 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">
               {room.unreadCount > 999 ? "999+" : room.unreadCount}
             </span>
           ) : null}
-          </div>
         </div>
       </div>
+    </div>
   );
 
   if (compact) {
@@ -2632,7 +2960,7 @@ function RoomListCard({
             navigateToCommunityRoom(room.id);
           }
         }}
-        className="relative bg-white px-3.5 py-3 transition hover:bg-gray-50 touch-pan-y"
+        className="relative bg-white px-3 py-2.5 transition hover:bg-gray-50/80 touch-pan-y"
         style={{
           transform: `translateX(${offset}px)`,
           transition: dragging ? "none" : "transform 0.2s ease-out",
@@ -2850,12 +3178,12 @@ function formatConversationTimestamp(value: string): string {
 }
 
 function getRoomTypeBadgeClassName(label: string): string {
-  if (label === "친구") return "bg-slate-100 text-slate-700";
-  if (label === "그룹") return "bg-violet-50 text-violet-700";
-  if (label === "오픈") return "bg-sky-50 text-sky-700";
-  if (label === "거래") return "bg-emerald-50 text-emerald-700";
-  if (label === "배달") return "bg-orange-50 text-orange-700";
-  return "bg-gray-100 text-gray-700";
+  if (label === "친구") return "border border-gray-200 bg-white text-gray-600";
+  if (label === "그룹") return "border border-violet-200 bg-violet-50 text-violet-800";
+  if (label === "오픈") return "border border-sky-200 bg-sky-50 text-sky-800";
+  if (label === "거래") return "border border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (label === "배달") return "border border-orange-200 bg-orange-50 text-orange-800";
+  return "border border-gray-200 bg-gray-50 text-gray-600";
 }
 
 function PinIcon() {
@@ -2891,71 +3219,6 @@ function ArchiveIcon() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16v4H4V7z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 11h12v8H6v-8z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M10 15h4" />
-    </svg>
-  );
-}
-
-function BellSettingsIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4c-.4-.39-.6-.92-.6-1.47V11a6 6 0 10-12 0v3.13c0 .55-.21 1.08-.6 1.47L4 17h5" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 21a2 2 0 004 0" />
-    </svg>
-  );
-}
-
-function BellBannerIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 8a6 6 0 1112 0v2.5c0 .7.28 1.37.78 1.87L20 13.6H4l1.22-1.23c.5-.5.78-1.17.78-1.87V8z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 18a2 2 0 004 0" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16" />
-    </svg>
-  );
-}
-
-function ChatBellIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 6.5A2.5 2.5 0 017.5 4h9A2.5 2.5 0 0119 6.5v6A2.5 2.5 0 0116.5 15H11l-4 4V15H7.5A2.5 2.5 0 015 12.5v-6z" />
-    </svg>
-  );
-}
-
-function TradeBellIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h13l2 10H6L4 7z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 7V5a3 3 0 016 0v2" />
-    </svg>
-  );
-}
-
-function OrderBellIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 5h12v14H6z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9h6M9 13h6M9 17h4" />
-    </svg>
-  );
-}
-
-function StoreBellIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 10l1.5-5h13L20 10" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 10h14v9H5z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-4h6v4" />
-    </svg>
-  );
-}
-
-function VibrationIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
-      <rect x="8" y="4" width="8" height="16" rx="2" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 9v6M20 9v6M2 11v2M22 11v2" />
     </svg>
   );
 }

@@ -116,7 +116,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   if (/^\/community-messenger\/rooms\/[^/]+$/.test(p)) {
     return {
       ...DEFAULT,
-      backHref: "/community-messenger?tab=chats",
+      backHref: "/community-messenger?section=chats",
       preferHistoryBack: true,
       ariaLabel: "메신저로 돌아가기",
       titleText: "메신저 대화",

@@ -120,7 +120,11 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
       </div>
       <div className="flex flex-wrap gap-2">
         <Link
-          href={mode === "dm" ? "/community-messenger?tab=chats" : "/community-messenger?tab=groups"}
+          href={
+            mode === "dm"
+              ? "/community-messenger?section=chats"
+              : "/community-messenger?section=chats&filter=private_group"
+          }
           className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
         >
           전체 메신저 열기

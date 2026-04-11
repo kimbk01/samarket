@@ -18,10 +18,14 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
-const INCOMING_CALL_REFRESH_INTERVAL_MS = 12_000;
+const INCOMING_CALL_REFRESH_INTERVAL_MS = 20_000;
 const INCOMING_CALL_REFRESH_COOLDOWN_MS = 2_500;
 /** Realtime·포커스가 연속으로 터질 때 수신 통화 GET 폭주 방지 */
-const INCOMING_CALL_BURST_MIN_GAP_MS = 2_500;
+const INCOMING_CALL_BURST_MIN_GAP_MS = 4_000;
+/** postgres_changes 가 잦을 때 동일 버스트가 반복되지 않게 */
+const REALTIME_REFRESH_DEBOUNCE_MS = 900;
+/** 탭 복귀 시 1회 확인 + 짧은 재시도 1회 (기존 3연타 완화) */
+const VISIBILITY_RETRY_MS = 1_200;
 const QUICK_REPLY_OPTIONS = [
   "지금 통화가 어려워요. 채팅으로 남겨 주세요.",
   "잠시 후 다시 연락드릴게요.",
@@ -43,6 +47,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const lastRefreshAtRef = useRef(0);
   const lastBurstAtRef = useRef(0);
   const pendingBurstTimerRef = useRef<number | null>(null);
+  const realtimeDebounceTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
@@ -88,7 +93,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     await task;
   }, []);
 
-  const queueRefreshBurst = useCallback(() => {
+  /** 탭 복귀·포커스: 짧은 2회 확인(레이트 리밋·서버 부하 완화). */
+  const queueVisibilityRefreshBurst = useCallback(() => {
     const runBurst = () => {
       lastBurstAtRef.current = Date.now();
       pendingBurstTimerRef.current = null;
@@ -96,11 +102,11 @@ export function GlobalCommunityMessengerIncomingCall() {
       for (const timerId of refreshTimerIdsRef.current) {
         window.clearTimeout(timerId);
       }
-      refreshTimerIdsRef.current = [900, 2400].map((delay) =>
+      refreshTimerIdsRef.current = [
         window.setTimeout(() => {
           void refresh(true);
-        }, delay)
-      );
+        }, VISIBILITY_RETRY_MS),
+      ];
     };
     const now = Date.now();
     const gap = now - lastBurstAtRef.current;
@@ -112,40 +118,43 @@ export function GlobalCommunityMessengerIncomingCall() {
     pendingBurstTimerRef.current = window.setTimeout(runBurst, INCOMING_CALL_BURST_MIN_GAP_MS - gap);
   }, [refresh]);
 
-  useEffect(() => {
-    queueRefreshBurst();
-  }, [queueRefreshBurst]);
+  /** Supabase Realtime: 디바운스 후 1회만(연속 INSERT/UPDATE 시 GET 폭주 방지). */
+  const scheduleRealtimeIncomingRefresh = useCallback(() => {
+    if (realtimeDebounceTimerRef.current != null) {
+      window.clearTimeout(realtimeDebounceTimerRef.current);
+    }
+    realtimeDebounceTimerRef.current = window.setTimeout(() => {
+      realtimeDebounceTimerRef.current = null;
+      void refresh(true);
+    }, REALTIME_REFRESH_DEBOUNCE_MS);
+  }, [refresh]);
 
   useEffect(() => {
     if (!userId) return;
+    queueVisibilityRefreshBurst();
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refresh();
     }, INCOMING_CALL_REFRESH_INTERVAL_MS);
     const onVisible = () => {
-      if (document.visibilityState === "visible") queueRefreshBurst();
+      if (document.visibilityState === "visible") queueVisibilityRefreshBurst();
     };
     const onPageShow = () => {
-      queueRefreshBurst();
-    };
-    const onFocus = () => {
-      queueRefreshBurst();
+      queueVisibilityRefreshBurst();
     };
     const onOnline = () => {
-      queueRefreshBurst();
+      queueVisibilityRefreshBurst();
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("pageshow", onPageShow);
-    window.addEventListener("focus", onFocus);
     window.addEventListener("online", onOnline);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pageshow", onPageShow);
-      window.removeEventListener("focus", onFocus);
       window.removeEventListener("online", onOnline);
     };
-  }, [queueRefreshBurst, refresh, userId]);
+  }, [queueVisibilityRefreshBurst, refresh, userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -164,7 +173,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           filter: `recipient_user_id=eq.${userId}`,
         },
         () => {
-          queueRefreshBurst();
+          scheduleRealtimeIncomingRefresh();
         }
       )
       .on(
@@ -176,15 +185,19 @@ export function GlobalCommunityMessengerIncomingCall() {
           filter: `user_id=eq.${userId}`,
         },
         () => {
-          queueRefreshBurst();
+          scheduleRealtimeIncomingRefresh();
         }
       )
       .subscribe();
 
     return () => {
+      if (realtimeDebounceTimerRef.current != null) {
+        window.clearTimeout(realtimeDebounceTimerRef.current);
+        realtimeDebounceTimerRef.current = null;
+      }
       if (channel) void sb.removeChannel(channel);
     };
-  }, [queueRefreshBurst, userId]);
+  }, [scheduleRealtimeIncomingRefresh, userId]);
 
   useEffect(() => {
     return () => {
@@ -195,6 +208,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (pendingBurstTimerRef.current != null) {
         window.clearTimeout(pendingBurstTimerRef.current);
         pendingBurstTimerRef.current = null;
+      }
+      if (realtimeDebounceTimerRef.current != null) {
+        window.clearTimeout(realtimeDebounceTimerRef.current);
+        realtimeDebounceTimerRef.current = null;
       }
     };
   }, []);
