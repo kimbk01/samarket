@@ -8,7 +8,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -49,6 +51,9 @@ import {
   readCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+
+/** 이전 말풍선과의 시간 간격이 이 값을 넘으면 프로필·꼬리 말풍선 다시 표시 (Viber 스타일, 기본 5분) */
+const CM_CLUSTER_GAP_MS = 5 * 60 * 1000;
 
 export function CommunityMessengerRoomClient({
   roomId,
@@ -94,6 +99,8 @@ export function CommunityMessengerRoomClient({
   const silentRoomRefreshAgainRef = useRef(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
+  const messageLongPressTimerRef = useRef<number | null>(null);
+  const messageLongPressItemRef = useRef<(CommunityMessengerMessage & { pending?: boolean }) | null>(null);
   const groupNoticeSectionRef = useRef<HTMLDivElement | null>(null);
   const groupPermissionsSectionRef = useRef<HTMLDivElement | null>(null);
   const groupHistorySectionRef = useRef<HTMLDivElement | null>(null);
@@ -115,6 +122,11 @@ export function CommunityMessengerRoomClient({
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [messageContextMenu, setMessageContextMenu] = useState<{
+    item: CommunityMessengerMessage & { pending?: boolean };
+    x: number;
+    y: number;
+  } | null>(null);
   const [roomPreferences, setRoomPreferences] = useState(() => readCommunityMessengerLocalSettings());
   const [message, setMessage] = useState("");
   const [voiceRecording, setVoiceRecording] = useState(false);
@@ -1366,10 +1378,10 @@ export function CommunityMessengerRoomClient({
     [getRoomActionErrorMessage, roomId, scrollMessengerToBottom, snapshot]
   );
 
-  const deleteVoiceMessage = useCallback(
+  const deleteRoomMessage = useCallback(
     async (messageId: string) => {
-      if (!window.confirm("이 음성 메시지를 삭제할까요?")) return;
-      setBusy("delete-voice");
+      if (!window.confirm("이 메시지를 삭제할까요?")) return;
+      setBusy("delete-message");
       try {
         const res = await fetch(
           `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}`,
@@ -1387,6 +1399,30 @@ export function CommunityMessengerRoomClient({
       }
     },
     [getRoomActionErrorMessage, refresh, roomId]
+  );
+
+  const blockPeerFromMessage = useCallback(
+    async (targetUserId: string) => {
+      if (!window.confirm("이 사용자를 차단할까요? 친구·대화 일부가 제한될 수 있습니다.")) return;
+      setBusy("block-peer");
+      try {
+        const res = await fetch("/api/community/block-relations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUserId }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          window.alert(json.error ?? "차단 처리에 실패했습니다.");
+          return;
+        }
+        window.alert("차단되었습니다.");
+        void refresh(true);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [refresh]
   );
 
   const abortVoiceArmOnly = useCallback(() => {
@@ -1429,7 +1465,7 @@ export function CommunityMessengerRoomClient({
         message.trim() ||
         busy === "send" ||
         busy === "send-voice" ||
-        busy === "delete-voice"
+        busy === "delete-message"
       )
         return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -1889,6 +1925,29 @@ export function CommunityMessengerRoomClient({
     [call, canStartGroupCall, dismissRoomSheet]
   );
 
+  /** 통화 로그 말풍선 — Viber 처럼 탭 후 확인 → 동일 종류(음성/영상)로 재연결 */
+  const requestOutgoingCallFromStub = useCallback(
+    async (kind: "voice" | "video") => {
+      if (roomUnavailable) return;
+      if (!window.confirm("통화를 연결할까요?")) return;
+      if (isGroupRoom) {
+        await startGroupCall(kind);
+      } else {
+        await startManagedDirectCall(kind);
+      }
+    },
+    [isGroupRoom, roomUnavailable, startGroupCall, startManagedDirectCall]
+  );
+
+  useEffect(() => {
+    if (!messageContextMenu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMessageContextMenu(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [messageContextMenu]);
+
   const reportTarget = useCallback(
     async (input: { reportType: "room" | "message" | "user"; messageId?: string; reportedUserId?: string }) => {
       const reasonDetail = window.prompt("신고 사유를 입력해 주세요.");
@@ -2036,7 +2095,7 @@ export function CommunityMessengerRoomClient({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-ui-page">
-      <header className="sticky top-0 z-10 border-b border-ui-border bg-ui-surface/95 px-3 py-2 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-black/10 bg-[#3d3d45] px-3 py-2 text-white shadow-sm">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -2047,14 +2106,14 @@ export function CommunityMessengerRoomClient({
                   : "/community-messenger?section=chats"
               )
             }
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-ui-fg transition hover:bg-ui-hover"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10"
             aria-label={t("tier1_back")}
           >
             <BackIcon className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[16px] font-semibold text-ui-fg">{snapshot.room.title}</p>
-            <p className="truncate text-[12px] text-ui-muted">
+            <p className="truncate text-[16px] font-semibold text-white">{snapshot.room.title}</p>
+            <p className="truncate text-[12px] text-white/65">
               {roomTypeLabel}
               {roomSubtitle ? ` · ${roomSubtitle}` : ""}
             </p>
@@ -2066,7 +2125,7 @@ export function CommunityMessengerRoomClient({
                   type="button"
                   onClick={() => void startManagedDirectCall("voice")}
                   disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
-                  className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-ui-fg transition hover:bg-ui-hover disabled:opacity-35"
+                  className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10 disabled:opacity-35"
                   aria-label={t("nav_voice_call_label")}
                 >
                   <VoiceCallIcon className="h-5 w-5" />
@@ -2075,7 +2134,7 @@ export function CommunityMessengerRoomClient({
                   type="button"
                   onClick={() => void startManagedDirectCall("video")}
                   disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
-                  className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-ui-fg transition hover:bg-ui-hover disabled:opacity-35"
+                  className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10 disabled:opacity-35"
                   aria-label={t("nav_video_call_label")}
                 >
                   <VideoCallIcon className="h-5 w-5" />
@@ -2088,7 +2147,7 @@ export function CommunityMessengerRoomClient({
                 setRoomSearchQuery("");
                 setActiveSheet("search");
               }}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-ui-fg transition hover:bg-ui-hover"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10"
               aria-label="대화 내 검색"
             >
               <SearchIcon className="h-5 w-5" />
@@ -2096,7 +2155,7 @@ export function CommunityMessengerRoomClient({
             <button
               type="button"
               onClick={() => setActiveSheet("menu")}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-ui-fg transition hover:bg-ui-hover"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10"
               aria-label={t("nav_messenger_room_menu")}
             >
               <MoreIcon className="h-5 w-5" />
@@ -2114,8 +2173,12 @@ export function CommunityMessengerRoomClient({
       />
       <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
 
-      <div ref={messagesViewportRef} className="min-h-0 flex-1 overflow-y-auto">
-        <main className="space-y-3 px-4 py-4 pb-6">
+      <div
+        ref={messagesViewportRef}
+        className="min-h-0 flex-1 overflow-y-auto bg-[#ebebeb]"
+        onScroll={() => setMessageContextMenu(null)}
+      >
+        <main className="space-y-2 px-3 py-4 pb-6 sm:px-4">
           {!communityMessengerRoomIsGloballyUsable(snapshot.room) ? (
             <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[13px] text-gray-700">
               {snapshot.room.roomStatus === "blocked"
@@ -2173,190 +2236,346 @@ export function CommunityMessengerRoomClient({
             </div>
           ) : null}
           {roomMessages.length ? (
-            roomMessages.map((item) => (
-              <div
-                key={item.id}
-                id={`cm-room-msg-${item.id}`}
-                className={`flex scroll-mt-24 ${
-                  item.messageType === "system" ? "justify-center" : item.isMine ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`flex flex-col gap-1 ${
-                    item.messageType === "system"
-                      ? "max-w-[88%] items-center"
-                      : `max-w-[78%] ${item.isMine ? "items-end" : "items-start"}`
-                  }`}
-                >
-                  {item.messageType !== "system" ? <span className="text-[11px] text-gray-400">{tt(item.senderLabel)}</span> : null}
-                  <div
-                    className={`rounded-ui-rect px-4 py-3 text-[14px] leading-5 shadow-sm ${
-                      item.messageType === "system"
-                        ? "bg-gray-100 text-gray-600"
-                        : item.messageType === "call_stub"
-                        ? "bg-gray-100 text-gray-700"
-                        : item.isMine
-                          ? "bg-gray-900 text-white"
-                          : "bg-white text-gray-900"
-                    }`}
-                  >
-                    {item.messageType === "image" ? (
-                      <a
-                        href={item.content.trim()}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download={roomPreferences.mediaAutoSaveEnabled ? "community-messenger-image" : undefined}
-                        className="block overflow-hidden rounded-md"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={item.content.trim()}
-                          alt=""
-                          className="max-h-64 max-w-full object-cover"
-                        />
-                      </a>
-                    ) : item.messageType === "voice" ? (
-                      <VoiceMessageBubble
-                        src={communityMessengerVoiceAudioSrc(roomId, item)}
-                        durationSeconds={item.voiceDurationSeconds ?? 0}
-                        isMine={item.isMine}
-                        pending={item.pending}
-                        waveformPeaks={item.voiceWaveformPeaks ?? null}
-                        sentTimeLabel={formatTime(item.createdAt)}
-                        fallbackSrc={
-                          item.pending
-                            ? null
-                            : /^https?:\/\//i.test(item.content.trim())
-                              ? item.content.trim()
-                              : null
+            roomMessages.map((item, index) => {
+              const prev = index > 0 ? roomMessages[index - 1] : null;
+              const gapMs =
+                prev && prev.messageType !== "system" && item.messageType !== "system"
+                  ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
+                  : 0;
+              const isNewClusterFromTime = gapMs > CM_CLUSTER_GAP_MS;
+              const peerSenderChanged =
+                isGroupRoom &&
+                !!prev &&
+                prev.messageType !== "system" &&
+                (prev.senderId ?? "") !== (item.senderId ?? "");
+              const mySenderChanged =
+                isGroupRoom &&
+                !!prev &&
+                prev.messageType !== "system" &&
+                (prev.senderId ?? "") !== (item.senderId ?? "");
+
+              const showPeerAvatar =
+                !item.isMine &&
+                item.messageType !== "system" &&
+                (!prev ||
+                  prev.messageType === "system" ||
+                  prev.isMine ||
+                  peerSenderChanged ||
+                  isNewClusterFromTime);
+              const peerAvatar = !item.isMine ? communityMessengerMemberAvatar(snapshot.members, item.senderId) : null;
+              const showMyAvatar =
+                item.isMine &&
+                item.messageType !== "system" &&
+                (!prev ||
+                  prev.messageType === "system" ||
+                  !prev.isMine ||
+                  mySenderChanged ||
+                  isNewClusterFromTime);
+              const showBubbleTail = item.isMine ? showMyAvatar : showPeerAvatar;
+              const myAvatar = item.isMine
+                ? communityMessengerMemberAvatar(snapshot.members, snapshot.viewerUserId)
+                : null;
+
+              const bindMessageInteraction =
+                item.messageType === "system"
+                  ? {}
+                  : {
+                      onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
+                        messageLongPressItemRef.current = item;
+                        messageLongPressTimerRef.current = window.setTimeout(() => {
+                          messageLongPressTimerRef.current = null;
+                          setMessageContextMenu({ item, x: e.clientX, y: e.clientY });
+                        }, 520);
+                      },
+                      onPointerUp: () => {
+                        if (messageLongPressTimerRef.current) {
+                          clearTimeout(messageLongPressTimerRef.current);
+                          messageLongPressTimerRef.current = null;
                         }
-                        mediaType={item.voiceMimeType ?? null}
+                        messageLongPressItemRef.current = null;
+                      },
+                      onPointerCancel: () => {
+                        if (messageLongPressTimerRef.current) {
+                          clearTimeout(messageLongPressTimerRef.current);
+                          messageLongPressTimerRef.current = null;
+                        }
+                        messageLongPressItemRef.current = null;
+                      },
+                      onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
+                        e.preventDefault();
+                        setMessageContextMenu({ item, x: e.clientX, y: e.clientY });
+                      },
+                    };
+
+              const systemBubbleClass =
+                "rounded-full border border-black/5 bg-white/90 px-4 py-2 text-[12px] leading-5 text-gray-700 shadow-sm backdrop-blur-sm";
+
+              const viberInnerBody: ReactNode = (() => {
+                const mineLight = item.isMine;
+                if (item.messageType === "image") {
+                  return (
+                    <a
+                      href={item.content.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={roomPreferences.mediaAutoSaveEnabled ? "community-messenger-image" : undefined}
+                      className="block overflow-hidden rounded-[20px]"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.content.trim()}
+                        alt=""
+                        className="max-h-64 max-w-[min(82vw,400px)] w-auto object-cover"
                       />
-                    ) : item.messageType === "file" ? (
-                      <div className="min-w-[220px]">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect ${
-                              item.isMine ? "bg-white/15 text-white" : "bg-gray-100 text-gray-700"
+                    </a>
+                  );
+                }
+                if (item.messageType === "voice") {
+                  return (
+                    <VoiceMessageBubble
+                      src={communityMessengerVoiceAudioSrc(roomId, item)}
+                      durationSeconds={item.voiceDurationSeconds ?? 0}
+                      isMine={item.isMine}
+                      pending={item.pending}
+                      waveformPeaks={item.voiceWaveformPeaks ?? null}
+                      sentTimeLabel={undefined}
+                      mineBubbleStyle={item.isMine ? "viberLight" : "signature"}
+                      fallbackSrc={
+                        item.pending
+                          ? null
+                          : /^https?:\/\//i.test(item.content.trim())
+                            ? item.content.trim()
+                            : null
+                      }
+                      mediaType={item.voiceMimeType ?? null}
+                    />
+                  );
+                }
+                if (item.messageType === "file") {
+                  return (
+                    <div className="min-w-[200px]">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect ${
+                            item.isMine
+                              ? "bg-[#665CAC]/15 text-[#665CAC]"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          <FileIcon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-gray-900">{item.fileName?.trim() || "첨부 파일"}</p>
+                          <p className={`mt-1 text-[12px] ${item.isMine ? "text-gray-600" : "text-gray-500"}`}>
+                            {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        {item.pending ? (
+                          <span className={`text-[12px] ${item.isMine ? "text-gray-500" : "text-gray-500"}`}>
+                            업로드 중…
+                          </span>
+                        ) : item.content.trim() ? (
+                          <a
+                            href={item.content.trim()}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download={
+                              roomPreferences.mediaAutoSaveEnabled
+                                ? item.fileName?.trim() || "community-messenger-file"
+                                : undefined
+                            }
+                            className={`inline-flex rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${
+                              item.isMine
+                                ? "border-[#665CAC]/30 bg-white/90 text-[#665CAC]"
+                                : "border-gray-200 bg-gray-50 text-gray-900"
                             }`}
                           >
-                            <FileIcon className="h-5 w-5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-semibold">{item.fileName?.trim() || "첨부 파일"}</p>
-                            <p className={`mt-1 text-[12px] ${item.isMine ? "text-white/75" : "text-gray-500"}`}>
-                              {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          {item.pending ? (
-                            <span className={`text-[12px] ${item.isMine ? "text-white/80" : "text-gray-500"}`}>업로드 중…</span>
-                          ) : item.content.trim() ? (
-                            <a
-                              href={item.content.trim()}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download={roomPreferences.mediaAutoSaveEnabled ? (item.fileName?.trim() || "community-messenger-file") : undefined}
-                              className={`inline-flex rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${
-                                item.isMine
-                                  ? "border-white/20 bg-white/10 text-white"
-                                  : "border-gray-200 bg-gray-50 text-gray-900"
-                              }`}
-                            >
-                              {roomPreferences.mediaAutoSaveEnabled ? "파일 저장" : "파일 열기"}
-                            </a>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : item.messageType === "call_stub" ? (
-                      <div>
-                        <p className="font-semibold">
-                          {item.callKind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
-                        </p>
-                        <p className="mt-1 text-[12px]">{tt(formatRoomCallStatus(item.callStatus))}</p>
-                      </div>
-                    ) : item.messageType === "system" ? (
-                      <p className="text-center text-[12px] leading-5">{item.content}</p>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-end gap-2">
-                          <span>{item.content}</span>
-                          {item.pending ? <span className="text-[11px] opacity-70">{t("common_sending")}</span> : null}
-                        </div>
-                        {roomPreferences.linkPreviewEnabled && extractHttpUrls(item.content).length ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {extractHttpUrls(item.content)
-                              .slice(0, 2)
-                              .map((url) => (
-                                <a
-                                  key={`${item.id}:${url}`}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`inline-flex max-w-[220px] truncate rounded-ui-rect border px-2.5 py-1 text-[11px] ${
-                                    item.isMine
-                                      ? "border-white/20 bg-white/10 text-white/90"
-                                      : "border-gray-200 bg-gray-50 text-gray-700"
-                                  }`}
-                                >
-                                  {url.replace(/^https?:\/\//i, "")}
-                                </a>
-                              ))}
-                          </div>
+                            {roomPreferences.mediaAutoSaveEnabled ? "파일 저장" : "파일 열기"}
+                          </a>
                         ) : null}
                       </div>
-                    )}
-                  </div>
-                  {item.isMine && item.messageType === "voice" && !item.pending ? (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => void deleteVoiceMessage(item.id)}
-                        disabled={busy === "delete-voice" || roomUnavailable}
-                        className="text-[11px] text-gray-400 underline decoration-gray-300 underline-offset-2 hover:text-gray-600 disabled:opacity-40"
-                      >
-                        삭제
-                      </button>
                     </div>
-                  ) : null}
-                  {!item.isMine && item.messageType !== "system" ? (
-                    <div className="flex gap-2 text-[11px] text-gray-400">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void reportTarget({
-                            reportType: "message",
-                            messageId: item.id,
-                            reportedUserId: item.senderId ?? undefined,
-                          })
-                        }
-                        className="hover:text-gray-600"
-                      >
-                        메시지 신고
-                      </button>
-                      {item.senderId ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void reportTarget({
-                              reportType: "user",
-                              reportedUserId: item.senderId ?? undefined,
-                            })
-                          }
-                          className="hover:text-gray-600"
-                        >
-                          사용자 신고
-                        </button>
+                  );
+                }
+                if (item.messageType === "call_stub") {
+                  const kind: "voice" | "video" = item.callKind === "video" ? "video" : "voice";
+                  const stubBusy =
+                    roomUnavailable ||
+                    (busy != null && String(busy).startsWith("managed-call:")) ||
+                    call.busy === "call-start" ||
+                    call.busy === "device-prepare" ||
+                    call.busy === "call-accept";
+                  return (
+                    <button
+                      type="button"
+                      disabled={stubBusy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void requestOutgoingCallFromStub(kind);
+                      }}
+                      className="w-full rounded-ui-rect text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <p className="font-semibold text-gray-900">
+                        {item.callKind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
+                      </p>
+                      <p className="mt-1 text-[12px] text-gray-600">{tt(formatRoomCallStatus(item.callStatus))}</p>
+                      <p className="mt-2 text-[12px] font-medium text-[#665CAC]">탭하여 다시 통화</p>
+                    </button>
+                  );
+                }
+                return (
+                  <div className="flex max-w-full flex-col gap-2">
+                    <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
+                      <p className="min-w-0 max-w-full break-words text-[14px] leading-snug text-gray-900 [word-break:break-word]">
+                        {item.content}
+                      </p>
+                      {item.pending ? (
+                        <span className="shrink-0 text-[11px] text-gray-500">{t("common_sending")}</span>
                       ) : null}
                     </div>
-                  ) : null}
-                  {item.messageType === "voice" || item.messageType === "system" ? null : (
-                    <span className="text-[11px] text-gray-400">{formatTime(item.createdAt)}</span>
+                    {roomPreferences.linkPreviewEnabled && extractHttpUrls(item.content).length ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {extractHttpUrls(item.content)
+                          .slice(0, 2)
+                          .map((url) => (
+                            <a
+                              key={`${item.id}:${url}`}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`inline-flex max-w-[220px] truncate rounded-ui-rect border px-2.5 py-1 text-[11px] ${
+                                mineLight
+                                  ? "border-[#665CAC]/25 bg-white/80 text-[#665CAC]"
+                                  : "border-gray-200 bg-gray-50 text-gray-700"
+                              }`}
+                            >
+                              {url.replace(/^https?:\/\//i, "")}
+                            </a>
+                          ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })();
+
+              return (
+                <div
+                  key={item.id}
+                  id={`cm-room-msg-${item.id}`}
+                  className={`flex scroll-mt-24 ${
+                    item.messageType === "system" ? "justify-center" : item.isMine ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  {item.messageType === "system" ? (
+                    <div className="max-w-[92%] px-2">
+                      <div className={systemBubbleClass}>
+                        <p className="text-center text-[12px] leading-5">{item.content}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`flex w-full max-w-[min(100%,560px)] items-end gap-2 ${
+                        item.isMine ? "ml-auto justify-end" : "mr-auto justify-start"
+                      }`}
+                    >
+                      {!item.isMine ? (
+                        <div className="w-9 shrink-0 self-end pb-0.5">
+                          {showPeerAvatar ? (
+                            peerAvatar?.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={peerAvatar.avatarUrl}
+                                alt=""
+                                className="h-9 w-9 rounded-full border border-black/10 object-cover shadow-sm"
+                              />
+                            ) : (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white text-[12px] font-semibold text-gray-600 shadow-sm">
+                                {peerAvatar?.initials?.slice(0, 2) ?? "?"}
+                              </div>
+                            )
+                          ) : (
+                            <div className="h-9 w-9" aria-hidden />
+                          )}
+                        </div>
+                      ) : null}
+
+                      <div
+                        className={`flex min-w-0 flex-col ${item.isMine ? "items-end" : "items-start"}`}
+                      >
+                        {isGroupRoom && !item.isMine && showPeerAvatar ? (
+                          <p className="mb-0.5 max-w-full pl-0.5 text-[12px] font-semibold text-[#665CAC]">
+                            {tt(item.senderLabel)}
+                          </p>
+                        ) : null}
+
+                        <div className="flex max-w-[min(100%,440px)] items-end gap-1.5">
+                          {item.isMine ? (
+                            <>
+                              <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-gray-400">
+                                {formatTime(item.createdAt)}
+                              </span>
+                              <div
+                                className="min-w-0 inline-block max-w-[min(82vw,400px)] align-bottom"
+                                {...bindMessageInteraction}
+                              >
+                                <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
+                                  {item.messageType === "image" ? (
+                                    viberInnerBody
+                                  ) : (
+                                    <div className="px-3 py-2.5">{viberInnerBody}</div>
+                                  )}
+                                </ViberChatBubble>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div
+                                className="min-w-0 inline-block max-w-[min(82vw,400px)] align-bottom"
+                                {...bindMessageInteraction}
+                              >
+                                <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
+                                  {item.messageType === "image" ? (
+                                    viberInnerBody
+                                  ) : (
+                                    <div className="px-3 py-2.5">{viberInnerBody}</div>
+                                  )}
+                                </ViberChatBubble>
+                              </div>
+                              <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-gray-400">
+                                {formatTime(item.createdAt)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {item.isMine ? (
+                        <div className="w-9 shrink-0 self-end pb-0.5">
+                          {showMyAvatar ? (
+                            myAvatar?.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={myAvatar.avatarUrl}
+                                alt=""
+                                className="h-9 w-9 rounded-full border border-black/10 object-cover shadow-sm"
+                              />
+                            ) : (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white text-[12px] font-semibold text-gray-600 shadow-sm">
+                                {myAvatar?.initials?.slice(0, 2) ?? "나"}
+                              </div>
+                            )
+                          ) : (
+                            <div className="h-9 w-9" aria-hidden />
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                   )}
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-8 text-center text-[13px] text-gray-500">
               첫 메시지를 보내서 대화를 시작해 보세요.
@@ -2364,6 +2583,102 @@ export function CommunityMessengerRoomClient({
           )}
           <div ref={messageEndRef} />
         </main>
+        {messageContextMenu ? (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-[60] cursor-default bg-black/0"
+              aria-label="메뉴 닫기"
+              onClick={() => setMessageContextMenu(null)}
+            />
+            <div
+              role="menu"
+              className="fixed z-[70] min-w-[176px] overflow-hidden rounded-[12px] border border-black/10 bg-white py-1 shadow-lg"
+              style={{
+                left:
+                  typeof window !== "undefined"
+                    ? Math.min(Math.max(8, messageContextMenu.x), window.innerWidth - 184)
+                    : messageContextMenu.x,
+                top:
+                  typeof window !== "undefined"
+                    ? Math.min(Math.max(8, messageContextMenu.y), window.innerHeight - 220)
+                    : messageContextMenu.y,
+              }}
+            >
+              {(() => {
+                const cm = messageContextMenu.item;
+                const close = () => setMessageContextMenu(null);
+                return (
+                  <>
+                    {!cm.isMine && cm.messageType !== "system" ? (
+                      <>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="flex w-full px-3 py-2.5 text-left text-[14px] text-gray-900 hover:bg-gray-50 active:bg-gray-100"
+                          onClick={() => {
+                            close();
+                            void reportTarget({
+                              reportType: "message",
+                              messageId: cm.id,
+                              reportedUserId: cm.senderId ?? undefined,
+                            });
+                          }}
+                        >
+                          메시지 신고
+                        </button>
+                        {cm.senderId ? (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full px-3 py-2.5 text-left text-[14px] text-gray-900 hover:bg-gray-50 active:bg-gray-100"
+                            onClick={() => {
+                              close();
+                              void reportTarget({
+                                reportType: "user",
+                                reportedUserId: cm.senderId ?? undefined,
+                              });
+                            }}
+                          >
+                            사용자 신고
+                          </button>
+                        ) : null}
+                        {cm.senderId ? (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full px-3 py-2.5 text-left text-[14px] text-red-600 hover:bg-red-50 active:bg-red-100"
+                            disabled={busy === "block-peer" || roomUnavailable}
+                            onClick={() => {
+                              close();
+                              void blockPeerFromMessage(cm.senderId!);
+                            }}
+                          >
+                            차단
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                    {cm.isMine && cm.messageType !== "system" && !cm.pending ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full px-3 py-2.5 text-left text-[14px] text-gray-900 hover:bg-gray-50 active:bg-gray-100"
+                        disabled={busy === "delete-message" || roomUnavailable}
+                        onClick={() => {
+                          close();
+                          void deleteRoomMessage(cm.id);
+                        }}
+                      >
+                        삭제
+                      </button>
+                    ) : null}
+                  </>
+                );
+              })()}
+            </div>
+          </>
+        ) : null}
       </div>
 
       <footer
@@ -2392,7 +2707,7 @@ export function CommunityMessengerRoomClient({
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={1}
-                disabled={roomUnavailable || busy === "delete-voice" || busy === "send-image" || busy === "send-file"}
+                disabled={roomUnavailable || busy === "delete-message" || busy === "send-image" || busy === "send-file"}
                 placeholder={
                   roomUnavailable
                     ? snapshot.room.isReadonly
@@ -2475,7 +2790,7 @@ export function CommunityMessengerRoomClient({
                   busy === "send-image" ||
                   busy === "send-file" ||
                   busy === "send-voice" ||
-                  busy === "delete-voice" ||
+                  busy === "delete-message" ||
                   Boolean(message.trim()) ||
                   (voiceRecording && voiceHandsFree)
                 }
@@ -2509,7 +2824,7 @@ export function CommunityMessengerRoomClient({
                 busy === "send-image" ||
                 busy === "send-file" ||
                 busy === "send-voice" ||
-                busy === "delete-voice"
+                busy === "delete-message"
               }
               className="rounded-ui-rect bg-gray-900 px-3.5 py-3 text-[14px] font-semibold text-white disabled:opacity-40 sm:px-4"
             >
@@ -4376,6 +4691,65 @@ function getLatestCallStubForSession(
     }
   }
   return best;
+}
+
+/** Viber 스타일 — 밝은 수신 / 시안 발신. `showTail`: 새 덩어리(프로필 옆)만 꼬리 표시 */
+function ViberChatBubble({
+  isMine,
+  showTail,
+  children,
+}: {
+  isMine: boolean;
+  showTail: boolean;
+  children: ReactNode;
+}) {
+  const fill = isMine ? "#CDEEF7" : "#FFFFFF";
+  return (
+    <div
+      className="relative inline-block min-w-0 max-w-full overflow-visible rounded-[20px] shadow-[0_1px_4px_rgba(0,0,0,0.1)] ring-1 ring-black/[0.09]"
+      style={{ backgroundColor: fill }}
+    >
+      {showTail ? (
+        !isMine ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -left-[10px] top-[9px] z-[1] h-0 w-0 border-y-[11px] border-y-transparent border-r-[13px]"
+            style={{ borderRightColor: fill }}
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-[10px] top-[9px] z-[1] h-0 w-0 border-y-[11px] border-y-transparent border-l-[13px]"
+            style={{ borderLeftColor: fill }}
+          />
+        )
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+function communityMessengerMemberAvatar(
+  members: CommunityMessengerProfileLite[],
+  senderId: string | null | undefined
+): { avatarUrl: string | null; initials: string } | null {
+  if (!senderId) return null;
+  const member = members.find((m) => m.id === senderId);
+  if (!member) return { avatarUrl: null, initials: "?" };
+  const avatarUrl =
+    member.identityMode === "alias" && member.aliasProfile?.avatarUrl
+      ? member.aliasProfile.avatarUrl
+      : member.avatarUrl;
+  const rawLabel =
+    member.identityMode === "alias" && member.aliasProfile?.displayName?.trim()
+      ? member.aliasProfile.displayName.trim()
+      : member.label.trim();
+  const compact = rawLabel.replace(/\s+/g, "");
+  const initials =
+    compact.length >= 2
+      ? `${compact[0]!}${compact[compact.length - 1]!}`
+      : compact.slice(0, 2) || "?";
+  return { avatarUrl, initials };
 }
 
 function mapRealtimeRoomMessage(

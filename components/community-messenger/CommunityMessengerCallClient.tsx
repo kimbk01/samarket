@@ -114,6 +114,8 @@ export function CommunityMessengerCallClient({
   const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
   /** PiP 드래그 후 픽셀 위치(null 이면 좌하단 기본 배치) */
   const [pipPixelPosition, setPipPixelPosition] = useState<{ left: number; top: number } | null>(null);
+  /** Viber 스타일 자판(로컬 DTMF 톤) */
+  const [callKeypadOpen, setCallKeypadOpen] = useState(false);
   const largeVideoRef = useRef<HTMLDivElement | null>(null);
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
   const videoStageRef = useRef<HTMLDivElement | null>(null);
@@ -755,6 +757,13 @@ export function CommunityMessengerCallClient({
     router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
   }, [cleanupClient, joined, router, session]);
 
+  const hintVideoCallFromVoiceUi = useCallback(() => {
+    window.alert(
+      "영상 통화는 채팅 화면 상단의 영상 통화 버튼으로 걸 수 있습니다.\n(음성 통화를 끝낸 뒤 이용해 주세요.)"
+    );
+    navigateToChatDuringCall();
+  }, [navigateToChatDuringCall]);
+
   useEffect(() => {
     let cancelled = false;
     const bootstrap = async () => {
@@ -976,8 +985,15 @@ export function CommunityMessengerCallClient({
 
   if (loading && !session) {
     return (
-      <div className="flex min-h-full min-h-0 flex-1 flex-col items-center justify-center bg-[#020617] px-4 text-[14px] text-white/55">
-        통화 연결 중…
+      <div className="flex min-h-full min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-[#0e0e12] px-6 text-center">
+        <div
+          className="h-12 w-12 animate-spin rounded-full border-2 border-white/15 border-t-[#665CAC]"
+          aria-hidden
+        />
+        <div>
+          <p className="text-[16px] font-semibold text-white/95">통화 준비 중</p>
+          <p className="mt-1.5 text-[13px] text-white/45">세션을 불러오는 중입니다</p>
+        </div>
       </div>
     );
   }
@@ -1000,6 +1016,10 @@ export function CommunityMessengerCallClient({
   const videoCall = session.callKind === "video";
   const pipLabelSmall = largeShowsRemote ? "나" : session.peerLabel;
 
+  /** 발신 후 링(상대 연결 대기)에도 패드 표시 — 수신 측 「벨 + 수락/거절」일 때만 숨김 */
+  const showVoiceViberControlPad =
+    !videoCall && !(session.status === "ringing" && !joined && !session.isMineInitiator);
+
   const showCallerMediaGate =
     session.isMineInitiator &&
     !callerMediaConsentDone &&
@@ -1009,7 +1029,9 @@ export function CommunityMessengerCallClient({
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col text-white ${
-        videoCall ? "h-full min-h-0 bg-black" : "min-h-full bg-gradient-to-b from-[#3d4450] via-[#282d36] to-[#14171d]"
+        videoCall
+          ? "h-full min-h-0 bg-black"
+          : "min-h-full bg-gradient-to-b from-[#1a1628] via-[#0e0e12] to-[#060608]"
       }`}
     >
       <div
@@ -1020,15 +1042,15 @@ export function CommunityMessengerCallClient({
         }
       >
         {!videoCall ? (
-          <header className="flex shrink-0 items-center justify-between py-3">
+          <header className="flex shrink-0 items-center justify-between border-b border-white/[0.06] py-3">
             <button
               type="button"
               onClick={() => navigateToChatDuringCall()}
-              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[13px] font-medium text-white/90 backdrop-blur-md transition active:scale-[0.98]"
+              className="rounded-full border border-white/18 bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-white/90 transition active:scale-[0.98]"
             >
               채팅으로
             </button>
-            <span className="rounded-full border border-white/15 bg-black/25 px-4 py-1.5 text-[12px] font-semibold text-white/90 backdrop-blur-md">
+            <span className="rounded-full border border-[#665CAC]/35 bg-[#665CAC]/15 px-3 py-1 text-[11px] font-semibold tracking-wide text-[#d4c8f5]">
               음성 통화
             </span>
           </header>
@@ -1053,6 +1075,13 @@ export function CommunityMessengerCallClient({
               {joined && session.status === "active" ? (
                 <p className="mt-3 font-mono text-[17px] font-semibold tabular-nums text-white/90">
                   {formatDuration(elapsedSeconds)}
+                </p>
+              ) : session.status === "ringing" && session.isMineInitiator ? (
+                <p className="mt-3 font-mono text-[17px] font-semibold tabular-nums text-white/35">00:00</p>
+              ) : null}
+              {showVoiceViberControlPad && (session.status === "ringing" || (joined && session.status === "active")) ? (
+                <p className="mt-2 text-[13px] font-medium text-emerald-400/95">
+                  {joined && session.status === "active" ? "네트워크 품질 · 양호" : "네트워크 품질 · 확인 중"}
                 </p>
               ) : null}
             </div>
@@ -1086,6 +1115,9 @@ export function CommunityMessengerCallClient({
                   <p className="mt-0.5 text-[12px] tabular-nums text-white/90">
                     {joined && session.status === "active" ? formatDuration(elapsedSeconds) : statusLabel}
                   </p>
+                  {joined && session.status === "active" ? (
+                    <p className="mt-0.5 text-[11px] font-medium text-emerald-400/95">네트워크 품질 · 양호</p>
+                  ) : null}
                   <p className="mt-0.5 text-[11px] text-white/65">1:1 · 참여 2</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -1225,10 +1257,12 @@ export function CommunityMessengerCallClient({
           ) : (
             <div className="relative z-0 flex flex-1 flex-col items-center justify-center py-4">
               <div
-                className="flex aspect-square w-[min(68vw,264px)] max-w-[280px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-white/28 via-white/10 to-white/[0.06] text-[clamp(48px,18vw,92px)] font-light text-white shadow-[0_28px_90px_rgba(0,0,0,0.42)] ring-[3px] ring-white/10"
+                className={`relative flex aspect-square w-[min(68vw,264px)] max-w-[280px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#665CAC]/35 via-white/12 to-white/[0.06] text-[clamp(48px,18vw,92px)] font-light text-white shadow-[0_8px_60px_rgba(102,92,172,0.35)] ring-[3px] ring-[#665CAC]/40 ${
+                  session.status === "ringing" && session.isMineInitiator ? "animate-pulse" : ""
+                }`}
                 aria-hidden
               >
-                <span className="select-none">{peerDisplayInitial(session.peerLabel)}</span>
+                <span className="select-none drop-shadow-md">{peerDisplayInitial(session.peerLabel)}</span>
               </div>
             </div>
           )}
@@ -1239,7 +1273,7 @@ export function CommunityMessengerCallClient({
         className={
           videoCall
             ? "w-full shrink-0 border-t border-white/[0.08] bg-black/85 px-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom,0px)+0.35rem))] pt-2 backdrop-blur-md"
-            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.08] bg-gradient-to-t from-black/70 via-[#14171d]/95 to-transparent pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))] pt-4 backdrop-blur-[12px]"
+            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.07] bg-gradient-to-t from-[#0a0a10] via-[#12121a]/98 to-transparent pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))] pt-4 backdrop-blur-[14px]"
         }
       >
         {errorMessage ? (
@@ -1257,52 +1291,72 @@ export function CommunityMessengerCallClient({
         ) : null}
 
         {session.callKind === "video" && joined ? (
-          <div className="mb-1 grid grid-cols-3 gap-2 sm:grid-cols-6">
-            <CallControlButton
-              label={micMuted ? "음소거 해제" : "음소거"}
-              active={micMuted}
-              onClick={() => void toggleMicEnabled()}
-              icon={micMuted ? <MicOffToolbarIcon className="h-5 w-5" /> : <MicOnToolbarIcon className="h-5 w-5" />}
-            />
-            <CallControlButton
-              label={speakerEnabled ? "스피커" : "이어폰"}
-              active={speakerEnabled}
-              onClick={toggleSpeakerEnabled}
-              icon={<SpeakerIcon className="h-5 w-5" />}
-            />
-            <CallControlButton
-              label={bluetoothPreferred ? "블루투스 우선" : "블루투스"}
-              active={bluetoothPreferred}
-              onClick={toggleBluetoothPreferred}
-              icon={<BluetoothIcon className="h-5 w-5" />}
-            />
-            <CallControlButton
-              label={camOff ? "카메라 켜기" : "카메라 끄기"}
-              active={camOff}
-              onClick={() => void toggleCamEnabled()}
-              icon={camOff ? <CamOffToolbarIcon className="h-5 w-5" /> : <CamOnToolbarIcon className="h-5 w-5" />}
-            />
-            <CallControlButton
-              label="카메라 전환"
-              onClick={() => void switchCameraFacing()}
-              disabled={!cameraSwitchSupported || busy === "camera"}
-              icon={<SwitchCameraIcon className="h-5 w-5" />}
-            />
-            <CallControlButton
-              label="미니"
-              onClick={() => navigateToChatDuringCall()}
-              icon={<MinimizeCallIcon className="h-5 w-5" />}
-            />
-            <div className="col-span-3 sm:col-span-6 flex justify-center pt-1">
+          <div className="mb-2 flex flex-col gap-5">
+            <div className="flex items-end justify-center gap-10 px-4 sm:gap-14">
+              <button
+                type="button"
+                onClick={() => void toggleMicEnabled()}
+                className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-2 border-white/35 bg-white/[0.08] text-white shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition active:scale-95 ${
+                  micMuted ? "border-amber-300/50 bg-amber-500/15" : ""
+                }`}
+                aria-label={micMuted ? "음소거 해제" : "음소거"}
+              >
+                {micMuted ? <MicOffToolbarIcon className="h-7 w-7" /> : <MicOnToolbarIcon className="h-7 w-7" />}
+              </button>
               <button
                 type="button"
                 onClick={() => void endCall()}
                 disabled={busy === "end"}
-                className="flex h-[3.7rem] w-[3.7rem] items-center justify-center rounded-full bg-[#ea3838] text-white transition active:scale-95 disabled:opacity-45 sm:h-16 sm:w-16"
+                className="flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center rounded-full bg-[#e5394a] text-white shadow-[0_14px_44px_rgba(229,57,74,0.5)] transition active:scale-95 disabled:opacity-45 sm:h-[4.5rem] sm:w-[4.5rem]"
                 aria-label="통화 종료"
               >
-                <EndCallStandardIcon className="h-7 w-7 sm:h-8 sm:w-8" />
+                <EndCallStandardIcon className="h-9 w-9" />
               </button>
+              <button
+                type="button"
+                onClick={() => void toggleCamEnabled()}
+                className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-2 border-white/35 bg-white/[0.08] text-white shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition active:scale-95 ${
+                  camOff ? "border-amber-300/50 bg-amber-500/15" : ""
+                }`}
+                aria-label={camOff ? "카메라 켜기" : "카메라 끄기"}
+              >
+                {camOff ? <CamOffToolbarIcon className="h-7 w-7" /> : <CamOnToolbarIcon className="h-7 w-7" />}
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              <CallControlButton
+                label={speakerEnabled ? "스피커" : "이어폰"}
+                active={speakerEnabled}
+                onClick={toggleSpeakerEnabled}
+                icon={<SpeakerIcon className="h-5 w-5" />}
+              />
+              <CallControlButton
+                label={bluetoothPreferred ? "블루투스 우선" : "블루투스"}
+                active={bluetoothPreferred}
+                onClick={toggleBluetoothPreferred}
+                icon={<BluetoothIcon className="h-5 w-5" />}
+              />
+              <CallControlButton
+                label="카메라 전환"
+                onClick={() => void switchCameraFacing()}
+                disabled={!cameraSwitchSupported || busy === "camera"}
+                icon={<SwitchCameraIcon className="h-5 w-5" />}
+              />
+              <CallControlButton
+                label="화면 맞바꿈"
+                onClick={() => setLayoutSwapped((v) => !v)}
+                icon={<SwapVideoLayoutIcon className="h-5 w-5" />}
+              />
+              <CallControlButton
+                label="채팅"
+                onClick={() => navigateToChatDuringCall()}
+                icon={<ChatBubbleIcon className="h-5 w-5" />}
+              />
+              <CallControlButton
+                label="미니"
+                onClick={() => navigateToChatDuringCall()}
+                icon={<MinimizeCallIcon className="h-5 w-5" />}
+              />
             </div>
           </div>
         ) : null}
@@ -1339,42 +1393,46 @@ export function CommunityMessengerCallClient({
               </>
             ) : (
               <>
-                {!videoCall && (joined || !session.isMineInitiator) ? (
-                  <div className="flex flex-wrap items-end justify-center gap-3 px-1">
-                    <LineStyleCallControlButton
+                {showVoiceViberControlPad ? (
+                  <div className="mx-auto grid w-full max-w-[340px] grid-cols-3 gap-x-3 gap-y-5 px-1">
+                    <ViberOutlineCallButton
                       label={micMuted ? "음소거 해제" : "음소거"}
                       active={micMuted}
                       onClick={() => void toggleMicEnabled()}
                       icon={micMuted ? <MicOffToolbarIcon className="h-6 w-6" /> : <MicOnToolbarIcon className="h-6 w-6" />}
                     />
-                    <LineStyleCallControlButton
+                    <ViberOutlineCallButton
+                      label="자판"
+                      onClick={() => setCallKeypadOpen(true)}
+                      icon={<KeypadIcon className="h-6 w-6" />}
+                    />
+                    <ViberOutlineCallButton
                       label={speakerEnabled ? "스피커" : "이어폰"}
                       active={speakerEnabled}
                       onClick={toggleSpeakerEnabled}
                       icon={<SpeakerIcon className="h-6 w-6" />}
                     />
-                    <LineStyleCallControlButton
-                      label={bluetoothPreferred ? "블루투스 우선" : "블루투스"}
-                      active={bluetoothPreferred}
-                      onClick={toggleBluetoothPreferred}
-                      icon={<BluetoothIcon className="h-6 w-6" />}
+                    <ViberOutlineCallButton
+                      label="영상 통화"
+                      onClick={() => hintVideoCallFromVoiceUi()}
+                      icon={<CamOnToolbarIcon className="h-6 w-6" />}
                     />
-                    <LineStyleCallControlButton
-                      label="채팅"
-                      onClick={() => navigateToChatDuringCall()}
-                      icon={<ChatBubbleIcon className="h-6 w-6" />}
+                    <ViberOutlineCallButton
+                      label="전환"
+                      onClick={() =>
+                        window.alert("통화 전환(다른 번호로 돌리기)는 추후 지원 예정입니다.")
+                      }
+                      icon={<PhoneTransferIcon className="h-6 w-6" />}
                     />
-                    <LineStyleCallControlButton
-                      label="미니"
-                      onClick={() => navigateToChatDuringCall()}
-                      icon={<MinimizeCallIcon className="h-6 w-6" />}
+                    <ViberOutlineCallButton
+                      label="연락처"
+                      onClick={() => router.push("/community-messenger?section=friends")}
+                      icon={<ContactsOutlineIcon className="h-6 w-6" />}
                     />
                   </div>
                 ) : null}
                 <div
-                  className={`flex justify-center ${
-                    !videoCall && (joined || !session.isMineInitiator) ? "mt-5" : "mt-2"
-                  }`}
+                  className={`flex justify-center ${showVoiceViberControlPad ? "mt-5" : "mt-2"}`}
                 >
                   <button
                     type="button"
@@ -1390,7 +1448,138 @@ export function CommunityMessengerCallClient({
             )}
           </div>
         ) : null}
+        {callKeypadOpen && !videoCall ? (
+          <CallKeypadOverlay onClose={() => setCallKeypadOpen(false)} />
+        ) : null}
       </div>
+      </div>
+    </div>
+  );
+}
+
+function PhoneTransferIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path
+        d="M5 4h4l2 3h6a2 2 0 0 1 2 2v2M5 4v12a2 2 0 0 0 2 2h3M5 4L3 2M15 14h4l2 2v4h-4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M15 10l4-4M15 10h4M15 10v4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ContactsOutlineIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0z" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M4 20a7 7 0 0 1 12 0M14 7a4 4 0 1 0 4 4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function KeypadIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <circle cx="8" cy="8" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="8" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="8" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="12" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="12" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="16" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="16" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="16" r="1.35" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+const DTMF_PAIR: Record<string, [number, number]> = {
+  "1": [697, 1209],
+  "2": [697, 1336],
+  "3": [697, 1477],
+  "4": [770, 1209],
+  "5": [770, 1336],
+  "6": [770, 1477],
+  "7": [852, 1209],
+  "8": [852, 1336],
+  "9": [852, 1477],
+  "*": [941, 1209],
+  "0": [941, 1336],
+  "#": [941, 1477],
+};
+
+function playDtmfDigit(digit: string) {
+  if (typeof window === "undefined") return;
+  const pair = DTMF_PAIR[digit];
+  if (!pair) return;
+  const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  if (!Ctx) return;
+  const ctx = new Ctx();
+  const [f0, f1] = pair;
+  const g = ctx.createGain();
+  g.gain.value = 0.12;
+  g.connect(ctx.destination);
+  const o0 = ctx.createOscillator();
+  const o1 = ctx.createOscillator();
+  o0.type = "sine";
+  o1.type = "sine";
+  o0.frequency.value = f0;
+  o1.frequency.value = f1;
+  o0.connect(g);
+  o1.connect(g);
+  const t = ctx.currentTime;
+  o0.start(t);
+  o1.start(t);
+  o0.stop(t + 0.14);
+  o1.stop(t + 0.14);
+  window.setTimeout(() => {
+    void ctx.close().catch(() => {});
+  }, 200);
+}
+
+function CallKeypadOverlay({ onClose }: { onClose: () => void }) {
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"] as const;
+  return (
+    <div
+      role="presentation"
+      className="pointer-events-auto fixed inset-0 z-[100] flex items-end justify-center bg-black/55 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-10 backdrop-blur-[2px] sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal
+        className="w-full max-w-[340px] rounded-[22px] border border-white/12 bg-[#1c1f28] p-4 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[15px] font-semibold text-white">자판</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full px-3 py-1.5 text-[13px] font-medium text-white/75 transition hover:bg-white/10"
+          >
+            닫기
+          </button>
+        </div>
+        <p className="mb-3 text-[11px] leading-snug text-white/45">로컬에서만 톤이 재생됩니다. 상대에게는 전달되지 않을 수 있습니다.</p>
+        <div className="grid grid-cols-3 gap-2">
+          {keys.map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => playDtmfDigit(k)}
+              className="flex h-12 items-center justify-center rounded-full border border-white/18 bg-white/[0.06] text-[18px] font-semibold text-white transition active:scale-95 active:bg-white/12"
+            >
+              {k}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1408,8 +1597,8 @@ function SettingsGearIcon({ className }: { className?: string }) {
   );
 }
 
-/** 라인 메신저 스타일 — 원형 글래스 버튼 */
-function LineStyleCallControlButton({
+/** Viber 스타일 — 테두리 강조 원형 그리드 버튼 */
+function ViberOutlineCallButton({
   label,
   icon,
   onClick,
@@ -1427,14 +1616,16 @@ function LineStyleCallControlButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-[76px] w-[68px] shrink-0 flex-col items-center justify-center gap-1 rounded-full border text-[10px] font-medium tracking-tight transition active:scale-[0.96] disabled:opacity-40 ${
+      className={`flex h-[88px] w-full max-w-[108px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-full border-2 text-[10px] font-medium tracking-tight text-white/95 transition active:scale-[0.96] disabled:opacity-40 ${
         active
-          ? "border-white/40 bg-white/18 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
-          : "border-white/14 bg-white/[0.11] text-white/95 backdrop-blur-md"
+          ? "border-white/45 bg-white/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+          : "border-white/22 bg-white/[0.05]"
       }`}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 text-white">{icon}</span>
-      <span className="max-w-[68px] truncate px-0.5 leading-tight">{label}</span>
+      <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/15 bg-black/30 text-white">
+        {icon}
+      </span>
+      <span className="max-w-[92px] truncate px-0.5 leading-tight">{label}</span>
     </button>
   );
 }

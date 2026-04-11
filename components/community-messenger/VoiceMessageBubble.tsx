@@ -25,6 +25,8 @@ export function VoiceMessageBubble({
   sentTimeLabel,
   fallbackSrc,
   mediaType,
+  /** 밝은색(시안) 발신 말풍선 — Viber 등 */
+  mineBubbleStyle = "signature",
 }: {
   src: string;
   durationSeconds: number;
@@ -36,6 +38,7 @@ export function VoiceMessageBubble({
   fallbackSrc?: string | null;
   /** `<source type>` — blob/브라우저별 디코딩 안정화 */
   mediaType?: string | null;
+  mineBubbleStyle?: "signature" | "viberLight";
 }) {
   const { t } = useI18n();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -137,8 +140,9 @@ export function VoiceMessageBubble({
     });
   }, [loadError, pending]);
 
-  const inactiveBar = isMine ? "bg-white/30" : "bg-gray-200";
-  const activeBar = isMine ? "bg-white" : "bg-gray-900";
+  const mineLight = isMine && mineBubbleStyle === "viberLight";
+  const inactiveBar = isMine ? (mineLight ? "bg-gray-300/90" : "bg-white/30") : "bg-gray-200";
+  const activeBar = isMine ? (mineLight ? "bg-[#665CAC]" : "bg-white") : "bg-gray-900";
 
   return (
     <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">
@@ -148,7 +152,11 @@ export function VoiceMessageBubble({
           onClick={toggle}
           disabled={pending || loadError || playbackBlocked}
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
-            isMine ? "bg-white/25 text-white ring-2 ring-white/35" : "bg-gray-900 text-white ring-2 ring-gray-300"
+            isMine
+              ? mineLight
+                ? "bg-[#665CAC] text-white ring-2 ring-[#665CAC]/35"
+                : "bg-white/25 text-white ring-2 ring-white/35"
+              : "bg-gray-900 text-white ring-2 ring-gray-300"
           }`}
           aria-label={playing ? t("common_pause") : t("common_play")}
         >
@@ -179,7 +187,11 @@ export function VoiceMessageBubble({
               );
             })}
           </div>
-          <div className={`flex items-baseline justify-between gap-2 text-[11px] leading-tight ${isMine ? "text-white/90" : "text-gray-500"}`}>
+          <div
+            className={`flex items-baseline justify-between gap-2 text-[11px] leading-tight ${
+              isMine ? (mineLight ? "text-gray-600" : "text-white/90") : "text-gray-500"
+            }`}
+          >
             <span className="shrink-0 tabular-nums font-medium">{formatVoiceDuration(durationSeconds)}</span>
             {sentTimeLabel ? (
               <span className="min-w-0 truncate tabular-nums opacity-80">{sentTimeLabel}</span>
@@ -203,11 +215,15 @@ export function VoiceMessageBubble({
         </audio>
       ) : null}
       {loadError || playbackBlocked ? (
-        <span className={`text-[11px] ${isMine ? "text-white/85" : "text-red-600"}`}>
+        <span className={`text-[11px] ${isMine ? (mineLight ? "text-red-600" : "text-white/85") : "text-red-600"}`}>
           {t("nav_messenger_voice_upload_failed")}
         </span>
       ) : null}
-      {pending ? <span className={`text-[11px] ${isMine ? "text-white/80" : "text-gray-500"}`}>{t("common_sending")}</span> : null}
+      {pending ? (
+        <span className={`text-[11px] ${isMine ? (mineLight ? "text-gray-500" : "text-white/80") : "text-gray-500"}`}>
+          {t("common_sending")}
+        </span>
+      ) : null}
     </div>
   );
 }
