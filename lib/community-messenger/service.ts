@@ -3117,6 +3117,7 @@ export async function getCommunityMessengerRoomSnapshot(
       isMine: senderId === userId,
       callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
       callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+      callSessionId: trimText(metadata.sessionId as string) || null,
       ...((isDbMessage ? message.message_type : message.messageType) === "voice"
         ? {
             voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
@@ -3187,6 +3188,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
         isMine,
         callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
         callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+        callSessionId: trimText(metadata.sessionId as string) || null,
         ...(safeMt === "voice"
           ? {
               voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
@@ -3231,6 +3233,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
         isMine,
         callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
         callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+        callSessionId: trimText(metadata.sessionId as string) || null,
         ...(safeMt === "voice"
           ? {
               voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
@@ -3976,9 +3979,20 @@ export async function startCommunityMessengerCallSession(input: {
         }));
       return { ok: true, session: await mapCallSession(input.userId, inserted as CallSessionRow, syntheticParticipantRows) };
     }
+    if (error && isUniqueViolationError(error)) {
+      const existing = await getActiveCallSessionForRoom(input.userId, roomId);
+      if (existing) {
+        return { ok: true, session: existing };
+      }
+    }
     if (!isMissingTableError(error)) {
       return { ok: false, error: String(error.message ?? "call_session_start_failed") };
     }
+  }
+
+  const existingDevLive = await getActiveCallSessionForRoom(input.userId, roomId);
+  if (existingDevLive) {
+    return { ok: true, session: existingDevLive };
   }
 
   const dev = getDevState();
@@ -4074,8 +4088,11 @@ export async function updateCommunityMessengerCallSession(input: {
       return { nextStatus: "rejected", endedAt: nowIso() };
     }
     if (input.action === "cancel") {
-      if (!messengerUserIdsEqual(initiatorUserId, input.userId) || status !== "ringing") return null;
-      return { nextStatus: "cancelled", endedAt: nowIso() };
+      if (!messengerUserIdsEqual(initiatorUserId, input.userId)) return null;
+      if (status === "ringing") return { nextStatus: "cancelled", endedAt: nowIso() };
+      /* 이미 연결된 뒤에도 일부 클라이언트가 cancel 만 보내면 bad_action 이 되고 세션이 active 에 고정될 수 있음 */
+      if (status === "active") return { nextStatus: "ended", endedAt: nowIso() };
+      return null;
     }
     if (input.action === "missed") {
       if (status !== "ringing") return null;

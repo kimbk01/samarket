@@ -26,6 +26,7 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-realtime";
 import {
   communityMessengerCallSessionIsActiveConnected,
+  communityMessengerCallStubStatusIsTerminal,
   communityMessengerRoomIsGloballyUsable,
   type CommunityMessengerMessage,
   type CommunityMessengerProfileLite,
@@ -439,7 +440,8 @@ export function CommunityMessengerRoomClient({
     }
   }, [snapshot]);
 
-  /** 미니화 힌트(sessionStorage)에 의존하지 않음 — `active`(연결됨)일 때만 배너(벨 울리는 ringing 제외) */
+  /** 미니화 힌트(sessionStorage)에 의존하지 않음 — `active`(연결됨)일 때만 배너(벨 울리는 ringing 제외).
+   *  채팅 call_stub 이 이미 종료로 갱신됐는데 세션 행이 잠깐 active 로 남는 경우 배너를 숨긴다. */
   const returnToCallSessionId = useMemo(() => {
     const ac = snapshot?.activeCall;
     if (
@@ -448,10 +450,14 @@ export function CommunityMessengerRoomClient({
       ac.roomId === roomId &&
       communityMessengerCallSessionIsActiveConnected(ac.status)
     ) {
+      const latestStub = getLatestCallStubForSession(roomMessages, ac.id);
+      if (latestStub && communityMessengerCallStubStatusIsTerminal(latestStub.callStatus)) {
+        return null;
+      }
       return ac.id;
     }
     return null;
-  }, [roomId, snapshot?.activeCall]);
+  }, [roomId, snapshot?.activeCall, roomMessages]);
 
   const getRoomActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
@@ -1358,12 +1364,14 @@ export function CommunityMessengerRoomClient({
   ]);
 
   useEffect(() => {
-    if (!call.panel || (call.panel.mode !== "incoming" && call.panel.mode !== "dialing")) return;
+    if (!isGroupRoom || !call.panel || (call.panel.mode !== "incoming" && call.panel.mode !== "dialing")) {
+      return;
+    }
     const tone = startCommunityMessengerCallTone(call.panel.mode === "incoming" ? "incoming" : "outgoing");
     return () => {
       tone.stop();
     };
-  }, [call.panel?.mode, call.panel?.sessionId]);
+  }, [isGroupRoom, call.panel?.mode, call.panel?.sessionId]);
 
   if (loading) {
     return (
@@ -2682,6 +2690,23 @@ function mergeRoomMessages(
   );
 }
 
+function getLatestCallStubForSession(
+  messages: Array<CommunityMessengerMessage & { pending?: boolean }>,
+  sessionId: string
+): CommunityMessengerMessage | null {
+  let best: CommunityMessengerMessage | null = null;
+  for (const m of messages) {
+    if (m.pending) continue;
+    if (m.messageType !== "call_stub") continue;
+    const sid = m.callSessionId?.trim();
+    if (!sid || !messengerUserIdsEqual(sid, sessionId)) continue;
+    if (!best || new Date(m.createdAt).getTime() > new Date(best.createdAt).getTime()) {
+      best = m;
+    }
+  }
+  return best;
+}
+
 function mapRealtimeRoomMessage(
   snapshot: CommunityMessengerRoomSnapshot,
   message: {
@@ -2718,6 +2743,9 @@ function mapRealtimeRoomMessage(
       : undefined;
   const voiceMimeType =
     message.messageType === "voice" ? (String(message.metadata.mimeType ?? "").trim() || null) : undefined;
+  const callSessionIdRaw = message.metadata.sessionId;
+  const callSessionId =
+    typeof callSessionIdRaw === "string" && callSessionIdRaw.trim() ? callSessionIdRaw.trim() : null;
   return {
     id: message.id,
     roomId: message.roomId,
@@ -2729,6 +2757,7 @@ function mapRealtimeRoomMessage(
     isMine: message.senderId === snapshot.viewerUserId,
     callKind,
     callStatus,
+    callSessionId,
     ...(voiceDurationSeconds !== undefined ? { voiceDurationSeconds } : {}),
     ...(voiceWaveformPeaks !== undefined ? { voiceWaveformPeaks } : {}),
     ...(voiceMimeType !== undefined ? { voiceMimeType } : {}),

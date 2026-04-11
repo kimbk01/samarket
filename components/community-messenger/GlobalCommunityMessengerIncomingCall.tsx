@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
+import {
+  startCommunityMessengerCallTone,
+  stopCommunityMessengerCallFeedback,
+} from "@/lib/community-messenger/call-feedback-sound";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
@@ -225,14 +228,15 @@ export function GlobalCommunityMessengerIncomingCall() {
   const isMinimized = Boolean(visibleSession && minimizedSessionId === visibleSession.id);
 
   useEffect(() => {
-    if (!visibleSession) return;
+    if (!visibleSession || visibleSession.status !== "ringing") return;
     const tone = startCommunityMessengerCallTone("incoming");
     return () => {
       tone.stop();
     };
-  }, [visibleSession?.id]);
+  }, [visibleSession?.id, visibleSession?.status]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
+    stopCommunityMessengerCallFeedback();
     const session = sessions.find((item) => item.id === sessionId) ?? null;
     setBusyId(`reject:${sessionId}`);
     try {
@@ -265,6 +269,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh, sessions]);
 
   const acceptCall = useCallback((session: CommunityMessengerCallSession) => {
+    stopCommunityMessengerCallFeedback();
     if (session.sessionMode === "group") {
       window.alert("그룹 통화는 현재 준비 중입니다. 다음 단계에서 다시 연결하겠습니다.");
       return;
@@ -299,6 +304,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, []);
 
   const blockCaller = useCallback(async (session: CommunityMessengerCallSession) => {
+    stopCommunityMessengerCallFeedback();
     if (!session.peerUserId) return;
     if (!window.confirm(`${session.peerLabel}님을 차단할까요? 메신저 친구 관계와 수신 통화에 영향을 줄 수 있습니다.`)) {
       return;
@@ -343,6 +349,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh]);
 
   const sendQuickReplyAndReject = useCallback(async (session: CommunityMessengerCallSession, content: string) => {
+    stopCommunityMessengerCallFeedback();
     const trimmedContent = content.trim();
     if (!trimmedContent) return;
     setBusyId(`reply:${session.id}`);

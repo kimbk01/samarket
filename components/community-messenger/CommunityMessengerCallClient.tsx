@@ -32,12 +32,16 @@ import {
   openCommunityMessengerPermissionSettings,
   primeCommunityMessengerDevicePermissionFromUserGesture,
 } from "@/lib/community-messenger/call-permission";
-import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import {
+  getCommunityMessengerMediaErrorMessage,
+  isAgoraJoinRetryableError,
+} from "@/lib/community-messenger/media-errors";
 import type {
   CommunityMessengerCallSession,
   CommunityMessengerManagedCallConnection,
 } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { stopCommunityMessengerCallFeedback } from "@/lib/community-messenger/call-feedback-sound";
 import {
   attachDetachedCommunityCall,
   takeDetachedCommunityCallCleanup,
@@ -137,6 +141,10 @@ export function CommunityMessengerCallClient({
   const sessionRealtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const permissionGuide = session ? getCommunityMessengerPermissionGuide(session.callKind) : null;
+
+  useLayoutEffect(() => {
+    stopCommunityMessengerCallFeedback();
+  }, [sessionId]);
 
   const refreshSession = useCallback(
     async (silent = false): Promise<CommunityMessengerCallSession | null> => {
@@ -467,15 +475,26 @@ export function CommunityMessengerCallClient({
       joiningRef.current = true;
       setBusy("join");
       setErrorMessage(null);
-      try {
-        const connection = prefetchedConnectionRef.current ?? (await fetchConnection());
+
+      const runJoinAttempt = async (): Promise<void> => {
+        /* prefetch 는 대기 시간 단축용 — 실제 join 은 항상 최신 토큰 */
         prefetchedConnectionRef.current = null;
+        const connection = await fetchConnection();
         const client = createCommunityMessengerAgoraClient();
         clientRef.current = client;
         client.on("user-published", async (user: IAgoraRTCRemoteUser, mediaType) => {
-          await client.subscribe(user, mediaType);
+          try {
+            await client.subscribe(user, mediaType);
+          } catch (subErr) {
+            console.warn("[community-messenger-call] remote subscribe failed", subErr);
+            return;
+          }
           if (mediaType === "audio" && user.audioTrack) {
-            user.audioTrack.play();
+            try {
+              void user.audioTrack.play();
+            } catch {
+              /* 자동재생 정책 등 */
+            }
             setRemoteJoined(true);
           }
           if (mediaType === "video" && user.videoTrack) {
@@ -483,7 +502,6 @@ export function CommunityMessengerCallClient({
             setRemoteJoined(true);
           }
         });
-        /* iOS 등에서 일시 unpublish 가 오면 '통화 중' 이 깜빡이며 join 재시도·권한 루프가 난다 — 영상 UI 만 정리 */
         client.on("user-unpublished", (_user, mediaType) => {
           if (mediaType === "video") {
             bindRemoteVideoTrack(null);
@@ -495,6 +513,9 @@ export function CommunityMessengerCallClient({
           void refreshSession(true);
         });
         client.on("connection-state-change", (cur) => {
+          if (cur === "DISCONNECTED") {
+            setRemoteJoined(false);
+          }
           if (cur === "DISCONNECTED" || cur === "DISCONNECTING") {
             void refreshSession(true);
           }
@@ -515,6 +536,19 @@ export function CommunityMessengerCallClient({
         });
         joinedRef.current = true;
         setJoined(true);
+        autoJoinBlockedRef.current = false;
+      };
+
+      try {
+        try {
+          await runJoinAttempt();
+        } catch (first) {
+          await cleanupClient();
+          if (!isAgoraJoinRetryableError(first)) {
+            throw first;
+          }
+          await runJoinAttempt();
+        }
       } catch (error) {
         autoJoinBlockedRef.current = true;
         await cleanupClient();
@@ -570,35 +604,59 @@ export function CommunityMessengerCallClient({
 
   const rejectIncoming = useCallback(async () => {
     if (!session) return;
+    stopCommunityMessengerCallFeedback();
     setBusy("reject");
     try {
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
       });
+      const json = (await res.json().catch(() => ({}))) as SessionResponse;
+      if (!res.ok || !json.ok) {
+        setErrorMessage(
+          json.error === "bad_action"
+            ? "이미 처리된 통화입니다."
+            : "거절 요청에 실패했습니다. 잠시 후 다시 시도해 주세요."
+        );
+        await disposeCallMedia();
+        void refreshSession(true);
+        return;
+      }
       await disposeCallMedia();
       router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
     } finally {
       setBusy(null);
     }
-  }, [disposeCallMedia, router, session]);
+  }, [disposeCallMedia, refreshSession, router, session]);
 
   const endCall = useCallback(async () => {
     if (!session) return;
+    stopCommunityMessengerCallFeedback();
     setBusy("end");
     try {
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: session.status === "ringing" ? "cancel" : "end", durationSeconds: elapsedSeconds }),
       });
+      const json = (await res.json().catch(() => ({}))) as SessionResponse;
+      if (!res.ok || !json.ok) {
+        setErrorMessage(
+          json.error === "bad_action"
+            ? "이미 종료된 통화입니다."
+            : "통화 종료 요청에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요."
+        );
+        await disposeCallMedia();
+        void refreshSession(true);
+        return;
+      }
       await disposeCallMedia();
       router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
     } finally {
       setBusy(null);
     }
-  }, [disposeCallMedia, elapsedSeconds, router, session]);
+  }, [disposeCallMedia, elapsedSeconds, refreshSession, router, session]);
 
   const navigateToChatDuringCall = useCallback(() => {
     if (!session) return;

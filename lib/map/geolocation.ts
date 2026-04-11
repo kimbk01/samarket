@@ -9,7 +9,7 @@ export type GeolocationResult =
 function toMessage(code: GeolocationPositionError["code"]): string {
   switch (code) {
     case 1:
-      return "위치 권한이 거부되었습니다. 브라우저 설정에서 이 사이트의 위치 접근을 허용해 주세요.";
+      return "위치 권한이 거부되었습니다. 주소창 왼쪽 자물쇠·사이트 정보에서 「위치」를 허용하거나, 브라우저 설정에서 이 사이트의 위치 접근을 켜 주세요.";
     case 2:
       return "위치 정보를 가져올 수 없습니다. 잠시 후 다시 시도해 주세요.";
     case 3:
@@ -32,7 +32,12 @@ function getOnce(options: PositionOptions): Promise<GeolocationPosition> {
 /** 사용자 제스처(버튼 탭) 안에서 호출하는 것이 권장됩니다. */
 export async function getBestCurrentPosition(): Promise<GeolocationResult> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
-    return { ok: false, code: 2, message: "이 기기에서는 위치 서비스를 사용할 수 없습니다." };
+    return {
+      ok: false,
+      code: 2,
+      message:
+        "이 브라우저 또는 보안 설정에서 이 사이트의 위치 사용이 막혀 있습니다. HTTPS로 접속했는지, 주소창의 사이트 설정에서 위치가 허용됐는지 확인해 주세요.",
+    };
   }
 
   const tryHigh: PositionOptions = {

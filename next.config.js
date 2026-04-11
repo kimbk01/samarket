@@ -54,11 +54,11 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          // mic/camera: 빈 allowlist `()` 는 1인칭 페이지에서도 getUserMedia 가 막혀
-          // 통화가 불가능함. 동일 출처(self)만 허용하고 geolocation 은 기존처럼 끔.
+          // mic/camera: 빈 allowlist `()` 는 1인칭 페이지에서도 getUserMedia 가 막혀 통화가 불가능함.
+          // geolocation: 주소 선택(/address/select)·매장 등 동일 출처에서만 사용 (끄면 기기 GPS를 켜도 API가 막힘).
           {
             key: "Permissions-Policy",
-            value: "camera=(self), microphone=(self), geolocation=()",
+            value: "camera=(self), microphone=(self), geolocation=(self)",
           },
           // 클릭재킹 이중 방어
           { key: "X-XSS-Protection", value: "1; mode=block" },

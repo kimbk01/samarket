@@ -1,5 +1,33 @@
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
+/** Agora join·publish 단계에서 네트워크·토큰 일시 오류 등 재시도할 만한 경우 */
+export function isAgoraJoinRetryableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const n = error.name;
+    if (
+      n === "NotAllowedError" ||
+      n === "PermissionDeniedError" ||
+      n === "NotFoundError" ||
+      n === "DevicesNotFoundError" ||
+      n === "NotReadableError" ||
+      n === "TrackStartError" ||
+      n === "OverconstrainedError"
+    ) {
+      return false;
+    }
+  }
+  const codeRaw =
+    typeof error === "object" && error && "code" in error ? (error as { code?: unknown }).code : undefined;
+  const code = typeof codeRaw === "number" ? codeRaw : Number(codeRaw);
+  if (Number.isFinite(code)) {
+    /* Agora Web: 토큰·게이트웨이·네트워크 계열은 재시도 가치 있음(문서·버전마다 코드 상이) */
+    if ([2, 109, 110, 111, 118, 119, 120, 501, 504, 506].includes(code)) return true;
+  }
+  const msg = String(error instanceof Error ? error.message : error);
+  if (/token|invalid.*channel|network|timeout|unreachable|gateway|JOIN/i.test(msg)) return true;
+  return false;
+}
+
 export function getCommunityMessengerMediaErrorMessage(
   error: unknown,
   kind: CommunityMessengerCallKind

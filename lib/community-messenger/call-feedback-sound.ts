@@ -13,6 +13,12 @@ const TONE_INTERVAL_MS: Record<CallToneMode, number> = {
 
 let activeToneStopper: (() => void) | null = null;
 
+/** 어디서든 호출 가능 — 통화 연결·종료·화면 전환 직후 벨이 남지 않게 한다 */
+export function stopCommunityMessengerCallFeedback(): void {
+  if (typeof window === "undefined") return;
+  activeToneStopper?.();
+}
+
 export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneController {
   if (typeof window === "undefined") {
     return { stop() {} };
@@ -54,6 +60,11 @@ export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneCon
           audio = null;
           playNotificationSound();
           intervalId = window.setInterval(() => {
+            if (stopped) {
+              if (intervalId != null) window.clearInterval(intervalId);
+              intervalId = null;
+              return;
+            }
             playNotificationSound();
           }, TONE_INTERVAL_MS[mode]);
         });
@@ -61,6 +72,11 @@ export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneCon
     } catch {
       playNotificationSound();
       intervalId = window.setInterval(() => {
+        if (stopped) {
+          if (intervalId != null) window.clearInterval(intervalId);
+          intervalId = null;
+          return;
+        }
         playNotificationSound();
       }, TONE_INTERVAL_MS[mode]);
     }

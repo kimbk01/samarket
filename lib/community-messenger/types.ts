@@ -36,6 +36,13 @@ export function communityMessengerCallSessionIsLive(status: CommunityMessengerCa
 export function communityMessengerCallSessionIsActiveConnected(status: CommunityMessengerCallSessionStatus): boolean {
   return status === "active";
 }
+
+/** call_stub 의 callStatus 가 종료·취소·부재 등으로 통화가 끝난 상태인지 (세션 스냅샷과 교차 검증) */
+export function communityMessengerCallStubStatusIsTerminal(
+  status: CommunityMessengerCallStatus | null | undefined
+): boolean {
+  return status === "ended" || status === "cancelled" || status === "missed" || status === "rejected";
+}
 export type CommunityMessengerCallSessionMode = "direct" | "group";
 export type CommunityMessengerCallSignalType = "offer" | "answer" | "ice-candidate" | "hangup";
 export type CommunityMessengerCallParticipantStatus = "invited" | "joined" | "left" | "rejected";
@@ -153,6 +160,8 @@ export type CommunityMessengerMessage = {
   isMine: boolean;
   callKind?: CommunityMessengerCallKind | null;
   callStatus?: CommunityMessengerCallStatus | null;
+  /** call_stub metadata.sessionId — 방 스냅샷 activeCall 과 채팅 로그를 맞추는 데 사용 */
+  callSessionId?: string | null;
   /** messageType === "voice" 일 때 재생 URL(보통 content 와 동일) */
   voiceDurationSeconds?: number | null;
   /** messageType === "voice" 일 때 0–1 막대 높이 (텔레그램 스타일 파형) */
