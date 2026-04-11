@@ -564,7 +564,9 @@ export function ChatDetailView({
       ? hasFreshIntegratedChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS)
       : hasFreshLegacyChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS);
     setMessages(cached ?? []);
-    setMessagesLoading(cached == null && !cacheIsFresh);
+    /** 스테일 캐시가 있어도 재조회가 끝날 때까지 로딩으로 두어 폴링 tick 과 초기 fetch 가 겹치지 않게 함 */
+    const needInitialFetch = !(cached && cacheIsFresh);
+    setMessagesLoading(needInitialFetch);
     if (cached && cacheIsFresh) {
       logClientPerf("chat-detail.messages.initial", {
         roomId: room.id,
@@ -645,6 +647,7 @@ export function ChatDetailView({
   // 당근형: 상대가 보낸 메시지 실시간 반영 — 판매자/구매자 다른 창에서도 답장 수신
   useEffect(() => {
     if (!room.id || !currentUserId) return;
+    if (messagesLoading) return;
     const cacheIsFresh = isChatRoom
       ? hasFreshIntegratedChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS)
       : hasFreshLegacyChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS);
@@ -731,6 +734,7 @@ export function ChatDetailView({
   }, [
     room.id,
     currentUserId,
+    messagesLoading,
     fetchMessagesForPolling,
     isStoreOrderChat,
     isChatRoom,

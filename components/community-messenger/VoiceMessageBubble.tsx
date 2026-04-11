@@ -138,7 +138,7 @@ export function VoiceMessageBubble({
   }, [loadError, pending]);
 
   const inactiveBar = isMine ? "bg-white/30" : "bg-gray-200";
-  const activeBar = isMine ? "bg-white" : "bg-[#06C755]";
+  const activeBar = isMine ? "bg-white" : "bg-gray-900";
 
   return (
     <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">
@@ -148,7 +148,7 @@ export function VoiceMessageBubble({
           onClick={toggle}
           disabled={pending || loadError || playbackBlocked}
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
-            isMine ? "bg-white/25 text-white ring-2 ring-white/35" : "bg-[#06C755] text-white ring-2 ring-[#06C755]/25"
+            isMine ? "bg-white/25 text-white ring-2 ring-white/35" : "bg-gray-900 text-white ring-2 ring-gray-300"
           }`}
           aria-label={playing ? t("common_pause") : t("common_play")}
         >

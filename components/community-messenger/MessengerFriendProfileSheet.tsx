@@ -1,10 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 type Props = {
-  open: boolean;
-  profile: CommunityMessengerProfileLite | null;
+  profile: CommunityMessengerProfileLite;
   /** `CommunityMessengerHome` 의 `busyId` — `call:voice:${id}` 등과 매칭 */
   busyId: string | null;
   onClose: () => void;
@@ -15,10 +15,9 @@ type Props = {
 };
 
 /**
- * LINE 친구 프로필 탭에 가까운 하단 시트 — 음성·영상·채팅·즐겨찾기.
+ * 친구를 눌렀을 때 바로 채팅으로 보내지 않고, 먼저 행동을 고르게 하는 하단 시트.
  */
 export function MessengerFriendProfileSheet({
-  open,
   profile,
   busyId,
   onClose,
@@ -27,16 +26,16 @@ export function MessengerFriendProfileSheet({
   onChat,
   onToggleFavorite,
 }: Props) {
-  if (!open || !profile) return null;
-
-  const avatarSrc = profile.avatarUrl ?? undefined;
-  const initial = profile.label.trim().slice(0, 1) || "?";
   const pid = profile.id;
   const bVoice = busyId === `call:voice:${pid}`;
   const bVideo = busyId === `call:video:${pid}`;
   const bChat = busyId === `room:${pid}`;
   const bFav = busyId === `favorite:${pid}`;
   const anyBusy = Boolean(busyId);
+  const [callOptionsOpen, setCallOptionsOpen] = useState(false);
+
+  const avatarSrc = profile.avatarUrl ?? undefined;
+  const initial = profile.label.trim().slice(0, 1) || "?";
 
   return (
     <div className="fixed inset-0 z-[45] flex flex-col justify-end bg-black/45" role="dialog" aria-modal="true" aria-labelledby="messenger-friend-sheet-title">
@@ -58,39 +57,57 @@ export function MessengerFriendProfileSheet({
           <p className="mt-1 text-[13px] text-gray-500">{profile.subtitle ?? "SAMarket"}</p>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-2">
+        <div className="mt-5 rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-3 text-left">
+          <p className="text-[13px] font-semibold text-gray-900">무엇을 하시겠어요?</p>
+          <p className="mt-1 text-[12px] text-gray-500">친구를 선택한 뒤 바로 이동하지 않고 원하는 동작을 먼저 고를 수 있습니다.</p>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <button
             type="button"
-            onClick={onVoiceCall}
+            onClick={() => {
+              setCallOptionsOpen(false);
+              onChat();
+            }}
             disabled={anyBusy}
-            className="flex flex-col items-center gap-1 rounded-ui-rect border border-gray-200 py-4 text-[13px] font-semibold text-gray-900 disabled:opacity-50"
+            className="flex min-h-[60px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-50"
           >
-            <span className="text-2xl" aria-hidden>
-              📞
-            </span>
-            {bVoice ? "연결 중…" : "음성 통화"}
+            <span>1:1 채팅</span>
+            <span className="text-[12px] font-medium text-gray-400">{bChat ? "열는 중…" : "대화 시작"}</span>
           </button>
           <button
             type="button"
-            onClick={onVideoCall}
+            onClick={() => setCallOptionsOpen((prev) => !prev)}
             disabled={anyBusy}
-            className="flex flex-col items-center gap-1 rounded-ui-rect border border-gray-200 py-4 text-[13px] font-semibold text-gray-900 disabled:opacity-50"
+            className="flex min-h-[60px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-50"
           >
-            <span className="text-2xl" aria-hidden>
-              📹
-            </span>
-            {bVideo ? "연결 중…" : "영상 통화"}
+            <span>통화</span>
+            <span className="text-[12px] font-medium text-gray-400">{callOptionsOpen ? "옵션 닫기" : "음성/영상 선택"}</span>
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onChat}
-          disabled={anyBusy}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-ui-rect bg-[#06C755] py-3.5 text-[15px] font-semibold text-white disabled:opacity-50"
-        >
-          {bChat ? "열는 중…" : "채팅"}
-        </button>
+        {callOptionsOpen ? (
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={onVoiceCall}
+              disabled={anyBusy}
+              className="flex min-h-[56px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-50"
+            >
+              <span>음성 통화</span>
+              <span className="text-[12px] font-medium text-gray-400">{bVoice ? "연결 중…" : "바로 연결"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onVideoCall}
+              disabled={anyBusy}
+              className="flex min-h-[56px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-50"
+            >
+              <span>영상 통화</span>
+              <span className="text-[12px] font-medium text-gray-400">{bVideo ? "연결 중…" : "화상 연결"}</span>
+            </button>
+          </div>
+        ) : null}
 
         <button
           type="button"

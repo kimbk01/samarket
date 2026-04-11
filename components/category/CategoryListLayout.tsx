@@ -43,7 +43,6 @@ export function CategoryListLayout({
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsRef = useRef(searchParams);
-  searchParamsRef.current = searchParams;
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
   const [tradeBootstrapChildren, setTradeBootstrapChildren] = useState<CategoryWithSettings[] | undefined>(
     undefined
@@ -52,6 +51,10 @@ export function CategoryListLayout({
     { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null | undefined
   >(undefined);
   const [status, setStatus] = useState<"loading" | "found" | "not_found" | "redirect">("loading");
+
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     if (!slugOrId?.trim()) {

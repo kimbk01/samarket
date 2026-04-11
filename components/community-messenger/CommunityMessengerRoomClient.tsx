@@ -24,10 +24,11 @@ import {
   useCommunityMessengerRoomRealtime,
   type CommunityMessengerRoomRealtimeMessageEvent,
 } from "@/lib/community-messenger/use-community-messenger-realtime";
-import type {
-  CommunityMessengerMessage,
-  CommunityMessengerProfileLite,
-  CommunityMessengerRoomSnapshot,
+import {
+  communityMessengerRoomIsGloballyUsable,
+  type CommunityMessengerMessage,
+  type CommunityMessengerProfileLite,
+  type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
 import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
@@ -38,6 +39,8 @@ import {
   parseVoiceWaveformPeaksFromMetadata,
 } from "@/lib/community-messenger/voice-waveform";
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
+import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
+import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 export function CommunityMessengerRoomClient({
   roomId,
@@ -77,6 +80,8 @@ export function CommunityMessengerRoomClient({
   const voiceSessionIdRef = useRef(0);
   const voicePointerDownRef = useRef(false);
   const loadedRef = useRef(false);
+  const silentRoomRefreshBusyRef = useRef(false);
+  const silentRoomRefreshAgainRef = useRef(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
@@ -103,7 +108,8 @@ export function CommunityMessengerRoomClient({
   const [openGroupDiscoverable, setOpenGroupDiscoverable] = useState(true);
   const [openGroupJoinPolicy, setOpenGroupJoinPolicy] = useState<"password" | "free">("password");
   const [openGroupIdentityPolicy, setOpenGroupIdentityPolicy] = useState<"real_name" | "alias_allowed">("alias_allowed");
-  const [activeSheet, setActiveSheet] = useState<null | "menu" | "members" | "info">(null);
+  const [activeSheet, setActiveSheet] = useState<null | "menu" | "members" | "info" | "search" | "media" | "links">(null);
+  const [roomSearchQuery, setRoomSearchQuery] = useState("");
   const [managedDirectCallError, setManagedDirectCallError] = useState<string | null>(null);
 
   const notifSurface = useNotificationSurface();
@@ -117,6 +123,13 @@ export function CommunityMessengerRoomClient({
   }, [notifSurface, roomId]);
 
   const refresh = useCallback(async (silent = false) => {
+    if (silent) {
+      if (silentRoomRefreshBusyRef.current) {
+        silentRoomRefreshAgainRef.current = true;
+        return;
+      }
+      silentRoomRefreshBusyRef.current = true;
+    }
     const primed = !silent && consumeRoomSnapshot(roomId);
     const shouldBlock = !silent && !loadedRef.current && !primed;
     if (shouldBlock) setLoading(true);
@@ -135,6 +148,13 @@ export function CommunityMessengerRoomClient({
         setSnapshot(null);
       }
     } finally {
+      if (silent) {
+        silentRoomRefreshBusyRef.current = false;
+        if (silentRoomRefreshAgainRef.current) {
+          silentRoomRefreshAgainRef.current = false;
+          void refresh(true);
+        }
+      }
       loadedRef.current = true;
       if (shouldBlock) setLoading(false);
     }
@@ -211,6 +231,50 @@ export function CommunityMessengerRoomClient({
     return friends.filter((friend) => !memberIds.has(friend.id));
   }, [friends, snapshot?.members]);
 
+  const dismissRoomSheet = useCallback(() => {
+    setActiveSheet(null);
+    setRoomSearchQuery("");
+  }, []);
+
+  const messageSearchResults = useMemo(() => {
+    const q = roomSearchQuery.trim().toLowerCase();
+    const base = roomMessages.filter((m) => m.messageType !== "system");
+    if (!q) return base;
+    return base.filter((m) => {
+      const preview = communityMessengerMessageSearchText(m);
+      const hay = `${m.senderLabel} ${preview}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [roomMessages, roomSearchQuery]);
+
+  const mediaGalleryMessages = useMemo(() => {
+    return roomMessages.filter((m) => {
+      if (m.messageType === "voice" || m.messageType === "image") return true;
+      if (m.messageType === "text") {
+        return looksLikeDirectImageUrl(m.content);
+      }
+      return false;
+    });
+  }, [roomMessages]);
+
+  const linkThreadMessages = useMemo(() => {
+    return roomMessages.filter((m) => {
+      if (m.messageType === "system" || m.messageType === "call_stub") return false;
+      return extractHttpUrls(m.content).length > 0;
+    });
+  }, [roomMessages]);
+
+  const scrollToRoomMessage = useCallback(
+    (messageId: string) => {
+      dismissRoomSheet();
+      window.requestAnimationFrame(() => {
+        const el = document.getElementById(`cm-room-msg-${messageId}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    },
+    [dismissRoomSheet]
+  );
+
   const loadFriends = useCallback(async () => {
     if (friendsLoaded) return;
     const res = await fetch("/api/community-messenger/friends", { cache: "no-store" });
@@ -228,7 +292,7 @@ export function CommunityMessengerRoomClient({
     onRefresh: () => refresh(true),
   });
   const call = groupCall;
-  const roomUnavailable = snapshot ? snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly : true;
+  const roomUnavailable = snapshot ? !communityMessengerRoomIsGloballyUsable(snapshot.room) : true;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   const permissionGuide = call.panel ? getCommunityMessengerPermissionGuide(call.panel.kind) : null;
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
@@ -254,6 +318,49 @@ export function CommunityMessengerRoomClient({
       ? t("nav_messenger_identity_alias")
       : t("nav_messenger_identity_real")
     : null;
+
+  const [minimizedCallSessionHint, setMinimizedCallSessionHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const r = sessionStorage.getItem("cm_minimized_call_room");
+      const s = sessionStorage.getItem("cm_minimized_call_session");
+      if (r === roomId && s) setMinimizedCallSessionHint(s);
+      else setMinimizedCallSessionHint(null);
+    } catch {
+      setMinimizedCallSessionHint(null);
+    }
+  }, [roomId, snapshot?.activeCall?.id, snapshot?.activeCall?.status]);
+
+  useEffect(() => {
+    /* 스냅샷 로딩 전에는 activeCall 을 알 수 없음 — null 로 dispose 하면 미니화(detached) 연결까지 끊긴다 */
+    if (loading) return;
+    void disposeDetachedCommunityCallIfStale(snapshot?.activeCall?.id ?? null);
+  }, [loading, snapshot?.activeCall?.id]);
+
+  useEffect(() => {
+    if (snapshot?.activeCall) return;
+    try {
+      sessionStorage.removeItem("cm_minimized_call_room");
+      sessionStorage.removeItem("cm_minimized_call_session");
+    } catch {
+      /* ignore */
+    }
+    setMinimizedCallSessionHint(null);
+  }, [snapshot?.activeCall?.id]);
+
+  const returnToCallSessionId = useMemo(() => {
+    const ac = snapshot?.activeCall;
+    if (
+      ac &&
+      ac.sessionMode === "direct" &&
+      ac.roomId === roomId &&
+      (ac.status === "active" || ac.status === "ringing")
+    ) {
+      return ac.id;
+    }
+    return minimizedCallSessionHint;
+  }, [minimizedCallSessionHint, roomId, snapshot?.activeCall]);
 
   const getRoomActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
@@ -318,6 +425,58 @@ export function CommunityMessengerRoomClient({
         return t("nav_messenger_action_failed");
     }
   }, [t]);
+
+  const toggleRoomMute = useCallback(async () => {
+    if (!snapshot) return;
+    const nextMuted = !snapshot.room.isMuted;
+    setBusy("room-mute");
+    try {
+      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "participant_settings", isMuted: nextMuted }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        alert(getRoomActionErrorMessage(json.error));
+        return;
+      }
+      setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, isMuted: nextMuted } } : prev));
+    } finally {
+      setBusy(null);
+    }
+  }, [getRoomActionErrorMessage, roomId, snapshot]);
+
+  const toggleRoomArchive = useCallback(async () => {
+    if (!snapshot) return;
+    const nextArchived = !snapshot.room.isArchivedByViewer;
+    setBusy("room-archive");
+    try {
+      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive", archived: nextArchived }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        alert(getRoomActionErrorMessage(json.error));
+        return;
+      }
+      setSnapshot((prev) =>
+        prev
+          ? {
+              ...prev,
+              room: {
+                ...prev.room,
+                isArchivedByViewer: nextArchived,
+              },
+            }
+          : prev
+      );
+    } finally {
+      setBusy(null);
+    }
+  }, [getRoomActionErrorMessage, roomId, snapshot]);
 
   const openCallPermissionHelp = useCallback(() => {
     if (openCommunityMessengerPermissionSettings()) return;
@@ -1131,7 +1290,7 @@ export function CommunityMessengerRoomClient({
         <button
           type="button"
           onClick={() => router.replace("/community-messenger?tab=chats")}
-          className="rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+          className="rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white"
         >
           {t("nav_messenger_home")}
         </button>
@@ -1159,13 +1318,13 @@ export function CommunityMessengerRoomClient({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            {!isGroupRoom && snapshot.room.roomStatus === "active" && !snapshot.room.isReadonly ? (
+            {!isGroupRoom && communityMessengerRoomIsGloballyUsable(snapshot.room) ? (
               <>
                 <button
                   type="button"
                   onClick={() => void startManagedDirectCall("voice")}
                   disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-[#06C755] transition hover:bg-[#06C755]/10 disabled:opacity-35"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 disabled:opacity-35"
                   aria-label={t("nav_voice_call_label")}
                 >
                   <VoiceCallIcon className="h-5 w-5" />
@@ -1174,13 +1333,24 @@ export function CommunityMessengerRoomClient({
                   type="button"
                   onClick={() => void startManagedDirectCall("video")}
                   disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-[#06C755] transition hover:bg-[#06C755]/10 disabled:opacity-35"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 disabled:opacity-35"
                   aria-label={t("nav_video_call_label")}
                 >
                   <VideoCallIcon className="h-5 w-5" />
                 </button>
               </>
             ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setRoomSearchQuery("");
+                setActiveSheet("search");
+              }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
+              aria-label="대화 내 검색"
+            >
+              <SearchIcon className="h-5 w-5" />
+            </button>
             <button
               type="button"
               onClick={() => setActiveSheet("menu")}
@@ -1195,7 +1365,7 @@ export function CommunityMessengerRoomClient({
 
       <div ref={messagesViewportRef} className="min-h-0 flex-1 overflow-y-auto">
         <main className="space-y-3 px-4 py-4 pb-6">
-          {snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly ? (
+          {!communityMessengerRoomIsGloballyUsable(snapshot.room) ? (
             <div className="rounded-ui-rect bg-amber-50 px-3 py-3 text-[13px] text-amber-800">
               {snapshot.room.roomStatus === "blocked"
                 ? t("nav_messenger_room_blocked_notice")
@@ -1211,7 +1381,7 @@ export function CommunityMessengerRoomClient({
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full bg-[#06C755]/10 px-3 py-1 text-[12px] font-semibold text-[#06C755]">
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-semibold text-gray-700">
               {t("tier1_messenger")}
             </span>
             <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700">
@@ -1239,20 +1409,30 @@ export function CommunityMessengerRoomClient({
             roomMessages.map((item) => (
               <div
                 key={item.id}
-                className={`flex ${item.isMine ? "justify-end" : "justify-start"}`}
+                id={`cm-room-msg-${item.id}`}
+                className={`flex scroll-mt-24 ${item.isMine ? "justify-end" : "justify-start"}`}
               >
                 <div className={`max-w-[78%] ${item.isMine ? "items-end" : "items-start"} flex flex-col gap-1`}>
                   <span className="text-[11px] text-gray-400">{tt(item.senderLabel)}</span>
                   <div
                     className={`rounded-ui-rect px-4 py-3 text-[14px] leading-5 shadow-sm ${
                       item.messageType === "call_stub"
-                        ? "bg-[#EEF9F2] text-[#15803D]"
+                        ? "bg-gray-100 text-gray-700"
                         : item.isMine
-                          ? "bg-[#06C755] text-white"
+                          ? "bg-gray-900 text-white"
                           : "bg-white text-gray-900"
                     }`}
                   >
-                    {item.messageType === "voice" ? (
+                    {item.messageType === "image" ? (
+                      <div className="overflow-hidden rounded-md">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.content.trim()}
+                          alt=""
+                          className="max-h-64 max-w-full object-cover"
+                        />
+                      </div>
+                    ) : item.messageType === "voice" ? (
                       <VoiceMessageBubble
                         src={communityMessengerVoiceAudioSrc(roomId, item)}
                         durationSeconds={item.voiceDurationSeconds ?? 0}
@@ -1377,17 +1557,17 @@ export function CommunityMessengerRoomClient({
                         : "보관된 방입니다"
                     : "메시지"
                 }
-                className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-ui-rect border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-[#06C755] disabled:bg-gray-100 disabled:text-gray-500"
+                className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-ui-rect border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-gray-400 disabled:bg-gray-100 disabled:text-gray-500"
               />
             ) : voiceHandsFree ? (
-              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sky-300/70 bg-[#eef6ff] px-3 py-2 shadow-inner ring-1 ring-sky-200/50">
+              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-gray-300 bg-gray-50 px-3 py-2 shadow-inner ring-1 ring-gray-200">
                 <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-900 sm:text-[14px]">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
                 </span>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
-                  <span className="shrink-0 text-center text-[12px] font-medium text-sky-800/90">잠금 녹음 중</span>
+                  <span className="shrink-0 text-center text-[12px] font-medium text-gray-700">잠금 녹음 중</span>
                 </div>
                 <button
                   type="button"
@@ -1400,14 +1580,14 @@ export function CommunityMessengerRoomClient({
                 <button
                   type="button"
                   onClick={() => void finalizeVoiceRecording(true)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white shadow-md"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white shadow-md"
                   aria-label="음성 전송"
                 >
                   <SendVoiceArrowIcon className="h-5 w-5 text-white" />
                 </button>
               </div>
             ) : (
-              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sky-300/70 bg-[#eef6ff] px-3 py-2 shadow-inner ring-1 ring-sky-200/50">
+              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-gray-300 bg-gray-50 px-3 py-2 shadow-inner ring-1 ring-gray-200">
                 <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-800 sm:text-[14px]">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
@@ -1415,7 +1595,7 @@ export function CommunityMessengerRoomClient({
                 <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
                 <span
                   className={`min-w-0 shrink-0 text-center text-[13px] ${
-                    voiceCancelHint ? "font-semibold text-red-600" : "text-sky-900/70"
+                    voiceCancelHint ? "font-semibold text-red-600" : "text-gray-600"
                   }`}
                 >
                   ‹ 밀어서 취소
@@ -1429,7 +1609,7 @@ export function CommunityMessengerRoomClient({
               {voiceRecording && !voiceHandsFree ? (
                 <div
                   className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-ui-rect px-2.5 py-2 shadow-md ${
-                    voiceLockHint ? "bg-[#2AABEE] text-white" : "bg-gray-700/88 text-white/75"
+                    voiceLockHint ? "bg-gray-900 text-white" : "bg-gray-700/88 text-white/75"
                   }`}
                 >
                   <span className="text-base leading-none">⌃</span>
@@ -1454,8 +1634,8 @@ export function CommunityMessengerRoomClient({
                 }
                 className={`touch-none flex h-11 w-11 shrink-0 origin-center select-none items-center justify-center rounded-full shadow-md transition-transform duration-200 active:scale-95 disabled:opacity-35 ${
                   voiceRecording && !voiceHandsFree
-                    ? "scale-110 bg-[#2AABEE] text-white ring-4 ring-sky-200/90 shadow-lg"
-                    : "bg-[#06C755]/12 text-[#06C755] ring-2 ring-[#06C755]/25"
+                    ? "scale-110 bg-gray-900 text-white ring-4 ring-gray-300 shadow-lg"
+                    : "bg-gray-200 text-gray-800 ring-2 ring-gray-300"
                 }`}
                 aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
                 title={
@@ -1482,7 +1662,7 @@ export function CommunityMessengerRoomClient({
                 busy === "send-voice" ||
                 busy === "delete-voice"
               }
-              className="rounded-ui-rect bg-[#06C755] px-3.5 py-3 text-[14px] font-semibold text-white disabled:opacity-40 sm:px-4"
+              className="rounded-ui-rect bg-gray-900 px-3.5 py-3 text-[14px] font-semibold text-white disabled:opacity-40 sm:px-4"
             >
               전송
             </button>
@@ -1495,14 +1675,14 @@ export function CommunityMessengerRoomClient({
       </footer>
 
       {activeSheet ? (
-        <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 px-4 pb-6" onClick={() => setActiveSheet(null)}>
+        <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 px-4 pb-6" onClick={dismissRoomSheet}>
           <div
             className="max-h-[78vh] w-full max-w-[520px] overflow-y-auto rounded-ui-rect bg-white p-5 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             {activeSheet === "menu" ? (
               <>
-                <p className="text-[13px] font-medium text-[#06C755]">채팅방 메뉴</p>
+                <p className="text-[13px] font-medium text-gray-700">채팅방 메뉴</p>
                 <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{snapshot.room.title}</h2>
                 <div className="mt-4 grid gap-2">
                   <button
@@ -1530,7 +1710,91 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveSheet(null);
+                      setRoomSearchQuery("");
+                      setActiveSheet("search");
+                    }}
+                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                  >
+                    <div>
+                      <p className="text-[15px] font-semibold text-gray-900">대화 내 검색</p>
+                      <p className="mt-1 text-[12px] text-gray-500">이 방 메시지에서 키워드를 찾습니다.</p>
+                    </div>
+                    <span className="text-[18px] text-gray-300">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("media")}
+                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                  >
+                    <div>
+                      <p className="text-[15px] font-semibold text-gray-900">미디어 모아보기</p>
+                      <p className="mt-1 text-[12px] text-gray-500">사진·음성 메시지를 한곳에서 봅니다.</p>
+                    </div>
+                    <span className="text-[18px] text-gray-300">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("links")}
+                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                  >
+                    <div>
+                      <p className="text-[15px] font-semibold text-gray-900">링크 모아보기</p>
+                      <p className="mt-1 text-[12px] text-gray-500">공유된 링크를 모아서 열 수 있습니다.</p>
+                    </div>
+                    <span className="text-[18px] text-gray-300">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void toggleRoomMute()}
+                    disabled={busy === "room-mute"}
+                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left disabled:opacity-40"
+                  >
+                    <div>
+                      <p className="text-[15px] font-semibold text-gray-900">
+                        {snapshot.room.isMuted ? "이 채팅방 알림 켜기" : "이 채팅방 알림 끄기"}
+                      </p>
+                      <p className="mt-1 text-[12px] text-gray-500">
+                        {snapshot.room.isMuted
+                          ? "현재 이 방의 새 메시지 알림이 꺼져 있습니다."
+                          : "현재 이 방의 새 메시지 알림을 개별적으로 끕니다."}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                        snapshot.room.isMuted ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {busy === "room-mute" ? "저장 중" : snapshot.room.isMuted ? "꺼짐" : "켜짐"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void toggleRoomArchive()}
+                    disabled={busy === "room-archive" || !communityMessengerRoomIsGloballyUsable(snapshot.room)}
+                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left disabled:opacity-40"
+                  >
+                    <div>
+                      <p className="text-[15px] font-semibold text-gray-900">
+                        {!snapshot.room.isArchivedByViewer ? "이 채팅방 보관" : "이 채팅방 보관 해제"}
+                      </p>
+                      <p className="mt-1 text-[12px] text-gray-500">
+                        {!snapshot.room.isArchivedByViewer
+                          ? "메인 리스트에서 정리할 수 있도록 이 방을 보관 상태로 전환합니다."
+                          : "보관된 방을 다시 일반 대화방으로 되돌립니다."}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                        !snapshot.room.isArchivedByViewer ? "bg-gray-100 text-gray-600" : "bg-gray-900 text-white"
+                      }`}
+                    >
+                      {busy === "room-archive" ? "저장 중" : !snapshot.room.isArchivedByViewer ? "활성" : "보관됨"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      dismissRoomSheet();
                       if (isGroupRoom) return;
                       void startManagedDirectCall("voice");
                     }}
@@ -1542,7 +1806,7 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveSheet(null);
+                      dismissRoomSheet();
                       if (isGroupRoom) return;
                       void startManagedDirectCall("video");
                     }}
@@ -1554,7 +1818,7 @@ export function CommunityMessengerRoomClient({
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveSheet(null);
+                      dismissRoomSheet();
                       void reportTarget({ reportType: "room" });
                     }}
                     className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-4 text-left text-[15px] font-semibold text-red-700"
@@ -1569,7 +1833,7 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-[#06C755]">{t("nav_messenger_participants")}</p>
+                    <p className="text-[13px] font-medium text-gray-700">{t("nav_messenger_participants")}</p>
                     <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{t("nav_messenger_participating_members")}</h2>
                   </div>
                   <button
@@ -1591,7 +1855,7 @@ export function CommunityMessengerRoomClient({
                   ))}
                 </div>
                 {isPrivateGroupRoom ? (
-                  <div className="mt-4 rounded-ui-rect bg-[#F8FAF9] p-4">
+                  <div className="mt-4 rounded-ui-rect bg-gray-50 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[14px] font-semibold text-gray-900">{t("nav_messenger_invite_members")}</p>
@@ -1620,7 +1884,7 @@ export function CommunityMessengerRoomClient({
                                   e.target.checked ? [...prev, friend.id] : prev.filter((id) => id !== friend.id)
                                 );
                               }}
-                              className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                              className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
                             />
                           </label>
                         ))
@@ -1632,7 +1896,7 @@ export function CommunityMessengerRoomClient({
                       type="button"
                       onClick={() => void inviteMembers()}
                       disabled={inviteIds.length === 0 || busy === "invite"}
-                      className="mt-3 rounded-ui-rect bg-[#06C755] px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                      className="mt-3 rounded-ui-rect bg-gray-900 px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
                     >
                       {t("nav_messenger_invite_selected_friends")}
                     </button>
@@ -1645,7 +1909,7 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-[#06C755]">{t("nav_messenger_room_info")}</p>
+                    <p className="text-[13px] font-medium text-gray-700">{t("nav_messenger_room_info")}</p>
                     <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{t("nav_messenger_room_details")}</h2>
                   </div>
                   <button
@@ -1693,7 +1957,7 @@ export function CommunityMessengerRoomClient({
                   </div>
 
                   {isOpenGroupRoom ? (
-                    <div className="rounded-ui-rect bg-[#F8FAF9] p-4">
+                    <div className="rounded-ui-rect bg-gray-50 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-[14px] font-semibold text-gray-900">{t("nav_messenger_open_group_settings")}</p>
@@ -1712,14 +1976,14 @@ export function CommunityMessengerRoomClient({
                             value={openGroupTitle}
                             onChange={(e) => setOpenGroupTitle(e.target.value)}
                             placeholder={t("nav_messenger_room_title_placeholder")}
-                            className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                            className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-gray-400"
                           />
                           <textarea
                             value={openGroupSummary}
                             onChange={(e) => setOpenGroupSummary(e.target.value)}
                             rows={3}
                             placeholder={t("nav_messenger_room_intro_placeholder")}
-                            className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-[#06C755]"
+                            className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-gray-400"
                           />
                           <div className="grid gap-3 md:grid-cols-2">
                             <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-gray-200 bg-white p-2">
@@ -1745,7 +2009,7 @@ export function CommunityMessengerRoomClient({
                               value={openGroupMemberLimit}
                               onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
                               placeholder={t("nav_messenger_member_limit_placeholder")}
-                              className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                              className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-gray-400"
                             />
                           </div>
                           {openGroupJoinPolicy === "password" ? (
@@ -1753,21 +2017,21 @@ export function CommunityMessengerRoomClient({
                               value={openGroupPassword}
                               onChange={(e) => setOpenGroupPassword(e.target.value)}
                               placeholder={t("nav_messenger_new_password_placeholder")}
-                              className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-[#06C755]"
+                              className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-gray-400"
                             />
                           ) : null}
                           <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-gray-200 bg-white p-2">
                             <button
                               type="button"
                               onClick={() => setOpenGroupIdentityPolicy("real_name")}
-                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
+                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
                             >
                               {t("nav_messenger_identity_real")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
-                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-[#06C755] text-white" : "bg-gray-100 text-gray-700"}`}
+                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
                             >
                               {t("nav_messenger_identity_alias")}
                             </button>
@@ -1781,7 +2045,7 @@ export function CommunityMessengerRoomClient({
                               type="checkbox"
                               checked={openGroupDiscoverable}
                               onChange={(e) => setOpenGroupDiscoverable(e.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                              className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
                             />
                           </label>
                           <button
@@ -1810,6 +2074,147 @@ export function CommunityMessengerRoomClient({
                 </div>
               </>
             ) : null}
+
+            {activeSheet === "search" ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-gray-700">이 방에서 검색</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">대화 내 검색</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("menu")}
+                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                  >
+                    {t("tier1_back")}
+                  </button>
+                </div>
+                <input
+                  value={roomSearchQuery}
+                  onChange={(e) => setRoomSearchQuery(e.target.value)}
+                  placeholder="키워드 (보낸 사람·내용)"
+                  className="mt-4 h-11 w-full rounded-ui-rect border border-gray-200 px-3 text-[14px] outline-none focus:border-gray-400"
+                  autoFocus
+                />
+                <div className="mt-3 max-h-[50vh] space-y-2 overflow-y-auto">
+                  {messageSearchResults.length ? (
+                    messageSearchResults.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => scrollToRoomMessage(m.id)}
+                        className="w-full rounded-ui-rect border border-gray-100 bg-gray-50 px-3 py-3 text-left"
+                      >
+                        <p className="text-[12px] font-medium text-gray-500">{tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
+                        <p className="mt-1 line-clamp-2 text-[14px] text-gray-900">{communityMessengerMessageSearchText(m)}</p>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="py-6 text-center text-[13px] text-gray-500">검색 결과가 없습니다.</p>
+                  )}
+                </div>
+              </>
+            ) : null}
+
+            {activeSheet === "media" ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-gray-700">이 방 미디어</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">사진·음성</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("menu")}
+                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                  >
+                    {t("tier1_back")}
+                  </button>
+                </div>
+                <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
+                  {mediaGalleryMessages.length ? (
+                    mediaGalleryMessages.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => scrollToRoomMessage(m.id)}
+                        className="flex w-full gap-3 rounded-ui-rect border border-gray-100 bg-gray-50 p-3 text-left"
+                      >
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-ui-rect bg-gray-200 text-[11px] font-semibold text-gray-600">
+                          {m.messageType === "voice" ? (
+                            "음성"
+                          ) : m.messageType === "image" || looksLikeDirectImageUrl(m.content) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={m.content.trim()} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            "미디어"
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] text-gray-500">{formatTime(m.createdAt)}</p>
+                          <p className="mt-0.5 truncate text-[14px] text-gray-900">
+                            {m.messageType === "voice"
+                              ? `음성 메시지${m.voiceDurationSeconds ? ` · ${m.voiceDurationSeconds}초` : ""}`
+                              : "사진"}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="py-8 text-center text-[13px] text-gray-500">아직 미디어 메시지가 없습니다.</p>
+                  )}
+                </div>
+              </>
+            ) : null}
+
+            {activeSheet === "links" ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-gray-700">이 방 링크</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">링크 모아보기</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet("menu")}
+                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                  >
+                    {t("tier1_back")}
+                  </button>
+                </div>
+                <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
+                  {linkThreadMessages.length ? (
+                    linkThreadMessages.map((m) => {
+                      const urls = extractHttpUrls(m.content);
+                      return (
+                        <div key={m.id} className="rounded-ui-rect border border-gray-100 bg-gray-50 p-3">
+                          <button type="button" onClick={() => scrollToRoomMessage(m.id)} className="w-full text-left">
+                            <p className="text-[12px] text-gray-500">{tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
+                            <p className="mt-1 line-clamp-2 text-[13px] text-gray-800">{m.content}</p>
+                          </button>
+                          <div className="mt-2 flex flex-col gap-1.5">
+                            {urls.map((url) => (
+                              <a
+                                key={`${m.id}:${url}`}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="truncate text-[13px] font-medium text-gray-900 underline decoration-gray-300"
+                              >
+                                {url}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="py-8 text-center text-[13px] text-gray-500">공유된 링크가 없습니다.</p>
+                  )}
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -1823,7 +2228,7 @@ export function CommunityMessengerRoomClient({
                 {call.panel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
               </span>
               {call.panel.mode === "active" ? (
-                <span className="rounded-full bg-[#06C755]/20 px-3 py-1 text-[12px] font-semibold text-[#86EFAC]">
+                <span className="rounded-full bg-gray-200 px-3 py-1 text-[12px] font-semibold text-gray-700">
                   {formatDuration(call.elapsedSeconds)}
                 </span>
               ) : null}
@@ -1855,7 +2260,7 @@ export function CommunityMessengerRoomClient({
                 </div>
               ) : (
                 <div className="flex h-[250px] flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,#1f2937,#020617)]">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#06C755]/90 text-[26px] font-semibold text-white">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gray-700 text-[26px] font-semibold text-white">
                     MIC
                   </div>
                   <p className="text-[13px] text-white/70">
@@ -1981,7 +2386,7 @@ export function CommunityMessengerRoomClient({
                     type="button"
                     onClick={() => void handleAcceptIncomingCall()}
                     disabled={call.busy === "call-accept"}
-                    className="flex-1 cursor-pointer touch-manipulation select-none rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
+                    className="flex-1 cursor-pointer touch-manipulation select-none rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-black hover:shadow-lg active:scale-[95%] active:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
                   >
                     수락
                   </button>
@@ -2042,6 +2447,32 @@ export function CommunityMessengerRoomClient({
           </div>
         </div>
       ) : null}
+
+      {!isGroupRoom && snapshot && returnToCallSessionId ? (
+        <div
+          className={`fixed left-3 right-3 z-40 flex items-center gap-3 rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 shadow-[0_8px_28px_rgba(17,24,39,0.12)] ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-gray-900">통화 진행 중</p>
+            <p className="truncate text-[12px] text-gray-500">채팅을 보면서 통화를 이어갈 수 있습니다.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                sessionStorage.removeItem("cm_minimized_call_room");
+                sessionStorage.removeItem("cm_minimized_call_session");
+              } catch {
+                /* ignore */
+              }
+              router.push(`/community-messenger/calls/${encodeURIComponent(returnToCallSessionId)}`);
+            }}
+            className="shrink-0 rounded-ui-rect bg-gray-900 px-3 py-2 text-[12px] font-semibold text-white"
+          >
+            통화 화면
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2083,6 +2514,23 @@ function VoiceRecordingLiveWaveform({ peaks, className }: { peaks: number[]; cla
       })}
     </div>
   );
+}
+
+function communityMessengerMessageSearchText(m: CommunityMessengerMessage & { pending?: boolean }): string {
+  if (m.messageType === "call_stub") return m.callKind === "video" ? "영상 통화" : "음성 통화";
+  if (m.messageType === "voice") return "음성 메시지";
+  if (m.messageType === "image") return m.content.trim() || "사진";
+  return m.content;
+}
+
+function looksLikeDirectImageUrl(raw: string): boolean {
+  const t = raw.trim();
+  return /^https?:\/\//i.test(t) && /\.(png|jpe?g|gif|webp|svg)(\?[^\s]*)?$/i.test(t);
+}
+
+function extractHttpUrls(text: string): string[] {
+  const matches = text.match(/https?:\/\/[^\s<>"')]+/gi);
+  return matches ?? [];
 }
 
 function communityMessengerVoiceAudioSrc(
@@ -2219,6 +2667,15 @@ function BackIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M20 20l-4.2-4.2" strokeLinecap="round" />
     </svg>
   );
 }

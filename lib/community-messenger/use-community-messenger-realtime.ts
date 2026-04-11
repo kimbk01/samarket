@@ -5,6 +5,9 @@ import type { MutableRefObject } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
+/** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
+const HOME_ROOMS_IN_FILTER_MAX = 90;
+
 function useStableCallback(callback: () => void) {
   const ref = useRef(callback);
   useEffect(() => {
@@ -71,6 +74,8 @@ export function useCommunityMessengerHomeRealtime(args: {
   onRefresh: () => void;
 }) {
   const callbackRef = useStableCallback(args.onRefresh);
+  /** 배열 참조와 무관하게 id 집합이 같으면 Realtime 재구독하지 않음 */
+  const roomIdsFingerprint = [...new Set((args.roomIds ?? []).filter(Boolean))].sort().join("\0");
 
   useEffect(() => {
     if (!args.enabled || !args.userId) return;
@@ -79,9 +84,9 @@ export function useCommunityMessengerHomeRealtime(args: {
 
     let cancelled = false;
     /** 목록·친구·요청 등 메타 변경은 묶어서 전체 리프레시 (과도한 GET 완화) */
-    const refreshScheduler = createRefreshScheduler(callbackRef, 450);
+    const refreshScheduler = createRefreshScheduler(callbackRef, 650);
     const channels: RealtimeChannel[] = [];
-    const roomIds = [...new Set((args.roomIds ?? []).filter(Boolean))];
+    const roomIds = roomIdsFingerprint.length ? roomIdsFingerprint.split("\0").filter(Boolean) : [];
 
     const subscribe = (name: string, register: (channel: RealtimeChannel) => RealtimeChannel) => {
       const channel = register(sb.channel(name)).subscribe();
@@ -103,15 +108,18 @@ export function useCommunityMessengerHomeRealtime(args: {
       )
     );
 
-    for (const roomId of roomIds) {
-      subscribe(`community-messenger-home:rooms:${args.userId}:${roomId}`, (channel) =>
+    /** 방당 1채널 대신 `id=in.(…)` 청크로 묶어 구독 수·재연결 비용을 줄임 (문서: in 최대 100값) */
+    for (let offset = 0; offset < roomIds.length; offset += HOME_ROOMS_IN_FILTER_MAX) {
+      const chunk = roomIds.slice(offset, offset + HOME_ROOMS_IN_FILTER_MAX);
+      const filter = `id=in.(${chunk.join(",")})`;
+      subscribe(`community-messenger-home:rooms-in:${args.userId}:${offset}`, (channel) =>
         channel.on(
           "postgres_changes",
           {
             event: "*",
             schema: "public",
             table: "community_messenger_rooms",
-            filter: `id=eq.${roomId}`,
+            filter,
           },
           () => {
             if (!cancelled) refreshScheduler.schedule();
@@ -180,8 +188,10 @@ export function useCommunityMessengerHomeRealtime(args: {
       )
     );
 
-    subscribe(`community-messenger-home:calls:caller:${args.userId}`, (channel) =>
-      channel.on(
+    /** 동일 테이블에 caller / peer 필터를 한 채널에 두 개의 postgres_changes 로 묶어 구독 수를 줄임 */
+    const callLogsChannel = sb
+      .channel(`community-messenger-home:call-logs:${args.userId}`)
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -193,10 +203,7 @@ export function useCommunityMessengerHomeRealtime(args: {
           if (!cancelled) refreshScheduler.schedule();
         }
       )
-    );
-
-    subscribe(`community-messenger-home:calls:peer:${args.userId}`, (channel) =>
-      channel.on(
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -208,7 +215,8 @@ export function useCommunityMessengerHomeRealtime(args: {
           if (!cancelled) refreshScheduler.schedule();
         }
       )
-    );
+      .subscribe();
+    channels.push(callLogsChannel);
 
     return () => {
       cancelled = true;
@@ -217,7 +225,7 @@ export function useCommunityMessengerHomeRealtime(args: {
         void sb.removeChannel(channel);
       }
     };
-  }, [args.enabled, args.roomIds, args.userId, callbackRef]);
+  }, [args.enabled, roomIdsFingerprint, args.userId, callbackRef]);
 }
 
 export function useCommunityMessengerRoomRealtime(args: {

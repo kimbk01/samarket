@@ -38,6 +38,10 @@ import type {
   CommunityMessengerManagedCallConnection,
 } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  attachDetachedCommunityCall,
+  takeDetachedCommunityCallCleanup,
+} from "@/lib/community-messenger/direct-call-minimize";
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
@@ -125,26 +129,46 @@ export function CommunityMessengerCallClient({
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const autoJoinBlockedRef = useRef(false);
+  /** true면 채팅으로 돌아가기(미니화) 중이라 언마운트 시 Agora 정리를 하지 않는다 */
+  const callMinimizeNavRef = useRef(false);
+  /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
+  const refreshSilentInFlightRef = useRef<Promise<CommunityMessengerCallSession | null> | null>(null);
+  /** postgres_changes 연속 이벤트로 GET 이 폭주하지 않게 묶는다 */
+  const sessionRealtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const permissionGuide = session ? getCommunityMessengerPermissionGuide(session.callKind) : null;
 
   const refreshSession = useCallback(
     async (silent = false): Promise<CommunityMessengerCallSession | null> => {
-      if (!silent) setLoading(true);
-      try {
-        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-          cache: "no-store",
-        });
-        const json = (await res.json().catch(() => ({}))) as SessionResponse;
-        const nextSession = res.ok && json.ok && json.session ? json.session : null;
-        setSession((prev) => (sessionsMeaningfullyEqual(prev, nextSession) ? prev : nextSession));
-        if (!nextSession && !silent) {
-          setErrorMessage("통화 세션을 찾지 못했습니다.");
-        }
-        return nextSession;
-      } finally {
-        if (!silent) setLoading(false);
+      if (silent && refreshSilentInFlightRef.current) {
+        return refreshSilentInFlightRef.current;
       }
+      const run = async (): Promise<CommunityMessengerCallSession | null> => {
+        if (!silent) setLoading(true);
+        try {
+          const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+            cache: "no-store",
+          });
+          const json = (await res.json().catch(() => ({}))) as SessionResponse;
+          const nextSession = res.ok && json.ok && json.session ? json.session : null;
+          setSession((prev) => (sessionsMeaningfullyEqual(prev, nextSession) ? prev : nextSession));
+          if (!nextSession && !silent) {
+            setErrorMessage("통화 세션을 찾지 못했습니다.");
+          }
+          return nextSession;
+        } finally {
+          if (!silent) setLoading(false);
+        }
+      };
+      if (silent) {
+        const p = run();
+        refreshSilentInFlightRef.current = p;
+        void p.finally(() => {
+          if (refreshSilentInFlightRef.current === p) refreshSilentInFlightRef.current = null;
+        });
+        return p;
+      }
+      return run();
     },
     [sessionId]
   );
@@ -178,6 +202,18 @@ export function CommunityMessengerCallClient({
       client.removeAllListeners();
     }
   }, []);
+
+  const disposeCallMedia = useCallback(async () => {
+    const sid = sessionRef.current?.id;
+    if (sid) {
+      const taken = takeDetachedCommunityCallCleanup(sid);
+      if (taken) {
+        await taken();
+        return;
+      }
+    }
+    await cleanupClient();
+  }, [cleanupClient]);
 
   const fetchConnection = useCallback(async (): Promise<CommunityMessengerManagedCallConnection> => {
     const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/token`, {
@@ -511,9 +547,18 @@ export function CommunityMessengerCallClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept" }),
       });
-      const json = (await res.json().catch(() => ({}))) as SessionResponse;
+      const json = (await res.json().catch(() => ({}))) as SessionResponse & { error?: string };
       if (!res.ok || !json.ok || !json.session) {
-        setErrorMessage("통화 수락 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        const code = json.error;
+        const msg =
+          code === "bad_action"
+            ? "이미 종료되었거나 수락할 수 없는 통화입니다."
+            : code === "forbidden"
+              ? "이 통화에 참여할 권한이 없습니다."
+              : code === "session_required"
+                ? "통화 정보를 찾을 수 없습니다."
+                : "통화 수락 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+        setErrorMessage(msg);
         return null;
       }
       setSession(json.session);
@@ -532,12 +577,12 @@ export function CommunityMessengerCallClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
       });
-      await cleanupClient();
+      await disposeCallMedia();
       router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
     } finally {
       setBusy(null);
     }
-  }, [cleanupClient, router, session]);
+  }, [disposeCallMedia, router, session]);
 
   const endCall = useCallback(async () => {
     if (!session) return;
@@ -548,16 +593,36 @@ export function CommunityMessengerCallClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: session.status === "ringing" ? "cancel" : "end", durationSeconds: elapsedSeconds }),
       });
-      await cleanupClient();
+      await disposeCallMedia();
       router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
     } finally {
       setBusy(null);
     }
-  }, [cleanupClient, elapsedSeconds, router, session]);
+  }, [disposeCallMedia, elapsedSeconds, router, session]);
+
+  const navigateToChatDuringCall = useCallback(() => {
+    if (!session) return;
+    const keepMediaConnected = joined || session.status === "active";
+    if (keepMediaConnected) {
+      attachDetachedCommunityCall(session.id, cleanupClient);
+      callMinimizeNavRef.current = true;
+      try {
+        sessionStorage.setItem("cm_minimized_call_session", session.id);
+        sessionStorage.setItem("cm_minimized_call_room", session.roomId);
+      } catch {
+        /* ignore */
+      }
+    }
+    router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
+  }, [cleanupClient, joined, router, session]);
 
   useEffect(() => {
     let cancelled = false;
     const bootstrap = async () => {
+      const prevDetached = takeDetachedCommunityCallCleanup(sessionId);
+      if (prevDetached) {
+        await prevDetached();
+      }
       const fromServer = initialSessionRef.current;
       const sessionUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`;
       const tokenUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/token`;
@@ -575,7 +640,8 @@ export function CommunityMessengerCallClient({
         void fetch(tokenUrl, { cache: "no-store" }).then((r) => {
           if (!cancelled) void storeToken(r);
         });
-        await refreshSession(true);
+        /* RSC initialSession 과 중복 대기하지 않음 — 백그라운드로만 최신화 */
+        void refreshSession(true);
         return;
       }
 
@@ -601,14 +667,25 @@ export function CommunityMessengerCallClient({
     void bootstrap();
     return () => {
       cancelled = true;
-      void cleanupClient();
+      if (callMinimizeNavRef.current) {
+        callMinimizeNavRef.current = false;
+        return;
+      }
+      void disposeCallMedia();
     };
-  }, [cleanupClient, refreshSession, sessionId]);
+  }, [disposeCallMedia, refreshSession, sessionId]);
 
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb || !sessionId) return;
     let channel: RealtimeChannel | null = null;
+    const scheduleRefresh = () => {
+      if (sessionRealtimeDebounceRef.current) clearTimeout(sessionRealtimeDebounceRef.current);
+      sessionRealtimeDebounceRef.current = setTimeout(() => {
+        sessionRealtimeDebounceRef.current = null;
+        void refreshSession(true);
+      }, 320);
+    };
     channel = sb
       .channel(`community-messenger-call-session:${sessionId}`)
       .on(
@@ -620,12 +697,16 @@ export function CommunityMessengerCallClient({
           filter: `id=eq.${sessionId}`,
         },
         () => {
-          void refreshSession(true);
+          scheduleRefresh();
         }
       )
       .subscribe();
 
     return () => {
+      if (sessionRealtimeDebounceRef.current) {
+        clearTimeout(sessionRealtimeDebounceRef.current);
+        sessionRealtimeDebounceRef.current = null;
+      }
       if (channel) void sb.removeChannel(channel);
     };
   }, [refreshSession, sessionId]);
@@ -637,9 +718,17 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     if (!session) return;
     if (!isTerminalCallSessionStatus(session.status)) return;
-    void cleanupClient();
-    router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
-  }, [cleanupClient, router, session?.id, session?.roomId, session?.status]);
+    const room = session.roomId;
+    void disposeCallMedia().then(() => {
+      try {
+        sessionStorage.removeItem("cm_minimized_call_session");
+        sessionStorage.removeItem("cm_minimized_call_room");
+      } catch {
+        /* ignore */
+      }
+      router.replace(`/community-messenger/rooms/${encodeURIComponent(room)}`);
+    });
+  }, [disposeCallMedia, router, session?.id, session?.roomId, session?.status]);
 
   useEffect(() => {
     const s = sessionRef.current;
@@ -698,10 +787,11 @@ export function CommunityMessengerCallClient({
     if (!session) return;
     let ms = 2000;
     if (session.sessionMode === "direct") {
-      if (session.status === "ringing") ms = 500;
-      else if (session.status === "active" && joined && remoteJoined) ms = 2800;
-      else if (session.status === "active" && joined) ms = 500;
-      else if (session.status === "active") ms = 650;
+      /* 수신/발신 벨 단계: 서버 부하 완화(Realtime 이 보조). 연결 후는 드물게만 폴링 */
+      if (session.status === "ringing") ms = 750;
+      else if (session.status === "active" && joined && remoteJoined) ms = 3200;
+      else if (session.status === "active" && joined) ms = 650;
+      else if (session.status === "active") ms = 800;
     }
     const timer = window.setInterval(() => {
       void refreshSession(true);
@@ -742,7 +832,7 @@ export function CommunityMessengerCallClient({
         <button
           type="button"
           onClick={() => router.replace("/community-messenger")}
-          className="rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
+          className="rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white"
         >
           메신저로 돌아가기
         </button>
@@ -770,7 +860,7 @@ export function CommunityMessengerCallClient({
           <header className="flex shrink-0 items-center justify-between py-4">
             <button
               type="button"
-              onClick={() => router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`)}
+              onClick={() => navigateToChatDuringCall()}
               className="rounded-full border border-white/15 px-3 py-2 text-[12px] font-medium text-white/85"
             >
               채팅으로
@@ -787,7 +877,7 @@ export function CommunityMessengerCallClient({
               <p className="text-[30px] font-semibold">{session.peerLabel}</p>
               <p className="mt-2 text-[14px] text-white/70">{statusLabel}</p>
               {joined && session.status === "active" ? (
-                <p className="mt-3 text-[13px] font-semibold text-[#86EFAC]">{formatDuration(elapsedSeconds)}</p>
+                <p className="mt-3 text-[13px] font-semibold text-white/80">{formatDuration(elapsedSeconds)}</p>
               ) : null}
             </div>
           ) : null}
@@ -844,10 +934,10 @@ export function CommunityMessengerCallClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`)}
+                    onClick={() => navigateToChatDuringCall()}
                     className="pointer-events-auto rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-medium text-white/95 backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.97]"
                   >
-                    채팅
+                    채팅으로
                   </button>
                 </div>
               </div>
@@ -952,7 +1042,7 @@ export function CommunityMessengerCallClient({
               </div>
             </div>
           ) : (
-            <div className="flex h-[min(52vw,280px)] w-[min(52vw,280px)] min-h-[200px] min-w-[200px] items-center justify-center rounded-full bg-[#06C755]/20 text-[clamp(28px,9vw,44px)] font-semibold text-[#86EFAC]">
+            <div className="flex h-[min(52vw,280px)] w-[min(52vw,280px)] min-h-[200px] min-w-[200px] items-center justify-center rounded-full bg-white/10 text-[clamp(28px,9vw,44px)] font-semibold text-white/85">
               MIC
             </div>
           )}
@@ -1080,7 +1170,7 @@ export function CommunityMessengerCallClient({
                     });
                   }}
                   disabled={busy === "accept" || busy === "join"}
-                  className="flex-1 rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                  className="flex-1 rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                 >
                   {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
                 </button>

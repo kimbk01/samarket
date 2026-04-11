@@ -85,6 +85,7 @@ type ParticipantRow = {
   unread_count: number | null;
   is_muted: boolean | null;
   is_pinned: boolean | null;
+  is_archived?: boolean | null;
   joined_at: string | null;
 };
 
@@ -194,6 +195,7 @@ type DevParticipant = {
   unreadCount: number;
   isMuted: boolean;
   isPinned: boolean;
+  isArchived: boolean;
   joinedAt: string;
 };
 
@@ -660,7 +662,9 @@ async function hydrateSelfProfile(userId: string): Promise<CommunityMessengerPro
   return me[0] ?? null;
 }
 
-async function listFriendRequests(userId: string): Promise<CommunityMessengerFriendRequest[]> {
+export async function listCommunityMessengerFriendRequests(
+  userId: string
+): Promise<CommunityMessengerFriendRequest[]> {
   const sb = getSupabaseOrNull();
   let rows: RequestRow[] = [];
   if (sb) {
@@ -772,6 +776,7 @@ function buildRoomSummaryFromHydratedMembers(
     joinPolicy === "password" &&
     trimText(isDbRoom ? room.password_hash : room.passwordHash).length > 0;
   const me = participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === userId);
+  const isArchivedByViewer = participantViewerArchived(me);
   const memberIds = dedupeParticipantUserIds(participants);
   const peers = memberIds.filter((id) => id !== userId);
   const peerProfilesBase = memberProfilesRaw.filter((profile) => profile.id !== userId);
@@ -805,6 +810,8 @@ function buildRoomSummaryFromHydratedMembers(
     summary: roomSummary,
     avatarUrl: roomAvatar || peerProfilesBase[0]?.avatarUrl || null,
     unreadCount: Math.max(0, Number(("unread_count" in (me ?? {}) ? (me as ParticipantRow).unread_count : (me as DevParticipant | undefined)?.unreadCount) ?? 0)),
+    isMuted: "is_muted" in (me ?? {}) ? (me as ParticipantRow).is_muted === true : false,
+    isPinned: "is_pinned" in (me ?? {}) ? (me as ParticipantRow).is_pinned === true : false,
     lastMessage: roomLastMessage || (roomType === "direct" ? "메시지를 보내 보세요." : "그룹 대화를 시작해 보세요."),
     lastMessageAt: roomLastAt,
     memberCount: memberIds.length,
@@ -819,6 +826,7 @@ function buildRoomSummaryFromHydratedMembers(
       roomProfileMap?.get(roomProfileKey(roomId, userId))
     )?.identityMode,
     peerUserId: roomType === "direct" ? peers[0] ?? null : null,
+    isArchivedByViewer,
   };
 }
 
@@ -838,9 +846,11 @@ function buildParticipantsByRoomMap(
 /**
  * Community Messenger — `hydrateProfiles` / 관계 조립 경로 (실 API 기준)
  *
- * - `getCommunityMessengerBootstrap`: 친구·차단·팔로우 ID, `fetchMyRoomsPayload`, 탐색 raw, 통화 로그 행을 모은 뒤
+ * - `fetchMyRoomsPayload`: 참가 방이 많으면 `last_message_at` 메타로 상위 `COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP`만 로드.
+ * - `getCommunityMessengerBootstrap`: 친구·차단·팔로우 ID, `fetchMyRoomsPayload`, (옵션) 탐색 raw, 통화 로그 행을 모은 뒤
  *   **단일** `hydrateProfiles` → `summarizeRoomsBatchWithProfileMap` + 통화 `roomSummaryMap` + `loadSessionMapsForCallLogs`.
- * - `listRooms` / `listDiscoverableOpenGroupRooms` / `listCalls`: 단독 엔드포인트에서 각각 **1회** 하이드레이션 (부트스트랩과는 별 요청).
+ *   `skipDiscoverable` 이면 탐색 오픈그룹 쿼리를 생략하고 `discoverableGroups` 는 빈 배열(클라이언트가 `open-groups`로 후속 로드).
+ * - `listCommunityMessengerMyChatsAndGroups` / `listDiscoverableOpenGroupRooms` / `listCommunityMessengerCallLogs`: 단독 엔드포인트에서 각각 **1회** 하이드레이션 (부트스트랩과는 별 요청).
  * - 방 상세 `getCommunityMessengerRoomDetail`: 해당 방 멤버만 **1회** `hydrateProfilesWithProfileMap`.
  * - `listCommunityMessengerFriends` / `searchCommunityMessengerUsers`: 목록·검색 전용 **1회**.
  * - `loadCallSessionParticipants` / `resolveCommunityMessengerGroupTitle`: 해당 작업 범위 **1회** (세션/그룹 제목용).
@@ -855,6 +865,13 @@ function participantRowUserId(p: ParticipantRow | DevParticipant): string {
 
 function dedupeParticipantUserIds(rows: Array<ParticipantRow | DevParticipant>): string[] {
   return dedupeIds(rows.map((p) => participantRowUserId(p)).filter((id): id is string => Boolean(id)));
+}
+
+function participantViewerArchived(me: ParticipantRow | DevParticipant | undefined): boolean {
+  if (!me) return false;
+  if ("is_archived" in me && (me as ParticipantRow).is_archived === true) return true;
+  if ("isArchived" in me && (me as DevParticipant).isArchived === true) return true;
+  return false;
 }
 
 function isDbCallLogRow(row: CallRow | DevCall): row is CallRow {
@@ -915,6 +932,11 @@ type MessengerRoomsPayload = {
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>;
 };
 
+/** 메신저 홈·부트스트랩에서 한 번에 실을 최대 방 수(최근 활동순). 초과분은 목록에서 제외(방 URL 직접 진입은 `getCommunityMessengerRoomSnapshot` 등 별도). */
+const COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP = 500;
+/** `id in (…)` 메타 조회 시 PostgREST URL 부담을 줄이기 위한 청크 크기 */
+const COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK = 120;
+
 async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayload> {
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
@@ -923,10 +945,27 @@ async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayloa
   if (sb) {
     const { data: myParticipants, error: myParticipantsError } = await (sb as any)
       .from("community_messenger_participants")
-      .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, joined_at")
+      .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
       .eq("user_id", userId);
     if (!myParticipantsError || !isMissingTableError(myParticipantsError)) {
-      const roomIds = dedupeIds(((myParticipants ?? []) as ParticipantRow[]).map((row) => row.room_id));
+      let roomIds = dedupeIds(((myParticipants ?? []) as ParticipantRow[]).map((row) => row.room_id));
+      if (roomIds.length > COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP) {
+        const metas: Array<{ id: string; lastAt: string }> = [];
+        for (let i = 0; i < roomIds.length; i += COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK) {
+          const chunk = roomIds.slice(i, i + COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK);
+          const { data: metaRows } = await (sb as any)
+            .from("community_messenger_rooms")
+            .select("id, last_message_at")
+            .in("id", chunk);
+          for (const row of (metaRows ?? []) as Array<{ id?: string; last_message_at?: string | null }>) {
+            const id = trimText(row.id);
+            if (!id) continue;
+            metas.push({ id, lastAt: trimText(row.last_message_at) || "" });
+          }
+        }
+        metas.sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+        roomIds = metas.slice(0, COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP).map((m) => m.id);
+      }
       if (roomIds.length) {
         const [{ data: rooms }, { data: participants }] = await Promise.all([
           (sb as any)
@@ -938,7 +977,7 @@ async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayloa
             .order("last_message_at", { ascending: false }),
           (sb as any)
             .from("community_messenger_participants")
-            .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, joined_at")
+            .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
             .in("room_id", roomIds),
         ]);
         roomRows = (rooms ?? []) as RoomRow[];
@@ -949,34 +988,18 @@ async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayloa
 
   if (!roomRows.length) {
     const dev = getDevState();
-    const roomIds = dedupeIds(dev.participants.filter((row) => row.userId === userId).map((row) => row.roomId));
+    let roomIds = dedupeIds(dev.participants.filter((row) => row.userId === userId).map((row) => row.roomId));
     roomRows = dev.rooms
       .filter((room) => roomIds.includes(room.id))
-      .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+      .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
+      .slice(0, COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP);
+    roomIds = roomRows.map((room) => room.id);
     participantRows = dev.participants.filter((row) => roomIds.includes(row.roomId));
   }
 
   const byRoomId = buildParticipantsByRoomMap(participantRows);
   const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
   return { roomRows, participantRows, byRoomId, roomProfileMap };
-}
-
-async function listRooms(userId: string): Promise<{
-  chats: CommunityMessengerRoomSummary[];
-  groups: CommunityMessengerRoomSummary[];
-}> {
-  const payload = await fetchMyRoomsPayload(userId);
-  const summaries = await summarizeRoomsBatch(
-    userId,
-    payload.roomRows,
-    payload.participantRows,
-    payload.roomProfileMap,
-    payload.byRoomId
-  );
-  return {
-    chats: summaries.filter((room) => room.roomType === "direct"),
-    groups: summaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType)),
-  };
 }
 
 async function fetchRoomsPayloadByRoomIds(roomIds: string[]): Promise<MessengerRoomsPayload> {
@@ -1004,7 +1027,7 @@ async function fetchRoomsPayloadByRoomIds(roomIds: string[]): Promise<MessengerR
         .in("id", uniqueRoomIds),
       (sb as any)
         .from("community_messenger_participants")
-        .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, joined_at")
+        .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
         .in("room_id", uniqueRoomIds),
     ]);
     if (!roomsError || !isMissingTableError(roomsError)) {
@@ -1055,7 +1078,7 @@ async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<Disc
   let joinedRoomIds = new Set<string>();
 
   if (sb) {
-    const [{ data: rooms, error: roomsError }, { data: participants }, { data: myParticipants }] = await Promise.all([
+    const [{ data: rooms, error: roomsError }, { data: myParticipants }] = await Promise.all([
       (sb as any)
         .from("community_messenger_rooms")
         .select(
@@ -1067,17 +1090,19 @@ async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<Disc
         .limit(50),
       (sb as any)
         .from("community_messenger_participants")
-        .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, joined_at")
-        .limit(2000),
-      (sb as any)
-        .from("community_messenger_participants")
         .select("room_id")
         .eq("user_id", userId),
     ]);
     if (!roomsError || !isMissingTableError(roomsError)) {
       roomRows = (rooms ?? []) as RoomRow[];
-      const roomIds = new Set(roomRows.map((room) => room.id));
-      participantRows = ((participants ?? []) as ParticipantRow[]).filter((row) => roomIds.has(row.room_id));
+      const roomIdList = dedupeIds(roomRows.map((room) => room.id));
+      if (roomIdList.length) {
+        const { data: participants } = await (sb as any)
+          .from("community_messenger_participants")
+          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+          .in("room_id", roomIdList);
+        participantRows = (participants ?? []) as ParticipantRow[];
+      }
       joinedRoomIds = new Set(
         ((myParticipants ?? []) as Array<{ room_id?: string | null }>)
           .map((row) => trimText(row.room_id))
@@ -1324,7 +1349,7 @@ function buildCallLogEntriesFromRows(
   });
 }
 
-async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
+export async function listCommunityMessengerCallLogs(userId: string): Promise<CommunityMessengerCallLog[]> {
   const rows = await fetchCallLogRowsOnly(userId);
   const roomIds = dedupeIds(
     rows.map((row) => callLogRoomId(row)).filter((value): value is string => Boolean(value))
@@ -1357,6 +1382,28 @@ async function listCalls(userId: string): Promise<CommunityMessengerCallLog[]> {
   );
   const { sessionMap, participantsBySession } = await loadSessionMapsForCallLogs(userId, sessionIds, profileById);
   return buildCallLogEntriesFromRows(userId, rows, profileById, roomMetaMap, sessionMap, participantsBySession);
+}
+
+/** `GET /api/community-messenger/rooms` 전용 — 부트스트랩 전체 없이 내 채팅·그룹 목록만 조립 */
+export async function listCommunityMessengerMyChatsAndGroups(userId: string): Promise<{
+  chats: CommunityMessengerRoomSummary[];
+  groups: CommunityMessengerRoomSummary[];
+}> {
+  const myPayload = await fetchMyRoomsPayload(userId);
+  const allIds = dedupeIds([userId, ...dedupeParticipantUserIds(myPayload.participantRows)]);
+  const profileById = new Map(
+    (await hydrateProfiles(userId, allIds, { includeSelf: true })).map((p) => [p.id, p])
+  );
+  const mySummaries = summarizeRoomsBatchWithProfileMap(
+    userId,
+    myPayload.roomRows,
+    myPayload.roomProfileMap,
+    myPayload.byRoomId,
+    profileById
+  );
+  const chats = mySummaries.filter((room) => room.roomType === "direct");
+  const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+  return { chats, groups };
 }
 
 async function loadCallSessionParticipants(
@@ -1724,15 +1771,25 @@ async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): P
 }
 
 export async function getCommunityMessengerBootstrap(
-  userId: string
+  userId: string,
+  options?: { skipDiscoverable?: boolean }
 ): Promise<CommunityMessengerBootstrap> {
+  const skipDiscoverable = options?.skipDiscoverable === true;
   const [friendIds, followingIds, blockedIds, requests, myPayload, discState, callRows] = await Promise.all([
     listAcceptedFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
     listFollowingIds(userId, "blocked"),
-    listFriendRequests(userId),
+    listCommunityMessengerFriendRequests(userId),
     fetchMyRoomsPayload(userId),
-    fetchDiscoverableOpenGroupsRawState(userId),
+    skipDiscoverable
+      ? Promise.resolve<DiscoverableOpenGroupsRawState>({
+          roomRows: [],
+          participantRows: [],
+          byRoomId: new Map(),
+          roomProfileMap: new Map(),
+          joinedRoomIds: new Set(),
+        })
+      : fetchDiscoverableOpenGroupsRawState(userId),
     fetchCallLogRowsOnly(userId),
   ]);
 
@@ -2130,12 +2187,15 @@ export async function removeCommunityMessengerFriend(
         return { ok: false, error: String(error.message ?? "friend_remove_failed") };
       }
     }
-    await (sb as any)
+    const { error: favoriteDeleteError } = await (sb as any)
       .from("community_friend_favorites")
       .delete()
       .or(
         `and(user_id.eq.${userId},target_user_id.eq.${target}),and(user_id.eq.${target},target_user_id.eq.${userId})`
       );
+    if (favoriteDeleteError && !isMissingTableError(favoriteDeleteError)) {
+      return { ok: false, error: String(favoriteDeleteError.message ?? "friend_favorite_cleanup_failed") };
+    }
     return { ok: true };
   }
 
@@ -2265,6 +2325,7 @@ export async function ensureCommunityMessengerDirectRoom(
       unreadCount: 0,
       isMuted: false,
       isPinned: false,
+      isArchived: false,
       joinedAt: createdAt,
     },
     {
@@ -2275,6 +2336,7 @@ export async function ensureCommunityMessengerDirectRoom(
       unreadCount: 0,
       isMuted: false,
       isPinned: false,
+      isArchived: false,
       joinedAt: createdAt,
     }
   );
@@ -2394,6 +2456,7 @@ export async function createPrivateGroupRoom(input: {
       unreadCount: 0,
       isMuted: false,
       isPinned: false,
+      isArchived: false,
       joinedAt: createdAt,
     });
   }
@@ -2513,6 +2576,7 @@ export async function createOpenGroupRoom(input: {
     unreadCount: 0,
     isMuted: false,
     isPinned: false,
+    isArchived: false,
     joinedAt: createdAt,
   });
   const roomProfile = await upsertRoomIdentityProfile({
@@ -2599,6 +2663,7 @@ export async function inviteCommunityMessengerGroupMembers(input: {
       unreadCount: 0,
       isMuted: false,
       isPinned: false,
+      isArchived: false,
       joinedAt: nowIso(),
     });
   }
@@ -2690,6 +2755,7 @@ export async function joinOpenGroupRoomWithPassword(input: {
       unreadCount: 0,
       isMuted: false,
       isPinned: false,
+      isArchived: false,
       joinedAt: nowIso(),
     });
   }
@@ -2816,6 +2882,130 @@ export async function leaveCommunityMessengerRoom(input: {
   return { ok: true };
 }
 
+export async function updateCommunityMessengerParticipantSettings(input: {
+  userId: string;
+  roomId: string;
+  isMuted?: boolean;
+  isPinned?: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: participant, error: participantError } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    if (participantError && !isMissingTableError(participantError)) {
+      return { ok: false, error: String(participantError.message ?? "participant_lookup_failed") };
+    }
+    if (participant) {
+      const patch: Record<string, boolean> = {};
+      if (typeof input.isMuted === "boolean") patch.is_muted = input.isMuted;
+      if (typeof input.isPinned === "boolean") patch.is_pinned = input.isPinned;
+      if (Object.keys(patch).length === 0) return { ok: true };
+      const { error } = await (sb as any)
+        .from("community_messenger_participants")
+        .update(patch)
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId);
+      if (!error) return { ok: true };
+      if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_settings_update_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const participant = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  if (!participant || "user_id" in participant) return { ok: false, error: "room_not_found" };
+  if (typeof input.isMuted === "boolean") participant.isMuted = input.isMuted;
+  if (typeof input.isPinned === "boolean") participant.isPinned = input.isPinned;
+  return { ok: true };
+}
+
+export async function markCommunityMessengerRoomAsRead(input: {
+  userId: string;
+  roomId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: participant, error: participantError } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    if (participantError && !isMissingTableError(participantError)) {
+      return { ok: false, error: String(participantError.message ?? "participant_lookup_failed") };
+    }
+    if (participant) {
+      const { error } = await (sb as any)
+        .from("community_messenger_participants")
+        .update({ unread_count: 0, last_read_at: nowIso() })
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId);
+      if (!error) return { ok: true };
+      if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_read_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const participant = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  if (!participant || "user_id" in participant) return { ok: false, error: "room_not_found" };
+  participant.unreadCount = 0;
+  return { ok: true };
+}
+
+export async function updateCommunityMessengerRoomArchiveState(input: {
+  userId: string;
+  roomId: string;
+  archived: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: participant, error: participantError } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    if (participantError && !isMissingTableError(participantError)) {
+      return { ok: false, error: String(participantError.message ?? "participant_lookup_failed") };
+    }
+    if (participant) {
+      const { error } = await (sb as any)
+        .from("community_messenger_participants")
+        .update({ is_archived: input.archived })
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId);
+      if (!error) return { ok: true };
+      if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_archive_update_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  const participant = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  if (!room || !participant || "user_id" in participant) return { ok: false, error: "room_not_found" };
+  if ("room_type" in room) return { ok: false, error: "room_not_found" };
+  participant.isArchived = input.archived;
+  return { ok: true };
+}
+
 export async function getCommunityMessengerRoomSnapshot(
   userId: string,
   roomId: string
@@ -2829,7 +3019,7 @@ export async function getCommunityMessengerRoomSnapshot(
   if (sb) {
     const { data: myParticipant } = await (sb as any)
       .from("community_messenger_participants")
-      .select("id, role")
+      .select("id, role, is_archived")
       .eq("room_id", id)
       .eq("user_id", userId)
       .maybeSingle();
@@ -2844,7 +3034,7 @@ export async function getCommunityMessengerRoomSnapshot(
           .maybeSingle(),
         (sb as any)
           .from("community_messenger_participants")
-          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, joined_at")
+          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
           .eq("room_id", id),
         (sb as any)
           .from("community_messenger_messages")

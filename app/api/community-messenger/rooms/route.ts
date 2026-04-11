@@ -11,18 +11,18 @@ import {
   createOpenGroupRoom,
   createPrivateGroupRoom,
   ensureCommunityMessengerDirectRoom,
-  getCommunityMessengerBootstrap,
   getCommunityMessengerRoomSnapshot,
+  listCommunityMessengerMyChatsAndGroups,
 } from "@/lib/community-messenger/service";
 
 export async function GET() {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const data = await getCommunityMessengerBootstrap(auth.userId);
+  const { chats, groups } = await listCommunityMessengerMyChatsAndGroups(auth.userId);
   return jsonOk({
-    chats: data.chats,
-    groups: data.groups,
+    chats,
+    groups,
   });
 }
 

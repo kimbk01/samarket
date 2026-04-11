@@ -17,18 +17,29 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 const INCOMING_CALL_REFRESH_INTERVAL_MS = 12_000;
 const INCOMING_CALL_REFRESH_COOLDOWN_MS = 2_500;
+/** Realtime·포커스가 연속으로 터질 때 수신 통화 GET 폭주 방지 */
+const INCOMING_CALL_BURST_MIN_GAP_MS = 2_500;
+const QUICK_REPLY_OPTIONS = [
+  "지금 통화가 어려워요. 채팅으로 남겨 주세요.",
+  "잠시 후 다시 연락드릴게요.",
+  "회의 중입니다. 메시지 부탁드려요.",
+] as const;
 
 export function GlobalCommunityMessengerIncomingCall() {
   const { t } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<CommunityMessengerCallSession[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [minimizedSessionId, setMinimizedSessionId] = useState<string | null>(null);
+  const [replySheetSessionId, setReplySheetSessionId] = useState<string | null>(null);
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const refreshTimerIdsRef = useRef<number[]>([]);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const lastRefreshAtRef = useRef(0);
+  const lastBurstAtRef = useRef(0);
+  const pendingBurstTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
@@ -75,15 +86,27 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, []);
 
   const queueRefreshBurst = useCallback(() => {
-    void refresh(true);
-    for (const timerId of refreshTimerIdsRef.current) {
-      window.clearTimeout(timerId);
+    const runBurst = () => {
+      lastBurstAtRef.current = Date.now();
+      pendingBurstTimerRef.current = null;
+      void refresh(true);
+      for (const timerId of refreshTimerIdsRef.current) {
+        window.clearTimeout(timerId);
+      }
+      refreshTimerIdsRef.current = [900, 2400].map((delay) =>
+        window.setTimeout(() => {
+          void refresh(true);
+        }, delay)
+      );
+    };
+    const now = Date.now();
+    const gap = now - lastBurstAtRef.current;
+    if (gap >= INCOMING_CALL_BURST_MIN_GAP_MS) {
+      runBurst();
+      return;
     }
-    refreshTimerIdsRef.current = [900, 2400].map((delay) =>
-      window.setTimeout(() => {
-        void refresh(true);
-      }, delay)
-    );
+    if (pendingBurstTimerRef.current != null) return;
+    pendingBurstTimerRef.current = window.setTimeout(runBurst, INCOMING_CALL_BURST_MIN_GAP_MS - gap);
   }, [refresh]);
 
   useEffect(() => {
@@ -166,6 +189,10 @@ export function GlobalCommunityMessengerIncomingCall() {
         window.clearTimeout(timerId);
       }
       refreshTimerIdsRef.current = [];
+      if (pendingBurstTimerRef.current != null) {
+        window.clearTimeout(pendingBurstTimerRef.current);
+        pendingBurstTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -180,7 +207,22 @@ export function GlobalCommunityMessengerIncomingCall() {
     seenIdsRef.current = nextIds;
   }, [incomingCallBannerEnabled, incomingCallSoundEnabled, sessions]);
 
+  useEffect(() => {
+    if (!minimizedSessionId) return;
+    if (!sessions.some((session) => session.id === minimizedSessionId)) {
+      setMinimizedSessionId(null);
+    }
+  }, [minimizedSessionId, sessions]);
+
+  useEffect(() => {
+    if (!replySheetSessionId) return;
+    if (!sessions.some((session) => session.id === replySheetSessionId)) {
+      setReplySheetSessionId(null);
+    }
+  }, [replySheetSessionId, sessions]);
+
   const visibleSession = incomingCallBannerEnabled ? sessions[0] ?? null : null;
+  const isMinimized = Boolean(visibleSession && minimizedSessionId === visibleSession.id);
 
   useEffect(() => {
     if (!visibleSession) return;
@@ -214,6 +256,8 @@ export function GlobalCommunityMessengerIncomingCall() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
       });
+      setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
+      setReplySheetSessionId((prev) => (prev === sessionId ? null : prev));
       await refresh();
     } finally {
       setBusyId(null);
@@ -254,38 +298,206 @@ export function GlobalCommunityMessengerIncomingCall() {
     })();
   }, []);
 
+  const blockCaller = useCallback(async (session: CommunityMessengerCallSession) => {
+    if (!session.peerUserId) return;
+    if (!window.confirm(`${session.peerLabel}님을 차단할까요? 메신저 친구 관계와 수신 통화에 영향을 줄 수 있습니다.`)) {
+      return;
+    }
+    setBusyId(`block:${session.id}`);
+    try {
+      try {
+        await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}/signals`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            toUserId: session.peerUserId,
+            signalType: "hangup",
+            payload: { reason: "reject" },
+          }),
+        });
+      } catch {
+        /* ignore */
+      }
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      }).catch(() => undefined);
+      const res = await fetch("/api/community/block-relations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: session.peerUserId }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (!res.ok || !json.ok) {
+        window.alert("차단 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      setSessions((prev) => prev.filter((item) => item.id !== session.id));
+      setMinimizedSessionId((prev) => (prev === session.id ? null : prev));
+      setReplySheetSessionId((prev) => (prev === session.id ? null : prev));
+      await refresh(true);
+    } finally {
+      setBusyId(null);
+    }
+  }, [refresh]);
+
+  const sendQuickReplyAndReject = useCallback(async (session: CommunityMessengerCallSession, content: string) => {
+    const trimmedContent = content.trim();
+    if (!trimmedContent) return;
+    setBusyId(`reply:${session.id}`);
+    try {
+      const messageRes = await fetch(
+        `/api/community-messenger/rooms/${encodeURIComponent(session.roomId)}/messages`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: trimmedContent }),
+        }
+      );
+      const messageJson = (await messageRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!messageRes.ok || !messageJson.ok) {
+        window.alert(messageJson.error ?? "응답 메시지를 전송하지 못했습니다.");
+        return;
+      }
+      if (session.peerUserId) {
+        try {
+          await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}/signals`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              toUserId: session.peerUserId,
+              signalType: "hangup",
+              payload: { reason: "reject" },
+            }),
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      }).catch(() => undefined);
+      setReplySheetSessionId(null);
+      setMinimizedSessionId((prev) => (prev === session.id ? null : prev));
+      setSessions((prev) => prev.filter((item) => item.id !== session.id));
+      await refresh(true);
+    } finally {
+      setBusyId(null);
+    }
+  }, [refresh]);
+
   if (!visibleSession) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/35" aria-hidden />
       <div className="relative mx-auto w-full max-w-[520px] px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-        <div className="rounded-t-[16px] border border-gray-200 bg-white p-4 shadow-[0_-8px_40px_rgba(0,0,0,0.18)]">
-        <p className="text-center text-[12px] font-semibold text-[#06C755]">{t("nav_incoming_call")}</p>
-        <h2 className="mt-2 text-center text-[20px] font-bold text-gray-900">{visibleSession.peerLabel}</h2>
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={() => void rejectCall(visibleSession.id)}
-            disabled={busyId === `reject:${visibleSession.id}`}
-            className="cursor-pointer touch-manipulation rounded-ui-rect border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/40 focus-visible:ring-offset-2"
-          >
-            {t("common_reject")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void acceptCall(visibleSession)}
-            disabled={busyId === `accept:${visibleSession.id}` || visibleSession.sessionMode === "group"}
-            className="flex-1 cursor-pointer touch-manipulation select-none rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-[#05b34c] hover:shadow-lg active:scale-[95%] active:bg-[#049c42] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06C755]/50 focus-visible:ring-offset-2"
-          >
-            {visibleSession.sessionMode === "group"
-              ? t("nav_group_call_coming_soon")
-              : busyId === `accept:${visibleSession.id}`
-                ? `${t("common_loading")}`
-                : t("common_accept")}
-          </button>
-        </div>
-        </div>
+        {isMinimized ? (
+          <div className="ml-auto flex w-full max-w-[280px] items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+            <button
+              type="button"
+              onClick={() => setMinimizedSessionId(null)}
+              className="min-w-0 flex-1 touch-manipulation text-left"
+            >
+              <p className="truncate text-[13px] font-semibold text-gray-900">{visibleSession.peerLabel}</p>
+              <p className="truncate text-[11px] text-gray-500">{visibleSession.callKind === "video" ? "영상 통화 수신" : "음성 통화 수신"}</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => void rejectCall(visibleSession.id)}
+              disabled={busyId === `reject:${visibleSession.id}` || busyId === `block:${visibleSession.id}`}
+              className="touch-manipulation rounded-full border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700 disabled:opacity-40"
+            >
+              거절
+            </button>
+            <button
+              type="button"
+              onClick={() => void acceptCall(visibleSession)}
+              disabled={busyId === `accept:${visibleSession.id}` || visibleSession.sessionMode === "group"}
+              className="touch-manipulation rounded-full bg-gray-900 px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
+            >
+              수락
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-t-[16px] border border-gray-200 bg-white p-4 shadow-[0_-8px_40px_rgba(0,0,0,0.18)]">
+            <p className="text-center text-[12px] font-semibold text-gray-600">{t("nav_incoming_call")}</p>
+            <h2 className="mt-2 text-center text-[20px] font-bold text-gray-900">{visibleSession.peerLabel}</h2>
+            <p className="mt-1 text-center text-[13px] text-gray-500">
+              {visibleSession.callKind === "video" ? "영상 통화" : "음성 통화"}
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setMinimizedSessionId(visibleSession.id)}
+                className="cursor-pointer touch-manipulation rounded-ui-rect border border-gray-200 px-4 py-3 text-[13px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100"
+              >
+                최소화
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setReplySheetSessionId((prev) => (prev === visibleSession.id ? null : visibleSession.id))
+                }
+                disabled={busyId === `reply:${visibleSession.id}`}
+                className="cursor-pointer touch-manipulation rounded-ui-rect border border-gray-200 px-4 py-3 text-[13px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-40"
+              >
+                메시지 응답
+              </button>
+              <button
+                type="button"
+                onClick={() => void blockCaller(visibleSession)}
+                disabled={busyId === `block:${visibleSession.id}`}
+                className="cursor-pointer touch-manipulation rounded-ui-rect border border-red-200 px-4 py-3 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50 active:bg-red-100 disabled:opacity-40"
+              >
+                {busyId === `block:${visibleSession.id}` ? "차단 중..." : "차단"}
+              </button>
+            </div>
+            {replySheetSessionId === visibleSession.id ? (
+              <div className="mt-2 rounded-ui-rect border border-gray-200 bg-gray-50 p-2">
+                <p className="px-1 pb-2 text-[11px] font-medium text-gray-500">메시지를 보내고 통화를 거절합니다.</p>
+                <div className="grid gap-2">
+                  {QUICK_REPLY_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => void sendQuickReplyAndReject(visibleSession, option)}
+                      disabled={busyId === `reply:${visibleSession.id}`}
+                      className="touch-manipulation rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-40"
+                    >
+                      {busyId === `reply:${visibleSession.id}` ? "전송 중..." : option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void rejectCall(visibleSession.id)}
+                disabled={busyId === `reject:${visibleSession.id}` || busyId === `block:${visibleSession.id}`}
+                className="cursor-pointer touch-manipulation rounded-ui-rect border border-gray-200 px-4 py-3 text-[14px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2"
+              >
+                {t("common_reject")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void acceptCall(visibleSession)}
+                disabled={busyId === `accept:${visibleSession.id}` || visibleSession.sessionMode === "group"}
+                className="flex-1 cursor-pointer touch-manipulation select-none rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white shadow-md transition-[transform,colors] duration-150 hover:bg-black hover:shadow-lg active:scale-[95%] active:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2"
+              >
+                {visibleSession.sessionMode === "group"
+                  ? t("nav_group_call_coming_soon")
+                  : busyId === `accept:${visibleSession.id}`
+                    ? `${t("common_loading")}`
+                    : t("common_accept")}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

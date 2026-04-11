@@ -16,16 +16,18 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   const fresh = new URL(request.url).searchParams.get("fresh") === "1";
+  const lite = new URL(request.url).searchParams.get("lite") === "1";
+  const cacheKey = `${auth.userId}:${lite ? "lite" : "full"}`;
   for (const [key, entry] of communityMessengerBootstrapCache) {
     if (entry.expiresAt <= Date.now()) {
       communityMessengerBootstrapCache.delete(key);
     }
   }
 
-  let data = communityMessengerBootstrapCache.get(auth.userId)?.payload;
+  let data = communityMessengerBootstrapCache.get(cacheKey)?.payload;
   if (!data || fresh) {
-    data = await getCommunityMessengerBootstrap(auth.userId);
-    communityMessengerBootstrapCache.set(auth.userId, {
+    data = await getCommunityMessengerBootstrap(auth.userId, { skipDiscoverable: lite });
+    communityMessengerBootstrapCache.set(cacheKey, {
       payload: data,
       expiresAt: Date.now() + COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS,
     });

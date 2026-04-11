@@ -5,6 +5,7 @@ import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/ty
 
 const DELETE_WIDTH = 72;
 const SWIPE_CLOSE_THRESHOLD = 36;
+const AXIS_LOCK_THRESHOLD = 8;
 
 type Props = {
   friend: CommunityMessengerProfileLite;
@@ -29,15 +30,20 @@ export function MessengerLineFriendRow({
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
+  const startY = useRef(0);
   const startOffset = useRef(0);
   const activeDrag = useRef(false);
+  const dragAxis = useRef<"x" | "y" | null>(null);
 
   const close = useCallback(() => setOffset(0), []);
 
   const onPointerDown = (e: React.PointerEvent) => {
+    if (!e.isPrimary) return;
     activeDrag.current = true;
+    dragAxis.current = null;
     setDragging(true);
     startX.current = e.clientX;
+    startY.current = e.clientY;
     startOffset.current = offset;
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -45,6 +51,12 @@ export function MessengerLineFriendRow({
   const onPointerMove = (e: React.PointerEvent) => {
     if (!activeDrag.current) return;
     const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+    if (dragAxis.current == null) {
+      if (Math.abs(dx) < AXIS_LOCK_THRESHOLD && Math.abs(dy) < AXIS_LOCK_THRESHOLD) return;
+      dragAxis.current = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+    }
+    if (dragAxis.current !== "x") return;
     let next = startOffset.current + dx;
     if (next > 0) next = 0;
     if (next < -DELETE_WIDTH) next = -DELETE_WIDTH;
@@ -53,6 +65,7 @@ export function MessengerLineFriendRow({
 
   const onPointerUp = (e: React.PointerEvent) => {
     activeDrag.current = false;
+    dragAxis.current = null;
     setDragging(false);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -74,7 +87,7 @@ export function MessengerLineFriendRow({
           onToggleFavorite();
         }}
         disabled={busyFavorite}
-        className="flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full text-amber-500 hover:bg-amber-50 disabled:opacity-50"
+        className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center self-center rounded-full text-amber-500 hover:bg-amber-50 disabled:opacity-50"
         aria-label={friend.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
         aria-pressed={friend.isFavoriteFriend}
       >
@@ -94,7 +107,7 @@ export function MessengerLineFriendRow({
               onDelete();
               close();
             }}
-            className="flex w-full items-center justify-center text-[13px] font-semibold text-white disabled:opacity-50"
+            className="flex w-full touch-manipulation items-center justify-center text-[13px] font-semibold text-white disabled:opacity-50"
           >
             삭제
           </button>
@@ -114,6 +127,7 @@ export function MessengerLineFriendRow({
           style={{
             transform: `translateX(${offset}px)`,
             transition: dragging ? "none" : "transform 0.2s ease-out",
+            touchAction: "pan-y",
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

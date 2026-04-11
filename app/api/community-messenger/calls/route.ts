@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import {
   createCommunityMessengerCallLog,
-  getCommunityMessengerBootstrap,
+  listCommunityMessengerCallLogs,
 } from "@/lib/community-messenger/service";
 
 export async function GET() {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const data = await getCommunityMessengerBootstrap(auth.userId);
-  return NextResponse.json({ ok: true, calls: data.calls });
+  const calls = await listCommunityMessengerCallLogs(auth.userId);
+  return NextResponse.json({ ok: true, calls });
 }
 
 export async function POST(req: NextRequest) {

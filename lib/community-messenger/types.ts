@@ -73,6 +73,8 @@ export type CommunityMessengerRoomSummary = {
   summary: string;
   avatarUrl: string | null;
   unreadCount: number;
+  isMuted?: boolean;
+  isPinned?: boolean;
   lastMessage: string;
   lastMessageAt: string;
   memberCount: number;
@@ -84,7 +86,27 @@ export type CommunityMessengerRoomSummary = {
   allowMemberInvite: boolean;
   myIdentityMode?: CommunityMessengerIdentityMode;
   peerUserId?: string | null;
+  /**
+   * `community_messenger_participants.is_archived` — 내 목록에서만 숨김(보관함).
+   * `roomStatus` 는 `community_messenger_rooms` 의 운영 상태(active/blocked/archived)만 반영한다.
+   */
+  isArchivedByViewer?: boolean;
 };
+
+/** 메인 대화 목록·「보관됨」필터 — 운영상 폐쇄(방 archived) 또는 개인 보관 */
+export function communityMessengerRoomIsInboxHidden(
+  room: Pick<CommunityMessengerRoomSummary, "roomStatus" | "isArchivedByViewer">
+): boolean {
+  return room.roomStatus === "archived" || Boolean(room.isArchivedByViewer);
+}
+
+/** 메시지·통화 가능 여부(운영 차단/폐쇄/읽기전용). 개인 보관과 무관. */
+export function communityMessengerRoomIsGloballyUsable(
+  room: Pick<CommunityMessengerRoomSummary, "roomStatus" | "isReadonly">
+): boolean {
+  if (room.isReadonly) return false;
+  return room.roomStatus === "active";
+}
 
 export type CommunityMessengerDiscoverableGroupSummary = {
   id: string;
