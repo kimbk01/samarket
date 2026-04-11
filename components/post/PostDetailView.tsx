@@ -60,7 +60,6 @@ import { PostDetailSellerTradeLifecycleBar } from "@/components/post/PostDetailS
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
-import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 
 const META_LABELS: Record<string, Record<string, string>> = {
@@ -524,7 +523,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const router = useRouter();
   /** `undefined`: 세션 확인 전 — 동기 프로필 캐시만 쓰면 유휴 후 캐시가 비어 로그아웃으로 오인될 수 있음 */
   const [resolvedViewerId, setResolvedViewerId] = useState<string | null | undefined>(undefined);
-  const notificationUnreadCount = useMyNotificationUnreadCount();
 
   useEffect(() => {
     let cancelled = false;
@@ -681,7 +679,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         ),
         rightSlot: (
           <div className="flex shrink-0 items-center justify-end gap-0.5">
-            <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
+            <MyHubHeaderActions />
             {showBuyerMore ? (
               <button
                 type="button"
@@ -720,7 +718,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     backHref,
     isOwnPost,
     showSellerMoreMenu,
-    notificationUnreadCount,
   ]);
 
   useEffect(() => {

@@ -7,7 +7,6 @@ import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyTopBanner } from "@/components/my/MyTopBanner";
 import { MyPageHomeDashboard } from "@/components/mypage/MyPageHomeDashboard";
 import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
-import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 import { MYPAGE_MOBILE_NAV_QUERY, normalizeMyPageTab } from "@/components/mypage/mypage-nav";
 import { mapLegacyMyPageItemSlug } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
@@ -24,7 +23,6 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
 
   const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined);
-  const notificationUnreadCount = useMyNotificationUnreadCount();
 
   useEffect(() => {
     if (!infoHubOpen) return;
@@ -61,7 +59,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <MyPageHeader notificationUnreadCount={notificationUnreadCount} backFallbackHref="/home" />
+        <MyPageHeader backFallbackHref="/home" />
         <div className={`${APP_MAIN_COLUMN_CLASS} space-y-4 px-4 pt-4 pb-8`}>
           <div className="rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)]">
             내정보를 불러오는 중이에요.
@@ -74,7 +72,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (!data) {
     return (
       <div className="min-h-screen bg-background">
-        <MyPageHeader notificationUnreadCount={notificationUnreadCount} backFallbackHref="/home" />
+        <MyPageHeader backFallbackHref="/home" />
         <div className={`${APP_MAIN_COLUMN_CLASS} space-y-4 px-4 pt-4 pb-8`}>
           <div className="rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-4 py-10 text-center text-[14px] text-[var(--text-muted)]">
             로그인이 필요합니다.
@@ -89,12 +87,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   return (
     <div className="flex min-h-screen flex-col bg-background pb-8">
-      <MyPageHeader
-        notificationUnreadCount={notificationUnreadCount}
-        centerTitle="내정보"
-        centerSubtitle={null}
-        backFallbackHref="/home"
-      />
+      <MyPageHeader centerTitle="내정보" centerSubtitle={null} backFallbackHref="/home" />
       <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col">
         {profile ? (
           <MyPageHomeDashboard

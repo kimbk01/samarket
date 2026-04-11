@@ -19,7 +19,6 @@ export type MainTier1Partial = {
   preferHistoryBack?: boolean;
   ariaLabel?: string;
   showHubQuickActions?: boolean;
-  notificationUnreadCount?: number | null;
   rightSlot?: ReactNode;
   /** true면 뒤로 칸은 비움(주문 허브 등) */
   hideBack?: boolean;

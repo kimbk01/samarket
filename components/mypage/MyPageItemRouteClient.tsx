@@ -48,11 +48,7 @@ export function MyPageItemRouteClient({
 
   if (loading) {
     return (
-      <MyPageStackShell
-        title={itemLabel}
-        backHref={buildMypageSectionHref(section)}
-        notificationUnreadCount={notificationUnreadCount}
-      >
+      <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
         <div className={`${APP_MAIN_COLUMN_CLASS} px-3 pt-6 text-center text-[14px] text-gray-500 sm:px-4`}>
           불러오는 중…
         </div>
@@ -62,11 +58,7 @@ export function MyPageItemRouteClient({
 
   if (!data?.profile) {
     return (
-      <MyPageStackShell
-        title={itemLabel}
-        backHref={buildMypageSectionHref(section)}
-        notificationUnreadCount={notificationUnreadCount}
-      >
+      <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
         <div className={`${APP_MAIN_COLUMN_CLASS} px-3 pt-6 text-center text-[14px] text-gray-500 sm:px-4`}>
           로그인이 필요합니다.
         </div>
@@ -77,11 +69,7 @@ export function MyPageItemRouteClient({
   const { profile, mannerScore, isBusinessMember, isAdmin, hasOwnerStore: hs } = data;
 
   return (
-    <MyPageStackShell
-      title={itemLabel}
-      backHref={buildMypageSectionHref(section)}
-      notificationUnreadCount={notificationUnreadCount}
-    >
+    <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
       <div className="px-3 sm:px-4">
         <MyPageItemScreen
           section={section}

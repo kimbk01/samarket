@@ -34,9 +34,8 @@ export type MySubpageHeaderProps = {
   /** `section="store"` 일 때 「주문 접수」 등에 넣을 매장 id */
   ownerStoreIdForCtas?: string | null;
   hideCtaStrip?: boolean;
-  /** 내정보 허브와 동일: 알림·설정 (rightSlot과 동시 사용 시 rightSlot 우선) */
+  /** 내정보 허브와 동일: 알림음·설정 (rightSlot과 동시 사용 시 rightSlot 우선) */
   showHubQuickActions?: boolean;
-  notificationUnreadCount?: number | null;
   /**
    * false면 `RegionBar` 등이 이미 1단을 그리므로, 여기서는 stickyBelow·ctaLinks만 MainTier1Extras에 넣음.
    * (필라이프 피드·거래 탐색과 동일 헤더 톤을 맞출 때 사용)
@@ -58,7 +57,6 @@ export function MySubpageHeader({
   ownerStoreIdForCtas = null,
   hideCtaStrip = false,
   showHubQuickActions = false,
-  notificationUnreadCount,
   registerMainTier1 = true,
 }: MySubpageHeaderProps) {
   const { t, tt } = useI18n();
@@ -89,7 +87,6 @@ export function MySubpageHeader({
           ariaLabel: resolvedAriaLabel,
           rightSlot,
           showHubQuickActions,
-          notificationUnreadCount,
         },
         ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
         stickyBelow,
@@ -112,7 +109,6 @@ export function MySubpageHeader({
     resolvedAriaLabel,
     rightSlot,
     showHubQuickActions,
-    notificationUnreadCount,
     stripLinks,
     stickyBelow,
   ]);
@@ -122,7 +118,7 @@ export function MySubpageHeader({
       rightSlot != null ? (
         <div className="flex min-w-[44px] shrink-0 items-center justify-end">{rightSlot}</div>
       ) : showHubQuickActions ? (
-        <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
+        <MyHubHeaderActions />
       ) : (
         <div className="h-9 w-9 shrink-0" aria-hidden />
       );

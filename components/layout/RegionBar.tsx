@@ -15,7 +15,6 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
-import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL,
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
@@ -94,7 +93,6 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
   const ruleSet = getMobileTopTier1RuleSet(pathname);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
-  const notificationUnreadCount = useMyNotificationUnreadCount();
 
   if (!ruleSet.showRegionBar) {
     return null;
@@ -121,7 +119,7 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
               <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
             </h1>
           </div>
-          <MyHubHeaderActions notificationUnreadCount={notificationUnreadCount} />
+          <MyHubHeaderActions />
         </div>
       </UnifiedTier1Shell>
     );
@@ -159,7 +157,6 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
   const subtitle = subtitleRaw ? tt(subtitleRaw) : undefined;
   const subtitleHref = o?.subtitleHref ?? base.subtitleHref;
   const showHub = o?.showHubQuickActions ?? base.showHubQuickActions;
-  const hubUnread = o?.notificationUnreadCount ?? notificationUnreadCount;
 
   const centerFromExtras = o?.title != null ? o.title : null;
   const titleTextFromExtras = o?.titleText;
@@ -182,7 +179,7 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
     o?.rightSlot != null ? (
       <div className="flex min-w-[44px] shrink-0 items-center justify-end">{o.rightSlot}</div>
     ) : showHub ? (
-      <MyHubHeaderActions notificationUnreadCount={hubUnread} />
+      <MyHubHeaderActions />
     ) : (
       <div className="h-9 w-9 shrink-0" aria-hidden />
     );
