@@ -32,8 +32,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   if (tab === "chat") {
     const roomId = parseRoomId(firstQueryString(sp.room) ?? "");
     if (roomId) {
-      const qs = firstQueryString(sp.review) === "1" ? "?review=1" : "";
-      redirect(`/chats/${encodeURIComponent(roomId)}${qs}`);
+      const p = new URLSearchParams();
+      /** 배달·매장 주문 채팅 = 통합 `chat_rooms` — 부트스트랩 메시지 갈래 힌트 */
+      p.set("source", "chat_room");
+      if (firstQueryString(sp.review) === "1") p.set("review", "1");
+      redirect(`/chats/${encodeURIComponent(roomId)}?${p.toString()}`);
     }
     redirect("/my/store-orders");
   }

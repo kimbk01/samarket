@@ -7,7 +7,6 @@ import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import {
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
-import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import {
   patchTradeChatEntryMark,
   readTradeChatEntryMark,
@@ -55,7 +54,7 @@ export function TradeChatComposeClient({
 
   useEffect(() => {
     if (activeRoomId) {
-      warmChatRoomEntryById(activeRoomId, hubBootstrapSource ?? sourceHint);
+      /** `/mypage/trade/chat/[roomId]` RSC 가 `loadChatRoomBootstrapForUser` 로 이미 부트스트랩 — 여기서 `/bootstrap` 을 또 호출하면 이중 왕복 */
       return;
     }
     if (!productId) {

@@ -18,6 +18,7 @@ import {
   prewarmChatRouteData,
   shouldWarmChatRoute,
 } from "@/lib/chats/prewarm-chat-room-route";
+import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 
 interface ChatRoomCardProps {
   room: ChatRoom;
@@ -92,7 +93,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
   const listMenuRoomId =
     room.source === "chat_room" ? room.id : (room.chatRoomId?.trim() ? room.chatRoomId.trim() : null);
 
-  const detailHref = getRoomHref ? getRoomHref(room.id, room) : `/chats/${room.id}`;
+  const detailHref = getRoomHref ? getRoomHref(room.id, room) : defaultTradeChatRoomHref(room.id, room.source);
   const prewarmDetailRoute = () => {
     if (!shouldWarmChatRoute(detailHref)) return;
     prewarmChatRouteData(detailHref);

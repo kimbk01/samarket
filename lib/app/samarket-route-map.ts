@@ -82,8 +82,11 @@ export const SAMARKET_ROUTES = {
     messengerHub: "/community-messenger",
     orderHub: "/my/store-orders",
     newChat: "/chats/new",
-    /** 주문/거래 공통 — 방 단위 단일 URL */
-    room: (roomId: string) => `/chats/${encodeURIComponent(roomId)}`,
+    /** 주문/거래 공통 — 방 단위 단일 URL (`source` 있으면 부트스트랩 힌트, `lib/chats/trade-chat-notification-href` 와 동일 의미) */
+    room: (roomId: string, sourceHint?: "chat_room" | "product_chat") =>
+      sourceHint === "chat_room" || sourceHint === "product_chat"
+        ? `/chats/${encodeURIComponent(roomId)}?source=${encodeURIComponent(sourceHint)}`
+        : `/chats/${encodeURIComponent(roomId)}`,
   },
   account: {
     mypage: "/mypage",

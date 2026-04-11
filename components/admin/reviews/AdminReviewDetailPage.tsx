@@ -10,6 +10,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminReviewStatusBadge } from "./AdminReviewStatusBadge";
 import { AdminReviewActionPanel } from "./AdminReviewActionPanel";
 import { AdminReviewModerationLogList } from "./AdminReviewModerationLogList";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
 const ROLE_LABELS: Record<string, string> = {
   buyer_to_seller: "구매자 → 판매자",
@@ -106,7 +107,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
           )}
           {review.transactionId ? (
             <p className="text-[13px] text-signature">
-              <a href={`/chats/${review.transactionId}`} target="_blank" rel="noreferrer" className="hover:underline">
+              <a href={tradeChatNotificationHref(review.transactionId, "product_chat")} target="_blank" rel="noreferrer" className="hover:underline">
                 채팅방 열기
               </a>
             </p>

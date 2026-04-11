@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import type { AdminReview } from "@/lib/types/admin-review";
 import { formatAdminReviewSelectedTags } from "@/lib/admin-reviews/admin-review-utils";
 
@@ -61,7 +62,7 @@ export function AdminReviewTable({ reviews }: AdminReviewTableProps) {
               </td>
               <td className="px-3 py-2.5 text-center text-[13px]">
                 {r.transactionId ? (
-                  <Link href={`/chats/${r.transactionId}`} className="text-signature hover:underline" target="_blank">
+                  <Link href={tradeChatNotificationHref(r.transactionId, "product_chat")} className="text-signature hover:underline" target="_blank">
                     열기
                   </Link>
                 ) : (

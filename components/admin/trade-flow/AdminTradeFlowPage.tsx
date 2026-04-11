@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
 interface SessionRow {
   id: string;
@@ -185,7 +186,7 @@ export function AdminTradeFlowPage() {
                   {sessions.map((s) => (
                     <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50/80">
                       <td className="px-3 py-2 font-mono text-[12px]">
-                        <Link href={`/chats/${s.id}`} className="text-signature hover:underline" target="_blank">
+                        <Link href={tradeChatNotificationHref(s.id, "product_chat")} className="text-signature hover:underline" target="_blank">
                           {s.id.slice(0, 8)}…
                         </Link>
                       </td>
@@ -283,7 +284,7 @@ export function AdminTradeFlowPage() {
                         </span>
                         <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                           {rv.room_id ? (
-                            <Link href={`/chats/${rv.room_id}`} className="text-signature hover:underline" target="_blank">
+                            <Link href={tradeChatNotificationHref(rv.room_id, "product_chat")} className="text-signature hover:underline" target="_blank">
                               채팅
                             </Link>
                           ) : (

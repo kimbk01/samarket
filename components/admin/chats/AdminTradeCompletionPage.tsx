@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
+import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
 interface Row {
   roomId: string;
@@ -134,7 +135,7 @@ export function AdminTradeCompletionPage() {
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono text-[12px]">
-                    <Link href={`/chats/${r.roomId}`} className="text-signature hover:underline" target="_blank">
+                    <Link href={tradeChatNotificationHref(r.roomId, "product_chat")} className="text-signature hover:underline" target="_blank">
                       {r.roomId.slice(0, 8)}…
                     </Link>
                   </td>
