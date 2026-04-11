@@ -5,11 +5,13 @@
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 export function communityMessengerRoomIsTrade(room: CommunityMessengerRoomSummary): boolean {
+  if (room.contextMeta?.kind === "trade") return true;
   const title = `${room.title} ${room.summary} ${room.subtitle}`.toLowerCase();
   return title.includes("거래");
 }
 
 export function communityMessengerRoomIsDelivery(room: CommunityMessengerRoomSummary): boolean {
+  if (room.contextMeta?.kind === "delivery") return true;
   const title = `${room.title} ${room.summary} ${room.subtitle}`.toLowerCase();
   return title.includes("배달") || title.includes("주문");
 }

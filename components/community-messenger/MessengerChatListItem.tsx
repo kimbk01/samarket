@@ -39,8 +39,13 @@ export function MessengerChatListItem({
   const router = useRouter();
   const room = item.room;
   const badgeLabel = getRoomTypeBadgeLabel(room);
+  const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
   const titleSuffix = room.roomType !== "direct" && room.memberCount > 0 ? String(room.memberCount) : "";
+  const commerceSubline =
+    commerceMeta && (commerceMeta.headline || commerceMeta.priceLabel)
+      ? [commerceMeta.headline, commerceMeta.priceLabel].filter(Boolean).join(" · ")
+      : null;
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -136,42 +141,52 @@ export function MessengerChatListItem({
 
   const rowContent = (
     <div className="flex items-start gap-3">
-      <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-11 w-11" textClassName="text-[14px]" />
+      {commerceMeta?.thumbnailUrl ? (
+        <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
+      ) : (
+        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-11 w-11" textClassName="text-[14px]" />
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <p className="min-w-0 truncate text-[15px] font-semibold leading-tight text-gray-900">{room.title}</p>
-          {titleSuffix ? <span className="shrink-0 text-[12px] text-gray-400">{titleSuffix}</span> : null}
+          <p className="min-w-0 truncate text-[15px] font-semibold leading-tight text-ui-fg">{room.title}</p>
+          {titleSuffix ? <span className="shrink-0 text-[12px] text-ui-muted">{titleSuffix}</span> : null}
           <span className={`shrink-0 rounded-ui-rect border px-1.5 py-0.5 text-[10px] font-medium leading-none ${getRoomTypeBadgeClassName(badgeLabel)}`}>
             {badgeLabel}
           </span>
+          {commerceMeta?.stepLabel ? (
+            <span className="max-w-[40%] shrink-0 truncate rounded-ui-rect border border-ui-border bg-ui-page px-1.5 py-0.5 text-[10px] font-medium text-ui-muted">
+              {commerceMeta.stepLabel}
+            </span>
+          ) : null}
         </div>
+        {commerceSubline ? <p className="mt-0.5 truncate text-[12px] text-ui-muted">{commerceSubline}</p> : null}
         <div className="mt-1 flex items-center gap-1.5">
           {secondaryHint ? (
-            <span className="shrink-0 rounded-sm border border-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+            <span className="shrink-0 rounded-sm border border-ui-border px-1.5 py-0.5 text-[10px] font-medium text-ui-muted">
               {secondaryHint}
             </span>
           ) : null}
-          {isFavorite ? <span className="shrink-0 text-[11px] text-gray-500">★</span> : null}
-          <p className={`min-w-0 truncate text-[13px] ${room.unreadCount > 0 ? "font-medium text-gray-900" : "text-gray-500"}`}>
+          {isFavorite ? <span className="shrink-0 text-[11px] text-ui-muted">★</span> : null}
+          <p className={`min-w-0 truncate text-[13px] ${room.unreadCount > 0 ? "font-medium text-ui-fg" : "text-ui-muted"}`}>
             {item.preview}
           </p>
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1 pl-1">
-        <span className="text-[11px] tabular-nums text-gray-400">{formatConversationTimestamp(item.lastEventAt)}</span>
+        <span className="text-[11px] tabular-nums text-ui-muted">{formatConversationTimestamp(item.lastEventAt)}</span>
         <div className="flex items-center gap-1">
           {room.isPinned ? (
-            <span className="text-gray-500" aria-label="고정됨">
+            <span className="text-ui-muted" aria-label="고정됨">
               <PinIcon />
             </span>
           ) : null}
           {room.isMuted ? (
-            <span className="text-gray-500" aria-label="알림 끔">
+            <span className="text-ui-muted" aria-label="알림 끔">
               <MuteIcon />
             </span>
           ) : null}
           {room.unreadCount > 0 ? (
-            <span className="min-w-[18px] rounded-ui-rect bg-gray-900 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">
+            <span className="min-w-[18px] rounded-ui-rect bg-ui-fg px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-ui-surface">
               {room.unreadCount > 999 ? "999+" : room.unreadCount}
             </span>
           ) : null}
@@ -349,6 +364,27 @@ export function MessengerChatListItem({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function CommerceThumb({
+  src,
+  fallbackAvatarUrl,
+  fallbackLabel,
+}: {
+  src: string;
+  fallbackAvatarUrl: string | null;
+  fallbackLabel: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return <AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-11 w-11" textClassName="text-[14px]" />;
+  }
+  return (
+    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-ui-rect border border-ui-border bg-ui-page">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />
     </div>
   );
 }

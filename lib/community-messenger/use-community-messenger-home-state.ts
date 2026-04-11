@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { MessengerChatSubFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
+import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import { communityMessengerRoomIsDelivery, communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import { communityMessengerRoomIsInboxHidden, type CommunityMessengerBootstrap, type CommunityMessengerCallLog, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
@@ -20,7 +20,8 @@ export type UnifiedRoomListItem = {
 type Params = {
   data: CommunityMessengerBootstrap | null;
   mainSection: MessengerMainSection;
-  chatSubFilter: MessengerChatSubFilter;
+  chatInboxFilter: MessengerChatInboxFilter;
+  chatKindFilter: MessengerChatKindFilter;
   roomSearchKeyword: string;
   openGroupSearch: string;
 };
@@ -28,7 +29,8 @@ type Params = {
 export function useCommunityMessengerHomeState({
   data,
   mainSection,
-  chatSubFilter,
+  chatInboxFilter,
+  chatKindFilter,
   roomSearchKeyword,
   openGroupSearch,
 }: Params) {
@@ -144,17 +146,17 @@ export function useCommunityMessengerHomeState({
     const keyword = roomSearchKeyword.trim().toLowerCase();
     return baseChatListItems.filter((item) => {
       const room = item.room;
-      if (chatSubFilter === "unread" && room.unreadCount < 1) return false;
-      if (chatSubFilter === "pinned" && !room.isPinned) return false;
-      if (chatSubFilter === "direct" && room.roomType !== "direct") return false;
-      if (chatSubFilter === "private_group" && room.roomType !== "private_group") return false;
-      if (chatSubFilter === "trade" && !communityMessengerRoomIsTrade(room)) return false;
-      if (chatSubFilter === "delivery" && !communityMessengerRoomIsDelivery(room)) return false;
+      if (chatInboxFilter === "unread" && room.unreadCount < 1) return false;
+      if (chatInboxFilter === "pinned" && !room.isPinned) return false;
+      if (chatKindFilter === "direct" && room.roomType !== "direct") return false;
+      if (chatKindFilter === "private_group" && room.roomType !== "private_group") return false;
+      if (chatKindFilter === "trade" && !communityMessengerRoomIsTrade(room)) return false;
+      if (chatKindFilter === "delivery" && !communityMessengerRoomIsDelivery(room)) return false;
       if (!keyword) return true;
       const haystack = [room.title, room.subtitle, room.summary, item.preview].join(" ").toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [baseChatListItems, chatSubFilter, roomSearchKeyword]);
+  }, [baseChatListItems, chatInboxFilter, chatKindFilter, roomSearchKeyword]);
 
   const searchSheetRoomItems = useMemo(() => {
     const keyword = roomSearchKeyword.trim().toLowerCase();
@@ -240,6 +242,8 @@ export function formatConversationTimestamp(value: string): string {
 export function getRoomTypeBadgeLabel(room: CommunityMessengerRoomSummary): string {
   if (room.roomType === "open_group") return "오픈";
   if (room.roomType === "private_group") return "그룹";
+  if (room.contextMeta?.kind === "delivery") return "배달";
+  if (room.contextMeta?.kind === "trade") return "거래";
   if (communityMessengerRoomIsDelivery(room)) return "배달";
   if (communityMessengerRoomIsTrade(room)) return "거래";
   return "친구";
@@ -262,8 +266,14 @@ function getRoomPreviewText(room: CommunityMessengerRoomSummary): string {
     return lastMessage.includes("통화") ? lastMessage : `통화 · ${lastMessage}`;
   }
   if (lastMessage) return lastMessage;
+  const meta = room.contextMeta;
+  if (meta?.headline) return meta.headline;
   const summary = room.summary?.trim();
-  if (summary) return summary;
+  if (summary) {
+    if (meta) return "메시지를 확인해 주세요.";
+    if (summary[0] === "{") return "거래·주문 안내";
+    return summary;
+  }
   return "최근 메시지가 아직 없습니다.";
 }
 

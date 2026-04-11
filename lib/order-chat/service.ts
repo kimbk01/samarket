@@ -15,6 +15,11 @@ import type {
   OrderChatSnapshot,
 } from "./types";
 
+/**
+ * 주문 채팅(`order_chat_*`)과 별개인 커뮤니티 메신저 방에 거래/배달 목록 메타를 넣을 때는
+ * `updateCommunityMessengerRoomContextMeta` 또는 PATCH `context_meta` (`lib/community-messenger/service`, API route) 를 사용한다.
+ */
+
 const TERMINAL: SharedOrderStatus[] = [
   "cancel_requested",
   "cancelled",

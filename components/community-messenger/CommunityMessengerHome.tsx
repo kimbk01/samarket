@@ -52,15 +52,16 @@ import {
 } from "@/lib/ui/network-policy";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 import {
-  type MessengerChatSubFilter,
+  type MessengerChatInboxFilter,
+  type MessengerChatKindFilter,
   type MessengerMainSection,
-  resolveMessengerChatSubFilter,
+  messengerChatFiltersToSearchParams,
+  resolveMessengerChatFilters,
   resolveMessengerSection,
 } from "@/lib/community-messenger/messenger-ia";
 import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
-  type CommunityMessengerCallLog,
   type CommunityMessengerDiscoverableGroupSummary,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
@@ -97,10 +98,12 @@ export function CommunityMessengerHome({
   initialTab,
   initialSection,
   initialFilter,
+  initialKind,
 }: {
   initialTab?: string;
   initialSection?: string;
   initialFilter?: string;
+  initialKind?: string;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -134,16 +137,22 @@ export function CommunityMessengerHome({
   const [mainSection, setMainSection] = useState<MessengerMainSection>(() =>
     resolveMessengerSection(initialSection, initialTab)
   );
-  const [chatSubFilter, setChatSubFilter] = useState<MessengerChatSubFilter>(() =>
-    resolveMessengerChatSubFilter(initialFilter, initialTab)
-  );
+  const [chatInboxFilter, setChatInboxFilter] = useState<MessengerChatInboxFilter>(() => {
+    const { inbox } = resolveMessengerChatFilters(initialFilter, initialKind, initialTab);
+    return inbox;
+  });
+  const [chatKindFilter, setChatKindFilter] = useState<MessengerChatKindFilter>(() => {
+    const { kind } = resolveMessengerChatFilters(initialFilter, initialKind, initialTab);
+    return kind;
+  });
   const [friendsHiddenOpen, setFriendsHiddenOpen] = useState(false);
-  const applyMessengerUrl = useCallback(
-    (section: MessengerMainSection, filter: MessengerChatSubFilter) => {
+  const replaceMessengerSectionUrl = useCallback(
+    (section: MessengerMainSection, inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter) => {
       const qs = new URLSearchParams();
       qs.set("section", section);
-      if (section === "chats" && filter !== "all") {
-        qs.set("filter", filter);
+      if (section === "chats") {
+        const extra = messengerChatFiltersToSearchParams(inbox, kind);
+        extra.forEach((v, k) => qs.set(k, v));
       }
       router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
     },
@@ -153,21 +162,28 @@ export function CommunityMessengerHome({
     (next: MessengerMainSection) => {
       setMainSection(next);
       if (next === "chats") {
-        applyMessengerUrl("chats", chatSubFilter);
+        replaceMessengerSectionUrl("chats", chatInboxFilter, chatKindFilter);
       } else {
         const qs = new URLSearchParams();
         qs.set("section", next);
         router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
       }
     },
-    [applyMessengerUrl, chatSubFilter, router]
+    [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, router]
   );
-  const onChatSubFilterChange = useCallback(
-    (next: MessengerChatSubFilter) => {
-      setChatSubFilter(next);
-      applyMessengerUrl("chats", next);
+  const onChatInboxFilterChange = useCallback(
+    (next: MessengerChatInboxFilter) => {
+      setChatInboxFilter(next);
+      replaceMessengerSectionUrl("chats", next, chatKindFilter);
     },
-    [applyMessengerUrl]
+    [chatKindFilter, replaceMessengerSectionUrl]
+  );
+  const onChatKindFilterChange = useCallback(
+    (next: MessengerChatKindFilter) => {
+      setChatKindFilter(next);
+      replaceMessengerSectionUrl("chats", chatInboxFilter, next);
+    },
+    [chatInboxFilter, replaceMessengerSectionUrl]
   );
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(null);
   const [loading, setLoading] = useState(true);
@@ -442,8 +458,11 @@ export function CommunityMessengerHome({
     }
     const section = searchParams.get("section");
     const filter = searchParams.get("filter");
+    const kind = searchParams.get("kind");
     setMainSection(resolveMessengerSection(section ?? undefined, tab ?? undefined));
-    setChatSubFilter(resolveMessengerChatSubFilter(filter ?? undefined, tab ?? undefined));
+    const { inbox, kind: nextKind } = resolveMessengerChatFilters(filter ?? undefined, kind ?? undefined, tab ?? undefined);
+    setChatInboxFilter(inbox);
+    setChatKindFilter(nextKind);
   }, [searchParams, router]);
 
   useEffect(() => {
@@ -591,6 +610,7 @@ export function CommunityMessengerHome({
     [data?.chats, getMessengerActionErrorMessage, navigateToCommunityRoom, reviveDirectRoomForEntry, t]
   );
 
+  /** 1:1 발신 — `lib/community-messenger/outgoing-call-surfaces.ts` (friendsFavoriteQuickActions, friendProfileSheet) 에만 연결 */
   const startDirectCall = useCallback(
     async (peerUserId: string, kind: "voice" | "video") => {
       setActionError(null);
@@ -1034,7 +1054,8 @@ export function CommunityMessengerHome({
   } = useCommunityMessengerHomeState({
     data,
     mainSection,
-    chatSubFilter,
+    chatInboxFilter,
+    chatKindFilter,
     roomSearchKeyword,
     openGroupSearch,
   });
@@ -1438,8 +1459,10 @@ export function CommunityMessengerHome({
           onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
           onMarkRead={(room) => void markRoomRead(room.id)}
           onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
-          chatSubFilter={chatSubFilter}
-          onChatSubFilterChange={onChatSubFilterChange}
+          chatInboxFilter={chatInboxFilter}
+          chatKindFilter={chatKindFilter}
+          onChatInboxFilterChange={onChatInboxFilterChange}
+          onChatKindFilterChange={onChatKindFilterChange}
           totalUnreadCount={totalUnreadCount}
           openChatJoinedItems={openChatJoinedItems}
           filteredDiscoverableGroups={filteredDiscoverableGroups}

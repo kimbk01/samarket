@@ -3,8 +3,10 @@ import { CommunityMessengerHome } from "@/components/community-messenger/Communi
 export default async function CommunityMessengerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; section?: string; filter?: string }>;
+  searchParams: Promise<{ tab?: string; section?: string; filter?: string; kind?: string }>;
 }) {
-  const { tab, section, filter } = await searchParams;
-  return <CommunityMessengerHome initialTab={tab} initialSection={section} initialFilter={filter} />;
+  const { tab, section, filter, kind } = await searchParams;
+  return (
+    <CommunityMessengerHome initialTab={tab} initialSection={section} initialFilter={filter} initialKind={kind} />
+  );
 }

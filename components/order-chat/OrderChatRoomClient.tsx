@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { ChatHubTopTabs } from "@/components/order-chat/ChatHubTopTabs";
@@ -13,6 +14,7 @@ import type { SharedOrderStatus } from "@/lib/shared-orders/types";
 import type { OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
 import type { OrderChatMessagePublic, OrderChatRole, OrderChatRoomPublic } from "@/lib/order-chat/types";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
+import { createCommunityMessengerDeepLinkFromOrderChat } from "@/lib/community-messenger/order-chat-bridge";
 
 type Snapshot = {
   room: OrderChatRoomPublic;
@@ -20,6 +22,16 @@ type Snapshot = {
   orderStatus: SharedOrderStatus;
   messages: OrderChatMessagePublic[];
 };
+
+function messengerBridgeErrorMessage(code: string): string {
+  if (code === "friend_required") {
+    return "메신저 1:1 채팅은 친구인 사용자와만 열 수 있어요. 친구 추가 후 다시 시도해 주세요.";
+  }
+  if (code === "blocked_target") {
+    return "차단된 사용자와는 메신저 대화를 열 수 없습니다.";
+  }
+  return "메신저로 이동할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+}
 
 function mapMessageForUi(message: OrderChatMessagePublic) {
   return {
@@ -37,11 +49,16 @@ export function OrderChatRoomClient({
   orderId,
   backHref,
   orderChatsHref,
+  /** 전체 화면 주문 채팅에서만 기본 표시. 모달 등 좁은 UI에서는 false. */
+  showMessengerDeepLink = true,
 }: {
   orderId: string;
   backHref: string;
   orderChatsHref?: string;
+  showMessengerDeepLink?: boolean;
 }) {
+  const router = useRouter();
+  const [messengerOpenBusy, setMessengerOpenBusy] = useState(false);
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "error"; message: string }
@@ -178,6 +195,38 @@ export function OrderChatRoomClient({
           </p>
         ) : null}
         <OrderChatProgressStrip orderStatus={state.orderStatus} orderFlow={flow} />
+        {showMessengerDeepLink ? (
+          <div className="border-t border-gray-100 bg-white px-3 py-2">
+            <button
+              type="button"
+              disabled={messengerOpenBusy}
+              onClick={() => {
+                if (state.kind !== "ready") return;
+                setMessengerOpenBusy(true);
+                void (async () => {
+                  try {
+                    const r = await createCommunityMessengerDeepLinkFromOrderChat({
+                      role: state.role,
+                      room: state.room,
+                      orderStatus: state.orderStatus,
+                    });
+                    if (r.ok) {
+                      router.push(r.href);
+                    } else {
+                      setToast(messengerBridgeErrorMessage(r.error));
+                      setTimeout(() => setToast(null), 4200);
+                    }
+                  } finally {
+                    setMessengerOpenBusy(false);
+                  }
+                })();
+              }}
+              className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[13px] font-medium text-gray-900 disabled:opacity-50"
+            >
+              {messengerOpenBusy ? "메신저 준비 중…" : "SAMessenger에서 이 주문 열기"}
+            </button>
+          </div>
+        ) : null}
         <OrderChatHeader
           sticky={false}
           orderNo={state.room.order_no}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ChangeEvent,
   useCallback,
@@ -48,6 +48,7 @@ import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
   readCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
+import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 
 export function CommunityMessengerRoomClient({
   roomId,
@@ -60,10 +61,12 @@ export function CommunityMessengerRoomClient({
 }) {
   const { t, tt } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   /** 같은 방에 머문 채 전역 배너에서 수락할 때도 반응하도록 URL 을 구독한다(RSC initial props 만으론 갱신이 안 될 수 있음). */
   const callActionFromUrl = searchParams.get("callAction") ?? initialCallAction ?? undefined;
   const sessionIdFromUrl = searchParams.get("sessionId") ?? initialCallSessionId ?? undefined;
+  const contextMetaFromUrlHandledRef = useRef(false);
   const autoHandledSessionRef = useRef<string | null>(null);
   const autoAcceptInFlightRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
@@ -205,6 +208,39 @@ export function CommunityMessengerRoomClient({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  /** `?cm_ctx=` 딥링크로 입장 시 거래/배달 목록 메타 1회 동기화 — 스토어는 `buildCommunityMessengerRoomUrlWithContext` 사용 */
+  useEffect(() => {
+    if (contextMetaFromUrlHandledRef.current) return;
+    const raw = searchParams.get("cm_ctx");
+    if (!raw?.trim()) return;
+    contextMetaFromUrlHandledRef.current = true;
+    const meta = decodeCommunityMessengerRoomCmCtx(raw);
+    const stripCmCtxFromUrl = () => {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("cm_ctx");
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    };
+    if (!meta) {
+      stripCmCtxFromUrl();
+      return;
+    }
+    void (async () => {
+      try {
+        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ action: "context_meta", contextMeta: meta }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (res.ok && json.ok) void refresh(true);
+      } finally {
+        stripCmCtxFromUrl();
+      }
+    })();
+  }, [pathname, refresh, roomId, router, searchParams]);
 
   /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
   useEffect(() => {
@@ -827,6 +863,7 @@ export function CommunityMessengerRoomClient({
     [router]
   );
 
+  /** 발신 — `lib/community-messenger/outgoing-call-surfaces.ts` 의 roomManaged (채팅방 헤더·컨트롤) */
   const startManagedDirectCall = useCallback(
     async (kind: "voice" | "video") => {
       if (roomUnavailable || isGroupRoom) return;
@@ -1775,6 +1812,7 @@ export function CommunityMessengerRoomClient({
     [getRoomActionErrorMessage, router]
   );
 
+  /** 발신 — roomManaged (멤버 시트 등 방 안에서만) */
   const startDirectCallWithMember = useCallback(
     async (peerUserId: string, kind: "voice" | "video") => {
       setBusy(`member-call:${kind}:${peerUserId}`);

@@ -83,6 +83,16 @@ export type CommunityMessengerFriendRequest = {
   createdAt: string;
 };
 
+/** `rooms.summary` JSON — 거래/배달 목록 행용(선택). */
+export type CommunityMessengerRoomContextMetaV1 = {
+  v: 1;
+  kind: "trade" | "delivery";
+  headline?: string;
+  priceLabel?: string;
+  thumbnailUrl?: string | null;
+  stepLabel?: string;
+};
+
 export type CommunityMessengerRoomSummary = {
   id: string;
   roomType: CommunityMessengerRoomType;
@@ -123,6 +133,8 @@ export type CommunityMessengerRoomSummary = {
    * `roomStatus` 는 `community_messenger_rooms` 의 운영 상태(active/blocked/archived)만 반영한다.
    */
   isArchivedByViewer?: boolean;
+  /** `summary` 필드가 v1 JSON 인 경우 파싱 결과(서버 조립 시 설정). */
+  contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
 };
 
 /** 메인 대화 목록·「보관됨」필터 — 운영상 폐쇄(방 archived) 또는 개인 보관 */

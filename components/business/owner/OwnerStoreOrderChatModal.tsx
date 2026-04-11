@@ -92,7 +92,12 @@ export function OwnerStoreOrderChatModal({ open, onClose, storeId, orderId, anch
         aria-label="주문 채팅"
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <OrderChatRoomClient orderId={orderId} backHref={listHref} orderChatsHref={listHref} />
+          <OrderChatRoomClient
+            orderId={orderId}
+            backHref={listHref}
+            orderChatsHref={listHref}
+            showMessengerDeepLink={false}
+          />
         </div>
       </div>
     </div>,

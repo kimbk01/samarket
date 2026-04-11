@@ -12,7 +12,9 @@ import {
   updateCommunityMessengerPrivateGroupNotice,
   updateCommunityMessengerPrivateGroupPermissions,
   updateCommunityMessengerRoomArchiveState,
+  updateCommunityMessengerRoomContextMeta,
 } from "@/lib/community-messenger/service";
+import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 
 export async function GET(
   req: NextRequest,
@@ -71,7 +73,8 @@ export async function PATCH(
       }
     | { action?: "group_member_role"; targetUserId?: string; nextRole?: "admin" | "member" }
     | { action?: "group_owner_transfer"; targetUserId?: string }
-    | { action?: "group_member_remove"; targetUserId?: string };
+    | { action?: "group_member_remove"; targetUserId?: string }
+    | { action?: "context_meta"; contextMeta?: Record<string, unknown> };
   try {
     body = await req.json();
   } catch {
@@ -154,6 +157,27 @@ export async function PATCH(
       userId: auth.userId,
       roomId,
       targetUserId: typeof body.targetUserId === "string" ? body.targetUserId : "",
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  }
+  if (body.action === "context_meta") {
+    const raw = body.contextMeta;
+    if (!raw || typeof raw !== "object") {
+      return NextResponse.json({ ok: false, error: "invalid_context_meta" }, { status: 400 });
+    }
+    let parsed;
+    try {
+      parsed = parseCommunityMessengerRoomContextMeta(JSON.stringify(raw));
+    } catch {
+      parsed = null;
+    }
+    if (!parsed) {
+      return NextResponse.json({ ok: false, error: "invalid_context_meta" }, { status: 400 });
+    }
+    const result = await updateCommunityMessengerRoomContextMeta({
+      userId: auth.userId,
+      roomId,
+      contextMeta: parsed,
     });
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   }

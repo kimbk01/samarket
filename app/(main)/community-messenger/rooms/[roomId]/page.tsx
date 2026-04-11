@@ -5,7 +5,7 @@ export default async function CommunityMessengerRoomPage({
   searchParams,
 }: {
   params: Promise<{ roomId: string }>;
-  searchParams: Promise<{ callAction?: string; sessionId?: string }>;
+  searchParams: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string }>;
 }) {
   const { roomId } = await params;
   const { callAction, sessionId } = await searchParams;

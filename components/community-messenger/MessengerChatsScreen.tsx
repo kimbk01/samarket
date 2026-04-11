@@ -1,20 +1,22 @@
 "use client";
 
-import type { MessengerChatSubFilter } from "@/lib/community-messenger/messenger-ia";
-import { messengerChatSubFilterLabel } from "@/lib/community-messenger/messenger-ia";
+import type {
+  MessengerChatInboxFilter,
+  MessengerChatKindFilter,
+} from "@/lib/community-messenger/messenger-ia";
+import { messengerChatInboxFilterLabel, messengerChatKindFilterLabel } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
 
-const CHAT_SUB_FILTER_ORDER: MessengerChatSubFilter[] = [
-  "all",
-  "unread",
-  "direct",
-  "private_group",
-  "trade",
-  "delivery",
-  "pinned",
-];
+const CHAT_INBOX_ORDER: MessengerChatInboxFilter[] = ["all", "unread", "pinned"];
+const CHAT_KIND_ORDER: MessengerChatKindFilter[] = ["all", "direct", "private_group", "trade", "delivery"];
+
+function chipClass(active: boolean): string {
+  return `shrink-0 rounded-ui-rect border px-3 py-2 text-[12px] font-medium touch-manipulation ${
+    active ? "border-ui-primary bg-ui-page text-ui-primary" : "border-ui-border bg-ui-surface text-ui-muted"
+  }`;
+}
 
 type Props = {
   items: UnifiedRoomListItem[];
@@ -24,8 +26,10 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
-  chatSubFilter: MessengerChatSubFilter;
-  onChatSubFilterChange: (next: MessengerChatSubFilter) => void;
+  chatInboxFilter: MessengerChatInboxFilter;
+  chatKindFilter: MessengerChatKindFilter;
+  onChatInboxFilterChange: (next: MessengerChatInboxFilter) => void;
+  onChatKindFilterChange: (next: MessengerChatKindFilter) => void;
   totalUnreadCount: number;
   emptyMessage: string;
   showFilters?: boolean;
@@ -39,8 +43,10 @@ export function MessengerChatsScreen({
   onToggleMute,
   onMarkRead,
   onToggleArchive,
-  chatSubFilter,
-  onChatSubFilterChange,
+  chatInboxFilter,
+  chatKindFilter,
+  onChatInboxFilterChange,
+  onChatKindFilterChange,
   totalUnreadCount,
   emptyMessage,
   showFilters = true,
@@ -48,37 +54,53 @@ export function MessengerChatsScreen({
   return (
     <section className="pt-3">
       {showFilters ? (
-        <div className="mb-3 flex items-center gap-2 overflow-x-auto">
-          {CHAT_SUB_FILTER_ORDER.map((filterId) => (
-            <button
-              key={filterId}
-              type="button"
-              onClick={() => onChatSubFilterChange(filterId)}
-              className={`shrink-0 rounded-ui-rect border px-3 py-2 text-[12px] font-medium ${
-                chatSubFilter === filterId
-                  ? "border-gray-900 bg-gray-50 text-gray-900"
-                  : "border-gray-200 bg-white text-gray-600"
-              }`}
-            >
-              {filterId === "unread" ? (
-                <span className="flex items-center gap-1">
-                  {messengerChatSubFilterLabel(filterId)}
-                  {totalUnreadCount > 0 ? (
-                    <span className="min-w-[18px] rounded-ui-rect border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-700">
-                      {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+        <div className="mb-3 space-y-2">
+          <div>
+            <p className="mb-1.5 text-[11px] font-medium text-ui-muted">목록</p>
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+              {CHAT_INBOX_ORDER.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onChatInboxFilterChange(id)}
+                  className={chipClass(chatInboxFilter === id)}
+                >
+                  {id === "unread" ? (
+                    <span className="flex items-center gap-1">
+                      {messengerChatInboxFilterLabel(id)}
+                      {totalUnreadCount > 0 ? (
+                        <span className="min-w-[18px] rounded-ui-rect border border-ui-border bg-ui-surface px-1.5 py-0.5 text-[10px] font-semibold text-ui-fg">
+                          {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                </span>
-              ) : (
-                messengerChatSubFilterLabel(filterId)
-              )}
-            </button>
-          ))}
+                  ) : (
+                    messengerChatInboxFilterLabel(id)
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[11px] font-medium text-ui-muted">대화 유형</p>
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+              {CHAT_KIND_ORDER.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onChatKindFilterChange(id)}
+                  className={chipClass(chatKindFilter === id)}
+                >
+                  {messengerChatKindFilterLabel(id)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       ) : null}
 
       {items.length ? (
-        <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
           {items.map((item) => (
             <MessengerChatListItem
               key={item.room.id}
@@ -93,7 +115,9 @@ export function MessengerChatsScreen({
           ))}
         </div>
       ) : (
-        <div className="rounded-ui-rect border border-dashed border-gray-200 px-4 py-10 text-center text-[13px] text-gray-500">{emptyMessage}</div>
+        <div className="rounded-ui-rect border border-dashed border-ui-border px-4 py-10 text-center text-[13px] leading-relaxed text-ui-muted">
+          {emptyMessage}
+        </div>
       )}
     </section>
   );

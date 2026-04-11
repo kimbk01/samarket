@@ -4,7 +4,12 @@ import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/comm
 import { MessengerArchiveScreen } from "@/components/community-messenger/MessengerArchiveScreen";
 import { MessengerFriendsScreen } from "@/components/community-messenger/MessengerFriendsScreen";
 import { MessengerPrimarySectionNav } from "@/components/community-messenger/MessengerPrimarySectionNav";
-import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
+import {
+  messengerChatListEmptyMessage,
+  type MessengerChatInboxFilter,
+  type MessengerChatKindFilter,
+  type MessengerMainSection,
+} from "@/lib/community-messenger/messenger-ia";
 import type {
   CommunityMessengerDiscoverableGroupSummary,
   CommunityMessengerFriendRequest,
@@ -12,7 +17,6 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
-import type { MessengerChatSubFilter } from "@/lib/community-messenger/messenger-ia";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 
 type Props = {
@@ -42,8 +46,10 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
-  chatSubFilter: MessengerChatSubFilter;
-  onChatSubFilterChange: (next: MessengerChatSubFilter) => void;
+  chatInboxFilter: MessengerChatInboxFilter;
+  chatKindFilter: MessengerChatKindFilter;
+  onChatInboxFilterChange: (next: MessengerChatInboxFilter) => void;
+  onChatKindFilterChange: (next: MessengerChatKindFilter) => void;
   totalUnreadCount: number;
   openChatJoinedItems: UnifiedRoomListItem[];
   filteredDiscoverableGroups: CommunityMessengerDiscoverableGroupSummary[];
@@ -77,8 +83,10 @@ export function MessengerHomeMainSections({
   onToggleMute,
   onMarkRead,
   onToggleArchive,
-  chatSubFilter,
-  onChatSubFilterChange,
+  chatInboxFilter,
+  chatKindFilter,
+  onChatInboxFilterChange,
+  onChatKindFilterChange,
   totalUnreadCount,
   openChatJoinedItems,
   filteredDiscoverableGroups,
@@ -119,10 +127,12 @@ export function MessengerHomeMainSections({
           onToggleMute={onToggleMute}
           onMarkRead={onMarkRead}
           onToggleArchive={onToggleArchive}
-          chatSubFilter={chatSubFilter}
-          onChatSubFilterChange={onChatSubFilterChange}
+          chatInboxFilter={chatInboxFilter}
+          chatKindFilter={chatKindFilter}
+          onChatInboxFilterChange={onChatInboxFilterChange}
+          onChatKindFilterChange={onChatKindFilterChange}
           totalUnreadCount={totalUnreadCount}
-          emptyMessage="조건에 맞는 대화가 없습니다."
+          emptyMessage={messengerChatListEmptyMessage(chatKindFilter)}
         />
       ) : null}
 
@@ -149,8 +159,10 @@ export function MessengerHomeMainSections({
           onToggleMute={onToggleMute}
           onMarkRead={onMarkRead}
           onToggleArchive={onToggleArchive}
-          chatSubFilter={chatSubFilter}
-          onChatSubFilterChange={onChatSubFilterChange}
+          chatInboxFilter={chatInboxFilter}
+          chatKindFilter={chatKindFilter}
+          onChatInboxFilterChange={onChatInboxFilterChange}
+          onChatKindFilterChange={onChatKindFilterChange}
           totalUnreadCount={totalUnreadCount}
         />
       ) : null}

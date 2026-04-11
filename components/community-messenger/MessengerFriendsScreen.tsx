@@ -86,7 +86,7 @@ export function MessengerFriendsScreen({
         </div>
       </div>
 
-      {/* 2) Favorite friends — 빠른 채팅·통화 */}
+      {/* 2) Favorite friends — 빠른 채팅·통화 (`outgoing-call-surfaces`: friendsFavoriteQuickActions) */}
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-[13px] font-semibold text-gray-900">즐겨찾기</h2>

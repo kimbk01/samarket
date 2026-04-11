@@ -2,6 +2,10 @@ import { randomUUID } from "crypto";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import {
+  parseCommunityMessengerRoomContextMeta,
+  serializeCommunityMessengerRoomContextMeta,
+} from "@/lib/community-messenger/room-context-meta";
 import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
@@ -26,6 +30,7 @@ import type {
   CommunityMessengerCallSignalType,
   CommunityMessengerRoomJoinPolicy,
   CommunityMessengerRoomIdentityPolicy,
+  CommunityMessengerRoomContextMetaV1,
   CommunityMessengerCallStatus,
   CommunityMessengerFriendRequest,
   CommunityMessengerFriendRequestStatus,
@@ -794,6 +799,7 @@ function buildRoomSummaryFromHydratedMembers(
   const isReadonly = isDbRoom ? room.is_readonly === true : room.isReadonly;
   const roomTitle = trimText(isDbRoom ? room.title : room.title);
   const roomSummary = trimText(isDbRoom ? room.summary : room.summary);
+  const contextMeta = parseCommunityMessengerRoomContextMeta(roomSummary);
   const roomAvatar = trimText(isDbRoom ? room.avatar_url : room.avatarUrl) || null;
   const roomLastMessage = trimText(isDbRoom ? room.last_message : room.lastMessage);
   const roomLastMessageTypeRaw = trimText(isDbRoom ? room.last_message_type : room.lastMessageType);
@@ -884,6 +890,7 @@ function buildRoomSummaryFromHydratedMembers(
     )?.identityMode,
     peerUserId: roomType === "direct" ? peers[0] ?? null : null,
     isArchivedByViewer,
+    contextMeta: contextMeta ?? null,
   };
 }
 
@@ -3381,6 +3388,72 @@ export async function updateCommunityMessengerParticipantSettings(input: {
   if (!participant || "user_id" in participant) return { ok: false, error: "room_not_found" };
   if (typeof input.isMuted === "boolean") participant.isMuted = input.isMuted;
   if (typeof input.isPinned === "boolean") participant.isPinned = input.isPinned;
+  return { ok: true };
+}
+
+/**
+ * 거래/배달 목록용 `rooms.summary` JSON(v1) 갱신 — 참가자만, direct·그룹만.
+ * 스토어 주문 쪽에서는 `buildMessengerContextMetaFromStoreOrder` 로 만든 뒤 호출.
+ */
+export async function updateCommunityMessengerRoomContextMeta(input: {
+  userId: string;
+  roomId: string;
+  contextMeta: CommunityMessengerRoomContextMetaV1;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const payload = serializeCommunityMessengerRoomContextMeta(input.contextMeta);
+  if (!parseCommunityMessengerRoomContextMeta(payload)) {
+    return { ok: false, error: "invalid_context_meta" };
+  }
+
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const [{ data: participant }, { data: room }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, room_type, room_status, is_readonly")
+        .eq("id", roomId)
+        .maybeSingle(),
+    ]);
+    if (!participant || !room) return { ok: false, error: "room_not_found" };
+    const rt = trimText((room as { room_type?: string | null }).room_type);
+    if (rt !== "direct" && rt !== "private_group") {
+      return { ok: false, error: "context_meta_room_type" };
+    }
+    const roomStatus = normalizeRoomStatus((room as { room_status?: unknown }).room_status);
+    const isReadonly = Boolean((room as { is_readonly?: unknown }).is_readonly);
+    if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+    if (isReadonly) return { ok: false, error: "room_readonly" };
+
+    const { error } = await (sb as any)
+      .from("community_messenger_rooms")
+      .update({ summary: payload, updated_at: nowIso() })
+      .eq("id", roomId);
+    if (!error) return { ok: true };
+    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "summary_update_failed") };
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const participant = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  if (!participant || "user_id" in participant) return { ok: false, error: "room_not_found" };
+  const r = dev.rooms.find((item) => item.id === roomId);
+  if (!r) return { ok: false, error: "room_not_found" };
+  if (r.roomType !== "direct" && r.roomType !== "private_group") {
+    return { ok: false, error: "context_meta_room_type" };
+  }
+  if (r.roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+  if (r.isReadonly) return { ok: false, error: "room_readonly" };
+  r.summary = payload;
   return { ok: true };
 }
 

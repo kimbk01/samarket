@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * 친구 프로필 시트 — 음성/영상 발신은 `outgoing-call-surfaces` 의 friendProfileSheet.
+ */
+
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 type Props = {
