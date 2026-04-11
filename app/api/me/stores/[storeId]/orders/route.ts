@@ -79,7 +79,7 @@ export async function GET(
   const { data: orders, error: oErr } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, buyer_user_id, total_amount, payment_amount, delivery_fee_amount, delivery_courier_label, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, auto_complete_at"
+      "id, order_no, buyer_user_id, total_amount, payment_amount, delivery_fee_amount, delivery_courier_label, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, auto_complete_at, community_messenger_room_id"
     )
     .eq("store_id", id)
     .order("created_at", { ascending: false })

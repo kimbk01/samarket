@@ -26,6 +26,8 @@ import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-crite
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
+import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
+import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 
 type ItemRow = {
   id: string;
@@ -62,6 +64,7 @@ type OrderDetail = {
   created_at: string;
   updated_at: string;
   auto_complete_at?: string | null;
+  community_messenger_room_id?: string | null;
 };
 
 
@@ -376,6 +379,22 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             </Link>
           )}
         </div>
+        {order.community_messenger_room_id ? (
+          <div className="mt-3">
+            <StoreOrderMessengerDeepLink
+              roomId={order.community_messenger_room_id}
+              context={buildMessengerContextInputFromStoreOrderSnapshot({
+                storeName: order.store_name,
+                orderNo: order.order_no,
+                fulfillmentType: order.fulfillment_type,
+                orderStatus: order.order_status,
+                paymentAmount: order.payment_amount,
+                firstLineProductTitle: items[0]?.product_title_snapshot ?? null,
+                thumbnailUrl: null,
+              })}
+            />
+          </div>
+        ) : null}
         {order.order_status === "completed" && reorderPayload ? (
           <div className="mt-3 flex flex-row gap-2">
             {!review && can_submit_review ? (

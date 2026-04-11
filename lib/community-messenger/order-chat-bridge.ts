@@ -41,13 +41,12 @@ export async function createCommunityMessengerDeepLinkFromOrderChat(input: {
   room: OrderChatRoomPublic;
   orderStatus: SharedOrderStatus;
 }): Promise<{ ok: true; href: string } | { ok: false; error: string }> {
-  const peerUserId = peerUserIdForMessengerFromOrderChat(input.role, input.room);
   const meta = buildMessengerContextMetaFromOrderChatSnapshot(input.room, input.orderStatus);
   const res = await fetch("/api/community-messenger/rooms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ roomType: "direct", peerUserId }),
+    body: JSON.stringify({ roomType: "direct", storeOrderId: input.room.order_id }),
   });
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;

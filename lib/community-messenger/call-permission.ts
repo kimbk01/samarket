@@ -1,6 +1,48 @@
 import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
+/** 한 번 통화 장치를 통과한 브라우저는 이후 발신 시 확인 오버레이를 생략(동종 메신저와 유사) */
+const LS_CM_MEDIA_TRUSTED = "cm_messenger_media_trusted_v1";
+
+export function markCommunityMessengerMediaTrustedOnce(): void {
+  try {
+    localStorage.setItem(LS_CM_MEDIA_TRUSTED, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+function hasCommunityMessengerMediaTrustedMark(): boolean {
+  try {
+    return localStorage.getItem(LS_CM_MEDIA_TRUSTED) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 발신 통화의 「마이크·카메라 허용」 전체 화면 확인을 건너뛸지.
+ * - 이전에 성공적으로 허용한 기록(localStorage) 또는
+ * - Permissions API 로 이미 granted 인 경우
+ */
+export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerCallKind): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (hasCommunityMessengerMediaTrustedMark()) return true;
+  const perm = navigator.permissions;
+  if (!perm?.query) return false;
+  try {
+    const mic = await perm.query({ name: "microphone" as PermissionName });
+    if (mic.state !== "granted") return false;
+    if (kind === "video") {
+      const cam = await perm.query({ name: "camera" as PermissionName });
+      if (cam.state !== "granted") return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type PrimedDeviceStreamState = {
   kind: CommunityMessengerCallKind;
   stream: MediaStream;

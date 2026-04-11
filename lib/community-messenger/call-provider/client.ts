@@ -23,19 +23,28 @@ export function createCommunityMessengerAgoraClient(): IAgoraRTCClient {
 
 async function createAgoraMicWithPreferredDevice(): Promise<ILocalAudioTrack> {
   const { audioDeviceId } = readPreferredCommunityMessengerDeviceIds();
-  const base = { encoderConfig: "music_standard" as const };
-  try {
-    if (audioDeviceId) {
-      return await AgoraRTC.createMicrophoneAudioTrack({
-        ...base,
-        microphoneId: audioDeviceId,
-      });
+  /** 음성 위주 인코딩을 먼저 시도(윈도우 등 일부 환경에서 music_standard 가 실패하는 경우 완화) */
+  const encoderCandidates = ["speech_standard", "music_standard"] as const;
+
+  for (const encoderConfig of encoderCandidates) {
+    try {
+      if (audioDeviceId) {
+        return await AgoraRTC.createMicrophoneAudioTrack({
+          encoderConfig,
+          microphoneId: audioDeviceId,
+        });
+      }
+      return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig });
+    } catch {
+      writePreferredCommunityMessengerDeviceIds(null, null);
+      try {
+        return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig });
+      } catch {
+        /* 다음 인코더 */
+      }
     }
-    return await AgoraRTC.createMicrophoneAudioTrack(base);
-  } catch {
-    writePreferredCommunityMessengerDeviceIds(null, null);
-    return AgoraRTC.createMicrophoneAudioTrack(base);
   }
+  return AgoraRTC.createMicrophoneAudioTrack();
 }
 
 async function createAgoraCamWithPreferredDevice(): Promise<ILocalVideoTrack> {
@@ -68,7 +77,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
     if (audioMedia) {
       const audioTrack = AgoraRTC.createCustomAudioTrack({
         mediaStreamTrack: audioMedia,
-        encoderConfig: "music_standard",
+        encoderConfig: "speech_standard",
       });
       if (kind !== "video") {
         return { audioTrack, videoTrack: null };

@@ -20,6 +20,8 @@ import {
 } from "@/lib/ui/app-content-layout";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
+import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
+import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 
 type ItemRow = {
   id: string;
@@ -51,6 +53,7 @@ type OrderRow = {
   /** 매장 프로필(채팅 목록 카드와 동일 톤의 썸네일) */
   store_profile_image_url?: string | null;
   order_chat_unread_count?: number;
+  community_messenger_room_id?: string | null;
 };
 
 function buyerStoreOrderChatHref(args: { embedded: boolean; orderId: string }): string {
@@ -347,6 +350,25 @@ function MyStoreOrderCard({
           </Link>
         )}
       </FeedActionRow>
+
+      {o.community_messenger_room_id ? (
+        <div className={`border-t ${FB_DIVIDER}`}>
+          <StoreOrderMessengerDeepLink
+            roomId={o.community_messenger_room_id}
+            variant="compact"
+            context={buildMessengerContextInputFromStoreOrderSnapshot({
+              storeName: o.store_name,
+              orderNo: o.order_no,
+              fulfillmentType: o.fulfillment_type,
+              orderStatus: o.order_status,
+              paymentAmount: o.payment_amount,
+              firstLineProductTitle: o.items?.[0]?.product_title_snapshot ?? null,
+              thumbnailUrl: o.store_profile_image_url ?? null,
+            })}
+            className={`flex min-h-[40px] w-full items-center justify-center px-3 text-[13px] font-semibold text-signature ${FB_HOVER_ROW}`}
+          />
+        </div>
+      ) : null}
 
       {o.order_status === "completed" && reorderPayload ? (
         <FeedActionRow>

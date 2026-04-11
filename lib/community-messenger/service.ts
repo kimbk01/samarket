@@ -12,6 +12,7 @@ import {
   downsampleVoiceWaveformPeaks,
   parseVoiceWaveformPeaksFromMetadata,
 } from "@/lib/community-messenger/voice-waveform";
+import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
 import type {
@@ -2342,13 +2343,68 @@ export async function removeCommunityMessengerFriend(
   return { ok: true };
 }
 
+async function verifyUserIsProductChatCounterpart(
+  userId: string,
+  peerUserId: string,
+  productChatId: string
+): Promise<boolean> {
+  const pid = trimText(productChatId);
+  if (!pid) return false;
+  const sb = getSupabaseOrNull();
+  if (!sb) return false;
+  const { data } = await (sb as any)
+    .from("product_chats")
+    .select("seller_id, buyer_id")
+    .eq("id", pid)
+    .maybeSingle();
+  if (!data) return false;
+  const seller = trimText((data as { seller_id?: unknown }).seller_id);
+  const buyer = trimText((data as { buyer_id?: unknown }).buyer_id);
+  if (!seller || !buyer) return false;
+  return (
+    (userId === seller && peerUserId === buyer) || (userId === buyer && peerUserId === seller)
+  );
+}
+
+async function verifyUserIsStoreOrderChatCounterpart(
+  userId: string,
+  peerUserId: string,
+  storeOrderId: string
+): Promise<boolean> {
+  const oid = trimText(storeOrderId);
+  if (!oid) return false;
+  const sb = getSupabaseOrNull();
+  if (!sb) return false;
+  const { data } = await (sb as any)
+    .from("order_chat_rooms")
+    .select("buyer_user_id, owner_user_id")
+    .eq("order_id", oid)
+    .maybeSingle();
+  if (!data) return false;
+  const buyer = trimText((data as { buyer_user_id?: unknown }).buyer_user_id);
+  const owner = trimText((data as { owner_user_id?: unknown }).owner_user_id);
+  if (!buyer || !owner) return false;
+  return (
+    (userId === buyer && peerUserId === owner) || (userId === owner && peerUserId === buyer)
+  );
+}
+
 export async function ensureCommunityMessengerDirectRoom(
   userId: string,
-  peerUserId: string
+  peerUserId: string,
+  options?: { productChatId?: string; storeOrderId?: string }
 ): Promise<{ ok: boolean; roomId?: string; error?: string }> {
   const peerId = trimText(peerUserId);
   if (!peerId || peerId === userId) return { ok: false, error: "bad_peer" };
-  if (!(await isFriend(userId, peerId))) return { ok: false, error: "friend_required" };
+  const productChatId = trimText(options?.productChatId ?? "");
+  const storeOrderId = trimText(options?.storeOrderId ?? "");
+  let allowWithoutFriend = false;
+  if (productChatId) {
+    allowWithoutFriend = await verifyUserIsProductChatCounterpart(userId, peerId, productChatId);
+  } else if (storeOrderId) {
+    allowWithoutFriend = await verifyUserIsStoreOrderChatCounterpart(userId, peerId, storeOrderId);
+  }
+  if (!(await isFriend(userId, peerId)) && !allowWithoutFriend) return { ok: false, error: "friend_required" };
   if (!(await ensureNoBlockedEitherWay(userId, peerId))) {
     return { ok: false, error: "blocked_target" };
   }
@@ -2480,6 +2536,88 @@ export async function ensureCommunityMessengerDirectRoom(
     }
   );
   return { ok: true, roomId };
+}
+
+export async function ensureCommunityMessengerDirectRoomFromProductChat(
+  userId: string,
+  roomIdOrProductChat: string
+): Promise<{ ok: boolean; roomId?: string; peerUserId?: string; error?: string }> {
+  const rid = trimText(roomIdOrProductChat);
+  if (!rid) return { ok: false, error: "bad_room" };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "server_unavailable" };
+  const resolved = await resolveProductChat(sb as any, rid);
+  if (!resolved) return { ok: false, error: "product_chat_not_found" };
+  const pc = resolved.productChat;
+  const seller = trimText(pc.seller_id);
+  const buyer = trimText(pc.buyer_id);
+  const productChatId = resolved.productChatId;
+  if (!seller || !buyer) return { ok: false, error: "product_chat_invalid" };
+  if (userId !== seller && userId !== buyer) return { ok: false, error: "not_participant" };
+  const peer = userId === seller ? buyer : seller;
+  const out = await ensureCommunityMessengerDirectRoom(userId, peer, { productChatId });
+  if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
+  return { ok: true, roomId: out.roomId, peerUserId: peer };
+}
+
+export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
+  userId: string,
+  orderId: string
+): Promise<{ ok: boolean; roomId?: string; peerUserId?: string; error?: string }> {
+  const oid = trimText(orderId);
+  if (!oid) return { ok: false, error: "bad_order" };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "server_unavailable" };
+  const { data } = await (sb as any)
+    .from("order_chat_rooms")
+    .select("buyer_user_id, owner_user_id")
+    .eq("order_id", oid)
+    .maybeSingle();
+  if (!data) return { ok: false, error: "order_chat_not_found" };
+  const buyer = trimText((data as { buyer_user_id?: unknown }).buyer_user_id);
+  const owner = trimText((data as { owner_user_id?: unknown }).owner_user_id);
+  if (!buyer || !owner) return { ok: false, error: "order_chat_invalid" };
+  if (userId !== buyer && userId !== owner) return { ok: false, error: "not_participant" };
+  const peer = userId === buyer ? owner : buyer;
+  const out = await ensureCommunityMessengerDirectRoom(userId, peer, { storeOrderId: oid });
+  if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
+  return { ok: true, roomId: out.roomId, peerUserId: peer };
+}
+
+/**
+ * `store_orders.community_messenger_room_id` — 주문·메신저 1:1 연결(선택 컬럼, 마이그레이션 후 동작).
+ * 실패해도 방 생성·딥링크는 이미 성공한 상태이므로 호출부는 best-effort 로 둔다.
+ */
+export async function syncStoreOrderCommunityMessengerRoomId(input: {
+  userId: string;
+  storeOrderId: string;
+  communityMessengerRoomId: string;
+}): Promise<{ ok: boolean }> {
+  const oid = trimText(input.storeOrderId);
+  const cmRoomId = trimText(input.communityMessengerRoomId);
+  const uid = trimText(input.userId);
+  if (!oid || !cmRoomId || !uid) return { ok: false };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false };
+
+  const { data: ocr } = await (sb as any)
+    .from("order_chat_rooms")
+    .select("buyer_user_id, owner_user_id")
+    .eq("order_id", oid)
+    .maybeSingle();
+  if (!ocr) return { ok: false };
+  const buyer = trimText((ocr as { buyer_user_id?: unknown }).buyer_user_id);
+  const owner = trimText((ocr as { owner_user_id?: unknown }).owner_user_id);
+  if (uid !== buyer && uid !== owner) return { ok: false };
+
+  const { error } = await (sb as any).from("store_orders").update({ community_messenger_room_id: cmRoomId }).eq("id", oid);
+  if (error) {
+    if (isMissingTableError(error)) {
+      return { ok: false };
+    }
+    return { ok: false };
+  }
+  return { ok: true };
 }
 
 export async function createPrivateGroupRoom(input: {

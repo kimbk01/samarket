@@ -252,11 +252,13 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     if (visibleSessionStatus !== "ringing") return;
-    const tone = startCommunityMessengerCallTone("incoming");
+    const tone = startCommunityMessengerCallTone("incoming", {
+      callKind: visibleSession?.callKind ?? "voice",
+    });
     return () => {
       tone.stop();
     };
-  }, [visibleSessionId, visibleSessionStatus]);
+  }, [visibleSessionId, visibleSessionStatus, visibleSession?.callKind]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
     stopCommunityMessengerCallFeedback();

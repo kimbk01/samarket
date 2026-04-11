@@ -1104,11 +1104,12 @@ export function CommunityMessengerRoomClient({
           alert(getRoomActionErrorMessage(json.error));
           return;
         }
-        if (json.message) {
+        const serverImageMsg = json.message;
+        if (serverImageMsg) {
           setRoomMessages((prev) =>
             mergeRoomMessages(
               prev.filter((item) => item.id !== tempId),
-              [json.message]
+              [serverImageMsg]
             )
           );
           scrollMessengerToBottom();
@@ -1179,11 +1180,12 @@ export function CommunityMessengerRoomClient({
           alert(getRoomActionErrorMessage(json.error));
           return;
         }
-        if (json.message) {
+        const serverFileMsg = json.message;
+        if (serverFileMsg) {
           setRoomMessages((prev) =>
             mergeRoomMessages(
               prev.filter((item) => item.id !== tempId),
-              [json.message]
+              [serverFileMsg]
             )
           );
           scrollMessengerToBottom();
@@ -2001,7 +2003,9 @@ export function CommunityMessengerRoomClient({
     if (!isGroupRoom || !callPanel || (callPanel.mode !== "incoming" && callPanel.mode !== "dialing")) {
       return;
     }
-    const tone = startCommunityMessengerCallTone(callPanel.mode === "incoming" ? "incoming" : "outgoing");
+    const tone = startCommunityMessengerCallTone(callPanel.mode === "incoming" ? "incoming" : "outgoing", {
+      callKind: callPanel.kind,
+    });
     return () => {
       tone.stop();
     };

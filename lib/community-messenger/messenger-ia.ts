@@ -173,7 +173,7 @@ export function messengerChatSubFilterLabel(filter: MessengerChatSubFilter): str
  */
 export function messengerChatListEmptyMessage(kind: MessengerChatKindFilter): string {
   if (kind === "trade") {
-    return "거래로 분류된 대화가 없습니다. 스토어 주문 채팅에서「SAMessenger에서 이 주문 열기」로 연결하면 주문 맥락이 방에 붙고 이 탭에 표시됩니다. 친구 이름만 있는 일반 1:1은 거래 탭에 포함되지 않습니다.";
+    return "거래로 분류된 대화가 없습니다. 중고 거래채팅에서「SAMessenger에서 이 거래 열기」 또는 스토어 주문 채팅에서「SAMessenger에서 이 주문 열기」로 연결하면 맥락이 붙습니다. 친구 이름만 있는 일반 1:1은 거래 탭에 포함되지 않습니다.";
   }
   if (kind === "delivery") {
     return "배달로 분류된 대화가 없습니다. 배달 주문 채팅에서 메신저로 열면 배달 맥락이 붙은 방만 이 탭에 나타납니다.";

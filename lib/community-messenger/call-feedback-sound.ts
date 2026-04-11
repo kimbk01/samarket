@@ -1,4 +1,6 @@
 import { NOTIFICATION_SOUND_ASSET_PATH, playNotificationSound, primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
+import { startWebAudioCallTone } from "@/lib/community-messenger/call-tone-web-audio";
+import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 type CallToneMode = "incoming" | "outgoing";
 
@@ -19,16 +21,36 @@ export function stopCommunityMessengerCallFeedback(): void {
   activeToneStopper?.();
 }
 
-export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneController {
+export type StartCallToneOptions = {
+  /** 음성/영상에 따라 다른 주파수·간격(동종 메신저처럼 구분). 기본 `voice`. */
+  callKind?: CommunityMessengerCallKind;
+};
+
+/**
+ * 수신/발신 통화 톤. Web Audio 합성을 우선 사용하고, 실패 시 기존 알림 루프로 폴백.
+ */
+export function startCommunityMessengerCallTone(mode: CallToneMode, options?: StartCallToneOptions): CallToneController {
   if (typeof window === "undefined") {
     return { stop() {} };
+  }
+
+  const kind: "voice" | "video" = options?.callKind === "video" ? "video" : "voice";
+
+  activeToneStopper?.();
+
+  const web = startWebAudioCallTone(mode, kind);
+  if (web) {
+    const stop = () => {
+      web.stop();
+      if (activeToneStopper === stop) activeToneStopper = null;
+    };
+    activeToneStopper = stop;
+    return { stop };
   }
 
   let stopped = false;
   let intervalId: number | null = null;
   let audio: HTMLAudioElement | null = null;
-
-  activeToneStopper?.();
 
   const clearLoopAudio = () => {
     if (intervalId) {
@@ -86,7 +108,6 @@ export function startCommunityMessengerCallTone(mode: CallToneMode): CallToneCon
     window.removeEventListener("pointerdown", onFirstGesture);
     window.removeEventListener("touchstart", onFirstGesture);
     if (stopped) return;
-    /* 수신은 fetch 이후에 시작되어 자동재생이 막히는 경우가 많음 — 첫 터치 후 다시 시도 */
     tryStart();
   };
 

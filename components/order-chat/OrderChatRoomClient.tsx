@@ -13,6 +13,7 @@ import { OwnerChatInput } from "@/components/order-chat/OwnerChatInput";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
 import type { OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
 import type { OrderChatMessagePublic, OrderChatRole, OrderChatRoomPublic } from "@/lib/order-chat/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { createCommunityMessengerDeepLinkFromOrderChat } from "@/lib/community-messenger/order-chat-bridge";
 
@@ -22,16 +23,6 @@ type Snapshot = {
   orderStatus: SharedOrderStatus;
   messages: OrderChatMessagePublic[];
 };
-
-function messengerBridgeErrorMessage(code: string): string {
-  if (code === "friend_required") {
-    return "메신저 1:1 채팅은 친구인 사용자와만 열 수 있어요. 친구 추가 후 다시 시도해 주세요.";
-  }
-  if (code === "blocked_target") {
-    return "차단된 사용자와는 메신저 대화를 열 수 없습니다.";
-  }
-  return "메신저로 이동할 수 없습니다. 잠시 후 다시 시도해 주세요.";
-}
 
 function mapMessageForUi(message: OrderChatMessagePublic) {
   return {
@@ -57,7 +48,15 @@ export function OrderChatRoomClient({
   orderChatsHref?: string;
   showMessengerDeepLink?: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
+
+  const messengerBridgeErrorMessage = (code: string) => {
+    if (code === "friend_required") return t("nav_messenger_order_bridge_friend_required");
+    if (code === "blocked_target") return t("nav_messenger_order_bridge_blocked");
+    return t("nav_messenger_order_bridge_failed");
+  };
+
   const [messengerOpenBusy, setMessengerOpenBusy] = useState(false);
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -157,7 +156,7 @@ export function OrderChatRoomClient({
   if (state.kind === "loading") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-gray-50 px-4">
-        <p className="text-sm text-muted">주문 채팅을 불러오는 중…</p>
+        <p className="text-sm text-muted">{t("member_order_chat_loading")}</p>
       </div>
     );
   }
@@ -165,12 +164,14 @@ export function OrderChatRoomClient({
   if (state.kind === "error") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 px-4 text-center">
-        <p className="text-sm text-gray-700">채팅을 열 수 없습니다. ({state.message})</p>
+        <p className="text-sm text-gray-700">
+          {t("member_order_chat_open_failed")} ({state.message})
+        </p>
         <Link href={backHref} className="text-sm font-medium text-signature underline">
-          주문 상세로 돌아가기
+          {t("member_order_chat_return_to_detail")}
         </Link>
         <Link href={orderChatsHref ?? "/my/store-orders"} className="text-sm text-gray-600 underline">
-          주문 채팅 목록
+          {t("member_orders_chat_list")}
         </Link>
       </div>
     );
@@ -191,7 +192,7 @@ export function OrderChatRoomClient({
         <ChatHubTopTabs active="order" orderChatsHref={orderChatsHref ?? "/my/store-orders"} />
         {state.role === "buyer" ? (
           <p className="border-t border-gray-100 bg-gray-50 px-4 py-2 text-center text-[11px] leading-relaxed text-gray-600">
-            주문 상태 확인, 취소, 환불 요청은 주문 상세에서 진행하고 매장과의 대화만 여기서 이어가세요.
+            {t("member_order_chat_notice")}
           </p>
         ) : null}
         <OrderChatProgressStrip orderStatus={state.orderStatus} orderFlow={flow} />
@@ -223,7 +224,7 @@ export function OrderChatRoomClient({
               }}
               className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[13px] font-medium text-gray-900 disabled:opacity-50"
             >
-              {messengerOpenBusy ? "메신저 준비 중…" : "SAMessenger에서 이 주문 열기"}
+              {messengerOpenBusy ? t("nav_messenger_order_bridge_busy") : t("nav_messenger_open_store_order")}
             </button>
           </div>
         ) : null}

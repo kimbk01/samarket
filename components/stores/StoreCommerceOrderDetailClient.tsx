@@ -13,6 +13,8 @@ import {
 } from "@/lib/utils/ph-mobile";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
+import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
+import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 
 type ItemRow = {
   id: string;
@@ -41,6 +43,7 @@ type OrderDetail = {
   buyer_phone?: string | null;
   created_at: string;
   updated_at?: string;
+  community_messenger_room_id?: string | null;
 };
 
 const ORDER_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
@@ -174,6 +177,22 @@ export function StoreCommerceOrderDetailClient({
             매장 문의 열기
           </Link>
         )}
+        {order.community_messenger_room_id ? (
+          <div className="mt-3">
+            <StoreOrderMessengerDeepLink
+              roomId={order.community_messenger_room_id}
+              context={buildMessengerContextInputFromStoreOrderSnapshot({
+                storeName: order.store_name,
+                orderNo: order.order_no,
+                fulfillmentType: order.fulfillment_type,
+                orderStatus: order.order_status,
+                paymentAmount: order.payment_amount,
+                firstLineProductTitle: items[0]?.product_title_snapshot ?? null,
+                thumbnailUrl: null,
+              })}
+            />
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">

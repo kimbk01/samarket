@@ -77,6 +77,8 @@ export interface OwnerOrder {
   buyer_payment_method?: string | null;
   /** other 선택 시 주문 시점 매장 기타 안내 스냅샷 */
   buyer_payment_method_detail?: string | null;
+  /** 연결된 커뮤니티 메신저 방 (store_orders.community_messenger_room_id) */
+  community_messenger_room_id?: string | null;
   /** 실주문: 원본 수령 타입 */
   fulfillment_type?: string;
   /** 동네배달 안내(청구 금액 미포함) */

@@ -43,4 +43,15 @@ describe("parseCommunityMessengerRoomContextMeta", () => {
     const again = parseCommunityMessengerRoomContextMeta(serializeCommunityMessengerRoomContextMeta(meta));
     expect(again).toEqual(meta);
   });
+
+  it("preserves productChatId", () => {
+    const raw = JSON.stringify({
+      v: 1,
+      kind: "trade",
+      headline: "아이폰",
+      productChatId: "pc-uuid-1",
+    });
+    const meta = parseCommunityMessengerRoomContextMeta(raw);
+    expect(meta?.productChatId).toBe("pc-uuid-1");
+  });
 });

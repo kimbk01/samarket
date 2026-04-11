@@ -1,4 +1,6 @@
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import type { OwnerOrder } from "@/lib/store-owner/types";
+import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 /**
@@ -34,4 +36,48 @@ export function buildMessengerContextMetaFromStoreOrder(input: StoreOrderMesseng
   const step = input.orderStatusLabel?.trim();
   if (step) meta.stepLabel = step;
   return meta;
+}
+
+/** 구매자 목록·상세 등 `store_orders` 스냅샷 → `StoreOrderMessengerDeepLink` 의 `context` */
+export function buildMessengerContextInputFromStoreOrderSnapshot(args: {
+  storeName: string;
+  orderNo: string;
+  fulfillmentType: string;
+  orderStatus: string;
+  paymentAmount: number;
+  firstLineProductTitle?: string | null;
+  thumbnailUrl?: string | null;
+}): StoreOrderMessengerContextInput {
+  const store = args.storeName.trim();
+  const line = args.firstLineProductTitle?.trim();
+  const headline = line ? `${store} · ${line}` : `${store} · 주문 ${args.orderNo}`;
+  const ft = (args.fulfillmentType ?? "").trim().toLowerCase();
+  /** `buildMessengerContextMetaFromStoreOrder` 는 `local_delivery` 만 배달 카드로 분류 */
+  const fulfillmentForMeta = ft === "shipping" ? "local_delivery" : args.fulfillmentType;
+  return {
+    fulfillmentType: fulfillmentForMeta,
+    productTitle: headline,
+    paymentAmount: args.paymentAmount,
+    orderStatusLabel: BUYER_ORDER_STATUS_LABEL[args.orderStatus] ?? args.orderStatus,
+    thumbnailUrl: args.thumbnailUrl ?? null,
+  };
+}
+
+function fulfillmentTypeForMessengerFromOwnerOrderType(orderType: OwnerOrder["order_type"]): string {
+  if (orderType === "delivery" || orderType === "shipping") return "local_delivery";
+  return "pickup";
+}
+
+/** 오너 카드·상세 `OwnerOrder` → 메신저 `cm_ctx` */
+export function buildMessengerContextInputFromOwnerOrder(order: OwnerOrder): StoreOrderMessengerContextInput {
+  const first = order.items[0]?.menu_name?.trim();
+  return buildMessengerContextInputFromStoreOrderSnapshot({
+    storeName: order.store_name,
+    orderNo: order.order_no,
+    fulfillmentType: fulfillmentTypeForMessengerFromOwnerOrderType(order.order_type),
+    orderStatus: order.order_status,
+    paymentAmount: order.total_amount,
+    firstLineProductTitle: first ?? null,
+    thumbnailUrl: null,
+  });
 }

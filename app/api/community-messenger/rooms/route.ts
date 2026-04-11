@@ -11,8 +11,11 @@ import {
   createOpenGroupRoom,
   createPrivateGroupRoom,
   ensureCommunityMessengerDirectRoom,
+  ensureCommunityMessengerDirectRoomFromProductChat,
+  ensureCommunityMessengerDirectRoomFromStoreOrderChat,
   getCommunityMessengerRoomSnapshot,
   listCommunityMessengerMyChatsAndGroups,
+  syncStoreOrderCommunityMessengerRoomId,
 } from "@/lib/community-messenger/service";
 
 export async function GET(req: NextRequest) {
@@ -51,6 +54,10 @@ export async function POST(req: NextRequest) {
   const parsed = await parseJsonBody<{
     roomType?: "direct" | "group" | "private_group" | "open_group";
     peerUserId?: string;
+    /** 스토어 주문 채팅 — 서버가 상대방을 주문 행에서만 계산(스푸핑 방지). */
+    storeOrderId?: string;
+    /** 중고 거래채팅(product_chats 또는 통합 item_trade id) — 참가자면 친구 없이 1:1 허용. */
+    productChatRoomId?: string;
     title?: string;
     summary?: string;
     password?: string;
@@ -94,12 +101,29 @@ export async function POST(req: NextRequest) {
     return result.ok ? jsonOk(result) : jsonError(result.error ?? "오픈 그룹 생성에 실패했습니다.", 400, result);
   }
 
-  const result = await ensureCommunityMessengerDirectRoom(
-    auth.userId,
-    String(body.peerUserId ?? "")
-  );
+  const storeOrderId = typeof body.storeOrderId === "string" ? body.storeOrderId.trim() : "";
+  const productChatRoomId = typeof body.productChatRoomId === "string" ? body.productChatRoomId.trim() : "";
+
+  let result: { ok: boolean; roomId?: string; error?: string };
+  if (storeOrderId) {
+    result = await ensureCommunityMessengerDirectRoomFromStoreOrderChat(auth.userId, storeOrderId);
+  } else if (productChatRoomId) {
+    result = await ensureCommunityMessengerDirectRoomFromProductChat(auth.userId, productChatRoomId);
+  } else {
+    result = await ensureCommunityMessengerDirectRoom(auth.userId, String(body.peerUserId ?? ""));
+  }
   if (!result.ok || !result.roomId) {
-    return jsonError(result.error ?? "대화방 준비에 실패했습니다.", 400, result);
+    const err = result.error ?? "room_failed";
+    const status =
+      err === "not_participant" ? 403 : err === "product_chat_not_found" || err === "order_chat_not_found" ? 404 : 400;
+    return jsonError(result.error ?? "대화방 준비에 실패했습니다.", status, result);
+  }
+  if (storeOrderId) {
+    await syncStoreOrderCommunityMessengerRoomId({
+      userId: auth.userId,
+      storeOrderId,
+      communityMessengerRoomId: result.roomId,
+    });
   }
   const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
   return jsonOk({ ...result, snapshot });

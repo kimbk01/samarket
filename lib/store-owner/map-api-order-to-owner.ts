@@ -30,6 +30,8 @@ export type ApiStoreOrderRow = {
   delivery_address_detail?: string | null;
   created_at: string;
   auto_complete_at?: string | null;
+  /** store_orders FK — 주문↔메신저 연결 후 설정 */
+  community_messenger_room_id?: string | null;
   items?: ApiOrderItem[];
 };
 
@@ -112,5 +114,6 @@ export function mapApiOrderToOwnerOrder(
     buyer_payment_method: row.buyer_payment_method?.trim() || null,
     buyer_payment_method_detail: row.buyer_payment_method_detail?.trim() || null,
     fulfillment_type: String(row.fulfillment_type ?? "pickup"),
+    community_messenger_room_id: row.community_messenger_room_id?.trim() || null,
   };
 }

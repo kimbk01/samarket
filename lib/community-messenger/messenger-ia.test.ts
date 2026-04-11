@@ -7,8 +7,10 @@ describe("messengerChatListEmptyMessage", () => {
     expect(messengerChatListEmptyMessage("direct")).toBe("조건에 맞는 대화가 없습니다.");
   });
 
-  it("mentions store order bridge for trade", () => {
-    expect(messengerChatListEmptyMessage("trade")).toContain("SAMessenger에서 이 주문 열기");
+  it("mentions store order and product trade bridges for trade", () => {
+    const m = messengerChatListEmptyMessage("trade");
+    expect(m).toContain("이 거래 열기");
+    expect(m).toContain("이 주문 열기");
   });
 
   it("mentions delivery order path for delivery", () => {

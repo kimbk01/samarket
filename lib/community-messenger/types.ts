@@ -91,6 +91,8 @@ export type CommunityMessengerRoomContextMetaV1 = {
   priceLabel?: string;
   thumbnailUrl?: string | null;
   stepLabel?: string;
+  /** 중고 거래채팅(`product_chats`)과 연결된 경우 */
+  productChatId?: string;
 };
 
 export type CommunityMessengerRoomSummary = {

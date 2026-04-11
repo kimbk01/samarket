@@ -34,6 +34,18 @@ export function isAgoraJoinRetryableError(error: unknown): boolean {
   return false;
 }
 
+function extractErrorDetail(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    const m = error.message.trim();
+    return m.length > 140 ? `${m.slice(0, 137)}…` : m;
+  }
+  if (typeof error === "object" && error && "message" in error) {
+    const m = String((error as { message?: unknown }).message ?? "").trim();
+    if (m) return m.length > 140 ? `${m.slice(0, 137)}…` : m;
+  }
+  return "";
+}
+
 export function getCommunityMessengerMediaErrorMessage(
   error: unknown,
   kind: CommunityMessengerCallKind
@@ -64,7 +76,14 @@ export function getCommunityMessengerMediaErrorMessage(
       ? "카메라 또는 마이크 설정을 맞추지 못했습니다. 다른 장치를 선택하거나 권한을 다시 확인해 주세요."
       : "마이크 설정을 맞추지 못했습니다. 다른 장치를 선택하거나 권한을 다시 확인해 주세요.";
   }
+
+  const detail = extractErrorDetail(error);
+  if (detail) {
+    return kind === "video"
+      ? `영상 통화 장치 오류: ${detail}`
+      : `음성 통화 장치 오류: ${detail}`;
+  }
   return kind === "video"
-    ? "영상 통화 장치 준비에 실패했습니다. 권한과 장치 상태를 확인해 주세요."
-    : "음성 통화 장치 준비에 실패했습니다. 권한과 장치 상태를 확인해 주세요.";
+    ? "영상 통화 장치 준비에 실패했습니다. 마이크·카메라 권한과 다른 앱의 장치 점유를 확인해 주세요."
+    : "음성 통화 장치 준비에 실패했습니다. 마이크 권한과 다른 앱의 장치 점유를 확인해 주세요.";
 }

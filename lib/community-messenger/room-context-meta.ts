@@ -25,6 +25,7 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
       out.thumbnailUrl = o.thumbnailUrl.trim();
     }
     if (typeof o.stepLabel === "string" && o.stepLabel.trim()) out.stepLabel = o.stepLabel.trim();
+    if (typeof o.productChatId === "string" && o.productChatId.trim()) out.productChatId = o.productChatId.trim();
     return out;
   } catch {
     return null;

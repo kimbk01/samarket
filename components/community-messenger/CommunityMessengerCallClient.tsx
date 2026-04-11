@@ -29,9 +29,10 @@ import {
   type CommunityMessengerAgoraLocalTracks,
 } from "@/lib/community-messenger/call-provider/client";
 import {
-  getCommunityMessengerPermissionGuide,
+  markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
   primeCommunityMessengerDevicePermissionFromUserGesture,
+  shouldSkipCallerMediaGateOverlay,
 } from "@/lib/community-messenger/call-permission";
 import {
   getCommunityMessengerMediaErrorMessage,
@@ -42,7 +43,10 @@ import type {
   CommunityMessengerManagedCallConnection,
 } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { stopCommunityMessengerCallFeedback } from "@/lib/community-messenger/call-feedback-sound";
+import {
+  startCommunityMessengerCallTone,
+  stopCommunityMessengerCallFeedback,
+} from "@/lib/community-messenger/call-feedback-sound";
 import {
   attachDetachedCommunityCall,
   takeDetachedCommunityCallCleanup,
@@ -136,6 +140,13 @@ export function CommunityMessengerCallClient({
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const autoJoinBlockedRef = useRef(false);
+  /**
+   * 발신( initiator ): 브라우저는 마이크·카메라를 사용자 제스처 없이 열지 못하는 경우가 많아,
+   * 「허용하고 연결」 확인 후에만 Agora 조인한다. 수신은 수락 버튼·자동수락 경로에서 이미 제스처가 있다.
+   */
+  const [callerMediaConsentDone, setCallerMediaConsentDone] = useState(
+    () => !(initialSession?.isMineInitiator ?? false)
+  );
   /** true면 채팅으로 돌아가기(미니화) 중이라 언마운트 시 Agora 정리를 하지 않는다 */
   const callMinimizeNavRef = useRef(false);
   /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
@@ -143,11 +154,21 @@ export function CommunityMessengerCallClient({
   /** postgres_changes 연속 이벤트로 GET 이 폭주하지 않게 묶는다 */
   const sessionRealtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const permissionGuide = session ? getCommunityMessengerPermissionGuide(session.callKind) : null;
-
   useLayoutEffect(() => {
     stopCommunityMessengerCallFeedback();
   }, [sessionId]);
+
+  /** 발신 대기 링백(수신 벨은 전역 수신 배너에서 재생해 중복 방지) */
+  useEffect(() => {
+    if (!session) return;
+    if (!session.isMineInitiator) return;
+    if (session.status !== "ringing") return;
+    if (joined) return;
+    const tone = startCommunityMessengerCallTone("outgoing", { callKind: session.callKind });
+    return () => {
+      tone.stop();
+    };
+  }, [session?.id, session?.status, session?.isMineInitiator, session?.callKind, joined]);
 
   const refreshSession = useCallback(
     async (silent = false): Promise<CommunityMessengerCallSession | null> => {
@@ -244,8 +265,8 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     prefetchedConnectionRef.current = null;
     if (!session) return;
-    if (session.sessionMode !== "direct" || !session.isMineInitiator) return;
-    if (session.status !== "ringing" && session.status !== "active") return;
+    if (session.sessionMode !== "direct") return;
+    if (isTerminalCallSessionStatus(session.status)) return;
     let cancelled = false;
     void fetchConnection()
       .then((connection) => {
@@ -257,7 +278,7 @@ export function CommunityMessengerCallClient({
     return () => {
       cancelled = true;
     };
-  }, [fetchConnection, session?.id, session?.isMineInitiator, session?.sessionMode, session?.status]);
+  }, [fetchConnection, session?.id, session?.sessionMode, session?.status]);
 
   const bindRemoteVideoTrack = useCallback((track: IRemoteVideoTrack | null) => {
     remoteVideoTrackRef.current?.stop();
@@ -494,9 +515,9 @@ export function CommunityMessengerCallClient({
       setErrorMessage(null);
 
       const runJoinAttempt = async (): Promise<void> => {
-        /* prefetch 는 대기 시간 단축용 — 실제 join 은 항상 최신 토큰 */
+        const prefetched = prefetchedConnectionRef.current;
         prefetchedConnectionRef.current = null;
-        const connection = await fetchConnection();
+        const connection = prefetched ?? (await fetchConnection());
         const client = createCommunityMessengerAgoraClient();
         clientRef.current = client;
         client.on("user-published", async (user: IAgoraRTCRemoteUser, mediaType) => {
@@ -553,6 +574,8 @@ export function CommunityMessengerCallClient({
         });
         joinedRef.current = true;
         setJoined(true);
+        setCallerMediaConsentDone(true);
+        markCommunityMessengerMediaTrustedOnce();
         autoJoinBlockedRef.current = false;
       };
 
@@ -617,6 +640,47 @@ export function CommunityMessengerCallClient({
     } finally {
       setBusy(null);
     }
+  }, []);
+
+  const handleRetryMediaAndJoin = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s) return;
+    autoJoinBlockedRef.current = false;
+    setErrorMessage(null);
+    void (async () => {
+      try {
+        await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
+        markCommunityMessengerMediaTrustedOnce();
+        setCallerMediaConsentDone(true);
+        if (s.isMineInitiator) {
+          await joinCall(s);
+          return;
+        }
+        if (s.status === "ringing") {
+          const next = await acceptIncoming();
+          if (next) await joinCall(next);
+          return;
+        }
+        await joinCall(s);
+      } catch (err) {
+        setErrorMessage(getCommunityMessengerMediaErrorMessage(err, s.callKind));
+      }
+    })();
+  }, [acceptIncoming, joinCall]);
+
+  const confirmCallerMediaAndConnect = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s) return;
+    setErrorMessage(null);
+    void (async () => {
+      try {
+        await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
+        markCommunityMessengerMediaTrustedOnce();
+        setCallerMediaConsentDone(true);
+      } catch (err) {
+        setErrorMessage(getCommunityMessengerMediaErrorMessage(err, s.callKind));
+      }
+    })();
   }, []);
 
   const rejectIncoming = useCallback(async () => {
@@ -792,6 +856,22 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     if (!session) return;
+    if (!session.isMineInitiator) {
+      setCallerMediaConsentDone(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const skip = await shouldSkipCallerMediaGateOverlay(session.callKind);
+      if (!cancelled) setCallerMediaConsentDone(skip);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.id, session?.isMineInitiator, session?.callKind]);
+
+  useEffect(() => {
+    if (!session) return;
     if (!isTerminalCallSessionStatus(session.status)) return;
     const room = session.roomId;
     void disposeCallMedia().then(() => {
@@ -827,11 +907,13 @@ export function CommunityMessengerCallClient({
       return;
     }
     if (autoJoinBlockedRef.current) return;
+    if (s.isMineInitiator && !callerMediaConsentDone) return;
     if (s.isMineInitiator || s.status === "active") {
       void joinCall(s);
     }
   }, [
     acceptIncoming,
+    callerMediaConsentDone,
     joinCall,
     requestedAction,
     session?.id,
@@ -918,41 +1000,60 @@ export function CommunityMessengerCallClient({
   const videoCall = session.callKind === "video";
   const pipLabelSmall = largeShowsRemote ? "나" : session.peerLabel;
 
+  const showCallerMediaGate =
+    session.isMineInitiator &&
+    !callerMediaConsentDone &&
+    !joined &&
+    (session.status === "ringing" || session.status === "active");
+
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col text-white ${
-        videoCall ? "h-full min-h-0 bg-black" : "min-h-full bg-[#020617]"
+        videoCall ? "h-full min-h-0 bg-black" : "min-h-full bg-gradient-to-b from-[#3d4450] via-[#282d36] to-[#14171d]"
       }`}
     >
       <div
         className={
           videoCall
             ? "relative flex h-full min-h-0 w-[100dvw] max-w-[100dvw] min-w-0 flex-1 flex-col ml-[calc(50%-50dvw)] sm:mx-auto sm:w-full sm:max-w-[480px] sm:px-3"
-            : "mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+12px)]"
+            : "relative mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+12px)]"
         }
       >
         {!videoCall ? (
-          <header className="flex shrink-0 items-center justify-between py-4">
+          <header className="flex shrink-0 items-center justify-between py-3">
             <button
               type="button"
               onClick={() => navigateToChatDuringCall()}
-              className="rounded-ui-rect border border-white/15 px-3 py-2 text-[12px] font-medium text-white/85"
+              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[13px] font-medium text-white/90 backdrop-blur-md transition active:scale-[0.98]"
             >
               채팅으로
             </button>
-            <span className="rounded-ui-rect border border-white/10 bg-white/5 px-3 py-1 text-[12px] font-semibold">음성 통화</span>
+            <span className="rounded-full border border-white/15 bg-black/25 px-4 py-1.5 text-[12px] font-semibold text-white/90 backdrop-blur-md">
+              음성 통화
+            </span>
           </header>
         ) : null}
 
         <main
-          className={`flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden pt-0 sm:pt-2" : "overflow-y-auto"}`}
+          className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden pt-0 sm:pt-2" : "overflow-y-auto"}`}
         >
+          {!videoCall && showCallerMediaGate ? (
+            <CallerMediaGateOverlay
+              callKind="voice"
+              onConfirm={confirmCallerMediaAndConnect}
+              busy={busy === "join" || busy === "accept"}
+            />
+          ) : null}
           {!videoCall ? (
-            <div className="shrink-0 pt-4 text-center">
-              <p className="text-[30px] font-semibold">{session.peerLabel}</p>
-              <p className="mt-2 text-[14px] text-white/70">{statusLabel}</p>
+            <div className="relative z-0 shrink-0 pt-2 text-center">
+              <p className="text-[28px] font-semibold tracking-tight text-white drop-shadow-sm sm:text-[32px]">
+                {session.peerLabel}
+              </p>
+              <p className="mt-2 text-[15px] text-white/65">{statusLabel}</p>
               {joined && session.status === "active" ? (
-                <p className="mt-3 text-[13px] font-semibold text-white/80">{formatDuration(elapsedSeconds)}</p>
+                <p className="mt-3 font-mono text-[17px] font-semibold tabular-nums text-white/90">
+                  {formatDuration(elapsedSeconds)}
+                </p>
               ) : null}
             </div>
           ) : null}
@@ -969,6 +1070,13 @@ export function CommunityMessengerCallClient({
               ref={videoStageRef}
               className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-none bg-neutral-950 shadow-none ring-0 sm:min-h-[min(64dvh,600px)] sm:rounded-ui-rect sm:shadow-[0_8px_40px_rgba(0,0,0,0.45)] sm:ring-1 sm:ring-white/[0.08]"
             >
+              {showCallerMediaGate ? (
+                <CallerMediaGateOverlay
+                  callKind="video"
+                  onConfirm={confirmCallerMediaAndConnect}
+                  busy={busy === "join" || busy === "accept"}
+                />
+              ) : null}
               {/* 카카오 페이스톤형 상단 정보 오버레이 */}
               <div className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 bg-gradient-to-b from-black/75 via-black/35 to-transparent px-3 pb-10 pt-[max(0.25rem,env(safe-area-inset-top))]">
                 <div className="pointer-events-none min-w-0 flex-1 pt-1">
@@ -985,7 +1093,7 @@ export function CommunityMessengerCallClient({
                     type="button"
                     onClick={() => {
                       if (!openCommunityMessengerPermissionSettings()) {
-                        window.alert(permissionGuide?.description ?? "브라우저 권한을 확인해 주세요.");
+                        window.alert("브라우저 설정에서 이 사이트의 마이크·카메라 권한을 허용해 주세요.");
                       }
                     }}
                     className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.96]"
@@ -1115,8 +1223,13 @@ export function CommunityMessengerCallClient({
               </div>
             </div>
           ) : (
-            <div className="flex h-[min(52vw,280px)] w-[min(52vw,280px)] min-h-[200px] min-w-[200px] items-center justify-center rounded-full bg-white/10 text-[clamp(28px,9vw,44px)] font-semibold text-white/85">
-              MIC
+            <div className="relative z-0 flex flex-1 flex-col items-center justify-center py-4">
+              <div
+                className="flex aspect-square w-[min(68vw,264px)] max-w-[280px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-white/28 via-white/10 to-white/[0.06] text-[clamp(48px,18vw,92px)] font-light text-white shadow-[0_28px_90px_rgba(0,0,0,0.42)] ring-[3px] ring-white/10"
+                aria-hidden
+              >
+                <span className="select-none">{peerDisplayInitial(session.peerLabel)}</span>
+              </div>
             </div>
           )}
         </div>
@@ -1126,42 +1239,20 @@ export function CommunityMessengerCallClient({
         className={
           videoCall
             ? "w-full shrink-0 border-t border-white/[0.08] bg-black/85 px-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom,0px)+0.35rem))] pt-2 backdrop-blur-md"
-            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.06] bg-[#020617] pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))] pt-3"
+            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.08] bg-gradient-to-t from-black/70 via-[#14171d]/95 to-transparent pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))] pt-4 backdrop-blur-[12px]"
         }
       >
         {errorMessage ? (
-          <div className="mb-4 rounded-ui-rect bg-white/10 p-4">
-            <p className="text-[13px] font-semibold text-[#FECACA]">{errorMessage}</p>
-            <p className="mt-2 text-[12px] leading-5 text-white/70">{permissionGuide?.description}</p>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!session) return;
-                  autoJoinBlockedRef.current = false;
-                  void acceptIncoming().then((nextSession) => {
-                    if (nextSession) {
-                      void joinCall(nextSession);
-                    }
-                  });
-                }}
-                disabled={busy === "accept" || busy === "join"}
-                className="flex-1 rounded-ui-rect bg-white px-4 py-3 text-[13px] font-semibold text-[#111827] disabled:opacity-40"
-              >
-                다시 시도
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!openCommunityMessengerPermissionSettings()) {
-                    window.alert("브라우저 권한을 확인해 주세요.");
-                  }
-                }}
-                className="rounded-ui-rect border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
-              >
-                권한 안내
-              </button>
-            </div>
+          <div className="mb-2 flex flex-col gap-2 rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
+            <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-rose-100">{errorMessage}</p>
+            <button
+              type="button"
+              onClick={() => handleRetryMediaAndJoin()}
+              disabled={busy === "accept" || busy === "join"}
+              className="shrink-0 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-gray-900 disabled:opacity-40"
+            >
+              {busy === "join" || busy === "accept" ? "연결 중…" : "다시 시도"}
+            </button>
           </div>
         ) : null}
 
@@ -1210,7 +1301,7 @@ export function CommunityMessengerCallClient({
                 className="flex h-[3.7rem] w-[3.7rem] items-center justify-center rounded-full bg-[#ea3838] text-white transition active:scale-95 disabled:opacity-45 sm:h-16 sm:w-16"
                 aria-label="통화 종료"
               >
-                <HangUpToolbarIcon className="h-7 w-7 sm:h-8 sm:w-8" />
+                <EndCallStandardIcon className="h-7 w-7 sm:h-8 sm:w-8" />
               </button>
             </div>
           </div>
@@ -1248,46 +1339,53 @@ export function CommunityMessengerCallClient({
               </>
             ) : (
               <>
-                {!videoCall ? (
-                  <div className="grid grid-cols-5 gap-2">
-                    <CallControlButton
+                {!videoCall && (joined || !session.isMineInitiator) ? (
+                  <div className="flex flex-wrap items-end justify-center gap-3 px-1">
+                    <LineStyleCallControlButton
                       label={micMuted ? "음소거 해제" : "음소거"}
                       active={micMuted}
                       onClick={() => void toggleMicEnabled()}
-                      icon={micMuted ? <MicOffToolbarIcon className="h-5 w-5" /> : <MicOnToolbarIcon className="h-5 w-5" />}
+                      icon={micMuted ? <MicOffToolbarIcon className="h-6 w-6" /> : <MicOnToolbarIcon className="h-6 w-6" />}
                     />
-                    <CallControlButton
+                    <LineStyleCallControlButton
                       label={speakerEnabled ? "스피커" : "이어폰"}
                       active={speakerEnabled}
                       onClick={toggleSpeakerEnabled}
-                      icon={<SpeakerIcon className="h-5 w-5" />}
+                      icon={<SpeakerIcon className="h-6 w-6" />}
                     />
-                    <CallControlButton
+                    <LineStyleCallControlButton
                       label={bluetoothPreferred ? "블루투스 우선" : "블루투스"}
                       active={bluetoothPreferred}
                       onClick={toggleBluetoothPreferred}
-                      icon={<BluetoothIcon className="h-5 w-5" />}
+                      icon={<BluetoothIcon className="h-6 w-6" />}
                     />
-                    <CallControlButton
+                    <LineStyleCallControlButton
                       label="채팅"
                       onClick={() => navigateToChatDuringCall()}
-                      icon={<ChatBubbleIcon className="h-5 w-5" />}
+                      icon={<ChatBubbleIcon className="h-6 w-6" />}
                     />
-                    <CallControlButton
+                    <LineStyleCallControlButton
                       label="미니"
                       onClick={() => navigateToChatDuringCall()}
-                      icon={<MinimizeCallIcon className="h-5 w-5" />}
+                      icon={<MinimizeCallIcon className="h-6 w-6" />}
                     />
                   </div>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => void endCall()}
-                  disabled={busy === "end"}
-                  className="w-full rounded-ui-rect bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                <div
+                  className={`flex justify-center ${
+                    !videoCall && (joined || !session.isMineInitiator) ? "mt-5" : "mt-2"
+                  }`}
                 >
-                  통화 종료
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => void endCall()}
+                    disabled={busy === "end"}
+                    className="flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center rounded-full bg-[#e5394a] text-white shadow-[0_12px_40px_rgba(229,57,74,0.45)] transition active:scale-95 disabled:opacity-40"
+                    aria-label="통화 종료"
+                  >
+                    <EndCallStandardIcon className="h-8 w-8" />
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -1307,6 +1405,37 @@ function SettingsGearIcon({ className }: { className?: string }) {
         strokeLinecap="round"
       />
     </svg>
+  );
+}
+
+/** 라인 메신저 스타일 — 원형 글래스 버튼 */
+function LineStyleCallControlButton({
+  label,
+  icon,
+  onClick,
+  active = false,
+  disabled = false,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex h-[76px] w-[68px] shrink-0 flex-col items-center justify-center gap-1 rounded-full border text-[10px] font-medium tracking-tight transition active:scale-[0.96] disabled:opacity-40 ${
+        active
+          ? "border-white/40 bg-white/18 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+          : "border-white/14 bg-white/[0.11] text-white/95 backdrop-blur-md"
+      }`}
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 text-white">{icon}</span>
+      <span className="max-w-[68px] truncate px-0.5 leading-tight">{label}</span>
+    </button>
   );
 }
 
@@ -1335,6 +1464,41 @@ function CallControlButton({
       {icon}
       <span className="leading-tight">{label}</span>
     </button>
+  );
+}
+
+function peerDisplayInitial(label: string): string {
+  const t = label.trim();
+  if (!t) return "?";
+  const first = [...t][0];
+  return first ?? "?";
+}
+
+function CallerMediaGateOverlay({
+  callKind,
+  onConfirm,
+  busy,
+}: {
+  callKind: "voice" | "video";
+  onConfirm: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="pointer-events-auto absolute inset-0 z-[45] flex items-center justify-center bg-black/50 px-5 backdrop-blur-[2px]">
+      <div className="w-full max-w-[280px] rounded-[20px] border border-white/12 bg-[#1e232c]/95 px-5 py-5 text-center shadow-xl">
+        <p className="text-[16px] font-semibold text-white">
+          {callKind === "video" ? "영상 통화 연결" : "음성 통화 연결"}
+        </p>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={busy}
+          className="mt-4 w-full rounded-full bg-white py-3 text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+        >
+          {busy ? "연결 중…" : callKind === "video" ? "허용하고 연결" : "허용하고 연결"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1383,10 +1547,22 @@ function ExpandSwapCornerIcon({ className }: { className?: string }) {
   );
 }
 
-function HangUpToolbarIcon({ className }: { className?: string }) {
+/** 통화 종료 — 수화기를 끊는 일반적인 방향(회전)의 스트로크 아이콘 */
+function EndCallStandardIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-4.41 3.59-8 8-8s8 3.59 8 8c0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.51-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <g transform="rotate(135 12 12)">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+      </g>
     </svg>
   );
 }

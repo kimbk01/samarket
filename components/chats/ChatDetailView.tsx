@@ -87,6 +87,7 @@ import {
   readTradeChatEntryMark,
 } from "@/lib/chats/trade-chat-entry-client";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
+import { createCommunityMessengerDeepLinkFromProductTradeChat } from "@/lib/community-messenger/product-trade-chat-bridge";
 
 interface ChatDetailViewProps {
   room: ChatRoom;
@@ -223,6 +224,8 @@ export function ChatDetailView({
   const [roomInfoSheetOpen, setRoomInfoSheetOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [messengerTradeBusy, setMessengerTradeBusy] = useState(false);
+  const [messengerTradeToast, setMessengerTradeToast] = useState<string | null>(null);
   const [imageSending, setImageSending] = useState(false);
   /** 판매자: POST 성공 응답으로만 고정 — 폴링/재조회가 inquiry를 실어와도 유지 */
   const [pinnedListing, setPinnedListing] = useState<SellerListingState | null>(null);
@@ -297,6 +300,31 @@ export function ChatDetailView({
       : propListing;
 
   const effectiveProductChatId = (room.productChatRoomId || room.id).trim();
+  const showMessengerTradeCta = room.chatDomain === "trade" && !isGeneralPurposeChat && Boolean(effectiveProductChatId);
+
+  const openProductTradeInMessenger = useCallback(async () => {
+    const id = effectiveProductChatId;
+    if (!id) return;
+    setMessengerTradeBusy(true);
+    try {
+      const r = await createCommunityMessengerDeepLinkFromProductTradeChat(id);
+      if (r.ok) {
+        router.push(r.href);
+      } else {
+        const msg =
+          r.error === "not_participant"
+            ? t("nav_messenger_product_trade_bridge_forbidden")
+            : r.error === "product_chat_not_found"
+              ? t("nav_messenger_product_trade_bridge_not_found")
+              : t("nav_messenger_product_trade_bridge_failed");
+        setMessengerTradeToast(msg);
+        setTimeout(() => setMessengerTradeToast(null), 4200);
+      }
+    } finally {
+      setMessengerTradeBusy(false);
+    }
+  }, [effectiveProductChatId, router, t]);
+
   const chatMode = room.chatMode ?? "open";
   const soldToOther =
     room.product?.status === "sold" &&
@@ -1547,6 +1575,18 @@ export function ChatDetailView({
                   <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
                 </div>
               )}
+              {showMessengerTradeCta ? (
+                <div className="border-t border-gray-100 bg-white px-3 py-2">
+                  <button
+                    type="button"
+                    disabled={messengerTradeBusy}
+                    onClick={() => void openProductTradeInMessenger()}
+                    className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[13px] font-medium text-gray-900 disabled:opacity-50"
+                  >
+                    {messengerTradeBusy ? t("nav_messenger_product_trade_bridge_busy") : t("nav_messenger_open_product_trade")}
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </>
@@ -1756,6 +1796,12 @@ export function ChatDetailView({
           </div>
         </div>
       )}
+
+      {messengerTradeToast ? (
+        <p className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[55] bg-gray-900 px-3 py-2 text-center text-xs text-white">
+          {messengerTradeToast}
+        </p>
+      ) : null}
 
       {reviewSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">

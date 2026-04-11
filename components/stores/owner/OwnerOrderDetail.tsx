@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { OwnerOrderActionPanel } from "./OwnerOrderActionPanel";
@@ -11,6 +12,8 @@ import { OwnerOrderTimeline } from "./OwnerOrderTimeline";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
+import { buildMessengerContextInputFromOwnerOrder } from "@/lib/community-messenger/store-order-messenger-context";
 
 function fulfillmentLabel(t: OwnerOrder["order_type"]) {
   if (t === "delivery" || t === "shipping") {
@@ -30,6 +33,7 @@ export function OwnerOrderDetail({
   order: OwnerOrder;
   onActionDone?: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const listHref = buildStoreOrdersHref({ storeId });
   const fl = fulfillmentLabel(order.order_type);
 
@@ -63,6 +67,19 @@ export function OwnerOrderDetail({
             주문시각 {new Date(order.created_at).toLocaleString("ko-KR")}
           </p>
         </section>
+
+        {order.community_messenger_room_id ? (
+          <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
+            <h2 className="text-sm font-bold text-gray-900">{t("nav_store_order_messenger_section_title")}</h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-gray-500">{t("nav_store_order_messenger_section_hint")}</p>
+            <div className="mt-3">
+              <StoreOrderMessengerDeepLink
+                roomId={order.community_messenger_room_id}
+                context={buildMessengerContextInputFromOwnerOrder(order)}
+              />
+            </div>
+          </section>
+        ) : null}
 
         {order.buyer_cancel_request ? (
           <section className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm">

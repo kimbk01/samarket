@@ -6,6 +6,8 @@ import { OwnerOrderActionPanel } from "./OwnerOrderActionPanel";
 import { OwnerOrderStatusBadge } from "./OwnerOrderStatusBadge";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
+import { buildMessengerContextInputFromOwnerOrder } from "@/lib/community-messenger/store-order-messenger-context";
 
 function menuSummary(items: OwnerOrder["items"]) {
   const parts = items.map((i) => `${i.menu_name}×${i.qty}`);
@@ -70,6 +72,16 @@ export function OwnerOrderCard({
           고객 문의
         </Link>
       </div>
+      {order.community_messenger_room_id ? (
+        <div className="mt-2">
+          <StoreOrderMessengerDeepLink
+            roomId={order.community_messenger_room_id}
+            variant="compact"
+            context={buildMessengerContextInputFromOwnerOrder(order)}
+            className="inline-flex w-full items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-sm font-semibold text-gray-900"
+          />
+        </div>
+      ) : null}
 
       {order.order_status !== "completed" &&
       order.order_status !== "cancelled" &&
