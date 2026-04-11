@@ -22,6 +22,11 @@ export type CommunityMessengerCallSessionStatus =
   | "rejected"
   | "missed"
   | "cancelled";
+
+/** 스냅샷·배너 등에서 「진행 중인 통화」로 취급할 수 있는 세션 상태 */
+export function communityMessengerCallSessionIsLive(status: CommunityMessengerCallSessionStatus): boolean {
+  return status === "ringing" || status === "active";
+}
 export type CommunityMessengerCallSessionMode = "direct" | "group";
 export type CommunityMessengerCallSignalType = "offer" | "answer" | "ice-candidate" | "hangup";
 export type CommunityMessengerCallParticipantStatus = "invited" | "joined" | "left" | "rejected";

@@ -25,6 +25,14 @@ export function peekDetachedCommunityCallSessionId(): string | null {
 export async function disposeDetachedCommunityCallIfStale(activeSessionIdFromServer: string | null | undefined): Promise<void> {
   if (!detached) return;
   if (!activeSessionIdFromServer || detached.sessionId !== activeSessionIdFromServer) {
+    if (typeof sessionStorage !== "undefined") {
+      try {
+        sessionStorage.removeItem("cm_minimized_call_session");
+        sessionStorage.removeItem("cm_minimized_call_room");
+      } catch {
+        /* ignore */
+      }
+    }
     try {
       await detached.cleanup();
     } finally {

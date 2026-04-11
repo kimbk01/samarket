@@ -25,6 +25,7 @@ import {
   type CommunityMessengerRoomRealtimeMessageEvent,
 } from "@/lib/community-messenger/use-community-messenger-realtime";
 import {
+  communityMessengerCallSessionIsLive,
   communityMessengerRoomIsGloballyUsable,
   type CommunityMessengerMessage,
   type CommunityMessengerProfileLite,
@@ -407,48 +408,36 @@ export function CommunityMessengerRoomClient({
       : t("nav_messenger_identity_real")
     : null;
 
-  const [minimizedCallSessionHint, setMinimizedCallSessionHint] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const r = sessionStorage.getItem("cm_minimized_call_room");
-      const s = sessionStorage.getItem("cm_minimized_call_session");
-      if (r === roomId && s) setMinimizedCallSessionHint(s);
-      else setMinimizedCallSessionHint(null);
-    } catch {
-      setMinimizedCallSessionHint(null);
-    }
-  }, [roomId, snapshot?.activeCall?.id, snapshot?.activeCall?.status]);
-
   useEffect(() => {
     /* 스냅샷 로딩 전에는 activeCall 을 알 수 없음 — null 로 dispose 하면 미니화(detached) 연결까지 끊긴다 */
     if (loading) return;
     void disposeDetachedCommunityCallIfStale(snapshot?.activeCall?.id ?? null);
   }, [loading, snapshot?.activeCall?.id]);
 
+  /** 서버에 진행 중 통화가 없을 때 sessionStorage 잔존 제거(채팅 배너는 오직 스냅샷 activeCall 만 신뢰) */
   useEffect(() => {
-    if (snapshot?.activeCall) return;
+    if (!snapshot || snapshot.activeCall) return;
     try {
       sessionStorage.removeItem("cm_minimized_call_room");
       sessionStorage.removeItem("cm_minimized_call_session");
     } catch {
       /* ignore */
     }
-    setMinimizedCallSessionHint(null);
-  }, [snapshot?.activeCall?.id]);
+  }, [snapshot]);
 
+  /** 미니화 힌트(sessionStorage)에 의존하지 않음 — 종료·거절 후에도 힌트가 남으면 「통화 진행 중」이 떠 있던 원인 */
   const returnToCallSessionId = useMemo(() => {
     const ac = snapshot?.activeCall;
     if (
       ac &&
       ac.sessionMode === "direct" &&
       ac.roomId === roomId &&
-      (ac.status === "active" || ac.status === "ringing")
+      communityMessengerCallSessionIsLive(ac.status)
     ) {
       return ac.id;
     }
-    return minimizedCallSessionHint;
-  }, [minimizedCallSessionHint, roomId, snapshot?.activeCall]);
+    return null;
+  }, [roomId, snapshot?.activeCall]);
 
   const getRoomActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
