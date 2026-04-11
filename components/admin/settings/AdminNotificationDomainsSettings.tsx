@@ -5,10 +5,8 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
-import {
-  invalidateNotificationSoundConfigCache,
-  playDomainNotificationSound,
-} from "@/lib/notifications/notification-sound-engine";
+import { invalidateNotificationSoundConfigCache } from "@/lib/notifications/notification-sound-engine";
+import { AdminNotificationSoundPreview } from "@/components/admin/settings/AdminNotificationSoundPreview";
 
 type Row = {
   type: NotificationDomain;
@@ -94,10 +92,6 @@ export function AdminNotificationDomainsSettings() {
       setSaving(false);
     }
   }, [rows]);
-
-  const testSound = useCallback((type: NotificationDomain) => {
-    void playDomainNotificationSound(type);
-  }, []);
 
   const uploadSoundFile = useCallback(async (type: NotificationDomain, file: File) => {
     setUploadBusy(type);
@@ -220,20 +214,7 @@ export function AdminNotificationDomainsSettings() {
                   {clearBusy === r.type ? "해제 중…" : "업로드 해제(기본음)"}
                 </button>
               </div>
-              <p className="break-all text-[12px] text-ui-muted">
-                {r.sound_url?.trim()
-                  ? `현재: ${r.sound_url.trim()}`
-                  : "현재: 앱 기본 알림음(내장)"}
-              </p>
-              <label className="block text-[12px] text-ui-muted">
-                고급: URL 직접 입력 후 아래 「저장」
-                <input
-                  className="mt-1 w-full rounded-ui-rect border border-ui-border px-2 py-1.5 text-[13px] text-ui-fg"
-                  value={r.sound_url ?? ""}
-                  placeholder="https://… 또는 /sounds/notification.wav"
-                  onChange={(e) => patchRow(r.type, { sound_url: e.target.value || null })}
-                />
-              </label>
+              <AdminNotificationSoundPreview soundUrl={r.sound_url} volume={r.volume} />
             </div>
             <label className="flex items-center gap-3 text-[14px]">
               볼륨
@@ -277,13 +258,6 @@ export function AdminNotificationDomainsSettings() {
                 }
               />
             </label>
-            <button
-              type="button"
-              className="rounded-ui-rect border border-ui-border bg-ui-hover px-3 py-1.5 text-[13px] text-ui-fg"
-              onClick={() => testSound(r.type)}
-            >
-              테스트 재생
-            </button>
           </div>
         </AdminCard>
       ))}
