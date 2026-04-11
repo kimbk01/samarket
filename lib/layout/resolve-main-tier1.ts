@@ -108,7 +108,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   if (p === "/community-messenger") {
     return backHome({
       titleText: "메신저",
-      subtitle: "친구·1:1·그룹·통화",
+      subtitle: "친구 · 채팅 · 오픈채팅",
       showHubQuickActions: true,
     });
   }

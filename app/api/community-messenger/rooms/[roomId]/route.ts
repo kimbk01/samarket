@@ -4,8 +4,13 @@ import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
   getCommunityMessengerRoomSnapshot,
   inviteCommunityMessengerGroupMembers,
+  kickCommunityMessengerGroupMember,
   markCommunityMessengerRoomAsRead,
+  setCommunityMessengerGroupMemberRole,
+  transferCommunityMessengerGroupOwner,
   updateCommunityMessengerParticipantSettings,
+  updateCommunityMessengerPrivateGroupNotice,
+  updateCommunityMessengerPrivateGroupPermissions,
   updateCommunityMessengerRoomArchiveState,
 } from "@/lib/community-messenger/service";
 
@@ -53,7 +58,20 @@ export async function PATCH(
     | { action?: "invite"; memberIds?: string[] }
     | { action?: "participant_settings"; isMuted?: boolean; isPinned?: boolean }
     | { action?: "mark_read" }
-    | { action?: "archive"; archived?: boolean };
+    | { action?: "archive"; archived?: boolean }
+    | { action?: "group_notice"; noticeText?: string }
+    | {
+        action?: "group_permissions";
+        allowMemberInvite?: boolean;
+        allowAdminInvite?: boolean;
+        allowAdminKick?: boolean;
+        allowAdminEditNotice?: boolean;
+        allowMemberUpload?: boolean;
+        allowMemberCall?: boolean;
+      }
+    | { action?: "group_member_role"; targetUserId?: string; nextRole?: "admin" | "member" }
+    | { action?: "group_owner_transfer"; targetUserId?: string }
+    | { action?: "group_member_remove"; targetUserId?: string };
   try {
     body = await req.json();
   } catch {
@@ -90,6 +108,52 @@ export async function PATCH(
       userId: auth.userId,
       roomId,
       archived: typeof body.archived === "boolean" ? body.archived : true,
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  }
+  if (body.action === "group_notice") {
+    const result = await updateCommunityMessengerPrivateGroupNotice({
+      userId: auth.userId,
+      roomId,
+      noticeText: typeof body.noticeText === "string" ? body.noticeText : "",
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  }
+  if (body.action === "group_permissions") {
+    const result = await updateCommunityMessengerPrivateGroupPermissions({
+      userId: auth.userId,
+      roomId,
+      allowMemberInvite: typeof body.allowMemberInvite === "boolean" ? body.allowMemberInvite : undefined,
+      allowAdminInvite: typeof body.allowAdminInvite === "boolean" ? body.allowAdminInvite : undefined,
+      allowAdminKick: typeof body.allowAdminKick === "boolean" ? body.allowAdminKick : undefined,
+      allowAdminEditNotice: typeof body.allowAdminEditNotice === "boolean" ? body.allowAdminEditNotice : undefined,
+      allowMemberUpload: typeof body.allowMemberUpload === "boolean" ? body.allowMemberUpload : undefined,
+      allowMemberCall: typeof body.allowMemberCall === "boolean" ? body.allowMemberCall : undefined,
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  }
+  if (body.action === "group_member_role") {
+    const result = await setCommunityMessengerGroupMemberRole({
+      userId: auth.userId,
+      roomId,
+      targetUserId: typeof body.targetUserId === "string" ? body.targetUserId : "",
+      nextRole: body.nextRole === "admin" ? "admin" : "member",
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  }
+  if (body.action === "group_owner_transfer") {
+    const result = await transferCommunityMessengerGroupOwner({
+      userId: auth.userId,
+      roomId,
+      targetUserId: typeof body.targetUserId === "string" ? body.targetUserId : "",
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  }
+  if (body.action === "group_member_remove") {
+    const result = await kickCommunityMessengerGroupMember({
+      userId: auth.userId,
+      roomId,
+      targetUserId: typeof body.targetUserId === "string" ? body.targetUserId : "",
     });
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   }

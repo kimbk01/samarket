@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 type Props = {
@@ -12,6 +11,8 @@ type Props = {
   onVideoCall: () => void;
   onChat: () => void;
   onToggleFavorite: () => void;
+  onToggleHidden?: () => void;
+  onInviteToGroup?: () => void;
   onRemoveFriend?: () => void;
   onBlock?: () => void;
   onReport?: () => void;
@@ -28,6 +29,8 @@ export function MessengerFriendProfileSheet({
   onVideoCall,
   onChat,
   onToggleFavorite,
+  onToggleHidden,
+  onInviteToGroup,
   onRemoveFriend,
   onBlock,
   onReport,
@@ -37,132 +40,136 @@ export function MessengerFriendProfileSheet({
   const bVideo = busyId === `call:video:${pid}`;
   const bChat = busyId === `room:${pid}`;
   const bFav = busyId === `favorite:${pid}`;
+  const bHidden = busyId === `hidden:${pid}`;
   const anyBusy = Boolean(busyId);
-  const [callOptionsOpen, setCallOptionsOpen] = useState(false);
 
   const avatarSrc = profile.avatarUrl ?? undefined;
   const initial = profile.label.trim().slice(0, 1) || "?";
 
   return (
-    <div className="fixed inset-0 z-[45] flex flex-col justify-end bg-black/45" role="dialog" aria-modal="true" aria-labelledby="messenger-friend-sheet-title">
+    <div className="fixed inset-0 z-[45] flex flex-col justify-end bg-black/25" role="dialog" aria-modal="true" aria-labelledby="messenger-friend-sheet-title">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
-      <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-[12px] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_32px_rgba(0,0,0,0.12)]">
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" aria-hidden />
-        <div className="flex flex-col items-center text-center">
-          <div className="h-20 w-20 overflow-hidden rounded-full bg-gray-100">
+      <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[var(--ui-shadow-card)]">
+        <div className="flex flex-col items-center border-b border-ui-border pb-4 text-center">
+          <div className="h-20 w-20 overflow-hidden rounded-full bg-ui-hover">
             {avatarSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-gray-500">{initial}</div>
+              <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-ui-muted">{initial}</div>
             )}
           </div>
-          <h2 id="messenger-friend-sheet-title" className="mt-3 text-[18px] font-bold text-gray-900">
+          <h2 id="messenger-friend-sheet-title" className="mt-3 text-[17px] font-semibold text-ui-fg">
             {profile.label}
           </h2>
-          <p className="mt-1 text-[13px] text-gray-500">{profile.subtitle ?? "SAMarket"}</p>
+          <p className="mt-1 text-[13px] text-ui-muted">{profile.subtitle ?? "SAMarket"}</p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {profile.isFavoriteFriend ? <StatusChip label="즐겨찾기" /> : null}
+            {profile.isHiddenFriend ? <StatusChip label="숨김" /> : null}
+            {profile.blocked ? <StatusChip label="차단" tone="danger" /> : null}
+          </div>
         </div>
 
-        <div className="mt-5 rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-3 text-left">
-          <p className="text-[13px] font-semibold text-gray-900">무엇을 하시겠어요?</p>
-          <p className="mt-1 text-[12px] text-gray-500">친구를 선택한 뒤 바로 이동하지 않고 원하는 동작을 먼저 고를 수 있습니다.</p>
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <button
             type="button"
-            onClick={() => {
-              setCallOptionsOpen(false);
-              onChat();
-            }}
+            onClick={onChat}
             disabled={anyBusy}
-            className="flex min-h-[60px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-50"
+            className="rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-3 text-center disabled:opacity-50"
           >
-            <span>1:1 채팅</span>
-            <span className="text-[12px] font-medium text-gray-400">{bChat ? "열는 중…" : "대화 시작"}</span>
+            <p className="text-[14px] font-semibold text-ui-fg">채팅</p>
+            <p className="mt-1 text-[11px] text-ui-muted">{bChat ? "열는 중…" : "바로 열기"}</p>
           </button>
           <button
             type="button"
-            onClick={() => setCallOptionsOpen((prev) => !prev)}
+            onClick={onVoiceCall}
             disabled={anyBusy}
-            className="flex min-h-[60px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-50"
+            className="rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-3 text-center disabled:opacity-50"
           >
-            <span>통화</span>
-            <span className="text-[12px] font-medium text-gray-400">{callOptionsOpen ? "옵션 닫기" : "음성/영상 선택"}</span>
+            <p className="text-[14px] font-semibold text-ui-fg">음성</p>
+            <p className="mt-1 text-[11px] text-ui-muted">{bVoice ? "연결 중…" : "통화"}</p>
+          </button>
+          <button
+            type="button"
+            onClick={onVideoCall}
+            disabled={anyBusy}
+            className="rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-3 text-center disabled:opacity-50"
+          >
+            <p className="text-[14px] font-semibold text-ui-fg">영상</p>
+            <p className="mt-1 text-[11px] text-ui-muted">{bVideo ? "연결 중…" : "통화"}</p>
           </button>
         </div>
 
-        {callOptionsOpen ? (
-          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={onVoiceCall}
+        <div className="mt-4 overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
+          <SectionLabel label="관리" />
+          <ActionRow
+            label={bFav ? "처리 중…" : profile.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
+            onClick={onToggleFavorite}
+            disabled={anyBusy}
+          />
+          {profile.isFriend ? (
+            <ActionRow
+              label={bHidden ? "처리 중…" : profile.isHiddenFriend ? "숨김 해제" : "숨김"}
+              onClick={onToggleHidden}
               disabled={anyBusy}
-              className="flex min-h-[56px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-50"
-            >
-              <span>음성 통화</span>
-              <span className="text-[12px] font-medium text-gray-400">{bVoice ? "연결 중…" : "바로 연결"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={onVideoCall}
-              disabled={anyBusy}
-              className="flex min-h-[56px] items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-50"
-            >
-              <span>영상 통화</span>
-              <span className="text-[12px] font-medium text-gray-400">{bVideo ? "연결 중…" : "화상 연결"}</span>
-            </button>
-          </div>
-        ) : null}
+            />
+          ) : null}
+          <ActionRow label="그룹에 초대" onClick={onInviteToGroup} disabled={anyBusy} />
+        </div>
 
-        <button
-          type="button"
-          onClick={onToggleFavorite}
-          disabled={anyBusy}
-          className="mt-2 flex w-full items-center justify-center rounded-ui-rect border border-amber-200 bg-amber-50 py-3 text-[14px] font-semibold text-amber-900 disabled:opacity-50"
-        >
-          {bFav ? "처리 중…" : profile.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기에 추가"}
-        </button>
+        <div className="mt-3 overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
+          <SectionLabel label="계정" />
+          {profile.isFriend && onRemoveFriend ? <ActionRow label="친구 삭제" onClick={onRemoveFriend} disabled={anyBusy} /> : null}
+          {onBlock ? <ActionRow label={profile.blocked ? "차단 해제" : "차단"} onClick={onBlock} disabled={anyBusy} danger /> : null}
+          {onReport ? <ActionRow label="신고" onClick={onReport} disabled={anyBusy} danger /> : null}
+        </div>
 
-        {profile.isFriend ? (
-          <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-            {onRemoveFriend ? (
-              <button
-                type="button"
-                onClick={onRemoveFriend}
-                disabled={anyBusy}
-                className="w-full rounded-ui-rect border border-gray-200 py-2.5 text-[13px] font-medium text-gray-800 disabled:opacity-50"
-              >
-                친구 삭제
-              </button>
-            ) : null}
-            {onBlock ? (
-              <button
-                type="button"
-                onClick={onBlock}
-                disabled={anyBusy}
-                className="w-full rounded-ui-rect border border-red-200 py-2.5 text-[13px] font-medium text-red-700 disabled:opacity-50"
-              >
-                {profile.blocked ? "차단 해제" : "차단"}
-              </button>
-            ) : null}
-            {onReport ? (
-              <button
-                type="button"
-                onClick={onReport}
-                disabled={anyBusy}
-                className="w-full py-2 text-[12px] font-medium text-gray-500 disabled:opacity-50"
-              >
-                신고
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        <button type="button" onClick={onClose} className="mt-3 w-full py-3 text-[14px] font-medium text-gray-600">
+        <button type="button" onClick={onClose} className="mt-3 w-full py-3 text-[14px] font-medium text-ui-muted">
           닫기
         </button>
       </div>
     </div>
+  );
+}
+
+function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "danger" }) {
+  return (
+    <span
+      className={`rounded-ui-rect border px-2 py-0.5 text-[11px] font-semibold ${
+        tone === "danger" ? "border-ui-border bg-ui-surface text-ui-fg" : "border-ui-border bg-ui-page text-ui-muted"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <div className="border-b border-ui-border px-4 py-2 text-[11px] font-semibold text-ui-muted">{label}</div>;
+}
+
+function ActionRow({
+  label,
+  onClick,
+  disabled,
+  danger = false,
+}: {
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || !onClick}
+      className={`flex min-h-[52px] w-full items-center justify-between border-b border-ui-border px-4 text-left text-[14px] font-medium last:border-b-0 disabled:opacity-50 ${
+        danger ? "text-[var(--ui-danger)]" : "text-ui-fg"
+      }`}
+    >
+      <span>{label}</span>
+      {!onClick ? <span className="text-[12px] text-ui-muted">준비 중</span> : null}
+    </button>
   );
 }

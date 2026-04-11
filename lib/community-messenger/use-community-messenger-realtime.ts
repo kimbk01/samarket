@@ -37,7 +37,7 @@ export type CommunityMessengerRoomRealtimeMessageRow = {
   id: string;
   roomId: string;
   senderId: string | null;
-  messageType: "text" | "image" | "system" | "call_stub" | "voice";
+  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -58,7 +58,11 @@ function mapRealtimeMessageRow(row: Record<string, unknown> | undefined): Commun
     roomId,
     senderId: typeof row.sender_id === "string" ? row.sender_id : null,
     messageType:
-      row.message_type === "image" || row.message_type === "system" || row.message_type === "call_stub" || row.message_type === "voice"
+      row.message_type === "image" ||
+      row.message_type === "file" ||
+      row.message_type === "system" ||
+      row.message_type === "call_stub" ||
+      row.message_type === "voice"
         ? row.message_type
         : "text",
     content: typeof row.content === "string" ? row.content : "",

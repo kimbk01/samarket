@@ -44,11 +44,9 @@ const GlobalCommunityMessengerUnreadSound = dynamic(
     ),
   { ssr: false }
 );
-const GlobalCommunityMessengerIncomingCall = dynamic(
+const IncomingCallOverlay = dynamic(
   () =>
-    import("@/components/community-messenger/GlobalCommunityMessengerIncomingCall").then(
-      (mod) => mod.GlobalCommunityMessengerIncomingCall
-    ),
+    import("@/components/community-messenger/IncomingCallOverlay").then((mod) => mod.IncomingCallOverlay),
   { ssr: false }
 );
 
@@ -198,7 +196,7 @@ export function ConditionalAppShell({
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
       {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerUnreadSound /> : null}
-      {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerIncomingCall /> : null}
+      {!isCommunityMessengerCallPage ? <IncomingCallOverlay /> : null}
       {showRegionBar && <RegionBar />}
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main

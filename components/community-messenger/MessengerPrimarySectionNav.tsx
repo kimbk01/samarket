@@ -16,7 +16,7 @@ type Props = {
  */
 export function MessengerPrimarySectionNav({ value, onChange, badge }: Props) {
   return (
-    <div className="flex w-full gap-1 border-b border-gray-200/90 bg-white pb-0">
+    <div className="flex w-full gap-0 border-b border-ui-border bg-ui-surface pb-0 shadow-[var(--ui-shadow-card)]">
       {SECTIONS.map((id) => {
         const active = value === id;
         const count = badge?.[id];
@@ -25,8 +25,8 @@ export function MessengerPrimarySectionNav({ value, onChange, badge }: Props) {
             key={id}
             type="button"
             onClick={() => onChange(id)}
-            className={`relative min-w-0 flex-1 px-1 py-2.5 text-[13px] font-medium transition-colors ${
-              active ? "text-gray-900" : "text-gray-500 hover:text-gray-800"
+            className={`relative min-w-0 flex-1 px-1 py-3 text-[13px] font-medium transition-colors ${
+              active ? "text-ui-fg" : "text-ui-muted hover:text-ui-fg"
             }`}
           >
             <span className="flex items-center justify-center gap-1">
@@ -34,14 +34,14 @@ export function MessengerPrimarySectionNav({ value, onChange, badge }: Props) {
               {typeof count === "number" && count > 0 ? (
                 <span
                   className={`min-w-[18px] rounded-full px-1 text-[10px] font-semibold tabular-nums ${
-                    active ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
+                    active ? "bg-neutral-900 text-white" : "bg-ui-hover text-ui-muted"
                   }`}
                 >
                   {count > 99 ? "99+" : count}
                 </span>
               ) : null}
             </span>
-            {active ? <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-gray-900" /> : null}
+            {active ? <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-neutral-900" /> : null}
           </button>
         );
       })}

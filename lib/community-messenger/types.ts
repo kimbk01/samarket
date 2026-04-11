@@ -6,7 +6,7 @@ export type CommunityMessengerRoomVisibility = "private" | "public";
 export type CommunityMessengerRoomJoinPolicy = "invite_only" | "password" | "free";
 export type CommunityMessengerIdentityMode = "real_name" | "alias";
 export type CommunityMessengerRoomIdentityPolicy = "real_name" | "alias_allowed";
-export type CommunityMessengerMessageType = "text" | "image" | "system" | "call_stub" | "voice";
+export type CommunityMessengerMessageType = "text" | "image" | "file" | "system" | "call_stub" | "voice";
 export type CommunityMessengerCallKind = "voice" | "video";
 export type CommunityMessengerCallStatus =
   | "dialing"
@@ -58,6 +58,7 @@ export type CommunityMessengerProfileLite = {
   label: string;
   subtitle?: string;
   avatarUrl: string | null;
+  memberRole?: "owner" | "admin" | "member";
   identityMode?: CommunityMessengerIdentityMode;
   aliasProfile?: {
     displayName: string;
@@ -68,6 +69,7 @@ export type CommunityMessengerProfileLite = {
   blocked: boolean;
   isFriend: boolean;
   isFavoriteFriend: boolean;
+  isHiddenFriend?: boolean;
 };
 
 export type CommunityMessengerFriendRequest = {
@@ -97,6 +99,7 @@ export type CommunityMessengerRoomSummary = {
   isMuted?: boolean;
   isPinned?: boolean;
   lastMessage: string;
+  lastMessageType?: CommunityMessengerMessageType;
   lastMessageAt: string;
   memberCount: number;
   ownerUserId: string | null;
@@ -105,6 +108,14 @@ export type CommunityMessengerRoomSummary = {
   isDiscoverable: boolean;
   requiresPassword: boolean;
   allowMemberInvite: boolean;
+  noticeText?: string;
+  noticeUpdatedAt?: string | null;
+  noticeUpdatedBy?: string | null;
+  allowAdminInvite?: boolean;
+  allowAdminKick?: boolean;
+  allowAdminEditNotice?: boolean;
+  allowMemberUpload?: boolean;
+  allowMemberCall?: boolean;
   myIdentityMode?: CommunityMessengerIdentityMode;
   peerUserId?: string | null;
   /**
@@ -168,6 +179,12 @@ export type CommunityMessengerMessage = {
   voiceWaveformPeaks?: number[] | null;
   /** 클라이언트 전용: 전송 대기(blob) 음성의 MIME — `<audio type>`·재생 호환용 */
   voiceMimeType?: string | null;
+  /** messageType === "file" 일 때 첨부 파일 이름 */
+  fileName?: string | null;
+  /** messageType === "file" 일 때 MIME */
+  fileMimeType?: string | null;
+  /** messageType === "file" 일 때 바이트 */
+  fileSizeBytes?: number | null;
 };
 
 export type CommunityMessengerRoomSnapshot = {
@@ -248,6 +265,7 @@ export type CommunityMessengerBootstrap = {
   tabs: Record<CommunityMessengerTab, number>;
   friends: CommunityMessengerProfileLite[];
   following: CommunityMessengerProfileLite[];
+  hidden: CommunityMessengerProfileLite[];
   blocked: CommunityMessengerProfileLite[];
   requests: CommunityMessengerFriendRequest[];
   chats: CommunityMessengerRoomSummary[];

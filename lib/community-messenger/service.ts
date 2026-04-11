@@ -71,6 +71,14 @@ type RoomRow = {
   member_limit?: number | null;
   is_discoverable?: boolean | null;
   allow_member_invite?: boolean | null;
+  notice_text?: string | null;
+  notice_updated_at?: string | null;
+  notice_updated_by?: string | null;
+  allow_admin_invite?: boolean | null;
+  allow_admin_kick?: boolean | null;
+  allow_admin_edit_notice?: boolean | null;
+  allow_member_upload?: boolean | null;
+  allow_member_call?: boolean | null;
   password_hash?: string | null;
   last_message: string | null;
   last_message_at: string | null;
@@ -103,7 +111,7 @@ type MessageRow = {
   id: string;
   room_id: string;
   sender_id: string | null;
-  message_type: "text" | "image" | "system" | "call_stub" | "voice";
+  message_type: "text" | "image" | "file" | "system" | "call_stub" | "voice";
   content: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -180,11 +188,19 @@ type DevRoom = {
   memberLimit: number | null;
   isDiscoverable: boolean;
   allowMemberInvite: boolean;
+  noticeText?: string;
+  noticeUpdatedAt?: string | null;
+  noticeUpdatedBy?: string | null;
+  allowAdminInvite?: boolean;
+  allowAdminKick?: boolean;
+  allowAdminEditNotice?: boolean;
+  allowMemberUpload?: boolean;
+  allowMemberCall?: boolean;
   passwordHash: string | null;
   directKey: string | null;
   lastMessage: string;
   lastMessageAt: string;
-  lastMessageType: "text" | "image" | "system" | "call_stub" | "voice";
+  lastMessageType: "text" | "image" | "file" | "system" | "call_stub" | "voice";
 };
 
 type DevParticipant = {
@@ -213,7 +229,7 @@ type DevMessage = {
   id: string;
   roomId: string;
   senderId: string | null;
-  messageType: "text" | "image" | "system" | "call_stub" | "voice";
+  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -271,6 +287,7 @@ type DevCallSessionParticipant = {
 type DevState = {
   friendRequests: RequestRow[];
   favoriteFriends: Map<string, Set<string>>;
+  hiddenFriends: Map<string, Set<string>>;
   rooms: DevRoom[];
   participants: DevParticipant[];
   roomProfiles: DevRoomProfile[];
@@ -359,6 +376,7 @@ function getDevState(): DevState {
     scope.__samarketCommunityMessengerState = {
       friendRequests: [],
       favoriteFriends: new Map(),
+      hiddenFriends: new Map(),
       rooms: [],
       participants: [],
       roomProfiles: [],
@@ -516,14 +534,16 @@ async function getViewerRelationSets(
   blocked: Set<string>;
   friendIds: Set<string>;
   favoriteFriendIds: Set<string>;
+  hiddenFriendIds: Set<string>;
 }> {
   const following = new Set<string>();
   const blocked = new Set<string>();
   const friendIds = new Set<string>();
   const favoriteFriendIds = new Set<string>();
+  const hiddenFriendIds = new Set<string>();
   const uniqueTargets = dedupeIds(targetIds.filter((id) => id !== userId));
   if (!uniqueTargets.length) {
-    return { following, blocked, friendIds, favoriteFriendIds };
+    return { following, blocked, friendIds, favoriteFriendIds, hiddenFriendIds };
   }
 
   const sb = getSupabaseOrNull();
@@ -556,6 +576,7 @@ async function getViewerRelationSets(
       if (!target) continue;
       if (relationType === "neighbor_follow") following.add(target);
       if (relationType === "blocked") blocked.add(target);
+      if (relationType === "hidden") hiddenFriendIds.add(target);
     }
 
     for (const row of (requestRows ?? []) as Array<{
@@ -580,9 +601,13 @@ async function getViewerRelationSets(
     if (favorites) {
       for (const target of favorites) favoriteFriendIds.add(target);
     }
+    const hidden = dev.hiddenFriends.get(userId);
+    if (hidden) {
+      for (const target of hidden) hiddenFriendIds.add(target);
+    }
   }
 
-  if (!friendIds.size || !favoriteFriendIds.size) {
+  if (!friendIds.size || !favoriteFriendIds.size || !hiddenFriendIds.size) {
     const dev = getDevState();
     for (const row of dev.friendRequests) {
       if (row.status !== "accepted") continue;
@@ -593,9 +618,13 @@ async function getViewerRelationSets(
     if (favorites) {
       for (const target of favorites) favoriteFriendIds.add(target);
     }
+    const hidden = dev.hiddenFriends.get(userId);
+    if (hidden) {
+      for (const target of hidden) hiddenFriendIds.add(target);
+    }
   }
 
-  return { following, blocked, friendIds, favoriteFriendIds };
+  return { following, blocked, friendIds, favoriteFriendIds, hiddenFriendIds };
 }
 
 async function hydrateProfilesWithProfileMap(
@@ -621,6 +650,7 @@ async function hydrateProfilesWithProfileMap(
       blocked: id === viewerId ? false : relationSets.blocked.has(id),
       isFriend: id === viewerId ? false : relationSets.friendIds.has(id),
       isFavoriteFriend: id === viewerId ? false : relationSets.favoriteFriendIds.has(id),
+      isHiddenFriend: id === viewerId ? false : relationSets.hiddenFriendIds.has(id),
     };
   });
   return { members, profileMap };
@@ -728,7 +758,7 @@ async function listAcceptedFriendIds(userId: string): Promise<string[]> {
   return [...result];
 }
 
-async function listFollowingIds(userId: string, relationType: "neighbor_follow" | "blocked"): Promise<string[]> {
+async function listFollowingIds(userId: string, relationType: "neighbor_follow" | "blocked" | "hidden"): Promise<string[]> {
   const result = new Set<string>();
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -766,12 +796,30 @@ function buildRoomSummaryFromHydratedMembers(
   const roomSummary = trimText(isDbRoom ? room.summary : room.summary);
   const roomAvatar = trimText(isDbRoom ? room.avatar_url : room.avatarUrl) || null;
   const roomLastMessage = trimText(isDbRoom ? room.last_message : room.lastMessage);
+  const roomLastMessageTypeRaw = trimText(isDbRoom ? room.last_message_type : room.lastMessageType);
+  const roomLastMessageType =
+    roomLastMessageTypeRaw === "image" ||
+    roomLastMessageTypeRaw === "file" ||
+    roomLastMessageTypeRaw === "system" ||
+    roomLastMessageTypeRaw === "call_stub" ||
+    roomLastMessageTypeRaw === "voice"
+      ? roomLastMessageTypeRaw
+      : "text";
   const roomLastAt = trimText(isDbRoom ? room.last_message_at : room.lastMessageAt) || nowIso();
   const ownerUserId = trimText(isDbRoom ? room.owner_user_id : room.ownerUserId) || trimText(isDbRoom ? room.created_by : room.createdBy) || null;
   const memberLimitRaw = isDbRoom ? room.member_limit : room.memberLimit;
   const memberLimit = typeof memberLimitRaw === "number" && Number.isFinite(memberLimitRaw) ? memberLimitRaw : null;
   const isDiscoverable = isDbRoom ? room.is_discoverable === true : room.isDiscoverable;
   const allowMemberInvite = isDbRoom ? room.allow_member_invite !== false : room.allowMemberInvite;
+  const noticeText = trimText(isDbRoom ? room.notice_text : room.noticeText);
+  const noticeUpdatedAt = trimText(isDbRoom ? room.notice_updated_at : room.noticeUpdatedAt) || null;
+  const noticeUpdatedBy = trimText(isDbRoom ? room.notice_updated_by : room.noticeUpdatedBy) || null;
+  const allowAdminInvite = isDbRoom ? room.allow_admin_invite !== false : room.allowAdminInvite !== false;
+  const allowAdminKick = isDbRoom ? room.allow_admin_kick !== false : room.allowAdminKick !== false;
+  const allowAdminEditNotice =
+    isDbRoom ? room.allow_admin_edit_notice !== false : room.allowAdminEditNotice !== false;
+  const allowMemberUpload = isDbRoom ? room.allow_member_upload !== false : room.allowMemberUpload !== false;
+  const allowMemberCall = isDbRoom ? room.allow_member_call !== false : room.allowMemberCall !== false;
   const requiresPassword =
     joinPolicy === "password" &&
     trimText(isDbRoom ? room.password_hash : room.passwordHash).length > 0;
@@ -813,6 +861,7 @@ function buildRoomSummaryFromHydratedMembers(
     isMuted: "is_muted" in (me ?? {}) ? (me as ParticipantRow).is_muted === true : false,
     isPinned: "is_pinned" in (me ?? {}) ? (me as ParticipantRow).is_pinned === true : false,
     lastMessage: roomLastMessage || (roomType === "direct" ? "메시지를 보내 보세요." : "그룹 대화를 시작해 보세요."),
+    lastMessageType: roomLastMessageType,
     lastMessageAt: roomLastAt,
     memberCount: memberIds.length,
     ownerUserId,
@@ -821,6 +870,14 @@ function buildRoomSummaryFromHydratedMembers(
     isDiscoverable,
     requiresPassword,
     allowMemberInvite,
+    noticeText,
+    noticeUpdatedAt,
+    noticeUpdatedBy,
+    allowAdminInvite,
+    allowAdminKick,
+    allowAdminEditNotice,
+    allowMemberUpload,
+    allowMemberCall,
     myIdentityMode: resolveRoomProfileLite(
       memberProfilesRaw.find((profile) => profile.id === userId),
       roomProfileMap?.get(roomProfileKey(roomId, userId))
@@ -971,7 +1028,7 @@ async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayloa
           (sb as any)
             .from("community_messenger_rooms")
             .select(
-              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
             )
             .in("id", roomIds)
             .order("last_message_at", { ascending: false }),
@@ -1022,7 +1079,7 @@ async function fetchRoomsPayloadByRoomIds(roomIds: string[]): Promise<MessengerR
       (sb as any)
         .from("community_messenger_rooms")
         .select(
-          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
         )
         .in("id", uniqueRoomIds),
       (sb as any)
@@ -1082,7 +1139,7 @@ async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<Disc
       (sb as any)
         .from("community_messenger_rooms")
         .select(
-          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
         )
         .eq("room_type", "open_group")
         .eq("is_discoverable", true)
@@ -1775,9 +1832,10 @@ export async function getCommunityMessengerBootstrap(
   options?: { skipDiscoverable?: boolean }
 ): Promise<CommunityMessengerBootstrap> {
   const skipDiscoverable = options?.skipDiscoverable === true;
-  const [friendIds, followingIds, blockedIds, requests, myPayload, discState, callRows] = await Promise.all([
+  const [friendIds, followingIds, hiddenIds, blockedIds, requests, myPayload, discState, callRows] = await Promise.all([
     listAcceptedFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
+    listFollowingIds(userId, "hidden"),
     listFollowingIds(userId, "blocked"),
     listCommunityMessengerFriendRequests(userId),
     fetchMyRoomsPayload(userId),
@@ -1812,6 +1870,7 @@ export async function getCommunityMessengerBootstrap(
     userId,
     ...friendIds,
     ...followingIds,
+    ...hiddenIds,
     ...blockedIds,
     ...dedupeParticipantUserIds(myPayload.participantRows),
     ...dedupeParticipantUserIds(discState.participantRows),
@@ -1830,9 +1889,13 @@ export async function getCommunityMessengerBootstrap(
   const following = followingIds
     .map((id) => profileById.get(id))
     .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+  const hidden = hiddenIds
+    .map((id) => profileById.get(id))
+    .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
   const blocked = blockedIds
     .map((id) => profileById.get(id))
     .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+  const hiddenIdSet = new Set(hidden.map((profile) => profile.id));
 
   const mySummaries = summarizeRoomsBatchWithProfileMap(
     userId,
@@ -1902,13 +1965,14 @@ export async function getCommunityMessengerBootstrap(
   return {
     me,
     tabs: {
-      friends: friends.length,
+      friends: friends.filter((profile) => !hiddenIdSet.has(profile.id)).length,
       chats: chats.length,
       groups: groups.length,
       calls: calls.length,
     },
     friends,
     following,
+    hidden,
     blocked,
     requests,
     chats,
@@ -1919,8 +1983,12 @@ export async function getCommunityMessengerBootstrap(
 }
 
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
-  const friendIds = await listAcceptedFriendIds(userId);
-  return hydrateProfiles(userId, friendIds);
+  const [friendIds, hiddenIds] = await Promise.all([listAcceptedFriendIds(userId), listFollowingIds(userId, "hidden")]);
+  const hiddenIdSet = new Set(hiddenIds);
+  return hydrateProfiles(
+    userId,
+    friendIds.filter((id) => !hiddenIdSet.has(id))
+  );
 }
 
 export async function searchCommunityMessengerUsers(
@@ -2162,6 +2230,52 @@ export async function toggleCommunityMessengerFavoriteFriend(
   return { ok: true, isFavorite: true };
 }
 
+export async function toggleCommunityMessengerHiddenFriend(
+  userId: string,
+  targetUserId: string
+): Promise<{ ok: boolean; isHidden?: boolean; error?: string }> {
+  const target = trimText(targetUserId);
+  if (!target || !(await isFriend(userId, target))) {
+    return { ok: false, error: "friend_required" };
+  }
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: existing, error: selectError } = await (sb as any)
+      .from("user_relationships")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("target_user_id", target)
+      .or("relation_type.eq.hidden,type.eq.hidden")
+      .maybeSingle();
+    if (!selectError || !isMissingTableError(selectError)) {
+      if (existing?.id) {
+        const { error } = await (sb as any).from("user_relationships").delete().eq("id", existing.id);
+        if (!error) return { ok: true, isHidden: false };
+        return { ok: false, error: String(error.message ?? "friend_hide_update_failed") };
+      }
+      const { error } = await (sb as any).from("user_relationships").insert({
+        user_id: userId,
+        target_user_id: target,
+        type: "hidden",
+        relation_type: "hidden",
+      });
+      if (!error) return { ok: true, isHidden: true };
+      return { ok: false, error: String(error.message ?? "friend_hide_update_failed") };
+    }
+  }
+
+  const dev = getDevState();
+  const hidden = dev.hiddenFriends.get(userId) ?? new Set<string>();
+  if (hidden.has(target)) {
+    hidden.delete(target);
+    dev.hiddenFriends.set(userId, hidden);
+    return { ok: true, isHidden: false };
+  }
+  hidden.add(target);
+  dev.hiddenFriends.set(userId, hidden);
+  return { ok: true, isHidden: true };
+}
+
 export async function removeCommunityMessengerFriend(
   userId: string,
   targetUserId: string
@@ -2196,6 +2310,15 @@ export async function removeCommunityMessengerFriend(
     if (favoriteDeleteError && !isMissingTableError(favoriteDeleteError)) {
       return { ok: false, error: String(favoriteDeleteError.message ?? "friend_favorite_cleanup_failed") };
     }
+    const { error: hiddenDeleteError } = await (sb as any)
+      .from("user_relationships")
+      .delete()
+      .eq("user_id", userId)
+      .eq("target_user_id", target)
+      .or("relation_type.eq.hidden,type.eq.hidden");
+    if (hiddenDeleteError && !isMissingTableError(hiddenDeleteError)) {
+      return { ok: false, error: String(hiddenDeleteError.message ?? "friend_hidden_cleanup_failed") };
+    }
     return { ok: true };
   }
 
@@ -2208,6 +2331,7 @@ export async function removeCommunityMessengerFriend(
   });
   dev.favoriteFriends.get(userId)?.delete(target);
   dev.favoriteFriends.get(target)?.delete(userId);
+  dev.hiddenFriends.get(userId)?.delete(target);
   return { ok: true };
 }
 
@@ -2310,6 +2434,14 @@ export async function ensureCommunityMessengerDirectRoom(
     memberLimit: 2,
     isDiscoverable: false,
     allowMemberInvite: false,
+    noticeText: "",
+    noticeUpdatedAt: null,
+    noticeUpdatedBy: null,
+    allowAdminInvite: false,
+    allowAdminKick: false,
+    allowAdminEditNotice: false,
+    allowMemberUpload: true,
+    allowMemberCall: true,
     passwordHash: null,
     directKey,
     lastMessage: "",
@@ -2369,6 +2501,12 @@ export async function createPrivateGroupRoom(input: {
         summary: "",
         is_discoverable: false,
         allow_member_invite: true,
+        notice_text: "",
+        allow_admin_invite: true,
+        allow_admin_kick: true,
+        allow_admin_edit_notice: true,
+        allow_member_upload: true,
+        allow_member_call: true,
         last_message: "",
         last_message_type: "system",
       })
@@ -2441,6 +2579,14 @@ export async function createPrivateGroupRoom(input: {
     memberLimit: memberIds.length,
     isDiscoverable: false,
     allowMemberInvite: true,
+    noticeText: "",
+    noticeUpdatedAt: null,
+    noticeUpdatedBy: null,
+    allowAdminInvite: true,
+    allowAdminKick: true,
+    allowAdminEditNotice: true,
+    allowMemberUpload: true,
+    allowMemberCall: true,
     passwordHash: null,
     directKey: null,
     lastMessage: "",
@@ -2509,6 +2655,12 @@ export async function createOpenGroupRoom(input: {
         member_limit: memberLimit,
         is_discoverable: isDiscoverable,
         allow_member_invite: false,
+        notice_text: "",
+        allow_admin_invite: false,
+        allow_admin_kick: false,
+        allow_admin_edit_notice: false,
+        allow_member_upload: true,
+        allow_member_call: true,
         last_message: "",
         last_message_type: "system",
       })
@@ -2562,6 +2714,14 @@ export async function createOpenGroupRoom(input: {
     memberLimit,
     isDiscoverable,
     allowMemberInvite: false,
+    noticeText: "",
+    noticeUpdatedAt: null,
+    noticeUpdatedBy: null,
+    allowAdminInvite: false,
+    allowAdminKick: false,
+    allowAdminEditNotice: false,
+    allowMemberUpload: true,
+    allowMemberCall: true,
     passwordHash,
     directKey: null,
     lastMessage: "",
@@ -2609,7 +2769,7 @@ export async function inviteCommunityMessengerGroupMembers(input: {
   if (sb) {
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_type, room_status, is_readonly, allow_member_invite")
+      .select("id, room_type, room_status, is_readonly, allow_member_invite, allow_admin_invite, owner_user_id")
       .eq("id", roomId)
       .maybeSingle();
     if (roomError && !isMissingTableError(roomError)) {
@@ -2619,7 +2779,6 @@ export async function inviteCommunityMessengerGroupMembers(input: {
     if (room && ((room.room_status ?? "active") !== "active" || room.is_readonly === true)) {
       return { ok: false, error: "room_unavailable" };
     }
-    if (room && room.allow_member_invite === false) return { ok: false, error: "forbidden" };
     const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
     if (!memberValidation.ok) return memberValidation;
     const { data: me } = await (sb as any)
@@ -2629,6 +2788,12 @@ export async function inviteCommunityMessengerGroupMembers(input: {
       .eq("user_id", input.userId)
       .maybeSingle();
     if (!me) return { ok: false, error: "forbidden" };
+    const myRole = trimText((me as { role?: string }).role) as "owner" | "admin" | "member";
+    const isOwner = trimText((room as { owner_user_id?: string } | null)?.owner_user_id) === input.userId || myRole === "owner";
+    const canInvite =
+      isOwner ||
+      (myRole === "admin" ? (room as { allow_admin_invite?: boolean } | null)?.allow_admin_invite !== false : room?.allow_member_invite !== false);
+    if (!canInvite) return { ok: false, error: "forbidden" };
     const { error } = await (sb as any).from("community_messenger_participants").upsert(
       memberIds.map((memberId) => ({
         room_id: roomId,
@@ -2637,7 +2802,16 @@ export async function inviteCommunityMessengerGroupMembers(input: {
       })),
       { onConflict: "room_id,user_id" }
     );
-    if (!error) return { ok: true };
+    if (!error) {
+      const invited = await hydrateProfiles(input.userId, memberIds);
+      const labels = invited.map((item) => item.label).filter(Boolean).join(", ");
+      await appendCommunityMessengerSystemMessage({
+        userId: input.userId,
+        roomId,
+        content: labels ? `멤버 초대 · ${labels}` : "멤버 초대",
+      });
+      return { ok: true };
+    }
     if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "invite_failed") };
   }
 
@@ -2648,11 +2822,13 @@ export async function inviteCommunityMessengerGroupMembers(input: {
   const room = dev.rooms.find((row) => row.id === roomId);
   if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
   if (room.roomStatus !== "active" || room.isReadonly) return { ok: false, error: "room_unavailable" };
-  if (!room.allowMemberInvite) return { ok: false, error: "forbidden" };
   const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
   if (!memberValidation.ok) return memberValidation;
   const me = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
   if (!me) return { ok: false, error: "forbidden" };
+  const isOwner = room.ownerUserId === input.userId || me.role === "owner";
+  const canInvite = isOwner || (me.role === "admin" ? room.allowAdminInvite !== false : room.allowMemberInvite);
+  if (!canInvite) return { ok: false, error: "forbidden" };
   for (const memberId of memberIds) {
     if (dev.participants.some((row) => row.roomId === roomId && row.userId === memberId)) continue;
     dev.participants.push({
@@ -2667,6 +2843,287 @@ export async function inviteCommunityMessengerGroupMembers(input: {
       joinedAt: nowIso(),
     });
   }
+  const invited = await hydrateProfiles(input.userId, memberIds);
+  const labels = invited.map((item) => item.label).filter(Boolean).join(", ");
+  await appendCommunityMessengerSystemMessage({
+    userId: input.userId,
+    roomId,
+    content: labels ? `멤버 초대 · ${labels}` : "멤버 초대",
+  });
+  return { ok: true };
+}
+
+export async function updateCommunityMessengerPrivateGroupNotice(input: {
+  userId: string;
+  roomId: string;
+  noticeText: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const noticeText = trimText(input.noticeText).slice(0, 2000);
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data, error } = await (sb as any).rpc("community_messenger_update_group_notice", {
+      p_room_id: roomId,
+      p_notice_text: noticeText,
+    });
+    if (!error) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || row.ok) {
+        await appendCommunityMessengerSystemMessage({
+          userId: input.userId,
+          roomId,
+          content: noticeText ? `공지 수정 · ${noticeText}` : "공지 삭제",
+        });
+        return { ok: true };
+      }
+      return { ok: false, error: String(row.error ?? "update_failed") };
+    }
+    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+  }
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
+  const me = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  if (!me) return { ok: false, error: "forbidden" };
+  const canEdit = me.role === "owner" || (me.role === "admin" && room.allowAdminEditNotice !== false);
+  if (!canEdit) return { ok: false, error: "forbidden" };
+  room.noticeText = noticeText;
+  room.noticeUpdatedAt = nowIso();
+  room.noticeUpdatedBy = input.userId;
+  const createdAt = nowIso();
+  dev.messages.push({
+    id: randomUUID(),
+    roomId,
+    senderId: null,
+    messageType: "system",
+    content: noticeText ? `공지 수정 · ${noticeText}` : "공지 삭제",
+    metadata: {},
+    createdAt,
+  });
+  room.lastMessage = noticeText ? `공지 수정 · ${noticeText}` : "공지 삭제";
+  room.lastMessageAt = createdAt;
+  room.lastMessageType = "system";
+  return { ok: true };
+}
+
+export async function updateCommunityMessengerPrivateGroupPermissions(input: {
+  userId: string;
+  roomId: string;
+  allowMemberInvite?: boolean;
+  allowAdminInvite?: boolean;
+  allowAdminKick?: boolean;
+  allowAdminEditNotice?: boolean;
+  allowMemberUpload?: boolean;
+  allowMemberCall?: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  if (!roomId) return { ok: false, error: "room_not_found" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data, error } = await (sb as any).rpc("community_messenger_update_group_permissions", {
+      p_room_id: roomId,
+      p_allow_member_invite: input.allowMemberInvite ?? null,
+      p_allow_admin_invite: input.allowAdminInvite ?? null,
+      p_allow_admin_kick: input.allowAdminKick ?? null,
+      p_allow_admin_edit_notice: input.allowAdminEditNotice ?? null,
+      p_allow_member_upload: input.allowMemberUpload ?? null,
+      p_allow_member_call: input.allowMemberCall ?? null,
+    });
+    if (!error) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || row.ok) {
+        await appendCommunityMessengerSystemMessage({
+          userId: input.userId,
+          roomId,
+          content: "운영 권한 변경",
+        });
+        return { ok: true };
+      }
+      return { ok: false, error: String(row.error ?? "update_failed") };
+    }
+    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+  }
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
+  if (room.ownerUserId !== input.userId) return { ok: false, error: "forbidden" };
+  if (typeof input.allowMemberInvite === "boolean") room.allowMemberInvite = input.allowMemberInvite;
+  if (typeof input.allowAdminInvite === "boolean") room.allowAdminInvite = input.allowAdminInvite;
+  if (typeof input.allowAdminKick === "boolean") room.allowAdminKick = input.allowAdminKick;
+  if (typeof input.allowAdminEditNotice === "boolean") room.allowAdminEditNotice = input.allowAdminEditNotice;
+  if (typeof input.allowMemberUpload === "boolean") room.allowMemberUpload = input.allowMemberUpload;
+  if (typeof input.allowMemberCall === "boolean") room.allowMemberCall = input.allowMemberCall;
+  await appendCommunityMessengerSystemMessage({
+    userId: input.userId,
+    roomId,
+    content: "운영 권한 변경",
+  });
+  return { ok: true };
+}
+
+export async function setCommunityMessengerGroupMemberRole(input: {
+  userId: string;
+  roomId: string;
+  targetUserId: string;
+  nextRole: "admin" | "member";
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const targetUserId = trimText(input.targetUserId);
+  if (!roomId || !targetUserId) return { ok: false, error: "bad_target" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data, error } = await (sb as any).rpc("community_messenger_set_group_member_role", {
+      p_room_id: roomId,
+      p_target_user_id: targetUserId,
+      p_next_role: input.nextRole,
+    });
+    if (!error) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || row.ok) {
+        const target = (await hydrateProfiles(input.userId, [targetUserId]))[0];
+        await appendCommunityMessengerSystemMessage({
+          userId: input.userId,
+          roomId,
+          content: target
+            ? `${input.nextRole === "admin" ? "관리자 지정" : "관리자 해제"} · ${target.label}`
+            : input.nextRole === "admin"
+              ? "관리자 지정"
+              : "관리자 해제",
+        });
+        return { ok: true };
+      }
+      return { ok: false, error: String(row.error ?? "update_failed") };
+    }
+    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+  }
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  const me = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  const target = dev.participants.find((item) => item.roomId === roomId && item.userId === targetUserId);
+  if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
+  if (!me || !target) return { ok: false, error: "target_not_found" };
+  if (me.role !== "owner" || target.role === "owner" || room.ownerUserId === targetUserId) return { ok: false, error: "forbidden" };
+  target.role = input.nextRole;
+  const targetProfile = (await hydrateProfiles(input.userId, [targetUserId]))[0];
+  await appendCommunityMessengerSystemMessage({
+    userId: input.userId,
+    roomId,
+    content: targetProfile
+      ? `${input.nextRole === "admin" ? "관리자 지정" : "관리자 해제"} · ${targetProfile.label}`
+      : input.nextRole === "admin"
+        ? "관리자 지정"
+        : "관리자 해제",
+  });
+  return { ok: true };
+}
+
+export async function transferCommunityMessengerGroupOwner(input: {
+  userId: string;
+  roomId: string;
+  targetUserId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const targetUserId = trimText(input.targetUserId);
+  if (!roomId || !targetUserId) return { ok: false, error: "bad_target" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data, error } = await (sb as any).rpc("community_messenger_transfer_group_owner", {
+      p_room_id: roomId,
+      p_next_owner_user_id: targetUserId,
+    });
+    if (!error) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || row.ok) {
+        const target = (await hydrateProfiles(input.userId, [targetUserId]))[0];
+        await appendCommunityMessengerSystemMessage({
+          userId: input.userId,
+          roomId,
+          content: target ? `방장 위임 · ${target.label}` : "방장 위임",
+        });
+        return { ok: true };
+      }
+      return { ok: false, error: String(row.error ?? "update_failed") };
+    }
+    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  const me = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  const target = dev.participants.find((item) => item.roomId === roomId && item.userId === targetUserId);
+  if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
+  if (!me || !target) return { ok: false, error: "target_not_found" };
+  if (room.ownerUserId !== input.userId || me.role !== "owner") return { ok: false, error: "forbidden" };
+  if (targetUserId === input.userId) return { ok: false, error: "same_owner" };
+  if (target.role === "owner" || room.ownerUserId === targetUserId) return { ok: false, error: "owner_immutable" };
+  room.ownerUserId = targetUserId;
+  me.role = "admin";
+  target.role = "owner";
+  const targetProfile = (await hydrateProfiles(input.userId, [targetUserId]))[0];
+  await appendCommunityMessengerSystemMessage({
+    userId: input.userId,
+    roomId,
+    content: targetProfile ? `방장 위임 · ${targetProfile.label}` : "방장 위임",
+  });
+  return { ok: true };
+}
+
+export async function kickCommunityMessengerGroupMember(input: {
+  userId: string;
+  roomId: string;
+  targetUserId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const targetUserId = trimText(input.targetUserId);
+  if (!roomId || !targetUserId) return { ok: false, error: "bad_target" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data, error } = await (sb as any).rpc("community_messenger_kick_group_member", {
+      p_room_id: roomId,
+      p_target_user_id: targetUserId,
+    });
+    if (!error) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || row.ok) {
+        const target = (await hydrateProfiles(input.userId, [targetUserId]))[0];
+        await appendCommunityMessengerSystemMessage({
+          userId: input.userId,
+          roomId,
+          content: target ? `멤버 내보내기 · ${target.label}` : "멤버 내보내기",
+        });
+        return { ok: true };
+      }
+      return { ok: false, error: String(row.error ?? "update_failed") };
+    }
+    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+  }
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+  const dev = getDevState();
+  const room = dev.rooms.find((item) => item.id === roomId);
+  const me = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  const target = dev.participants.find((item) => item.roomId === roomId && item.userId === targetUserId);
+  if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
+  if (!me || !target) return { ok: false, error: "target_not_found" };
+  if (target.userId === input.userId || target.role === "owner" || room.ownerUserId === targetUserId) return { ok: false, error: "forbidden" };
+  const canKick = me.role === "owner" || (me.role === "admin" && room.allowAdminKick !== false && target.role === "member");
+  if (!canKick) return { ok: false, error: "forbidden" };
+  dev.participants = dev.participants.filter((item) => !(item.roomId === roomId && item.userId === targetUserId));
+  const targetProfile = (await hydrateProfiles(input.userId, [targetUserId]))[0];
+  await appendCommunityMessengerSystemMessage({
+    userId: input.userId,
+    roomId,
+    content: targetProfile ? `멤버 내보내기 · ${targetProfile.label}` : "멤버 내보내기",
+  });
   return { ok: true };
 }
 
@@ -3031,7 +3488,7 @@ export async function getCommunityMessengerRoomSnapshot(
         (sb as any)
           .from("community_messenger_rooms")
           .select(
-            "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type"
+            "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
           )
           .eq("id", id)
           .maybeSingle(),
@@ -3087,7 +3544,11 @@ export async function getCommunityMessengerRoomSnapshot(
   ]);
   const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members);
   const members = hydrated.members.map((profile) =>
-    resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile
+    ({
+      ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile),
+      memberRole:
+        participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === profile.id)?.role ?? undefined,
+    }) satisfies CommunityMessengerProfileLite
   );
   const profileMap = hydrated.profileMap;
   const meParticipant = participants.find(
@@ -3176,7 +3637,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
       const isMine = senderId === input.userId;
       const mt = trimText(message.message_type) as CommunityMessengerMessage["messageType"];
       const safeMt: CommunityMessengerMessage["messageType"] =
-        mt === "image" || mt === "system" || mt === "call_stub" || mt === "voice" ? mt : "text";
+        mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" ? mt : "text";
       return {
         id: message.id,
         roomId: message.room_id,
@@ -3194,6 +3655,13 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
               voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
               voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
               voiceMimeType: trimText(metadata.mimeType as string) || null,
+            }
+          : {}),
+        ...(safeMt === "file"
+          ? {
+              fileName: trimText(metadata.fileName as string) || null,
+              fileMimeType: trimText(metadata.mimeType as string) || null,
+              fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
       };
@@ -3239,6 +3707,13 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
               voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
               voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
               voiceMimeType: trimText(metadata.mimeType as string) || null,
+            }
+          : {}),
+        ...(safeMt === "file"
+          ? {
+              fileName: trimText(metadata.fileName as string) || null,
+              fileMimeType: trimText(metadata.mimeType as string) || null,
+              fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
       };
@@ -3438,7 +3913,369 @@ export async function sendCommunityMessengerMessage(input: {
   };
 }
 
+async function appendCommunityMessengerSystemMessage(input: {
+  userId: string;
+  roomId: string;
+  content: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const content = trimText(input.content);
+  if (!roomId || !content) return { ok: false, error: "content_required" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const createdAt = nowIso();
+    const { error: insertError } = await (sb as any).from("community_messenger_messages").insert({
+      room_id: roomId,
+      sender_id: null,
+      message_type: "system",
+      content,
+      metadata: {},
+      created_at: createdAt,
+    });
+    if (!insertError) {
+      await (sb as any)
+        .from("community_messenger_rooms")
+        .update({
+          last_message: content,
+          last_message_at: createdAt,
+          last_message_type: "system",
+          updated_at: createdAt,
+        })
+        .eq("id", roomId);
+      const { data: participants } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("id, user_id, unread_count")
+        .eq("room_id", roomId);
+      await Promise.all(
+        ((participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>).map((participantRow) =>
+          (sb as any)
+            .from("community_messenger_participants")
+            .update({
+              unread_count: participantRow.user_id === input.userId ? 0 : Number(participantRow.unread_count ?? 0) + 1,
+              last_read_at: participantRow.user_id === input.userId ? createdAt : null,
+            })
+            .eq("id", participantRow.id)
+        )
+      );
+      return { ok: true };
+    }
+    if (!isMissingTableError(insertError)) {
+      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
+    }
+  }
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+  const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  const createdAt = nowIso();
+  dev.messages.push({
+    id: randomUUID(),
+    roomId,
+    senderId: null,
+    messageType: "system",
+    content,
+    metadata: {},
+    createdAt,
+  });
+  room.lastMessage = content;
+  room.lastMessageAt = createdAt;
+  room.lastMessageType = "system";
+  for (const participant of dev.participants.filter((row) => row.roomId === roomId)) {
+    participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
+  }
+  return { ok: true };
+}
+
 const VOICE_LAST_PREVIEW = "음성 메시지";
+const IMAGE_LAST_PREVIEW = "사진";
+const FILE_LAST_PREVIEW = "파일";
+
+export async function sendCommunityMessengerImageMessage(input: {
+  userId: string;
+  roomId: string;
+  imagePublicUrl: string;
+  storagePath: string;
+  mimeType?: string;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const imagePublicUrl = trimText(input.imagePublicUrl);
+  const storagePath = trimText(input.storagePath);
+  if (!roomId || !imagePublicUrl || !storagePath) return { ok: false, error: "content_required" };
+  const mimeType = trimText(input.mimeType) || "image/jpeg";
+  const metadata: Record<string, unknown> = { storagePath, mimeType };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const [{ data: participant }, { data: roomData }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, room_status, is_readonly")
+        .eq("id", roomId)
+        .maybeSingle(),
+    ]);
+    if (!participant || !roomData) return { ok: false, error: "room_not_found" };
+    const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
+    if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+    if (roomStatus === "archived") return { ok: false, error: "room_archived" };
+    if (isReadonly) return { ok: false, error: "room_readonly" };
+    const createdAt = nowIso();
+    const { data: insertedMessage, error: insertError } = await (sb as any)
+      .from("community_messenger_messages")
+      .insert({
+        room_id: roomId,
+        sender_id: input.userId,
+        message_type: "image",
+        content: imagePublicUrl,
+        metadata,
+        created_at: createdAt,
+      })
+      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+      .single();
+    if (!insertError && insertedMessage) {
+      await (sb as any)
+        .from("community_messenger_rooms")
+        .update({
+          last_message: IMAGE_LAST_PREVIEW,
+          last_message_at: createdAt,
+          last_message_type: "image",
+          updated_at: createdAt,
+        })
+        .eq("id", roomId);
+      const { data: participants } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("id, user_id, unread_count")
+        .eq("room_id", roomId);
+      await Promise.all(
+        ((participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>).map((participantRow) =>
+          (sb as any)
+            .from("community_messenger_participants")
+            .update({
+              unread_count: participantRow.user_id === input.userId ? 0 : Number(participantRow.unread_count ?? 0) + 1,
+              last_read_at: participantRow.user_id === input.userId ? createdAt : null,
+            })
+            .eq("id", participantRow.id)
+        )
+      );
+      return {
+        ok: true,
+        message: {
+          id: String((insertedMessage as { id?: unknown }).id ?? ""),
+          roomId,
+          senderId: input.userId,
+          senderLabel: "나",
+          messageType: "image",
+          content: imagePublicUrl,
+          createdAt,
+          isMine: true,
+          callKind: null,
+          callStatus: null,
+        },
+      };
+    }
+    if (!isMissingTableError(insertError)) {
+      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  const participant = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
+  if (!participant) return { ok: false, error: "room_not_found" };
+  if (room.roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+  if (room.roomStatus === "archived") return { ok: false, error: "room_archived" };
+  if (room.isReadonly) return { ok: false, error: "room_readonly" };
+  const createdAt = nowIso();
+  const messageId = randomUUID();
+  dev.messages.push({
+    id: messageId,
+    roomId,
+    senderId: input.userId,
+    messageType: "image",
+    content: imagePublicUrl,
+    metadata,
+    createdAt,
+  });
+  room.lastMessage = IMAGE_LAST_PREVIEW;
+  room.lastMessageAt = createdAt;
+  room.lastMessageType = "image";
+  for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
+    p.unreadCount = p.userId === input.userId ? 0 : p.unreadCount + 1;
+  }
+  return {
+    ok: true,
+    message: {
+      id: messageId,
+      roomId,
+      senderId: input.userId,
+      senderLabel: "나",
+      messageType: "image",
+      content: imagePublicUrl,
+      createdAt,
+      isMine: true,
+      callKind: null,
+      callStatus: null,
+    },
+  };
+}
+
+export async function sendCommunityMessengerFileMessage(input: {
+  userId: string;
+  roomId: string;
+  filePublicUrl: string;
+  storagePath: string;
+  fileName: string;
+  mimeType?: string;
+  fileSizeBytes?: number;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const filePublicUrl = trimText(input.filePublicUrl);
+  const storagePath = trimText(input.storagePath);
+  const fileName = trimText(input.fileName);
+  if (!roomId || !filePublicUrl || !storagePath || !fileName) return { ok: false, error: "content_required" };
+  const mimeType = trimText(input.mimeType) || "application/octet-stream";
+  const fileSizeBytes = Math.max(0, Math.floor(Number(input.fileSizeBytes ?? 0)) || 0);
+  const metadata: Record<string, unknown> = { storagePath, mimeType, fileName, fileSizeBytes };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const [{ data: participant }, { data: roomData }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, room_status, is_readonly")
+        .eq("id", roomId)
+        .maybeSingle(),
+    ]);
+    if (!participant || !roomData) return { ok: false, error: "room_not_found" };
+    const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
+    if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+    if (roomStatus === "archived") return { ok: false, error: "room_archived" };
+    if (isReadonly) return { ok: false, error: "room_readonly" };
+    const createdAt = nowIso();
+    const { data: insertedMessage, error: insertError } = await (sb as any)
+      .from("community_messenger_messages")
+      .insert({
+        room_id: roomId,
+        sender_id: input.userId,
+        message_type: "file",
+        content: filePublicUrl,
+        metadata,
+        created_at: createdAt,
+      })
+      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+      .single();
+    if (!insertError && insertedMessage) {
+      await (sb as any)
+        .from("community_messenger_rooms")
+        .update({
+          last_message: FILE_LAST_PREVIEW,
+          last_message_at: createdAt,
+          last_message_type: "file",
+          updated_at: createdAt,
+        })
+        .eq("id", roomId);
+      const { data: participants } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("id, user_id, unread_count")
+        .eq("room_id", roomId);
+      await Promise.all(
+        ((participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>).map((participantRow) =>
+          (sb as any)
+            .from("community_messenger_participants")
+            .update({
+              unread_count: participantRow.user_id === input.userId ? 0 : Number(participantRow.unread_count ?? 0) + 1,
+              last_read_at: participantRow.user_id === input.userId ? createdAt : null,
+            })
+            .eq("id", participantRow.id)
+        )
+      );
+      return {
+        ok: true,
+        message: {
+          id: String((insertedMessage as { id?: unknown }).id ?? ""),
+          roomId,
+          senderId: input.userId,
+          senderLabel: "나",
+          messageType: "file",
+          content: filePublicUrl,
+          createdAt,
+          isMine: true,
+          callKind: null,
+          callStatus: null,
+          fileName,
+          fileMimeType: mimeType,
+          fileSizeBytes,
+        },
+      };
+    }
+    if (!isMissingTableError(insertError)) {
+      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  const participant = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
+  if (!participant) return { ok: false, error: "room_not_found" };
+  if (room.roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+  if (room.roomStatus === "archived") return { ok: false, error: "room_archived" };
+  if (room.isReadonly) return { ok: false, error: "room_readonly" };
+  const createdAt = nowIso();
+  const messageId = randomUUID();
+  dev.messages.push({
+    id: messageId,
+    roomId,
+    senderId: input.userId,
+    messageType: "file",
+    content: filePublicUrl,
+    metadata,
+    createdAt,
+  });
+  room.lastMessage = FILE_LAST_PREVIEW;
+  room.lastMessageAt = createdAt;
+  room.lastMessageType = "file";
+  for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
+    p.unreadCount = p.userId === input.userId ? 0 : p.unreadCount + 1;
+  }
+  return {
+    ok: true,
+    message: {
+      id: messageId,
+      roomId,
+      senderId: input.userId,
+      senderLabel: "나",
+      messageType: "file",
+      content: filePublicUrl,
+      createdAt,
+      isMine: true,
+      callKind: null,
+      callStatus: null,
+      fileName,
+      fileMimeType: mimeType,
+      fileSizeBytes,
+    },
+  };
+}
 
 function messengerLastPreviewFromRow(row: {
   message_type?: string;
@@ -3449,6 +4286,7 @@ function messengerLastPreviewFromRow(row: {
   if (mt === "voice") return { preview: VOICE_LAST_PREVIEW, messageType: "voice" };
   if (mt === "call_stub") return { preview: trimText(row.content) || "통화", messageType: "call_stub" };
   if (mt === "image") return { preview: trimText(row.content) || "사진", messageType: "image" };
+  if (mt === "file") return { preview: trimText((row.metadata as { fileName?: string } | undefined)?.fileName) || FILE_LAST_PREVIEW, messageType: "file" };
   if (mt === "system") return { preview: trimText(row.content) || "알림", messageType: "system" };
   const c = trimText(row.content);
   const preview = c.length > 120 ? `${c.slice(0, 117)}…` : c || "메시지";

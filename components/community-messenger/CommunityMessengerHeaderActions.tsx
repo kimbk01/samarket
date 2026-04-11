@@ -16,11 +16,11 @@ export function CommunityMessengerHeaderActions({
   onOpenSettings: () => void;
 }) {
   return (
-    <div className="flex max-w-[min(100vw-120px,200px)] shrink-0 items-center justify-end gap-0.5">
+    <div className="flex max-w-[min(100vw-120px,200px)] shrink-0 items-center justify-end gap-1">
       <button
         type="button"
         onClick={onOpenSearch}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-gray-200 bg-white text-foreground hover:bg-gray-50"
         aria-label="메신저 검색"
       >
         <SearchIcon />
@@ -28,12 +28,12 @@ export function CommunityMessengerHeaderActions({
       <button
         type="button"
         onClick={onOpenRequestList}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        className="relative flex h-9 w-9 items-center justify-center rounded-ui-rect border border-gray-200 bg-white text-foreground hover:bg-gray-50"
         aria-label={`알림${incomingRequestCount > 0 ? ` ${incomingRequestCount}건` : ""}`}
       >
         <BellListIcon />
         {incomingRequestCount > 0 ? (
-          <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gray-900 px-1 text-[10px] font-bold leading-none text-white">
+          <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-ui-rect bg-gray-900 px-1 text-[10px] font-bold leading-none text-white">
             {incomingRequestCount > 99 ? "99+" : incomingRequestCount}
           </span>
         ) : null}
@@ -41,7 +41,7 @@ export function CommunityMessengerHeaderActions({
       <button
         type="button"
         onClick={onOpenSettings}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-gray-200 bg-white text-foreground hover:bg-gray-50"
         aria-label="메신저 설정"
       >
         <SettingsIconSolid />

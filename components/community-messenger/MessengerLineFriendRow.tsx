@@ -17,7 +17,8 @@ type Props = {
 };
 
 /**
- * LINE 스타일 친구 행 — 좌측 별(즐겨찾기), 우측 영역 스와이프 시 삭제.
+ * 메신저 친구 기본 행.
+ * 카드보다 리스트 밀도를 우선하고, 즐겨찾기와 삭제만 보조 액션으로 둔다.
  */
 export function MessengerLineFriendRow({
   friend,
@@ -79,7 +80,7 @@ export function MessengerLineFriendRow({
   const initial = friend.label.trim().slice(0, 1) || "?";
 
   return (
-    <div className="flex min-h-[56px] items-stretch gap-1 rounded-ui-rect border border-gray-100 bg-white py-1 pl-1 pr-0">
+    <div className="flex min-h-[60px] items-stretch gap-0 bg-white">
       <button
         type="button"
         onClick={(e) => {
@@ -87,16 +88,16 @@ export function MessengerLineFriendRow({
           onToggleFavorite();
         }}
         disabled={busyFavorite}
-        className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center self-center rounded-full text-amber-500 hover:bg-amber-50 disabled:opacity-50"
+        className="flex h-full w-11 shrink-0 touch-manipulation items-center justify-center self-center text-gray-500 hover:bg-gray-50 disabled:opacity-50"
         aria-label={friend.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
         aria-pressed={friend.isFavoriteFriend}
       >
-        <span className="text-[22px] leading-none">{friend.isFavoriteFriend ? "★" : "☆"}</span>
+        <span className="text-[18px] leading-none">{friend.isFavoriteFriend ? "★" : "☆"}</span>
       </button>
 
-      <div className="relative min-w-0 flex-1 overflow-hidden rounded-ui-rect">
+      <div className="relative min-w-0 flex-1 overflow-hidden">
         <div
-          className="absolute inset-y-0 right-0 flex w-[72px] items-stretch bg-red-600"
+          className="absolute inset-y-0 right-0 flex w-[72px] items-stretch border-l border-gray-200 bg-white"
           style={{ pointerEvents: offset < -8 ? "auto" : "none" }}
         >
           <button
@@ -107,7 +108,7 @@ export function MessengerLineFriendRow({
               onDelete();
               close();
             }}
-            className="flex w-full touch-manipulation items-center justify-center text-[13px] font-semibold text-white disabled:opacity-50"
+            className="flex w-full touch-manipulation items-center justify-center text-[13px] font-semibold text-gray-700 disabled:opacity-50"
           >
             삭제
           </button>
@@ -123,7 +124,7 @@ export function MessengerLineFriendRow({
               else onRowPress();
             }
           }}
-          className="relative flex cursor-pointer items-center gap-3 bg-white px-2 py-2 touch-pan-y"
+          className="relative flex cursor-pointer items-center gap-3 bg-white px-3 py-3 touch-pan-y"
           style={{
             transform: `translateX(${offset}px)`,
             transition: dragging ? "none" : "transform 0.2s ease-out",
@@ -152,8 +153,13 @@ export function MessengerLineFriendRow({
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold text-gray-900">{friend.label}</p>
-            <p className="truncate text-[12px] text-gray-500">{friend.subtitle ?? "SAMarket"}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-[15px] font-semibold text-gray-900">{friend.label}</p>
+              {friend.isFavoriteFriend ? (
+                <span className="rounded-sm border border-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">즐겨찾기</span>
+              ) : null}
+            </div>
+            <p className="truncate text-[12px] text-gray-500">{friend.subtitle ?? "상태 메시지가 없습니다."}</p>
           </div>
           <span className="shrink-0 text-gray-300" aria-hidden>
             ›

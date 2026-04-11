@@ -16,6 +16,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -104,6 +105,8 @@ export function CommunityMessengerCallClient({
   const [layoutSwapped, setLayoutSwapped] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
+  const [speakerEnabled, setSpeakerEnabled] = useState(true);
+  const [bluetoothPreferred, setBluetoothPreferred] = useState(false);
   const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
   /** PiP 드래그 후 픽셀 위치(null 이면 좌하단 기본 배치) */
   const [pipPixelPosition, setPipPixelPosition] = useState<{ left: number; top: number } | null>(null);
@@ -231,7 +234,7 @@ export function CommunityMessengerCallClient({
     if (!res.ok || !json.ok || !json.connection) {
       const error = json.error ?? "call_provider_not_configured";
       if (error === "call_provider_not_configured") {
-        throw new Error("Agora 설정이 아직 연결되지 않았습니다. `NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID`와 서버 인증값을 확인해 주세요.");
+        throw new Error("통화 설정이 아직 연결되지 않았습니다.");
       }
       throw new Error("통화 연결 정보를 불러오지 못했습니다.");
     }
@@ -368,6 +371,20 @@ export function CommunityMessengerCallClient({
       setMicMuted(!nextMuted);
     }
   }, [micMuted]);
+
+  const toggleSpeakerEnabled = useCallback(() => {
+    setSpeakerEnabled((prev) => !prev);
+    if (typeof window !== "undefined" && !("setSinkId" in HTMLMediaElement.prototype)) {
+      window.alert("브라우저에서는 실제 출력 전환이 제한될 수 있습니다. 기기 오디오 설정도 함께 확인해 주세요.");
+    }
+  }, []);
+
+  const toggleBluetoothPreferred = useCallback(() => {
+    setBluetoothPreferred((prev) => !prev);
+    if (typeof window !== "undefined") {
+      window.alert("블루투스 연결은 브라우저보다 기기 오디오 출력 설정의 영향을 먼저 받습니다.");
+    }
+  }, []);
 
   useEffect(() => {
     setPipPixelPosition(null);
@@ -793,7 +810,7 @@ export function CommunityMessengerCallClient({
     if (!s) return;
     if (isTerminalCallSessionStatus(s.status)) return;
     if (s.sessionMode !== "direct") {
-      setErrorMessage("그룹 통화는 현재 준비 중입니다.");
+      setErrorMessage("이 통화는 채팅방에서 이어집니다.");
       return;
     }
     const shouldAutoAccept = requestedAction === "accept" && !s.isMineInitiator && s.status === "ringing";
@@ -878,7 +895,7 @@ export function CommunityMessengerCallClient({
   if (loading && !session) {
     return (
       <div className="flex min-h-full min-h-0 flex-1 flex-col items-center justify-center bg-[#020617] px-4 text-[14px] text-white/55">
-        통화방을 여는 중입니다…
+        통화 연결 중…
       </div>
     );
   }
@@ -886,11 +903,11 @@ export function CommunityMessengerCallClient({
   if (!session) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-[18px] font-semibold text-gray-900">통화 세션을 찾을 수 없습니다.</p>
+        <p className="text-[18px] font-semibold text-ui-fg">통화를 찾을 수 없습니다.</p>
         <button
           type="button"
           onClick={() => router.replace("/community-messenger")}
-          className="rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white"
+          className="rounded-ui-rect bg-ui-fg px-4 py-3 text-[14px] font-semibold text-ui-surface"
         >
           메신저로 돌아가기
         </button>
@@ -919,11 +936,11 @@ export function CommunityMessengerCallClient({
             <button
               type="button"
               onClick={() => navigateToChatDuringCall()}
-              className="rounded-full border border-white/15 px-3 py-2 text-[12px] font-medium text-white/85"
+              className="rounded-ui-rect border border-white/15 px-3 py-2 text-[12px] font-medium text-white/85"
             >
               채팅으로
             </button>
-            <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold">음성 통화</span>
+            <span className="rounded-ui-rect border border-white/10 bg-white/5 px-3 py-1 text-[12px] font-semibold">음성 통화</span>
           </header>
         ) : null}
 
@@ -968,7 +985,7 @@ export function CommunityMessengerCallClient({
                     type="button"
                     onClick={() => {
                       if (!openCommunityMessengerPermissionSettings()) {
-                        window.alert(permissionGuide?.description ?? "브라우저 설정에서 카메라·마이크를 허용해 주세요.");
+                        window.alert(permissionGuide?.description ?? "브라우저 권한을 확인해 주세요.");
                       }
                     }}
                     className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.96]"
@@ -980,9 +997,7 @@ export function CommunityMessengerCallClient({
                   <button
                     type="button"
                     onClick={() =>
-                      window.alert(
-                        "스피커·이어폰 전환은 기기(휴대폰·PC)의 볼륨·오디오 출력 설정에서 조절할 수 있습니다."
-                      )
+                      window.alert("오디오 출력은 기기 설정에서 바꿀 수 있습니다.")
                     }
                     className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.96]"
                     aria-label="스피커 안내"
@@ -1021,7 +1036,7 @@ export function CommunityMessengerCallClient({
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-4 text-center text-[13px] text-white/75">
                     {largeShowsRemote ? (
                       <>
-                        <p>{remoteJoined ? "상대 영상 연결 중…" : "상대방 참여를 기다리는 중입니다."}</p>
+                        <p>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기 중"}</p>
                         <p className="text-[11px] text-white/45">큰 화면 · 상대</p>
                       </>
                     ) : camOff ? (
@@ -1031,7 +1046,7 @@ export function CommunityMessengerCallClient({
                       </>
                     ) : (
                       <>
-                        <p>내 카메라 준비 중</p>
+                        <p>내 영상 준비 중</p>
                         <p className="text-[11px] text-white/45">큰 화면 · 나</p>
                       </>
                     )}
@@ -1076,7 +1091,7 @@ export function CommunityMessengerCallClient({
                           <span>카메라 꺼짐</span>
                         </>
                       ) : (
-                        <span>내 카메라 준비 중</span>
+                        <span>내 영상 준비 중</span>
                       )
                     ) : (
                       <span>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기"}</span>
@@ -1139,7 +1154,7 @@ export function CommunityMessengerCallClient({
                 type="button"
                 onClick={() => {
                   if (!openCommunityMessengerPermissionSettings()) {
-                    window.alert("브라우저 주소창 왼쪽 사이트 설정에서 카메라/마이크 권한을 허용해 주세요.");
+                    window.alert("브라우저 권한을 확인해 주세요.");
                   }
                 }}
                 className="rounded-ui-rect border border-white/15 px-4 py-3 text-[13px] font-medium text-white"
@@ -1151,97 +1166,129 @@ export function CommunityMessengerCallClient({
         ) : null}
 
         {session.callKind === "video" && joined ? (
-          <div className="mb-1 flex items-end justify-center gap-3 sm:gap-4">
-            <button
-              type="button"
-              onClick={() => setLayoutSwapped((v) => !v)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/50 text-white shadow-md ring-1 ring-white/12 backdrop-blur-md transition active:scale-95"
-              aria-label="큰 화면과 작은 화면 바꾸기"
-              title="화면 크기 전환"
-            >
-              <SwapVideoLayoutIcon className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
+          <div className="mb-1 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <CallControlButton
+              label={micMuted ? "음소거 해제" : "음소거"}
+              active={micMuted}
               onClick={() => void toggleMicEnabled()}
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-1 backdrop-blur-md transition active:scale-95 ${
-                micMuted
-                  ? "bg-rose-500/35 text-white ring-rose-400/40"
-                  : "bg-black/50 text-white ring-white/12"
-              }`}
-              aria-label={micMuted ? "마이크 켜기" : "마이크 끄기"}
-            >
-              {micMuted ? <MicOffToolbarIcon className="h-5 w-5" /> : <MicOnToolbarIcon className="h-5 w-5" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => void endCall()}
-              disabled={busy === "end"}
-              className="flex h-[3.7rem] w-[3.7rem] shrink-0 items-center justify-center rounded-full bg-[#ea3838] text-white shadow-lg shadow-red-900/40 transition active:scale-95 disabled:opacity-45 sm:h-16 sm:w-16"
-              aria-label="통화 종료"
-            >
-              <HangUpToolbarIcon className="h-7 w-7 sm:h-8 sm:w-8" />
-            </button>
-            <button
-              type="button"
+              icon={micMuted ? <MicOffToolbarIcon className="h-5 w-5" /> : <MicOnToolbarIcon className="h-5 w-5" />}
+            />
+            <CallControlButton
+              label={speakerEnabled ? "스피커" : "이어폰"}
+              active={speakerEnabled}
+              onClick={toggleSpeakerEnabled}
+              icon={<SpeakerIcon className="h-5 w-5" />}
+            />
+            <CallControlButton
+              label={bluetoothPreferred ? "블루투스 우선" : "블루투스"}
+              active={bluetoothPreferred}
+              onClick={toggleBluetoothPreferred}
+              icon={<BluetoothIcon className="h-5 w-5" />}
+            />
+            <CallControlButton
+              label={camOff ? "카메라 켜기" : "카메라 끄기"}
+              active={camOff}
+              onClick={() => void toggleCamEnabled()}
+              icon={camOff ? <CamOffToolbarIcon className="h-5 w-5" /> : <CamOnToolbarIcon className="h-5 w-5" />}
+            />
+            <CallControlButton
+              label="카메라 전환"
               onClick={() => void switchCameraFacing()}
               disabled={!cameraSwitchSupported || busy === "camera"}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/50 text-white shadow-md ring-1 ring-white/12 backdrop-blur-md transition active:scale-95 disabled:opacity-35"
-              aria-label="카메라 전환"
-              title={cameraSwitchSupported ? "전면·후면 카메라 전환" : "이 연결에서는 카메라 전환이 지원되지 않습니다"}
-            >
-              <SwitchCameraIcon className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => void toggleCamEnabled()}
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-1 backdrop-blur-md transition active:scale-95 ${
-                camOff ? "bg-amber-500/30 text-white ring-amber-400/35" : "bg-black/50 text-white ring-white/12"
-              }`}
-              aria-label={camOff ? "카메라 켜기" : "카메라 끄기"}
-            >
-              {camOff ? <CamOffToolbarIcon className="h-5 w-5" /> : <CamOnToolbarIcon className="h-5 w-5" />}
-            </button>
-          </div>
-        ) : null}
-
-        {!(session.callKind === "video" && joined) ? (
-          <div className="flex gap-2">
-            {!session.isMineInitiator && session.status === "ringing" && !joined ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void rejectIncoming()}
-                  disabled={busy === "reject"}
-                  className="rounded-ui-rect border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
-                >
-                  거절
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    autoJoinBlockedRef.current = false;
-                    void acceptIncoming().then((nextSession) => {
-                      if (nextSession) {
-                        void joinCall(nextSession);
-                      }
-                    });
-                  }}
-                  disabled={busy === "accept" || busy === "join"}
-                  className="flex-1 rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-                >
-                  {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
-                </button>
-              </>
-            ) : (
+              icon={<SwitchCameraIcon className="h-5 w-5" />}
+            />
+            <CallControlButton
+              label="미니"
+              onClick={() => navigateToChatDuringCall()}
+              icon={<MinimizeCallIcon className="h-5 w-5" />}
+            />
+            <div className="col-span-3 sm:col-span-6 flex justify-center pt-1">
               <button
                 type="button"
                 onClick={() => void endCall()}
                 disabled={busy === "end"}
-                className="flex-1 rounded-ui-rect bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                className="flex h-[3.7rem] w-[3.7rem] items-center justify-center rounded-full bg-[#ea3838] text-white transition active:scale-95 disabled:opacity-45 sm:h-16 sm:w-16"
+                aria-label="통화 종료"
               >
-                통화 종료
+                <HangUpToolbarIcon className="h-7 w-7 sm:h-8 sm:w-8" />
               </button>
+            </div>
+          </div>
+        ) : null}
+
+        {!(session.callKind === "video" && joined) ? (
+          <div className="space-y-3">
+            {!session.isMineInitiator && session.status === "ringing" && !joined ? (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void rejectIncoming()}
+                    disabled={busy === "reject"}
+                    className="rounded-ui-rect border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
+                  >
+                    거절
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      autoJoinBlockedRef.current = false;
+                      void acceptIncoming().then((nextSession) => {
+                        if (nextSession) {
+                          void joinCall(nextSession);
+                        }
+                      });
+                    }}
+                    disabled={busy === "accept" || busy === "join"}
+                    className="rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                  >
+                    {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {!videoCall ? (
+                  <div className="grid grid-cols-5 gap-2">
+                    <CallControlButton
+                      label={micMuted ? "음소거 해제" : "음소거"}
+                      active={micMuted}
+                      onClick={() => void toggleMicEnabled()}
+                      icon={micMuted ? <MicOffToolbarIcon className="h-5 w-5" /> : <MicOnToolbarIcon className="h-5 w-5" />}
+                    />
+                    <CallControlButton
+                      label={speakerEnabled ? "스피커" : "이어폰"}
+                      active={speakerEnabled}
+                      onClick={toggleSpeakerEnabled}
+                      icon={<SpeakerIcon className="h-5 w-5" />}
+                    />
+                    <CallControlButton
+                      label={bluetoothPreferred ? "블루투스 우선" : "블루투스"}
+                      active={bluetoothPreferred}
+                      onClick={toggleBluetoothPreferred}
+                      icon={<BluetoothIcon className="h-5 w-5" />}
+                    />
+                    <CallControlButton
+                      label="채팅"
+                      onClick={() => navigateToChatDuringCall()}
+                      icon={<ChatBubbleIcon className="h-5 w-5" />}
+                    />
+                    <CallControlButton
+                      label="미니"
+                      onClick={() => navigateToChatDuringCall()}
+                      icon={<MinimizeCallIcon className="h-5 w-5" />}
+                    />
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void endCall()}
+                  disabled={busy === "end"}
+                  className="w-full rounded-ui-rect bg-[#ef4444] px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                >
+                  통화 종료
+                </button>
+              </>
             )}
           </div>
         ) : null}
@@ -1263,6 +1310,34 @@ function SettingsGearIcon({ className }: { className?: string }) {
   );
 }
 
+function CallControlButton({
+  label,
+  icon,
+  onClick,
+  active = false,
+  disabled = false,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-ui-rect border px-2 py-2 text-center text-[11px] disabled:opacity-40 ${
+        active ? "border-white/30 bg-white/15 text-white" : "border-white/10 bg-white/5 text-white/88"
+      }`}
+    >
+      {icon}
+      <span className="leading-tight">{label}</span>
+    </button>
+  );
+}
+
 function SpeakerIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -1271,6 +1346,31 @@ function SpeakerIcon({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function BluetoothIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M7 7l8 10V7l-4 4 6 6-6 6 4 4V17L7 27" strokeLinecap="round" strokeLinejoin="round" transform="translate(0 -4)" />
+    </svg>
+  );
+}
+
+function ChatBubbleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M5 6h14v9H9l-4 3V6z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MinimizeCallIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M4 10h6V4M20 14h-6v6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 4L4 10M14 20l6-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
