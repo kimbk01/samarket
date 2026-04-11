@@ -125,8 +125,20 @@ export async function POST(
       }
       effectiveRoomId = insertedRoom.id as string;
       const { error: insertPartErr } = await sbAny.from("chat_room_participants").insert([
-        { room_id: effectiveRoomId, user_id: pcRow.seller_id, role_in_room: "seller" },
-        { room_id: effectiveRoomId, user_id: pcRow.buyer_id, role_in_room: "buyer" },
+        {
+          room_id: effectiveRoomId,
+          user_id: pcRow.seller_id,
+          role_in_room: "seller",
+          is_active: true,
+          hidden: false,
+        },
+        {
+          room_id: effectiveRoomId,
+          user_id: pcRow.buyer_id,
+          role_in_room: "buyer",
+          is_active: true,
+          hidden: false,
+        },
       ]);
       if (insertPartErr) {
         return NextResponse.json(

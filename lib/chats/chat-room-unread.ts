@@ -18,7 +18,8 @@ export async function bumpUnreadForChatRoomRecipients(
     .eq("room_id", roomId)
     .eq("hidden", false)
     .is("left_at", null)
-    .eq("is_active", true);
+    /** RLS·participantRowActive 와 동일: false 만 비활성, null 은 활성으로 간주 */
+    .or("is_active.is.null,is_active.eq.true");
 
   const rows = (participants ?? []) as RecipientRow[];
   const recipients = rows.filter((row) => row.user_id && row.user_id !== senderUserId);

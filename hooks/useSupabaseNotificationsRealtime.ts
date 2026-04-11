@@ -82,11 +82,20 @@ export function useSupabaseNotificationsRealtime(
               if (typeof domain === "string" && isNotificationDomain(domain)) {
                 void playDomainNotificationSound(domain as NotificationDomain);
               } else {
-                const isChat = row?.notification_type === "chat";
-                if (isChat && nid) {
-                  playCoalescedChatNotificationSound(`notif:${nid}`);
+                /** domain 컬럼 없이 저장된 레거시 행 — meta.kind 로 관리자 알림음 도메인 연동 */
+                const meta = row?.meta as { kind?: string } | undefined;
+                const chatKind = typeof meta?.kind === "string" ? meta.kind : "";
+                if (row?.notification_type === "chat" && chatKind === "trade_chat") {
+                  void playDomainNotificationSound("trade_chat");
+                } else if (row?.notification_type === "chat" && chatKind === "community_chat") {
+                  void playDomainNotificationSound("community_chat");
                 } else {
-                  playNotificationSound();
+                  const isChat = row?.notification_type === "chat";
+                  if (isChat && nid) {
+                    playCoalescedChatNotificationSound(`notif:${nid}`);
+                  } else {
+                    playNotificationSound();
+                  }
                 }
               }
             }

@@ -148,6 +148,18 @@ export async function loadChatRoomDetailForUser(input: {
     .maybeSingle();
 
   if (!error && r && (r.seller_id === input.userId || r.buyer_id === input.userId)) {
+    /**
+     * 통합 거래방(chat_rooms)은 item/start 가 게시글 작성자(post.user_id)를 seller 로 쓸 수 있고,
+     * product_chats.seller_id 와 문자열이 다를 수 있다. 정확 일치만 조회하면 crSame 이 비어
+     * 레거시(product_chat) 분기로 떨어져 chat_messages 를 안 보는 문제가 생긴다.
+     * → 동일 상품·동일 구매자 방 중 게시글 판매자 후보와 맞는 행을 고른다.
+     */
+    const postForSellerMatch = await fetchPostRowForChat(sbAny, r.post_id as string);
+    const sellerCandidatesForCr = new Set(
+      [r.seller_id, typeof postForSellerMatch?.user_id === "string" ? postForSellerMatch.user_id : ""].filter(
+        (x): x is string => typeof x === "string" && x.length > 0
+      )
+    );
     const { data: crSameRows } = await sbAny
       .from("chat_rooms")
       .select(
@@ -155,11 +167,11 @@ export async function loadChatRoomDetailForUser(input: {
       )
       .eq("room_type", "item_trade")
       .eq("item_id", r.post_id)
-      .eq("seller_id", r.seller_id)
       .eq("buyer_id", r.buyer_id)
-      .order("updated_at", { ascending: false })
-      .limit(1);
-    const crSame = crSameRows?.[0] ?? null;
+      .order("updated_at", { ascending: false });
+    const crSame =
+      (crSameRows ?? []).find((row: { seller_id: string }) => sellerCandidatesForCr.has(row.seller_id)) ??
+      null;
     if (crSame) {
       const roomIdCr = (crSame as { id: string }).id;
       const crRow = crSame as { seller_id: string | null; buyer_id: string | null };

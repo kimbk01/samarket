@@ -17,6 +17,10 @@ export type AdminSoundConfigRow = {
 let adminCache: { items: AdminSoundConfigRow[]; fetchedAt: number } | null = null;
 const CACHE_MS = 60_000;
 
+/** Realtime INSERT + 미읽음 배지 폴링이 같은 수신을 거의 동시에 재생할 때 1회로 줄임 */
+const lastDomainPlayAt = new Map<NotificationDomain, number>();
+const DOMAIN_PLAY_DEDUPE_MS = 2200;
+
 /** DOM·Node 타이머 타입 차이 흡수 */
 type TimerHandle = number | ReturnType<typeof globalThis.setTimeout>;
 let maxDurationTimer: TimerHandle | null = null;
@@ -43,7 +47,10 @@ async function loadConfig(): Promise<AdminSoundConfigRow[]> {
     return adminCache.items;
   }
   try {
-    const res = await fetch("/api/app/notification-sound-config", { credentials: "include" });
+    const res = await fetch("/api/app/notification-sound-config", {
+      credentials: "include",
+      cache: "no-store",
+    });
     const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       items?: AdminSoundConfigRow[];
@@ -75,6 +82,13 @@ function fallbackBeep(): void {
  */
 export async function playDomainNotificationSound(domain: NotificationDomain): Promise<void> {
   if (typeof window === "undefined") return;
+  const nowDedupe = Date.now();
+  const prevAt = lastDomainPlayAt.get(domain) ?? 0;
+  if (nowDedupe - prevAt < DOMAIN_PLAY_DEDUPE_MS) {
+    return;
+  }
+  lastDomainPlayAt.set(domain, nowDedupe);
+
   stopNotificationPlayback();
 
   const items = await loadConfig();

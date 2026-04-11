@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getOwnerHubBadgeSnapshot, subscribeOwnerHubBadge } from "@/lib/chats/owner-hub-badge-store";
-import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
+import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
+import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { isUnifiedChatRoomDetailPath } from "@/lib/chats/chat-room-path-utils";
 
 /**
@@ -14,24 +15,30 @@ import { isUnifiedChatRoomDetailPath } from "@/lib/chats/chat-room-path-utils";
  */
 export function GlobalOrderChatUnreadSound() {
   const pathname = usePathname();
-  const prevRef = useRef<number | null>(null);
+  const prevSnapRef = useRef<OwnerHubBadgeBreakdown | null>(null);
 
   useEffect(() => {
     const user = getCurrentUser();
     const uid = user?.id;
     if (!uid) {
-      prevRef.current = null;
+      prevSnapRef.current = null;
       return;
     }
 
     const syncFromSharedStore = () => {
-      const { socialChatUnread, storeOrderChatUnread } = getOwnerHubBadgeSnapshot();
-      const totalChatUnread = socialChatUnread + storeOrderChatUnread;
-      const prev = prevRef.current;
-      if (!isUnifiedChatRoomDetailPath(pathname) && prev !== null && totalChatUnread > prev) {
-        playCoalescedChatNotificationSound(`chat-unread:${prev}->${totalChatUnread}`);
+      const snap = getOwnerHubBadgeSnapshot();
+      const prev = prevSnapRef.current;
+      if (!isUnifiedChatRoomDetailPath(pathname) && prev !== null) {
+        /** 합계만 보면 거래/커뮤니티/매장 채팅을 구분할 수 없음 — 항목별 증가분에 맞는 도메인 알림음 */
+        if (snap.chatUnread > prev.chatUnread) {
+          void playDomainNotificationSound("trade_chat");
+        } else if (snap.philifeChatUnread > prev.philifeChatUnread) {
+          void playDomainNotificationSound("community_chat");
+        } else if (snap.storeOrderChatUnread > prev.storeOrderChatUnread) {
+          void playDomainNotificationSound("store");
+        }
       }
-      prevRef.current = totalChatUnread;
+      prevSnapRef.current = snap;
     };
 
     syncFromSharedStore();

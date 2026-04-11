@@ -17,7 +17,14 @@ export async function GET() {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, items: data ?? [] });
+    return NextResponse.json(
+      { ok: true, items: data ?? [] },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+        },
+      }
+    );
   } catch {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }

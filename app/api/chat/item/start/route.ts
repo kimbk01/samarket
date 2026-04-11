@@ -187,8 +187,8 @@ export async function POST(req: NextRequest) {
 
   const now = new Date().toISOString();
   const { error: insertPartErr } = await sbAny.from("chat_room_participants").insert([
-    { room_id: roomId, user_id: sellerId, role_in_room: "seller" },
-    { room_id: roomId, user_id: buyerId, role_in_room: "buyer" },
+    { room_id: roomId, user_id: sellerId, role_in_room: "seller", is_active: true, hidden: false },
+    { room_id: roomId, user_id: buyerId, role_in_room: "buyer", is_active: true, hidden: false },
   ]);
 
   if (insertPartErr) {
