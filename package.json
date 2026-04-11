@@ -32,6 +32,7 @@
     "@googlemaps/js-api-loader": "^2.0.2",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.0",
+    "@upstash/redis": "^1.37.0",
     "agora-rtc-sdk-ng": "^4.24.3",
     "agora-token": "^2.0.5",
     "next": "16.1.7",

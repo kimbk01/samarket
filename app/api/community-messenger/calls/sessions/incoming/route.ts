@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const rateLimit = enforceRateLimit({
+  const rateLimit = await enforceRateLimit({
     key: `community-messenger:incoming-calls:${getRateLimitKey(request, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,

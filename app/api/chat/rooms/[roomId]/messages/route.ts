@@ -55,7 +55,7 @@ export async function POST(
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
 
-  const sendRateLimit = enforceRateLimit({
+  const sendRateLimit = await enforceRateLimit({
     key: `trade-chat:message-send:${getRateLimitKey(req, userId)}`,
     limit: 24,
     windowMs: 60_000,

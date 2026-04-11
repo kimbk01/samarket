@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { startCommunityMessengerCallSession } from "@/lib/community-messenger/service";
+import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export async function POST(
   req: NextRequest,
@@ -8,6 +9,15 @@ export async function POST(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceRateLimit({
+    key: `community-messenger:room-call-start:${getRateLimitKey(req, auth.userId)}`,
+    limit: 20,
+    windowMs: 60_000,
+    message: "통화 시작 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_room_call_start_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
 
   let body: { callKind?: "voice" | "video" };
   try {

@@ -13,7 +13,7 @@ export async function GET(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const rateLimit = enforceRateLimit({
+  const rateLimit = await enforceRateLimit({
     key: `community-messenger:call-signals:get:${getRateLimitKey(req, auth.userId)}`,
     limit: 240,
     windowMs: 60_000,
@@ -34,7 +34,7 @@ export async function POST(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const rateLimit = enforceRateLimit({
+  const rateLimit = await enforceRateLimit({
     key: `community-messenger:call-signals:post:${getRateLimitKey(req, auth.userId)}`,
     limit: 600,
     windowMs: 60_000,

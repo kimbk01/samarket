@@ -84,6 +84,13 @@ export function CommunityMessengerRoomClient({
   const silentRoomRefreshAgainRef = useRef(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
+  /** 서버 스냅샷이 한 번에 실어 오는 메시지 개수와 맞춤 — 그만큼이면 더 있을 수 있음 */
+  const CM_SNAPSHOT_FIRST_PAGE = 120;
+  const olderMessagesExhaustedRef = useRef(false);
+  const topOlderSentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadOlderMessagesRef = useRef<() => void>(() => {});
+  const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
@@ -211,6 +218,87 @@ export function CommunityMessengerRoomClient({
     }
     setRoomMessages((prev) => mergeRoomMessages(prev, snapshot.messages));
   }, [snapshot]);
+
+  useEffect(() => {
+    olderMessagesExhaustedRef.current = false;
+    setHasMoreOlderMessages(false);
+    setLoadingOlderMessages(false);
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    if (String(snapshot.room.id) !== String(roomId)) return;
+    if (!olderMessagesExhaustedRef.current) {
+      setHasMoreOlderMessages(snapshot.messages.length >= CM_SNAPSHOT_FIRST_PAGE);
+    }
+  }, [roomId, snapshot]);
+
+  const oldestLoadedMessageId = useMemo(
+    () => roomMessages.find((m) => !m.pending)?.id ?? null,
+    [roomMessages]
+  );
+
+  const loadOlderMessages = useCallback(async () => {
+    if (loadingOlderMessages || !hasMoreOlderMessages || olderMessagesExhaustedRef.current) return;
+    const beforeId = oldestLoadedMessageId;
+    if (!beforeId) return;
+    const vp = messagesViewportRef.current;
+    const prevScrollHeight = vp?.scrollHeight ?? 0;
+    setLoadingOlderMessages(true);
+    try {
+      const res = await fetch(
+        `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages?before=${encodeURIComponent(beforeId)}`,
+        { cache: "no-store" }
+      );
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        messages?: CommunityMessengerMessage[];
+        hasMore?: boolean;
+      };
+      if (!res.ok || !json.ok || !Array.isArray(json.messages)) {
+        olderMessagesExhaustedRef.current = true;
+        setHasMoreOlderMessages(false);
+        return;
+      }
+      if (json.messages.length === 0) {
+        olderMessagesExhaustedRef.current = true;
+        setHasMoreOlderMessages(false);
+        return;
+      }
+      setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
+      if (!json.hasMore) {
+        olderMessagesExhaustedRef.current = true;
+      }
+      setHasMoreOlderMessages(Boolean(json.hasMore));
+      window.requestAnimationFrame(() => {
+        const el = messagesViewportRef.current;
+        if (el && prevScrollHeight > 0) {
+          el.scrollTop += el.scrollHeight - prevScrollHeight;
+        }
+      });
+    } finally {
+      setLoadingOlderMessages(false);
+    }
+  }, [roomId, oldestLoadedMessageId, loadingOlderMessages, hasMoreOlderMessages]);
+
+  loadOlderMessagesRef.current = () => {
+    void loadOlderMessages();
+  };
+
+  useEffect(() => {
+    const root = messagesViewportRef.current;
+    const target = topOlderSentinelRef.current;
+    if (!root || !target || !hasMoreOlderMessages || olderMessagesExhaustedRef.current) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.some((e) => e.isIntersecting);
+        if (hit) loadOlderMessagesRef.current();
+      },
+      { root, rootMargin: "120px 0px 0px 0px", threshold: 0 }
+    );
+    io.observe(target);
+    return () => io.disconnect();
+  }, [roomId, hasMoreOlderMessages, oldestLoadedMessageId]);
 
   const scrollMessengerToBottom = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -1405,6 +1493,18 @@ export function CommunityMessengerRoomClient({
               </span>
             ) : null}
           </div>
+          {hasMoreOlderMessages && roomMessages.length > 0 ? (
+            <div
+              ref={topOlderSentinelRef}
+              className="flex min-h-[24px] flex-col items-center justify-center gap-1 py-2"
+            >
+              {loadingOlderMessages ? (
+                <span className="text-[12px] text-ui-muted">이전 대화를 불러오는 중…</span>
+              ) : (
+                <span className="text-[11px] text-ui-muted">맨 위로 스크롤하면 이전 대화를 불러옵니다</span>
+              )}
+            </div>
+          ) : null}
           {roomMessages.length ? (
             roomMessages.map((item) => (
               <div

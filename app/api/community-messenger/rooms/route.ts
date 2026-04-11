@@ -15,9 +15,18 @@ import {
   listCommunityMessengerMyChatsAndGroups,
 } from "@/lib/community-messenger/service";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const listRateLimit = await enforceRateLimit({
+    key: `community-messenger:rooms-list:${getRateLimitKey(req, auth.userId)}`,
+    limit: 90,
+    windowMs: 60_000,
+    message: "대화 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_rooms_list_rate_limited",
+  });
+  if (!listRateLimit.ok) return listRateLimit.response;
 
   const { chats, groups } = await listCommunityMessengerMyChatsAndGroups(auth.userId);
   return jsonOk({
@@ -30,7 +39,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const createRateLimit = enforceRateLimit({
+  const createRateLimit = await enforceRateLimit({
     key: `community-messenger:room-create:${getRateLimitKey(req, auth.userId)}`,
     limit: 6,
     windowMs: 60_000,

@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  getOptionalRateLimitRedis,
+  rateLimitIncrCount,
+  rateLimitPttlMs,
+  rateLimitRedisStorageKey,
+} from "@/lib/http/rate-limit-redis";
 
 type JsonObject = Record<string, unknown>;
 
@@ -78,7 +84,7 @@ export function getRateLimitKey(request: NextRequest, userId?: string | null): s
   return `ip:${getClientIp(request)}`;
 }
 
-export function enforceRateLimit(options: {
+function enforceRateLimitMemory(options: {
   key: string;
   limit: number;
   windowMs: number;
@@ -128,6 +134,50 @@ export function enforceRateLimit(options: {
   current.count += 1;
   store.set(options.key, current);
   return { ok: true as const };
+}
+
+/** `UPSTASH_REDIS_REST_*` 가 있으면 Redis(INCR+만료), 없거나 오류 시 프로세스 메모리 */
+export async function enforceRateLimit(options: {
+  key: string;
+  limit: number;
+  windowMs: number;
+  message?: string;
+  code?: string;
+}) {
+  const redis = getOptionalRateLimitRedis();
+  if (redis) {
+    try {
+      const storageKey = rateLimitRedisStorageKey(options.key);
+      const count = await rateLimitIncrCount(redis, storageKey, options.windowMs);
+      if (count > options.limit) {
+        const now = Date.now();
+        let pttl = await rateLimitPttlMs(redis, storageKey);
+        if (pttl < 0) pttl = options.windowMs;
+        const retryAfterSec = Math.max(1, Math.ceil(pttl / 1000));
+        const resetAt = now + pttl;
+        return {
+          ok: false as const,
+          response: jsonError(
+            options.message ?? "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+            {
+              status: 429,
+              code: options.code ?? "rate_limited",
+              headers: {
+                "Retry-After": String(retryAfterSec),
+                "X-RateLimit-Limit": String(options.limit),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": String(resetAt),
+              },
+            }
+          ),
+        };
+      }
+      return { ok: true as const };
+    } catch {
+      /* Redis 장애 시 인메모리로 폴백 */
+    }
+  }
+  return enforceRateLimitMemory(options);
 }
 
 export function safeErrorMessage(

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const createRateLimit = enforceRateLimit({
+  const createRateLimit = await enforceRateLimit({
     key: `community-post:create:${getRateLimitKey(req, auth.userId)}`,
     limit: 8,
     windowMs: 60_000,

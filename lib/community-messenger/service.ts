@@ -3133,6 +3133,146 @@ export async function getCommunityMessengerRoomSnapshot(
   };
 }
 
+const COMMUNITY_MESSENGER_MESSAGE_PAGE_DEFAULT = 50;
+const COMMUNITY_MESSENGER_MESSAGE_PAGE_MAX = 100;
+
+/** 스냅샷 `limit(120)` 보다 오래된 메시지를 커서(`beforeMessageId`) 기준으로 페이지 로드 */
+export async function listCommunityMessengerRoomMessagesBefore(input: {
+  userId: string;
+  roomId: string;
+  beforeMessageId: string;
+  limit?: number;
+}): Promise<
+  { ok: true; messages: CommunityMessengerMessage[]; hasMore: boolean } | { ok: false; error: string }
+> {
+  const roomId = trimText(input.roomId);
+  const beforeMessageId = trimText(input.beforeMessageId);
+  const pageLimit = Math.min(
+    COMMUNITY_MESSENGER_MESSAGE_PAGE_MAX,
+    Math.max(1, Math.floor(Number(input.limit) || COMMUNITY_MESSENGER_MESSAGE_PAGE_DEFAULT))
+  );
+  if (!roomId || !beforeMessageId) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+
+  const mapDbRows = (
+    rows: MessageRow[],
+    profileById: Map<string, CommunityMessengerProfileLite>
+  ): CommunityMessengerMessage[] => {
+    return rows.map((message) => {
+      const senderId = trimText(message.sender_id) || null;
+      const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+      const isMine = senderId === input.userId;
+      const mt = trimText(message.message_type) as CommunityMessengerMessage["messageType"];
+      const safeMt: CommunityMessengerMessage["messageType"] =
+        mt === "image" || mt === "system" || mt === "call_stub" || mt === "voice" ? mt : "text";
+      return {
+        id: message.id,
+        roomId: message.room_id,
+        senderId,
+        senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+        messageType: safeMt,
+        content: trimText(message.content),
+        createdAt: trimText(message.created_at) || nowIso(),
+        isMine,
+        callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
+        callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+        ...(safeMt === "voice"
+          ? {
+              voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+              voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
+              voiceMimeType: trimText(metadata.mimeType as string) || null,
+            }
+          : {}),
+      };
+    });
+  };
+
+  if (!sb) {
+    const fb = ensureCommunityMessengerDevFallbackAllowed();
+    if (!fb.ok) return { ok: false, error: fb.error ?? "messenger_storage_unavailable" };
+    const dev = getDevState();
+    const mine = dev.participants.some((p) => p.roomId === roomId && p.userId === input.userId);
+    if (!mine) return { ok: false, error: "room_not_found" };
+    const anchor = dev.messages.find((m) => m.id === beforeMessageId && m.roomId === roomId);
+    if (!anchor) return { ok: false, error: "not_found" };
+    const pool = dev.messages
+      .filter((m) => m.roomId === roomId && m.createdAt.localeCompare(anchor.createdAt) < 0)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const page = pool.slice(0, pageLimit + 1);
+    const hasMore = page.length > pageLimit;
+    const sliced = page.slice(0, pageLimit).reverse();
+    const senderIds = dedupeIds(sliced.map((m) => m.senderId).filter((id): id is string => Boolean(id)));
+    const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
+    const profileById = new Map(profiles.map((p) => [p.id, p]));
+    const messages: CommunityMessengerMessage[] = sliced.map((message) => {
+      const senderId = message.senderId;
+      const isMine = senderId === input.userId;
+      const metadata = message.metadata ?? {};
+      const safeMt = message.messageType;
+      return {
+        id: message.id,
+        roomId: message.roomId,
+        senderId,
+        senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+        messageType: safeMt,
+        content: trimText(message.content),
+        createdAt: message.createdAt,
+        isMine,
+        callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
+        callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+        ...(safeMt === "voice"
+          ? {
+              voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+              voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
+              voiceMimeType: trimText(metadata.mimeType as string) || null,
+            }
+          : {}),
+      };
+    });
+    return { ok: true, messages, hasMore };
+  }
+
+  const { data: myParticipant } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (!myParticipant) return { ok: false, error: "room_not_found" };
+
+  const { data: anchorRow, error: anchorErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .select("id, created_at")
+    .eq("id", beforeMessageId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (anchorErr || !anchorRow) return { ok: false, error: "not_found" };
+
+  const anchorCreatedAt = trimText((anchorRow as { created_at?: string | null }).created_at);
+  if (!anchorCreatedAt) return { ok: false, error: "not_found" };
+
+  const { data: rows, error: msgErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+    .eq("room_id", roomId)
+    .lt("created_at", anchorCreatedAt)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(pageLimit + 1);
+  if (msgErr && !isMissingTableError(msgErr)) {
+    return { ok: false, error: "load_failed" };
+  }
+
+  const raw = (rows ?? []) as MessageRow[];
+  const hasMore = raw.length > pageLimit;
+  const pageRows = raw.slice(0, pageLimit).reverse();
+  const senderIds = dedupeIds(pageRows.map((r) => trimText(r.sender_id)).filter(Boolean));
+  const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  return { ok: true, messages: mapDbRows(pageRows, profileById), hasMore };
+}
+
 export async function sendCommunityMessengerMessage(input: {
   userId: string;
   roomId: string;

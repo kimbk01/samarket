@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { getCommunityMessengerBootstrap } from "@/lib/community-messenger/service";
 
 const COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS = 8_000;
@@ -11,12 +12,21 @@ type CommunityMessengerBootstrapCacheEntry = {
 
 const communityMessengerBootstrapCache = new Map<string, CommunityMessengerBootstrapCacheEntry>();
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const fresh = new URL(request.url).searchParams.get("fresh") === "1";
-  const lite = new URL(request.url).searchParams.get("lite") === "1";
+  const rateLimit = await enforceRateLimit({
+    key: `community-messenger:bootstrap:${getRateLimitKey(request, auth.userId)}`,
+    limit: 90,
+    windowMs: 60_000,
+    message: "메신저 초기 데이터 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_bootstrap_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
+
+  const fresh = request.nextUrl.searchParams.get("fresh") === "1";
+  const lite = request.nextUrl.searchParams.get("lite") === "1";
   const cacheKey = `${auth.userId}:${lite ? "lite" : "full"}`;
   for (const [key, entry] of communityMessengerBootstrapCache) {
     if (entry.expiresAt <= Date.now()) {

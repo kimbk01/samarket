@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { sendCommunityMessengerVoiceMessage } from "@/lib/community-messenger/service";
+import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const ALLOWED = new Set([
@@ -27,6 +28,15 @@ function extForMime(mime: string): string {
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceRateLimit({
+    key: `community-messenger:voice-upload:${getRateLimitKey(req, auth.userId)}`,
+    limit: 30,
+    windowMs: 60_000,
+    message: "음성 메시지 업로드 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_voice_upload_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
 
   const { roomId } = await params;
   if (!roomId) {

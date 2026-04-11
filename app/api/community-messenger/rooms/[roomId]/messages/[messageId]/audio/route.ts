@@ -1,18 +1,28 @@
 import { Buffer } from "node:buffer";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { fetchCommunityMessengerVoicePlaybackBytes } from "@/lib/community-messenger/service";
+import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
   resolveVoicePlaybackContentType,
   sliceAudioBufferForRangeRequest,
 } from "@/lib/community-messenger/voice-playback";
 
 export async function GET(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ roomId: string; messageId: string }> }
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceRateLimit({
+    key: `community-messenger:voice-audio:${getRateLimitKey(req, auth.userId)}`,
+    limit: 300,
+    windowMs: 60_000,
+    message: "음성 재생 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_voice_audio_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
 
   const { roomId, messageId } = await params;
   const result = await fetchCommunityMessengerVoicePlaybackBytes({

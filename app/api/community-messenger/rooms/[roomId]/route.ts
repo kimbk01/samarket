@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
   getCommunityMessengerRoomSnapshot,
   inviteCommunityMessengerGroupMembers,
@@ -9,11 +10,20 @@ import {
 } from "@/lib/community-messenger/service";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceRateLimit({
+    key: `community-messenger:room-snapshot:${getRateLimitKey(req, auth.userId)}`,
+    limit: 120,
+    windowMs: 60_000,
+    message: "대화방 정보 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_room_snapshot_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
 
   const { roomId } = await params;
   const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, roomId);
@@ -29,6 +39,15 @@ export async function PATCH(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceRateLimit({
+    key: `community-messenger:room-patch:${getRateLimitKey(req, auth.userId)}`,
+    limit: 120,
+    windowMs: 60_000,
+    message: "대화방 변경 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_room_patch_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
 
   let body:
     | { action?: "invite"; memberIds?: string[] }

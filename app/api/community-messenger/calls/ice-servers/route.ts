@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const rateLimit = enforceRateLimit({
+  const rateLimit = await enforceRateLimit({
     key: `community-messenger:ice-servers:${getRateLimitKey(req, auth.userId)}`,
     limit: 60,
     windowMs: 60_000,
