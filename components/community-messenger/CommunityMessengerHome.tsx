@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
+import { MessengerServiceStrip } from "@/components/community-messenger/MessengerServiceStrip";
+import { MessengerLineFriendRow } from "@/components/community-messenger/MessengerLineFriendRow";
+import { MessengerFriendProfileSheet } from "@/components/community-messenger/MessengerFriendProfileSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -40,10 +45,9 @@ import type {
 
 const HOME_TABS = [
   { id: "friends", label: "친구", labelKey: "nav_messenger_friends" },
-  { id: "chats", label: "1:1 채팅", labelKey: "nav_messenger_direct" },
+  { id: "chats", label: "대화", labelKey: "nav_messenger_direct" },
   { id: "groups", label: "그룹", labelKey: "nav_messenger_groups" },
   { id: "calls", label: "통화", labelKey: "nav_messenger_calls" },
-  { id: "settings", label: "설정", labelKey: "nav_messenger_settings" },
 ] as const satisfies readonly { id: CommunityMessengerTab; label: string; labelKey?: MessageKey }[];
 
 const EMPTY_COUNTS: Record<CommunityMessengerTab, number> = {
@@ -51,11 +55,12 @@ const EMPTY_COUNTS: Record<CommunityMessengerTab, number> = {
   chats: 0,
   groups: 0,
   calls: 0,
-  settings: 0,
 };
 
+/** URL `tab=settings` 는 하위 호환용 — 탭은 쓰지 않고 설정 시트만 연다 */
 function normalizeTab(value: string | null): CommunityMessengerTab {
-  if (value === "friends" || value === "chats" || value === "groups" || value === "calls" || value === "settings") {
+  if (value === "settings") return "chats";
+  if (value === "friends" || value === "chats" || value === "groups" || value === "calls") {
     return value;
   }
   return "friends";
@@ -64,10 +69,15 @@ function normalizeTab(value: string | null): CommunityMessengerTab {
 export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) {
   const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const loadedRef = useRef(false);
+  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
+  const [friendMenuOpen, setFriendMenuOpen] = useState(false);
+  const [requestSheetOpen, setRequestSheetOpen] = useState(false);
+  const [sheetProfile, setSheetProfile] = useState<CommunityMessengerProfileLite | null>(null);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
-  const discoverableGroupsRef = useRef<HTMLElement | null>(null);
-  const callHistoryRef = useRef<HTMLElement | null>(null);
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(initialTab === "settings");
+  const [publicGroupFindOpen, setPublicGroupFindOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<CommunityMessengerTab>(normalizeTab(initialTab ?? null));
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,6 +111,10 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const counts = data?.tabs ?? EMPTY_COUNTS;
+  const incomingRequestCount = useMemo(
+    () => (data?.requests ?? []).filter((r) => r.direction === "incoming").length,
+    [data?.requests]
+  );
   const homeRoomIds = useMemo(
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
     [data?.chats, data?.groups]
@@ -172,7 +186,12 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       if (res.ok && json.ok) {
         const next: CommunityMessengerBootstrap = {
           me: json.me ?? null,
-          tabs: json.tabs ?? EMPTY_COUNTS,
+          tabs: {
+            friends: json.tabs?.friends ?? 0,
+            chats: json.tabs?.chats ?? 0,
+            groups: json.tabs?.groups ?? 0,
+            calls: json.tabs?.calls ?? 0,
+          },
           friends: json.friends ?? [],
           following: json.following ?? [],
           blocked: json.blocked ?? [],
@@ -224,6 +243,31 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     setIncomingCallSoundEnabled(isCommunityMessengerIncomingCallSoundEnabled());
     setIncomingCallBannerEnabled(isCommunityMessengerIncomingCallBannerEnabled());
   }, []);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "settings") {
+      setSettingsSheetOpen(true);
+      router.replace("/community-messenger?tab=chats", { scroll: false });
+    }
+  }, [searchParams, router]);
+
+  useLayoutEffect(() => {
+    if (!setMainTier1Extras) return;
+    setMainTier1Extras({
+      tier1: {
+        rightSlot: (
+          <CommunityMessengerHeaderActions
+            incomingRequestCount={incomingRequestCount}
+            onOpenFriendMenu={() => setFriendMenuOpen(true)}
+            onOpenRequestList={() => setRequestSheetOpen(true)}
+            onOpenSettings={() => setSettingsSheetOpen(true)}
+          />
+        ),
+      },
+    });
+    return () => setMainTier1Extras(null);
+  }, [setMainTier1Extras, incomingRequestCount]);
 
   useCommunityMessengerHomeRealtime({
     userId: data?.me?.id ?? null,
@@ -291,7 +335,54 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setBusyId(null);
       }
     },
-    [data?.chats, getMessengerActionErrorMessage, router]
+    [data?.chats, getMessengerActionErrorMessage, router, t]
+  );
+
+  const startDirectCall = useCallback(
+    async (peerUserId: string, kind: "voice" | "video") => {
+      setActionError(null);
+      setBusyId(`call:${kind}:${peerUserId}`);
+      try {
+        let rid =
+          data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId)?.id ?? null;
+        if (!rid) {
+          const res = await fetch("/api/community-messenger/rooms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roomType: "direct", peerUserId }),
+          });
+          const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
+          if (res.status === 401 || res.status === 403) {
+            setAuthRequired(true);
+            setPageError(t("nav_messenger_login_required"));
+            return;
+          }
+          if (!res.ok || !json.ok || !json.roomId) {
+            setActionError(getMessengerActionErrorMessage(json.error));
+            return;
+          }
+          rid = json.roomId;
+        }
+        const cRes = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(rid)}/calls`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ callKind: kind }),
+        });
+        const cJson = (await cRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          session?: { id?: string };
+        };
+        if (!cRes.ok || !cJson.ok || !cJson.session?.id) {
+          setActionError(getMessengerActionErrorMessage(cJson.error));
+          return;
+        }
+        router.push(`/community-messenger/calls/${encodeURIComponent(cJson.session.id)}`);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [data?.chats, getMessengerActionErrorMessage, router, t]
   );
 
   const searchUsers = useCallback(async () => {
@@ -441,7 +532,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     } finally {
       setBusyId(null);
     }
-  }, [getMessengerActionErrorMessage, groupMembers, groupTitle, refresh, router]);
+  }, [getMessengerActionErrorMessage, groupMembers, groupTitle, refresh, router, t]);
 
   const createOpenGroup = useCallback(async () => {
     if (!openGroupTitle.trim()) return;
@@ -512,6 +603,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     openGroupTitle,
     refresh,
     router,
+    t,
   ]);
 
   const joinOpenGroup = useCallback(async () => {
@@ -543,6 +635,7 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
         setJoinAliasBio("");
         setJoinAliasAvatarUrl("");
         setJoinTargetGroup(null);
+        setPublicGroupFindOpen(false);
         router.push(`/community-messenger/rooms/${encodeURIComponent(json.roomId)}`);
         return;
       }
@@ -613,7 +706,21 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
     });
   }, [data?.friends]);
 
-  const sortedChats = useMemo(() => sortRooms(data?.chats ?? []), [data?.chats]);
+  const sortedChats = useMemo(() => {
+    const raw = data?.chats ?? [];
+    const byId = new Map<string, CommunityMessengerRoomSummary>();
+    for (const room of raw) {
+      const prev = byId.get(room.id);
+      if (!prev) {
+        byId.set(room.id, room);
+        continue;
+      }
+      const tPrev = new Date(prev.lastMessageAt).getTime();
+      const tNew = new Date(room.lastMessageAt).getTime();
+      if (tNew >= tPrev) byId.set(room.id, room);
+    }
+    return sortRooms([...byId.values()]);
+  }, [data?.chats]);
   const sortedGroups = useMemo(() => sortRooms(data?.groups ?? []), [data?.groups]);
   const myPrivateGroups = useMemo(
     () => sortedGroups.filter((room) => room.roomType === "private_group"),
@@ -633,92 +740,10 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       })
       .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
   }, [data?.discoverableGroups, openGroupSearch]);
-  const sortedCalls = useMemo(() => sortCalls(data?.calls ?? []), [data?.calls]);
-  const directCalls = useMemo(
-    () => sortedCalls.filter((call) => call.sessionMode === "direct"),
-    [sortedCalls]
-  );
-  const groupCalls = useMemo(
-    () => sortedCalls.filter((call) => call.sessionMode === "group"),
-    [sortedCalls]
-  );
-  const missedCallCount = useMemo(
-    () => (data?.calls ?? []).filter((call) => call.status === "missed").length,
+  const sortedCalls = useMemo(
+    () => mergeCallsByConversation(sortCallsByTime(data?.calls ?? [])),
     [data?.calls]
   );
-  const groupCallCount = useMemo(
-    () => (data?.calls ?? []).filter((call) => call.sessionMode === "group").length,
-    [data?.calls]
-  );
-  const directCallCount = useMemo(
-    () => (data?.calls ?? []).filter((call) => call.sessionMode === "direct").length,
-    [data?.calls]
-  );
-  const endedCallCount = useMemo(
-    () => (data?.calls ?? []).filter((call) => call.status === "ended").length,
-    [data?.calls]
-  );
-  const heroContent = useMemo(() => {
-    switch (activeTab) {
-      case "groups":
-        return {
-          eyebrow: "그룹 허브",
-          title: "그룹방 생성과 입장을 한곳에서 처리하세요",
-          description: "상단 CTA에서 바로 만들고, 아래 목록에서 공개 그룹 탐색과 입장까지 이어집니다.",
-          primaryLabel: "그룹방 만들기",
-          secondaryLabel: "공개 그룹 찾기",
-          onPrimary: () => setGroupCreateStep("select"),
-          onSecondary: () => discoverableGroupsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-        };
-      case "friends":
-        return {
-          eyebrow: "친구 허브",
-          title: "친구를 찾고 바로 대화로 연결하세요",
-          description: "검색, 요청, 팔로우를 한 흐름에 두고 실제 시작 행동이 바로 이어지도록 정리했습니다.",
-          primaryLabel: "친구 찾기",
-          secondaryLabel: "그룹 만들기",
-          onPrimary: () => friendSearchRef.current?.focus(),
-          onSecondary: () => {
-            setTab("groups");
-            requestAnimationFrame(() => setGroupCreateStep("select"));
-          },
-        };
-      case "calls":
-        return {
-          eyebrow: "통화 허브",
-          title: "통화 상태와 기록을 빠르게 확인하세요",
-          description: "부재중, 그룹 통화, 최근 완료 내역을 보고 바로 기록 목록으로 이어집니다.",
-          primaryLabel: "통화 기록 보기",
-          secondaryLabel: "그룹 탭 가기",
-          onPrimary: () => callHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-          onSecondary: () => setTab("groups"),
-        };
-      case "chats":
-        return {
-          eyebrow: "1:1 채팅",
-          title: "친구와 바로 대화를 시작하세요",
-          description: "대화 목록은 유지하고, 새 대화는 친구 탭 CTA로 이어지게 구성했습니다.",
-          primaryLabel: "친구 목록 열기",
-          secondaryLabel: "그룹 탭 가기",
-          onPrimary: () => setTab("friends"),
-          onSecondary: () => setTab("groups"),
-        };
-      default:
-        return {
-          eyebrow: "SAMarket 메신저",
-          title: "친구, 그룹, 통화를 한곳에서 관리하세요",
-          description: "거래 채팅과 주문 채팅은 분리 유지하고, 커뮤니티 메신저만 별도 축으로 운영합니다.",
-          primaryLabel: "친구 찾기",
-          secondaryLabel: "그룹 만들기",
-          onPrimary: () => friendSearchRef.current?.focus(),
-          onSecondary: () => {
-            setTab("groups");
-            requestAnimationFrame(() => setGroupCreateStep("select"));
-          },
-        };
-    }
-  }, [activeTab, setTab]);
-
   const removeFriend = useCallback(
     async (friendUserId: string) => {
       if (!window.confirm("이 친구를 삭제할까요? 친구 관계만 해제되고 기존 채팅방은 유지됩니다.")) return;
@@ -740,52 +765,15 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
 
   return (
     <div className="space-y-4 px-4 py-4">
-      <section className="rounded-ui-rect bg-[#06C755] px-5 py-5 text-white shadow-[0_18px_44px_rgba(6,199,85,0.22)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[13px] font-medium text-white/80">{heroContent.eyebrow}</p>
-            <h1 className="mt-1 text-[24px] font-semibold leading-tight">{heroContent.title}</h1>
-            <p className="mt-2 text-[13px] leading-5 text-white/85">{heroContent.description}</p>
-          </div>
-          <div className="rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold">
-            {data?.me?.label ?? "메신저"}
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={heroContent.onPrimary}
-            className="rounded-ui-rect bg-white px-4 py-3 text-left text-[#06C755] transition hover:bg-white/90"
-          >
-            <p className="text-[11px] text-[#06C755]/70">바로 실행</p>
-            <p className="mt-1 text-[15px] font-semibold">{heroContent.primaryLabel}</p>
-          </button>
-          <button
-            type="button"
-            onClick={heroContent.onSecondary}
-            className="rounded-ui-rect bg-white/14 px-4 py-3 text-left transition hover:bg-white/20"
-          >
-            <p className="text-[11px] text-white/70">빠른 이동</p>
-            <p className="mt-1 text-[15px] font-semibold">{heroContent.secondaryLabel}</p>
-          </button>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <Link
-            href="/mypage/trade/chat"
-            className="rounded-ui-rect bg-white/14 px-4 py-3 text-left transition hover:bg-white/20"
-          >
-            <p className="text-[11px] text-white/70">분리 유지</p>
-            <p className="mt-1 text-[15px] font-semibold">거래 채팅</p>
-          </Link>
-          <Link
-            href="/my/store-orders"
-            className="rounded-ui-rect bg-white/14 px-4 py-3 text-left transition hover:bg-white/20"
-          >
-            <p className="text-[11px] text-white/70">분리 유지</p>
-            <p className="mt-1 text-[15px] font-semibold">주문 채팅</p>
-          </Link>
-        </div>
-      </section>
+      {!loading && !authRequired ? (
+        <MessengerServiceStrip
+          onFindFriend={() => {
+            setTab("friends");
+            requestAnimationFrame(() => friendSearchRef.current?.focus());
+          }}
+          onCreateGroup={() => setGroupCreateStep("select")}
+        />
+      ) : null}
 
       <TradeManagementTabBar
         tabs={HOME_TABS}
@@ -911,102 +899,34 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
             </div>
           </section>
 
-          <InfoSection title="친구 요청" subtitle="수락하면 바로 1:1 채팅과 그룹 초대가 가능해집니다.">
-            {data?.requests.length ? (
-              data.requests.map((request) => (
-                <RequestCard
-                  key={request.id}
-                  request={request}
-                  busyId={busyId}
-                  onAction={respondRequest}
-                />
-              ))
-            ) : (
-              <EmptyCard message="대기 중인 친구 요청이 없습니다." />
-            )}
-          </InfoSection>
+          {incomingRequestCount > 0 ? (
+            <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+              받은 친구 요청 <strong>{incomingRequestCount}</strong>건 — 상단{" "}
+              <span className="font-medium">우편함</span> 아이콘에서 수락·거절할 수 있어요.
+            </p>
+          ) : null}
 
-          <InfoSection title="즐겨찾는 친구" subtitle="라인 스타일로 상단 고정해 빠르게 접근합니다.">
-            {favoriteFriends.length ? (
-              favoriteFriends.map((friend) => (
-                <ProfileCard
-                  key={friend.id}
-                  profile={friend}
-                  actionSlot={
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => void toggleFavoriteFriend(friend.id)}
-                        disabled={busyId === `favorite:${friend.id}`}
-                        className="rounded-ui-rect bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-700"
-                      >
-                        즐겨찾기 해제
-                      </button>
-                      <button
-                        type="button"
-                        onPointerEnter={() => maybePrefetchDirectRoom(friend.id)}
-                        onClick={() => void startDirectRoom(friend.id)}
-                        disabled={busyId === `room:${friend.id}`}
-                        className="rounded-ui-rect bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white"
-                      >
-                        채팅
-                      </button>
-                    </>
-                  }
-                />
-              ))
-            ) : (
-              <EmptyCard message="즐겨찾기 친구가 없습니다." />
-            )}
-          </InfoSection>
-
-          <InfoSection title="친구 목록" subtitle="1:1 채팅과 그룹 생성에 사용할 수 있습니다.">
+          <InfoSection title="친구">
             {sortedFriends.length ? (
-              sortedFriends.map((friend) => (
-                <ProfileCard
-                  key={friend.id}
-                  profile={friend}
-                  actionSlot={
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => void toggleFavoriteFriend(friend.id)}
-                        disabled={busyId === `favorite:${friend.id}`}
-                        className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${
-                          friend.isFavoriteFriend
-                            ? "bg-amber-50 text-amber-700"
-                            : "border border-amber-200 text-amber-700"
-                        }`}
-                      >
-                        {friend.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
-                      </button>
-                      <button
-                        type="button"
-                        onPointerEnter={() => maybePrefetchDirectRoom(friend.id)}
-                        onClick={() => void startDirectRoom(friend.id)}
-                        disabled={busyId === `room:${friend.id}`}
-                        className="rounded-ui-rect bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white"
-                      >
-                        1:1 채팅
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void removeFriend(friend.id)}
-                        disabled={busyId === `remove-friend:${friend.id}`}
-                        className="rounded-ui-rect border border-red-200 px-3 py-2 text-[12px] font-medium text-red-600"
-                      >
-                        친구 삭제
-                      </button>
-                    </>
-                  }
-                />
-              ))
+              <div className="space-y-2">
+                {sortedFriends.map((friend) => (
+                  <MessengerLineFriendRow
+                    key={friend.id}
+                    friend={friend}
+                    busyFavorite={busyId === `favorite:${friend.id}`}
+                    busyDelete={busyId === `remove-friend:${friend.id}`}
+                    onRowPress={() => setSheetProfile(friend)}
+                    onToggleFavorite={() => void toggleFavoriteFriend(friend.id)}
+                    onDelete={() => void removeFriend(friend.id)}
+                  />
+                ))}
+              </div>
             ) : (
               <EmptyCard message="아직 친구가 없습니다. 검색으로 친구를 추가해 보세요." />
             )}
           </InfoSection>
 
-          <InfoSection title="팔로우 중" subtitle="친구로 전환하기 전에도 소셜 관계를 계속 유지할 수 있습니다.">
+          <InfoSection title="팔로우 중">
             {data?.following.length ? (
               data.following.map((user) => (
                 <ProfileCard
@@ -1054,48 +974,44 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
       ) : null}
 
       {!loading && data && activeTab === "chats" ? (
-        <InfoSection title="1:1 채팅방" subtitle="거래/주문 채팅과 분리된 커뮤니티 메신저 대화입니다.">
+        <InfoSection title="대화">
           {sortedChats.length ? (
             sortedChats.map((room) => <RoomCard key={room.id} room={room} href={`/community-messenger/rooms/${room.id}`} />)
           ) : (
-            <EmptyCard message="아직 1:1 채팅방이 없습니다." />
+            <EmptyCard message="대화가 없습니다." />
           )}
         </InfoSection>
       ) : null}
 
       {!loading && data && activeTab === "groups" ? (
-        <div className="space-y-4">
-          <section className="sticky top-[72px] z-[5] rounded-ui-rect border border-gray-200 bg-white/95 p-4 backdrop-blur">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-[16px] font-semibold text-gray-900">그룹방 만들기</h2>
-                <p className="mt-1 text-[13px] text-gray-500">생성 CTA와 탐색 CTA를 같은 헤드 톤에서 바로 실행할 수 있게 정리했습니다.</p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  onClick={() => discoverableGroupsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                  className="rounded-ui-rect border border-gray-200 px-4 py-3 text-[13px] font-semibold text-gray-700"
-                >
-                  공개 그룹 찾기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGroupCreateStep("select")}
-                  className="rounded-ui-rect bg-[#06C755] px-4 py-3 text-[14px] font-semibold text-white"
-                >
-                  그룹방 만들기
-                </button>
-              </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[17px] font-semibold text-gray-900">그룹</h2>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPublicGroupFindOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FEE500] text-gray-900 shadow-sm transition active:scale-[0.98]"
+                aria-label="공개 그룹 찾기"
+              >
+                <SpeechBubblePlusSolidIcon />
+              </button>
+              <button
+                type="button"
+                onClick={() => setGroupCreateStep("select")}
+                className="rounded-ui-rect bg-[#06C755] px-3.5 py-2 text-[13px] font-semibold text-white"
+              >
+                만들기
+              </button>
             </div>
-          </section>
+          </div>
 
-          <InfoSection title="내 그룹방" subtitle="비공개 그룹과 내가 참여 중인 공개 그룹을 함께 봅니다.">
+          <section className="rounded-ui-rect border border-gray-200 bg-white p-3">
             {sortedGroups.length ? (
-              <>
+              <div className="space-y-3">
                 {myPrivateGroups.length ? (
                   <div className="space-y-2">
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">비공개 그룹</p>
+                    <p className="px-1 text-[12px] font-semibold text-gray-500">비공개</p>
                     {myPrivateGroups.map((room) => (
                       <RoomCard key={room.id} room={room} href={`/community-messenger/rooms/${room.id}`} />
                     ))}
@@ -1103,174 +1019,280 @@ export function CommunityMessengerHome({ initialTab }: { initialTab?: string }) 
                 ) : null}
                 {myOpenGroups.length ? (
                   <div className="space-y-2">
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">참여 중인 공개 그룹</p>
+                    <p className="px-1 text-[12px] font-semibold text-gray-500">공개</p>
                     {myOpenGroups.map((room) => (
                       <RoomCard key={room.id} room={room} href={`/community-messenger/rooms/${room.id}`} />
                     ))}
                   </div>
                 ) : null}
-              </>
+              </div>
             ) : (
-              <EmptyCard message="아직 참여 중인 그룹방이 없습니다." />
+              <div className="px-2 py-10 text-center text-[13px] text-gray-500">참여 중인 그룹이 없습니다.</div>
             )}
-          </InfoSection>
-
-          <InfoSection
-            title="공개 그룹 찾기"
-            subtitle="방 정책을 보고 입장 전에 미리보기, 실명/별칭 선택, 비밀번호 입력까지 처리합니다."
-            sectionRef={discoverableGroupsRef}
-          >
-            <input
-              value={openGroupSearch}
-              onChange={(e) => setOpenGroupSearch(e.target.value)}
-              placeholder="제목, 소개, 방장으로 검색"
-              className="h-11 w-full rounded-ui-rect border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
-            />
-            {filteredDiscoverableGroups.length ? (
-              filteredDiscoverableGroups.map((group) => (
-                <DiscoverableOpenGroupCard
-                  key={group.id}
-                  group={group}
-                  busy={busyId === `join-open-group:${group.id}` || busyId === `preview-open-group:${group.id}`}
-                  onJoin={() => void openJoinModal(group.id)}
-                />
-              ))
-            ) : (
-              <EmptyCard message="노출 중인 공개 그룹이 없습니다." />
-            )}
-          </InfoSection>
+          </section>
         </div>
       ) : null}
 
       {!loading && data && activeTab === "calls" ? (
-        <div className="space-y-4">
-          <section ref={callHistoryRef} className="grid grid-cols-2 gap-2">
-            <CallSummaryCard label="부재중" value={missedCallCount} tone="red" />
-            <CallSummaryCard label="그룹 통화" value={groupCallCount} tone="sky" />
-            <CallSummaryCard label="1:1 통화" value={directCallCount} tone="slate" />
-            <CallSummaryCard label="완료" value={endedCallCount} tone="green" />
-          </section>
-          {missedCallCount > 0 ? (
-            <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
-              최근 부재중 통화가 {missedCallCount}건 있습니다. 통화 탭에서 바로 확인해 보세요.
-            </div>
-          ) : null}
-          {groupCallCount > 0 ? (
-            <div className="rounded-ui-rect border border-sky-200 bg-sky-50 px-4 py-3 text-[13px] text-sky-700">
-              최근 그룹 통화가 {groupCallCount}건 있습니다. 참여 인원과 방 기준으로 기록을 확인할 수 있습니다.
-            </div>
-          ) : null}
-          <InfoSection title="1:1 통화 내역" subtitle="개인 통화 기록을 최근 순으로 보여줍니다.">
-            {directCalls.length ? (
-              directCalls.map((call) => <CallCard key={call.id} call={call} />)
-            ) : (
-              <EmptyCard message="1:1 통화 기록이 없습니다." />
-            )}
-          </InfoSection>
-          <InfoSection title="그룹 통화 내역" subtitle="그룹방 기준 참여 기록과 상태를 분리해서 보여줍니다.">
-            {groupCalls.length ? (
-              groupCalls.map((call) => <CallCard key={call.id} call={call} />)
-            ) : (
-              <EmptyCard message="그룹 통화 기록이 없습니다." />
-            )}
-          </InfoSection>
+        <section className="rounded-ui-rect border border-gray-200 bg-white">
+          {sortedCalls.length ? (
+            <ul className="divide-y divide-gray-100">
+              {sortedCalls.map((call) => (
+                <li key={call.id}>
+                  <CallHistoryRow call={call} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="px-4 py-12 text-center text-[13px] text-gray-500">통화 기록이 없습니다.</div>
+          )}
+        </section>
+      ) : null}
+
+      <MessengerFriendProfileSheet
+        open={sheetProfile != null}
+        profile={sheetProfile}
+        busyId={busyId}
+        onClose={() => setSheetProfile(null)}
+        onVoiceCall={() => {
+          if (!sheetProfile) return;
+          void startDirectCall(sheetProfile.id, "voice");
+        }}
+        onVideoCall={() => {
+          if (!sheetProfile) return;
+          void startDirectCall(sheetProfile.id, "video");
+        }}
+        onChat={() => {
+          if (!sheetProfile) return;
+          const id = sheetProfile.id;
+          setSheetProfile(null);
+          void startDirectRoom(id);
+        }}
+        onToggleFavorite={() => {
+          if (!sheetProfile) return;
+          void toggleFavoriteFriend(sheetProfile.id);
+        }}
+      />
+
+      {friendMenuOpen ? (
+        <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/40">
+          <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={() => setFriendMenuOpen(false)} />
+          <div className="rounded-t-[12px] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_32px_rgba(0,0,0,0.12)]">
+            <p className="text-center text-[14px] font-semibold text-gray-900">친구 · 그룹</p>
+            <button
+              type="button"
+              className="mt-4 w-full rounded-ui-rect border border-gray-200 py-3.5 text-[15px] font-medium text-gray-900"
+              onClick={() => {
+                setFriendMenuOpen(false);
+                setTab("friends");
+                requestAnimationFrame(() => friendSearchRef.current?.focus());
+              }}
+            >
+              친구 찾기
+            </button>
+            <button
+              type="button"
+              className="mt-2 w-full rounded-ui-rect bg-[#06C755] py-3.5 text-[15px] font-semibold text-white"
+              onClick={() => {
+                setFriendMenuOpen(false);
+                setGroupCreateStep("select");
+              }}
+            >
+              그룹 만들기
+            </button>
+            <button type="button" className="mt-3 w-full py-2 text-[14px] text-gray-500" onClick={() => setFriendMenuOpen(false)}>
+              취소
+            </button>
+          </div>
         </div>
       ) : null}
 
-      {!loading && data && activeTab === "settings" ? (
-        <div className="space-y-4">
-          <section className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <h2 className="text-[16px] font-semibold text-gray-900">메신저 운영 원칙</h2>
-            <ul className="mt-2 space-y-2 text-[13px] text-gray-600">
-              <li>거래 채팅은 `거래 채팅`, 주문 채팅은 `주문 채팅`, 커뮤니티 대화는 `메신저`로 분리됩니다.</li>
-              <li>친구 기반 1:1 채팅과 그룹 채팅을 기본으로 하고, 팔로우는 소셜 그래프 용도로 유지합니다.</li>
-              <li>통화는 1:1과 최대 4인 그룹 메쉬 WebRTC를 지원하며, 홈 통화 탭에서 상태와 기록을 함께 관리합니다.</li>
-            </ul>
-          </section>
+      {requestSheetOpen ? (
+        <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/40">
+          <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={() => setRequestSheetOpen(false)} />
+          <div className="max-h-[70vh] overflow-y-auto rounded-t-[12px] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_32px_rgba(0,0,0,0.12)]">
+            <p className="text-center text-[14px] font-semibold text-gray-900">친구 요청</p>
+            <div className="mt-3 space-y-2">
+              {data?.requests?.length ? (
+                data.requests.map((request) => (
+                  <RequestCard
+                    key={request.id}
+                    request={request}
+                    busyId={busyId}
+                    onAction={respondRequest}
+                  />
+                ))
+              ) : (
+                <p className="py-8 text-center text-[13px] text-gray-500">대기 중인 요청이 없습니다.</p>
+              )}
+            </div>
+            <button
+              type="button"
+              className="mt-2 w-full py-3 text-[14px] font-medium text-gray-600"
+              onClick={() => setRequestSheetOpen(false)}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      ) : null}
 
-          <InfoSection title="소리 및 통화 알림" subtitle="수신 통화 배너와 알림음을 여기서 최종 점검할 수 있습니다.">
-            <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-4">
-              <div>
-                <p className="text-[14px] font-semibold text-gray-900">수신 통화 알림음</p>
-                <p className="mt-1 text-[12px] text-gray-500">메신저 수신 통화가 올 때 알림음을 재생합니다.</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={incomingCallSoundEnabled}
-                onChange={(event) => {
-                  const next = event.target.checked;
-                  setIncomingCallSoundEnabled(next);
-                  setCommunityMessengerIncomingCallSoundEnabled(next);
-                }}
-                className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-4">
-              <div>
-                <p className="text-[14px] font-semibold text-gray-900">수신 통화 배너</p>
-                <p className="mt-1 text-[12px] text-gray-500">화면 상단의 수신 통화 안내 배너 표시를 제어합니다.</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={incomingCallBannerEnabled}
-                onChange={(event) => {
-                  const next = event.target.checked;
-                  setIncomingCallBannerEnabled(next);
-                  setCommunityMessengerIncomingCallBannerEnabled(next);
-                }}
-                className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
-              />
-            </label>
-          </InfoSection>
+      {settingsSheetOpen && data ? (
+        <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/45">
+          <button
+            type="button"
+            className="min-h-0 flex-1 cursor-default"
+            aria-label="닫기"
+            onClick={() => setSettingsSheetOpen(false)}
+          />
+          <div className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[14px] border-t border-gray-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3.5">
+              <p className="text-[17px] font-semibold text-gray-900">설정</p>
+              <button
+                type="button"
+                className="rounded-ui-rect px-3 py-1.5 text-[15px] text-gray-600"
+                onClick={() => setSettingsSheetOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <div className="space-y-4">
+                <section>
+                  <p className="mb-2 text-[13px] font-semibold text-gray-500">알림</p>
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
+                      <span className="text-[15px] font-medium text-gray-900">수신 통화 알림음</span>
+                      <input
+                        type="checkbox"
+                        checked={incomingCallSoundEnabled}
+                        onChange={(event) => {
+                          const next = event.target.checked;
+                          setIncomingCallSoundEnabled(next);
+                          setCommunityMessengerIncomingCallSoundEnabled(next);
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                      />
+                    </label>
+                    <label className="flex items-center justify-between rounded-ui-rect border border-gray-100 px-4 py-3.5">
+                      <span className="text-[15px] font-medium text-gray-900">수신 통화 안내</span>
+                      <input
+                        type="checkbox"
+                        checked={incomingCallBannerEnabled}
+                        onChange={(event) => {
+                          const next = event.target.checked;
+                          setIncomingCallBannerEnabled(next);
+                          setCommunityMessengerIncomingCallBannerEnabled(next);
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
+                      />
+                    </label>
+                  </div>
+                </section>
 
-          <InfoSection title="차단 목록" subtitle="차단된 사용자는 친구/검색/채팅 진입에서 제외됩니다.">
-            {data?.blocked.length ? (
-              data.blocked.map((user) => (
-                <ProfileCard
-                  key={user.id}
-                  profile={user}
-                  actionSlot={
-                    <button
-                      type="button"
-                      onClick={() => void toggleBlock(user.id)}
-                      disabled={busyId === `block:${user.id}`}
-                      className="rounded-ui-rect bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-700"
-                    >
-                      차단 해제
-                    </button>
-                  }
-                />
-              ))
-            ) : (
-              <EmptyCard message="차단된 사용자가 없습니다." />
-            )}
-          </InfoSection>
-
-          <InfoSection title="즐겨찾기 친구" subtitle="라인 스타일 상단 고정 후보입니다.">
-            {favoriteFriends.length ? (
-              favoriteFriends.map((friend) => (
-                <ProfileCard
-                  key={friend.id}
-                  profile={friend}
-                  actionSlot={
-                    <div className="flex items-center gap-2">
-                      <span className="text-[12px] text-amber-700">즐겨찾기됨</span>
-                      <button
-                        type="button"
-                        onClick={() => void removeFriend(friend.id)}
-                        disabled={busyId === `remove-friend:${friend.id}`}
-                        className="rounded-ui-rect border border-red-200 px-3 py-2 text-[12px] font-medium text-red-600"
-                      >
-                        친구 삭제
-                      </button>
+                <section>
+                  <p className="mb-2 text-[13px] font-semibold text-gray-500">차단</p>
+                  {data.blocked.length ? (
+                    <div className="space-y-2">
+                      {data.blocked.map((user) => (
+                        <ProfileCard
+                          key={user.id}
+                          profile={user}
+                          actionSlot={
+                            <button
+                              type="button"
+                              onClick={() => void toggleBlock(user.id)}
+                              disabled={busyId === `block:${user.id}`}
+                              className="rounded-ui-rect bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-700"
+                            >
+                              해제
+                            </button>
+                          }
+                        />
+                      ))}
                     </div>
-                  }
-                />
-              ))
-            ) : (
-              <EmptyCard message="즐겨찾기 친구가 없습니다." />
-            )}
-          </InfoSection>
+                  ) : (
+                    <div className="rounded-ui-rect border border-dashed border-gray-200 px-4 py-8 text-center text-[13px] text-gray-500">
+                      차단된 사용자가 없습니다.
+                    </div>
+                  )}
+                </section>
+
+                <section>
+                  <p className="mb-2 text-[13px] font-semibold text-gray-500">즐겨찾기</p>
+                  {favoriteFriends.length ? (
+                    <div className="space-y-2">
+                      {favoriteFriends.map((friend) => (
+                        <ProfileCard
+                          key={friend.id}
+                          profile={friend}
+                          actionSlot={
+                            <button
+                              type="button"
+                              onClick={() => void removeFriend(friend.id)}
+                              disabled={busyId === `remove-friend:${friend.id}`}
+                              className="rounded-ui-rect border border-red-200 px-3 py-2 text-[12px] font-medium text-red-600"
+                            >
+                              삭제
+                            </button>
+                          }
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-ui-rect border border-dashed border-gray-200 px-4 py-8 text-center text-[13px] text-gray-500">
+                      즐겨찾기 친구가 없습니다.
+                    </div>
+                  )}
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {publicGroupFindOpen && data ? (
+        <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/45">
+          <button
+            type="button"
+            className="min-h-0 flex-1 cursor-default"
+            aria-label="닫기"
+            onClick={() => setPublicGroupFindOpen(false)}
+          />
+          <div className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[14px] border-t border-gray-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3.5">
+              <p className="text-[17px] font-semibold text-gray-900">공개 그룹</p>
+              <button
+                type="button"
+                className="rounded-ui-rect px-3 py-1.5 text-[15px] text-gray-600"
+                onClick={() => setPublicGroupFindOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <input
+                value={openGroupSearch}
+                onChange={(e) => setOpenGroupSearch(e.target.value)}
+                placeholder="검색"
+                className="h-11 w-full rounded-ui-rect border border-gray-200 px-3 text-[14px] outline-none focus:border-[#06C755]"
+              />
+              <div className="mt-3 space-y-2">
+                {filteredDiscoverableGroups.length ? (
+                  filteredDiscoverableGroups.map((group) => (
+                    <DiscoverableOpenGroupCard
+                      key={group.id}
+                      group={group}
+                      busy={busyId === `join-open-group:${group.id}` || busyId === `preview-open-group:${group.id}`}
+                      onJoin={() => void openJoinModal(group.id)}
+                    />
+                  ))
+                ) : (
+                  <div className="py-10 text-center text-[13px] text-gray-500">검색 결과가 없습니다.</div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -1689,7 +1711,7 @@ function InfoSection({
   children,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   sectionRef?: { current: HTMLElement | null };
   children: React.ReactNode;
 }) {
@@ -1697,7 +1719,9 @@ function InfoSection({
     <section ref={sectionRef} className="rounded-ui-rect border border-gray-200 bg-white p-4">
       <div className="mb-3">
         <h2 className="text-[16px] font-semibold text-gray-900">{title}</h2>
-        <p className="mt-1 text-[13px] text-gray-500">{subtitle}</p>
+        {subtitle ? (
+          <p className="mt-1 text-[13px] text-gray-500">{subtitle}</p>
+        ) : null}
       </div>
       <div className="space-y-2">{children}</div>
     </section>
@@ -1821,18 +1845,8 @@ function RoomCard({ room, href }: { room: CommunityMessengerRoomSummary; href: s
                 room.roomType === "open_group" ? "bg-sky-50 text-sky-700" : "bg-gray-100 text-gray-700"
               }`}
             >
-              {room.roomType === "open_group" ? "공개 그룹" : room.roomType === "private_group" ? "비공개 그룹" : "1:1"}
+              {room.roomType === "open_group" ? "공개" : room.roomType === "private_group" ? "비공개" : "대화"}
             </span>
-            {room.roomType === "open_group" ? (
-              <>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-700">
-                  {room.joinPolicy === "password" ? "비밀번호" : room.joinPolicy === "free" ? "자유 입장" : "초대형"}
-                </span>
-                <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
-                  {room.identityPolicy === "alias_allowed" ? "별칭 허용" : "실명 기반"}
-                </span>
-              </>
-            ) : null}
             {room.roomStatus !== "active" ? (
               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                 {room.roomStatus === "blocked" ? "차단됨" : "보관됨"}
@@ -1876,36 +1890,22 @@ function DiscoverableOpenGroupCard({
   return (
     <div className="rounded-ui-rect border border-gray-100 px-4 py-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-[14px] font-semibold text-gray-900">{group.title}</p>
-            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">공개 그룹</span>
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-700">
-              {group.joinPolicy === "password" ? "비밀번호" : "자유 입장"}
-            </span>
-            <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
-              {group.identityPolicy === "alias_allowed" ? "별칭 허용" : "실명 기반"}
-            </span>
-            {group.isJoined ? (
-              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">참여 중</span>
-            ) : null}
-          </div>
-          <p className="mt-1 text-[12px] text-gray-500">{group.summary || "방 소개가 아직 없습니다."}</p>
-          <p className="mt-1 text-[12px] text-gray-500">{group.lastMessage || "최근 활동 내역이 없습니다."}</p>
-          <p className="mt-2 text-[12px] text-gray-600">
-            방장 {group.ownerLabel} · 현재 {group.memberCount}명
-            {group.memberLimit ? ` / 최대 ${group.memberLimit}명` : ""}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-gray-900">{group.title}</p>
+          <p className="mt-1 line-clamp-2 text-[12px] text-gray-500">{group.summary || "소개 없음"}</p>
+          <p className="mt-1.5 text-[11px] text-gray-400">
+            {group.ownerLabel} · {group.memberCount}명
+            {group.isJoined ? " · 참여 중" : ""}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[11px] text-gray-400">{formatRelative(group.lastMessageAt)}</p>
+        <div className="shrink-0 text-right">
           <button
             type="button"
             onClick={onJoin}
             disabled={busy}
-            className="mt-3 rounded-ui-rect bg-[#06C755] px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
+            className="rounded-ui-rect bg-[#06C755] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
           >
-            {busy ? "확인 중..." : group.isJoined ? "다시 입장" : "입장 설정 확인"}
+            {busy ? "확인 중..." : group.isJoined ? "다시 입장" : "참여"}
           </button>
         </div>
       </div>
@@ -1913,69 +1913,55 @@ function DiscoverableOpenGroupCard({
   );
 }
 
-function CallCard({ call }: { call: CommunityMessengerCallLog }) {
-  const tone =
-    call.status === "missed"
-      ? "text-red-600"
-      : call.status === "rejected" || call.status === "cancelled"
-        ? "text-gray-600"
-        : call.status === "ended"
-          ? "text-[#15803D]"
-          : "text-[#06C755]";
+function SolidPhoneIcon() {
   return (
-    <div className="rounded-ui-rect border border-gray-100 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[14px] font-semibold text-gray-900">{call.title}</p>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                call.sessionMode === "group" ? "bg-sky-50 text-sky-700" : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {call.sessionMode === "group" ? "그룹" : "1:1"}
-            </span>
-          </div>
-          <p className={`mt-1 text-[12px] ${tone}`}>
-            {call.callKind === "video" ? "영상 통화" : "음성 통화"} · {formatCallStatus(call.status)}
-          </p>
-          <p className="mt-1 text-[12px] text-gray-500">
-            {call.sessionMode === "group"
-              ? `${call.peerLabel} · 총 ${call.participantCount}명`
-              : call.peerLabel}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[11px] text-gray-400">{formatRelative(call.startedAt)}</p>
-          <p className="mt-1 text-[12px] font-medium text-gray-700">{formatDurationShort(call.durationSeconds)}</p>
-        </div>
-      </div>
-    </div>
+    <svg className="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V21c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+    </svg>
   );
 }
 
-function CallSummaryCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "red" | "slate" | "green" | "sky";
-}) {
-  const className =
-    tone === "red"
-      ? "border-red-200 bg-red-50 text-red-700"
-      : tone === "sky"
-        ? "border-sky-200 bg-sky-50 text-sky-700"
-      : tone === "green"
-        ? "border-green-200 bg-green-50 text-green-700"
-        : "border-gray-200 bg-gray-50 text-gray-700";
+function SpeechBubblePlusSolidIcon() {
   return (
-    <div className={`rounded-ui-rect border px-4 py-3 ${className}`}>
-      <p className="text-[12px] font-medium">{label}</p>
-      <p className="mt-1 text-[20px] font-semibold">{value}</p>
-    </div>
+    <svg className="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M4 4h16a2 2 0 012 2v9a2 2 0 01-2 2h-5.5l-3.3 3.3a1 1 0 01-1.7-.7V17H4a2 2 0 01-2-2V6a2 2 0 012-2zm8 3a1 1 0 00-1 1v3H8a1 1 0 000 2h3v3a1 1 0 002 0v-3h3a1 1 0 000-2h-3V8a1 1 0 00-1-1z" />
+    </svg>
+  );
+}
+
+function CallHistoryRow({ call }: { call: CommunityMessengerCallLog }) {
+  const router = useRouter();
+  const primary =
+    call.title?.trim() || call.peerLabel?.trim() || "알 수 없음";
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        router.push(`/community-messenger/calls/${encodeURIComponent(call.id)}`)
+      }
+      className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-gray-50 active:bg-gray-100"
+    >
+      <div
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-200/90 text-gray-700"
+        aria-hidden
+      >
+        <SolidPhoneIcon />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-[15px] font-semibold text-gray-900">{primary}</p>
+          {call.status === "missed" ? (
+            <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+              부재중
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-0.5 text-[12px] text-gray-500">{formatCallListDatetime(call.startedAt)}</p>
+      </div>
+      <span className="shrink-0 text-gray-300" aria-hidden>
+        ›
+      </span>
+    </button>
   );
 }
 
@@ -1986,22 +1972,42 @@ function sortRooms(rooms: CommunityMessengerRoomSummary[]): CommunityMessengerRo
   });
 }
 
-function sortCalls(calls: CommunityMessengerCallLog[]): CommunityMessengerCallLog[] {
-  return [...calls].sort((a, b) => {
-    const aMissed = a.status === "missed" ? 1 : 0;
-    const bMissed = b.status === "missed" ? 1 : 0;
-    if (aMissed !== bMissed) return bMissed - aMissed;
-    return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
-  });
+function sortCallsByTime(calls: CommunityMessengerCallLog[]): CommunityMessengerCallLog[] {
+  return [...calls].sort(
+    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+  );
 }
 
-function formatCallStatus(status: CommunityMessengerCallLog["status"]): string {
-  if (status === "missed") return "부재중";
-  if (status === "rejected") return "거절됨";
-  if (status === "cancelled") return "취소됨";
-  if (status === "ended") return "통화 종료";
-  if (status === "incoming") return "수신 중";
-  return "발신 중";
+const MAX_CALL_HISTORY_ROWS = 40;
+
+/** 동일 상대(또는 동일 방) 기준 최신 통화 한 줄 — 카카오톡식 요약 */
+function mergeCallsByConversation(sortedNewestFirst: CommunityMessengerCallLog[]): CommunityMessengerCallLog[] {
+  const seen = new Set<string>();
+  const out: CommunityMessengerCallLog[] = [];
+  for (const c of sortedNewestFirst) {
+    const roomKey = c.roomId && String(c.roomId).trim() ? `room:${c.roomId}` : null;
+    const key =
+      roomKey ??
+      (c.peerUserId ? `peer:${c.peerUserId}` : `label:${c.title}\0${c.peerLabel}`);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+    if (out.length >= MAX_CALL_HISTORY_ROWS) break;
+  }
+  return out;
+}
+
+function formatCallListDatetime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 function formatRelative(value: string): string {
@@ -2015,12 +2021,4 @@ function formatRelative(value: string): string {
   if (hours < 24) return `${hours}시간 전`;
   const days = Math.floor(hours / 24);
   return `${days}일 전`;
-}
-
-function formatDurationShort(value: number): string {
-  const total = Math.max(0, Math.floor(value));
-  const mins = Math.floor(total / 60);
-  const secs = total % 60;
-  if (mins < 1) return `${secs}초`;
-  return `${mins}분 ${secs}초`;
 }

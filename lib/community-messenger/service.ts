@@ -1849,7 +1849,6 @@ export async function getCommunityMessengerBootstrap(
       chats: chats.length,
       groups: groups.length,
       calls: calls.length,
-      settings: blocked.length,
     },
     friends,
     following,

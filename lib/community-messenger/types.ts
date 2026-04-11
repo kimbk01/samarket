@@ -1,4 +1,4 @@
-export type CommunityMessengerTab = "friends" | "chats" | "groups" | "calls" | "settings";
+export type CommunityMessengerTab = "friends" | "chats" | "groups" | "calls";
 
 export type CommunityMessengerRoomType = "direct" | "private_group" | "open_group";
 export type CommunityMessengerRoomStatus = "active" | "blocked" | "archived";

@@ -257,20 +257,13 @@ export function GlobalCommunityMessengerIncomingCall() {
   if (!visibleSession) return null;
 
   return (
-    <div className="fixed inset-x-0 top-20 z-40 mx-auto w-[min(92vw,420px)]">
-      <div className="rounded-ui-rect border border-[#06C755]/20 bg-white p-4 shadow-[0_20px_48px_rgba(17,24,39,0.22)]">
-        <p className="text-[12px] font-semibold text-[#06C755]">{t("nav_incoming_call")}</p>
-        <h2 className="mt-1 text-[18px] font-semibold text-gray-900">{visibleSession.peerLabel}</h2>
-        <p className="mt-1 text-[13px] text-gray-500">
-          {visibleSession.sessionMode === "group"
-            ? visibleSession.callKind === "video"
-              ? t("nav_group_video_call_invite")
-              : t("nav_group_voice_call_invite")
-            : visibleSession.callKind === "video"
-              ? t("nav_video_call_incoming")
-              : t("nav_voice_call_incoming")}
-        </p>
-        <div className="mt-4 flex gap-2">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
+      <div className="absolute inset-0 bg-black/35" aria-hidden />
+      <div className="relative mx-auto w-full max-w-[520px] px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+        <div className="rounded-t-[16px] border border-gray-200 bg-white p-4 shadow-[0_-8px_40px_rgba(0,0,0,0.18)]">
+        <p className="text-center text-[12px] font-semibold text-[#06C755]">{t("nav_incoming_call")}</p>
+        <h2 className="mt-2 text-center text-[20px] font-bold text-gray-900">{visibleSession.peerLabel}</h2>
+        <div className="mt-5 flex gap-2">
           <button
             type="button"
             onClick={() => void rejectCall(visibleSession.id)}
@@ -291,6 +284,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                 ? `${t("common_loading")}`
                 : t("common_accept")}
           </button>
+        </div>
         </div>
       </div>
     </div>
