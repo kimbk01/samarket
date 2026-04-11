@@ -30,6 +30,8 @@ export function AdminNotificationDomainsSettings() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState<NotificationDomain | null>(null);
+  const [clearBusy, setClearBusy] = useState<NotificationDomain | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -97,6 +99,63 @@ export function AdminNotificationDomainsSettings() {
     void playDomainNotificationSound(type);
   }, []);
 
+  const uploadSoundFile = useCallback(async (type: NotificationDomain, file: File) => {
+    setUploadBusy(type);
+    setErr(null);
+    try {
+      const fd = new FormData();
+      fd.set("type", type);
+      fd.set("file", file);
+      const res = await fetch("/api/admin/notification-settings/upload-sound", {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        sound_url?: string;
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok || !j.ok) {
+        setErr(j.message ?? j.error ?? "업로드에 실패했습니다.");
+        return;
+      }
+      if (typeof j.sound_url === "string") {
+        patchRow(type, { sound_url: j.sound_url });
+      }
+      invalidateNotificationSoundConfigCache();
+    } catch {
+      setErr("네트워크 오류");
+    } finally {
+      setUploadBusy(null);
+    }
+  }, [patchRow]);
+
+  const clearUploadedSound = useCallback(async (type: NotificationDomain) => {
+    setClearBusy(type);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/notification-settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: [{ type, sound_url: null }] }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        setErr(j.error ?? "초기화 실패");
+        return;
+      }
+      patchRow(type, { sound_url: null });
+      invalidateNotificationSoundConfigCache();
+    } catch {
+      setErr("네트워크 오류");
+    } finally {
+      setClearBusy(null);
+    }
+  }, [patchRow]);
+
   if (loading) {
     return (
       <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-6 text-[14px] text-ui-muted">
@@ -109,8 +168,8 @@ export function AdminNotificationDomainsSettings() {
     <div className="space-y-4">
       <AdminPageHeader title="알림·알림음 (도메인)" />
       <p className="text-[14px] text-ui-muted">
-        거래/커뮤니티/주문/매장 알림을 분리해 설정합니다. 쿨다운은 동일 채팅방(ref) 기준 서버에서
-        인앱 알림 빈도를 제한합니다.
+        거래/커뮤니티/주문/매장 알림을 분리해 설정합니다. 알림음은 PC에서 MP3·WAV 등 파일을 선택해
+        업로드합니다. 쿨다운은 동일 채팅방(ref) 기준 서버에서 인앱 알림 빈도를 제한합니다.
       </p>
       {err ? (
         <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
@@ -129,15 +188,53 @@ export function AdminNotificationDomainsSettings() {
                 onChange={(e) => patchRow(r.type, { enabled: e.target.checked })}
               />
             </label>
-            <label className="block text-[13px] text-ui-muted">
-              알림음 URL (비우면 기본)
-              <input
-                className="mt-1 w-full rounded-ui-rect border border-ui-border px-2 py-1.5 text-[14px] text-ui-fg"
-                value={r.sound_url ?? ""}
-                placeholder="/sounds/notification.wav"
-                onChange={(e) => patchRow(r.type, { sound_url: e.target.value || null })}
-              />
-            </label>
+            <div className="space-y-2">
+              <span className="text-[13px] text-ui-muted">알림음 파일</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="file"
+                  accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/webm"
+                  className="hidden"
+                  id={`notif-domain-sound-${r.type}`}
+                  disabled={uploadBusy === r.type}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void uploadSoundFile(r.type, f);
+                    e.target.value = "";
+                  }}
+                />
+                <label
+                  htmlFor={`notif-domain-sound-${r.type}`}
+                  className={`inline-flex cursor-pointer rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-1.5 text-[13px] text-ui-fg hover:bg-ui-hover ${
+                    uploadBusy === r.type ? "pointer-events-none opacity-60" : ""
+                  }`}
+                >
+                  {uploadBusy === r.type ? "업로드 중…" : "내 PC에서 파일 선택"}
+                </label>
+                <button
+                  type="button"
+                  disabled={clearBusy === r.type || uploadBusy === r.type || !r.sound_url}
+                  className="rounded-ui-rect border border-ui-border px-3 py-1.5 text-[13px] text-ui-muted hover:bg-ui-hover disabled:opacity-50"
+                  onClick={() => void clearUploadedSound(r.type)}
+                >
+                  {clearBusy === r.type ? "해제 중…" : "업로드 해제(기본음)"}
+                </button>
+              </div>
+              <p className="break-all text-[12px] text-ui-muted">
+                {r.sound_url?.trim()
+                  ? `현재: ${r.sound_url.trim()}`
+                  : "현재: 앱 기본 알림음(내장)"}
+              </p>
+              <label className="block text-[12px] text-ui-muted">
+                고급: URL 직접 입력 후 아래 「저장」
+                <input
+                  className="mt-1 w-full rounded-ui-rect border border-ui-border px-2 py-1.5 text-[13px] text-ui-fg"
+                  value={r.sound_url ?? ""}
+                  placeholder="https://… 또는 /sounds/notification.wav"
+                  onChange={(e) => patchRow(r.type, { sound_url: e.target.value || null })}
+                />
+              </label>
+            </div>
             <label className="flex items-center gap-3 text-[14px]">
               볼륨
               <input
