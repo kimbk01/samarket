@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MyTestLoginSection } from "@/components/my/MyTestLoginSection";
+import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -103,7 +104,7 @@ function LoginPageContent() {
     });
     /** 서버 Route Handler 세션과 동기화 — 바로 다음 HTML 요청이 401·로그인 루프 나는 것 완화 */
     try {
-      await fetch("/api/auth/session", { credentials: "include", cache: "no-store" });
+      await fetchAuthSessionNoStore();
     } catch {
       /* ignore */
     }

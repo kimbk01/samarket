@@ -5,7 +5,7 @@
  *
  * - **구독 수**: 홈은 방 id 를 `in.(…)` 청크로 묶어 WS 채널 수를 줄임 (`HOME_ROOMS_IN_FILTER_MAX`).
  * - **방 번들**: 방당 단일 채널에 messages / participants / rooms / call_* postgres_changes 를 묶음.
- * - **메타 refresh**: 멤버·방 설정 변경은 연속 이벤트가 많아 **디바운스(약 650ms 홈 / 800ms 방)** 로 `onRefresh` 호출을 합침 — 전체 HTTP 스냅샷 폭주 방지.
+ * - **메타 refresh**: 멤버·방 설정 변경은 연속 이벤트가 많아 **디바운스(약 850ms 홈 / 800ms 방)** 로 `onRefresh` 호출을 합침 — 전체 HTTP 스냅샷 폭주 방지.
  * - **메시지**: INSERT/UPDATE/DELETE 는 콜백으로만 처리; 파싱 실패 시에만 짧은 지연 refresh.
  * - **typing / presence**: 현재 스키마 훅에 없음 — 추가 시 **별 토픽·초경량 페이로드**만 (전체 방 refresh 금지).
  *
@@ -104,7 +104,7 @@ export function useCommunityMessengerHomeRealtime(args: {
 
     let cancelled = false;
     /** 목록·친구·요청 등 메타 변경은 묶어서 전체 리프레시 (과도한 GET 완화) */
-    const refreshScheduler = createRefreshScheduler(callbackRef, 650);
+    const refreshScheduler = createRefreshScheduler(callbackRef, 850);
     const channels: RealtimeChannel[] = [];
     const roomIds = roomIdsFingerprint.length ? roomIdsFingerprint.split("\0").filter(Boolean) : [];
 

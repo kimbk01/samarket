@@ -9,6 +9,7 @@ import {
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import {
   callSessionPhaseLabel,
@@ -270,10 +271,7 @@ export function useCommunityMessengerCall(args: {
       setLocalStream(primedStream);
       return primedStream;
     }
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: kind === "video",
-    });
+    const stream = await navigator.mediaDevices.getUserMedia(buildCommunityMessengerMediaStreamConstraints(kind));
     if (!mountedRef.current) {
       for (const track of stream.getTracks()) track.stop();
       throw new Error("unmounted");

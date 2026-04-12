@@ -23,22 +23,24 @@ export function createCommunityMessengerAgoraClient(): IAgoraRTCClient {
 
 const AGORA_MIC_ENCODER_CANDIDATES = ["speech_standard", "music_standard"] as const;
 
+const MIC_3A = { AEC: true, ANS: true, AGC: true } as const;
+
 async function tryCreateAgoraMicTrack(microphoneId?: string): Promise<ILocalAudioTrack | null> {
   for (const encoderConfig of AGORA_MIC_ENCODER_CANDIDATES) {
     try {
       if (microphoneId) {
-        return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig, microphoneId });
+        return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig, microphoneId, ...MIC_3A });
       }
-      return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig });
+      return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig, ...MIC_3A });
     } catch {
       /* 다음 인코더 */
     }
   }
   try {
     if (microphoneId) {
-      return await AgoraRTC.createMicrophoneAudioTrack({ microphoneId });
+      return await AgoraRTC.createMicrophoneAudioTrack({ microphoneId, ...MIC_3A });
     }
-    return await AgoraRTC.createMicrophoneAudioTrack();
+    return await AgoraRTC.createMicrophoneAudioTrack({ ...MIC_3A });
   } catch {
     return null;
   }
@@ -80,6 +82,7 @@ async function createAgoraMicWithPreferredDevice(): Promise<ILocalAudioTrack> {
         return AgoraRTC.createCustomAudioTrack({
           mediaStreamTrack: media,
           encoderConfig: "speech_standard",
+          ...MIC_3A,
         });
       }
     } catch {
@@ -121,6 +124,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
       const audioTrack = AgoraRTC.createCustomAudioTrack({
         mediaStreamTrack: audioMedia,
         encoderConfig: "speech_standard",
+        ...MIC_3A,
       });
       if (kind !== "video") {
         return { audioTrack, videoTrack: null };

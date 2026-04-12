@@ -33,6 +33,7 @@ import {
   messengerMonitorHomeBootstrapUnreadSync,
   messengerMonitorUnreadListSync,
 } from "@/lib/community-messenger/monitoring/client";
+import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import {
   clearBootstrapCache,
@@ -376,35 +377,25 @@ export function CommunityMessengerHome({
       if (silent) {
         const tSilentFetch =
           typeof performance !== "undefined" ? performance.now() : null;
-        const [resRooms, resReq] = await Promise.all([
-          fetch("/api/community-messenger/rooms", { cache: "no-store" }),
-          fetch("/api/community-messenger/friend-requests", { cache: "no-store" }),
-        ]);
-        const jsonRooms = (await resRooms.json().catch(() => ({}))) as {
-          ok?: boolean;
-          chats?: CommunityMessengerRoomSummary[];
-          groups?: CommunityMessengerRoomSummary[];
-        };
-        const jsonReq = (await resReq.json().catch(() => ({}))) as {
-          ok?: boolean;
-          requests?: CommunityMessengerBootstrap["requests"];
-        };
-        if (resRooms.ok && jsonRooms.ok) {
+        const { res, json } = await fetchCommunityMessengerHomeSilentLists();
+        if (res.ok && json.ok) {
           setData((prev) => {
             if (!prev) return prev;
-            const chats = jsonRooms.chats ?? [];
-            const groups = jsonRooms.groups ?? [];
-            const requests =
-              resReq.ok && jsonReq.ok ? (jsonReq.requests ?? prev.requests) : prev.requests;
+            const chats = json.chats ?? [];
+            const groups = json.groups ?? [];
+            const requests = json.requests ?? prev.requests;
+            const friends = json.friends ?? prev.friends;
             const next: CommunityMessengerBootstrap = {
               ...prev,
               chats,
               groups,
               requests,
+              friends,
               tabs: {
                 ...prev.tabs,
                 chats: chats.length,
                 groups: groups.length,
+                friends: friends.length,
               },
             };
             primeBootstrapCache(next);
@@ -414,7 +405,7 @@ export function CommunityMessengerHome({
             messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
           }
         } else {
-          const unauthorized = resRooms.status === 401 || resRooms.status === 403;
+          const unauthorized = res.status === 401 || res.status === 403;
           if (unauthorized) {
             clearBootstrapCache();
             setAuthRequired(true);

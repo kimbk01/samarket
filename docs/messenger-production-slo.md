@@ -57,6 +57,6 @@
 - Supabase 유지 vs 분리(도메인별): [messenger-supabase-split-evaluation.md](./messenger-supabase-split-evaluation.md)
 - 성능 목표·설계 한도 (체크리스트): [messenger-performance-targets.md](./messenger-performance-targets.md)
 - 부트스트랩·페이로드 한도: [messenger-bootstrap-and-payload-limits.md](./messenger-bootstrap-and-payload-limits.md)
-- Realtime 정책: [messenger-realtime-policy.md](./messenger-realtime-policy.md)
+- Realtime · 디바운스 · 클라 트래픽(폴링·단일 비행 키): [messenger-realtime-policy.md](./messenger-realtime-policy.md)
 - DB 아카이브 로드맵: [messenger-db-archive-roadmap.md](./messenger-db-archive-roadmap.md)
 - 서비스 분리 기준: [messenger-service-split-criteria.md](./messenger-service-split-criteria.md)

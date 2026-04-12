@@ -5,10 +5,12 @@ import type {
   IAgoraRTCClient,
   IAgoraRTCRemoteUser,
   ILocalVideoTrack,
+  IRemoteAudioTrack,
   IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   useCallback,
   useEffect,
@@ -53,6 +55,8 @@ import {
   takeDetachedCommunityCallCleanup,
 } from "@/lib/community-messenger/direct-call-minimize";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
+import { formatMessengerAgoraLastMileLine } from "@/lib/community-messenger/call-provider/agora-network-quality";
+import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import { CallScreenShell, MESSENGER_CALL_GRADIENT_SURFACE } from "@/components/community-messenger/call-ui/CallScreenShell";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 
@@ -114,8 +118,17 @@ export function CommunityMessengerCallClient({
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   const [speakerEnabled, setSpeakerEnabled] = useState(true);
+  const speakerEnabledRef = useRef(true);
+  speakerEnabledRef.current = speakerEnabled;
   const [bluetoothPreferred, setBluetoothPreferred] = useState(false);
   const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
+  /** Agora last-mile `network-quality` 기반(고정 문구 대신 실측) */
+  const [lastMileLine, setLastMileLine] = useState("네트워크 품질 · 확인 중");
+  const lastMileToneClass = useMemo(() => {
+    if (/끊김|나쁨/.test(lastMileLine)) return "text-amber-400/95";
+    if (/불안정|보통|다소/.test(lastMileLine)) return "text-yellow-200/90";
+    return "text-emerald-400/95";
+  }, [lastMileLine]);
   /** PiP 드래그 후 픽셀 위치(null 이면 좌하단 기본 배치) */
   const [pipPixelPosition, setPipPixelPosition] = useState<{ left: number; top: number } | null>(null);
   /** Viber 스타일 자판(로컬 DTMF 톤) */
@@ -137,6 +150,7 @@ export function CommunityMessengerCallClient({
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const localTracksRef = useRef<CommunityMessengerAgoraLocalTracks | null>(null);
   const remoteVideoTrackRef = useRef<IRemoteVideoTrack | null>(null);
+  const remoteAudioTrackRef = useRef<IRemoteAudioTrack | null>(null);
   const joinedRef = useRef(false);
   const joiningRef = useRef(false);
   const autoAcceptRef = useRef(false);
@@ -264,6 +278,8 @@ export function CommunityMessengerCallClient({
     setMicMuted(false);
     setPipPixelPosition(null);
     useRearFacingRef.current = false;
+    setLastMileLine("네트워크 품질 · 확인 중");
+    remoteAudioTrackRef.current = null;
     await closeCommunityMessengerAgoraTracks(localTracksRef.current);
     localTracksRef.current = null;
     if (client) {
@@ -447,6 +463,11 @@ export function CommunityMessengerCallClient({
     }
   }, []);
 
+  useEffect(() => {
+    if (!joined) return;
+    void applyAgoraRemoteSpeakerPreference(remoteAudioTrackRef.current, speakerEnabled);
+  }, [joined, speakerEnabled]);
+
   const toggleBluetoothPreferred = useCallback(() => {
     setBluetoothPreferred((prev) => !prev);
     if (typeof window !== "undefined") {
@@ -575,11 +596,13 @@ export function CommunityMessengerCallClient({
             return;
           }
           if (mediaType === "audio" && user.audioTrack) {
+            remoteAudioTrackRef.current = user.audioTrack;
             try {
-              void user.audioTrack.play();
+              user.audioTrack.play();
             } catch {
               /* 자동재생 정책 등 */
             }
+            void applyAgoraRemoteSpeakerPreference(user.audioTrack, speakerEnabledRef.current);
             setRemoteJoined(true);
           }
           if (mediaType === "video" && user.videoTrack) {
@@ -591,9 +614,13 @@ export function CommunityMessengerCallClient({
           if (mediaType === "video") {
             bindRemoteVideoTrack(null);
           }
+          if (mediaType === "audio") {
+            remoteAudioTrackRef.current = null;
+          }
         });
         client.on("user-left", () => {
           bindRemoteVideoTrack(null);
+          remoteAudioTrackRef.current = null;
           setRemoteJoined(false);
           void refreshSession(true);
         });
@@ -605,6 +632,11 @@ export function CommunityMessengerCallClient({
             void refreshSession(true);
           }
         });
+        client.on("network-quality", (stats: { uplinkNetworkQuality: number; downlinkNetworkQuality: number }) => {
+          setLastMileLine(
+            formatMessengerAgoraLastMileLine(stats.uplinkNetworkQuality ?? 0, stats.downlinkNetworkQuality ?? 0)
+          );
+        });
 
         await joinCommunityMessengerAgoraChannel({
           client,
@@ -613,6 +645,14 @@ export function CommunityMessengerCallClient({
           token: connection.token,
           uid: connection.uid,
         });
+        if (targetSession.callKind === "video") {
+          try {
+            const c = client as IAgoraRTCClient & { enableDualStream?: () => Promise<void> };
+            await c.enableDualStream?.();
+          } catch {
+            /* 일부 환경 미지원 */
+          }
+        }
         const tracks = await createCommunityMessengerAgoraLocalTracks(targetSession.callKind);
         localTracksRef.current = tracks;
         await publishCommunityMessengerAgoraTracks({
@@ -1133,8 +1173,8 @@ export function CommunityMessengerCallClient({
                 <p className="mt-3 font-mono text-[17px] font-semibold tabular-nums text-white/35">00:00</p>
               ) : null}
               {showVoiceViberControlPad && (session.status === "ringing" || (joined && session.status === "active")) ? (
-                <p className="mt-2 text-[13px] font-medium text-emerald-400/95">
-                  {joined && session.status === "active" ? "네트워크 품질 · 양호" : "네트워크 품질 · 확인 중"}
+                <p className={`mt-2 text-[13px] font-medium ${joined && session.status === "active" ? lastMileToneClass : "text-white/45"}`}>
+                  {joined && session.status === "active" ? lastMileLine : "네트워크 품질 · 확인 중"}
                 </p>
               ) : null}
             </div>
@@ -1169,7 +1209,7 @@ export function CommunityMessengerCallClient({
                     {joined && session.status === "active" ? formatDuration(elapsedSeconds) : statusLabel}
                   </p>
                   {joined && session.status === "active" ? (
-                    <p className="mt-0.5 text-[11px] font-medium text-emerald-400/95">네트워크 품질 · 양호</p>
+                    <p className={`mt-0.5 text-[11px] font-medium ${lastMileToneClass}`}>{lastMileLine}</p>
                   ) : null}
                   <p className="mt-0.5 text-[11px] text-white/65">1:1 · 참여 2</p>
                 </div>
@@ -1191,10 +1231,12 @@ export function CommunityMessengerCallClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => showMessengerSnackbar("오디오 출력은 기기 설정에서 바꿀 수 있습니다.")}
-                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-sam-surface/15 transition active:scale-[0.96]"
-                    aria-label="스피커 안내"
-                    title="출력 음량·스피커"
+                    onClick={() => toggleSpeakerEnabled()}
+                    className={`pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-md ring-1 ring-sam-surface/15 transition active:scale-[0.96] ${
+                      speakerEnabled ? "bg-black/45" : "bg-amber-500/35 ring-amber-400/40"
+                    }`}
+                    aria-label={speakerEnabled ? "스피커 켜짐" : "이어폰·수화기 우선"}
+                    title={speakerEnabled ? "스피커" : "이어폰·수화기"}
                   >
                     <SpeakerIcon className="h-[18px] w-[18px]" />
                   </button>
@@ -1727,19 +1769,23 @@ function CallerMediaGateOverlay({
   onConfirm: () => void;
   busy: boolean;
 }) {
+  const { t } = useI18n();
+  const headline = callKind === "video" ? "영상 통화 연결" : "음성 통화 연결";
+  const explain =
+    callKind === "video" ? t("nav_messenger_video_join_after_permission") : t("nav_messenger_voice_join_after_permission");
   return (
     <div className="pointer-events-auto absolute inset-0 z-[45] flex items-center justify-center bg-black/50 px-5 backdrop-blur-[2px]">
-      <div className="w-full max-w-[280px] rounded-[20px] border border-sam-surface/12 bg-[#1e232c]/95 px-5 py-5 text-center shadow-xl">
-        <p className="text-[16px] font-semibold text-white">
-          {callKind === "video" ? "영상 통화 연결" : "음성 통화 연결"}
-        </p>
+      <div className="w-full max-w-[300px] rounded-[20px] border border-sam-surface/12 bg-[#1e232c]/95 px-5 py-5 text-center shadow-xl">
+        <p className="text-[16px] font-semibold text-white">{headline}</p>
+        <p className="mt-2 text-[13px] leading-snug text-white/75">{explain}</p>
+        <p className="mt-2 text-[11px] leading-snug text-white/50">{t("nav_messenger_call_gate_trust_hint")}</p>
         <button
           type="button"
           onClick={onConfirm}
           disabled={busy}
           className="mt-4 w-full rounded-full bg-sam-surface py-3 text-[15px] font-semibold text-sam-fg disabled:opacity-40"
         >
-          {busy ? "연결 중…" : callKind === "video" ? "허용하고 연결" : "허용하고 연결"}
+          {busy ? "연결 중…" : "허용하고 연결"}
         </button>
       </div>
     </div>

@@ -4,7 +4,7 @@
  * 미읽음 관련 변경 시 invalidateOwnerHubBadgeCache 를 함께 호출한다.
  */
 
-/** 짧은 서버 캐시 — 클라이언트 폴링·다중 탭과 겹쳐도 한 번 계산으로 흡수 */
+/** 짧은 서버 캐시 — 클라이언트 폴링·다중 탭과 겹쳐도 한 번 계산으로 흡수. 클라 최소 간격은 `lib/chats/owner-hub-badge-store.ts` `MIN_FETCH_GAP_MS` 와 맞춤 */
 const HUB_BADGE_TTL_MS = 28_000;
 
 export type OwnerHubBadgePayload = {

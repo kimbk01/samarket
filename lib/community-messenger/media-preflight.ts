@@ -90,11 +90,23 @@ export type CommunityMessengerPreflightResult =
   | { ok: true }
   | { ok: false; code: "insecure_context" | "no_mediadevices" | "denied" | "gum_failed" };
 
+export type CommunityMessengerEntryMediaPreflightOptions = {
+  /**
+   * false(기본): Permissions API 상 `prompt` 이거나 미지원(null)일 때 **시스템 권한 창을 띄우지 않음**
+   * (카카오·라인처럼 메인 진입만으로 마이크/카메라를 반복 요청하지 않음).
+   * true: 첫 탭·클릭 등 **사용자 제스처 이후** 재시도할 때만 GUM 시도.
+   */
+  allowPermissionPrompt?: boolean;
+};
+
 /**
- * 메신저 진입 시 1회: 마이크+카메라 동시 요청으로 권한·장치 ID 확보.
- * 카메라 거부 시 음성만으로 폴백한다.
+ * 메신저 진입 시: 이미 허용된 권한이면 조용히 장치 ID만 확보.
+ * 아직 결정 전(`prompt`)이면 **호출부가 allowPermissionPrompt: true 인 경우에만** GUM(라인/카카오톡과 같이 첫 의도 시 한 번).
  */
-export async function runCommunityMessengerEntryMediaPreflight(): Promise<CommunityMessengerPreflightResult> {
+export async function runCommunityMessengerEntryMediaPreflight(
+  opts?: CommunityMessengerEntryMediaPreflightOptions
+): Promise<CommunityMessengerPreflightResult> {
+  const allowPrompt = opts?.allowPermissionPrompt === true;
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     return { ok: false, code: "no_mediadevices" };
   }
@@ -107,23 +119,56 @@ export async function runCommunityMessengerEntryMediaPreflight(): Promise<Commun
     return { ok: false, code: "denied" };
   }
 
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-    persistDeviceIdsFromMediaStream(stream);
-    stream.getTracks().forEach((t) => t.stop());
-    await refreshPreferredCommunityMessengerDevicesFromEnumerate();
-    return { ok: true };
-  } catch {
+  const micUnset = perms.microphone == null;
+  const camUnset = perms.camera == null;
+  const micPrompt = perms.microphone === "prompt";
+  const needGesturePath = micPrompt || (micUnset && camUnset);
+
+  if (needGesturePath && !allowPrompt) {
+    return { ok: false, code: "gum_failed" };
+  }
+
+  const tryAcquire = async (): Promise<boolean> => {
+    const camGranted = perms.camera === "granted";
+    if (camGranted) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        persistDeviceIdsFromMediaStream(stream);
+        stream.getTracks().forEach((t) => t.stop());
+        await refreshPreferredCommunityMessengerDevicesFromEnumerate();
+        return true;
+      } catch {
+        /* fall through to audio-only */
+      }
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       persistDeviceIdsFromMediaStream(stream);
       stream.getTracks().forEach((t) => t.stop());
       await refreshPreferredCommunityMessengerDevicesFromEnumerate();
-      return { ok: true };
+      return true;
     } catch {
-      return { ok: false, code: "gum_failed" };
+      return false;
     }
+  };
+
+  if (perms.microphone === "granted" || (allowPrompt && perms.microphone === "prompt")) {
+    if (await tryAcquire()) return { ok: true };
+    return { ok: false, code: "gum_failed" };
   }
+
+  /** Safari 등: microphone 만 null 이고 이미 스트림이 열린 적 있으면 granted 와 유사하게 시도 */
+  if (allowPrompt && micUnset && !camUnset) {
+    if (await tryAcquire()) return { ok: true };
+    return { ok: false, code: "gum_failed" };
+  }
+
+  if (allowPrompt) {
+    if (await tryAcquire()) return { ok: true };
+    return { ok: false, code: "gum_failed" };
+  }
+
+  return { ok: false, code: "gum_failed" };
 }
 
 /** 통화 프라임·Agora 트랙용 MediaStreamConstraints */

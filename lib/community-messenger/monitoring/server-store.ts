@@ -288,6 +288,22 @@ function buildSloDigest(
     });
   }
 
+  const homeSyncApi = apiByRoute["GET /api/community-messenger/home-sync"];
+  if (homeSyncApi) {
+    rows.push({
+      id: "home_sync",
+      label: "홈 silent 묶음 API (서버)",
+      unit: "ms",
+      target: ref.homeSilentListSync.target,
+      warning: ref.homeSilentListSync.warning,
+      critical: ref.homeSilentListSync.critical,
+      observedAvg: homeSyncApi.avgMs,
+      observedLast: homeSyncApi.lastMs,
+      sampleCount: homeSyncApi.count,
+      sourceHint: "GET /api/community-messenger/home-sync",
+    });
+  }
+
   const bootClient = findAgg(clientAggregates, "chat.room_load:bootstrap_fetch:client");
   if (bootClient) {
     rows.push({
@@ -374,13 +390,13 @@ function buildSloDigest(
       id: "unread_home_bootstrap",
       label: "홈 목록·탭 silent 부트스트랩 정합",
       unit: "ms",
-      target: ref.unreadRefresh.target,
-      warning: ref.unreadRefresh.warning,
-      critical: ref.unreadRefresh.critical,
+      target: ref.homeSilentListSync.target,
+      warning: ref.homeSilentListSync.warning,
+      critical: ref.homeSilentListSync.critical,
       observedAvg: unreadList.avg,
       observedLast: unreadList.last,
       sampleCount: unreadList.count,
-      sourceHint: "chat.unread_sync / list_bootstrap_align",
+      sourceHint: "chat.unread_sync / list_bootstrap_align (GET /api/community-messenger/home-sync)",
     });
   }
 

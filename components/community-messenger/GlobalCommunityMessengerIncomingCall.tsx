@@ -2,6 +2,7 @@
 
 /**
  * 수신 통화 전용 — 발신 진입점은 `lib/community-messenger/outgoing-call-surfaces.ts` 참고.
+ * 폴링·`runSingleFlight` 키: `docs/messenger-realtime-policy.md`
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -27,8 +28,13 @@ import { CallPrimaryButton } from "@/components/community-messenger/call-ui/Call
 import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
+/** ringing 세션이 있을 때 — 백업 폴링(Realtime 장애 대비) */
 const INCOMING_CALL_REFRESH_INTERVAL_MS = 20_000;
+/** 수신 없음 — postgres_changes 로 대부분 커버, 폴링은 저빈도로만 */
+const INCOMING_CALL_IDLE_POLL_MS = 52_000;
+const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
 const INCOMING_CALL_REFRESH_COOLDOWN_MS = 2_500;
 /** Realtime·포커스가 연속으로 터질 때 수신 통화 GET 폭주 방지 */
 const INCOMING_CALL_BURST_MIN_GAP_MS = 4_000;
@@ -56,7 +62,6 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [sessionActionError, setSessionActionError] = useState<string | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const refreshTimerIdsRef = useRef<number[]>([]);
-  const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const lastRefreshAtRef = useRef(0);
   const lastBurstAtRef = useRef(0);
   const pendingBurstTimerRef = useRef<number | null>(null);
@@ -93,11 +98,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (!force && now - lastRefreshAtRef.current < INCOMING_CALL_REFRESH_COOLDOWN_MS) {
       return;
     }
-    if (refreshInFlightRef.current) {
-      await refreshInFlightRef.current;
-      return;
-    }
-    const task = (async () => {
+    await runSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY, async () => {
       try {
         const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
           cache: "no-store",
@@ -128,11 +129,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       } finally {
         lastRefreshAtRef.current = Date.now();
       }
-    })().finally(() => {
-      refreshInFlightRef.current = null;
     });
-    refreshInFlightRef.current = task;
-    await task;
   }, [t]);
 
   /** 탭 복귀·포커스: 짧은 2회 확인(레이트 리밋·서버 부하 완화). */
@@ -174,10 +171,11 @@ export function GlobalCommunityMessengerIncomingCall() {
   useEffect(() => {
     if (!userId) return;
     queueVisibilityRefreshBurst();
+    const pollMs = sessions.length > 0 ? INCOMING_CALL_REFRESH_INTERVAL_MS : INCOMING_CALL_IDLE_POLL_MS;
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refresh();
-    }, INCOMING_CALL_REFRESH_INTERVAL_MS);
+    }, pollMs);
     const onVisible = () => {
       if (document.visibilityState === "visible") queueVisibilityRefreshBurst();
     };
@@ -196,7 +194,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("online", onOnline);
     };
-  }, [queueVisibilityRefreshBurst, refresh, userId]);
+  }, [queueVisibilityRefreshBurst, refresh, sessions.length, userId]);
 
   useEffect(() => {
     if (!userId) return;

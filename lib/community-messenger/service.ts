@@ -1047,18 +1047,27 @@ async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayloa
   if (sb) {
     const { data: myParticipants, error: myParticipantsError } = await (sb as any)
       .from("community_messenger_participants")
-      .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+      .select("room_id")
       .eq("user_id", userId);
     if (!myParticipantsError || !isMissingTableError(myParticipantsError)) {
-      let roomIds = dedupeIds(((myParticipants ?? []) as ParticipantRow[]).map((row) => row.room_id));
+      let roomIds = dedupeIds(
+        ((myParticipants ?? []) as Array<{ room_id?: string | null }>).map((row) => String(row.room_id ?? ""))
+      );
       if (roomIds.length > COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP) {
         const metas: Array<{ id: string; lastAt: string }> = [];
+        const chunks: string[][] = [];
         for (let i = 0; i < roomIds.length; i += COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK) {
-          const chunk = roomIds.slice(i, i + COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK);
-          const { data: metaRows } = await (sb as any)
-            .from("community_messenger_rooms")
-            .select("id, last_message_at")
-            .in("id", chunk);
+          chunks.push(roomIds.slice(i, i + COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK));
+        }
+        const metaChunks = await Promise.all(
+          chunks.map((chunk) =>
+            (sb as any)
+              .from("community_messenger_rooms")
+              .select("id, last_message_at")
+              .in("id", chunk)
+          )
+        );
+        for (const { data: metaRows } of metaChunks) {
           for (const row of (metaRows ?? []) as Array<{ id?: string; last_message_at?: string | null }>) {
             const id = trimText(row.id);
             if (!id) continue;
@@ -1512,7 +1521,10 @@ async function loadCallSessionParticipants(
   userId: string,
   session: CallSessionRow | DevCallSession,
   /** 방금 insert 직후에는 DB 재조회 없이 메모리 행으로 매핑해 발신 API 지연을 줄인다 */
-  preloadedDbRows?: CallSessionParticipantRow[] | null
+  preloadedDbRows?: CallSessionParticipantRow[] | null,
+  /** `listIncomingCommunityMessengerCallSessions` 배치 경로 — 참가자 행을 이미 묶어 조회했으면 세션당 재조회하지 않는다 */
+  profileById?: Map<string, CommunityMessengerProfileLite>,
+  dbParticipantsPreloaded?: boolean
 ): Promise<CommunityMessengerCallParticipant[]> {
   const isDbSession = "initiator_user_id" in session;
   const sessionId = session.id;
@@ -1524,11 +1536,13 @@ async function loadCallSessionParticipants(
   );
 
   let rows: Array<CallSessionParticipantRow | DevCallSessionParticipant> = [];
-  if (preloadedDbRows && preloadedDbRows.length > 0) {
+  if (dbParticipantsPreloaded && isDbSession) {
+    rows = preloadedDbRows ?? [];
+  } else if (preloadedDbRows && preloadedDbRows.length > 0) {
     rows = preloadedDbRows;
   }
   const sb = getSupabaseOrNull();
-  if (!rows.length && isDbSession && sb) {
+  if (!rows.length && isDbSession && sb && !dbParticipantsPreloaded) {
     const { data, error } = await (sb as any)
       .from("community_messenger_call_session_participants")
       .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
@@ -1565,8 +1579,24 @@ async function loadCallSessionParticipants(
   }
 
   const memberIds = dedupeIds(rows.map((row) => ("user_id" in row ? row.user_id : row.userId)));
-  const profiles = await hydrateProfiles(userId, memberIds, { includeSelf: true });
-  const profileMap = new Map(profiles.map((item) => [item.id, item]));
+  let profileMap: Map<string, CommunityMessengerProfileLite>;
+  if (profileById && profileById.size > 0) {
+    profileMap = new Map();
+    const missing: string[] = [];
+    for (const id of memberIds) {
+      const p = profileById.get(id);
+      if (p) profileMap.set(id, p);
+      else missing.push(id);
+    }
+    const need = dedupeIds(missing);
+    if (need.length) {
+      const hydrated = await hydrateProfiles(userId, need, { includeSelf: true });
+      for (const p of hydrated) profileMap.set(p.id, p);
+    }
+  } else {
+    const profiles = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+    profileMap = new Map(profiles.map((item) => [item.id, item]));
+  }
   return rows.map((row) => {
     const isDbRow = "user_id" in row;
     const participantUserId = isDbRow ? row.user_id : row.userId;
@@ -1585,13 +1615,21 @@ async function loadCallSessionParticipants(
 async function mapCallSession(
   userId: string,
   session: CallSessionRow | DevCallSession,
-  preloadedParticipantRows?: CallSessionParticipantRow[] | null
+  preloadedParticipantRows?: CallSessionParticipantRow[] | null,
+  profileById?: Map<string, CommunityMessengerProfileLite>,
+  dbParticipantsPreloaded?: boolean
 ): Promise<CommunityMessengerCallSession> {
   const isDbSession = "initiator_user_id" in session;
   const initiatorUserId = isDbSession ? session.initiator_user_id : session.initiatorUserId;
   const recipientUserId = isDbSession ? session.recipient_user_id : session.recipientUserId;
   const sessionMode = ((isDbSession ? session.session_mode : session.sessionMode) ?? "direct") as CommunityMessengerCallSessionMode;
-  const participants = await loadCallSessionParticipants(userId, session, preloadedParticipantRows);
+  const participants = await loadCallSessionParticipants(
+    userId,
+    session,
+    preloadedParticipantRows,
+    profileById,
+    dbParticipantsPreloaded
+  );
   const peerUserId =
     sessionMode === "direct"
       ? messengerUserIdsEqual(initiatorUserId, userId)
@@ -1625,6 +1663,47 @@ async function mapCallSession(
     isMineInitiator: messengerUserIdsEqual(initiatorUserId, userId),
     participants,
   };
+}
+
+/** 수신 통화 폴링 전용 — 세션·프로필 조회를 배치로 묶어 지연·Supabase 왕복을 줄인다 */
+async function mapIncomingCallSessionsBatch(
+  userId: string,
+  sessionRows: CallSessionRow[]
+): Promise<CommunityMessengerCallSession[]> {
+  if (!sessionRows.length) return [];
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    return Promise.all(sessionRows.map((row) => mapCallSession(userId, row)));
+  }
+  const sessionIds = dedupeIds(sessionRows.map((r) => r.id));
+  const { data: participantRows } = await (sb as any)
+    .from("community_messenger_call_session_participants")
+    .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
+    .in("session_id", sessionIds)
+    .order("created_at", { ascending: true });
+  const bySession = new Map<string, CallSessionParticipantRow[]>();
+  for (const row of (participantRows ?? []) as CallSessionParticipantRow[]) {
+    const sid = trimText(row.session_id);
+    if (!sid) continue;
+    const list = bySession.get(sid) ?? [];
+    list.push(row);
+    bySession.set(sid, list);
+  }
+  const fromSessions = sessionRows.flatMap((r) =>
+    [r.initiator_user_id, r.recipient_user_id].filter((v): v is string => typeof v === "string" && v.length > 0)
+  );
+  const fromParticipants = ((participantRows ?? []) as CallSessionParticipantRow[])
+    .map((p) => p.user_id)
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+  const allUserIds = dedupeIds([...fromSessions, ...fromParticipants]);
+  const profileById = new Map(
+    (await hydrateProfiles(userId, allUserIds, { includeSelf: true })).map((p) => [p.id, p])
+  );
+  return Promise.all(
+    sessionRows.map((row) =>
+      mapCallSession(userId, row, bySession.get(row.id) ?? [], profileById, true)
+    )
+  );
 }
 
 async function getActiveCallSessionForRoom(
@@ -2047,6 +2126,26 @@ export async function listCommunityMessengerFriends(userId: string): Promise<Com
   );
 }
 
+/** 홈 사일런트 갱신 — `GET /api/community-messenger/home-sync` 에서 한 번에 정합 */
+export async function getCommunityMessengerHomeSyncBundle(userId: string): Promise<{
+  chats: CommunityMessengerRoomSummary[];
+  groups: CommunityMessengerRoomSummary[];
+  requests: CommunityMessengerFriendRequest[];
+  friends: CommunityMessengerProfileLite[];
+}> {
+  const [roomsBlock, requests, friends] = await Promise.all([
+    listCommunityMessengerMyChatsAndGroups(userId),
+    listCommunityMessengerFriendRequests(userId),
+    listCommunityMessengerFriends(userId),
+  ]);
+  return {
+    chats: roomsBlock.chats,
+    groups: roomsBlock.groups,
+    requests,
+    friends,
+  };
+}
+
 export async function searchCommunityMessengerUsers(
   userId: string,
   query: string
@@ -2203,7 +2302,19 @@ export async function respondCommunityMessengerFriendRequest(
         .from("community_friend_requests")
         .update({ status: nextStatus, responded_at: nowIso() })
         .eq("id", id);
-      if (!error) return { ok: true };
+      if (!error) {
+        if (action === "accept") {
+          const requesterId = trimText(request.requester_id);
+          const addresseeId = trimText(request.addressee_id);
+          if (requesterId && addresseeId) {
+            const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
+            if (!roomOut.ok) {
+              console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
+            }
+          }
+        }
+        return { ok: true };
+      }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
     }
   }
@@ -2216,6 +2327,16 @@ export async function respondCommunityMessengerFriendRequest(
     ((action === "accept" || action === "reject") && request.addressee_id === userId);
   if (!allowed) return { ok: false, error: "forbidden" };
   request.status = nextStatus;
+  if (action === "accept") {
+    const requesterId = trimText(request.requester_id);
+    const addresseeId = trimText(request.addressee_id);
+    if (requesterId && addresseeId) {
+      const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
+      if (!roomOut.ok) {
+        console.warn("[community-messenger] accept friend (dev): direct room ensure failed", roomOut.error);
+      }
+    }
+  }
   return { ok: true };
 }
 
@@ -5815,7 +5936,7 @@ export async function listIncomingCommunityMessengerCallSessions(
         .order("created_at", { ascending: false })
         .limit(10);
       if (!directError && (directRows ?? []).length) {
-        return Promise.all(((directRows ?? []) as CallSessionRow[]).map((row) => mapCallSession(userId, row)));
+        return mapIncomingCallSessionsBatch(userId, (directRows ?? []) as CallSessionRow[]);
       }
       return [];
     }
@@ -5864,8 +5985,7 @@ export async function listIncomingCommunityMessengerCallSessions(
       const merged = [...((directRows ?? []) as CallSessionRow[]), ...groupRows]
         .sort((a, b) => (trimText(b.created_at) || "").localeCompare(trimText(a.created_at) || ""))
         .slice(0, 10);
-      const mapped = await Promise.all(merged.map((row) => mapCallSession(userId, row)));
-      return mapped;
+      return mapIncomingCallSessionsBatch(userId, merged);
     }
   }
 

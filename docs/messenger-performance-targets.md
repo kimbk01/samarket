@@ -16,10 +16,11 @@
 | 4 | 전송 지연 (전송 ~ 서버 ack) | ≤ **200** | ≤ **500** | ≤ **1500** | API 큐잉·DB 쓰기·리전 왕복 | 낙관적 UI·경량 쓰기·idempotency |
 | 5 | 수신 전달 (상대 발송 ~ 본인 화면 반영) | ≤ **300** | ≤ **800** | ≤ **2000** | Realtime 지연·풀링 폴백·클라 배치 과다 | 전용 채널·슬림 이벤트·재연결 정책 |
 | 6 | 읽음·미읽음 갱신 (읽음 처리 ~ 배지·목록 일치) | ≤ **200** | ≤ **500** | ≤ **1000** | 집계 쿼리·목록 재조회 폭주 | 낙관적 읽음·역할별 unread·디바운스 |
-| 7 | 음성 통화 연결 (발신/수락 ~ 양방향 오디오 체감) | ≤ **2.0 s** | ≤ **4.0 s** | ≤ **8.0 s** | 시그널링 RTT·ICE·TURN 홀펀칭 | TURN 지역화·ICE 튜닝·폴백 코덱 |
-| 8 | 영상 통화 연결 (첫 프레임 체감) | ≤ **3.0 s** | ≤ **6.0 s** | ≤ **12.0 s** | 대역폭·인코더·SFU 혼잡 | ABR·낮은 해상도 선행·가까운 POP |
-| 9 | 그룹 참여·입장 완료 | ≤ **1.0 s** | ≤ **3.0 s** | ≤ **8.0 s** | 멤버십 검증·락·토큰 체인 | 캐시·비동기 워커·idempotent join |
-| 10 | 재연결 (끊김 ~ 송수신·실시간 복구) | ≤ **2.0 s** | ≤ **5.0 s** | ≤ **15.0 s** | 소켓 스톰·토큰 갱신·백오프 과대 | 백오프 상한·diff sync·하트비트 |
+| 7 | 홈 silent 번들 (`GET /api/community-messenger/home-sync`, 클라 `list_bootstrap_align`) | ≤ **600** | ≤ **1200** | ≤ **2000** | 서버 3쿼리 병렬·RTT·Next 핸들러 | 단일 fetch·서버 `Promise.all`·알림 한도 `MESSENGER_PERF_HOME_LIST_SYNC_MS` |
+| 8 | 음성 통화 연결 (발신/수락 ~ 양방향 오디오 체감) | ≤ **2.0 s** | ≤ **4.0 s** | ≤ **8.0 s** | 시그널링 RTT·ICE·TURN 홀펀칭 | TURN 지역화·ICE 튜닝·폴백 코덱 |
+| 9 | 영상 통화 연결 (첫 프레임 체감) | ≤ **3.0 s** | ≤ **6.0 s** | ≤ **12.0 s** | 대역폭·인코더·SFU 혼잡 | ABR·낮은 해상도 선행·가까운 POP |
+| 10 | 그룹 참여·입장 완료 | ≤ **1.0 s** | ≤ **3.0 s** | ≤ **8.0 s** | 멤버십 검증·락·토큰 체인 | 캐시·비동기 워커·idempotent join |
+| 11 | 재연결 (끊김 ~ 송수신·실시간 복구) | ≤ **2.0 s** | ≤ **5.0 s** | ≤ **15.0 s** | 소켓 스톰·토큰 갱신·백오프 과대 | 백오프 상한·diff sync·하트비트 |
 
 ---
 
@@ -40,8 +41,10 @@
 
 | 이 문서 구간 | 코드/설정 |
 |--------------|-----------|
+| Realtime 디바운스·홈 API 단일 비행·폴링 수치 | [messenger-realtime-policy.md](./messenger-realtime-policy.md) (표 — 코드 경로와 동기화) |
 | 그룹 인원·가상화·bootstrap 한도 | `MESSENGER_PERF_DESIGN_LIMITS` → [`lib/community-messenger/monitoring/thresholds.ts`](../lib/community-messenger/monitoring/thresholds.ts); 설명 [group-chat-ui-performance.md](./group-chat-ui-performance.md) |
 | 방 로드·부트스트랩 알림 한도 | `MESSENGER_PERF_ROOM_LOAD_MS` → [`lib/community-messenger/monitoring/thresholds.ts`](../lib/community-messenger/monitoring/thresholds.ts) (`chat.room_load` / `bootstrap_fetch`) |
+| 홈 silent `list_bootstrap_align` 알림 한도 (배지 정합 `#6`과 분리) | `MESSENGER_PERF_HOME_LIST_SYNC_MS` (기본 2000) → [`thresholds.ts`](../lib/community-messenger/monitoring/thresholds.ts) (`chat.unread_sync` / `list_bootstrap_align`); 참조 p95 `homeSilentListSync` |
 | 메시지 RTT | `MESSENGER_PERF_MESSAGE_MS` (`send_roundtrip`) |
 | 통화 연결 | `MESSENGER_PERF_CALL_CONNECT_MS` (`first_connected`) |
 | API 핸들러 | `MESSENGER_PERF_API_MS` (`api.community_messenger`) |

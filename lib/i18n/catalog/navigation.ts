@@ -197,6 +197,8 @@ export const navigationMessages = {
     nav_messenger_video_preparing_permission: "카메라와 마이크 권한을 확인하는 중입니다.",
     nav_messenger_voice_join_after_permission: "마이크 확인 후 바로 연결합니다.",
     nav_messenger_voice_preparing_permission: "마이크 연결을 준비하고 있습니다.",
+    nav_messenger_call_gate_trust_hint:
+      "한 번 허용하면 이 브라우저에서는 다음부터 같은 화면을 건너뜁니다. (설정에서 언제든 변경 가능)",
     nav_messenger_checking: "확인 중...",
     nav_messenger_permission_check: "권한 확인",
     nav_messenger_permission_guide: "권한 안내",
@@ -494,6 +496,8 @@ export const navigationMessages = {
     nav_messenger_video_preparing_permission: "Checking camera and microphone permissions.",
     nav_messenger_voice_join_after_permission: "You will connect right after microphone permission is confirmed.",
     nav_messenger_voice_preparing_permission: "Preparing microphone connection.",
+    nav_messenger_call_gate_trust_hint:
+      "After you allow once, this step is skipped on future calls in this browser. You can change permissions anytime in settings.",
     nav_messenger_checking: "Checking...",
     nav_messenger_permission_check: "Check permission",
     nav_messenger_permission_guide: "Permission guide",
@@ -788,6 +792,7 @@ export const navigationMessages = {
     nav_messenger_video_preparing_permission: "正在确认摄像头和麦克风权限。",
     nav_messenger_voice_join_after_permission: "确认麦克风后将立即连接。",
     nav_messenger_voice_preparing_permission: "正在准备麦克风连接。",
+    nav_messenger_call_gate_trust_hint: "允许一次后，在此浏览器中会跳过此步骤。可随时在系统或浏览器设置中更改。",
     nav_messenger_checking: "确认中...",
     nav_messenger_permission_check: "确认权限",
     nav_messenger_permission_guide: "权限说明",

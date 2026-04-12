@@ -11,6 +11,8 @@ export const MESSENGER_PERF_REFERENCE_P95_MS = {
   sendAck: { target: 200, warning: 500, critical: 1500 },
   incomingDelivery: { target: 300, warning: 800, critical: 2000 },
   unreadRefresh: { target: 200, warning: 500, critical: 1000 },
+  /** 홈 silent `home-sync` 1회 (클라 `list_bootstrap_align`) — 3 API 합류 전과 동일 부하·RTT 상한 참고 */
+  homeSilentListSync: { target: 600, warning: 1200, critical: 2000 },
   voiceConnect: { target: 2000, warning: 4000, critical: 8000 },
   videoConnect: { target: 3000, warning: 6000, critical: 12000 },
   groupJoin: { target: 1000, warning: 3000, critical: 8000 },
@@ -47,8 +49,10 @@ export const MESSENGER_PERF_THRESHOLDS = {
   videoConnectMs: Number(process.env.MESSENGER_PERF_VIDEO_CONNECT_MS ?? process.env.MESSENGER_PERF_CALL_CONNECT_MS ?? 12000),
   /** Realtime 메시지 INSERT ~ 클라 수신 지연 (ms) */
   realtimeEventDelayMs: Number(process.env.MESSENGER_PERF_REALTIME_EVENT_MS ?? 2000),
-  /** 미읽음·목록·배지 정합 지연 (ms) */
+  /** 미읽음·목록·배지 정합 지연 (ms) — `badge_list_align` 등 가벼운 동기 */
   unreadSyncDelayMs: Number(process.env.MESSENGER_PERF_UNREAD_SYNC_MS ?? 1000),
+  /** 홈 silent `list_bootstrap_align` — rooms·요청·친구 묶음 1회 RTT·Supabase 병렬 구간 (1000ms는 과도한 오탐) */
+  homeListSyncMs: Number(process.env.MESSENGER_PERF_HOME_LIST_SYNC_MS ?? 2000),
   /** 추정 패킷 손실률 (%) */
   packetLossPercent: Number(process.env.MESSENGER_PERF_PACKET_LOSS_PCT ?? 8),
   /** 단일 API 핸들러 (서버 측) */
@@ -83,8 +87,11 @@ export function shouldAlertLatency(
   if (category === "chat.realtime" && metric === "message_insert_delay") {
     return valueMs > MESSENGER_PERF_THRESHOLDS.realtimeEventDelayMs ? "realtimeEventDelayMs" : null;
   }
-  if (category === "chat.unread_sync" && (metric === "badge_list_align" || metric === "list_bootstrap_align")) {
+  if (category === "chat.unread_sync" && metric === "badge_list_align") {
     return valueMs > MESSENGER_PERF_THRESHOLDS.unreadSyncDelayMs ? "unreadSyncDelayMs" : null;
+  }
+  if (category === "chat.unread_sync" && metric === "list_bootstrap_align") {
+    return valueMs > MESSENGER_PERF_THRESHOLDS.homeListSyncMs ? "homeListSyncMs" : null;
   }
   if (category === "api.community_messenger" || category === "api.integrated_chat") {
     return valueMs > MESSENGER_PERF_THRESHOLDS.apiMs ? "apiMs" : null;

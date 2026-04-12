@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { markCommunityMessengerMediaTrustedOnce } from "@/lib/community-messenger/call-permission";
 import { runCommunityMessengerEntryMediaPreflight } from "@/lib/community-messenger/media-preflight";
 import { warmMessengerIceServers } from "@/lib/call/ice-servers";
 import {
@@ -22,12 +23,17 @@ export function CommunityMessengerMediaPreflight() {
     attemptedRef.current = true;
 
     let retry: (() => void) | null = null;
-    const run = async () => {
-      const r = await runCommunityMessengerEntryMediaPreflight();
-      if (r.ok) return;
-      if (r.code === "gum_failed") {
+    const run = async (allowPrompt: boolean) => {
+      const r = await runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: allowPrompt });
+      if (r.ok) {
+        markCommunityMessengerMediaTrustedOnce();
+        return;
+      }
+      if (r.code === "gum_failed" && !allowPrompt) {
         retry = () => {
-          void runCommunityMessengerEntryMediaPreflight();
+          void runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: true }).then((r2) => {
+            if (r2.ok) markCommunityMessengerMediaTrustedOnce();
+          });
           window.removeEventListener("pointerdown", retry!, true);
           retry = null;
         };
@@ -36,7 +42,7 @@ export function CommunityMessengerMediaPreflight() {
     };
 
     const t = window.setTimeout(() => {
-      void run();
+      void run(false);
     }, 0);
 
     return () => {

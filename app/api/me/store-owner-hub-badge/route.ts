@@ -4,6 +4,7 @@
  * `philifeChatUnread` = 커뮤니티·일반 DM 등(커뮤니티 계열 참가자 미읽음) — 「커뮤니티」탭 뱃지.
  * `socialChatUnread` = 위 둘의 합(알림·전체 합계용). `storesTabAttention`은 「배달」탭.
  * GET /api/me/store-owner-hub-badge — 비로그인 시 total 0
+ * 서버 단기 캐시: `lib/chats/owner-hub-badge-cache.ts` — 클라 정책 표는 `docs/messenger-realtime-policy.md`
  */
 import { NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";

@@ -12,6 +12,7 @@ import { buildMessengerRtcConfiguration } from "@/lib/call/webrtc-configuration"
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { playCommunityMessengerCallSignalSound } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
@@ -216,10 +217,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
         setLocalStream(primed);
         return primed;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: kind === "video",
-      });
+      const stream = await navigator.mediaDevices.getUserMedia(buildCommunityMessengerMediaStreamConstraints(kind));
       if (!mountedRef.current) {
         for (const track of stream.getTracks()) track.stop();
         throw new Error("unmounted");

@@ -225,6 +225,7 @@ export function primeCommunityMessengerDevicePermissionFromUserGesture(
         return;
       }
       storePrimedStream(kind, stream);
+      markCommunityMessengerMediaTrustedOnce();
     });
 }
 

@@ -28,10 +28,13 @@ const PATH_FETCH_PREFIXES = [
   "/my/business/store-order-chat",
   "/my/business/inquiries",
 ] as const;
-const MIN_FETCH_GAP_MS = 12_000;
+/** 클라 최소 fetch 간격 — 서버 `HUB_BADGE_TTL_MS`(28s, owner-hub-badge-cache)·폴링과 함께 조정 */
+const MIN_FETCH_GAP_MS = 22_000;
 /** force=true 연타(이벤트·StrictMode) 시에도 짧은 간격은 inFlight 에만 합류 */
 const MIN_FORCE_FETCH_GAP_MS = 3_000;
 const MIN_EVENT_REFRESH_GAP_MS = 5_000;
+/** 가시 탭 주기 폴링 — 포커스·이벤트 갱신과 별도 (`docs/messenger-realtime-policy.md`) */
+const OWNER_HUB_BADGE_POLL_INTERVAL_MS = 60_000;
 
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
 const listeners = new Set<() => void>();
@@ -116,7 +119,7 @@ function onVisibility() {
         if (typeof document !== "undefined" && document.visibilityState === "visible") {
           void fetchOwnerHubBadgeNow();
         }
-      }, 45_000);
+      }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
     }
   } else if (pollInterval) {
     clearInterval(pollInterval);
@@ -175,7 +178,7 @@ function startHub() {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         void fetchOwnerHubBadgeNow();
       }
-    }, 45_000);
+    }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
   }
 }
 
