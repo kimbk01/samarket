@@ -16,8 +16,10 @@ import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messe
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
-import type {
-  CommunityMessengerBootstrap,
+import {
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
+  type CommunityMessengerBootstrap,
   CommunityMessengerCallKind,
   CommunityMessengerCallLog,
   CommunityMessengerCallParticipant,
@@ -789,7 +791,8 @@ function buildRoomSummaryFromHydratedMembers(
   room: RoomRow | DevRoom,
   participants: Array<ParticipantRow | DevParticipant>,
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile> | undefined,
-  memberProfilesRaw: CommunityMessengerProfileLite[]
+  memberProfilesRaw: CommunityMessengerProfileLite[],
+  meta?: { totalMemberCount?: number }
 ): CommunityMessengerRoomSummary {
   const roomId = room.id;
   const isDbRoom = "room_type" in room;
@@ -834,6 +837,7 @@ function buildRoomSummaryFromHydratedMembers(
   const me = participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === userId);
   const isArchivedByViewer = participantViewerArchived(me);
   const memberIds = dedupeParticipantUserIds(participants);
+  const effectiveMemberCount = meta?.totalMemberCount ?? memberIds.length;
   const peers = memberIds.filter((id) => id !== userId);
   const peerProfilesBase = memberProfilesRaw.filter((profile) => profile.id !== userId);
   const memberProfiles = memberProfilesRaw.map((profile) =>
@@ -846,13 +850,13 @@ function buildRoomSummaryFromHydratedMembers(
   const title =
     roomType === "direct"
       ? defaultDirectTitle
-      : roomTitle || (roomType === "open_group" ? "공개 그룹방" : `그룹 ${memberIds.length}명`);
+      : roomTitle || (roomType === "open_group" ? "공개 그룹방" : `그룹 ${effectiveMemberCount}명`);
   const subtitle =
     roomType === "direct"
       ? peerProfilesBase[0]?.subtitle ?? "친구와 나누는 대화"
       : roomType === "open_group"
-        ? `공개 그룹 · ${memberIds.length}명 참여 중`
-        : `${memberIds.length}명 참여 중`;
+        ? `공개 그룹 · ${effectiveMemberCount}명 참여 중`
+        : `${effectiveMemberCount}명 참여 중`;
   return {
     id: roomId,
     roomType,
@@ -871,7 +875,7 @@ function buildRoomSummaryFromHydratedMembers(
     lastMessage: roomLastMessage || (roomType === "direct" ? "메시지를 보내 보세요." : "그룹 대화를 시작해 보세요."),
     lastMessageType: roomLastMessageType,
     lastMessageAt: roomLastAt,
-    memberCount: memberIds.length,
+    memberCount: effectiveMemberCount,
     ownerUserId,
     ownerLabel,
     memberLimit,
@@ -938,6 +942,38 @@ function participantViewerArchived(me: ParticipantRow | DevParticipant | undefin
   if ("is_archived" in me && (me as ParticipantRow).is_archived === true) return true;
   if ("isArchived" in me && (me as DevParticipant).isArchived === true) return true;
   return false;
+}
+
+function rankParticipantRoleForBootstrap(role: "owner" | "admin" | "member"): number {
+  if (role === "owner") return 0;
+  if (role === "admin") return 1;
+  return 2;
+}
+
+function participantJoinedAtForBootstrap(p: ParticipantRow | DevParticipant): string {
+  return trimText("joined_at" in p ? p.joined_at : p.joinedAt) || "";
+}
+
+/** 방 멤버 목록·부트스트랩·페이지네이션 공통 정렬 (오프셋과 부트스트랩 첫 페이지가 동일 기준) */
+function sortParticipantsForRoomMemberList<T extends ParticipantRow | DevParticipant>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => {
+    const dr = rankParticipantRoleForBootstrap(a.role) - rankParticipantRoleForBootstrap(b.role);
+    if (dr !== 0) return dr;
+    const jd = participantJoinedAtForBootstrap(b).localeCompare(participantJoinedAtForBootstrap(a));
+    if (jd !== 0) return jd;
+    return participantRowUserId(a).localeCompare(participantRowUserId(b));
+  });
+}
+
+/** 그룹방 부트스트랩: 방장·관리자 우선, 그다음 최근 가입 순 */
+function sliceGroupParticipantsForRoomBootstrap<T extends ParticipantRow | DevParticipant>(
+  rows: T[],
+  _viewerUserId: string,
+  cap: number
+): { rows: T[]; truncated: boolean } {
+  if (rows.length <= cap) return { rows, truncated: false };
+  const sorted = sortParticipantsForRoomMemberList(rows);
+  return { rows: sorted.slice(0, cap), truncated: true };
 }
 
 function isDbCallLogRow(row: CallRow | DevCall): row is CallRow {
@@ -3686,19 +3722,34 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
   return { ok: true };
 }
 
-/** 스냅샷에 담는 최근 메시지 개수(쿼리 부하·첫 페인트 속도 균형). `listCommunityMessengerRoomMessagesBefore`와 함께 동작 */
-const COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_LIMIT = 80;
+const COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX = 100;
 
+export type GetCommunityMessengerRoomSnapshotOptions = {
+  /** 기본: `COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT` (30) */
+  initialMessageLimit?: number;
+};
+
+function clampCommunityMessengerSnapshotMessageLimit(raw: unknown): number {
+  const n = Math.floor(Number(raw));
+  if (!Number.isFinite(n)) return COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT;
+  return Math.min(COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX, Math.max(1, n));
+}
+
+/** 스냅샷에 담는 최근 메시지 개수 — `listCommunityMessengerRoomMessagesBefore`와 함께 동작 */
 export async function getCommunityMessengerRoomSnapshot(
   userId: string,
-  roomId: string
+  roomId: string,
+  options?: GetCommunityMessengerRoomSnapshotOptions
 ): Promise<CommunityMessengerRoomSnapshot | null> {
+  const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
   const id = trimText(roomId);
   if (!id) return null;
   const sb = getSupabaseOrNull();
   let room: RoomRow | DevRoom | null = null;
   let participants: Array<ParticipantRow | DevParticipant> = [];
   let messages: Array<MessageRow | DevMessage> = [];
+  let roomTotalMemberCount: number | undefined;
+  let membersTruncated = false;
   if (sb) {
     const { data: myParticipant } = await (sb as any)
       .from("community_messenger_participants")
@@ -3707,7 +3758,11 @@ export async function getCommunityMessengerRoomSnapshot(
       .eq("user_id", userId)
       .maybeSingle();
     if (myParticipant) {
-      const [{ data: roomData }, { data: participantData }, { data: messageData }] = await Promise.all([
+      const [
+        { data: roomData },
+        { data: participantData, count: participantCount },
+        { data: messageData },
+      ] = await Promise.all([
         (sb as any)
           .from("community_messenger_rooms")
           .select(
@@ -3717,7 +3772,9 @@ export async function getCommunityMessengerRoomSnapshot(
           .maybeSingle(),
         (sb as any)
           .from("community_messenger_participants")
-          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at", {
+            count: "exact",
+          })
           .eq("room_id", id),
         (sb as any)
           .from("community_messenger_messages")
@@ -3725,10 +3782,29 @@ export async function getCommunityMessengerRoomSnapshot(
           .eq("room_id", id)
           .order("created_at", { ascending: false })
           .order("id", { ascending: false })
-          .limit(COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_LIMIT),
+          .limit(messageLimit),
       ]);
       room = (roomData as RoomRow | null) ?? null;
-      participants = (participantData ?? []) as ParticipantRow[];
+      const rawParticipantRows = (participantData ?? []) as ParticipantRow[];
+      roomTotalMemberCount =
+        typeof participantCount === "number" && participantCount >= 0 ? participantCount : rawParticipantRows.length;
+      const roomType = (roomData as RoomRow | null)?.room_type as CommunityMessengerRoomType | undefined;
+      if (
+        roomData &&
+        roomType &&
+        isCommunityMessengerGroupRoomType(roomType) &&
+        rawParticipantRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
+      ) {
+        const sliced = sliceGroupParticipantsForRoomBootstrap(
+          rawParticipantRows,
+          userId,
+          COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
+        );
+        participants = sliced.rows;
+        membersTruncated = sliced.truncated;
+      } else {
+        participants = rawParticipantRows;
+      }
       messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
       void (sb as any)
         .from("community_messenger_participants")
@@ -3746,14 +3822,27 @@ export async function getCommunityMessengerRoomSnapshot(
     const dev = getDevState();
     room = dev.rooms.find((row) => row.id === id) ?? null;
     if (!room) return null;
-    participants = dev.participants.filter((row) => row.roomId === id);
-    if (!participants.some((row) => ("user_id" in row ? row.user_id : row.userId) === userId)) return null;
+    const allRoomParticipants = dev.participants.filter((row) => row.roomId === id);
+    if (!allRoomParticipants.some((row) => ("user_id" in row ? row.user_id : row.userId) === userId)) return null;
+    roomTotalMemberCount = allRoomParticipants.length;
+    if (
+      isCommunityMessengerGroupRoomType(room.roomType) &&
+      allRoomParticipants.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
+    ) {
+      const sliced = sliceGroupParticipantsForRoomBootstrap(
+        allRoomParticipants,
+        userId,
+        COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
+      );
+      participants = sliced.rows;
+      membersTruncated = sliced.truncated;
+    } else {
+      participants = allRoomParticipants;
+    }
     {
       const sorted = dev.messages.filter((row) => row.roomId === id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       messages =
-        sorted.length <= COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_LIMIT
-          ? sorted
-          : sorted.slice(sorted.length - COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_LIMIT);
+        sorted.length <= messageLimit ? sorted : sorted.slice(sorted.length - messageLimit);
     }
     const mine = participants.find((row) => ("user_id" in row ? row.user_id : row.userId) === userId);
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
@@ -3765,7 +3854,9 @@ export async function getCommunityMessengerRoomSnapshot(
     getActiveCallSessionForRoom(userId, id),
     hydrateProfilesWithProfileMap(userId, memberIds, { includeSelf: true }),
   ]);
-  const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members);
+  const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members, {
+    totalMemberCount: roomTotalMemberCount ?? participants.length,
+  });
   const members = hydrated.members.map((profile) =>
     ({
       ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile),
@@ -3819,13 +3910,91 @@ export async function getCommunityMessengerRoomSnapshot(
       description:
         summary.roomType === "direct"
           ? "친구와 1:1로 대화하는 메신저 방"
-          : summary.summary || `${members.length}명이 함께 있는 ${summary.roomType === "open_group" ? "공개" : "비공개"} 그룹 채팅`,
+          : summary.summary ||
+            `${summary.memberCount}명이 함께 있는 ${summary.roomType === "open_group" ? "공개" : "비공개"} 그룹 채팅`,
     },
     members,
+    ...(membersTruncated ? { membersTruncated: true as const } : {}),
     messages: mappedMessages,
     myRole: meRole,
     activeCall,
   };
+}
+
+const COMMUNITY_MESSENGER_ROOM_MEMBERS_PAGE_DEFAULT = 40;
+const COMMUNITY_MESSENGER_ROOM_MEMBERS_PAGE_MAX = 100;
+
+/** 참가자 목록 페이지 — `sortParticipantsForRoomMemberList` 순서로 offset 슬라이스 (부트스트랩과 동일) */
+export async function listCommunityMessengerRoomMembersPage(input: {
+  userId: string;
+  roomId: string;
+  offset?: number;
+  limit?: number;
+}): Promise<
+  | { ok: true; members: CommunityMessengerProfileLite[]; total: number; nextOffset: number | null }
+  | { ok: false; error: "room_not_found" | "bad_request" }
+> {
+  const roomId = trimText(input.roomId);
+  const offset = Math.max(0, Math.floor(Number(input.offset) || 0));
+  const pageLimit = Math.min(
+    COMMUNITY_MESSENGER_ROOM_MEMBERS_PAGE_MAX,
+    Math.max(1, Math.floor(Number(input.limit) || COMMUNITY_MESSENGER_ROOM_MEMBERS_PAGE_DEFAULT))
+  );
+  if (!roomId) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+
+  const mapPageRowsToMembers = async (
+    pageRows: Array<ParticipantRow | DevParticipant>
+  ): Promise<CommunityMessengerProfileLite[]> => {
+    const memberIds = dedupeParticipantUserIds(pageRows);
+    const roomProfileMap = await fetchRoomProfilesByRoomIds([roomId]);
+    const hydrated = await hydrateProfilesWithProfileMap(input.userId, memberIds, { includeSelf: true });
+    return hydrated.members.map((profile) =>
+      ({
+        ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(roomId, profile.id))) ?? profile),
+        memberRole: pageRows.find((item) => participantRowUserId(item) === profile.id)?.role ?? undefined,
+      }) satisfies CommunityMessengerProfileLite
+    );
+  };
+
+  if (!sb) {
+    const fb = ensureCommunityMessengerDevFallbackAllowed();
+    if (!fb.ok) return { ok: false, error: "bad_request" };
+    const dev = getDevState();
+    const mine = dev.participants.some((p) => p.roomId === roomId && p.userId === input.userId);
+    if (!mine) return { ok: false, error: "room_not_found" };
+    const all = dev.participants.filter((p) => p.roomId === roomId);
+    const sorted = sortParticipantsForRoomMemberList(all);
+    const total = sorted.length;
+    const pageRows = sorted.slice(offset, offset + pageLimit);
+    const members = await mapPageRowsToMembers(pageRows);
+    const nextOffset = offset + pageRows.length < total ? offset + pageRows.length : null;
+    return { ok: true, members, total, nextOffset };
+  }
+
+  const { data: myParticipant } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (!myParticipant) return { ok: false, error: "room_not_found" };
+
+  const { data: participantData, error: partErr } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+    .eq("room_id", roomId);
+  if (partErr && !isMissingTableError(partErr)) {
+    return { ok: false, error: "bad_request" };
+  }
+  const raw = (participantData ?? []) as ParticipantRow[];
+  const sorted = sortParticipantsForRoomMemberList(raw);
+  const total = sorted.length;
+  const pageRows = sorted.slice(offset, offset + pageLimit);
+  const members = await mapPageRowsToMembers(pageRows);
+  const nextOffset = offset + pageRows.length < total ? offset + pageRows.length : null;
+  return { ok: true, members, total, nextOffset };
 }
 
 const COMMUNITY_MESSENGER_MESSAGE_PAGE_DEFAULT = 50;
@@ -3984,6 +4153,145 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
   return { ok: true, messages: mapDbRows(pageRows, profileById), hasMore };
 }
 
+/** `afterMessageId` 보다 새 메시지만 (증분 동기·탭 복귀 갭 메우기). 전체 목록 전송 회피 */
+export async function listCommunityMessengerRoomMessagesAfter(input: {
+  userId: string;
+  roomId: string;
+  afterMessageId: string;
+  limit?: number;
+}): Promise<
+  { ok: true; messages: CommunityMessengerMessage[]; hasMore: boolean } | { ok: false; error: string }
+> {
+  const roomId = trimText(input.roomId);
+  const afterMessageId = trimText(input.afterMessageId);
+  const pageLimit = Math.min(
+    COMMUNITY_MESSENGER_MESSAGE_PAGE_MAX,
+    Math.max(1, Math.floor(Number(input.limit) || COMMUNITY_MESSENGER_MESSAGE_PAGE_DEFAULT))
+  );
+  if (!roomId || !afterMessageId) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+
+  const mapDbRows = (
+    rows: MessageRow[],
+    profileById: Map<string, CommunityMessengerProfileLite>
+  ): CommunityMessengerMessage[] => {
+    return rows.map((message) => {
+      const senderId = trimText(message.sender_id) || null;
+      const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+      const isMine = senderId === input.userId;
+      const mt = trimText(message.message_type) as CommunityMessengerMessage["messageType"];
+      const safeMt: CommunityMessengerMessage["messageType"] =
+        mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" ? mt : "text";
+      return {
+        id: message.id,
+        roomId: message.room_id,
+        senderId,
+        senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+        messageType: safeMt,
+        content: trimText(message.content),
+        createdAt: trimText(message.created_at) || nowIso(),
+        isMine,
+        callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
+        callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+        callSessionId: trimText(metadata.sessionId as string) || null,
+        ...(safeMt === "voice"
+          ? {
+              voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+              voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
+              voiceMimeType: trimText(metadata.mimeType as string) || null,
+            }
+          : {}),
+        ...(safeMt === "file"
+          ? {
+              fileName: trimText(metadata.fileName as string) || null,
+              fileMimeType: trimText(metadata.mimeType as string) || null,
+              fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
+            }
+          : {}),
+      };
+    });
+  };
+
+  if (!sb) {
+    const fb = ensureCommunityMessengerDevFallbackAllowed();
+    if (!fb.ok) return { ok: false, error: fb.error ?? "messenger_storage_unavailable" };
+    const dev = getDevState();
+    const mine = dev.participants.some((p) => p.roomId === roomId && p.userId === input.userId);
+    if (!mine) return { ok: false, error: "room_not_found" };
+    const anchor = dev.messages.find((m) => m.id === afterMessageId && m.roomId === roomId);
+    if (!anchor) return { ok: false, error: "not_found" };
+    const pool = dev.messages
+      .filter((m) => {
+        if (m.roomId !== roomId) return false;
+        if (m.createdAt > anchor.createdAt) return true;
+        if (m.createdAt === anchor.createdAt) return m.id.localeCompare(anchor.id) > 0;
+        return false;
+      })
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    const page = pool.slice(0, pageLimit + 1);
+    const hasMore = page.length > pageLimit;
+    const sliced = page.slice(0, pageLimit);
+    const senderIds = dedupeIds(sliced.map((m) => m.senderId).filter((id): id is string => Boolean(id)));
+    const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
+    const profileById = new Map(profiles.map((p) => [p.id, p]));
+    const messages: CommunityMessengerMessage[] = sliced.map((message) => {
+      const senderId = message.senderId;
+      const isMine = senderId === input.userId;
+      const metadata = message.metadata ?? {};
+      const safeMt = message.messageType;
+      return {
+        id: message.id,
+        roomId: message.roomId,
+        senderId,
+        senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+        messageType: safeMt,
+        content: trimText(message.content),
+        createdAt: message.createdAt,
+        isMine,
+        callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
+        callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+        callSessionId: trimText(metadata.sessionId as string) || null,
+        ...(safeMt === "voice"
+          ? {
+              voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+              voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
+              voiceMimeType: trimText(metadata.mimeType as string) || null,
+            }
+          : {}),
+        ...(safeMt === "file"
+          ? {
+              fileName: trimText(metadata.fileName as string) || null,
+              fileMimeType: trimText(metadata.mimeType as string) || null,
+              fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
+            }
+          : {}),
+      };
+    });
+    return { ok: true, messages, hasMore };
+  }
+
+  const { data: rpcRows, error: rpcErr } = await (sb as any).rpc("community_messenger_room_messages_after", {
+    p_user_id: input.userId,
+    p_room_id: roomId,
+    p_after_message_id: afterMessageId,
+    p_limit: pageLimit + 1,
+  });
+  if (rpcErr) {
+    if (isMissingTableError(rpcErr) || String(rpcErr.message ?? "").includes("function") || String(rpcErr.code ?? "") === "42883") {
+      return { ok: false, error: "migration_required" };
+    }
+    return { ok: false, error: "load_failed" };
+  }
+  const raw = ((rpcRows ?? []) as MessageRow[]).slice();
+  const hasMore = raw.length > pageLimit;
+  const pageRows = raw.slice(0, pageLimit);
+  const senderIds = dedupeIds(pageRows.map((r) => trimText(r.sender_id)).filter(Boolean));
+  const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  return { ok: true, messages: mapDbRows(pageRows, profileById), hasMore };
+}
+
 export async function sendCommunityMessengerMessage(input: {
   userId: string;
   roomId: string;
@@ -4036,28 +4344,22 @@ export async function sendCommunityMessengerMessage(input: {
           updated_at: createdAt,
         })
         .eq("id", roomId);
-      const { data: participants } = await (sb as any)
+      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+        p_room_id: roomId,
+        p_sender_id: input.userId,
+        p_read_at: createdAt,
+      });
+      if (unreadRpcError) {
+        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
+      }
+      const { data: recipientRows } = await (sb as any)
         .from("community_messenger_participants")
-        .select("id, user_id, unread_count")
-        .eq("room_id", roomId);
-      await Promise.all(
-        ((participants ?? []) as Array<{
-          id: string;
-          user_id: string;
-          unread_count?: number | null;
-        }>).map((participant) =>
-          (sb as any)
-            .from("community_messenger_participants")
-            .update({
-              unread_count: participant.user_id === input.userId ? 0 : Number(participant.unread_count ?? 0) + 1,
-              last_read_at: participant.user_id === input.userId ? createdAt : null,
-            })
-            .eq("id", participant.id)
-        )
-      );
-      const recipientUserIds = ((participants ?? []) as Array<{ user_id: string }>)
+        .select("user_id")
+        .eq("room_id", roomId)
+        .neq("user_id", input.userId);
+      const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
-        .filter((uid) => uid && uid !== input.userId);
+        .filter((uid) => Boolean(uid?.trim()));
       const preview =
         content.length > 120 ? `${content.slice(0, 117)}…` : content || "메시지";
       const hasMention = /@\S/.test(content);
@@ -4165,21 +4467,14 @@ async function appendCommunityMessengerSystemMessage(input: {
           updated_at: createdAt,
         })
         .eq("id", roomId);
-      const { data: participants } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("id, user_id, unread_count")
-        .eq("room_id", roomId);
-      await Promise.all(
-        ((participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>).map((participantRow) =>
-          (sb as any)
-            .from("community_messenger_participants")
-            .update({
-              unread_count: participantRow.user_id === input.userId ? 0 : Number(participantRow.unread_count ?? 0) + 1,
-              last_read_at: participantRow.user_id === input.userId ? createdAt : null,
-            })
-            .eq("id", participantRow.id)
-        )
-      );
+      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+        p_room_id: roomId,
+        p_sender_id: input.userId,
+        p_read_at: createdAt,
+      });
+      if (unreadRpcError) {
+        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
+      }
       return { ok: true };
     }
     if (!isMissingTableError(insertError)) {
@@ -4271,21 +4566,14 @@ export async function sendCommunityMessengerImageMessage(input: {
           updated_at: createdAt,
         })
         .eq("id", roomId);
-      const { data: participants } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("id, user_id, unread_count")
-        .eq("room_id", roomId);
-      await Promise.all(
-        ((participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>).map((participantRow) =>
-          (sb as any)
-            .from("community_messenger_participants")
-            .update({
-              unread_count: participantRow.user_id === input.userId ? 0 : Number(participantRow.unread_count ?? 0) + 1,
-              last_read_at: participantRow.user_id === input.userId ? createdAt : null,
-            })
-            .eq("id", participantRow.id)
-        )
-      );
+      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+        p_room_id: roomId,
+        p_sender_id: input.userId,
+        p_read_at: createdAt,
+      });
+      if (unreadRpcError) {
+        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
+      }
       return {
         ok: true,
         message: {
@@ -4413,21 +4701,14 @@ export async function sendCommunityMessengerFileMessage(input: {
           updated_at: createdAt,
         })
         .eq("id", roomId);
-      const { data: participants } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("id, user_id, unread_count")
-        .eq("room_id", roomId);
-      await Promise.all(
-        ((participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>).map((participantRow) =>
-          (sb as any)
-            .from("community_messenger_participants")
-            .update({
-              unread_count: participantRow.user_id === input.userId ? 0 : Number(participantRow.unread_count ?? 0) + 1,
-              last_read_at: participantRow.user_id === input.userId ? createdAt : null,
-            })
-            .eq("id", participantRow.id)
-        )
-      );
+      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+        p_room_id: roomId,
+        p_sender_id: input.userId,
+        p_read_at: createdAt,
+      });
+      if (unreadRpcError) {
+        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
+      }
       return {
         ok: true,
         message: {
@@ -4773,25 +5054,14 @@ export async function sendCommunityMessengerVoiceMessage(input: {
           updated_at: createdAt,
         })
         .eq("id", roomId);
-      const { data: participants } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("id, user_id, unread_count")
-        .eq("room_id", roomId);
-      await Promise.all(
-        ((participants ?? []) as Array<{
-          id: string;
-          user_id: string;
-          unread_count?: number | null;
-        }>).map((participantRow) =>
-          (sb as any)
-            .from("community_messenger_participants")
-            .update({
-              unread_count: participantRow.user_id === input.userId ? 0 : Number(participantRow.unread_count ?? 0) + 1,
-              last_read_at: participantRow.user_id === input.userId ? createdAt : null,
-            })
-            .eq("id", participantRow.id)
-        )
-      );
+      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+        p_room_id: roomId,
+        p_sender_id: input.userId,
+        p_read_at: createdAt,
+      });
+      if (unreadRpcError) {
+        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
+      }
       return {
         ok: true,
         message: {

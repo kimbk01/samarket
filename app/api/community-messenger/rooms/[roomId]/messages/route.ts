@@ -8,9 +8,11 @@ import {
   parseJsonBody,
 } from "@/lib/http/api-route";
 import {
+  listCommunityMessengerRoomMessagesAfter,
   listCommunityMessengerRoomMessagesBefore,
   sendCommunityMessengerMessage,
 } from "@/lib/community-messenger/service";
+import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 
 /** 이전 메시지 페이지 (스크롤 업) — 읽기 폭주 완화 */
 export async function GET(
@@ -33,12 +35,42 @@ export async function GET(
   if (!roomId?.trim()) {
     return jsonError("roomId가 필요합니다.", 400);
   }
+  const t0 = performance.now();
   const before = req.nextUrl.searchParams.get("before")?.trim() ?? "";
-  if (!before) {
-    return jsonError("before(메시지 id)가 필요합니다.", 400);
+  const after = req.nextUrl.searchParams.get("after")?.trim() ?? "";
+  if (before && after) {
+    return jsonError("before 와 after 를 동시에 쓸 수 없습니다.", 400);
   }
   const rawLimit = req.nextUrl.searchParams.get("limit");
   const limit = rawLimit ? Math.floor(Number(rawLimit)) : undefined;
+
+  if (after) {
+    const result = await listCommunityMessengerRoomMessagesAfter({
+      userId: auth.userId,
+      roomId,
+      afterMessageId: after,
+      limit: Number.isFinite(limit) ? limit : undefined,
+    });
+    if (!result.ok) {
+      recordMessengerApiTiming("GET .../messages?after", Math.round(performance.now() - t0), 400);
+      if (result.error === "not_found") {
+        return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+      }
+      if (result.error === "room_not_found") {
+        return jsonError("대화방을 찾을 수 없습니다.", 404, { code: result.error });
+      }
+      if (result.error === "migration_required") {
+        return jsonError("증분 동기를 위해 DB 마이그레이션이 필요합니다.", 503, { code: result.error });
+      }
+      return jsonError("새 메시지를 불러오지 못했습니다.", 400, { code: result.error });
+    }
+    recordMessengerApiTiming("GET .../messages?after", Math.round(performance.now() - t0), 200);
+    return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "after" as const });
+  }
+
+  if (!before) {
+    return jsonError("before(메시지 id) 또는 after(메시지 id)가 필요합니다.", 400);
+  }
   const result = await listCommunityMessengerRoomMessagesBefore({
     userId: auth.userId,
     roomId,
@@ -46,6 +78,7 @@ export async function GET(
     limit: Number.isFinite(limit) ? limit : undefined,
   });
   if (!result.ok) {
+    recordMessengerApiTiming("GET .../messages?before", Math.round(performance.now() - t0), 400);
     if (result.error === "not_found") {
       return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
     }
@@ -54,7 +87,8 @@ export async function GET(
     }
     return jsonError("이전 메시지를 불러오지 못했습니다.", 400, { code: result.error });
   }
-  return jsonOk({ messages: result.messages, hasMore: result.hasMore });
+  recordMessengerApiTiming("GET .../messages?before", Math.round(performance.now() - t0), 200);
+  return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "before" as const });
 }
 
 export async function POST(
@@ -81,11 +115,17 @@ export async function POST(
   if (!roomId?.trim()) {
     return jsonError("roomId가 필요합니다.", 400);
   }
+  const t0 = performance.now();
   const result = await sendCommunityMessengerMessage({
     userId: auth.userId,
     roomId,
     content: String(body.content ?? ""),
   });
+  recordMessengerApiTiming(
+    "POST /api/community-messenger/rooms/[roomId]/messages",
+    Math.round(performance.now() - t0),
+    result.ok ? 200 : 400
+  );
   return result.ok
     ? jsonOk(result)
     : jsonError(result.error ?? "메시지 전송에 실패했습니다.", 400, result);

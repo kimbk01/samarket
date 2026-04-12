@@ -22,7 +22,6 @@ import {
   updateLegacyChatRoomMessagesCache,
 } from "@/lib/chats/fetch-chat-room-messages-api";
 import { fetchChatRoomBootstrapApi } from "@/lib/chats/fetch-chat-room-bootstrap-api";
-import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import {
   patchTradeChatEntryMark,
   readTradeChatEntryMark,
@@ -93,6 +92,12 @@ export function ChatRoomScreen({
   const [bootstrapMessages, setBootstrapMessages] = useState<ChatMessage[] | null>(() =>
     serverBootstrap?.room ? serverBootstrap.messages : null
   );
+  /** 통합 채팅 Realtime — 부트스트랩·캐시 준비 후에만 true (단일 진입 경로) */
+  const [tradeChatBootstrapReady, setTradeChatBootstrapReady] = useState(() => {
+    if (serverBootstrap?.room) return true;
+    if (roomId && peekChatRoomDetailMemory(roomId)) return true;
+    return false;
+  });
   const chatEntryShellLoggedRef = useRef(false);
   const chatEntryRoomReadyLoggedRef = useRef<string | null>(null);
 
@@ -133,6 +138,7 @@ export function ChatRoomScreen({
     }
     const hadPeek = Boolean(peekChatRoomDetailMemory(roomId));
     if (!hadPeek && !options?.bypassPeek) setLoading(true);
+    if (!hadPeek && !options?.bypassPeek) setTradeChatBootstrapReady(false);
     setErr(null);
     try {
       const result = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint, {
@@ -140,6 +146,7 @@ export function ChatRoomScreen({
       });
       if (!result.ok) {
         setBootstrapMessages(null);
+        setTradeChatBootstrapReady(false);
         if (result.code === "not_found") {
           setErr("not_found");
           setRoom(null);
@@ -185,6 +192,7 @@ export function ChatRoomScreen({
       }
       setRoom(result.room);
       setBootstrapMessages(result.messages);
+      setTradeChatBootstrapReady(true);
       setLoading(false);
       logClientPerf("chat-room-screen.reload", {
         roomId,
@@ -200,6 +208,7 @@ export function ChatRoomScreen({
     try {
       const result = await fetchChatRoomDetailApi(roomId);
       if (!result.ok) {
+        setTradeChatBootstrapReady(false);
         if (result.code === "not_found") {
           setErr("not_found");
           setRoom(null);
@@ -240,10 +249,11 @@ export function ChatRoomScreen({
         return;
       }
       setRoom(result.room);
-      setBootstrapMessages(null);
+      setBootstrapMessages([]);
+      setTradeChatBootstrapReady(true);
       logClientPerf("chat-room-screen.reload", {
         roomId,
-        result: "ok",
+        result: "ok_degraded_detail_only",
         detailCache: result.cache,
         elapsedMs: Math.round(perfNow() - startedAt),
       });
@@ -298,12 +308,6 @@ export function ChatRoomScreen({
     };
   }, []);
 
-  /** 인증 확인과 병행해 방·메시지 캐시 선채움 — RSC에서 이미 내려준 경우 중복 요청 생략 */
-  useEffect(() => {
-    if (!roomId?.trim() || serverBootstrap?.room) return;
-    warmChatRoomEntryById(roomId, chatRoomSourceHint);
-  }, [roomId, chatRoomSourceHint, serverBootstrap?.room]);
-
   useEffect(() => {
     if (chatEntryShellLoggedRef.current) return;
     const mark = readTradeChatEntryMark();
@@ -326,6 +330,7 @@ export function ChatRoomScreen({
       setLoading(false);
       setErr(null);
       setBootstrapMessages(null);
+      setTradeChatBootstrapReady(false);
       return;
     }
     const peeked = peekChatRoomDetailMemory(roomId);
@@ -337,10 +342,12 @@ export function ChatRoomScreen({
           ? peekIntegratedChatRoomMessagesCache(peeked.id)
           : peekLegacyChatRoomMessagesCache(peeked.id);
       setBootstrapMessages(msgs ?? null);
+      setTradeChatBootstrapReady(true);
       setLoading(false);
     } else {
       setRoom(null);
       setBootstrapMessages(null);
+      setTradeChatBootstrapReady(false);
       setLoading(true);
     }
   }, [roomId]);
@@ -453,6 +460,7 @@ export function ChatRoomScreen({
           tradeHubColumnLayout={tradeHubColumnLayout}
           ownerStoreOrderModalChrome={ownerStoreOrderModalChrome}
           initialBootstrapMessages={bootstrapMessages}
+          tradeChatBootstrapReady={tradeChatBootstrapReady}
         />
       </div>
     );

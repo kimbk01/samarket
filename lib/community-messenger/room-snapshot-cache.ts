@@ -1,4 +1,8 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import {
+  communityMessengerRoomBootstrapPath,
+  parseCommunityMessengerRoomSnapshotResponse,
+} from "@/lib/community-messenger/messenger-room-bootstrap";
 
 const TTL_MS = 60_000;
 const entries = new Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>();
@@ -35,10 +39,11 @@ export function consumeRoomSnapshot(roomId: string): CommunityMessengerRoomSnaps
 export async function prefetchCommunityMessengerRoomSnapshot(roomId: string): Promise<boolean> {
   if (peekRoomSnapshot(roomId)) return true;
   try {
-    const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, { cache: "no-store" });
-    const json = (await res.json()) as { ok?: boolean } & Partial<CommunityMessengerRoomSnapshot>;
-    if (res.ok && json.ok && json.viewerUserId) {
-      primeRoomSnapshot(roomId, json as CommunityMessengerRoomSnapshot);
+    const res = await fetch(communityMessengerRoomBootstrapPath(roomId), { cache: "no-store" });
+    const json = await res.json().catch(() => null);
+    const snap = parseCommunityMessengerRoomSnapshotResponse(json);
+    if (res.ok && snap) {
+      primeRoomSnapshot(roomId, snap);
       return true;
     }
   } catch {

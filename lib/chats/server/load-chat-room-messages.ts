@@ -24,6 +24,23 @@ function fail(status: number, error: string): LoaderError {
   return { ok: false, status, error };
 }
 
+/** PostgREST `.or()` 안전한 큰따옴표 문자열 (타임스탬프·UUID) */
+function escapePostgrestDoubleQuoted(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function isLikelyIso8601(s: string): boolean {
+  if (!s || s.length < 10) return false;
+  return Number.isFinite(Date.parse(s));
+}
+
+/** ORDER BY created_at DESC, id DESC 에서 커서보다 더 과거 행만 (키셋). */
+function keysetBeforeRoomMessagesOrFilter(cursorCreatedAt: string, cursorId: string): string {
+  const qTs = escapePostgrestDoubleQuoted(cursorCreatedAt);
+  const qId = escapePostgrestDoubleQuoted(cursorId);
+  return `created_at.lt.${qTs},and(created_at.eq.${qTs},id.lt.${qId})`;
+}
+
 export async function loadLegacyProductChatMessagesForUser(
   roomId: string,
   userId: string
@@ -88,6 +105,8 @@ export async function loadIntegratedChatRoomMessageRowsForUser(input: {
   roomId: string;
   userId: string;
   before?: string | null;
+  /** 키셋 1-hop: `before` 메시지 id와 짝 — 있으면 기준 행 조회 생략 */
+  beforeCreatedAt?: string | null;
   limit?: number;
 }): Promise<LoadIntegratedMessagesResult> {
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -102,6 +121,7 @@ export async function loadIntegratedChatRoomMessageRowsForUser(input: {
 
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
   const before = input.before?.trim();
+  const beforeCreatedAtHint = input.beforeCreatedAt?.trim() ?? "";
 
   const [roomForGetRes, partRes] = await Promise.all([
     sb
@@ -141,11 +161,33 @@ export async function loadIntegratedChatRoomMessageRowsForUser(input: {
     )
     .eq("room_id", roomId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit);
+
   if (before) {
-    const { data: beforeRow } = await sb.from("chat_messages").select("created_at").eq("id", before).maybeSingle();
-    if (beforeRow && typeof (beforeRow as { created_at: string }).created_at === "string") {
-      q = q.lt("created_at", (beforeRow as { created_at: string }).created_at);
+    let cursorCreatedAt: string | null = null;
+    let cursorId: string | null = null;
+
+    if (beforeCreatedAtHint && isLikelyIso8601(beforeCreatedAtHint)) {
+      cursorCreatedAt = beforeCreatedAtHint;
+      cursorId = before;
+    } else {
+      const { data: beforeRow } = await sb
+        .from("chat_messages")
+        .select("id, created_at")
+        .eq("room_id", roomId)
+        .eq("id", before)
+        .maybeSingle();
+      const br = beforeRow as { id?: string; created_at?: string } | null;
+      if (!br || typeof br.created_at !== "string") {
+        return fail(404, "기준 메시지를 찾을 수 없습니다.");
+      }
+      cursorCreatedAt = br.created_at;
+      cursorId = typeof br.id === "string" ? br.id : before;
+    }
+
+    if (cursorCreatedAt && cursorId) {
+      q = q.or(keysetBeforeRoomMessagesOrFilter(cursorCreatedAt, cursorId));
     }
   }
 

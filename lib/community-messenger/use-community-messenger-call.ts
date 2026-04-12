@@ -9,6 +9,24 @@ import {
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
+import {
+  callSessionPhaseLabel,
+  deriveCallSessionPhase,
+} from "@/lib/call/call-session-state";
+import { fetchMessengerIceServers, invalidateMessengerIceServerCache } from "@/lib/call/ice-servers";
+import {
+  applyVideoSenderBandwidthCap,
+  applyVideoSenderDegradationPreference,
+  buildMessengerRtcConfiguration,
+} from "@/lib/call/webrtc-configuration";
+import { collectMessengerWebRtcDiagnostics } from "@/lib/community-messenger/monitoring/webrtc-stats";
+import {
+  messengerMonitorCallConnection,
+  messengerMonitorCallIceRestart,
+  messengerMonitorCallTurnFallback,
+  messengerMonitorCallWebRtcSample,
+} from "@/lib/community-messenger/monitoring/client";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
   CommunityMessengerCallKind,
@@ -38,14 +56,6 @@ const CALL_SIGNAL_POLL_MS_REALTIME_OK = 7_000;
 const CALL_SIGNAL_POLL_MS_FALLBACK = 2_000;
 const CALL_SIGNAL_POLL_MS_HIDDEN_TAB = 14_000;
 const ROOM_SNAPSHOT_REFRESH_MS_NEGOTIATING = 2_300;
-const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
-  { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
-];
-
-let cachedIceServers: RTCIceServer[] | null = null;
-let cachedIceServersPromise: Promise<RTCIceServer[]> | null = null;
-let cachedIceServersExpiresAt = 0;
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -62,44 +72,6 @@ function readSessionDescription(
   const sdp = typeof payload.sdp === "string" ? payload.sdp.trim() : "";
   if (!sdp) return null;
   return { type: expectedType, sdp };
-}
-
-function hasRelayIceServer(servers: RTCIceServer[]): boolean {
-  return servers.some((server) => {
-    const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-    return urls.some((value) => typeof value === "string" && /^turns?:/i.test(value));
-  });
-}
-
-async function getCommunityMessengerIceServers(): Promise<RTCIceServer[]> {
-  if (cachedIceServers && cachedIceServersExpiresAt > Date.now()) return cachedIceServers;
-  if (cachedIceServersPromise) return cachedIceServersPromise;
-  cachedIceServersPromise = fetch("/api/community-messenger/calls/ice-servers", {
-    cache: "no-store",
-  })
-    .then(async (res) => {
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        iceServers?: RTCIceServer[];
-      };
-      if (!res.ok || !json.ok || !Array.isArray(json.iceServers) || json.iceServers.length === 0) {
-        cachedIceServers = DEFAULT_ICE_SERVERS;
-        cachedIceServersExpiresAt = Date.now() + 10_000;
-        return cachedIceServers;
-      }
-      cachedIceServers = json.iceServers;
-      cachedIceServersExpiresAt = Date.now() + (hasRelayIceServer(json.iceServers) ? 5 * 60_000 : 60_000);
-      return cachedIceServers;
-    })
-    .catch(() => {
-      cachedIceServers = DEFAULT_ICE_SERVERS;
-      cachedIceServersExpiresAt = Date.now() + 10_000;
-      return cachedIceServers;
-    })
-    .finally(() => {
-      cachedIceServersPromise = null;
-    });
-  return cachedIceServersPromise;
 }
 
 export function useCommunityMessengerCall(args: {
@@ -131,7 +103,12 @@ export function useCommunityMessengerCall(args: {
   const mountedRef = useRef(true);
   const sessionCleanupTimerRef = useRef<number | null>(null);
   const autoRetryTimerRef = useRef<number | null>(null);
+  /** 자동 ICE 재시도 횟수 — effect 클로저와 동기화하려 ref 사용, UI phase 용 state 와 함께 갱신 */
   const autoRetryAttemptRef = useRef(0);
+  const [autoRetryAttempt, setAutoRetryAttempt] = useState(0);
+  const mediaNegotiationStartedAtRef = useRef<number | null>(null);
+  const firstConnectedMetricsSentRef = useRef(false);
+  const iceRestartCountForMetricsRef = useRef(0);
   const locallyClosedSessionIdRef = useRef<string | null>(null);
   const pendingCallActionIdRef = useRef(0);
   const callSignalsRealtimeSubscribedRef = useRef(false);
@@ -170,7 +147,11 @@ export function useCommunityMessengerCall(args: {
     pendingIncomingAcceptanceRef.current = null;
     processedSignalIdsRef.current.clear();
     activeSinceRef.current = null;
+    firstConnectedMetricsSentRef.current = false;
+    mediaNegotiationStartedAtRef.current = null;
+    iceRestartCountForMetricsRef.current = 0;
     autoRetryAttemptRef.current = 0;
+    setAutoRetryAttempt(0);
     setElapsedSeconds(0);
     setTransportState("idle");
     setCallQuality(null);
@@ -340,26 +321,43 @@ export function useCommunityMessengerCall(args: {
   const flushPendingCandidates = useCallback(async () => {
     const connection = peerConnectionRef.current;
     if (!connection || !connection.remoteDescription) return;
-    for (const candidate of pendingCandidatesRef.current.splice(0)) {
-      try {
-        await connection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch {
-        /* ignore candidate failures */
-      }
-    }
+    const batch = pendingCandidatesRef.current.splice(0);
+    await Promise.all(
+      batch.map(async (candidate) => {
+        try {
+          await connection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch {
+          /* ignore candidate failures */
+        }
+      })
+    );
   }, []);
 
   const ensurePeerConnection = useCallback(
-    async (kind: CommunityMessengerCallKind, sessionId: string, peerUserId: string) => {
+    async (
+      kind: CommunityMessengerCallKind,
+      sessionId: string,
+      peerUserId: string,
+      options?: { replaceExisting?: boolean; iceTransportPolicy?: RTCIceTransportPolicy }
+    ) => {
       const existing = peerConnectionRef.current;
-      if (existing) return existing;
-      const stream = await ensureLocalStream(kind);
-      const iceServers = await getCommunityMessengerIceServers();
-      const connection = new RTCPeerConnection({
-        iceServers,
-        bundlePolicy: "max-bundle",
-        iceCandidatePoolSize: 4,
-      });
+      if (existing && !options?.replaceExisting) return existing;
+      if (existing && options?.replaceExisting) {
+        for (const t of remoteStream?.getTracks() ?? []) t.stop();
+        existing.close();
+        peerConnectionRef.current = null;
+        pendingCandidatesRef.current = [];
+        pendingOfferRef.current = null;
+        invalidateMessengerIceServerCache();
+      }
+      const [stream, iceServers] = await Promise.all([ensureLocalStream(kind), fetchMessengerIceServers()]);
+      mediaNegotiationStartedAtRef.current = Date.now();
+      firstConnectedMetricsSentRef.current = false;
+      const connection = new RTCPeerConnection(
+        buildMessengerRtcConfiguration(iceServers, {
+          iceTransportPolicy: options?.iceTransportPolicy ?? "all",
+        })
+      );
       setTransportState("connecting");
       const nextRemoteStream = new MediaStream();
       setRemoteStream(nextRemoteStream);
@@ -391,7 +389,12 @@ export function useCommunityMessengerCall(args: {
         if (state === "connected") {
           clearPendingAutoRetry();
           autoRetryAttemptRef.current = 0;
+          setAutoRetryAttempt(0);
           setTransportState("connected");
+          if (!firstConnectedMetricsSentRef.current && mediaNegotiationStartedAtRef.current) {
+            firstConnectedMetricsSentRef.current = true;
+            messengerMonitorCallConnection(sessionId, Date.now() - mediaNegotiationStartedAtRef.current);
+          }
           setPanel((prev) =>
             prev && prev.sessionId === sessionId ? { ...prev, mode: "active" } : prev
           );
@@ -423,7 +426,12 @@ export function useCommunityMessengerCall(args: {
         if (state === "connected" || state === "completed") {
           clearPendingAutoRetry();
           autoRetryAttemptRef.current = 0;
+          setAutoRetryAttempt(0);
           setTransportState("connected");
+          if (!firstConnectedMetricsSentRef.current && mediaNegotiationStartedAtRef.current) {
+            firstConnectedMetricsSentRef.current = true;
+            messengerMonitorCallConnection(sessionId, Date.now() - mediaNegotiationStartedAtRef.current);
+          }
           setPanel((prev) =>
             prev && prev.sessionId === sessionId ? { ...prev, mode: "active" } : prev
           );
@@ -447,7 +455,7 @@ export function useCommunityMessengerCall(args: {
       peerConnectionRef.current = connection;
       return connection;
     },
-    [clearPendingAutoRetry, ensureLocalStream, sendSignal]
+    [clearPendingAutoRetry, ensureLocalStream, remoteStream, sendSignal]
   );
 
   const completeIncomingAcceptance = useCallback(
@@ -588,21 +596,20 @@ export function useCommunityMessengerCall(args: {
     const timer = setInterval(() => {
       void (async () => {
         try {
-          const stats = await connection.getStats();
+          const sample = await collectMessengerWebRtcDiagnostics(connection);
+          const sid = currentSessionId;
+          if (sid && !cancelled) {
+            messengerMonitorCallWebRtcSample(sid, sample);
+          }
           let nextQuality: CallQuality = null;
-          stats.forEach((report) => {
-            if (report.type !== "candidate-pair") return;
-            const selected = (report as RTCStats & { nominated?: boolean; state?: string }).state === "succeeded";
-            if (!selected) return;
-            const rtt = Number((report as RTCStats & { currentRoundTripTime?: number }).currentRoundTripTime ?? 0);
-            if (!rtt) {
-              nextQuality = "normal";
-              return;
-            }
-            if (rtt < 0.15) nextQuality = "good";
-            else if (rtt < 0.35) nextQuality = "normal";
+          const rttMs = sample.roundTripTimeMs;
+          if (rttMs != null && rttMs > 0) {
+            if (rttMs < 150) nextQuality = "good";
+            else if (rttMs < 350) nextQuality = "normal";
             else nextQuality = "poor";
-          });
+          } else if (sample.packetLossPercent != null) {
+            nextQuality = sample.packetLossPercent > 8 ? "poor" : "normal";
+          }
           if (!cancelled) setCallQuality(nextQuality);
         } catch {
           /* ignore stats polling failure */
@@ -614,7 +621,7 @@ export function useCommunityMessengerCall(args: {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [panel?.mode, transportState]);
+  }, [currentSessionId, panel?.mode, transportState]);
 
   useEffect(() => {
     if (!panel?.sessionId) return;
@@ -658,13 +665,35 @@ export function useCommunityMessengerCall(args: {
     let cancelled = false;
     let backoffUntil = 0;
     let timerId: number | null = null;
+    let signalPollFailStreak = 0;
+    let signalSoftErrorActive = false;
+
+    const markSignalPollFailure = () => {
+      signalPollFailStreak += 1;
+      if (signalPollFailStreak >= 8 && !signalSoftErrorActive) {
+        signalSoftErrorActive = true;
+        setErrorMessage((prev) => prev ?? SIGNAL_POLL_SOFT_ERROR);
+      }
+    };
+
+    const markSignalPollSuccess = () => {
+      signalPollFailStreak = 0;
+      if (signalSoftErrorActive) {
+        signalSoftErrorActive = false;
+        setErrorMessage((prev) => (prev === SIGNAL_POLL_SOFT_ERROR ? null : prev));
+      }
+    };
 
     async function bootstrapSignals() {
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pollSessionId)}/signals`, {
         cache: "no-store",
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
-      if (!res.ok || !json.ok) return;
+      if (!res.ok || !json.ok) {
+        markSignalPollFailure();
+        return;
+      }
+      markSignalPollSuccess();
       for (const signal of json.signals ?? []) {
         if (cancelled) break;
         await applySignal(signal);
@@ -690,17 +719,22 @@ export function useCommunityMessengerCall(args: {
           const ra = res.headers.get("Retry-After");
           const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
           backoffUntil = Date.now() + sec * 1000;
+          markSignalPollFailure();
           return;
         }
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
-        if (!res.ok || !json.ok) return;
+        if (!res.ok || !json.ok) {
+          markSignalPollFailure();
+          return;
+        }
+        markSignalPollSuccess();
         backoffUntil = 0;
         for (const signal of json.signals ?? []) {
           if (cancelled) break;
           await applySignal(signal);
         }
       } catch {
-        /* ignore */
+        markSignalPollFailure();
       }
     }
 
@@ -825,7 +859,7 @@ export function useCommunityMessengerCall(args: {
       peerLabel: args.peerLabel,
     });
     try {
-      await ensureLocalStream(kind);
+      await Promise.all([ensureLocalStream(kind), fetchMessengerIceServers()]);
       if (pendingCallActionIdRef.current !== actionId) return;
       const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(args.roomId)}/calls`, {
         method: "POST",
@@ -875,6 +909,23 @@ export function useCommunityMessengerCall(args: {
     }
   }, [args, ensureLocalStream, ensurePeerConnection, sendSignal]);
 
+  /** 영상 통화: 오디오 우선에 가깝게 비디오 품질 저하 방식 설정 */
+  useEffect(() => {
+    if (transportState !== "connected" || panel?.kind !== "video") return;
+    const pc = peerConnectionRef.current;
+    if (!pc) return;
+    void applyVideoSenderDegradationPreference(pc, "maintain-framerate");
+  }, [transportState, panel?.kind]);
+
+  /** RTT 악화 시 송신 해상도·비트레이트 상한 */
+  useEffect(() => {
+    if (transportState !== "connected" || panel?.kind !== "video") return;
+    if (callQuality !== "poor") return;
+    const pc = peerConnectionRef.current;
+    if (!pc) return;
+    void applyVideoSenderBandwidthCap(pc, 280_000, 2);
+  }, [callQuality, transportState, panel?.kind]);
+
   const rejectIncomingCall = useCallback(async () => {
     if (!args.activeCall?.id) return;
     const sessionId = args.activeCall.id;
@@ -888,14 +939,19 @@ export function useCommunityMessengerCall(args: {
           /* hangup 실패 시에도 PATCH 로 세션 종료 */
         }
       }
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
       });
+      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!patchRes.ok || !patchJson.ok) {
+        setErrorMessage(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+        return;
+      }
       await args.onRefresh();
-    } finally {
       closeSessionImmediately(sessionId);
+    } finally {
       setBusy(null);
     }
   }, [args, closeSessionImmediately, sendSignal]);
@@ -1043,30 +1099,65 @@ export function useCommunityMessengerCall(args: {
     }
   }, [args.onRefresh, args.peerUserId, closeSessionImmediately, currentSessionId, elapsedSeconds, sendSignal]);
 
-  const retryConnection = useCallback(async () => {
-    const sessionId = currentSessionId;
-    const connection = peerConnectionRef.current;
-    if (!sessionId || !connection || !args.peerUserId || !panel) return;
-    setBusy("call-retry");
-    setErrorMessage("네트워크 복구를 시도하고 있습니다.");
-    setTransportState("connecting");
-    try {
-      const offer = await connection.createOffer({
-        iceRestart: true,
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: panel.kind === "video",
-      });
-      await connection.setLocalDescription(offer);
-      await sendSignal(sessionId, args.peerUserId, "offer", { sdp: offer.sdp ?? "" });
-    } finally {
-      setBusy(null);
-    }
-  }, [args.peerUserId, currentSessionId, panel, sendSignal]);
+  const retryConnection = useCallback(
+    async (fromAutoScheduledAttempt?: number) => {
+      const sessionId = currentSessionId;
+      if (!sessionId || !args.peerUserId || !panel) return;
+
+      if (fromAutoScheduledAttempt !== undefined && fromAutoScheduledAttempt >= 2) {
+        setBusy("call-retry");
+        setErrorMessage("네트워크 복구를 시도하고 있습니다. (릴레이 경로)");
+        setTransportState("connecting");
+        try {
+          peerConnectionRef.current?.close();
+          peerConnectionRef.current = null;
+          pendingCandidatesRef.current = [];
+          iceRestartCountForMetricsRef.current += 1;
+          messengerMonitorCallIceRestart(sessionId, iceRestartCountForMetricsRef.current);
+          messengerMonitorCallTurnFallback(sessionId);
+          const conn = await ensurePeerConnection(panel.kind, sessionId, args.peerUserId, {
+            replaceExisting: true,
+            iceTransportPolicy: "relay",
+          });
+          const offer = await conn.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: panel.kind === "video",
+          });
+          await conn.setLocalDescription(offer);
+          await sendSignal(sessionId, args.peerUserId, "offer", { sdp: offer.sdp ?? "" });
+        } finally {
+          setBusy(null);
+        }
+        return;
+      }
+
+      const connection = peerConnectionRef.current;
+      if (!connection) return;
+      setBusy("call-retry");
+      setErrorMessage("네트워크 복구를 시도하고 있습니다.");
+      setTransportState("connecting");
+      try {
+        iceRestartCountForMetricsRef.current += 1;
+        messengerMonitorCallIceRestart(sessionId, iceRestartCountForMetricsRef.current);
+        const offer = await connection.createOffer({
+          iceRestart: true,
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: panel.kind === "video",
+        });
+        await connection.setLocalDescription(offer);
+        await sendSignal(sessionId, args.peerUserId, "offer", { sdp: offer.sdp ?? "" });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [args.peerUserId, currentSessionId, ensurePeerConnection, panel, sendSignal]
+  );
 
   useEffect(() => {
     if (!panel?.sessionId) {
       clearPendingAutoRetry();
       autoRetryAttemptRef.current = 0;
+      setAutoRetryAttempt(0);
       return;
     }
     if (panel.mode === "incoming") {
@@ -1076,6 +1167,7 @@ export function useCommunityMessengerCall(args: {
     if (transportState === "connected") {
       clearPendingAutoRetry();
       autoRetryAttemptRef.current = 0;
+      setAutoRetryAttempt(0);
       return;
     }
     if ((transportState !== "disconnected" && transportState !== "failed") || busy === "call-retry") {
@@ -1087,22 +1179,38 @@ export function useCommunityMessengerCall(args: {
     autoRetryTimerRef.current = window.setTimeout(() => {
       autoRetryTimerRef.current = null;
       autoRetryAttemptRef.current += 1;
-      void retryConnection();
+      const next = autoRetryAttemptRef.current;
+      setAutoRetryAttempt(next);
+      void retryConnection(next);
     }, transportState === "failed" ? 400 : 1200);
     return () => {
       clearPendingAutoRetry();
     };
   }, [busy, clearPendingAutoRetry, panel?.mode, panel?.sessionId, retryConnection, transportState]);
 
+  const { phase: callSessionPhase, context: callSessionContext } = useMemo(
+    () =>
+      deriveCallSessionPhase({
+        panel: panel ? { mode: panel.mode } : null,
+        transportState,
+        busy,
+        autoRetryAttempt,
+      }),
+    [busy, panel, transportState, autoRetryAttempt]
+  );
+
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";
-    if (panel.mode === "dialing") return "상대방에게 거는 중";
-    if (panel.mode === "incoming") return "수신 전화";
-    if (panel.mode === "connecting") return "연결 중";
-    return "통화 진행 중";
-  }, [panel]);
+    return callSessionPhaseLabel(callSessionPhase, callSessionContext.direction);
+  }, [callSessionContext.direction, callSessionPhase, panel]);
 
   const connectionBadge = useMemo(() => {
+    if (callSessionPhase === "reconnecting") {
+      return { label: "재연결 중", tone: "poor" as const };
+    }
+    if (callSessionPhase === "failed") {
+      return { label: "연결 실패", tone: "poor" as const };
+    }
     if (transportState === "connected") {
       if (callQuality === "good") return { label: "연결 좋음", tone: "good" as const };
       if (callQuality === "poor") return { label: "연결 약함", tone: "poor" as const };
@@ -1112,7 +1220,7 @@ export function useCommunityMessengerCall(args: {
     if (transportState === "disconnected") return { label: "끊김 감지", tone: "poor" as const };
     if (transportState === "failed") return { label: "연결 실패", tone: "poor" as const };
     return null;
-  }, [callQuality, transportState]);
+  }, [callQuality, callSessionPhase, transportState]);
 
   return {
     panel,
@@ -1125,6 +1233,8 @@ export function useCommunityMessengerCall(args: {
     remoteVideoRef,
     remoteAudioRef,
     callStatusLabel,
+    callSessionPhase,
+    callSessionContext,
     connectionBadge,
     prepareDevices,
     dismissPanel,

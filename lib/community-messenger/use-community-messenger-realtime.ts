@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * Realtime 정책 (커뮤니티 메신저)
+ *
+ * - **구독 수**: 홈은 방 id 를 `in.(…)` 청크로 묶어 WS 채널 수를 줄임 (`HOME_ROOMS_IN_FILTER_MAX`).
+ * - **방 번들**: 방당 단일 채널에 messages / participants / rooms / call_* postgres_changes 를 묶음.
+ * - **메타 refresh**: 멤버·방 설정 변경은 연속 이벤트가 많아 **디바운스(약 650ms 홈 / 800ms 방)** 로 `onRefresh` 호출을 합침 — 전체 HTTP 스냅샷 폭주 방지.
+ * - **메시지**: INSERT/UPDATE/DELETE 는 콜백으로만 처리; 파싱 실패 시에만 짧은 지연 refresh.
+ * - **typing / presence**: 현재 스키마 훅에 없음 — 추가 시 **별 토픽·초경량 페이로드**만 (전체 방 refresh 금지).
+ *
+ * 상세: `docs/messenger-realtime-policy.md`
+ */
+
 import { useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -254,19 +266,16 @@ export function useCommunityMessengerRoomRealtime(args: {
     /** 메시지 파싱 실패 등 예외 시에만 짧은 지연으로 스냅샷 재동기화 */
     const messageFallbackRefreshScheduler = createRefreshScheduler(callbackRef, 200);
     /** 멤버·방 설정 변경은 연속 이벤트가 많아 길게 묶음 → /rooms GET 부담 감소 */
-    const metaRefreshScheduler = createRefreshScheduler(callbackRef, 550);
+    const metaRefreshScheduler = createRefreshScheduler(callbackRef, 800);
     const callRefreshScheduler = createRefreshScheduler(callbackRef, 0);
     /** 음성 INSERT 직후 GET 이 비는 경우 대비 — 지연 refresh 로 채팅 목록·스냅샷을 한 번 더 맞춤 */
     const voiceRefreshScheduler = createRefreshScheduler(callbackRef, 500);
     const channels: RealtimeChannel[] = [];
 
-    const subscribe = (name: string, register: (channel: RealtimeChannel) => RealtimeChannel) => {
-      const channel = register(sb.channel(name)).subscribe();
-      channels.push(channel);
-    };
-
-    subscribe(`community-messenger-room:messages:${args.roomId}`, (channel) =>
-      channel.on(
+    /** 한 Realtime 채널에 postgres_changes 만 묶어 WS 구독 수를 줄임 */
+    const roomChannel = sb
+      .channel(`community-messenger-room:bundle:${args.roomId}`)
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -285,9 +294,6 @@ export function useCommunityMessengerRoomRealtime(args: {
               eventType,
               message: nextMessage,
             });
-            /* 통화 세션은 스냅샷의 activeCall 로만 오버레이·수락이 열린다. call_stub 만 로컬 병합하고
-             * refresh 를 생략하면 수신 측이 채팅 줄만 갱신되고 통화 UI 가 안 뜨는 경우가 있다.
-             * 음성은 먼저 로컬 병합 후, 짧은 지연으로 refresh 해 상대·채팅 목록이 비지 않게 보조한다. */
             if (nextMessage.messageType === "call_stub" && !cancelled) {
               callRefreshScheduler.schedule();
             }
@@ -299,10 +305,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           if (!cancelled) messageFallbackRefreshScheduler.schedule();
         }
       )
-    );
-
-    subscribe(`community-messenger-room:participants:${args.roomId}`, (channel) =>
-      channel.on(
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -314,10 +317,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           if (!cancelled) metaRefreshScheduler.schedule();
         }
       )
-    );
-
-    subscribe(`community-messenger-room:rooms:${args.roomId}`, (channel) =>
-      channel.on(
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -329,10 +329,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           if (!cancelled) metaRefreshScheduler.schedule();
         }
       )
-    );
-
-    subscribe(`community-messenger-room:calls:${args.roomId}`, (channel) =>
-      channel.on(
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -344,10 +341,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           if (!cancelled) callRefreshScheduler.schedule();
         }
       )
-    );
-
-    subscribe(`community-messenger-room:call-sessions:${args.roomId}`, (channel) =>
-      channel.on(
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -359,10 +353,7 @@ export function useCommunityMessengerRoomRealtime(args: {
           if (!cancelled) callRefreshScheduler.schedule();
         }
       )
-    );
-
-    subscribe(`community-messenger-room:call-session-participants:${args.roomId}`, (channel) =>
-      channel.on(
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -374,7 +365,8 @@ export function useCommunityMessengerRoomRealtime(args: {
           if (!cancelled) callRefreshScheduler.schedule();
         }
       )
-    );
+      .subscribe();
+    channels.push(roomChannel);
 
     return () => {
       cancelled = true;

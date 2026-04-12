@@ -7,9 +7,12 @@ import {
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
+import { fetchMessengerIceServers } from "@/lib/call/ice-servers";
+import { buildMessengerRtcConfiguration } from "@/lib/call/webrtc-configuration";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { playCommunityMessengerCallSignalSound } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
   CommunityMessengerCallKind,
@@ -17,6 +20,12 @@ import type {
   CommunityMessengerCallSession,
   CommunityMessengerCallSignal,
 } from "@/lib/community-messenger/types";
+import {
+  messengerMonitorCallConnection,
+  messengerMonitorCallPacketLoss,
+  messengerMonitorCallReconnect,
+} from "@/lib/community-messenger/monitoring/client";
+import { estimateInboundPacketLossPercent } from "@/lib/community-messenger/monitoring/webrtc-stats";
 
 type GroupCallPanelState = {
   kind: CommunityMessengerCallKind;
@@ -48,13 +57,6 @@ const CALL_RING_TIMEOUT_MS = 35_000;
 const GROUP_CALL_SIGNAL_POLL_MS_REALTIME_OK = 7_000;
 const GROUP_CALL_SIGNAL_POLL_MS_FALLBACK = 2_000;
 const GROUP_CALL_SIGNAL_POLL_MS_HIDDEN_TAB = 14_000;
-const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
-  { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
-];
-
-let cachedIceServers: RTCIceServer[] | null = null;
-let cachedIceServersPromise: Promise<RTCIceServer[]> | null = null;
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -71,34 +73,6 @@ function readSessionDescription(
   const sdp = typeof payload.sdp === "string" ? payload.sdp.trim() : "";
   if (!sdp) return null;
   return { type: expectedType, sdp };
-}
-
-async function getCommunityMessengerIceServers(): Promise<RTCIceServer[]> {
-  if (cachedIceServers) return cachedIceServers;
-  if (cachedIceServersPromise) return cachedIceServersPromise;
-  cachedIceServersPromise = fetch("/api/community-messenger/calls/ice-servers", {
-    cache: "no-store",
-  })
-    .then(async (res) => {
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        iceServers?: RTCIceServer[];
-      };
-      if (!res.ok || !json.ok || !Array.isArray(json.iceServers) || json.iceServers.length === 0) {
-        cachedIceServers = DEFAULT_ICE_SERVERS;
-        return cachedIceServers;
-      }
-      cachedIceServers = json.iceServers;
-      return cachedIceServers;
-    })
-    .catch(() => {
-      cachedIceServers = DEFAULT_ICE_SERVERS;
-      return cachedIceServers;
-    })
-    .finally(() => {
-      cachedIceServersPromise = null;
-    });
-  return cachedIceServersPromise;
 }
 
 function shouldCreateOffer(selfUserId: string, peerUserId: string): boolean {
@@ -126,6 +100,10 @@ export function useCommunityMessengerGroupCall(args: Props) {
     id: string;
     status: CommunityMessengerCallSession["status"];
   } | null>(null);
+  const sessionDialStartRef = useRef<number | null>(null);
+  const firstConnectionRecordedRef = useRef(false);
+  const peerStatePrevRef = useRef<Record<string, PeerTransportState>>({});
+  const reconnectAccumulatorRef = useRef(0);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
   const participants = args.activeCall?.participants ?? [];
@@ -271,9 +249,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
     async (kind: CommunityMessengerCallKind, sessionId: string, peer: CommunityMessengerCallParticipant) => {
       const existing = peerConnectionsRef.current.get(peer.userId);
       if (existing) return existing;
-      const stream = await ensureLocalStream(kind);
-      const iceServers = await getCommunityMessengerIceServers();
-      const connection = new RTCPeerConnection({ iceServers });
+      const [stream, iceServers] = await Promise.all([ensureLocalStream(kind), fetchMessengerIceServers()]);
+      const connection = new RTCPeerConnection(buildMessengerRtcConfiguration(iceServers));
       const nextRemoteStream = new MediaStream();
       remoteStreamsRef.current.set(peer.userId, nextRemoteStream);
       syncRemotePeerState(peer.userId, peer.label, nextRemoteStream);
@@ -333,13 +310,15 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!connection || !connection.remoteDescription) return;
     const queue = pendingCandidatesRef.current.get(peerUserId) ?? [];
     pendingCandidatesRef.current.set(peerUserId, []);
-    for (const candidate of queue) {
-      try {
-        await connection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch {
-        /* ignore candidate failures */
-      }
-    }
+    await Promise.all(
+      queue.map(async (candidate) => {
+        try {
+          await connection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch {
+          /* ignore candidate failures */
+        }
+      })
+    );
   }, []);
 
   const createOfferForPeer = useCallback(
@@ -506,17 +485,22 @@ export function useCommunityMessengerGroupCall(args: Props) {
     const timer = setTimeout(() => {
       void (async () => {
         try {
-          await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(args.activeCall!.id)}`, {
+          const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(args.activeCall!.id)}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "missed" }),
           });
+          const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+          if (!patchRes.ok || !patchJson.ok) {
+            setErrorMessage(MESSENGER_CALL_USER_MSG.groupRingEndFailed);
+            return;
+          }
           cleanupMedia();
           setPanel(null);
           setErrorMessage("참여자가 없어 그룹 통화 호출을 종료했습니다.");
           await args.onRefresh();
         } catch {
-          /* ignore timeout failure */
+          setErrorMessage(MESSENGER_CALL_USER_MSG.groupRingEndFailed);
         }
       })();
     }, CALL_RING_TIMEOUT_MS);
@@ -545,13 +529,35 @@ export function useCommunityMessengerGroupCall(args: Props) {
     let cancelled = false;
     let backoffUntil = 0;
     let timerId: number | null = null;
+    let signalPollFailStreak = 0;
+    let signalSoftErrorActive = false;
+
+    const markSignalPollFailure = () => {
+      signalPollFailStreak += 1;
+      if (signalPollFailStreak >= 8 && !signalSoftErrorActive) {
+        signalSoftErrorActive = true;
+        setErrorMessage((prev) => prev ?? SIGNAL_POLL_SOFT_ERROR);
+      }
+    };
+
+    const markSignalPollSuccess = () => {
+      signalPollFailStreak = 0;
+      if (signalSoftErrorActive) {
+        signalSoftErrorActive = false;
+        setErrorMessage((prev) => (prev === SIGNAL_POLL_SOFT_ERROR ? null : prev));
+      }
+    };
 
     async function bootstrapSignals() {
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
         cache: "no-store",
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
-      if (!res.ok || !json.ok) return;
+      if (!res.ok || !json.ok) {
+        markSignalPollFailure();
+        return;
+      }
+      markSignalPollSuccess();
       for (const signal of json.signals ?? []) {
         if (cancelled) break;
         await applySignal(signal);
@@ -577,17 +583,22 @@ export function useCommunityMessengerGroupCall(args: Props) {
           const ra = res.headers.get("Retry-After");
           const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
           backoffUntil = Date.now() + sec * 1000;
+          markSignalPollFailure();
           return;
         }
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
-        if (!res.ok || !json.ok) return;
+        if (!res.ok || !json.ok) {
+          markSignalPollFailure();
+          return;
+        }
+        markSignalPollSuccess();
         backoffUntil = 0;
         for (const signal of json.signals ?? []) {
           if (cancelled) break;
           await applySignal(signal);
         }
       } catch {
-        /* ignore */
+        markSignalPollFailure();
       }
     }
 
@@ -782,11 +793,16 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!args.enabled || !activeCall) return;
     setBusy("call-reject");
     try {
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
+      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
       });
+      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!patchRes.ok || !patchJson.ok) {
+        setErrorMessage(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+        return;
+      }
       cleanupMedia();
       setPanel(null);
       await args.onRefresh();
@@ -800,11 +816,16 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!args.enabled || !sessionId) return;
     setBusy("call-cancel");
     try {
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "cancel" }),
       });
+      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!patchRes.ok || !patchJson.ok) {
+        setErrorMessage(MESSENGER_CALL_USER_MSG.groupCancelFailed);
+        return;
+      }
       cleanupMedia();
       setPanel(null);
       await args.onRefresh();
@@ -819,9 +840,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("call-end");
     try {
       for (const peer of joinedParticipants) {
-        await sendSignal(sessionId, peer.userId, "hangup", { reason: "leave" });
+        try {
+          await sendSignal(sessionId, peer.userId, "hangup", { reason: "leave" });
+        } catch {
+          /* 개별 hangup 실패는 PATCH 종료로 정리 */
+        }
       }
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -829,6 +854,11 @@ export function useCommunityMessengerGroupCall(args: Props) {
           durationSeconds: elapsedSeconds,
         }),
       });
+      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!patchRes.ok || !patchJson.ok) {
+        setErrorMessage(MESSENGER_CALL_USER_MSG.groupEndFailed);
+        return;
+      }
       cleanupMedia();
       setPanel(null);
       await args.onRefresh();
@@ -891,6 +921,63 @@ export function useCommunityMessengerGroupCall(args: Props) {
       void playCommunityMessengerCallSignalSound("call_end", { dedupeSessionId: sid });
     }
   }, [args.activeCall?.id, args.activeCall?.sessionMode, args.activeCall?.status, args.enabled]);
+
+  useEffect(() => {
+    sessionDialStartRef.current = null;
+    firstConnectionRecordedRef.current = false;
+    peerStatePrevRef.current = {};
+    reconnectAccumulatorRef.current = 0;
+  }, [currentSessionId]);
+
+  useEffect(() => {
+    if (!args.enabled || !currentSessionId || !panel) return;
+    if (panel.mode === "connecting" || panel.mode === "active") {
+      if (sessionDialStartRef.current === null) sessionDialStartRef.current = Date.now();
+    }
+  }, [args.enabled, currentSessionId, panel?.mode]);
+
+  useEffect(() => {
+    if (!currentSessionId || firstConnectionRecordedRef.current) return;
+    const remotes = joinedParticipants.map((p) => p.userId);
+    if (remotes.length === 0) return;
+    const allOk = remotes.every((uid) => peerStates[uid] === "connected");
+    if (allOk && sessionDialStartRef.current) {
+      firstConnectionRecordedRef.current = true;
+      messengerMonitorCallConnection(currentSessionId, Date.now() - sessionDialStartRef.current);
+    }
+  }, [currentSessionId, joinedParticipants, peerStates]);
+
+  useEffect(() => {
+    if (!currentSessionId) return;
+    const prevSnap = { ...peerStatePrevRef.current };
+    let delta = 0;
+    for (const uid of Object.keys(peerStates)) {
+      const cur = peerStates[uid];
+      const prev = prevSnap[uid];
+      if (prev && (prev === "disconnected" || prev === "failed") && cur === "connected") {
+        delta += 1;
+      }
+    }
+    peerStatePrevRef.current = { ...peerStates };
+    if (delta > 0) {
+      reconnectAccumulatorRef.current += delta;
+      messengerMonitorCallReconnect(currentSessionId, reconnectAccumulatorRef.current);
+    }
+  }, [currentSessionId, peerStates]);
+
+  useEffect(() => {
+    if (!args.enabled || panel?.mode !== "active" || !currentSessionId) return;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const pcs = [...peerConnectionsRef.current.values()];
+        const pc = pcs[0];
+        if (!pc) return;
+        const pct = await estimateInboundPacketLossPercent(pc);
+        if (pct != null) messengerMonitorCallPacketLoss(currentSessionId, pct);
+      })();
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [args.enabled, currentSessionId, panel?.mode]);
 
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";

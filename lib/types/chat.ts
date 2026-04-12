@@ -62,7 +62,13 @@ export interface GeneralChatMeta {
   contextType?: string | null;
 }
 
-export type ChatDomain = "trade" | "philife" | "store";
+/** UI/API 분기용 — `inferMessengerDomainFromChatRoom` 과 함께 사용 */
+export type ChatDomain =
+  | "trade"
+  | "philife"
+  | "store"
+  | "community"
+  | "store_order";
 
 export interface PhilifeChatMeta {
   kind: "meeting" | "direct" | "open_chat";

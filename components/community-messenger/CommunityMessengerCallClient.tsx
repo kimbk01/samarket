@@ -54,6 +54,7 @@ import {
 } from "@/lib/community-messenger/direct-call-minimize";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import { CallScreenShell, MESSENGER_CALL_GRADIENT_SURFACE } from "@/components/community-messenger/call-ui/CallScreenShell";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
@@ -442,14 +443,14 @@ export function CommunityMessengerCallClient({
   const toggleSpeakerEnabled = useCallback(() => {
     setSpeakerEnabled((prev) => !prev);
     if (typeof window !== "undefined" && !("setSinkId" in HTMLMediaElement.prototype)) {
-      window.alert("브라우저에서는 실제 출력 전환이 제한될 수 있습니다. 기기 오디오 설정도 함께 확인해 주세요.");
+      showMessengerSnackbar("브라우저에서는 실제 출력 전환이 제한될 수 있습니다. 기기 오디오 설정도 함께 확인해 주세요.");
     }
   }, []);
 
   const toggleBluetoothPreferred = useCallback(() => {
     setBluetoothPreferred((prev) => !prev);
     if (typeof window !== "undefined") {
-      window.alert("블루투스 연결은 브라우저보다 기기 오디오 출력 설정의 영향을 먼저 받습니다.");
+      showMessengerSnackbar("블루투스 연결은 브라우저보다 기기 오디오 출력 설정의 영향을 먼저 받습니다.");
     }
   }, []);
 
@@ -811,8 +812,8 @@ export function CommunityMessengerCallClient({
   }, [cleanupClient, joined, router, session]);
 
   const hintVideoCallFromVoiceUi = useCallback(() => {
-    window.alert(
-      "영상 통화는 채팅 화면 상단의 영상 통화 버튼으로 걸 수 있습니다.\n(음성 통화를 끝낸 뒤 이용해 주세요.)"
+    showMessengerSnackbar(
+      "영상 통화는 채팅 화면 상단의 영상 통화 버튼으로 걸 수 있습니다. (음성 통화를 끝낸 뒤 이용해 주세요.)"
     );
     navigateToChatDuringCall();
   }, [navigateToChatDuringCall]);
@@ -1177,7 +1178,9 @@ export function CommunityMessengerCallClient({
                     type="button"
                     onClick={() => {
                       if (!openCommunityMessengerPermissionSettings()) {
-                        window.alert("브라우저 설정에서 이 사이트의 마이크·카메라 권한을 허용해 주세요.");
+                        showMessengerSnackbar("브라우저 설정에서 이 사이트의 마이크·카메라 권한을 허용해 주세요.", {
+                          variant: "error",
+                        });
                       }
                     }}
                     className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-sam-surface/15 transition active:scale-[0.96]"
@@ -1188,9 +1191,7 @@ export function CommunityMessengerCallClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      window.alert("오디오 출력은 기기 설정에서 바꿀 수 있습니다.")
-                    }
+                    onClick={() => showMessengerSnackbar("오디오 출력은 기기 설정에서 바꿀 수 있습니다.")}
                     className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-sam-surface/15 transition active:scale-[0.96]"
                     aria-label="스피커 안내"
                     title="출력 음량·스피커"
@@ -1472,7 +1473,7 @@ export function CommunityMessengerCallClient({
                     <ViberOutlineCallButton
                       label="전환"
                       onClick={() =>
-                        window.alert("통화 전환(다른 번호로 돌리기)는 추후 지원 예정입니다.")
+                        showMessengerSnackbar("통화 전환(다른 번호로 돌리기)는 추후 지원 예정입니다.")
                       }
                       icon={<PhoneTransferIcon className="h-6 w-6" />}
                     />

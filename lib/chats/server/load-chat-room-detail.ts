@@ -26,6 +26,11 @@ import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-crite
 import { applyBuyerAutoConfirmForRoom } from "@/lib/trade/apply-buyer-auto-confirm";
 import { applyProductChatTimeTransitions } from "@/lib/trade/apply-product-chat-time-transitions";
 import { reservedBuyerIdFromPost } from "@/lib/trade/reserved-item-chat";
+import {
+  inferMessengerDomainFromChatRoom,
+  type MessengerDomain,
+  MESSENGER_MONITORING_LABEL_DOMAIN,
+} from "@/lib/chat-domain/messenger-domains";
 import type { ChatRoom, GeneralChatMeta } from "@/lib/types/chat";
 import { getChatServiceRoleSupabase } from "./service-role-supabase";
 import { parseRoomId } from "@/lib/validate-params";
@@ -50,12 +55,29 @@ export type LoadChatRoomDetailResult =
   | LoadChatRoomDetailSuccess
   | LoadChatRoomDetailError;
 
+export type ChatRoomDetailScope = "full" | "entry";
+
 function ok(room: ChatRoom, cacheHit = false): LoadChatRoomDetailSuccess {
   return { ok: true, room, cacheHit };
 }
 
 function fail(status: number, error: string): LoadChatRoomDetailError {
   return { ok: false, status, error };
+}
+
+function logChatRoomDetailPerf(args: {
+  roomId: string;
+  userId: string;
+  branch: string;
+  domain: MessengerDomain | "unknown";
+  detailScope: ChatRoomDetailScope;
+  elapsedMs: number;
+  cacheHit?: boolean;
+  ok?: boolean;
+  status?: number;
+}): void {
+  if (process.env.CHAT_PERF_LOG !== "1") return;
+  console.info("[chat.room.detail]", args);
 }
 
 async function chatProductFromPostEnriched(
@@ -111,8 +133,6 @@ function scheduleProductChatTransitionsIfCooldownAllows(
   })();
 }
 
-export type ChatRoomDetailScope = "full" | "entry";
-
 export async function loadChatRoomDetailForUser(input: {
   roomId: string;
   userId: string;
@@ -123,20 +143,53 @@ export async function loadChatRoomDetailForUser(input: {
   detailScope?: ChatRoomDetailScope;
 }): Promise<LoadChatRoomDetailResult> {
   const startedAt = Date.now();
-  const roomId = parseRoomId(input.roomId);
-  if (!roomId) return fail(400, "roomId 형식이 올바르지 않습니다.");
-
   const detailScope: ChatRoomDetailScope = input.detailScope ?? "full";
+  const roomId = parseRoomId(input.roomId);
+  if (!roomId) {
+    logChatRoomDetailPerf({
+      roomId: String(input.roomId ?? "").slice(0, 64),
+      userId: input.userId,
+      branch: "bad-room-id",
+      domain: "unknown",
+      detailScope,
+      ok: false,
+      status: 400,
+      elapsedMs: Date.now() - startedAt,
+    });
+    return fail(400, "roomId 형식이 올바르지 않습니다.");
+  }
+
   const cacheKey = `${input.userId}:${roomId}`;
   if (detailScope === "full") {
     const cached = roomDetailCache.get(cacheKey);
     if (cached && Date.now() - cached.at < ROOM_DETAIL_CACHE_TTL_MS) {
+      logChatRoomDetailPerf({
+        roomId,
+        userId: input.userId,
+        branch: "cache-hit",
+        domain: inferMessengerDomainFromChatRoom(cached.payload),
+        detailScope,
+        cacheHit: true,
+        elapsedMs: Date.now() - startedAt,
+      });
       return ok(cached.payload, true);
     }
   }
 
   const sb = getChatServiceRoleSupabase();
-  if (!sb) return fail(500, "서버 설정 필요");
+  if (!sb) {
+    logChatRoomDetailPerf({
+      roomId,
+      userId: input.userId,
+      branch: "no-supabase",
+      domain: "unknown",
+      detailScope,
+      ok: false,
+      status: 500,
+      elapsedMs: Date.now() - startedAt,
+    });
+    return fail(500, "서버 설정 필요");
+  }
   const sbAny = sb as SupabaseClient<any>;
 
   const { data: r, error } = await sbAny
@@ -272,15 +325,14 @@ export async function loadChatRoomDetailForUser(input: {
         if (detailScope === "full") {
           roomDetailCache.set(cacheKey, { at: Date.now(), payload });
         }
-        if (process.env.CHAT_PERF_LOG === "1") {
-          console.info("[chat.room.detail]", {
-            roomId,
-            userId: input.userId,
-            branch: "trade-crsame",
-            detailScope,
-            elapsedMs: Date.now() - startedAt,
-          });
-        }
+        logChatRoomDetailPerf({
+          roomId,
+          userId: input.userId,
+          branch: "trade-crsame",
+          domain: inferMessengerDomainFromChatRoom(payload),
+          detailScope,
+          elapsedMs: Date.now() - startedAt,
+        });
         return ok(payload);
       }
     }
@@ -379,15 +431,14 @@ export async function loadChatRoomDetailForUser(input: {
     if (detailScope === "full") {
       roomDetailCache.set(cacheKey, { at: Date.now(), payload });
     }
-    if (process.env.CHAT_PERF_LOG === "1") {
-      console.info("[chat.room.detail]", {
-        roomId,
-        userId: input.userId,
-        branch: "trade-legacy",
-        detailScope,
-        elapsedMs: Date.now() - startedAt,
-      });
-    }
+    logChatRoomDetailPerf({
+      roomId,
+      userId: input.userId,
+      branch: "trade-legacy",
+      domain: inferMessengerDomainFromChatRoom(payload),
+      detailScope,
+      elapsedMs: Date.now() - startedAt,
+    });
     return ok(payload);
   }
 
@@ -399,6 +450,16 @@ export async function loadChatRoomDetailForUser(input: {
     .eq("id", roomId)
     .maybeSingle();
   if (crErr || !cr) {
+    logChatRoomDetailPerf({
+      roomId,
+      userId: input.userId,
+      branch: "chat_room-not-found",
+      domain: "unknown",
+      detailScope,
+      ok: false,
+      status: 404,
+      elapsedMs: Date.now() - startedAt,
+    });
     return fail(404, "채팅방을 찾을 수 없습니다.");
   }
 
@@ -437,6 +498,16 @@ export async function loadChatRoomDetailForUser(input: {
     };
     const accessSo = await ensureStoreOrderChatRoomAccessForUser(sbAny, roomId, input.userId);
     if (!accessSo.ok) {
+      logChatRoomDetailPerf({
+        roomId,
+        userId: input.userId,
+        branch: "store_order-forbidden",
+        domain: MESSENGER_MONITORING_LABEL_DOMAIN.store_order,
+        detailScope,
+        ok: false,
+        status: 403,
+        elapsedMs: Date.now() - startedAt,
+      });
       return fail(403, "참여자가 아닙니다.");
     }
     const sRow = accessSo.sellerId;
@@ -493,7 +564,7 @@ export async function loadChatRoomDetailForUser(input: {
           oid || crSo.id
         ),
         source: "chat_room",
-        chatDomain: "store",
+        chatDomain: "store_order",
         roomTitle: titleSo,
         roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
         buyerReviewSubmitted: false,
@@ -517,6 +588,14 @@ export async function loadChatRoomDetailForUser(input: {
       if (detailScope === "full") {
         roomDetailCache.set(cacheKey, { at: Date.now(), payload });
       }
+      logChatRoomDetailPerf({
+        roomId,
+        userId: input.userId,
+        branch: "store-order",
+        domain: inferMessengerDomainFromChatRoom(payload),
+        detailScope,
+        elapsedMs: Date.now() - startedAt,
+      });
       return ok(payload);
     }
     partnerDispSo = partnerDisplayFromMap(await partnerPromise, partnerIdSo, partnerIdSo.slice(0, 8));
@@ -539,7 +618,7 @@ export async function loadChatRoomDetailForUser(input: {
         oid || crSo.id
       ),
       source: "chat_room",
-      chatDomain: "store",
+      chatDomain: "store_order",
       roomTitle: titleSo,
       roomSubtitle: "배달채팅",
       buyerReviewSubmitted: false,
@@ -563,16 +642,44 @@ export async function loadChatRoomDetailForUser(input: {
     if (detailScope === "full") {
       roomDetailCache.set(cacheKey, { at: Date.now(), payload });
     }
+    logChatRoomDetailPerf({
+      roomId,
+      userId: input.userId,
+      branch: "store-order-fallback",
+      domain: inferMessengerDomainFromChatRoom(payload),
+      detailScope,
+      elapsedMs: Date.now() - startedAt,
+    });
     return ok(payload);
   }
 
   if (roomType !== "item_trade") {
+    logChatRoomDetailPerf({
+      roomId,
+      userId: input.userId,
+      branch: `unsupported-room-type:${roomType || "empty"}`,
+      domain: "unknown",
+      detailScope,
+      ok: false,
+      status: 404,
+      elapsedMs: Date.now() - startedAt,
+    });
     return fail(404, "지원하지 않는 채팅 유형입니다.");
   }
 
   const crRow = cr as { seller_id: string | null; buyer_id: string | null };
   const crIds = [crRow.seller_id, crRow.buyer_id].filter(Boolean) as string[];
   if (!crIds.includes(input.userId)) {
+    logChatRoomDetailPerf({
+      roomId,
+      userId: input.userId,
+      branch: "item_trade-forbidden",
+      domain: MESSENGER_MONITORING_LABEL_DOMAIN.trade,
+      detailScope,
+      ok: false,
+      status: 403,
+      elapsedMs: Date.now() - startedAt,
+    });
     return fail(403, "참여자가 아닙니다.");
   }
   const itemIdRaw = String((cr as { item_id: string | null }).item_id ?? "").trim();
@@ -674,14 +781,13 @@ export async function loadChatRoomDetailForUser(input: {
   if (detailScope === "full") {
     roomDetailCache.set(cacheKey, { at: Date.now(), payload });
   }
-  if (process.env.CHAT_PERF_LOG === "1") {
-    console.info("[chat.room.detail]", {
-      roomId,
-      userId: input.userId,
-      branch: "trade-item",
-      detailScope,
-      elapsedMs: Date.now() - startedAt,
-    });
-  }
+  logChatRoomDetailPerf({
+    roomId,
+    userId: input.userId,
+    branch: "trade-item",
+    domain: inferMessengerDomainFromChatRoom(payload),
+    detailScope,
+    elapsedMs: Date.now() - startedAt,
+  });
   return ok(payload);
 }

@@ -32,6 +32,10 @@ export async function GET(req: NextRequest) {
   const turnUrls = parseUrls(
     process.env.COMMUNITY_MESSENGER_TURN_URLS ?? process.env.NEXT_PUBLIC_COMMUNITY_MESSENGER_TURN_URLS
   );
+  /** 주 TURN 실패·NAT 대칭 구간 대비 보조 릴레이(동일 또는 별도 Coturn 등) */
+  const turnUrlsFallback = parseUrls(
+    process.env.COMMUNITY_MESSENGER_TURN_FALLBACK_URLS ?? process.env.NEXT_PUBLIC_COMMUNITY_MESSENGER_TURN_FALLBACK_URLS
+  );
   const turnUsername =
     process.env.COMMUNITY_MESSENGER_TURN_USERNAME?.trim() ??
     process.env.NEXT_PUBLIC_COMMUNITY_MESSENGER_TURN_USERNAME?.trim() ??
@@ -40,6 +44,14 @@ export async function GET(req: NextRequest) {
     process.env.COMMUNITY_MESSENGER_TURN_CREDENTIAL?.trim() ??
     process.env.NEXT_PUBLIC_COMMUNITY_MESSENGER_TURN_CREDENTIAL?.trim() ??
     "";
+  const turnUsernameFallback =
+    process.env.COMMUNITY_MESSENGER_TURN_FALLBACK_USERNAME?.trim() ??
+    process.env.NEXT_PUBLIC_COMMUNITY_MESSENGER_TURN_FALLBACK_USERNAME?.trim() ??
+    turnUsername;
+  const turnCredentialFallback =
+    process.env.COMMUNITY_MESSENGER_TURN_FALLBACK_CREDENTIAL?.trim() ??
+    process.env.NEXT_PUBLIC_COMMUNITY_MESSENGER_TURN_FALLBACK_CREDENTIAL?.trim() ??
+    turnCredential;
 
   const iceServers: RTCIceServer[] = [];
   if (stunUrls.length) {
@@ -52,10 +64,28 @@ export async function GET(req: NextRequest) {
       credential: turnCredential,
     });
   }
+  if (turnUrlsFallback.length && turnUsernameFallback && turnCredentialFallback) {
+    const sameAsPrimary =
+      turnUrls.length > 0 &&
+      turnUrls.join("\0") === turnUrlsFallback.join("\0") &&
+      turnUsername === turnUsernameFallback &&
+      turnCredential === turnCredentialFallback;
+    if (!sameAsPrimary) {
+      iceServers.push({
+        urls: turnUrlsFallback,
+        username: turnUsernameFallback,
+        credential: turnCredentialFallback,
+      });
+    }
+  }
+
+  const turnPrimaryOk = turnUrls.length > 0 && Boolean(turnUsername && turnCredential);
+  const turnFallbackOk =
+    turnUrlsFallback.length > 0 && Boolean(turnUsernameFallback && turnCredentialFallback);
 
   return NextResponse.json({
     ok: true,
-    turnEnabled: turnUrls.length > 0 && Boolean(turnUsername && turnCredential),
+    turnEnabled: turnPrimaryOk || turnFallbackOk,
     iceServers,
   });
 }

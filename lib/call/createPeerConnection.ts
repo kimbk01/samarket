@@ -1,7 +1,9 @@
 import { fetchMessengerIceServers } from "./ice-servers";
+import { buildMessengerRtcConfiguration, type MessengerRtcConfigurationOptions } from "./webrtc-configuration";
 
 export type CreatePeerConnectionOptions = {
   iceServers?: RTCIceServer[];
+  rtcConfiguration?: MessengerRtcConfigurationOptions;
 };
 
 /**
@@ -9,5 +11,5 @@ export type CreatePeerConnectionOptions = {
  */
 export async function createMessengerPeerConnection(options?: CreatePeerConnectionOptions): Promise<RTCPeerConnection> {
   const iceServers = options?.iceServers ?? (await fetchMessengerIceServers());
-  return new RTCPeerConnection({ iceServers });
+  return new RTCPeerConnection(buildMessengerRtcConfiguration(iceServers, options?.rtcConfiguration));
 }

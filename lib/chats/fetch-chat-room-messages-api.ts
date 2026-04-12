@@ -186,27 +186,103 @@ export function updateLegacyChatRoomMessagesCache(roomId: string, messages: Chat
   writeMessageCache(legacyMessageCache, roomId, messages);
 }
 
-/** 통합 채팅방 GET …/api/chat/rooms/:id/messages (동시 호출 합류) */
-export function fetchIntegratedChatRoomMessages(roomId: string): Promise<ChatMessage[]> {
+/** 서버 기본과 동일 — 휴리스틱·쿼리에 공통 사용 */
+export const INTEGRATED_CHAT_MESSAGES_DEFAULT_LIMIT = 50;
+
+export type IntegratedChatHistoryCursor = { before: string; beforeCreatedAt: string };
+
+export type IntegratedMessagesPageResult = {
+  messages: ChatMessage[];
+  hasMore: boolean;
+  nextCursor: IntegratedChatHistoryCursor | null;
+};
+
+function parseIntegratedMessagesPayload(data: unknown): IntegratedMessagesPageResult {
+  const d = data as Record<string, unknown> | null;
+  const raw = Array.isArray(d?.messages) ? (d.messages as IntegratedRow[]) : [];
+  const messages = raw.map(mapIntegratedRow);
+  const hasMore = d?.hasMore === true;
+  const nc = d?.nextCursor as Record<string, unknown> | undefined;
+  const nextCursor =
+    nc && typeof nc.before === "string" && typeof nc.beforeCreatedAt === "string"
+      ? { before: nc.before, beforeCreatedAt: nc.beforeCreatedAt }
+      : null;
+  return { messages, hasMore, nextCursor };
+}
+
+/**
+ * 최신 페이지 + `hasMore` / `nextCursor`(과거 로드용) — 초기 GET 과 동일 single-flight.
+ */
+export function fetchIntegratedChatRoomMessagesWithMeta(
+  roomId: string,
+  opts?: { limit?: number }
+): Promise<IntegratedMessagesPageResult> {
+  const limit = Math.min(Math.max(opts?.limit ?? INTEGRATED_CHAT_MESSAGES_DEFAULT_LIMIT, 1), 100);
   const key = integratedMessagesKey(roomId);
   return runSingleFlight(key, async () => {
     try {
-      const res = await fetch(`/api/chat/rooms/${encodeURIComponent(roomId)}/messages`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!res.ok) return readMessageCache(integratedMessageCache, roomId) ?? [];
-      const data = await res.json();
-      const raw = Array.isArray(data?.messages) ? (data.messages as IntegratedRow[]) : [];
-      return writeMessageCache(
-        integratedMessageCache,
-        roomId,
-        raw.map(mapIntegratedRow)
+      const res = await fetch(
+        `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?limit=${limit}`,
+        { credentials: "include", cache: "no-store" }
       );
+      if (!res.ok) {
+        const cached = readMessageCache(integratedMessageCache, roomId);
+        return { messages: cached ?? [], hasMore: false, nextCursor: null };
+      }
+      const data = await res.json();
+      const parsed = parseIntegratedMessagesPayload(data);
+      writeMessageCache(integratedMessageCache, roomId, parsed.messages);
+      return parsed;
     } catch {
-      return readMessageCache(integratedMessageCache, roomId) ?? [];
+      const cached = readMessageCache(integratedMessageCache, roomId);
+      return { messages: cached ?? [], hasMore: false, nextCursor: null };
     }
   });
+}
+
+/** 과거 페이지 — 커서마다 별도 요청(single-flight 비적용) */
+export async function fetchIntegratedChatRoomMessagesPage(
+  roomId: string,
+  input: { cursor: IntegratedChatHistoryCursor; limit?: number }
+): Promise<IntegratedMessagesPageResult> {
+  const limit = Math.min(Math.max(input.limit ?? INTEGRATED_CHAT_MESSAGES_DEFAULT_LIMIT, 1), 100);
+  const params = new URLSearchParams({
+    limit: String(limit),
+    before: input.cursor.before,
+    beforeCreatedAt: input.cursor.beforeCreatedAt,
+  });
+  const res = await fetch(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?${params}`,
+    { credentials: "include", cache: "no-store" }
+  );
+  if (!res.ok) {
+    return { messages: [], hasMore: false, nextCursor: null };
+  }
+  const data = await res.json();
+  return parseIntegratedMessagesPayload(data);
+}
+
+/** 부트스트랩·캐시 등 `hasMore` 를 모를 때 — 한 페이지가 꽉 찼으면 과거가 더 있을 수 있음 */
+export function guessIntegratedHistoryMetaFromMessages(list: ChatMessage[]): {
+  hasMore: boolean;
+  nextCursor: IntegratedChatHistoryCursor | null;
+} {
+  if (list.length < INTEGRATED_CHAT_MESSAGES_DEFAULT_LIMIT) {
+    return { hasMore: false, nextCursor: null };
+  }
+  const oldest = list[0];
+  if (!oldest?.id || !oldest.createdAt) {
+    return { hasMore: false, nextCursor: null };
+  }
+  return {
+    hasMore: true,
+    nextCursor: { before: oldest.id, beforeCreatedAt: oldest.createdAt },
+  };
+}
+
+/** 통합 채팅방 GET …/api/chat/rooms/:id/messages (동시 호출 합류) */
+export function fetchIntegratedChatRoomMessages(roomId: string): Promise<ChatMessage[]> {
+  return fetchIntegratedChatRoomMessagesWithMeta(roomId).then((r) => r.messages);
 }
 
 /** 레거시 방 GET …/api/chat/room/:id/messages (동시 호출 합류) */

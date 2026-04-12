@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { MESSENGER_CALL_GRADIENT_SURFACE } from "@/lib/community-messenger/messenger-call-gradient";
 
 type Props = {
   /** 전체 화면 오버레이(수신·진행 통화 등) */
@@ -14,9 +15,7 @@ type Props = {
 /**
  * 통화 풀스크린 레이아웃 — safe-area, 배경만 통일. 내용은 자식에서 구성.
  */
-/** 음성 통화 풀스크린·수신 오버레이 배경 — `messenger-primary` 계열 딥 그라데이션 */
-export const MESSENGER_CALL_GRADIENT_SURFACE =
-  "bg-gradient-to-b from-[#5042c9] via-[#3d348c] to-[#1a1635] [box-shadow:inset_0_0_100px_rgba(115,96,242,0.08)]";
+export { MESSENGER_CALL_GRADIENT_SURFACE };
 
 const DEFAULT_OVERLAY_SURFACE = MESSENGER_CALL_GRADIENT_SURFACE;
 

@@ -56,7 +56,10 @@ import { ADMIN_CHAT_SUSPENDED_MESSAGE } from "@/lib/chat/chat-room-admin-suspend
 import {
   bustIntegratedChatMessagesCache,
   fetchIntegratedChatRoomMessages,
+  fetchIntegratedChatRoomMessagesPage,
+  fetchIntegratedChatRoomMessagesWithMeta,
   fetchLegacyChatRoomMessages,
+  guessIntegratedHistoryMetaFromMessages,
   CHAT_MESSAGE_CLIENT_CACHE_TTL_MS,
   hasFreshIntegratedChatRoomMessagesCache,
   hasFreshLegacyChatRoomMessagesCache,
@@ -104,6 +107,8 @@ interface ChatDetailViewProps {
   ownerStoreOrderModalChrome?: boolean;
   /** `ChatRoomScreen` 부트스트랩 직후 — 메시지 GET 이중 호출 방지 */
   initialBootstrapMessages?: ChatMessage[] | null;
+  /** false: 통합 채팅 Realtime 은 부트스트랩(또는 캐시) 준비 전 구독 안 함 */
+  tradeChatBootstrapReady?: boolean;
 }
 
 const OPTIMISTIC_MESSAGE_PREFIX = "local:";
@@ -152,6 +157,7 @@ export function ChatDetailView({
   tradeHubColumnLayout = false,
   ownerStoreOrderModalChrome: _ownerStoreOrderModalChrome = false,
   initialBootstrapMessages = null,
+  tradeChatBootstrapReady = true,
 }: ChatDetailViewProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -167,7 +173,17 @@ export function ChatDetailView({
   void _ownerStoreOrderModalChrome;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
+  /** 통합 거래방: 위로 스크롤해 과거 페이지 로드 중 */
+  const [integratedHistoryLoading, setIntegratedHistoryLoading] = useState(false);
   const chatEntryFirstPaintLoggedRef = useRef<string | null>(null);
+  /** 통합 거래방(주문 제외): `GET …/messages` 의 `nextCursor` — 과거 페이지 요청에 사용 */
+  const integratedHistoryRef = useRef<{
+    hasMore: boolean;
+    nextCursor: { before: string; beforeCreatedAt: string } | null;
+  }>({ hasMore: false, nextCursor: null });
+  const tradeThreadScrollRef = useRef<HTMLDivElement>(null);
+  const integratedHistoryLoadInFlightRef = useRef(false);
+  const integratedHistoryScrollTsRef = useRef(0);
   const partnerId =
     room.buyerId === currentUserId ? room.sellerId : room.buyerId;
   const isGeneralPurposeChat = room.generalChat != null;
@@ -419,6 +435,7 @@ export function ChatDetailView({
     mode: "integrated",
     /** store_order 는 order_chat_messages 축 — chat_messages Realtime 과 불일치 */
     enabled: isChatRoom && !isStoreOrderChat && !!currentUserId?.trim(),
+    bootstrapReady: tradeChatBootstrapReady,
     onMessage: onIntegratedRealtimeMessage,
     onMessageRemoved: onIntegratedRealtimeRemoved,
     onConnectionState: onIntegratedRealtimeConnectionState,
@@ -437,6 +454,8 @@ export function ChatDetailView({
     setListingError(null);
     setListingNotice(null);
     setSellerListingControlsEnabled(true);
+    integratedHistoryRef.current = { hasMore: false, nextCursor: null };
+    setIntegratedHistoryLoading(false);
   }, [room.id]);
 
   useEffect(() => {
@@ -540,7 +559,12 @@ export function ChatDetailView({
       );
     }
     if (isChatRoom) {
-      return fetchIntegratedChatRoomMessages(room.id);
+      const page = await fetchIntegratedChatRoomMessagesWithMeta(room.id);
+      integratedHistoryRef.current = {
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+      };
+      return page.messages;
     }
     const fromApi = await fetchLegacyChatRoomMessages(room.id);
     if (fromApi.length > 0) return fromApi;
@@ -567,6 +591,45 @@ export function ChatDetailView({
     return fetchLegacyChatRoomMessages(room.id);
   }, [room.id, room.buyerId, currentUserId, isChatRoom, isStoreOrderChat, storeOrderId]);
 
+  /** 통합 거래방: 상단 근처 스크롤 시 과거 메시지(키셋) 로드 */
+  const onTradeThreadScroll = useCallback(() => {
+    if (!isChatRoom || isStoreOrderChat) return;
+    const el = tradeThreadScrollRef.current;
+    if (!el || integratedHistoryLoadInFlightRef.current) return;
+    const { hasMore, nextCursor } = integratedHistoryRef.current;
+    if (!hasMore || !nextCursor) return;
+    const t = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (t - integratedHistoryScrollTsRef.current < 100) return;
+    if (el.scrollTop > 88) return;
+
+    integratedHistoryScrollTsRef.current = t;
+    integratedHistoryLoadInFlightRef.current = true;
+    setIntegratedHistoryLoading(true);
+    const prevH = el.scrollHeight;
+    const prevTop = el.scrollTop;
+
+    void fetchIntegratedChatRoomMessagesPage(room.id, { cursor: nextCursor })
+      .then((page) => {
+        integratedHistoryRef.current = {
+          hasMore: page.hasMore,
+          nextCursor: page.nextCursor,
+        };
+        setMessages((prev) => mergeChatMessagesById(page.messages, prev));
+        requestAnimationFrame(() => {
+          const el2 = tradeThreadScrollRef.current;
+          if (!el2) return;
+          el2.scrollTop = prevTop + (el2.scrollHeight - prevH);
+        });
+      })
+      .catch(() => {
+        /* 네트워크 오류 등 — 기존 스레드 유지 */
+      })
+      .finally(() => {
+        integratedHistoryLoadInFlightRef.current = false;
+        setIntegratedHistoryLoading(false);
+      });
+  }, [isChatRoom, isStoreOrderChat, room.id]);
+
   // 초기 로드: API 우선 (테스트 로그인·RLS 시 판매자도 동일하게 메시지 수신)
   useEffect(() => {
     const startedAt = perfNow();
@@ -574,6 +637,10 @@ export function ChatDetailView({
     if (initialBootstrapMessages != null) {
       setMessages(initialBootstrapMessages);
       setMessagesLoading(false);
+      if (isChatRoom && !isStoreOrderChat) {
+        const g = guessIntegratedHistoryMetaFromMessages(initialBootstrapMessages);
+        integratedHistoryRef.current = { hasMore: g.hasMore, nextCursor: g.nextCursor };
+      }
       logClientPerf("chat-detail.messages.initial", {
         roomId: room.id,
         source: isChatRoom ? "chat_room" : "product_chat",
@@ -596,6 +663,10 @@ export function ChatDetailView({
     const needInitialFetch = !(cached && cacheIsFresh);
     setMessagesLoading(needInitialFetch);
     if (cached && cacheIsFresh) {
+      if (isChatRoom && !isStoreOrderChat && cached.length > 0) {
+        const g = guessIntegratedHistoryMetaFromMessages(cached);
+        integratedHistoryRef.current = { hasMore: g.hasMore, nextCursor: g.nextCursor };
+      }
       logClientPerf("chat-detail.messages.initial", {
         roomId: room.id,
         source: isChatRoom ? "chat_room" : "product_chat",
@@ -649,7 +720,7 @@ export function ChatDetailView({
       if (!cancelled) setMessagesLoading(false);
     });
     return () => { cancelled = true; };
-  }, [room.id, currentUserId, fetchMessages, isChatRoom, initialBootstrapMessages]);
+  }, [room.id, currentUserId, fetchMessages, isChatRoom, isStoreOrderChat, initialBootstrapMessages]);
 
   useEffect(() => {
     if (messagesLoading) return;
@@ -1628,9 +1699,14 @@ export function ChatDetailView({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
+          ref={tradeThreadScrollRef}
+          onScroll={onTradeThreadScroll}
           className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-sam-surface py-2" : "bg-[#F7F7F7] py-1"}`}
         >
           <div className={CHAT_THREAD_COLUMN_INNER_CLASS}>
+            {integratedHistoryLoading && isChatRoom && !isStoreOrderChat ? (
+              <div className="px-4 py-2 text-center text-[13px] text-sam-muted">이전 메시지를 불러오는 중…</div>
+            ) : null}
             {messagesLoading ? (
               <ChatMessagesLoadingSkeleton variant={isStoreOrderChat ? "instagram" : "default"} />
             ) : (

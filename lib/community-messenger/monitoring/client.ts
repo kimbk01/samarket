@@ -1,0 +1,199 @@
+"use client";
+
+import type { MessengerWebRtcDiagnosticsSample } from "./webrtc-stats";
+import type { MessengerMonitoringEvent } from "./types";
+import { logMessengerAlertDev, logMessengerMonitoringDev } from "./logger";
+import { buildThresholdAlert, shouldAlertLatency, shouldAlertPacketLoss } from "./thresholds";
+
+const FLUSH_BATCH = 24;
+const FLUSH_INTERVAL_MS = 25_000;
+
+let queue: MessengerMonitoringEvent[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function roomSuffix(roomId: string): string {
+  const t = roomId.trim();
+  return t.length <= 8 ? t : t.slice(-8);
+}
+
+export function messengerMonitorRecord(partial: Omit<MessengerMonitoringEvent, "ts" | "source"> & { ts?: number }): void {
+  const event: MessengerMonitoringEvent = {
+    ...partial,
+    ts: partial.ts ?? Date.now(),
+    source: "client",
+  };
+  logMessengerMonitoringDev(event);
+  if (event.unit === "ms" && typeof event.value === "number") {
+    const breach = shouldAlertLatency(event.category, event.metric, event.value);
+    if (breach) {
+      logMessengerAlertDev(buildThresholdAlert(breach, event.category, event.metric, event.value, event.labels));
+    }
+  }
+  if (event.unit === "percent" && typeof event.value === "number" && event.category === "call.network") {
+    if (shouldAlertPacketLoss(event.value)) {
+      logMessengerAlertDev({
+        ts: Date.now(),
+        category: "call.network",
+        metric: event.metric,
+        threshold: Number(process.env.NEXT_PUBLIC_MESSENGER_PERF_PACKET_LOSS_PCT ?? 8),
+        observed: event.value,
+        message: `[messenger:perf:alert] 패킷 손실률 높음: ${event.value.toFixed(2)}%`,
+        labels: event.labels,
+      });
+    }
+  }
+  queue.push(event);
+  if (queue.length >= FLUSH_BATCH) {
+    void flushMessengerMonitorQueue();
+  } else {
+    scheduleFlush();
+  }
+}
+
+function scheduleFlush() {
+  if (flushTimer !== null) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    void flushMessengerMonitorQueue();
+  }, FLUSH_INTERVAL_MS);
+}
+
+export async function flushMessengerMonitorQueue(): Promise<void> {
+  if (queue.length === 0 || typeof window === "undefined") return;
+  const batch = queue;
+  queue = [];
+  try {
+    await fetch("/api/community-messenger/monitoring/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ events: batch }),
+      keepalive: true,
+    });
+  } catch {
+    /* ignore — best effort */
+  }
+}
+
+/** 방 진입: fetch 부트스트랩 완료까지 */
+export function messengerMonitorRoomLoad(roomId: string, durationMs: number): void {
+  messengerMonitorRecord({
+    category: "chat.room_load",
+    metric: "bootstrap_fetch",
+    value: durationMs,
+    unit: "ms",
+    labels: { roomIdSuffix: roomSuffix(roomId) },
+  });
+}
+
+/** 텍스트/미디어 전송 요청 RTT (요청 시작 ~ 응답 수신) */
+export function messengerMonitorMessageRtt(roomId: string, durationMs: number, kind: string): void {
+  messengerMonitorRecord({
+    category: "chat.message_latency",
+    metric: "send_roundtrip",
+    value: durationMs,
+    unit: "ms",
+    labels: { roomIdSuffix: roomSuffix(roomId), kind },
+  });
+}
+
+/** 그룹 통화: 첫 원격 미디어 연결까지 */
+export function messengerMonitorCallConnection(sessionId: string, durationMs: number): void {
+  messengerMonitorRecord({
+    category: "call.connection",
+    metric: "first_connected",
+    value: durationMs,
+    unit: "ms",
+    labels: { sessionIdSuffix: sessionId.slice(-8) },
+  });
+}
+
+export function messengerMonitorCallPacketLoss(sessionId: string, percent: number): void {
+  messengerMonitorRecord({
+    category: "call.network",
+    metric: "packet_loss_estimate",
+    value: percent,
+    unit: "percent",
+    labels: { sessionIdSuffix: sessionId.slice(-8) },
+  });
+}
+
+export function messengerMonitorCallReconnect(sessionId: string, count: number): void {
+  messengerMonitorRecord({
+    category: "call.reconnect",
+    metric: "peer_transport_recovered",
+    value: count,
+    unit: "count",
+    labels: { sessionIdSuffix: sessionId.slice(-8) },
+  });
+}
+
+/** ICE restart offer 전송 시(자동 복구·수동 재시도) */
+export function messengerMonitorCallIceRestart(sessionId: string, attempt: number): void {
+  messengerMonitorRecord({
+    category: "call.reconnect",
+    metric: "ice_restart_offer",
+    value: attempt,
+    unit: "count",
+    labels: { sessionIdSuffix: sessionId.slice(-8) },
+  });
+}
+
+/** TURN 릴레이 강제로 PeerConnection 재생성 시 */
+export function messengerMonitorCallTurnFallback(sessionId: string): void {
+  messengerMonitorRecord({
+    category: "call.reconnect",
+    metric: "turn_relay_rebuild",
+    value: 1,
+    unit: "count",
+    labels: { sessionIdSuffix: sessionId.slice(-8) },
+  });
+}
+
+/** getStats 샘플 — 손실·RTT·후보 유형(릴레이 경로 여부 추정) */
+export function messengerMonitorCallWebRtcSample(sessionId: string, sample: MessengerWebRtcDiagnosticsSample): void {
+  const suffix = sessionId.slice(-8);
+  const labels: Record<string, string> = { sessionIdSuffix: suffix };
+  if (sample.selectedLocalCandidateType) {
+    labels.localCandidateType = sample.selectedLocalCandidateType;
+  }
+  if (sample.selectedRemoteCandidateType) {
+    labels.remoteCandidateType = sample.selectedRemoteCandidateType;
+  }
+  if (sample.packetLossPercent != null) {
+    messengerMonitorRecord({
+      category: "call.network",
+      metric: "packet_loss_estimate",
+      value: sample.packetLossPercent,
+      unit: "percent",
+      labels,
+    });
+  }
+  if (sample.roundTripTimeMs != null) {
+    messengerMonitorRecord({
+      category: "call.network",
+      metric: "round_trip_time",
+      value: sample.roundTripTimeMs,
+      unit: "ms",
+      labels,
+    });
+  }
+  if (sample.jitterMs != null) {
+    messengerMonitorRecord({
+      category: "call.network",
+      metric: "jitter",
+      value: sample.jitterMs,
+      unit: "ms",
+      labels,
+    });
+  }
+  const relay =
+    sample.selectedLocalCandidateType === "relay" || sample.selectedRemoteCandidateType === "relay";
+  messengerMonitorRecord({
+    category: "call.connection",
+    metric: "turn_path_used",
+    value: relay ? 1 : 0,
+    unit: "ratio",
+    labels,
+  });
+}

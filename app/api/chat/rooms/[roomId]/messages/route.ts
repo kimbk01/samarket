@@ -35,16 +35,31 @@ export async function GET(
   if (!roomId) {
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
+  const rawLimit = Number(req.nextUrl.searchParams.get("limit"));
+  const limitUsed = Math.min(
+    Math.max(Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 50, 1),
+    100
+  );
   const result = await loadIntegratedChatRoomMessageRowsForUser({
     roomId,
     userId: auth.userId,
     before: req.nextUrl.searchParams.get("before"),
-    limit: Number(req.nextUrl.searchParams.get("limit")) || 50,
+    beforeCreatedAt: req.nextUrl.searchParams.get("beforeCreatedAt"),
+    limit: limitUsed,
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
-  return NextResponse.json({ messages: result.value });
+  const messages = result.value;
+  /** 로더는 시간순(오래된 것 먼저). 다음 과거 페이지는 배치의 가장 오래된 행을 커서로 삼는다. */
+  const hasMore = messages.length === limitUsed && messages.length > 0;
+  const oldest = messages[0] as { id?: unknown; created_at?: unknown } | undefined;
+  const nextCursor =
+    hasMore && typeof oldest?.id === "string" && typeof oldest?.created_at === "string"
+      ? { before: oldest.id, beforeCreatedAt: oldest.created_at }
+      : null;
+
+  return NextResponse.json({ messages, hasMore, nextCursor });
 }
 
 export async function POST(

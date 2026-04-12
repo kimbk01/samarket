@@ -11,6 +11,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { inferMessengerDomainFromChatRoom } from "@/lib/chat-domain/messenger-domains";
 import { createClient } from "@supabase/supabase-js";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import {
@@ -374,7 +375,7 @@ export async function GET(req: NextRequest) {
         product: chatProductSummaryFromPostRow({ title, status: "active" } as Record<string, unknown>, oid || r.id),
         source: "chat_room" as const,
         generalChat,
-        chatDomain: "store" as const,
+        chatDomain: "store_order" as const,
         roomTitle: title,
         roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
       };
@@ -391,10 +392,16 @@ export async function GET(req: NextRequest) {
   const payload = { rooms: filteredRooms };
   chatRoomsListCache.set(cacheKey, { at: Date.now(), payload });
   if (process.env.CHAT_PERF_LOG === "1") {
+    const domainCounts: Record<string, number> = {};
+    for (const row of filteredRooms) {
+      const d = inferMessengerDomainFromChatRoom(row);
+      domainCounts[d] = (domainCounts[d] ?? 0) + 1;
+    }
     console.info("[chat.rooms.list]", {
       userId,
       segment,
       roomCount: filteredRooms.length,
+      domainCounts,
       elapsedMs: Date.now() - startedAt,
     });
   }

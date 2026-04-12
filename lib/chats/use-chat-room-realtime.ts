@@ -6,8 +6,9 @@ import type { ChatMessage } from "@/lib/types/chat";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { integratedChatRowToMessage } from "@/lib/chats/fetch-chat-room-messages-api";
 import { mapProductChatMessageRow } from "@/lib/chats/map-product-chat-message-row";
+import { groupMessageRowToChatMessage } from "@/lib/group-chat/map-group-message-row";
 
-export type ChatRealtimeMode = "integrated" | "legacy";
+export type ChatRealtimeMode = "integrated" | "legacy" | "group";
 
 /** 방 단위 Realtime 진단 · UI 스트립용 */
 export type ChatRoomRealtimeConnectionState =
@@ -30,6 +31,8 @@ export function useChatRoomRealtime(args: {
   roomId: string | null;
   mode: ChatRealtimeMode;
   enabled: boolean;
+  /** false: 방 부트스트랩·초기 데이터 준비 전 — 구독하지 않음 */
+  bootstrapReady?: boolean;
   onMessage: (msg: ChatMessage) => void;
   onMessageRemoved?: (messageId: string) => void;
   includeHiddenMessages?: boolean;
@@ -39,7 +42,8 @@ export function useChatRoomRealtime(args: {
   /** 연결 단계 표시(메신저 스트립) */
   onConnectionState?: (state: ChatRoomRealtimeConnectionState) => void;
 }) {
-  const { roomId, mode, enabled, includeHiddenMessages = false, hiddenReasonPrefix } = args;
+  const { roomId, mode, enabled, bootstrapReady = true, includeHiddenMessages = false, hiddenReasonPrefix } = args;
+  const effectiveEnabled = enabled && bootstrapReady;
   const onMessageRef = useRef(args.onMessage);
   const onRemovedRef = useRef(args.onMessageRemoved);
   const onHealthRef = useRef(args.onSubscriptionHealth);
@@ -84,7 +88,7 @@ export function useChatRoomRealtime(args: {
     }
 
     function scheduleReconnect() {
-      if (cancelled || !enabled || !roomId || retryTimer != null) return;
+      if (cancelled || !effectiveEnabled || !roomId || retryTimer != null) return;
       emitConn("reconnecting");
       const exp = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * Math.pow(2, attempt));
       attempt = Math.min(attempt + 1, 12);
@@ -96,7 +100,7 @@ export function useChatRoomRealtime(args: {
     }
 
     async function connect() {
-      if (cancelled || !enabled || !roomId) {
+      if (cancelled || !effectiveEnabled || !roomId) {
         emitConn("disabled");
         return;
       }
@@ -113,8 +117,13 @@ export function useChatRoomRealtime(args: {
 
       emitConn(attempt > 0 ? "reconnecting" : "connecting");
 
-      const table = mode === "integrated" ? "chat_messages" : "product_chat_messages";
-      const col = mode === "integrated" ? "room_id" : "product_chat_id";
+      const table =
+        mode === "integrated"
+          ? "chat_messages"
+          : mode === "group"
+            ? "group_messages"
+            : "product_chat_messages";
+      const col = mode === "integrated" || mode === "group" ? "room_id" : "product_chat_id";
       const filter = `${col}=eq.${roomId}`;
 
       const channel = sb
@@ -136,12 +145,22 @@ export function useChatRoomRealtime(args: {
                       includeHiddenMessages,
                       hiddenReasonPrefix,
                     })
-                  : row
-                    ? mapProductChatMessageRow(row)
-                    : null;
+                  : mode === "group"
+                    ? groupMessageRowToChatMessage(row)
+                    : row
+                      ? mapProductChatMessageRow(row)
+                      : null;
               if (!msg && mode === "integrated" && payload.eventType === "UPDATE") {
                 const id = row?.id;
                 if (typeof id === "string") onRemovedRef.current?.(id);
+                return;
+              }
+              if (!msg && mode === "group" && payload.eventType === "UPDATE") {
+                const r = row;
+                if (r?.deleted_at != null || r?.hidden_by_moderator === true) {
+                  const id = r?.id;
+                  if (typeof id === "string") onRemovedRef.current?.(id);
+                }
                 return;
               }
               if (msg) onMessageRef.current(msg);
@@ -176,13 +195,13 @@ export function useChatRoomRealtime(args: {
 
     const onVisibility = () => {
       if (typeof document === "undefined" || document.visibilityState !== "visible") return;
-      if (!enabled || !roomId || cancelled) return;
+      if (!effectiveEnabled || !roomId || cancelled) return;
       attempt = 0;
       clearRetry();
       void connect();
     };
 
-    if (!enabled || !roomId) {
+    if (!effectiveEnabled || !roomId) {
       emitConn("disabled");
       return () => {
         cancelled = true;
@@ -205,5 +224,5 @@ export function useChatRoomRealtime(args: {
       void removeChannel();
       emitConn("disabled");
     };
-  }, [roomId, mode, enabled, includeHiddenMessages, hiddenReasonPrefix]);
+  }, [roomId, mode, enabled, bootstrapReady, includeHiddenMessages, hiddenReasonPrefix]);
 }

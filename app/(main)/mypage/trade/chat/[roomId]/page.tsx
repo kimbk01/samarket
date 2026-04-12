@@ -1,6 +1,7 @@
 import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { loadChatRoomBootstrapForUser } from "@/lib/chats/server/load-chat-room-bootstrap";
+import { loadTradeChatRoomBootstrap } from "@/lib/chat-domain/use-cases/trade-chat-bootstrap";
+import { createTradeChatReadAdapter } from "@/lib/chats/server/trade-chat-read-adapter";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 
@@ -30,9 +31,8 @@ export default async function TradeHubChatRoomPage({
 
   let serverBootstrap: { room: ChatRoom; messages: ChatMessage[] } | null = null;
   if (initialViewerUserId && roomId) {
-    const boot = await loadChatRoomBootstrapForUser({
-      roomId,
-      userId: initialViewerUserId,
+    const port = createTradeChatReadAdapter();
+    const boot = await loadTradeChatRoomBootstrap(port, initialViewerUserId, roomId, {
       sourceHint: chatRoomSourceHint,
       detailScope: "entry",
     });

@@ -33,7 +33,13 @@ export async function GET(
   if (!rateLimit.ok) return rateLimit.response;
 
   const { roomId } = await params;
-  const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, roomId);
+  const rawLimit = req.nextUrl.searchParams.get("messages");
+  const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, roomId, {
+    initialMessageLimit:
+      rawLimit != null && rawLimit !== ""
+        ? Math.floor(Number(rawLimit))
+        : undefined,
+  });
   if (!snapshot) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }

@@ -25,6 +25,8 @@ import { playNotificationSound } from "@/lib/notifications/play-notification-sou
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { CallPrimaryButton } from "@/components/community-messenger/call-ui/CallButtons";
 import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
+import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 
 const INCOMING_CALL_REFRESH_INTERVAL_MS = 20_000;
 const INCOMING_CALL_REFRESH_COOLDOWN_MS = 2_500;
@@ -49,6 +51,9 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [replySheetSessionId, setReplySheetSessionId] = useState<string | null>(null);
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
+  /** 수신 목록 GET 실패(이전 목록은 유지). 세션 거절 등 액션 실패는 별도 */
+  const [incomingListError, setIncomingListError] = useState<string | null>(null);
+  const [sessionActionError, setSessionActionError] = useState<string | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const refreshTimerIdsRef = useRef<number[]>([]);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
@@ -93,21 +98,42 @@ export function GlobalCommunityMessengerIncomingCall() {
       return;
     }
     const task = (async () => {
-      const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        sessions?: CommunityMessengerCallSession[];
-      };
-      setSessions(res.ok && json.ok ? json.sessions ?? [] : []);
-      lastRefreshAtRef.current = Date.now();
+      try {
+        const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          sessions?: CommunityMessengerCallSession[];
+        };
+        if (res.status === 401 || res.status === 403) {
+          setSessions([]);
+          setIncomingListError(t("nav_messenger_login_required"));
+          return;
+        }
+        if (res.ok && json.ok) {
+          setSessions(json.sessions ?? []);
+          setIncomingListError(null);
+          setSessionActionError(null);
+          return;
+        }
+        setIncomingListError(
+          json && typeof json === "object" && "error" in json && typeof (json as { error?: unknown }).error === "string"
+            ? `${MESSENGER_CALL_USER_MSG.incomingListFailed} (${(json as { error: string }).error})`
+            : MESSENGER_CALL_USER_MSG.incomingListFailed
+        );
+        /* 네트워크/서버 오류 시 기존 수신 목록 유지 — 잠깐의 실패로 UI 가 사라지지 않게 */
+      } catch {
+        setIncomingListError(`${MESSENGER_CALL_USER_MSG.incomingListFailed} ${MESSENGER_CALL_USER_MSG.networkOrServer}`);
+      } finally {
+        lastRefreshAtRef.current = Date.now();
+      }
     })().finally(() => {
       refreshInFlightRef.current = null;
     });
     refreshInFlightRef.current = task;
     await task;
-  }, []);
+  }, [t]);
 
   /** 탭 복귀·포커스: 짧은 2회 확인(레이트 리밋·서버 부하 완화). */
   const queueVisibilityRefreshBurst = useCallback(() => {
@@ -319,11 +345,17 @@ export function GlobalCommunityMessengerIncomingCall() {
           /* hangup 실패 시에도 PATCH 로 세션 종료 */
         }
       }
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
       });
+      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!patchRes.ok || !patchJson.ok) {
+        setSessionActionError(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+        return;
+      }
+      setSessionActionError(null);
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
       setReplySheetSessionId((prev) => (prev === sessionId ? null : prev));
       await refresh();
@@ -356,10 +388,11 @@ export function GlobalCommunityMessengerIncomingCall() {
       } finally {
         setBusyId(null);
         if (permissionFailed) {
-          window.alert(
+          showMessengerSnackbar(
             session.callKind === "video"
               ? "카메라/마이크 권한을 허용하지 못했습니다. 통화 화면에서 「수락」을 한 번 더 눌러 주세요."
-              : "마이크 권한을 허용하지 못했습니다. 통화 화면에서 「수락」을 한 번 더 눌러 주세요."
+              : "마이크 권한을 허용하지 못했습니다. 통화 화면에서 「수락」을 한 번 더 눌러 주세요.",
+            { variant: "error" }
           );
         }
         window.location.assign(url);
@@ -389,11 +422,16 @@ export function GlobalCommunityMessengerIncomingCall() {
       } catch {
         /* ignore */
       }
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
+      const preBlockRejectRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
-      }).catch(() => undefined);
+      });
+      const preBlockRejectJson = (await preBlockRejectRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!preBlockRejectRes.ok || !preBlockRejectJson.ok) {
+        showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
+        return;
+      }
       const res = await fetch("/api/community/block-relations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -401,7 +439,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (!res.ok || !json.ok) {
-        window.alert("차단 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        showMessengerSnackbar("차단 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", { variant: "error" });
         return;
       }
       setSessions((prev) => prev.filter((item) => item.id !== session.id));
@@ -430,7 +468,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       );
       const messageJson = (await messageRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!messageRes.ok || !messageJson.ok) {
-        window.alert(messageJson.error ?? "응답 메시지를 전송하지 못했습니다.");
+        showMessengerSnackbar(messageJson.error ?? "응답 메시지를 전송하지 못했습니다.", { variant: "error" });
         return;
       }
       if (session.peerUserId) {
@@ -448,11 +486,16 @@ export function GlobalCommunityMessengerIncomingCall() {
           /* ignore */
         }
       }
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
+      const rejectAfterReplyRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
-      }).catch(() => undefined);
+      });
+      const rejectAfterReplyJson = (await rejectAfterReplyRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!rejectAfterReplyRes.ok || !rejectAfterReplyJson.ok) {
+        showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
+        return;
+      }
       setReplySheetSessionId(null);
       setMinimizedSessionId((prev) => (prev === session.id ? null : prev));
       setSessions((prev) => prev.filter((item) => item.id !== session.id));
@@ -462,7 +505,40 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [refresh]);
 
-  if (!visibleSession) return null;
+  if (!visibleSession) {
+    if (incomingListError) {
+      return (
+        <div
+          className="pointer-events-auto fixed inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] z-[61] px-3"
+          role="alert"
+        >
+          <div className="rounded-ui-rect border border-sam-border bg-sam-ink/95 px-3 py-2.5 text-[13px] text-white shadow-lg backdrop-blur-sm">
+            <p className="leading-snug">{incomingListError}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-ui-rect bg-white/15 px-3 py-1.5 text-[12px] font-semibold text-white active:bg-white/25"
+                onClick={() => {
+                  setIncomingListError(null);
+                  void refresh(true);
+                }}
+              >
+                {MESSENGER_CALL_USER_MSG.incomingListRetry}
+              </button>
+              <button
+                type="button"
+                className="rounded-ui-rect px-3 py-1.5 text-[12px] font-medium text-white/75 underline-offset-2 active:text-white"
+                onClick={() => setIncomingListError(null)}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
 
   const callTypeLabel = visibleSession.callKind === "video" ? "영상 통화" : "음성 통화";
 
@@ -470,6 +546,40 @@ export function GlobalCommunityMessengerIncomingCall() {
     <CallScreenShell className="min-h-[100dvh]">
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,24,0.35)_0%,transparent_55%)]" aria-hidden />
       <div className="relative flex min-h-0 flex-1 flex-col">
+        {(sessionActionError || incomingListError) ? (
+          <div className="pointer-events-auto space-y-2 px-3 pt-[max(8px,env(safe-area-inset-top))]">
+            {sessionActionError ? (
+              <div
+                className="rounded-ui-rect border border-amber-500/40 bg-amber-950/80 px-3 py-2 text-[12px] text-amber-50"
+                role="alert"
+              >
+                <span>{sessionActionError}</span>
+                <button
+                  type="button"
+                  className="ml-2 font-semibold underline underline-offset-2"
+                  onClick={() => setSessionActionError(null)}
+                >
+                  닫기
+                </button>
+              </div>
+            ) : null}
+            {incomingListError ? (
+              <div
+                className="rounded-ui-rect border border-white/15 bg-black/35 px-3 py-2 text-[11px] text-white/85 backdrop-blur-sm"
+                role="status"
+              >
+                {incomingListError}
+                <button
+                  type="button"
+                  className="ml-2 font-semibold text-white underline underline-offset-2"
+                  onClick={() => void refresh(true)}
+                >
+                  {MESSENGER_CALL_USER_MSG.incomingListRetry}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {isMinimized ? (
           <div className="mx-3 mt-[max(12px,env(safe-area-inset-top))] flex items-center gap-3 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]/95 px-3 py-2 shadow-[var(--messenger-shadow-soft)] backdrop-blur-sm">
             <button

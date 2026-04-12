@@ -207,10 +207,18 @@ export type CommunityMessengerRoomSnapshot = {
     description?: string;
   };
   members: CommunityMessengerProfileLite[];
+  /** 그룹방에서 `COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP` 초과 시 프로필 일부만 내려보냄 */
+  membersTruncated?: boolean;
   messages: CommunityMessengerMessage[];
   myRole: "owner" | "admin" | "member";
   activeCall: CommunityMessengerCallSession | null;
 };
+
+/** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */
+export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT = 30;
+
+/** 그룹방 스냅샷에 실을 프로필(참가자) 상한 — 전원 하이드레이션 비용·응답 크기 완화 */
+export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP = 60;
 
 export type CommunityMessengerCallLog = {
   id: string;

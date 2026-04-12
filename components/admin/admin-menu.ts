@@ -354,6 +354,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "chat-trade-flow", title: "거래흐름·온도", path: "/admin/trade-flow", status: "done" },
           { key: "chat-trade", title: "거래채팅", path: "/admin/chats/trade", status: "done" },
           { key: "chat-messenger", title: "커뮤니티 메신저", path: "/admin/chats/messenger", status: "done" },
+          {
+            key: "chat-messenger-perf",
+            title: "메신저 성능",
+            path: "/admin/chats/messenger-performance",
+            status: "done",
+          },
           { key: "chat-reported", title: "신고채팅", path: "/admin/chats/reported", status: "done" },
         ],
       },

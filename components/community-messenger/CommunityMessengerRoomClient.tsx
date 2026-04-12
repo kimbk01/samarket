@@ -22,6 +22,8 @@ import {
 import { startCommunityMessengerCallTone, type CallToneController } from "@/lib/community-messenger/call-feedback-sound";
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
   useCommunityMessengerRoomRealtime,
   type CommunityMessengerRoomRealtimeMessageEvent,
@@ -30,10 +32,20 @@ import {
   communityMessengerCallSessionIsActiveConnected,
   communityMessengerCallStubStatusIsTerminal,
   communityMessengerRoomIsGloballyUsable,
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   type CommunityMessengerMessage,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  communityMessengerRoomBootstrapPath,
+  communityMessengerRoomMembersPath,
+  communityMessengerRoomResourcePath,
+  parseCommunityMessengerRoomSnapshotResponse,
+} from "@/lib/community-messenger/messenger-room-bootstrap";
+import { flushMessengerMonitorQueue, messengerMonitorMessageRtt, messengerMonitorRoomLoad } from "@/lib/community-messenger/monitoring/client";
 import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
 import { GroupRoomCallOverlay } from "@/components/community-messenger/call-ui";
@@ -107,8 +119,8 @@ export function CommunityMessengerRoomClient({
   const groupNoticeSectionRef = useRef<HTMLDivElement | null>(null);
   const groupPermissionsSectionRef = useRef<HTMLDivElement | null>(null);
   const groupHistorySectionRef = useRef<HTMLDivElement | null>(null);
-  /** 서버 스냅샷이 한 번에 실어 오는 메시지 개수와 맞춤 — 그만큼이면 더 있을 수 있음 */
-  const CM_SNAPSHOT_FIRST_PAGE = 80;
+  /** 서버 부트스트랩(`bootstrap` GET)과 동일한 초기 메시지 윈도 — 그만큼이면 더 있을 수 있음 */
+  const CM_SNAPSHOT_FIRST_PAGE = COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT;
   const olderMessagesExhaustedRef = useRef(false);
   const topOlderSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadOlderMessagesRef = useRef<() => void>(() => {});
@@ -122,10 +134,17 @@ export function CommunityMessengerRoomClient({
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const pendingRealtimeRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
+  /** 100+ 그룹: Realtime INSERT 폭주 시 rAF 로 한 프레임에 합쳐 렌더·diff 비용 절감 */
+  const realtimeMessageBatchRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
+  const realtimeBatchFlushRafRef = useRef<number | null>(null);
+  const roomMessagesRef = useRef(roomMessages);
   snapshotRef.current = snapshot;
+  roomMessagesRef.current = roomMessages;
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
+  const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [messageActionItem, setMessageActionItem] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(
     null
@@ -164,7 +183,14 @@ export function CommunityMessengerRoomClient({
   const [activeSheet, setActiveSheet] = useState<null | "attach" | "menu" | "members" | "info" | "search" | "media" | "files" | "links">(null);
   const [roomSearchQuery, setRoomSearchQuery] = useState("");
   const [managedDirectCallError, setManagedDirectCallError] = useState<string | null>(null);
+  /** 그룹 URL 자동 수락 effect 예외 시(훅이 잡지 못한 throw) 안내 */
+  const [groupCallAutoAcceptNotice, setGroupCallAutoAcceptNotice] = useState<string | null>(null);
   const [infoSheetFocus, setInfoSheetFocus] = useState<null | "notice" | "permissions" | "history">(null);
+  const [pagedRoomMembers, setPagedRoomMembers] = useState<CommunityMessengerProfileLite[]>([]);
+  const [membersListNextOffset, setMembersListNextOffset] = useState<number | null>(null);
+  const [membersPagingBusy, setMembersPagingBusy] = useState(false);
+  const membersPageInitializedRef = useRef(false);
+  const roomMembersDisplayRef = useRef<CommunityMessengerProfileLite[]>([]);
 
   const notifSurface = useNotificationSurface();
   useEffect(() => {
@@ -204,16 +230,20 @@ export function CommunityMessengerRoomClient({
         setSnapshot(primed);
         setLoading(false);
       }
-      const roomRes = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, { cache: "no-store" });
-      const roomJson = (await roomRes.json()) as (CommunityMessengerRoomSnapshot & { ok?: boolean }) | {
-        ok?: boolean;
-      };
-      if (roomRes.ok && roomJson.ok) {
-        setSnapshot(roomJson as CommunityMessengerRoomSnapshot);
+      const tBoot = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const roomRes = await fetch(communityMessengerRoomBootstrapPath(roomId), { cache: "no-store" });
+      const raw = await roomRes.json().catch(() => null);
+      const snap = parseCommunityMessengerRoomSnapshotResponse(raw);
+      if (roomRes.ok && snap) {
+        setSnapshot(snap);
+        const elapsed =
+          typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
+        messengerMonitorRoomLoad(roomId, elapsed);
       } else if (!primed) {
         setSnapshot(null);
       }
     } finally {
+      setRoomReadyForRealtime(true);
       if (silent) {
         silentRoomRefreshBusyRef.current = false;
         if (silentRoomRefreshAgainRef.current) {
@@ -229,6 +259,29 @@ export function CommunityMessengerRoomClient({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    return () => {
+      void flushMessengerMonitorQueue();
+    };
+  }, [roomId]);
+
+  useEffect(() => {
+    setRoomReadyForRealtime(false);
+  }, [roomId]);
+
+  useEffect(() => {
+    setPagedRoomMembers([]);
+    setMembersListNextOffset(null);
+    membersPageInitializedRef.current = false;
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    if (membersPageInitializedRef.current) return;
+    membersPageInitializedRef.current = true;
+    setMembersListNextOffset(snapshot.membersTruncated ? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP : null);
+  }, [snapshot]);
 
   /** `?cm_ctx=` 딥링크로 입장 시 거래/배달 목록 메타 1회 동기화 — 스토어는 `buildCommunityMessengerRoomUrlWithContext` 사용 */
   useEffect(() => {
@@ -249,7 +302,7 @@ export function CommunityMessengerRoomClient({
     }
     void (async () => {
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -281,10 +334,35 @@ export function CommunityMessengerRoomClient({
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [loading, pathname, router, searchParams, snapshot]);
 
+  /** 탭 복귀: 최신 id 이후 메시지만 증분 로드(diff) 후 메타용 사일런트 스냅샷 */
+  const catchUpNewerMessages = useCallback(async () => {
+    const id = roomId?.trim();
+    if (!id) return;
+    const confirmed = roomMessagesRef.current.filter((m) => !m.pending);
+    if (confirmed.length === 0) return;
+    const latest = confirmed[confirmed.length - 1];
+    if (!latest?.id) return;
+    try {
+      const res = await fetch(
+        `${communityMessengerRoomResourcePath(id)}/messages?after=${encodeURIComponent(latest.id)}&limit=80`,
+        { cache: "no-store" }
+      );
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        messages?: CommunityMessengerMessage[];
+      };
+      if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return;
+      setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
+    } catch {
+      /* ignore */
+    }
+  }, [roomId]);
+
   /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
   useEffect(() => {
     const bump = () => {
       if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+      void catchUpNewerMessages();
       void refresh(true);
     };
     document.addEventListener("visibilitychange", bump);
@@ -293,20 +371,46 @@ export function CommunityMessengerRoomClient({
       document.removeEventListener("visibilitychange", bump);
       window.removeEventListener("pageshow", bump);
     };
-  }, [refresh]);
+  }, [catchUpNewerMessages, refresh]);
 
-  const handleRealtimeMessageEvent = useCallback((event: CommunityMessengerRoomRealtimeMessageEvent) => {
+  useEffect(() => {
+    return () => {
+      if (realtimeBatchFlushRafRef.current !== null) {
+        cancelAnimationFrame(realtimeBatchFlushRafRef.current);
+        realtimeBatchFlushRafRef.current = null;
+      }
+    };
+  }, []);
+
+  const flushRealtimeMessageBatch = useCallback(() => {
+    realtimeBatchFlushRafRef.current = null;
+    const batch = realtimeMessageBatchRef.current.splice(0);
+    if (batch.length === 0) return;
     const snap = snapshotRef.current;
     if (!snap) {
-      pendingRealtimeRef.current.push(event);
+      pendingRealtimeRef.current.push(...batch);
       return;
     }
-    if (event.eventType === "DELETE") {
-      setRoomMessages((prev) => prev.filter((item) => item.id !== event.message.id));
-      return;
-    }
-    setRoomMessages((prev) => mergeRoomMessages(prev, [mapRealtimeRoomMessage(snap, event.message)]));
+    setRoomMessages((prev) => {
+      let cur = prev;
+      for (const event of batch) {
+        if (event.eventType === "DELETE") {
+          cur = cur.filter((item) => item.id !== event.message.id);
+        } else {
+          cur = mergeRoomMessages(cur, [mapRealtimeRoomMessage(snap, roomMembersDisplayRef.current, event.message)]);
+        }
+      }
+      return cur;
+    });
   }, []);
+
+  const handleRealtimeMessageEvent = useCallback((event: CommunityMessengerRoomRealtimeMessageEvent) => {
+    realtimeMessageBatchRef.current.push(event);
+    if (realtimeBatchFlushRafRef.current !== null) return;
+    realtimeBatchFlushRafRef.current = window.requestAnimationFrame(() => {
+      flushRealtimeMessageBatch();
+    });
+  }, [flushRealtimeMessageBatch]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -319,7 +423,7 @@ export function CommunityMessengerRoomClient({
         if (event.eventType === "DELETE") {
           cur = cur.filter((item) => item.id !== event.message.id);
         } else {
-          cur = mergeRoomMessages(cur, [mapRealtimeRoomMessage(snapshot, event.message)]);
+          cur = mergeRoomMessages(cur, [mapRealtimeRoomMessage(snapshot, roomMembersDisplayRef.current, event.message)]);
         }
       }
       return cur;
@@ -328,7 +432,7 @@ export function CommunityMessengerRoomClient({
 
   useCommunityMessengerRoomRealtime({
     roomId,
-    enabled: Boolean(roomId),
+    enabled: Boolean(roomId) && roomReadyForRealtime && snapshot !== null,
     onRefresh: () => {
       void refresh(true);
     },
@@ -371,7 +475,7 @@ export function CommunityMessengerRoomClient({
     setLoadingOlderMessages(true);
     try {
       const res = await fetch(
-        `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages?before=${encodeURIComponent(beforeId)}`,
+        `${communityMessengerRoomResourcePath(roomId)}/messages?before=${encodeURIComponent(beforeId)}`,
         { cache: "no-store" }
       );
       const json = (await res.json().catch(() => ({}))) as {
@@ -452,10 +556,54 @@ export function CommunityMessengerRoomClient({
     }
   }, [roomMessages, scrollMessengerToBottom]);
 
+  const roomMembersDisplay = useMemo(() => {
+    if (!snapshot) return [];
+    const baseIds = new Set(snapshot.members.map((m) => m.id));
+    const extra = pagedRoomMembers.filter((m) => !baseIds.has(m.id));
+    return [...snapshot.members, ...extra];
+  }, [snapshot, pagedRoomMembers]);
+
+  useEffect(() => {
+    roomMembersDisplayRef.current = roomMembersDisplay;
+  }, [roomMembersDisplay]);
+
+  const loadMoreRoomMembers = useCallback(async () => {
+    if (membersListNextOffset === null || membersPagingBusy || !snapshot) return;
+    const id = roomId?.trim();
+    if (!id) return;
+    setMembersPagingBusy(true);
+    try {
+      const res = await fetch(
+        `${communityMessengerRoomMembersPath(id)}?offset=${membersListNextOffset}&limit=40`,
+        { cache: "no-store", credentials: "include" }
+      );
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        members?: CommunityMessengerProfileLite[];
+        nextOffset?: number | null;
+      };
+      if (!res.ok || !json.ok || !Array.isArray(json.members)) return;
+      setPagedRoomMembers((prev) => {
+        const known = new Set([...snapshot.members, ...prev].map((m) => m.id));
+        const next = [...prev];
+        for (const m of json.members ?? []) {
+          if (!known.has(m.id)) {
+            known.add(m.id);
+            next.push(m);
+          }
+        }
+        return next;
+      });
+      setMembersListNextOffset(json.nextOffset ?? null);
+    } finally {
+      setMembersPagingBusy(false);
+    }
+  }, [membersListNextOffset, membersPagingBusy, roomId, snapshot]);
+
   const inviteCandidates = useMemo(() => {
-    const memberIds = new Set((snapshot?.members ?? []).map((member) => member.id));
+    const memberIds = new Set(roomMembersDisplay.map((member) => member.id));
     return friends.filter((friend) => !memberIds.has(friend.id));
-  }, [friends, snapshot?.members]);
+  }, [friends, roomMembersDisplay]);
   const filteredInviteCandidates = useMemo(() => {
     const keyword = inviteSearchQuery.trim().toLowerCase();
     if (!keyword) return inviteCandidates;
@@ -510,6 +658,13 @@ export function CommunityMessengerRoomClient({
     [roomMessages, hiddenCallStubIds]
   );
 
+  const chatVirtualizer = useVirtualizer({
+    count: displayRoomMessages.length,
+    getScrollElement: () => messagesViewportRef.current,
+    estimateSize: () => 96,
+    overscan: 12,
+  });
+
   useEffect(() => {
     const id = roomId?.trim();
     if (!id) {
@@ -542,20 +697,20 @@ export function CommunityMessengerRoomClient({
   );
   const groupAdminCount = useMemo(
     () =>
-      snapshot?.members.filter(
+      roomMembersDisplay.filter(
         (member) =>
           member.memberRole === "admin" &&
-          (!snapshot.room.ownerUserId || !messengerUserIdsEqual(member.id, snapshot.room.ownerUserId))
-      ).length ?? 0,
-    [snapshot]
+          (!snapshot?.room.ownerUserId || !messengerUserIdsEqual(member.id, snapshot.room.ownerUserId))
+      ).length,
+    [snapshot?.room.ownerUserId, roomMembersDisplay]
   );
   const aliasProfileCount = useMemo(
-    () => snapshot?.members.filter((member) => member.identityMode === "alias").length ?? 0,
-    [snapshot]
+    () => roomMembersDisplay.filter((member) => member.identityMode === "alias").length,
+    [roomMembersDisplay]
   );
   const sortedMembers = useMemo(() => {
     if (!snapshot) return [];
-    return [...snapshot.members].sort((left, right) => {
+    return [...roomMembersDisplay].sort((left, right) => {
       const rank = (member: CommunityMessengerProfileLite) => {
         const isMemberOwner = Boolean(snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, snapshot.room.ownerUserId));
         if (isMemberOwner) return 0;
@@ -567,7 +722,7 @@ export function CommunityMessengerRoomClient({
       if (rankDiff !== 0) return rankDiff;
       return left.label.localeCompare(right.label, "ko");
     });
-  }, [snapshot]);
+  }, [snapshot, roomMembersDisplay]);
   const photoMessageCount = useMemo(
     () => roomMessages.filter((m) => m.messageType === "image" || (m.messageType === "text" && looksLikeDirectImageUrl(m.content))).length,
     [roomMessages]
@@ -852,14 +1007,14 @@ export function CommunityMessengerRoomClient({
     const nextMuted = !snapshot.room.isMuted;
     setBusy("room-mute");
     try {
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "participant_settings", isMuted: nextMuted }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(getRoomActionErrorMessage(json.error));
+        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
         return;
       }
       setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, isMuted: nextMuted } } : prev));
@@ -873,14 +1028,14 @@ export function CommunityMessengerRoomClient({
     const nextArchived = !snapshot.room.isArchivedByViewer;
     setBusy("room-archive");
     try {
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "archive", archived: nextArchived }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(getRoomActionErrorMessage(json.error));
+        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
         return;
       }
       setSnapshot((prev) =>
@@ -901,7 +1056,7 @@ export function CommunityMessengerRoomClient({
 
   const openCallPermissionHelp = useCallback(() => {
     if (openCommunityMessengerPermissionSettings()) return;
-    alert(
+    showMessengerSnackbar(
       callPanel?.kind === "video"
         ? t("nav_messenger_permission_browser_camera_mic")
         : t("nav_messenger_permission_browser_mic")
@@ -923,10 +1078,11 @@ export function CommunityMessengerRoomClient({
         }
       })
       .catch(() => {
-        alert(
+        showMessengerSnackbar(
           kind === "video"
             ? t("nav_messenger_permission_retry_camera_mic")
-            : t("nav_messenger_permission_retry_mic")
+            : t("nav_messenger_permission_retry_mic"),
+          { variant: "error" }
         );
       });
   }, [call, callPanel, t]);
@@ -938,7 +1094,9 @@ export function CommunityMessengerRoomClient({
   const openDirectCallPage = useCallback(
     (nextSessionId: string, action?: "accept") => {
       const suffix = action ? `?action=${encodeURIComponent(action)}` : "";
-      router.push(`/community-messenger/calls/${encodeURIComponent(nextSessionId)}${suffix}`);
+      const href = `/community-messenger/calls/${encodeURIComponent(nextSessionId)}${suffix}`;
+      router.prefetch(href);
+      router.push(href);
     },
     [router]
   );
@@ -955,7 +1113,7 @@ export function CommunityMessengerRoomClient({
           openDirectCallPage(existingSession.id);
           return;
         }
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/calls`, {
+        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/calls`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ callKind: kind }),
@@ -1008,7 +1166,7 @@ export function CommunityMessengerRoomClient({
     if (!isOpenGroupRoom || !snapshot) return;
     setBusy("open-group-settings");
     try {
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/settings`, {
+      const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1023,7 +1181,7 @@ export function CommunityMessengerRoomClient({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(getRoomActionErrorMessage(json.error));
+        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
         return;
       }
       setOpenGroupPassword("");
@@ -1050,12 +1208,12 @@ export function CommunityMessengerRoomClient({
     if (!window.confirm(t("nav_messenger_leave_group_confirm"))) return;
     setBusy("leave-room");
     try {
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/leave`, {
+      const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, {
         method: "POST",
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(getRoomActionErrorMessage(json.error));
+        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
         return;
       }
       router.replace("/community-messenger?section=chats&filter=private_group");
@@ -1099,7 +1257,7 @@ export function CommunityMessengerRoomClient({
         roomId,
         senderId: snapshot.viewerUserId,
         senderLabel:
-          snapshot.members.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+          roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "text",
         content: trimmed,
         createdAt: new Date().toISOString(),
@@ -1113,7 +1271,8 @@ export function CommunityMessengerRoomClient({
       scrollMessengerToBottom();
       setBusy("send");
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages`, {
+        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: trimmed }),
@@ -1123,10 +1282,15 @@ export function CommunityMessengerRoomClient({
           error?: string;
           message?: CommunityMessengerMessage;
         };
+        if (res.ok && json.ok) {
+          const elapsed =
+            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
+          messengerMonitorMessageRtt(roomId, elapsed, "text");
+        }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (restoreOnFail !== undefined) setMessage(restoreOnFail);
-          alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         if (json.message) {
@@ -1145,7 +1309,7 @@ export function CommunityMessengerRoomClient({
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, roomId, scrollMessengerToBottom, snapshot]
+    [getRoomActionErrorMessage, roomId, roomMembersDisplay, scrollMessengerToBottom, snapshot]
   );
 
   const sendMessage = useCallback(async () => {
@@ -1167,7 +1331,7 @@ export function CommunityMessengerRoomClient({
   const sendLocationMessage = useCallback(() => {
     if (!snapshot || roomUnavailable) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      window.alert("이 기기에서 위치를 사용할 수 없습니다.");
+      showMessengerSnackbar("이 기기에서 위치를 사용할 수 없습니다.", { variant: "error" });
       return;
     }
     dismissRoomSheet();
@@ -1179,7 +1343,7 @@ export function CommunityMessengerRoomClient({
         void sendRawText(content);
       },
       () => {
-        window.alert("위치 권한이 필요하거나 가져오지 못했습니다.");
+        showMessengerSnackbar("위치 권한이 필요하거나 가져오지 못했습니다.", { variant: "error" });
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     );
@@ -1194,7 +1358,7 @@ export function CommunityMessengerRoomClient({
         id: tempId,
         roomId,
         senderId: snapshot.viewerUserId,
-        senderLabel: snapshot.members.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "image",
         content: previewUrl,
         createdAt: new Date().toISOString(),
@@ -1210,7 +1374,8 @@ export function CommunityMessengerRoomClient({
       try {
         const form = new FormData();
         form.append("file", file);
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/images`, {
+        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/images`, {
           method: "POST",
           body: form,
         });
@@ -1219,9 +1384,14 @@ export function CommunityMessengerRoomClient({
           error?: string;
           message?: CommunityMessengerMessage;
         };
+        if (res.ok && json.ok) {
+          const elapsed =
+            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
+          messengerMonitorMessageRtt(roomId, elapsed, "image");
+        }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         const serverImageMsg = json.message;
@@ -1241,7 +1411,7 @@ export function CommunityMessengerRoomClient({
         setBusy(null);
       }
     },
-    [dismissRoomSheet, getRoomActionErrorMessage, roomId, roomUnavailable, scrollMessengerToBottom, snapshot]
+    [dismissRoomSheet, getRoomActionErrorMessage, roomId, roomMembersDisplay, roomUnavailable, scrollMessengerToBottom, snapshot]
   );
 
   const openImagePicker = useCallback(() => {
@@ -1272,7 +1442,7 @@ export function CommunityMessengerRoomClient({
         id: tempId,
         roomId,
         senderId: snapshot.viewerUserId,
-        senderLabel: snapshot.members.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "file",
         content: "",
         createdAt: new Date().toISOString(),
@@ -1291,7 +1461,8 @@ export function CommunityMessengerRoomClient({
       try {
         const form = new FormData();
         form.append("file", file);
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/files`, {
+        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/files`, {
           method: "POST",
           body: form,
         });
@@ -1300,9 +1471,14 @@ export function CommunityMessengerRoomClient({
           error?: string;
           message?: CommunityMessengerMessage;
         };
+        if (res.ok && json.ok) {
+          const elapsed =
+            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
+          messengerMonitorMessageRtt(roomId, elapsed, "file");
+        }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         const serverFileMsg = json.message;
@@ -1321,7 +1497,7 @@ export function CommunityMessengerRoomClient({
         setBusy(null);
       }
     },
-    [dismissRoomSheet, getRoomActionErrorMessage, roomId, roomUnavailable, scrollMessengerToBottom, snapshot]
+    [dismissRoomSheet, getRoomActionErrorMessage, roomId, roomMembersDisplay, roomUnavailable, scrollMessengerToBottom, snapshot]
   );
 
   const openFilePicker = useCallback(() => {
@@ -1416,7 +1592,7 @@ export function CommunityMessengerRoomClient({
       const blob = new Blob(chunks, { type: blobMime });
       if (blob.size < 400) {
         voiceFinalizingRef.current = false;
-        window.alert("녹음이 너무 짧습니다.");
+        showMessengerSnackbar("녹음이 너무 짧습니다.", { variant: "error" });
         return;
       }
       if (!snapshot) {
@@ -1431,7 +1607,7 @@ export function CommunityMessengerRoomClient({
         id: tempId,
         roomId,
         senderId: snapshot.viewerUserId,
-        senderLabel: snapshot.members.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "voice",
         content: blobUrl,
         createdAt: new Date().toISOString(),
@@ -1454,7 +1630,8 @@ export function CommunityMessengerRoomClient({
         if (waveformPeaks.length > 0) {
           form.append("waveformPeaks", JSON.stringify(waveformPeaks));
         }
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/voice`, {
+        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/voice`, {
           method: "POST",
           body: form,
         });
@@ -1463,10 +1640,15 @@ export function CommunityMessengerRoomClient({
           error?: string;
           message?: CommunityMessengerMessage;
         };
+        if (res.ok && json.ok) {
+          const elapsed =
+            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
+          messengerMonitorMessageRtt(roomId, elapsed, "voice");
+        }
         if (!res.ok || !json.ok) {
           URL.revokeObjectURL(blobUrl);
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          window.alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         const confirmedVoice = json.message;
@@ -1488,7 +1670,7 @@ export function CommunityMessengerRoomClient({
         voiceFinalizingRef.current = false;
       }
     },
-    [getRoomActionErrorMessage, roomId, scrollMessengerToBottom, snapshot]
+    [getRoomActionErrorMessage, roomId, roomMembersDisplay, scrollMessengerToBottom, snapshot]
   );
 
   const deleteRoomMessage = useCallback(
@@ -1497,12 +1679,12 @@ export function CommunityMessengerRoomClient({
       setBusy("delete-message");
       try {
         const res = await fetch(
-          `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}`,
+          `${communityMessengerRoomResourcePath(roomId)}/messages/${encodeURIComponent(messageId)}`,
           { method: "DELETE" }
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          window.alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
@@ -1526,10 +1708,10 @@ export function CommunityMessengerRoomClient({
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          window.alert(json.error ?? "차단 처리에 실패했습니다.");
+          showMessengerSnackbar(json.error ?? "차단 처리에 실패했습니다.", { variant: "error" });
           return;
         }
-        window.alert("차단되었습니다.");
+        showMessengerSnackbar("차단되었습니다.", { variant: "success" });
         void refresh(true);
       } finally {
         setBusy(null);
@@ -1624,7 +1806,9 @@ export function CommunityMessengerRoomClient({
           recordStreamRef.current = null;
           stream.getTracks().forEach((t) => t.stop());
           if (session === voiceSessionIdRef.current) {
-            window.alert("녹음을 시작하지 못했습니다. 다른 앱에서 마이크를 쓰는지 확인해 주세요.");
+            showMessengerSnackbar("녹음을 시작하지 못했습니다. 다른 앱에서 마이크를 쓰는지 확인해 주세요.", {
+              variant: "error",
+            });
           }
           return;
         }
@@ -1713,9 +1897,10 @@ export function CommunityMessengerRoomClient({
         }
       } catch {
         if (session === voiceSessionIdRef.current) {
-          window.alert(
+          showMessengerSnackbar(
             getCommunityMessengerPermissionGuide("voice")?.description ??
-              "마이크 권한을 허용한 뒤 다시 시도해 주세요."
+              "마이크 권한을 허용한 뒤 다시 시도해 주세요.",
+            { variant: "error" }
           );
         }
       }
@@ -1816,14 +2001,14 @@ export function CommunityMessengerRoomClient({
     if (inviteIds.length === 0) return;
     setBusy("invite");
     try {
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "invite", memberIds: inviteIds }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(getRoomActionErrorMessage(json.error));
+        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
         return;
       }
       setInviteIds([]);
@@ -1838,14 +2023,14 @@ export function CommunityMessengerRoomClient({
     if (!isPrivateGroupRoom) return;
     setBusy("group-notice");
     try {
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "group_notice", noticeText: privateGroupNoticeDraft }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(getRoomActionErrorMessage(json.error));
+        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
         return;
       }
       await refresh(true);
@@ -1858,7 +2043,7 @@ export function CommunityMessengerRoomClient({
     if (!isPrivateGroupRoom) return;
     setBusy("group-permissions");
     try {
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1873,7 +2058,7 @@ export function CommunityMessengerRoomClient({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(getRoomActionErrorMessage(json.error));
+        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
         return;
       }
       await refresh(true);
@@ -1897,14 +2082,14 @@ export function CommunityMessengerRoomClient({
     async (targetUserId: string, nextRole: "admin" | "member") => {
       setBusy(`group-role:${targetUserId}`);
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "group_member_role", targetUserId, nextRole }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
@@ -1921,14 +2106,14 @@ export function CommunityMessengerRoomClient({
       if (!window.confirm(`${label}님에게 방장을 위임할까요? 위임 후에는 내가 관리자 권한으로 내려갑니다.`)) return;
       setBusy(`group-owner:${targetUserId}`);
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "group_owner_transfer", targetUserId }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
@@ -1951,7 +2136,7 @@ export function CommunityMessengerRoomClient({
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; roomId?: string };
         if (!res.ok || !json.ok || !json.roomId) {
-          alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
@@ -1975,11 +2160,11 @@ export function CommunityMessengerRoomClient({
         });
         const roomJson = (await roomRes.json().catch(() => ({}))) as { ok?: boolean; error?: string; roomId?: string };
         if (!roomRes.ok || !roomJson.ok || !roomJson.roomId) {
-          alert(getRoomActionErrorMessage(roomJson.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(roomJson.error), { variant: "error" });
           return;
         }
         const directRoomId = String(roomJson.roomId);
-        const callRes = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(directRoomId)}/calls`, {
+        const callRes = await fetch(`${communityMessengerRoomResourcePath(directRoomId)}/calls`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ callKind: kind }),
@@ -1990,11 +2175,13 @@ export function CommunityMessengerRoomClient({
           session?: { id?: string };
         };
         if (!callRes.ok || !callJson.ok || !callJson.session?.id) {
-          alert(getRoomActionErrorMessage(callJson.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(callJson.error), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
-        router.push(`/community-messenger/calls/${encodeURIComponent(String(callJson.session.id))}`);
+        const groupCallHref = `/community-messenger/calls/${encodeURIComponent(String(callJson.session.id))}`;
+        router.prefetch(groupCallHref);
+        router.push(groupCallHref);
       } finally {
         setBusy(null);
       }
@@ -2007,14 +2194,14 @@ export function CommunityMessengerRoomClient({
       if (!window.confirm(`${label}님을 이 그룹에서 내보낼까요?`)) return;
       setBusy(`group-remove:${targetUserId}`);
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "group_member_remove", targetUserId }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(getRoomActionErrorMessage(json.error));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
@@ -2029,7 +2216,7 @@ export function CommunityMessengerRoomClient({
   const startGroupCall = useCallback(
     async (kind: "voice" | "video") => {
       if (!canStartGroupCall) {
-        alert("이 그룹에서는 현재 멤버 통화 시작 권한이 없습니다.");
+        showMessengerSnackbar("이 그룹에서는 현재 멤버 통화 시작 권한이 없습니다.", { variant: "error" });
         return;
       }
       dismissRoomSheet();
@@ -2082,11 +2269,11 @@ export function CommunityMessengerRoomClient({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(json.error ?? "신고 접수에 실패했습니다.");
+        showMessengerSnackbar(json.error ?? "신고 접수에 실패했습니다.", { variant: "error" });
         return;
       }
       setMemberActionTarget(null);
-      alert("신고가 접수되었습니다.");
+      showMessengerSnackbar("신고가 접수되었습니다.", { variant: "success" });
     },
     [roomId]
   );
@@ -2103,13 +2290,13 @@ export function CommunityMessengerRoomClient({
     async (item: CommunityMessengerMessage & { pending?: boolean }) => {
       const text = getMessageCopyText(item);
       if (!text) {
-        window.alert("복사할 수 없는 메시지입니다.");
+        showMessengerSnackbar("복사할 수 없는 메시지입니다.", { variant: "error" });
         return;
       }
       try {
         await navigator.clipboard.writeText(text);
       } catch {
-        window.alert("복사하지 못했습니다.");
+        showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
       }
       setMessageActionItem(null);
     },
@@ -2125,14 +2312,14 @@ export function CommunityMessengerRoomClient({
           await navigator.share({ title: snapshot?.room.title ?? "대화", text: payload });
         } else {
           await navigator.clipboard.writeText(payload);
-          window.alert("내용을 클립보드에 복사했습니다.");
+          showMessengerSnackbar("내용을 클립보드에 복사했습니다.", { variant: "success" });
         }
       } catch {
         try {
           await navigator.clipboard.writeText(payload);
-          window.alert("내용을 클립보드에 복사했습니다.");
+          showMessengerSnackbar("내용을 클립보드에 복사했습니다.", { variant: "success" });
         } catch {
-          window.alert("전달할 수 없습니다.");
+          showMessengerSnackbar("전달할 수 없습니다.", { variant: "error" });
         }
       }
       setMessageActionItem(null);
@@ -2186,7 +2373,7 @@ export function CommunityMessengerRoomClient({
           autoHandledSessionRef.current = sessionKey;
         }
       } catch {
-        /* 프라임 실패·수락 API 실패 등 — 방 안에서 다시 「수락」 가능 */
+        setGroupCallAutoAcceptNotice(MESSENGER_CALL_USER_MSG.autoAcceptFailed);
       } finally {
         if (messengerUserIdsEqual(autoAcceptInFlightRef.current, sessionKey)) {
           autoAcceptInFlightRef.current = null;
@@ -2194,6 +2381,12 @@ export function CommunityMessengerRoomClient({
       }
     })();
   }, [callActionFromUrl, handleAcceptIncomingCall, isGroupRoom, roomId, router, sessionIdFromUrl, snapshot?.activeCall]);
+
+  useEffect(() => {
+    if (call.panel || call.errorMessage) {
+      setGroupCallAutoAcceptNotice(null);
+    }
+  }, [call.panel, call.errorMessage]);
 
   useEffect(() => {
     if (!isGroupRoom) return;
@@ -2401,9 +2594,9 @@ export function CommunityMessengerRoomClient({
               {snapshot.room.isReadonly ? ` ${t("nav_messenger_room_readonly_notice")}` : ""}
             </div>
           ) : null}
-          {(managedDirectCallError || (call.errorMessage && !call.panel)) ? (
+          {(managedDirectCallError || (call.errorMessage && !call.panel) || groupCallAutoAcceptNotice) ? (
             <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2.5 text-[12px] text-[color:var(--cm-room-text)]">
-              {managedDirectCallError ?? call.errorMessage}
+              {managedDirectCallError ?? call.errorMessage ?? groupCallAutoAcceptNotice}
             </div>
           ) : null}
           <p className="mx-auto max-w-[min(100%,22rem)] rounded-full bg-[color:var(--cm-room-primary-soft)] px-3 py-1 text-center text-[10px] leading-snug text-[color:var(--cm-room-text-muted)]">
@@ -2446,8 +2639,12 @@ export function CommunityMessengerRoomClient({
             </div>
           ) : null}
           {displayRoomMessages.length ? (
-            displayRoomMessages.map((item, index) => {
-              const prev = index > 0 ? displayRoomMessages[index - 1] : null;
+            <div className="relative w-full" style={{ height: chatVirtualizer.getTotalSize() }}>
+              {chatVirtualizer.getVirtualItems().map((virtualRow) => {
+                const index = virtualRow.index;
+                const item = displayRoomMessages[index];
+                if (!item) return null;
+                const prev = index > 0 ? displayRoomMessages[index - 1] : null;
               const gapMs =
                 prev && prev.messageType !== "system" && item.messageType !== "system"
                   ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
@@ -2472,7 +2669,7 @@ export function CommunityMessengerRoomClient({
                   prev.isMine ||
                   peerSenderChanged ||
                   isNewClusterFromTime);
-              const peerAvatar = !item.isMine ? communityMessengerMemberAvatar(snapshot.members, item.senderId) : null;
+              const peerAvatar = !item.isMine ? communityMessengerMemberAvatar(roomMembersDisplay, item.senderId) : null;
               const showMyAvatar =
                 item.isMine &&
                 item.messageType !== "system" &&
@@ -2483,7 +2680,7 @@ export function CommunityMessengerRoomClient({
                   isNewClusterFromTime);
               const showBubbleTail = item.isMine ? showMyAvatar : showPeerAvatar;
               const myAvatar = item.isMine
-                ? communityMessengerMemberAvatar(snapshot.members, snapshot.viewerUserId)
+                ? communityMessengerMemberAvatar(roomMembersDisplay, snapshot.viewerUserId)
                 : null;
 
               const bindMessageInteraction =
@@ -2733,10 +2930,15 @@ export function CommunityMessengerRoomClient({
               return (
                 <div
                   key={item.id}
+                  data-index={virtualRow.index}
+                  ref={chatVirtualizer.measureElement}
                   id={`cm-room-msg-${item.id}`}
-                  className={`mb-2.5 flex scroll-mt-24 last:mb-0 ${
+                  className={`absolute left-0 top-0 w-full pb-2.5 flex scroll-mt-24 ${
                     item.messageType === "system" ? "justify-center" : item.isMine ? "justify-end" : "justify-start"
                   }`}
+                  style={{
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
                 >
                   {item.messageType === "system" ? (
                     <div className="max-w-[92%] px-2">
@@ -2849,7 +3051,8 @@ export function CommunityMessengerRoomClient({
                   )}
                 </div>
               );
-            })
+            })}
+            </div>
           ) : (
             <div className="px-4 py-12 text-center text-[13px] text-[color:var(--cm-room-text-muted)]">
               아직 메시지가 없습니다.
@@ -2961,7 +3164,7 @@ export function CommunityMessengerRoomClient({
                   try {
                     await navigator.clipboard.writeText(callStubSheet.content);
                   } catch {
-                    window.alert("복사하지 못했습니다.");
+                    showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
                   }
                   setCallStubSheet(null);
                 }}
@@ -3588,9 +3791,26 @@ export function CommunityMessengerRoomClient({
                         <p className="mt-1 text-[16px] font-semibold text-sam-fg">{canInviteMembers ? "가능" : "제한"}</p>
                         <p className="mt-1 text-[12px] text-sam-muted">
                           닉네임 프로필 {aliasProfileCount}명
+                          {roomMembersDisplay.length < snapshot.room.memberCount ? " · 표시 범위 기준" : ""}
                         </p>
                       </div>
                     </div>
+                  ) : null}
+                  {isGroupRoom && snapshot.room.memberCount > roomMembersDisplay.length ? (
+                    <p className="text-[12px] leading-5 text-sam-muted">
+                      참여자 {snapshot.room.memberCount}명 중 {roomMembersDisplay.length}명 프로필을 불러왔습니다. 나머지는
+                      아래에서 더 불러올 수 있습니다.
+                    </p>
+                  ) : null}
+                  {isGroupRoom && membersListNextOffset !== null ? (
+                    <button
+                      type="button"
+                      onClick={() => void loadMoreRoomMembers()}
+                      disabled={membersPagingBusy}
+                      className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3 text-[14px] font-medium text-sam-fg disabled:opacity-50"
+                    >
+                      {membersPagingBusy ? "불러오는 중…" : "멤버 더 불러오기"}
+                    </button>
                   ) : null}
                   {isOwner && isPrivateGroupRoom ? (
                     <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
@@ -4696,7 +4916,9 @@ export function CommunityMessengerRoomClient({
               } catch {
                 /* ignore */
               }
-              router.push(`/community-messenger/calls/${encodeURIComponent(returnToCallSessionId)}`);
+              const backToCallHref = `/community-messenger/calls/${encodeURIComponent(returnToCallSessionId)}`;
+              router.prefetch(backToCallHref);
+              router.push(backToCallHref);
             }}
             className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-ink px-3 py-2 text-[12px] font-semibold text-white"
           >
@@ -4777,7 +4999,7 @@ function communityMessengerVoiceAudioSrc(
   if (!id || id.startsWith("pending:")) {
     return "";
   }
-  return `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(id)}/audio`;
+  return `${communityMessengerRoomResourcePath(roomId)}/messages/${encodeURIComponent(id)}/audio`;
 }
 
 function mergeRoomMessages(
@@ -4891,6 +5113,7 @@ function communityMessengerMemberAvatar(
 
 function mapRealtimeRoomMessage(
   snapshot: CommunityMessengerRoomSnapshot,
+  membersForSender: CommunityMessengerProfileLite[],
   message: {
     id: string;
     roomId: string;
@@ -4901,7 +5124,7 @@ function mapRealtimeRoomMessage(
     createdAt: string;
   }
 ): CommunityMessengerMessage {
-  const sender = message.senderId ? snapshot.members.find((member) => member.id === message.senderId) : null;
+  const sender = message.senderId ? membersForSender.find((member) => member.id === message.senderId) : null;
   const callKind =
     message.metadata.callKind === "video" || message.metadata.callKind === "voice"
       ? message.metadata.callKind

@@ -35,6 +35,7 @@ import {
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
   readPreferredCommunityMessengerDeviceIds,
   writePreferredCommunityMessengerDeviceIds,
@@ -45,6 +46,7 @@ import {
   prefetchCommunityMessengerRoomSnapshot,
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
+import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
   cancelScheduledWhenBrowserIdle,
   scheduleWhenBrowserIdle,
@@ -588,7 +590,7 @@ export function CommunityMessengerHome({
   const reviveDirectRoomForEntry = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
       if (room.roomType !== "direct" || !communityMessengerRoomIsInboxHidden(room)) return true;
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(room.id)}`, {
+      const res = await fetch(communityMessengerRoomResourcePath(room.id), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "archive", archived: false }),
@@ -711,7 +713,9 @@ export function CommunityMessengerHome({
           setActionError(getMessengerActionErrorMessage(cJson.error));
           return;
         }
-        router.push(`/community-messenger/calls/${encodeURIComponent(cJson.session.id)}`);
+        const callHref = `/community-messenger/calls/${encodeURIComponent(cJson.session.id)}`;
+        router.prefetch(callHref);
+        router.push(callHref);
       } finally {
         setBusyId(null);
       }
@@ -1296,7 +1300,7 @@ export function CommunityMessengerHome({
       setBusyId(actionKey);
       setActionError(null);
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "participant_settings", ...patch }),
@@ -1323,7 +1327,7 @@ export function CommunityMessengerHome({
       setBusyId(actionKey);
       setActionError(null);
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "mark_read" }),
@@ -1346,7 +1350,7 @@ export function CommunityMessengerHome({
       setBusyId(actionKey);
       setActionError(null);
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "archive", archived }),
@@ -1535,7 +1539,7 @@ export function CommunityMessengerHome({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && json.ok) {
-        window.alert("접수되었습니다.");
+        showMessengerSnackbar("접수되었습니다.", { variant: "success" });
         setFriendSheet(null);
       } else {
         setActionError("신고 접수에 실패했습니다.");
@@ -1562,7 +1566,7 @@ export function CommunityMessengerHome({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && json.ok) {
-        window.alert("접수되었습니다.");
+        showMessengerSnackbar("접수되었습니다.", { variant: "success" });
         setRoomActionSheet(null);
       } else {
         setActionError("신고 접수에 실패했습니다.");
@@ -1578,7 +1582,7 @@ export function CommunityMessengerHome({
       setBusyId(`room-leave:${roomId}`);
       setActionError(null);
       try {
-        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/leave`, { method: "POST" });
+        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, { method: "POST" });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (res.ok && json.ok) {
           setRoomActionSheet(null);
@@ -1596,7 +1600,7 @@ export function CommunityMessengerHome({
   const clearLocalRoomPreview = useCallback((roomId: string) => {
     invalidateRoomSnapshot(roomId);
     setRoomActionSheet(null);
-    window.alert("이 기기에서 미리보기 캐시만 정리했습니다.");
+    showMessengerSnackbar("이 기기에서 미리보기 캐시만 정리했습니다.");
   }, []);
 
   return (
