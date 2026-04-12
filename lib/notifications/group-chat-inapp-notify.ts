@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
-import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+
+function groupChatHref(roomId: string): string {
+  return `/group-chat/${encodeURIComponent(roomId)}`;
+}
 
 async function shouldSkipDueToCooldown(
   sb: SupabaseClient<any>,
@@ -16,7 +19,7 @@ async function shouldSkipDueToCooldown(
       .from("notifications")
       .select("id")
       .eq("user_id", userId)
-      .eq("domain", "trade_chat")
+      .eq("domain", "community_chat")
       .eq("ref_id", roomId)
       .gte("created_at", since)
       .limit(1);
@@ -33,27 +36,35 @@ async function shouldSkipDueToCooldown(
 }
 
 /**
- * 거래 채팅 수신자에게 인앱 알림 1건 (쿨다운: 동일 room·수신자 기준 admin 설정 초 내 1회).
+ * Kasama `group_rooms` / `group_messages` 축 — 수신자에게 인앱 알림 (방 밖에서도 배지·톤).
+ * 도메인은 `community_chat` 설정과 동일 스위치를 쓴다(메타로 구분).
  */
-export async function notifyTradeChatInAppForRecipients(
+export async function notifyGroupChatMessageRecipients(
   sb: SupabaseClient<any>,
   args: {
     roomId: string;
     senderUserId: string;
     preview: string;
-    recipientUserIds: string[];
   }
 ): Promise<void> {
-  const { roomId, senderUserId, preview, recipientUserIds } = args;
-  if (!roomId || !recipientUserIds.length) return;
+  const roomId = args.roomId.trim();
+  if (!roomId || !args.senderUserId.trim()) return;
 
-  const cooldownSec = await getAdminNotificationCooldownSeconds(sb, "trade_chat");
-  const title = "새 메시지";
-  const body = preview.slice(0, 200) || "메시지가 도착했습니다.";
-  const linkUrl = tradeChatNotificationHref(roomId, "chat_room");
+  const { data: members, error } = await sb
+    .from("group_room_members")
+    .select("user_id")
+    .eq("room_id", roomId);
+  if (error || !members?.length) return;
 
-  for (const uid of recipientUserIds) {
-    if (!uid || uid === senderUserId) continue;
+  const cooldownSec = await getAdminNotificationCooldownSeconds(sb, "community_chat");
+  const title = "그룹 메시지";
+  const body = (args.preview || "새 메시지").slice(0, 200);
+  const link = groupChatHref(roomId);
+
+  for (const row of members as { user_id?: string }[]) {
+    const uid = typeof row.user_id === "string" ? row.user_id.trim() : "";
+    if (!uid || uid === args.senderUserId) continue;
+
     const skip = await shouldSkipDueToCooldown(sb, uid, roomId, cooldownSec);
     if (skip) continue;
 
@@ -62,13 +73,12 @@ export async function notifyTradeChatInAppForRecipients(
       notification_type: "chat",
       title,
       body,
-      link_url: linkUrl,
-      domain: "trade_chat",
+      link_url: link,
+      domain: "community_chat",
       ref_id: roomId,
       meta: {
-        kind: "trade_chat",
+        kind: "group_chat",
         room_id: roomId,
-        sender_id: senderUserId,
       },
     });
   }

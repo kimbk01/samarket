@@ -2,15 +2,18 @@
 
 구현·수치는 아래 표와 **동일 소스**로 유지한다 (문서만 먼저 바꾸지 말고 코드 상수·주석을 함께 갱신).
 
+운영에서 빌드 없이 조정: `NEXT_PUBLIC_MESSENGER_*` 환경변수 — [`lib/community-messenger/messenger-latency-config.ts`](../lib/community-messenger/messenger-latency-config.ts) 의 `readPublicEnvMs` 참고. 예시 키는 [`deployment/messenger-production.env.example`](../deployment/messenger-production.env.example).
+
 | 구분 | 수치 / 키 | 코드 위치 |
 |------|-----------|-----------|
-| 홈 메타 `onRefresh` 디바운스 | **850ms** | [`lib/community-messenger/use-community-messenger-realtime.ts`](../lib/community-messenger/use-community-messenger-realtime.ts) — `createRefreshScheduler(..., 850)` |
-| 방 메타(참가자·방 행) 디바운스 | **800ms** | 동일 파일 — 방 번들 `metaRefreshScheduler` |
-| 통화·콜 스텁 등 즉시 스케줄 | **0ms** | 동일 파일 — `callRefreshScheduler` 등 |
+| 홈 메타 `onRefresh` 디바운스 | **240ms** | [`lib/community-messenger/messenger-latency-config.ts`](../lib/community-messenger/messenger-latency-config.ts) — `MESSENGER_HOME_META_DEBOUNCE_MS` |
+| 방 메타(참가자·방 행) 디바운스 | **200ms** | 동일 — `MESSENGER_ROOM_META_DEBOUNCE_MS` |
+| 통화·콜 스텁 등 즉시 스케줄 | **0ms** | [`lib/community-messenger/use-community-messenger-realtime.ts`](../lib/community-messenger/use-community-messenger-realtime.ts) — `callRefreshScheduler` |
 | 홈 사일런트 번들 (방·요청·친구) | `community-messenger:home:silent:home_sync` | [`lib/community-messenger/cm-home-silent-lists-fetch.ts`](../lib/community-messenger/cm-home-silent-lists-fetch.ts) — `GET /api/community-messenger/home-sync` 단일 `runSingleFlight` |
 | 친구 요청 수락 시 DM 방 | 수락 직후 `ensureCommunityMessengerDirectRoom` | [`lib/community-messenger/service.ts`](../lib/community-messenger/service.ts) — `respondCommunityMessengerFriendRequest` |
-| 수신 통화 폴링 (ringing 있음) | **20s** | [`components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx`](../components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx) — `INCOMING_CALL_REFRESH_INTERVAL_MS` |
-| 수신 통화 폴링 (ringing 없음) | **52s** | 동일 — `INCOMING_CALL_IDLE_POLL_MS` (Realtime 폴백) |
+| 수신 통화 폴링 (세션 목록 비어 있지 않음) | **11s** (production) / **5s** (local·staging) | [`lib/community-messenger/messenger-latency-config.ts`](../lib/community-messenger/messenger-latency-config.ts) — `getIncomingCallPollIntervalMs` |
+| 수신 통화 폴링 (세션 없음) | **26s** (production) / **14s** (local·staging) | 동일 (Realtime 폴백) |
+| 수신 통화 Realtime→GET 디바운스 | **280ms** | `MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS` |
 | 수신 통화 fetch 합류 | `community-messenger:incoming-calls:directOnly` | 동일 — `runSingleFlight` |
 | 오너 허브 배지 최소 fetch 간격 | **22s** | [`lib/chats/owner-hub-badge-store.ts`](../lib/chats/owner-hub-badge-store.ts) — `MIN_FETCH_GAP_MS` (서버 TTL 대비) |
 | 오너 허브 배지 가시 탭 폴링 | **60s** | 동일 — `OWNER_HUB_BADGE_POLL_INTERVAL_MS` |

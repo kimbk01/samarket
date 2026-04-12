@@ -47,6 +47,19 @@ export async function GET(
     markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, auth.response.status);
     return auth.response;
   }
+
+  const pageRateLimit = await enforceRateLimit({
+    key: `trade-chat:message-page:${getRateLimitKey(req, auth.userId)}`,
+    limit: 90,
+    windowMs: 60_000,
+    message: "메시지 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "trade_chat_message_page_rate_limited",
+  });
+  if (!pageRateLimit.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, pageRateLimit.response.status);
+    return pageRateLimit.response;
+  }
+
   const { roomId } = await params;
   if (!roomId) {
     markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, 400);

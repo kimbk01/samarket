@@ -39,11 +39,15 @@ type NotificationSurfaceValue = {
   /** URL 기반 + explicit 병합 */
   activeTradeChatRoomId: string | null;
   activeCommunityChatRoomId: string | null;
+  /** Kasama `group-chat` 방 상세 */
+  activeGroupChatRoomId: string | null;
   isWindowFocused: boolean;
   userNotificationSettings: UserNotificationSettingsState;
   refreshUserNotificationSettings: () => Promise<void>;
   /** 인앱 알림음 재생 전 도메인·설정·포커스 검사 */
   shouldPlayInAppSound: (domain: NotificationDomain, refId: string | null | undefined) => boolean;
+  /** 그룹 채팅(`group_chat` 메타) 전용 — 같은 방 상세면 false */
+  shouldPlayGroupChatInAppSound: (roomId: string | null | undefined) => boolean;
 };
 
 const NotificationSurfaceContext = createContext<NotificationSurfaceValue | null>(null);
@@ -63,6 +67,12 @@ function communityRoomIdFromPathname(pathname: string | null): string | null {
   return m?.[1] ? decodeURIComponent(m[1]) : null;
 }
 
+function groupChatRoomIdFromPathname(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const m = pathname.match(/^\/group-chat\/([^/]+)\/?$/);
+  return m?.[1] ? decodeURIComponent(m[1]) : null;
+}
+
 export function NotificationSurfaceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [explicitTradeChatRoomId, setExplicitTradeChatRoomId] = useState<string | null>(null);
@@ -75,9 +85,11 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
 
   const pathTrade = tradeRoomIdFromPathname(pathname ?? null);
   const pathCommunity = communityRoomIdFromPathname(pathname ?? null);
+  const pathGroup = groupChatRoomIdFromPathname(pathname ?? null);
 
   const activeTradeChatRoomId = explicitTradeChatRoomId ?? pathTrade;
   const activeCommunityChatRoomId = explicitCommunityChatRoomId ?? pathCommunity;
+  const activeGroupChatRoomId = pathGroup;
 
   const refreshUserNotificationSettings = useCallback(async () => {
     try {
@@ -164,6 +176,18 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     ]
   );
 
+  /** `meta.kind === "group_chat"` 인 알림 — 같은 그룹 방 화면이면 톤 생략 */
+  const shouldPlayGroupChatInAppSound = useCallback(
+    (roomId: string | null | undefined): boolean => {
+      if (!userNotificationSettings.sound_enabled) return false;
+      if (userNotificationSettings.community_chat_enabled === false) return false;
+      const ref = roomId != null ? String(roomId).trim() : "";
+      if (ref && activeGroupChatRoomId === ref) return false;
+      return true;
+    },
+    [userNotificationSettings, activeGroupChatRoomId]
+  );
+
   const value = useMemo(
     () => ({
       explicitTradeChatRoomId,
@@ -172,20 +196,24 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
       setExplicitCommunityChatRoomId,
       activeTradeChatRoomId,
       activeCommunityChatRoomId,
+      activeGroupChatRoomId,
       isWindowFocused,
       userNotificationSettings,
       refreshUserNotificationSettings,
       shouldPlayInAppSound,
+      shouldPlayGroupChatInAppSound,
     }),
     [
       explicitTradeChatRoomId,
       explicitCommunityChatRoomId,
       activeTradeChatRoomId,
       activeCommunityChatRoomId,
+      activeGroupChatRoomId,
       isWindowFocused,
       userNotificationSettings,
       refreshUserNotificationSettings,
       shouldPlayInAppSound,
+      shouldPlayGroupChatInAppSound,
     ]
   );
 

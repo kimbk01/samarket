@@ -29,19 +29,17 @@ import { CallScreenShell } from "@/components/community-messenger/call-ui/CallSc
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { getPublicDeployTier } from "@/lib/config/deploy-surface";
+import {
+  getIncomingCallPollIntervalMs,
+  MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
+  MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS,
+  MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS,
+  MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS,
+} from "@/lib/community-messenger/messenger-latency-config";
 
-/** ringing 세션이 있을 때 — 백업 폴링(Realtime 장애 대비) */
-const INCOMING_CALL_REFRESH_INTERVAL_MS = 20_000;
-/** 수신 없음 — postgres_changes 로 대부분 커버, 폴링은 저빈도로만 */
-const INCOMING_CALL_IDLE_POLL_MS = 52_000;
+const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
-const INCOMING_CALL_REFRESH_COOLDOWN_MS = 2_500;
-/** Realtime·포커스가 연속으로 터질 때 수신 통화 GET 폭주 방지 */
-const INCOMING_CALL_BURST_MIN_GAP_MS = 4_000;
-/** postgres_changes 가 잦을 때 동일 버스트가 반복되지 않게 */
-const REALTIME_REFRESH_DEBOUNCE_MS = 900;
-/** 탭 복귀 시 1회 확인 + 짧은 재시도 1회 (기존 3연타 완화) */
-const VISIBILITY_RETRY_MS = 1_200;
 const QUICK_REPLY_OPTIONS = [
   "지금 통화가 어려워요. 채팅으로 남겨 주세요.",
   "잠시 후 다시 연락드릴게요.",
@@ -95,7 +93,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   const refresh = useCallback(async (force = false) => {
     const now = Date.now();
-    if (!force && now - lastRefreshAtRef.current < INCOMING_CALL_REFRESH_COOLDOWN_MS) {
+    if (!force && now - lastRefreshAtRef.current < MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS) {
       return;
     }
     await runSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY, async () => {
@@ -144,17 +142,17 @@ export function GlobalCommunityMessengerIncomingCall() {
       refreshTimerIdsRef.current = [
         window.setTimeout(() => {
           void refresh(true);
-        }, VISIBILITY_RETRY_MS),
+        }, MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS),
       ];
     };
     const now = Date.now();
     const gap = now - lastBurstAtRef.current;
-    if (gap >= INCOMING_CALL_BURST_MIN_GAP_MS) {
+    if (gap >= MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS) {
       runBurst();
       return;
     }
     if (pendingBurstTimerRef.current != null) return;
-    pendingBurstTimerRef.current = window.setTimeout(runBurst, INCOMING_CALL_BURST_MIN_GAP_MS - gap);
+    pendingBurstTimerRef.current = window.setTimeout(runBurst, MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS - gap);
   }, [refresh]);
 
   /** Supabase Realtime: 디바운스 후 1회만(연속 INSERT/UPDATE 시 GET 폭주 방지). */
@@ -165,13 +163,13 @@ export function GlobalCommunityMessengerIncomingCall() {
     realtimeDebounceTimerRef.current = window.setTimeout(() => {
       realtimeDebounceTimerRef.current = null;
       void refresh(true);
-    }, REALTIME_REFRESH_DEBOUNCE_MS);
+    }, MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS);
   }, [refresh]);
 
   useEffect(() => {
     if (!userId) return;
     queueVisibilityRefreshBurst();
-    const pollMs = sessions.length > 0 ? INCOMING_CALL_REFRESH_INTERVAL_MS : INCOMING_CALL_IDLE_POLL_MS;
+    const pollMs = getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, sessions.length > 0);
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refresh();

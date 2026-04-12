@@ -15,6 +15,7 @@ import {
 } from "@/lib/http/api-route";
 import { loadGroupRoomMessageRowsForUser } from "@/lib/group-chat/server/load-group-room-messages";
 import { getActiveGroupMembership } from "@/lib/group-chat/server/assert-group-member";
+import { notifyGroupChatMessageRecipients } from "@/lib/notifications/group-chat-inapp-notify";
 
 export async function GET(
   req: NextRequest,
@@ -22,6 +23,15 @@ export async function GET(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const pageRateLimit = await enforceRateLimit({
+    key: `group-chat:message-page:${getRateLimitKey(req, auth.userId)}`,
+    limit: 90,
+    windowMs: 60_000,
+    message: "메시지 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "group_chat_message_page_rate_limited",
+  });
+  if (!pageRateLimit.ok) return pageRateLimit.response;
 
   const { roomId } = await params;
   if (!roomId?.trim()) {
@@ -120,6 +130,19 @@ export async function POST(
   }
 
   const row = inserted as { id: string; created_at: string; seq: number };
+  const preview =
+    messageType === "text"
+      ? bodyRaw.slice(0, 120)
+      : messageType === "image"
+        ? "사진"
+        : "(메시지)";
+
+  void notifyGroupChatMessageRecipients(sb, {
+    roomId,
+    senderUserId: auth.userId,
+    preview,
+  });
+
   return jsonOk({
     message: {
       id: row.id,

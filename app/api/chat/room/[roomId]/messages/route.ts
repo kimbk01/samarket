@@ -10,6 +10,10 @@ import {
   LEGACY_PRODUCT_CHAT_MESSAGES_PAGE_MAX,
   loadLegacyProductChatMessagesPageForUser,
 } from "@/lib/chats/server/load-chat-room-messages";
+import {
+  enforceRateLimit,
+  getRateLimitKey,
+} from "@/lib/http/api-route";
 import { parseRoomId } from "@/lib/validate-params";
 
 export async function GET(
@@ -18,6 +22,15 @@ export async function GET(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const pageRateLimit = await enforceRateLimit({
+    key: `legacy-product-chat:message-page:${getRateLimitKey(req, auth.userId)}`,
+    limit: 90,
+    windowMs: 60_000,
+    message: "메시지 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "legacy_product_chat_message_page_rate_limited",
+  });
+  if (!pageRateLimit.ok) return pageRateLimit.response;
 
   const { roomId: raw } = await params;
   const roomId = parseRoomId(raw);

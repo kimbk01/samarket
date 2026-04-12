@@ -27,6 +27,14 @@ export function NotificationsBadgeRealtimeBridge() {
       const domainRaw = row.domain;
       const refId = typeof row.ref_id === "string" ? row.ref_id : null;
       if (typeof domainRaw === "string" && isNotificationDomain(domainRaw)) {
+        const metaAny = row.meta as { kind?: string; room_id?: string } | undefined;
+        if (metaAny?.kind === "group_chat" && typeof metaAny.room_id === "string") {
+          if (surface && !surface.shouldPlayGroupChatInAppSound(metaAny.room_id)) {
+            return false;
+          }
+          void playDomainNotificationSound(domainRaw);
+          return true;
+        }
         if (surface && !surface.shouldPlayInAppSound(domainRaw, refId)) {
           return false;
         }

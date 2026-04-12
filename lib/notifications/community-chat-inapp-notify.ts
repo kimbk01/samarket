@@ -1,20 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
-
-async function getCooldownSeconds(sb: SupabaseClient<any>): Promise<number> {
-  try {
-    const { data } = await sb
-      .from("admin_notification_settings")
-      .select("cooldown_seconds")
-      .eq("type", "community_chat")
-      .maybeSingle();
-    const n = Number((data as { cooldown_seconds?: number } | null)?.cooldown_seconds);
-    if (Number.isFinite(n) && n >= 0) return Math.min(600, n);
-  } catch {
-    /* ignore */
-  }
-  return 3;
-}
+import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
 
 async function shouldSkipDueToCooldown(
   sb: SupabaseClient<any>,
@@ -65,7 +51,7 @@ export async function notifyCommunityChatInAppForRecipients(
   const { roomId, senderUserId, preview, recipientUserIds, hasMention } = args;
   if (!roomId || !recipientUserIds.length) return;
 
-  const cooldownSec = await getCooldownSeconds(sb);
+  const cooldownSec = await getAdminNotificationCooldownSeconds(sb, "community_chat");
   const title = hasMention ? "멘션 알림" : "새 메시지";
   const body = preview.slice(0, 200) || "메시지가 도착했습니다.";
   const linkUrl = ROOM_HREF(roomId);

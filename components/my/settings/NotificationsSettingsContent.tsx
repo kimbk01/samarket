@@ -10,6 +10,7 @@ import {
   updateUserSettings,
 } from "@/lib/settings/user-settings-store";
 import { SettingsSection } from "./SettingsSection";
+import { WebPushSettingsRow } from "./WebPushSettingsRow";
 
 export function NotificationsSettingsContent() {
   const { t } = useI18n();
@@ -196,6 +197,7 @@ export function NotificationsSettingsContent() {
             </button>
           </div>
         </div>
+        <WebPushSettingsRow pushEnabled={settings.push_enabled !== false} />
         {!commerceEmailLoaded ? (
           <div className="border-b border-sam-border-soft px-4 py-3">
             <div className="flex items-center justify-between gap-3">

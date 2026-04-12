@@ -18,6 +18,10 @@ import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/m
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
 import {
+  notifyCommunityMessengerFriendRequestAccepted,
+  notifyCommunityMessengerFriendRequestReceived,
+} from "@/lib/notifications/community-messenger-friend-inapp-notify";
+import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   type CommunityMessengerBootstrap,
@@ -2225,6 +2229,11 @@ export async function sendCommunityMessengerFriendRequest(
       if (!error) {
         const profileMap = await fetchProfilesByIds([userId, target]);
         const row = data as RequestRow;
+        void notifyCommunityMessengerFriendRequestReceived(sb as any, {
+          addresseeUserId: row.addressee_id,
+          requestId: row.id,
+          requesterLabel: profileLabel(profileMap.get(row.requester_id), row.requester_id),
+        });
         return {
           ok: true,
           request: {
@@ -2287,7 +2296,7 @@ export async function respondCommunityMessengerFriendRequest(
   userId: string,
   requestId: string,
   action: "accept" | "reject" | "cancel"
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; directRoomId?: string }> {
   const id = trimText(requestId);
   if (!id) return { ok: false, error: "bad_request_id" };
   const nextStatus: CommunityMessengerFriendRequestStatus =
@@ -2310,6 +2319,7 @@ export async function respondCommunityMessengerFriendRequest(
         .update({ status: nextStatus, responded_at: nowIso() })
         .eq("id", id);
       if (!error) {
+        let directRoomId: string | undefined;
         if (action === "accept") {
           const requesterId = trimText(request.requester_id);
           const addresseeId = trimText(request.addressee_id);
@@ -2317,10 +2327,18 @@ export async function respondCommunityMessengerFriendRequest(
             const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
             if (!roomOut.ok) {
               console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
+            } else if (roomOut.roomId) {
+              directRoomId = roomOut.roomId;
             }
+            const profileMap = await fetchProfilesByIds([requesterId, addresseeId]);
+            void notifyCommunityMessengerFriendRequestAccepted(sb as any, {
+              requesterUserId: requesterId,
+              requestId: id,
+              addresseeLabel: profileLabel(profileMap.get(addresseeId), addresseeId),
+            });
           }
         }
-        return { ok: true };
+        return directRoomId ? { ok: true, directRoomId } : { ok: true };
       }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
     }
@@ -2334,6 +2352,7 @@ export async function respondCommunityMessengerFriendRequest(
     ((action === "accept" || action === "reject") && request.addressee_id === userId);
   if (!allowed) return { ok: false, error: "forbidden" };
   request.status = nextStatus;
+  let directRoomId: string | undefined;
   if (action === "accept") {
     const requesterId = trimText(request.requester_id);
     const addresseeId = trimText(request.addressee_id);
@@ -2341,10 +2360,12 @@ export async function respondCommunityMessengerFriendRequest(
       const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
       if (!roomOut.ok) {
         console.warn("[community-messenger] accept friend (dev): direct room ensure failed", roomOut.error);
+      } else if (roomOut.roomId) {
+        directRoomId = roomOut.roomId;
       }
     }
   }
-  return { ok: true };
+  return directRoomId ? { ok: true, directRoomId } : { ok: true };
 }
 
 async function isFriend(userId: string, targetUserId: string): Promise<boolean> {

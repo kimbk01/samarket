@@ -532,7 +532,7 @@ export function CommunityMessengerHome({
     if (stale) {
       const idleId = scheduleWhenBrowserIdle(() => {
         void refresh(true);
-      }, 1400);
+      }, 420);
       return () => {
         cancelScheduledWhenBrowserIdle(idleId);
       };
@@ -851,14 +851,21 @@ export function CommunityMessengerHome({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
         });
-        if (res.ok) {
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          directRoomId?: string;
+        };
+        if (res.ok && json.ok) {
           void refresh(true);
+          if (action === "accept" && typeof json.directRoomId === "string" && json.directRoomId.trim()) {
+            router.push(`/community-messenger/rooms/${encodeURIComponent(json.directRoomId.trim())}`);
+          }
         }
       } finally {
         setBusyId(null);
       }
     },
-    [refresh]
+    [refresh, router]
   );
 
   const toggleFavoriteFriend = useCallback(

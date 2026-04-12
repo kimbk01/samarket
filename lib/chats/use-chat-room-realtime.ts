@@ -18,8 +18,9 @@ export type ChatRoomRealtimeConnectionState =
   | "live"
   | "fallback";
 
-const RETRY_BASE_MS = 650;
-const RETRY_MAX_MS = 28_000;
+/** 끊김 후 재연결 백오프 — 실서비스 체감 우선(과도한 재시도는 max 로 제한) */
+const RETRY_BASE_MS = 380;
+const RETRY_MAX_MS = 22_000;
 
 /**
  * Supabase Realtime `postgres_changes` — 방 단위 구독 + 끊김 시 백오프 재연결 + 포그라운드 시 재시도.

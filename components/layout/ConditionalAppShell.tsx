@@ -49,6 +49,10 @@ const IncomingCallOverlay = dynamic(
     import("@/components/community-messenger/IncomingCallOverlay").then((mod) => mod.IncomingCallOverlay),
   { ssr: false }
 );
+const WebConnectivityBanner = dynamic(
+  () => import("@/components/layout/WebConnectivityBanner").then((mod) => mod.WebConnectivityBanner),
+  { ssr: false }
+);
 
 export function ConditionalAppShell({
   children,
@@ -170,7 +174,12 @@ export function ConditionalAppShell({
     !isCommunityApp &&
     !isPersonalProductComposerPage;
   const mountGlobalRealtimeChrome =
-    (showBottomNav || isMyTab || isStoreSection || isOrdersHub) && !isCommunityMessengerCallPage;
+    (showBottomNav ||
+      isMyTab ||
+      isStoreSection ||
+      isOrdersHub ||
+      isCommunityMessengerSurface) &&
+    !isCommunityMessengerCallPage;
   /** 메신저 방 등에서는 하단 탭이 없어 기존 블록에 안 걸림 — 첫 터치로 알림/통화 톤 잠금 해제 */
   const mountNotificationSoundPrime =
     mountGlobalRealtimeChrome || (isCommunityMessengerSurface && !isCommunityMessengerCallPage);
@@ -197,6 +206,7 @@ export function ConditionalAppShell({
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
       {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerUnreadSound /> : null}
       {!isCommunityMessengerCallPage ? <IncomingCallOverlay /> : null}
+      <WebConnectivityBanner />
       {showRegionBar && <RegionBar />}
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main
