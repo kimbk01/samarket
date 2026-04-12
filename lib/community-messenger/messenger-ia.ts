@@ -5,11 +5,37 @@
 
 export type MessengerMainSection = "friends" | "chats" | "open_chat" | "archive";
 
+/** 채팅 목록 행·액션 시트가 일반 탭인지 보관함 탭인지(복원·로컬 삭제 범위 문구 분기). */
+export type MessengerChatListContext = "default" | "archive";
+
 /** 받은함/목록 범위(전체·안읽음·고정) — 대화 유형과 한 줄에 섞지 않는다. */
 export type MessengerChatInboxFilter = "all" | "unread" | "pinned";
 
 /** 대화 유형(1:1·그룹·거래·배달) — 받은함 필터와 독립 축. */
 export type MessengerChatKindFilter = "all" | "direct" | "private_group" | "trade" | "delivery";
+
+/**
+ * 모바일 채팅 목록 단일 칩(전체·안읽음·고정·유형) — inbox+kind 를 한 축으로 표현.
+ * kind 가 all 이 아니면 유형 칩이 우선(안읽음+1:1 같은 URL 조합은 유형 쪽으로 표시).
+ */
+export type MessengerChatListChip =
+  | "all"
+  | "unread"
+  | "pinned"
+  | "direct"
+  | "private_group"
+  | "trade"
+  | "delivery";
+
+export const MESSENGER_CHAT_LIST_CHIP_ORDER: readonly MessengerChatListChip[] = [
+  "all",
+  "unread",
+  "pinned",
+  "direct",
+  "private_group",
+  "trade",
+  "delivery",
+] as const;
 
 const CHAT_INBOX_FILTERS: ReadonlySet<string> = new Set(["all", "unread", "pinned"]);
 const CHAT_KIND_FILTERS: ReadonlySet<string> = new Set(["all", "direct", "private_group", "trade", "delivery"]);
@@ -104,6 +130,64 @@ export function resolveMessengerChatSubFilter(
   return "all";
 }
 
+export function chipToInboxKind(chip: MessengerChatListChip): {
+  inbox: MessengerChatInboxFilter;
+  kind: MessengerChatKindFilter;
+} {
+  switch (chip) {
+    case "all":
+      return { inbox: "all", kind: "all" };
+    case "unread":
+      return { inbox: "unread", kind: "all" };
+    case "pinned":
+      return { inbox: "pinned", kind: "all" };
+    case "direct":
+      return { inbox: "all", kind: "direct" };
+    case "private_group":
+      return { inbox: "all", kind: "private_group" };
+    case "trade":
+      return { inbox: "all", kind: "trade" };
+    case "delivery":
+      return { inbox: "all", kind: "delivery" };
+    default:
+      return { inbox: "all", kind: "all" };
+  }
+}
+
+/** inbox+kind → 단일 칩(목록 UI 동기화). */
+export function inboxKindToChatListChip(
+  inbox: MessengerChatInboxFilter,
+  kind: MessengerChatKindFilter
+): MessengerChatListChip {
+  if (kind !== "all") {
+    return kind;
+  }
+  if (inbox === "unread") return "unread";
+  if (inbox === "pinned") return "pinned";
+  return "all";
+}
+
+export function messengerChatListChipLabel(chip: MessengerChatListChip): string {
+  switch (chip) {
+    case "all":
+      return "전체";
+    case "unread":
+      return "안읽음";
+    case "pinned":
+      return "고정";
+    case "direct":
+      return "1:1";
+    case "private_group":
+      return "그룹";
+    case "trade":
+      return "거래";
+    case "delivery":
+      return "배달";
+    default:
+      return "전체";
+  }
+}
+
 export function messengerChatFiltersToSearchParams(inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter): URLSearchParams {
   const qs = new URLSearchParams();
   if (inbox === "unread" || inbox === "pinned") {
@@ -179,4 +263,19 @@ export function messengerChatListEmptyMessage(kind: MessengerChatKindFilter): st
     return "배달로 분류된 대화가 없습니다. 배달 주문 채팅에서 메신저로 열면 배달 맥락이 붙은 방만 이 탭에 나타납니다.";
   }
   return "조건에 맞는 대화가 없습니다.";
+}
+
+/** 단일 칩 기준 빈 목록 문구(거래/배달만 긴 안내 유지). */
+export function messengerChatListEmptyMessageForChip(chip: MessengerChatListChip): string {
+  if (chip === "trade" || chip === "delivery") {
+    const { kind } = chipToInboxKind(chip);
+    return messengerChatListEmptyMessage(kind);
+  }
+  if (chip === "unread") return "읽지 않은 대화가 없습니다.";
+  if (chip === "pinned") return "고정한 대화가 없습니다.";
+  if (chip === "direct") return "1:1 대화가 없습니다.";
+  if (chip === "private_group") return "그룹 대화가 없습니다.";
+  if (chip === "all") return "대화가 없습니다.\n새 대화를 시작해보세요.";
+  const { kind } = chipToInboxKind(chip);
+  return messengerChatListEmptyMessage(kind);
 }

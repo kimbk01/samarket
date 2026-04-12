@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import { communityMessengerRoomIsDelivery, communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
+import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { communityMessengerRoomIsInboxHidden, type CommunityMessengerBootstrap, type CommunityMessengerCallLog, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 export type { MessengerFriendState, MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
@@ -66,10 +67,13 @@ export function useCommunityMessengerHomeState({
     return [...(data?.friends ?? [])]
       .filter((friend) => !hiddenFriendIds.has(friend.id))
       .sort((a, b) => {
-      const scoreA = interactionTimeByFriendId.get(a.id) ?? Number.NEGATIVE_INFINITY;
-      const scoreB = interactionTimeByFriendId.get(b.id) ?? Number.NEGATIVE_INFINITY;
-      if (scoreA !== scoreB) return scoreB - scoreA;
-      return a.label.localeCompare(b.label, "ko");
+        const favA = a.isFavoriteFriend ? 1 : 0;
+        const favB = b.isFavoriteFriend ? 1 : 0;
+        if (favA !== favB) return favB - favA;
+        const scoreA = interactionTimeByFriendId.get(a.id) ?? Number.NEGATIVE_INFINITY;
+        const scoreB = interactionTimeByFriendId.get(b.id) ?? Number.NEGATIVE_INFINITY;
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        return a.label.localeCompare(b.label, "ko");
       });
   }, [data?.friends, directRoomByPeerId, hiddenFriendIds]);
 
@@ -178,23 +182,6 @@ export function useCommunityMessengerHomeState({
     return [];
   }, [archiveListItems, mainSection, openChatJoinedItems, visibleChatListItems]);
 
-  const sectionNavBadges = useMemo((): Partial<Record<MessengerMainSection, number>> => {
-    if (!data) return {};
-    const chatsUnread = baseChatListItems.reduce((sum, item) => sum + Math.max(0, item.room.unreadCount), 0);
-    const openHint = openChatJoinedItems.length + (data.discoverableGroups?.length ?? 0);
-    return {
-      friends: data.friends.length,
-      chats: chatsUnread,
-      open_chat: openHint,
-      archive: archiveListItems.length,
-    };
-  }, [archiveListItems.length, baseChatListItems, data, openChatJoinedItems.length]);
-
-  const totalUnreadCount = useMemo(
-    () => baseChatListItems.reduce((sum, item) => sum + Math.max(0, item.room.unreadCount), 0),
-    [baseChatListItems]
-  );
-
   return {
     favoriteFriends,
     favoriteFriendIds,
@@ -208,8 +195,6 @@ export function useCommunityMessengerHomeState({
     visibleChatListItems,
     searchSheetRoomItems,
     primaryListItems,
-    sectionNavBadges,
-    totalUnreadCount,
     friendStateModel,
   };
 }
@@ -290,6 +275,11 @@ function formatSystemPreview(value: string): string {
   if (text.startsWith("방장 위임")) return text;
   if (text.startsWith("멤버 초대")) return text;
   if (text.startsWith("멤버 내보내기")) return text;
+  if (text.includes("주문") && (text.includes("접수") || text.includes("접수됨"))) return "주문 접수됨";
+  if (text.includes("거래") && text.includes("제안")) {
+    const m = text.match(/[\d,.\s]+[₱₩$€원]/);
+    return m ? `거래 제안 ${m[0].trim()}` : "거래 제안";
+  }
   return "시스템 메시지";
 }
 
@@ -370,8 +360,5 @@ function mergeCallsByConversation(sortedNewestFirst: CommunityMessengerCallLog[]
 }
 
 function formatDurationLabel(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins < 1) return `${secs}초`;
-  return `${mins}분 ${secs.toString().padStart(2, "0")}초`;
+  return formatCommunityMessengerCallDurationLabel(seconds);
 }

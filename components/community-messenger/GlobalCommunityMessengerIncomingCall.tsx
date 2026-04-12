@@ -23,6 +23,8 @@ import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { CallPrimaryButton } from "@/components/community-messenger/call-ui/CallButtons";
+import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
 
 const INCOMING_CALL_REFRESH_INTERVAL_MS = 20_000;
 const INCOMING_CALL_REFRESH_COOLDOWN_MS = 2_500;
@@ -465,7 +467,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const callTypeLabel = visibleSession.callKind === "video" ? "영상 통화" : "음성 통화";
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col">
+    <CallScreenShell surfaceClassName="bg-transparent" className="min-h-[100dvh]">
       <div className="absolute inset-0 bg-black/30" aria-hidden />
       <div className="relative flex min-h-0 flex-1 flex-col">
         {isMinimized ? (
@@ -558,28 +560,27 @@ export function GlobalCommunityMessengerIncomingCall() {
                 </div>
               ) : null}
               <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
+                <CallPrimaryButton
+                  variant="outline"
                   onClick={() => void rejectCall(visibleSession.id)}
                   disabled={busyId === `reject:${visibleSession.id}` || busyId === `block:${visibleSession.id}`}
-                  className="rounded-ui-rect border border-ui-border px-4 py-4 text-[15px] font-medium text-ui-fg disabled:opacity-40"
+                  className="!font-medium"
                 >
                   {t("common_reject")}
-                </button>
-                <button
-                  type="button"
+                </CallPrimaryButton>
+                <CallPrimaryButton
+                  variant="solid"
                   onClick={() => void acceptCall(visibleSession)}
                   disabled={busyId === `accept:${visibleSession.id}`}
-                  className="rounded-ui-rect border border-ui-border bg-ui-fg px-4 py-4 text-[15px] font-semibold text-ui-surface disabled:opacity-50"
                 >
                   {busyId === `accept:${visibleSession.id}` ? `${t("common_loading")}` : t("common_accept")}
-                </button>
+                </CallPrimaryButton>
               </div>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </CallScreenShell>
   );
 }
 

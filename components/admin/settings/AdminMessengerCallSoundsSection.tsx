@@ -59,7 +59,7 @@ function SoundFieldRow({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-fg hover:bg-ui-hover"
+          className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-fg hover:bg-ui-hover active:bg-ui-hover"
           disabled={!url.trim()}
           onClick={() => onTest(url.trim())}
         >
@@ -67,10 +67,11 @@ function SoundFieldRow({
         </button>
         <button
           type="button"
-          className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-muted hover:bg-ui-hover"
-          onClick={() => onPatch({ [urlKey]: null })}
+          className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-muted hover:bg-ui-hover active:bg-ui-hover"
+          onClick={() => onPatch({ [urlKey]: null, [enabledKey]: true })}
+          title="URL을 비우고 이 사운드 사용을 기본(켜짐)으로 되돌립니다."
         >
-          기본값(경로 비움)
+          기본음으로 초기화
         </button>
         {onUploadFile ? (
           <>
@@ -83,7 +84,7 @@ function SoundFieldRow({
             />
             <button
               type="button"
-              className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-fg hover:bg-ui-hover disabled:opacity-50"
+              className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
               disabled={uploading}
               onClick={() => fileRef.current?.click()}
             >
@@ -142,7 +143,7 @@ function DefaultFallbackSoundField({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="rounded-ui-rect border border-ui-border px-3 py-1.5 text-[12px] text-ui-fg hover:bg-ui-hover disabled:opacity-50"
+            className="rounded-ui-rect border border-ui-border px-3 py-1.5 text-[12px] text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
             disabled={!url.trim()}
             onClick={() => onTest(url.trim())}
           >
@@ -157,7 +158,7 @@ function DefaultFallbackSoundField({
           />
           <button
             type="button"
-            className="rounded-ui-rect border border-ui-border px-3 py-1.5 text-[12px] text-ui-fg hover:bg-ui-hover disabled:opacity-50"
+            className="rounded-ui-rect border border-ui-border px-3 py-1.5 text-[12px] text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
           >

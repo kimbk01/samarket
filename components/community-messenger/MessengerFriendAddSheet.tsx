@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type RefObject } from "react";
+import { useCallback, useRef, useState, type RefObject } from "react";
 import { SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
@@ -20,11 +20,9 @@ type Props = {
   friendUserSearchAttempted: boolean;
   searchResults: CommunityMessengerProfileLite[];
   busyId: string | null;
-  onToggleFollow: (userId: string) => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onPrefetchDirectRoom: (userId: string) => void;
   onRequestFriend: (userId: string) => void;
-  onToggleBlock: (userId: string) => void;
   /** 초대 링크·QR 탭에 표시할 공개 URL */
   inviteUrl: string;
 };
@@ -57,11 +55,9 @@ export function MessengerFriendAddSheet({
   friendUserSearchAttempted,
   searchResults,
   busyId,
-  onToggleFollow,
   onOpenProfile,
   onPrefetchDirectRoom,
   onRequestFriend,
-  onToggleBlock,
   inviteUrl,
 }: Props) {
   const [copied, setCopied] = useState(false);
@@ -84,7 +80,7 @@ export function MessengerFriendAddSheet({
           <p className="text-[16px] font-semibold text-ui-fg">친구 추가</p>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-ui-rect text-ui-muted hover:bg-ui-hover"
+            className="flex h-8 w-8 items-center justify-center rounded-ui-rect text-ui-muted active:bg-ui-hover"
             aria-label="닫기"
             onClick={onClose}
           >
@@ -176,9 +172,9 @@ export function MessengerFriendAddSheet({
                   {busyId === "user-search" ? "검색 중…" : "검색"}
                 </button>
               </div>
-              <div className="space-y-1.5">
+              <div className="divide-y divide-ui-border overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
                 {searchResults.length === 0 ? (
-                  <p className="rounded-ui-rect border border-ui-border px-3 py-4 text-center text-[12px] text-ui-muted">
+                  <p className="px-3 py-4 text-center text-[12px] text-ui-muted">
                     {!friendUserSearchAttempted ? "검색어를 입력한 뒤 검색을 눌러 주세요." : "검색 결과가 없습니다."}
                   </p>
                 ) : (
@@ -187,11 +183,9 @@ export function MessengerFriendAddSheet({
                       key={user.id}
                       user={user}
                       busyId={busyId}
-                      onToggleFollow={onToggleFollow}
                       onOpenProfile={onOpenProfile}
                       onPrefetchDirectRoom={onPrefetchDirectRoom}
                       onRequestFriend={onRequestFriend}
-                      onToggleBlock={onToggleBlock}
                     />
                   ))
                 )}
@@ -224,74 +218,62 @@ export function MessengerFriendAddSheet({
 function SearchResultRow({
   user,
   busyId,
-  onToggleFollow,
   onOpenProfile,
   onPrefetchDirectRoom,
   onRequestFriend,
-  onToggleBlock,
 }: {
   user: CommunityMessengerProfileLite;
   busyId: string | null;
-  onToggleFollow: (userId: string) => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onPrefetchDirectRoom: (userId: string) => void;
   onRequestFriend: (userId: string) => void;
-  onToggleBlock: (userId: string) => void;
 }) {
+  const prefetchOnceRef = useRef(false);
   const avatarSrc = user.avatarUrl?.trim() ? user.avatarUrl.trim() : null;
   const initial = user.label.trim().slice(0, 1) || "?";
+
   return (
-    <div className="flex items-center gap-2 rounded-ui-rect border border-ui-border bg-ui-surface px-2.5 py-2">
-      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-ui-hover">
-        {avatarSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ui-muted">{initial}</div>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-semibold text-ui-fg">{user.label}</p>
-        <p className="truncate text-[11px] text-ui-muted">{user.subtitle ?? "SAMarket"}</p>
-      </div>
-      <div className="flex shrink-0 flex-wrap justify-end gap-1">
+    <div className="flex items-center gap-2 px-3 py-2">
+      <button
+        type="button"
+        onPointerDown={() => {
+          if (prefetchOnceRef.current) return;
+          prefetchOnceRef.current = true;
+          onPrefetchDirectRoom(user.id);
+        }}
+        onClick={() => onOpenProfile(user)}
+        className="flex min-w-0 flex-1 items-center gap-2.5 text-left active:bg-ui-hover"
+      >
+        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-ui-hover">
+          {avatarSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ui-muted">{initial}</div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-medium text-ui-fg">{user.label}</p>
+          <p className="truncate text-[11px] text-ui-muted">{user.subtitle ?? "SAMarket"}</p>
+        </div>
+      </button>
+      {user.isFriend ? (
+        <span className="shrink-0 text-[12px] text-ui-muted">친구</span>
+      ) : user.blocked ? (
+        <span className="shrink-0 text-[12px] text-ui-muted">차단됨</span>
+      ) : (
         <button
           type="button"
-          onClick={() => void onToggleFollow(user.id)}
-          disabled={busyId === `follow:${user.id}`}
-          className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] font-medium text-ui-fg disabled:opacity-50"
+          onClick={(e) => {
+            e.stopPropagation();
+            void onRequestFriend(user.id);
+          }}
+          disabled={busyId === `friend:${user.id}`}
+          className="shrink-0 rounded-ui-rect border border-ui-fg bg-ui-fg px-3 py-1.5 text-[12px] font-semibold text-ui-surface disabled:opacity-40"
         >
-          {user.following ? "언팔" : "팔로우"}
+          요청
         </button>
-        {user.isFriend ? (
-          <button
-            type="button"
-            onPointerEnter={() => onPrefetchDirectRoom(user.id)}
-            onClick={() => onOpenProfile(user)}
-            disabled={busyId === `room:${user.id}` || busyId === `call:voice:${user.id}` || busyId === `call:video:${user.id}`}
-            className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] font-semibold text-ui-fg"
-          >
-            프로필
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void onRequestFriend(user.id)}
-            disabled={busyId === `friend:${user.id}` || user.blocked}
-            className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2 py-1 text-[11px] font-semibold text-ui-surface disabled:opacity-40"
-          >
-            요청
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => void onToggleBlock(user.id)}
-          disabled={busyId === `block:${user.id}`}
-          className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] text-ui-muted disabled:opacity-50"
-        >
-          {user.blocked ? "해제" : "차단"}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

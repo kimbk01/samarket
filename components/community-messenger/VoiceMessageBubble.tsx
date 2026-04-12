@@ -141,8 +141,8 @@ export function VoiceMessageBubble({
   }, [loadError, pending]);
 
   const mineLight = isMine && mineBubbleStyle === "viberLight";
-  const inactiveBar = isMine ? (mineLight ? "bg-gray-300/90" : "bg-white/30") : "bg-gray-200";
-  const activeBar = isMine ? (mineLight ? "bg-[#665CAC]" : "bg-white") : "bg-gray-900";
+  const inactiveBar = isMine ? (mineLight ? "bg-white/35" : "bg-white/30") : "bg-gray-200";
+  const activeBar = isMine ? (mineLight ? "bg-[color:var(--cm-room-primary)]" : "bg-white") : "bg-gray-900";
 
   return (
     <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">
@@ -154,7 +154,7 @@ export function VoiceMessageBubble({
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
             isMine
               ? mineLight
-                ? "bg-[#665CAC] text-white ring-2 ring-[#665CAC]/35"
+                ? "bg-white/25 text-white ring-2 ring-white/40"
                 : "bg-white/25 text-white ring-2 ring-white/35"
               : "bg-gray-900 text-white ring-2 ring-gray-300"
           }`}
@@ -189,7 +189,7 @@ export function VoiceMessageBubble({
           </div>
           <div
             className={`flex items-baseline justify-between gap-2 text-[11px] leading-tight ${
-              isMine ? (mineLight ? "text-gray-600" : "text-white/90") : "text-gray-500"
+              isMine ? (mineLight ? "text-white/85" : "text-white/90") : "text-gray-500"
             }`}
           >
             <span className="shrink-0 tabular-nums font-medium">{formatVoiceDuration(durationSeconds)}</span>

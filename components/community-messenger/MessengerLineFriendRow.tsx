@@ -1,86 +1,35 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
-
-const DELETE_WIDTH = 72;
-const SWIPE_CLOSE_THRESHOLD = 36;
-const AXIS_LOCK_THRESHOLD = 8;
 
 type Props = {
   friend: CommunityMessengerProfileLite;
   busyFavorite: boolean;
-  busyDelete: boolean;
   onRowPress: () => void;
+  /** 롱프레스 — 중앙 영역만 */
+  onOpenActions: () => void;
   onToggleFavorite: () => void;
-  onDelete: () => void;
 };
 
 /**
- * 메신저 친구 기본 행.
- * 카드보다 리스트 밀도를 우선하고, 즐겨찾기와 삭제만 보조 액션으로 둔다.
+ * 모바일 친구 행 — 탭=프로필, 롱프레스=액션 시트. 좌측 별=즐겨찾기만.
  */
 export function MessengerLineFriendRow({
   friend,
   busyFavorite,
-  busyDelete,
   onRowPress,
+  onOpenActions,
   onToggleFavorite,
-  onDelete,
 }: Props) {
-  const [offset, setOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const startOffset = useRef(0);
-  const activeDrag = useRef(false);
-  const dragAxis = useRef<"x" | "y" | null>(null);
+  const { bind, consumeClickSuppression } = useMessengerLongPress(onOpenActions);
 
-  const close = useCallback(() => setOffset(0), []);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (!e.isPrimary) return;
-    activeDrag.current = true;
-    dragAxis.current = null;
-    setDragging(true);
-    startX.current = e.clientX;
-    startY.current = e.clientY;
-    startOffset.current = offset;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!activeDrag.current) return;
-    const dx = e.clientX - startX.current;
-    const dy = e.clientY - startY.current;
-    if (dragAxis.current == null) {
-      if (Math.abs(dx) < AXIS_LOCK_THRESHOLD && Math.abs(dy) < AXIS_LOCK_THRESHOLD) return;
-      dragAxis.current = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
-    }
-    if (dragAxis.current !== "x") return;
-    let next = startOffset.current + dx;
-    if (next > 0) next = 0;
-    if (next < -DELETE_WIDTH) next = -DELETE_WIDTH;
-    setOffset(next);
-  };
-
-  const onPointerUp = (e: React.PointerEvent) => {
-    activeDrag.current = false;
-    dragAxis.current = null;
-    setDragging(false);
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-    setOffset((cur) => (cur < -SWIPE_CLOSE_THRESHOLD ? -DELETE_WIDTH : 0));
-  };
-
-  const avatarSrc = friend.avatarUrl ?? undefined;
+  const avatarSrc = friend.avatarUrl?.trim() ? friend.avatarUrl.trim() : null;
   const initial = friend.label.trim().slice(0, 1) || "?";
+  const secondary = friend.subtitle?.trim() || `ID · ${friend.id.slice(0, 8)}…`;
 
   return (
-    <div className="flex min-h-[60px] items-stretch gap-0 bg-white">
+    <div className="flex min-h-[var(--ui-tap-min,48px)] items-stretch border-b border-ui-border bg-ui-surface">
       <button
         type="button"
         onClick={(e) => {
@@ -88,82 +37,45 @@ export function MessengerLineFriendRow({
           onToggleFavorite();
         }}
         disabled={busyFavorite}
-        className="flex h-full w-11 shrink-0 touch-manipulation items-center justify-center self-center text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+        className="flex w-9 shrink-0 touch-manipulation items-center justify-center text-ui-muted active:bg-ui-hover disabled:opacity-50"
         aria-label={friend.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
         aria-pressed={friend.isFavoriteFriend}
       >
-        <span className="text-[18px] leading-none">{friend.isFavoriteFriend ? "★" : "☆"}</span>
+        <span className="text-[17px] leading-none">{friend.isFavoriteFriend ? "★" : "☆"}</span>
       </button>
 
-      <div className="relative min-w-0 flex-1 overflow-hidden">
-        <div
-          className="absolute inset-y-0 right-0 flex w-[72px] items-stretch border-l border-gray-200 bg-white"
-          style={{ pointerEvents: offset < -8 ? "auto" : "none" }}
-        >
-          <button
-            type="button"
-            disabled={busyDelete}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-              close();
-            }}
-            className="flex w-full touch-manipulation items-center justify-center text-[13px] font-semibold text-gray-700 disabled:opacity-50"
-          >
-            삭제
-          </button>
-        </div>
-
-        <div
-          role="button"
-          tabIndex={0}
-          onKeyDown={(ev) => {
-            if (ev.key === "Enter" || ev.key === " ") {
-              ev.preventDefault();
-              if (offset < -20) close();
-              else onRowPress();
-            }
-          }}
-          className="relative flex cursor-pointer items-center gap-3 bg-white px-3 py-3 touch-pan-y"
-          style={{
-            transform: `translateX(${offset}px)`,
-            transition: dragging ? "none" : "transform 0.2s ease-out",
-            touchAction: "pan-y",
-          }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onClick={() => {
-            if (offset < -20) {
-              close();
-              return;
-            }
+      <div
+        role="button"
+        tabIndex={0}
+        className="relative flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 py-2 pl-0 pr-3 touch-manipulation"
+        {...bind}
+        onKeyDown={(ev) => {
+          if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
             onRowPress();
-          }}
-        >
-          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gray-100">
-            {avatarSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[15px] font-semibold text-gray-500">
-                {initial}
-              </div>
-            )}
+          }
+        }}
+        onClick={() => {
+          if (consumeClickSuppression()) return;
+          onRowPress();
+        }}
+      >
+        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-ui-hover">
+          {avatarSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[14px] font-semibold text-ui-muted">{initial}</div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1">
+            <p className="truncate text-[15px] font-semibold text-ui-fg">{friend.label}</p>
+            {friend.blocked ? (
+              <span className="shrink-0 rounded-sm border border-ui-border px-1 py-px text-[9px] font-medium text-ui-muted">차단</span>
+            ) : null}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <p className="truncate text-[15px] font-semibold text-gray-900">{friend.label}</p>
-              {friend.isFavoriteFriend ? (
-                <span className="rounded-sm border border-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">즐겨찾기</span>
-              ) : null}
-            </div>
-            <p className="truncate text-[12px] text-gray-500">{friend.subtitle ?? "상태 메시지가 없습니다."}</p>
-          </div>
-          <span className="shrink-0 text-gray-300" aria-hidden>
-            ›
-          </span>
+          <p className="truncate text-[12px] text-ui-muted">{secondary}</p>
         </div>
       </div>
     </div>

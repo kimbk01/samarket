@@ -6,6 +6,8 @@
  * - `friendProfileSheet` — 친구 프로필 시트 (`MessengerFriendProfileSheet` → `CommunityMessengerHome.startDirectCall`)
  * - `roomManaged` — 열린 채팅방·멤버 시트 등 (`CommunityMessengerRoomClient` 가 `POST .../rooms/:id/calls` 호출)
  *
+ * 친구 목록 **행 롱프레스 시트**(`MessengerFriendRowActionSheet`)에는 통화 버튼을 두지 않습니다. 통화는 프로필 시트·즐겨찾기·채팅방 관리 맥락으로만 연결합니다.
+ *
  * 수신 전용(발신 아님): `GlobalCommunityMessengerIncomingCall`
  *
  * 신규 발신 CTA 를 넣을 때는 위 셋 중 하나로만 연결하고, 여기 식별자·주석을 갱신한다.

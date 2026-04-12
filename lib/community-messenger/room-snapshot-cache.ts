@@ -17,6 +17,11 @@ export function peekRoomSnapshot(roomId: string): CommunityMessengerRoomSnapshot
   return row.snapshot;
 }
 
+/** 방 입장 전 프리패치 캐시 무효화(목록에서 로컬 미리보기 정리 등). */
+export function invalidateRoomSnapshot(roomId: string): void {
+  entries.delete(roomId);
+}
+
 /** 한 번만 꺼내 쓰고 제거(중복 GET 없이 첫 페인트용). */
 export function consumeRoomSnapshot(roomId: string): CommunityMessengerRoomSnapshot | null {
   const row = entries.get(roomId);

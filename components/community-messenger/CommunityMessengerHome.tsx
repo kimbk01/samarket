@@ -10,10 +10,14 @@ import { MessengerNewConversationSheet } from "@/components/community-messenger/
 import { MessengerFriendAddSheet, type MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
   MessengerNotificationCenterSheet,
+  resolveImportantRoomHighlightReason,
   type MessengerNotificationCenterItem,
 } from "@/components/community-messenger/MessengerNotificationCenterSheet";
 import { MessengerSearchSheet } from "@/components/community-messenger/MessengerSearchSheet";
 import { MessengerFriendProfileSheet } from "@/components/community-messenger/MessengerFriendProfileSheet";
+import { MessengerFriendRowActionSheet } from "@/components/community-messenger/MessengerFriendRowActionSheet";
+import { MessengerChatRoomActionSheet } from "@/components/community-messenger/MessengerChatRoomActionSheet";
+import { MessengerFriendsPrivacySheet } from "@/components/community-messenger/MessengerFriendsPrivacySheet";
 import { MessengerSettingsSheet } from "@/components/community-messenger/MessengerSettingsSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -36,6 +40,7 @@ import {
   writePreferredCommunityMessengerDeviceIds,
 } from "@/lib/community-messenger/media-preflight";
 import {
+  invalidateRoomSnapshot,
   peekRoomSnapshot,
   prefetchCommunityMessengerRoomSnapshot,
   primeRoomSnapshot,
@@ -44,15 +49,23 @@ import {
   cancelScheduledWhenBrowserIdle,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 import {
   type MessengerChatInboxFilter,
   type MessengerChatKindFilter,
+  type MessengerChatListChip,
+  type MessengerChatListContext,
   type MessengerMainSection,
+  chipToInboxKind,
   messengerChatFiltersToSearchParams,
   resolveMessengerChatFilters,
   resolveMessengerSection,
 } from "@/lib/community-messenger/messenger-ia";
+import {
+  communityMessengerRoomIsDelivery,
+  communityMessengerRoomIsTrade,
+} from "@/lib/community-messenger/messenger-room-domain";
 import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
@@ -61,7 +74,10 @@ import {
   type CommunityMessengerRoomSnapshot,
   type CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import { useCommunityMessengerHomeState } from "@/lib/community-messenger/use-community-messenger-home-state";
+import {
+  type UnifiedRoomListItem,
+  useCommunityMessengerHomeState,
+} from "@/lib/community-messenger/use-community-messenger-home-state";
 
 type MessengerNotificationSettings = {
   trade_chat_enabled: boolean;
@@ -73,6 +89,29 @@ type MessengerNotificationSettings = {
 };
 
 const RECENT_SEARCHES_STORAGE_KEY = "samarket:communityMessenger:recentSearches";
+const CM_NOTIFICATION_DISMISSED_IDS_KEY = "samarket:cm_notification_dismissed_ids";
+
+function readDismissedNotificationIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CM_NOTIFICATION_DISMISSED_IDS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x): x is string => typeof x === "string");
+  } catch {
+    return [];
+  }
+}
+
+function writeDismissedNotificationIds(ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CM_NOTIFICATION_DISMISSED_IDS_KEY, JSON.stringify(ids));
+  } catch {
+    /* ignore quota */
+  }
+}
 
 type CommunityMessengerSettingsBackup = {
   version: 1;
@@ -87,6 +126,10 @@ type CommunityMessengerSettingsBackup = {
     videoDeviceId: string | null;
   };
 };
+
+type FriendSheetState =
+  | { mode: "profile"; profile: CommunityMessengerProfileLite }
+  | { mode: "actions"; profile: CommunityMessengerProfileLite };
 
 export function CommunityMessengerHome({
   initialTab,
@@ -124,7 +167,7 @@ export function CommunityMessengerHome({
   const [friendAddTab, setFriendAddTab] = useState<MessengerFriendAddTab>("id");
   const [friendUserSearchAttempted, setFriendUserSearchAttempted] = useState(false);
   const [searchSheetOpen, setSearchSheetOpen] = useState(false);
-  const [sheetProfile, setSheetProfile] = useState<CommunityMessengerProfileLite | null>(null);
+  const [friendSheet, setFriendSheet] = useState<FriendSheetState | null>(null);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(initialTab === "settings");
   const [publicGroupFindOpen, setPublicGroupFindOpen] = useState(false);
@@ -139,7 +182,11 @@ export function CommunityMessengerHome({
     const { kind } = resolveMessengerChatFilters(initialFilter, initialKind, initialTab);
     return kind;
   });
-  const [friendsHiddenOpen, setFriendsHiddenOpen] = useState(false);
+  const [friendsPrivacySheetOpen, setFriendsPrivacySheetOpen] = useState(false);
+  const [roomActionSheet, setRoomActionSheet] = useState<{
+    item: UnifiedRoomListItem;
+    listContext: MessengerChatListContext;
+  } | null>(null);
   const replaceMessengerSectionUrl = useCallback(
     (section: MessengerMainSection, inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter) => {
       const qs = new URLSearchParams();
@@ -165,19 +212,14 @@ export function CommunityMessengerHome({
     },
     [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, router]
   );
-  const onChatInboxFilterChange = useCallback(
-    (next: MessengerChatInboxFilter) => {
-      setChatInboxFilter(next);
-      replaceMessengerSectionUrl("chats", next, chatKindFilter);
+  const onChatListChipChange = useCallback(
+    (chip: MessengerChatListChip) => {
+      const { inbox, kind } = chipToInboxKind(chip);
+      setChatInboxFilter(inbox);
+      setChatKindFilter(kind);
+      replaceMessengerSectionUrl("chats", inbox, kind);
     },
-    [chatKindFilter, replaceMessengerSectionUrl]
-  );
-  const onChatKindFilterChange = useCallback(
-    (next: MessengerChatKindFilter) => {
-      setChatKindFilter(next);
-      replaceMessengerSectionUrl("chats", chatInboxFilter, next);
-    },
-    [chatInboxFilter, replaceMessengerSectionUrl]
+    [replaceMessengerSectionUrl]
   );
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(null);
   const [loading, setLoading] = useState(true);
@@ -187,6 +229,7 @@ export function CommunityMessengerHome({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [roomSearchKeyword, setRoomSearchKeyword] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<CommunityMessengerProfileLite[]>([]);
   const [groupTitle, setGroupTitle] = useState("");
@@ -437,6 +480,7 @@ export function CommunityMessengerHome({
       } catch {
         /* ignore */
       }
+      setDismissedNotificationIds(readDismissedNotificationIds());
     }
   }, []);
 
@@ -757,8 +801,10 @@ export function CommunityMessengerHome({
           setSearchResults((prev) =>
             prev.map((profile) => (profile.id === friendUserId ? { ...profile, isFavoriteFriend: nextFavorite } : profile))
           );
-          setSheetProfile((prev) =>
-            prev?.id === friendUserId ? { ...prev, isFavoriteFriend: nextFavorite } : prev
+          setFriendSheet((prev) =>
+            prev?.profile.id === friendUserId
+              ? { ...prev, profile: { ...prev.profile, isFavoriteFriend: nextFavorite } }
+              : prev
           );
           void refresh(true);
         }
@@ -804,8 +850,10 @@ export function CommunityMessengerHome({
           setSearchResults((prev) =>
             prev.map((profile) => (profile.id === friendUserId ? { ...profile, isHiddenFriend: nextHidden } : profile))
           );
-          setSheetProfile((prev) =>
-            prev?.id === friendUserId ? { ...prev, isHiddenFriend: nextHidden } : prev
+          setFriendSheet((prev) =>
+            prev?.profile.id === friendUserId
+              ? { ...prev, profile: { ...prev.profile, isHiddenFriend: nextHidden } }
+              : prev
           );
           void refresh(true);
         }
@@ -1056,11 +1104,10 @@ export function CommunityMessengerHome({
     sortedFriends,
     sortedCalls,
     filteredDiscoverableGroups,
+    baseChatListItems,
     openChatJoinedItems,
     searchSheetRoomItems,
     primaryListItems,
-    sectionNavBadges,
-    totalUnreadCount,
     friendStateModel,
   } = useCommunityMessengerHomeState({
     data,
@@ -1127,6 +1174,28 @@ export function CommunityMessengerHome({
     if (!keyword) return;
     setRecentSearches((prev) => [keyword, ...prev.filter((item) => item !== keyword)].slice(0, 8));
   }, []);
+  const removeRecentSearch = useCallback((value: string) => {
+    const keyword = value.trim();
+    if (!keyword) return;
+    setRecentSearches((prev) => prev.filter((item) => item !== keyword));
+  }, []);
+  const dismissNotification = useCallback((id: string) => {
+    setDismissedNotificationIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      writeDismissedNotificationIds(next);
+      return next;
+    });
+  }, []);
+  const resolvePeerProfileForRoom = useCallback(
+    (peerId: string | null | undefined) => {
+      if (!peerId?.trim() || !data) return null;
+      const id = peerId.trim();
+      const pool = [...(data.friends ?? []), ...(data.hidden ?? [])];
+      return pool.find((p) => p.id === id) ?? null;
+    },
+    [data]
+  );
   const groupSelectableFriends = useMemo(() => {
     const visible = sortedFriends;
     const hiddenSelected = groupMembers
@@ -1154,7 +1223,7 @@ export function CommunityMessengerHome({
     return labels.join(", ");
   }, [groupMembers.length, groupTitle, selectedGroupFriends]);
 
-  const notificationCenterItems = useMemo<MessengerNotificationCenterItem[]>(() => {
+  const notificationCenterItemsAll = useMemo<MessengerNotificationCenterItem[]>(() => {
     const requestItems: MessengerNotificationCenterItem[] = (data?.requests ?? [])
       .filter((request) => request.direction === "incoming")
       .map((request) => ({
@@ -1171,14 +1240,36 @@ export function CommunityMessengerHome({
         createdAt: call.startedAt,
         call,
       }));
-    return [...requestItems, ...missedCallItems].sort(
+    const importantRoomItems: MessengerNotificationCenterItem[] = baseChatListItems
+      .filter((item) => {
+        const r = item.room;
+        if (r.unreadCount < 1) return false;
+        if (communityMessengerRoomIsInboxHidden(r)) return false;
+        return Boolean(r.isPinned) || communityMessengerRoomIsTrade(r) || communityMessengerRoomIsDelivery(r);
+      })
+      .sort((a, b) => new Date(b.lastEventAt).getTime() - new Date(a.lastEventAt).getTime())
+      .slice(0, 6)
+      .map((item) => ({
+        id: `important:${item.room.id}`,
+        kind: "important_room" as const,
+        createdAt: item.lastEventAt,
+        room: item.room,
+        preview: item.preview,
+        highlightReason: resolveImportantRoomHighlightReason(item.room),
+      }));
+    return [...requestItems, ...missedCallItems, ...importantRoomItems].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [data?.requests, sortedCalls]);
+  }, [baseChatListItems, data?.requests, sortedCalls]);
+  const notificationCenterItems = useMemo(
+    () => notificationCenterItemsAll.filter((item) => !dismissedNotificationIds.includes(item.id)),
+    [dismissedNotificationIds, notificationCenterItemsAll]
+  );
   const notificationCenterSummary = useMemo(
     () => ({
       requestCount: notificationCenterItems.filter((item) => item.kind === "request").length,
       missedCallCount: notificationCenterItems.filter((item) => item.kind === "missed_call").length,
+      importantCount: notificationCenterItems.filter((item) => item.kind === "important_room").length,
     }),
     [notificationCenterItems]
   );
@@ -1272,6 +1363,18 @@ export function CommunityMessengerHome({
       }
     },
     [getMessengerActionErrorMessage, updateRoomSummaryState]
+  );
+  const notificationRoomMuteToggle = useCallback(
+    async (room: CommunityMessengerRoomSummary) => {
+      await updateRoomParticipantState(room.id, { isMuted: !Boolean(room.isMuted) });
+    },
+    [updateRoomParticipantState]
+  );
+  const notificationArchiveRoom = useCallback(
+    async (room: CommunityMessengerRoomSummary) => {
+      await toggleRoomArchive(room.id, true);
+    },
+    [toggleRoomArchive]
   );
   const updateNotificationSetting = useCallback(
     async (key: keyof MessengerNotificationSettings, value: boolean) => {
@@ -1402,7 +1505,7 @@ export function CommunityMessengerHome({
               user.id === friendUserId ? { ...user, isFriend: false, isFavoriteFriend: false, isHiddenFriend: false } : user
             )
           );
-          setSheetProfile((prev) => (prev?.id === friendUserId ? null : prev));
+          setFriendSheet((prev) => (prev?.profile.id === friendUserId ? null : prev));
           return;
         }
         setActionError(getMessengerActionErrorMessage(json.error ?? "friend_remove_failed"));
@@ -1431,7 +1534,7 @@ export function CommunityMessengerHome({
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && json.ok) {
         window.alert("접수되었습니다.");
-        setSheetProfile(null);
+        setFriendSheet(null);
       } else {
         setActionError("신고 접수에 실패했습니다.");
       }
@@ -1440,28 +1543,76 @@ export function CommunityMessengerHome({
     }
   }, []);
 
+  const reportCommunityRoom = useCallback(async (roomId: string) => {
+    const detail = window.prompt("신고 내용을 입력해 주세요.")?.trim() ?? "";
+    if (!detail) return;
+    setBusyId(`report-room:${roomId}`);
+    try {
+      const res = await fetch("/api/community-messenger/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportType: "room",
+          roomId,
+          reasonType: "etc",
+          reasonDetail: detail,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (res.ok && json.ok) {
+        window.alert("접수되었습니다.");
+        setRoomActionSheet(null);
+      } else {
+        setActionError("신고 접수에 실패했습니다.");
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }, []);
+
+  const leaveMessengerRoom = useCallback(
+    async (roomId: string) => {
+      if (!window.confirm(t("nav_messenger_leave_group_confirm"))) return;
+      setBusyId(`room-leave:${roomId}`);
+      setActionError(null);
+      try {
+        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/leave`, { method: "POST" });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (res.ok && json.ok) {
+          setRoomActionSheet(null);
+          void refresh(true);
+        } else {
+          setActionError(getMessengerActionErrorMessage(json.error ?? "leave_failed"));
+        }
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [getMessengerActionErrorMessage, refresh, t]
+  );
+
+  const clearLocalRoomPreview = useCallback((roomId: string) => {
+    invalidateRoomSnapshot(roomId);
+    setRoomActionSheet(null);
+    window.alert("이 기기에서 미리보기 캐시만 정리했습니다.");
+  }, []);
+
   return (
     <div className="space-y-4 px-4 py-3 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
       {!loading && !authRequired && data ? (
         <MessengerHomeMainSections
           mainSection={mainSection}
           onPrimarySectionChange={onPrimarySectionChange}
-          sectionNavBadges={sectionNavBadges}
           me={data.me}
           favoriteFriends={favoriteFriends}
           sortedFriends={sortedFriends}
           friendStateModel={friendStateModel}
           requests={data.requests ?? []}
           busyId={busyId}
-          friendsHiddenOpen={friendsHiddenOpen}
-          onToggleFriendsHiddenOpen={() => setFriendsHiddenOpen((value) => !value)}
-          onOpenProfile={(profile) => setSheetProfile(profile)}
-          onStartDirectRoom={(userId) => void startDirectRoom(userId)}
-          onStartDirectCall={(userId, kind) => void startDirectCall(userId, kind)}
+          onOpenFriendsPrivacySummary={() => setFriendsPrivacySheetOpen(true)}
+          onOpenFriendRowActions={(profile) => setFriendSheet({ mode: "actions", profile })}
+          onOpenProfile={(profile) => setFriendSheet({ mode: "profile", profile })}
           onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
-          onToggleHiddenFriend={(userId) => void toggleHiddenFriend(userId)}
-          onDeleteFriend={(userId) => void removeFriend(userId, { confirm: false })}
-          onToggleBlock={(userId) => void toggleBlock(userId)}
           onRespondRequest={(requestId, action) => void respondRequest(requestId, action)}
           onOpenFriendInviteTools={() => {
             setFriendAddTab("invite");
@@ -1473,11 +1624,10 @@ export function CommunityMessengerHome({
           onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
           onMarkRead={(room) => void markRoomRead(room.id)}
           onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
+          onOpenRoomActions={(item, listContext) => setRoomActionSheet({ item, listContext })}
           chatInboxFilter={chatInboxFilter}
           chatKindFilter={chatKindFilter}
-          onChatInboxFilterChange={onChatInboxFilterChange}
-          onChatKindFilterChange={onChatKindFilterChange}
-          totalUnreadCount={totalUnreadCount}
+          onChatListChipChange={onChatListChipChange}
           openChatJoinedItems={openChatJoinedItems}
           filteredDiscoverableGroups={filteredDiscoverableGroups}
           onPreviewOpenGroup={(groupId) => void openJoinModal(groupId)}
@@ -1525,59 +1675,217 @@ export function CommunityMessengerHome({
         </section>
       ) : null}
 
-      {sheetProfile ? (
+      {friendSheet?.mode === "profile" ? (
         <MessengerFriendProfileSheet
-          key={sheetProfile.id}
-          profile={sheetProfile}
+          key={friendSheet.profile.id}
+          profile={friendSheet.profile}
           busyId={busyId}
-          onClose={() => setSheetProfile(null)}
+          onClose={() => setFriendSheet(null)}
           onVoiceCall={() => {
-            const id = sheetProfile.id;
-            setSheetProfile(null);
+            const id = friendSheet.profile.id;
+            setFriendSheet(null);
             void startDirectCall(id, "voice");
           }}
           onVideoCall={() => {
-            const id = sheetProfile.id;
-            setSheetProfile(null);
+            const id = friendSheet.profile.id;
+            setFriendSheet(null);
             void startDirectCall(id, "video");
           }}
           onChat={() => {
-            const id = sheetProfile.id;
-            setSheetProfile(null);
+            const id = friendSheet.profile.id;
+            setFriendSheet(null);
             void startDirectRoom(id);
           }}
           onToggleFavorite={() => {
-            void toggleFavoriteFriend(sheetProfile.id);
+            void toggleFavoriteFriend(friendSheet.profile.id);
           }}
           onToggleHidden={
-            sheetProfile.isFriend && sheetProfile.id !== data?.me?.id ? () => void toggleHiddenFriend(sheetProfile.id) : undefined
+            friendSheet.profile.isFriend && friendSheet.profile.id !== data?.me?.id
+              ? () => void toggleHiddenFriend(friendSheet.profile.id)
+              : undefined
           }
           onInviteToGroup={
-            sheetProfile.isFriend
+            friendSheet.profile.isFriend
               ? () => {
-                  const id = sheetProfile.id;
-                  setSheetProfile(null);
+                  const id = friendSheet.profile.id;
+                  setFriendSheet(null);
                   setGroupMembers((prev) => (prev.includes(id) ? prev : [id, ...prev]));
                   setGroupCreateStep("private_group");
                 }
               : undefined
           }
-          directRoomMuted={directRoomByPeerId.get(sheetProfile.id)?.isMuted}
+          directRoomMuted={directRoomByPeerId.get(friendSheet.profile.id)?.isMuted}
           notificationsBusy={
-            Boolean(sheetProfile.isFriend && directRoomByPeerId.get(sheetProfile.id)) &&
-            busyId === `room-settings:${directRoomByPeerId.get(sheetProfile.id)?.id ?? ""}`
+            Boolean(friendSheet.profile.isFriend && directRoomByPeerId.get(friendSheet.profile.id)) &&
+            busyId === `room-settings:${directRoomByPeerId.get(friendSheet.profile.id)?.id ?? ""}`
           }
           onToggleMuteNotifications={
-            sheetProfile.isFriend && directRoomByPeerId.get(sheetProfile.id)
+            friendSheet.profile.isFriend && directRoomByPeerId.get(friendSheet.profile.id)
               ? () => {
-                  const room = directRoomByPeerId.get(sheetProfile.id);
+                  const room = directRoomByPeerId.get(friendSheet.profile.id);
                   if (room) void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
                 }
               : undefined
           }
-          onRemoveFriend={sheetProfile.isFriend ? () => void removeFriend(sheetProfile.id) : undefined}
-          onBlock={sheetProfile.id !== data?.me?.id ? () => void toggleBlock(sheetProfile.id) : undefined}
-          onReport={sheetProfile.id !== data?.me?.id ? () => void reportCommunityUser(sheetProfile.id) : undefined}
+          onRemoveFriend={friendSheet.profile.isFriend ? () => void removeFriend(friendSheet.profile.id) : undefined}
+          onBlock={friendSheet.profile.id !== data?.me?.id ? () => void toggleBlock(friendSheet.profile.id) : undefined}
+          onReport={friendSheet.profile.id !== data?.me?.id ? () => void reportCommunityUser(friendSheet.profile.id) : undefined}
+        />
+      ) : null}
+
+      {friendSheet?.mode === "actions" ? (
+        <MessengerFriendRowActionSheet
+          key={friendSheet.profile.id}
+          profile={friendSheet.profile}
+          busyId={busyId}
+          onClose={() => setFriendSheet(null)}
+          onChat={() => {
+            const id = friendSheet.profile.id;
+            setFriendSheet(null);
+            void startDirectRoom(id);
+          }}
+          onVoiceCall={() => {
+            const id = friendSheet.profile.id;
+            setFriendSheet(null);
+            void startDirectCall(id, "voice");
+          }}
+          onVideoCall={() => {
+            const id = friendSheet.profile.id;
+            setFriendSheet(null);
+            void startDirectCall(id, "video");
+          }}
+          onToggleFavorite={() => void toggleFavoriteFriend(friendSheet.profile.id)}
+          onToggleHidden={
+            friendSheet.profile.isFriend && friendSheet.profile.id !== data?.me?.id
+              ? () => void toggleHiddenFriend(friendSheet.profile.id)
+              : undefined
+          }
+          directRoomMuted={directRoomByPeerId.get(friendSheet.profile.id)?.isMuted}
+          notificationsBusy={
+            Boolean(friendSheet.profile.isFriend && directRoomByPeerId.get(friendSheet.profile.id)) &&
+            busyId === `room-settings:${directRoomByPeerId.get(friendSheet.profile.id)?.id ?? ""}`
+          }
+          onToggleMute={
+            friendSheet.profile.isFriend && directRoomByPeerId.get(friendSheet.profile.id)
+              ? () => {
+                  const room = directRoomByPeerId.get(friendSheet.profile.id);
+                  if (room) void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
+                }
+              : undefined
+          }
+          onRemoveFriend={friendSheet.profile.isFriend ? () => void removeFriend(friendSheet.profile.id) : undefined}
+          onBlock={friendSheet.profile.id !== data?.me?.id ? () => void toggleBlock(friendSheet.profile.id) : undefined}
+          onReport={
+            friendSheet.profile.id !== data?.me?.id
+              ? () => {
+                  const uid = friendSheet.profile.id;
+                  setFriendSheet(null);
+                  void reportCommunityUser(uid);
+                }
+              : undefined
+          }
+        />
+      ) : null}
+
+      {roomActionSheet && data ? (
+        <MessengerChatRoomActionSheet
+          item={roomActionSheet.item}
+          listContext={roomActionSheet.listContext}
+          busyId={busyId}
+          onClose={() => setRoomActionSheet(null)}
+          onEnterRoom={() => {
+            const id = roomActionSheet.item.room.id;
+            setRoomActionSheet(null);
+            navigateToCommunityRoom(id);
+          }}
+          onTogglePin={() =>
+            void updateRoomParticipantState(roomActionSheet.item.room.id, {
+              isPinned: !roomActionSheet.item.room.isPinned,
+            })
+          }
+          onToggleMute={() =>
+            void updateRoomParticipantState(roomActionSheet.item.room.id, {
+              isMuted: !roomActionSheet.item.room.isMuted,
+            })
+          }
+          onMarkRead={() => void markRoomRead(roomActionSheet.item.room.id)}
+          onToggleArchive={() =>
+            void toggleRoomArchive(
+              roomActionSheet.item.room.id,
+              !communityMessengerRoomIsInboxHidden(roomActionSheet.item.room)
+            )
+          }
+          onViewFriendProfile={(() => {
+            const room = roomActionSheet.item.room;
+            if (room.roomType !== "direct" || !room.peerUserId) return undefined;
+            const profile = resolvePeerProfileForRoom(room.peerUserId);
+            if (!profile) return undefined;
+            return () => {
+              setRoomActionSheet(null);
+              setFriendSheet({ mode: "profile", profile });
+            };
+          })()}
+          onViewGroupInfo={
+            roomActionSheet.item.room.roomType === "private_group"
+              ? () => {
+                  const id = roomActionSheet.item.room.id;
+                  setRoomActionSheet(null);
+                  router.push(`/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`);
+                }
+              : undefined
+          }
+          onViewOpenChatInfo={
+            roomActionSheet.item.room.roomType === "open_group"
+              ? () => {
+                  const id = roomActionSheet.item.room.id;
+                  setRoomActionSheet(null);
+                  router.push(`/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`);
+                }
+              : undefined
+          }
+          onViewRelatedCommerce={(() => {
+            const room = roomActionSheet.item.room;
+            const pid = room.contextMeta?.productChatId?.trim();
+            if (!pid || (!communityMessengerRoomIsTrade(room) && !communityMessengerRoomIsDelivery(room))) {
+              return undefined;
+            }
+            return () => {
+              setRoomActionSheet(null);
+              router.push(defaultTradeChatRoomHref(pid, "product_chat"));
+            };
+          })()}
+          onBlock={
+            roomActionSheet.item.room.roomType === "direct" &&
+            roomActionSheet.item.room.peerUserId &&
+            roomActionSheet.item.room.peerUserId !== data.me?.id
+              ? () => {
+                  const pid = roomActionSheet.item.room.peerUserId!;
+                  setRoomActionSheet(null);
+                  void toggleBlock(pid);
+                }
+              : undefined
+          }
+          onLeave={
+            roomActionSheet.item.room.roomType === "private_group" || roomActionSheet.item.room.roomType === "open_group"
+              ? () => void leaveMessengerRoom(roomActionSheet.item.room.id)
+              : undefined
+          }
+          onClearLocalPreview={() => clearLocalRoomPreview(roomActionSheet.item.room.id)}
+          onReportRoom={() => void reportCommunityRoom(roomActionSheet.item.room.id)}
+        />
+      ) : null}
+
+      {friendsPrivacySheetOpen && data ? (
+        <MessengerFriendsPrivacySheet
+          model={friendStateModel}
+          busyId={busyId}
+          onClose={() => setFriendsPrivacySheetOpen(false)}
+          onToggleHidden={(userId) => void toggleHiddenFriend(userId)}
+          onToggleBlock={(userId) => void toggleBlock(userId)}
+          onOpenChat={(userId) => {
+            setFriendsPrivacySheetOpen(false);
+            void startDirectRoom(userId);
+          }}
         />
       ) : null}
 
@@ -1587,6 +1895,7 @@ export function CommunityMessengerHome({
           onKeywordChange={setRoomSearchKeyword}
           onClose={() => setSearchSheetOpen(false)}
           onCommitRecentSearch={commitRecentSearch}
+          onRemoveRecentSearch={removeRecentSearch}
           recentSearches={recentSearches}
           queryActive={Boolean(searchKeywordNormalized)}
           searchFriendMatches={searchFriendMatches}
@@ -1599,7 +1908,7 @@ export function CommunityMessengerHome({
           onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
           onMarkRead={(room) => void markRoomRead(room.id)}
           onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
-          onSelectFriend={(friend) => setSheetProfile(friend)}
+          onSelectFriend={(friend) => setFriendSheet({ mode: "profile", profile: friend })}
           onSelectOpenGroup={(groupId) => void openJoinModal(groupId)}
           onSelectMessageRoom={(roomId) => navigateToCommunityRoom(roomId)}
         />
@@ -1633,11 +1942,9 @@ export function CommunityMessengerHome({
           friendUserSearchAttempted={friendUserSearchAttempted}
           searchResults={searchResults}
           busyId={busyId}
-          onToggleFollow={(userId) => void toggleFollow(userId)}
-          onOpenProfile={(profile) => setSheetProfile(profile)}
+          onOpenProfile={(profile) => setFriendSheet({ mode: "profile", profile })}
           onPrefetchDirectRoom={(userId) => maybePrefetchDirectRoom(userId)}
           onRequestFriend={(userId) => void requestFriend(userId)}
-          onToggleBlock={(userId) => void toggleBlock(userId)}
           inviteUrl={messengerInviteUrl}
         />
       ) : null}
@@ -1654,6 +1961,11 @@ export function CommunityMessengerHome({
               navigateToCommunityRoom(call.roomId);
             }
           }}
+          onOpenImportantRoom={(roomId) => navigateToCommunityRoom(roomId)}
+          onDismissNotification={dismissNotification}
+          onMarkRoomRead={markRoomRead}
+          onToggleRoomMute={notificationRoomMuteToggle}
+          onArchiveRoom={notificationArchiveRoom}
         />
       ) : null}
 
@@ -2141,9 +2453,9 @@ export function CommunityMessengerHome({
       {!loading && !authRequired ? (
         <button
           type="button"
-          onClick={() => setComposerOpen(true)}
+          onClick={() => (mainSection === "friends" ? setFriendManagerOpen(true) : setComposerOpen(true))}
           className={`fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} right-4 z-[41] flex h-14 w-14 items-center justify-center rounded-ui-rect border border-gray-200 bg-white text-gray-900 shadow-[0_2px_8px_rgba(17,24,39,0.06)] transition hover:bg-gray-50 active:scale-[0.98]`}
-          aria-label="새 대화"
+          aria-label={mainSection === "friends" ? "친구 추가" : "새 대화"}
         >
           <PlusIcon className="h-6 w-6" />
         </button>

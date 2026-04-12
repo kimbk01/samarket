@@ -53,6 +53,7 @@ import {
   takeDetachedCommunityCallCleanup,
 } from "@/lib/community-messenger/direct-call-minimize";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
+import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
@@ -1080,12 +1081,10 @@ export function CommunityMessengerCallClient({
     (session.status === "ringing" || session.status === "active");
 
   return (
-    <div
-      className={`flex min-h-0 flex-1 flex-col text-white ${
-        videoCall
-          ? "h-full min-h-0 bg-black"
-          : "min-h-full bg-neutral-950"
-      }`}
+    <CallScreenShell
+      variant="page"
+      surfaceClassName={videoCall ? "bg-black text-white" : "min-h-full bg-neutral-950 text-white"}
+      className={`flex min-h-0 flex-1 flex-col ${videoCall ? "h-full min-h-0" : ""}`}
     >
       <div
         className={
@@ -1226,7 +1225,7 @@ export function CommunityMessengerCallClient({
                   className="h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:min-w-0 [&_video]:!object-cover"
                 />
                 {showLargeVideoOverlay ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-4 text-center text-[13px] text-white/75">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-neutral-900 px-4 text-center text-[13px] text-white/75">
                     {largeShowsRemote ? (
                       <>
                         <p>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기 중"}</p>
@@ -1276,7 +1275,7 @@ export function CommunityMessengerCallClient({
                   className="pointer-events-none h-full w-full bg-black [&_video]:pointer-events-none [&_video]:object-cover"
                 />
                 {showSmallVideoOverlay ? (
-                  <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0.5 bg-[radial-gradient(circle_at_top,#1f2937,#020617)] px-2 pb-6 text-center text-[11px] leading-snug text-white/72">
+                  <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0.5 bg-neutral-900 px-2 pb-6 text-center text-[11px] leading-snug text-white/72">
                     {largeShowsRemote ? (
                       camOff ? (
                         <>
@@ -1506,7 +1505,7 @@ export function CommunityMessengerCallClient({
         ) : null}
       </div>
       </div>
-    </div>
+    </CallScreenShell>
   );
 }
 

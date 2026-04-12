@@ -5,9 +5,12 @@ import { MessengerArchiveScreen } from "@/components/community-messenger/Messeng
 import { MessengerFriendsScreen } from "@/components/community-messenger/MessengerFriendsScreen";
 import { MessengerPrimarySectionNav } from "@/components/community-messenger/MessengerPrimarySectionNav";
 import {
-  messengerChatListEmptyMessage,
+  inboxKindToChatListChip,
+  messengerChatListEmptyMessageForChip,
   type MessengerChatInboxFilter,
   type MessengerChatKindFilter,
+  type MessengerChatListChip,
+  type MessengerChatListContext,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 import type {
@@ -22,22 +25,16 @@ import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-communit
 type Props = {
   mainSection: MessengerMainSection;
   onPrimarySectionChange: (next: MessengerMainSection) => void;
-  sectionNavBadges: Partial<Record<MessengerMainSection, number>>;
   me: CommunityMessengerProfileLite | null;
   favoriteFriends: CommunityMessengerProfileLite[];
   sortedFriends: CommunityMessengerProfileLite[];
   friendStateModel: MessengerFriendStateModel;
   requests: CommunityMessengerFriendRequest[];
   busyId: string | null;
-  friendsHiddenOpen: boolean;
-  onToggleFriendsHiddenOpen: () => void;
+  onOpenFriendsPrivacySummary: () => void;
+  onOpenFriendRowActions: (profile: CommunityMessengerProfileLite) => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
-  onStartDirectRoom: (userId: string) => void;
-  onStartDirectCall: (userId: string, kind: "voice" | "video") => void;
   onToggleFavoriteFriend: (userId: string) => void;
-  onToggleHiddenFriend: (userId: string) => void;
-  onDeleteFriend: (userId: string) => void;
-  onToggleBlock: (userId: string) => void;
   onRespondRequest: (requestId: string, action: "accept" | "reject" | "cancel") => void;
   onOpenFriendInviteTools: () => void;
   primaryListItems: UnifiedRoomListItem[];
@@ -46,11 +43,10 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
+  onOpenRoomActions?: (item: UnifiedRoomListItem, listContext: MessengerChatListContext) => void;
   chatInboxFilter: MessengerChatInboxFilter;
   chatKindFilter: MessengerChatKindFilter;
-  onChatInboxFilterChange: (next: MessengerChatInboxFilter) => void;
-  onChatKindFilterChange: (next: MessengerChatKindFilter) => void;
-  totalUnreadCount: number;
+  onChatListChipChange: (next: MessengerChatListChip) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
   filteredDiscoverableGroups: CommunityMessengerDiscoverableGroupSummary[];
   onPreviewOpenGroup: (groupId: string) => void;
@@ -59,22 +55,16 @@ type Props = {
 export function MessengerHomeMainSections({
   mainSection,
   onPrimarySectionChange,
-  sectionNavBadges,
   me,
   favoriteFriends,
   sortedFriends,
   friendStateModel,
   requests,
   busyId,
-  friendsHiddenOpen,
-  onToggleFriendsHiddenOpen,
+  onOpenFriendsPrivacySummary,
+  onOpenFriendRowActions,
   onOpenProfile,
-  onStartDirectRoom,
-  onStartDirectCall,
   onToggleFavoriteFriend,
-  onToggleHiddenFriend,
-  onDeleteFriend,
-  onToggleBlock,
   onRespondRequest,
   onOpenFriendInviteTools,
   primaryListItems,
@@ -83,18 +73,19 @@ export function MessengerHomeMainSections({
   onToggleMute,
   onMarkRead,
   onToggleArchive,
+  onOpenRoomActions,
   chatInboxFilter,
   chatKindFilter,
-  onChatInboxFilterChange,
-  onChatKindFilterChange,
-  totalUnreadCount,
+  onChatListChipChange,
   openChatJoinedItems,
   filteredDiscoverableGroups,
   onPreviewOpenGroup,
 }: Props) {
+  const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
+
   return (
     <>
-      <MessengerPrimarySectionNav value={mainSection} onChange={onPrimarySectionChange} badge={sectionNavBadges} />
+      <MessengerPrimarySectionNav value={mainSection} onChange={onPrimarySectionChange} />
 
       {mainSection === "friends" ? (
         <MessengerFriendsScreen
@@ -104,15 +95,10 @@ export function MessengerHomeMainSections({
           friendStateModel={friendStateModel}
           requests={requests}
           busyId={busyId}
-          friendsHiddenOpen={friendsHiddenOpen}
-          onToggleHiddenOpen={onToggleFriendsHiddenOpen}
+          onOpenPrivacySummary={onOpenFriendsPrivacySummary}
+          onOpenFriendRowActions={onOpenFriendRowActions}
           onOpenProfile={onOpenProfile}
-          onStartChat={onStartDirectRoom}
-          onStartCall={onStartDirectCall}
           onToggleFavorite={onToggleFavoriteFriend}
-          onToggleHidden={onToggleHiddenFriend}
-          onDeleteFriend={onDeleteFriend}
-          onToggleBlock={onToggleBlock}
           onRequestAction={onRespondRequest}
           onOpenInviteTools={onOpenFriendInviteTools}
         />
@@ -127,12 +113,10 @@ export function MessengerHomeMainSections({
           onToggleMute={onToggleMute}
           onMarkRead={onMarkRead}
           onToggleArchive={onToggleArchive}
-          chatInboxFilter={chatInboxFilter}
-          chatKindFilter={chatKindFilter}
-          onChatInboxFilterChange={onChatInboxFilterChange}
-          onChatKindFilterChange={onChatKindFilterChange}
-          totalUnreadCount={totalUnreadCount}
-          emptyMessage={messengerChatListEmptyMessage(chatKindFilter)}
+          onOpenRoomActions={onOpenRoomActions}
+          chatListChip={chatListChip}
+          onChatListChipChange={onChatListChipChange}
+          emptyMessage={messengerChatListEmptyMessageForChip(chatListChip)}
         />
       ) : null}
 
@@ -147,6 +131,7 @@ export function MessengerHomeMainSections({
           onMarkRead={onMarkRead}
           onToggleArchive={onToggleArchive}
           onPreviewGroup={onPreviewOpenGroup}
+          onOpenRoomActions={onOpenRoomActions}
         />
       ) : null}
 
@@ -159,11 +144,10 @@ export function MessengerHomeMainSections({
           onToggleMute={onToggleMute}
           onMarkRead={onMarkRead}
           onToggleArchive={onToggleArchive}
-          chatInboxFilter={chatInboxFilter}
-          chatKindFilter={chatKindFilter}
-          onChatInboxFilterChange={onChatInboxFilterChange}
-          onChatKindFilterChange={onChatKindFilterChange}
-          totalUnreadCount={totalUnreadCount}
+          onOpenRoomActions={onOpenRoomActions}
+          chatListChip={chatListChip}
+          onChatListChipChange={onChatListChipChange}
+          listContext="archive"
         />
       ) : null}
     </>

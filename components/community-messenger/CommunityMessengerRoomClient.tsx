@@ -20,7 +20,6 @@ import {
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
 import { startCommunityMessengerCallTone, type CallToneController } from "@/lib/community-messenger/call-feedback-sound";
-import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
@@ -37,6 +36,7 @@ import {
 } from "@/lib/community-messenger/types";
 import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
+import { GroupRoomCallOverlay } from "@/components/community-messenger/call-ui";
 import { VoiceMessageBubble } from "@/components/community-messenger/VoiceMessageBubble";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
@@ -51,6 +51,7 @@ import {
   readCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+import { CommunityMessengerMessageActionSheet } from "@/components/community-messenger/room/CommunityMessengerMessageActionSheet";
 
 /** 이전 말풍선과의 시간 간격이 이 값을 넘으면 프로필·꼬리 말풍선 다시 표시 (Viber 스타일, 기본 5분) */
 const CM_CLUSTER_GAP_MS = 5 * 60 * 1000;
@@ -72,6 +73,7 @@ export function CommunityMessengerRoomClient({
   const callActionFromUrl = searchParams.get("callAction") ?? initialCallAction ?? undefined;
   const sessionIdFromUrl = searchParams.get("sessionId") ?? initialCallSessionId ?? undefined;
   const contextMetaFromUrlHandledRef = useRef(false);
+  const sheetInfoFromUrlHandledRef = useRef(false);
   const autoHandledSessionRef = useRef<string | null>(null);
   const autoAcceptInFlightRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
@@ -110,7 +112,9 @@ export function CommunityMessengerRoomClient({
   const topOlderSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadOlderMessagesRef = useRef<() => void>(() => {});
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const stickToBottomRef = useRef(true);
   const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
@@ -122,11 +126,15 @@ export function CommunityMessengerRoomClient({
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [messageContextMenu, setMessageContextMenu] = useState<{
-    item: CommunityMessengerMessage & { pending?: boolean };
-    x: number;
-    y: number;
-  } | null>(null);
+  const [messageActionItem, setMessageActionItem] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(
+    null
+  );
+  const [replyToMessage, setReplyToMessage] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(
+    null
+  );
+  const [callStubSheet, setCallStubSheet] = useState<CommunityMessengerMessage | null>(null);
+  const [hiddenCallStubIds, setHiddenCallStubIds] = useState<Set<string>>(() => new Set());
+  const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [roomPreferences, setRoomPreferences] = useState(() => readCommunityMessengerLocalSettings());
   const [message, setMessage] = useState("");
   const [voiceRecording, setVoiceRecording] = useState(false);
@@ -253,6 +261,24 @@ export function CommunityMessengerRoomClient({
       }
     })();
   }, [pathname, refresh, roomId, router, searchParams]);
+
+  useEffect(() => {
+    sheetInfoFromUrlHandledRef.current = false;
+  }, [roomId]);
+
+  /** 목록 롱프레스 「그룹/오픈 정보」 등 `?sheet=info` 로 방 정보 시트를 연다 */
+  useEffect(() => {
+    const sheet = searchParams.get("sheet");
+    if (sheet !== "info") return;
+    if (sheetInfoFromUrlHandledRef.current) return;
+    if (!snapshot || loading) return;
+    sheetInfoFromUrlHandledRef.current = true;
+    setActiveSheet("info");
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("sheet");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [loading, pathname, router, searchParams, snapshot]);
 
   /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
   useEffect(() => {
@@ -407,8 +433,22 @@ export function CommunityMessengerRoomClient({
     });
   }, []);
 
+  const updateStickToBottomFromScroll = useCallback(() => {
+    const el = messagesViewportRef.current;
+    if (!el) return;
+    const threshold = 100;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = dist < threshold;
+  }, []);
+
   useEffect(() => {
-    scrollMessengerToBottom();
+    stickToBottomRef.current = true;
+  }, [roomId]);
+
+  useEffect(() => {
+    if (stickToBottomRef.current) {
+      scrollMessengerToBottom();
+    }
   }, [roomMessages, scrollMessengerToBottom]);
 
   const inviteCandidates = useMemo(() => {
@@ -463,6 +503,33 @@ export function CommunityMessengerRoomClient({
       return extractHttpUrls(m.content).length > 0;
     });
   }, [roomMessages]);
+
+  const displayRoomMessages = useMemo(
+    () => roomMessages.filter((m) => !(m.messageType === "call_stub" && hiddenCallStubIds.has(m.id))),
+    [roomMessages, hiddenCallStubIds]
+  );
+
+  useEffect(() => {
+    const id = roomId?.trim();
+    if (!id) {
+      setHiddenCallStubIds(new Set());
+      return;
+    }
+    const key = `cm_hidden_call_stubs:${id}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        setHiddenCallStubIds(
+          new Set(Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [])
+        );
+      } else {
+        setHiddenCallStubIds(new Set());
+      }
+    } catch {
+      setHiddenCallStubIds(new Set());
+    }
+  }, [roomId]);
   const fileMessages = useMemo(() => roomMessages.filter((m) => m.messageType === "file"), [roomMessages]);
   const managementEventMessages = useMemo(
     () =>
@@ -1021,61 +1088,101 @@ export function CommunityMessengerRoomClient({
     });
   }, [activeSheet, infoSheetFocus]);
 
-  const sendMessage = useCallback(async () => {
-    const content = message.trim();
-    if (!content || !snapshot) return;
-    const tempId = `pending:${roomId}:${pendingMessageIdRef.current++}`;
-    const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
-      id: tempId,
-      roomId,
-      senderId: snapshot.viewerUserId,
-      senderLabel:
-        snapshot.members.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
-      messageType: "text",
-      content,
-      createdAt: new Date().toISOString(),
-      isMine: true,
-      pending: true,
-      callKind: null,
-      callStatus: null,
-    };
-    setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
-    scrollMessengerToBottom();
-    setMessage("");
-    setBusy("send");
-    try {
-      const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        message?: CommunityMessengerMessage;
+  const sendRawText = useCallback(
+    async (content: string, restoreOnFail?: string) => {
+      const trimmed = content.trim();
+      if (!trimmed || !snapshot) return;
+      const tempId = `pending:${roomId}:${pendingMessageIdRef.current++}`;
+      const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
+        id: tempId,
+        roomId,
+        senderId: snapshot.viewerUserId,
+        senderLabel:
+          snapshot.members.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        messageType: "text",
+        content: trimmed,
+        createdAt: new Date().toISOString(),
+        isMine: true,
+        pending: true,
+        callKind: null,
+        callStatus: null,
       };
-      if (!res.ok || !json.ok) {
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        setMessage(content);
-        alert(getRoomActionErrorMessage(json.error));
-        return;
+      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      stickToBottomRef.current = true;
+      scrollMessengerToBottom();
+      setBusy("send");
+      try {
+        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: trimmed }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          message?: CommunityMessengerMessage;
+        };
+        if (!res.ok || !json.ok) {
+          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          if (restoreOnFail !== undefined) setMessage(restoreOnFail);
+          alert(getRoomActionErrorMessage(json.error));
+          return;
+        }
+        if (json.message) {
+          const confirmedMessage = json.message;
+          setRoomMessages((prev) =>
+            mergeRoomMessages(
+              prev.filter((item) => item.id !== tempId),
+              [confirmedMessage]
+            )
+          );
+          scrollMessengerToBottom();
+          return;
+        }
+        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+      } finally {
+        setBusy(null);
       }
-      if (json.message) {
-        const confirmedMessage = json.message;
-        setRoomMessages((prev) =>
-          mergeRoomMessages(
-            prev.filter((item) => item.id !== tempId),
-            [confirmedMessage]
-          )
-        );
-        scrollMessengerToBottom();
-        return;
-      }
-      setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
-    } finally {
-      setBusy(null);
+    },
+    [getRoomActionErrorMessage, roomId, scrollMessengerToBottom, snapshot]
+  );
+
+  const sendMessage = useCallback(async () => {
+    const raw = message.trim();
+    if (!raw || !snapshot) return;
+    const replyPrefix = replyToMessage
+      ? `[답장: ${replyToMessage.senderLabel}] ${
+          replyToMessage.messageType === "text"
+            ? replyToMessage.content.trim().slice(0, 200)
+            : `(${replyToMessage.messageType})`
+        }\n`
+      : "";
+    const content = `${replyPrefix}${raw}`.trim();
+    setMessage("");
+    setReplyToMessage(null);
+    await sendRawText(content);
+  }, [message, replyToMessage, sendRawText, snapshot]);
+
+  const sendLocationMessage = useCallback(() => {
+    if (!snapshot || roomUnavailable) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      window.alert("이 기기에서 위치를 사용할 수 없습니다.");
+      return;
     }
-  }, [getRoomActionErrorMessage, message, roomId, scrollMessengerToBottom, snapshot]);
+    dismissRoomSheet();
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const url = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
+        const content = `📍 위치 공유\n${url}`;
+        void sendRawText(content);
+      },
+      () => {
+        window.alert("위치 권한이 필요하거나 가져오지 못했습니다.");
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  }, [dismissRoomSheet, roomUnavailable, sendRawText, snapshot]);
 
   const sendImageFile = useCallback(
     async (file: File) => {
@@ -1139,6 +1246,11 @@ export function CommunityMessengerRoomClient({
   const openImagePicker = useCallback(() => {
     if (roomUnavailable || busy === "send-image" || !canUploadAttachments) return;
     imageInputRef.current?.click();
+  }, [busy, canUploadAttachments, roomUnavailable]);
+
+  const openCameraPicker = useCallback(() => {
+    if (roomUnavailable || busy === "send-image" || !canUploadAttachments) return;
+    cameraInputRef.current?.click();
   }, [busy, canUploadAttachments, roomUnavailable]);
 
   const onPickImageFile = useCallback(
@@ -1940,13 +2052,16 @@ export function CommunityMessengerRoomClient({
   );
 
   useEffect(() => {
-    if (!messageContextMenu) return;
+    if (!messageActionItem && !callStubSheet) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMessageContextMenu(null);
+      if (e.key === "Escape") {
+        setMessageActionItem(null);
+        setCallStubSheet(null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [messageContextMenu]);
+  }, [messageActionItem, callStubSheet]);
 
   const reportTarget = useCallback(
     async (input: { reportType: "room" | "message" | "user"; messageId?: string; reportedUserId?: string }) => {
@@ -1971,6 +2086,73 @@ export function CommunityMessengerRoomClient({
       }
       setMemberActionTarget(null);
       alert("신고가 접수되었습니다.");
+    },
+    [roomId]
+  );
+
+  const getMessageCopyText = useCallback((item: CommunityMessengerMessage & { pending?: boolean }) => {
+    if (item.messageType === "text" || item.messageType === "call_stub") return item.content.trim();
+    if (item.messageType === "image" || item.messageType === "file" || item.messageType === "voice") {
+      return item.content.trim();
+    }
+    return "";
+  }, []);
+
+  const copyMessageText = useCallback(
+    async (item: CommunityMessengerMessage & { pending?: boolean }) => {
+      const text = getMessageCopyText(item);
+      if (!text) {
+        window.alert("복사할 수 없는 메시지입니다.");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        window.alert("복사하지 못했습니다.");
+      }
+      setMessageActionItem(null);
+    },
+    [getMessageCopyText]
+  );
+
+  const forwardMessage = useCallback(
+    async (item: CommunityMessengerMessage & { pending?: boolean }) => {
+      const text = getMessageCopyText(item);
+      const payload = text || `[${item.messageType} 메시지]`;
+      try {
+        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+          await navigator.share({ title: snapshot?.room.title ?? "대화", text: payload });
+        } else {
+          await navigator.clipboard.writeText(payload);
+          window.alert("내용을 클립보드에 복사했습니다.");
+        }
+      } catch {
+        try {
+          await navigator.clipboard.writeText(payload);
+          window.alert("내용을 클립보드에 복사했습니다.");
+        } catch {
+          window.alert("전달할 수 없습니다.");
+        }
+      }
+      setMessageActionItem(null);
+    },
+    [getMessageCopyText, snapshot?.room.title]
+  );
+
+  const hideCallStubLocally = useCallback(
+    (messageId: string) => {
+      setHiddenCallStubIds((prev) => {
+        const next = new Set(prev);
+        next.add(messageId);
+        try {
+          const key = `cm_hidden_call_stubs:${roomId.trim()}`;
+          localStorage.setItem(key, JSON.stringify([...next]));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+      setCallStubSheet(null);
     },
     [roomId]
   );
@@ -2103,10 +2285,18 @@ export function CommunityMessengerRoomClient({
     );
   }
 
+  const roomHeaderStatus =
+    [roomTypeLabel, roomSubtitle || (isGroupRoom ? `${snapshot.room.memberCount}명` : "마지막 활동 없음")]
+      .filter(Boolean)
+      .join(" · ") || "";
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-ui-page">
-      <header className="sticky top-0 z-10 border-b border-black/10 bg-[#3d3d45] px-3 py-2 text-white shadow-sm">
-        <div className="flex items-center gap-2">
+    <div
+      data-cm-room
+      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
+    >
+      <header className="sticky top-0 z-10 shrink-0 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-2 py-1.5">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() =>
@@ -2116,26 +2306,35 @@ export function CommunityMessengerRoomClient({
                   : "/community-messenger?section=chats"
               )
             }
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
             aria-label={t("tier1_back")}
           >
             <BackIcon className="h-5 w-5" />
           </button>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[16px] font-semibold text-white">{snapshot.room.title}</p>
-            <p className="truncate text-[12px] text-white/65">
-              {roomTypeLabel}
-              {roomSubtitle ? ` · ${roomSubtitle}` : ""}
-            </p>
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
+            {snapshot.room.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-[color:var(--cm-room-primary)]">
+                {snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
+              </div>
+            )}
           </div>
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-semibold leading-tight text-[color:var(--cm-room-text)]">
+              {snapshot.room.title}
+            </p>
+            <p className="truncate text-[11px] text-[color:var(--cm-room-text-muted)]">{roomHeaderStatus}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-0">
             {!isGroupRoom && communityMessengerRoomIsGloballyUsable(snapshot.room) ? (
               <>
                 <button
                   type="button"
                   onClick={() => void startManagedDirectCall("voice")}
                   disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
-                  className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10 disabled:opacity-35"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
                   aria-label={t("nav_voice_call_label")}
                 >
                   <VoiceCallIcon className="h-5 w-5" />
@@ -2144,7 +2343,7 @@ export function CommunityMessengerRoomClient({
                   type="button"
                   onClick={() => void startManagedDirectCall("video")}
                   disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
-                  className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10 disabled:opacity-35"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
                   aria-label={t("nav_video_call_label")}
                 >
                   <VideoCallIcon className="h-5 w-5" />
@@ -2157,7 +2356,7 @@ export function CommunityMessengerRoomClient({
                 setRoomSearchQuery("");
                 setActiveSheet("search");
               }}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
               aria-label="대화 내 검색"
             >
               <SearchIcon className="h-5 w-5" />
@@ -2165,7 +2364,7 @@ export function CommunityMessengerRoomClient({
             <button
               type="button"
               onClick={() => setActiveSheet("menu")}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-white transition hover:bg-white/10"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
               aria-label={t("nav_messenger_room_menu")}
             >
               <MoreIcon className="h-5 w-5" />
@@ -2181,16 +2380,28 @@ export function CommunityMessengerRoomClient({
         className="hidden"
         onChange={onPickImageFile}
       />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={onPickImageFile}
+      />
       <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
 
       <div
         ref={messagesViewportRef}
-        className="min-h-0 flex-1 overflow-y-auto bg-[#ebebeb]"
-        onScroll={() => setMessageContextMenu(null)}
+        className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--cm-room-chat-bg)]"
+        onScroll={() => {
+          updateStickToBottomFromScroll();
+          setMessageActionItem(null);
+          setCallStubSheet(null);
+        }}
       >
-        <main className="space-y-2 px-3 py-4 pb-6 sm:px-4">
+        <main className="space-y-2 px-2.5 py-3 pb-4 sm:px-3">
           {!communityMessengerRoomIsGloballyUsable(snapshot.room) ? (
-            <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[13px] text-gray-700">
+            <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 text-[12px] leading-snug text-[color:var(--cm-room-text)]">
               {snapshot.room.roomStatus === "blocked"
                 ? t("nav_messenger_room_blocked_notice")
                 : snapshot.room.roomStatus === "archived"
@@ -2200,37 +2411,35 @@ export function CommunityMessengerRoomClient({
             </div>
           ) : null}
           {(managedDirectCallError || (call.errorMessage && !call.panel)) ? (
-            <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[13px] text-gray-700">
+            <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2.5 text-[12px] text-[color:var(--cm-room-text)]">
               {managedDirectCallError ?? call.errorMessage}
             </div>
           ) : null}
-          <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-            <p className="text-[12px] font-medium text-gray-500">
-              {roomTypeLabel}
-              {roomJoinLabel ? ` · ${roomJoinLabel}` : ""}
-              {roomIdentityLabel ? ` · ${roomIdentityLabel}` : ""}
-            </p>
-            <p className="mt-1 text-[13px] text-gray-800">
-              {snapshot.room.memberCount}명 참여 중
-              {snapshot.room.myIdentityMode
-                ? ` · ${t("nav_messenger_my_identity", {
-                    mode: snapshot.room.myIdentityMode === "alias" ? t("nav_messenger_identity_alias") : t("nav_messenger_identity_real"),
-                  })}`
-                : ""}
-            </p>
-            {isGroupRoom ? <p className="mt-1 text-[12px] text-gray-500">{groupCallStatusLabel}</p> : null}
-          </div>
+          <p className="px-0.5 text-center text-[11px] leading-snug text-[color:var(--cm-room-text-muted)]">
+            {roomTypeLabel}
+            {roomJoinLabel ? ` · ${roomJoinLabel}` : ""}
+            {roomIdentityLabel ? ` · ${roomIdentityLabel}` : ""}
+            {snapshot.room.memberCount > 0 ? ` · ${snapshot.room.memberCount}명` : ""}
+            {snapshot.room.myIdentityMode
+              ? ` · ${t("nav_messenger_my_identity", {
+                  mode: snapshot.room.myIdentityMode === "alias" ? t("nav_messenger_identity_alias") : t("nav_messenger_identity_real"),
+                })}`
+              : ""}
+            {isGroupRoom ? ` · ${groupCallStatusLabel}` : ""}
+          </p>
           {snapshot.room.summary?.trim() ? (
             <button
               type="button"
               onClick={() => setActiveSheet("info")}
-              className="flex w-full items-start justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left"
+              className="flex w-full items-center justify-between gap-2 rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 text-left active:bg-[color:var(--cm-room-primary-soft)]"
             >
               <div className="min-w-0">
-                <p className="text-[12px] font-semibold text-gray-700">공지</p>
-                <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-gray-800">{snapshot.room.summary.trim()}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:var(--cm-room-text-muted)]">공지</p>
+                <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-[color:var(--cm-room-text)]">
+                  {snapshot.room.summary.trim()}
+                </p>
               </div>
-              <span className="pl-3 text-[18px] text-gray-300">›</span>
+              <span className="shrink-0 text-[14px] text-[color:var(--cm-room-text-muted)]">›</span>
             </button>
           ) : null}
           {hasMoreOlderMessages && roomMessages.length > 0 ? (
@@ -2245,9 +2454,9 @@ export function CommunityMessengerRoomClient({
               )}
             </div>
           ) : null}
-          {roomMessages.length ? (
-            roomMessages.map((item, index) => {
-              const prev = index > 0 ? roomMessages[index - 1] : null;
+          {displayRoomMessages.length ? (
+            displayRoomMessages.map((item, index) => {
+              const prev = index > 0 ? displayRoomMessages[index - 1] : null;
               const gapMs =
                 prev && prev.messageType !== "system" && item.messageType !== "system"
                   ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
@@ -2289,36 +2498,64 @@ export function CommunityMessengerRoomClient({
               const bindMessageInteraction =
                 item.messageType === "system"
                   ? {}
-                  : {
-                      onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
-                        messageLongPressItemRef.current = item;
-                        messageLongPressTimerRef.current = window.setTimeout(() => {
-                          messageLongPressTimerRef.current = null;
-                          setMessageContextMenu({ item, x: e.clientX, y: e.clientY });
-                        }, 520);
-                      },
-                      onPointerUp: () => {
-                        if (messageLongPressTimerRef.current) {
-                          clearTimeout(messageLongPressTimerRef.current);
-                          messageLongPressTimerRef.current = null;
-                        }
-                        messageLongPressItemRef.current = null;
-                      },
-                      onPointerCancel: () => {
-                        if (messageLongPressTimerRef.current) {
-                          clearTimeout(messageLongPressTimerRef.current);
-                          messageLongPressTimerRef.current = null;
-                        }
-                        messageLongPressItemRef.current = null;
-                      },
-                      onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
-                        e.preventDefault();
-                        setMessageContextMenu({ item, x: e.clientX, y: e.clientY });
-                      },
-                    };
+                  : item.messageType === "call_stub"
+                    ? {
+                        onPointerDown: (_e: ReactPointerEvent<HTMLDivElement>) => {
+                          messageLongPressItemRef.current = item;
+                          messageLongPressTimerRef.current = window.setTimeout(() => {
+                            messageLongPressTimerRef.current = null;
+                            setCallStubSheet(item);
+                          }, 520);
+                        },
+                        onPointerUp: () => {
+                          if (messageLongPressTimerRef.current) {
+                            clearTimeout(messageLongPressTimerRef.current);
+                            messageLongPressTimerRef.current = null;
+                          }
+                          messageLongPressItemRef.current = null;
+                        },
+                        onPointerCancel: () => {
+                          if (messageLongPressTimerRef.current) {
+                            clearTimeout(messageLongPressTimerRef.current);
+                            messageLongPressTimerRef.current = null;
+                          }
+                          messageLongPressItemRef.current = null;
+                        },
+                        onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
+                          e.preventDefault();
+                          setCallStubSheet(item);
+                        },
+                      }
+                    : {
+                        onPointerDown: (_e: ReactPointerEvent<HTMLDivElement>) => {
+                          messageLongPressItemRef.current = item;
+                          messageLongPressTimerRef.current = window.setTimeout(() => {
+                            messageLongPressTimerRef.current = null;
+                            setMessageActionItem(item);
+                          }, 520);
+                        },
+                        onPointerUp: () => {
+                          if (messageLongPressTimerRef.current) {
+                            clearTimeout(messageLongPressTimerRef.current);
+                            messageLongPressTimerRef.current = null;
+                          }
+                          messageLongPressItemRef.current = null;
+                        },
+                        onPointerCancel: () => {
+                          if (messageLongPressTimerRef.current) {
+                            clearTimeout(messageLongPressTimerRef.current);
+                            messageLongPressTimerRef.current = null;
+                          }
+                          messageLongPressItemRef.current = null;
+                        },
+                        onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
+                          e.preventDefault();
+                          setMessageActionItem(item);
+                        },
+                      };
 
               const systemBubbleClass =
-                "rounded-full border border-black/5 bg-white/90 px-4 py-2 text-[12px] leading-5 text-gray-700 shadow-sm backdrop-blur-sm";
+                "rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)]/95 px-4 py-2 text-[12px] leading-5 text-[color:var(--cm-room-text-muted)] shadow-sm";
 
               const viberInnerBody: ReactNode = (() => {
                 const mineLight = item.isMine;
@@ -2366,17 +2603,19 @@ export function CommunityMessengerRoomClient({
                     <div className="min-w-[200px]">
                       <div className="flex items-start gap-3">
                         <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect ${
-                            item.isMine
-                              ? "bg-[#665CAC]/15 text-[#665CAC]"
-                              : "bg-gray-100 text-gray-700"
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${
+                            item.isMine ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"
                           }`}
                         >
                           <FileIcon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-semibold text-gray-900">{item.fileName?.trim() || "첨부 파일"}</p>
-                          <p className={`mt-1 text-[12px] ${item.isMine ? "text-gray-600" : "text-gray-500"}`}>
+                          <p className={`truncate font-semibold ${item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"}`}>
+                            {item.fileName?.trim() || "첨부 파일"}
+                          </p>
+                          <p
+                            className={`mt-1 text-[12px] ${item.isMine ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"}`}
+                          >
                             {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
                           </p>
                         </div>
@@ -2396,10 +2635,10 @@ export function CommunityMessengerRoomClient({
                                 ? item.fileName?.trim() || "community-messenger-file"
                                 : undefined
                             }
-                            className={`inline-flex rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${
+                            className={`inline-flex rounded-[10px] border px-3 py-2 text-[12px] font-semibold ${
                               item.isMine
-                                ? "border-[#665CAC]/30 bg-white/90 text-[#665CAC]"
-                                : "border-gray-200 bg-gray-50 text-gray-900"
+                                ? "border-white/40 bg-white/15 text-white"
+                                : "border-[color:var(--cm-room-divider)] bg-white text-[color:var(--cm-room-text)]"
                             }`}
                           >
                             {roomPreferences.mediaAutoSaveEnabled ? "파일 저장" : "파일 열기"}
@@ -2417,6 +2656,7 @@ export function CommunityMessengerRoomClient({
                     call.busy === "call-start" ||
                     call.busy === "device-prepare" ||
                     call.busy === "call-accept";
+                  const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
                   return (
                     <button
                       type="button"
@@ -2425,24 +2665,53 @@ export function CommunityMessengerRoomClient({
                         e.stopPropagation();
                         void requestOutgoingCallFromStub(kind);
                       }}
-                      className="w-full rounded-ui-rect text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="flex w-full max-w-full items-center gap-2.5 rounded-[12px] py-1 text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
                     >
-                      <p className="font-semibold text-gray-900">
-                        {item.callKind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
-                      </p>
-                      <p className="mt-1 text-[12px] text-gray-600">{tt(formatRoomCallStatus(item.callStatus))}</p>
-                      <p className="mt-2 text-[12px] font-medium text-[#665CAC]">탭하여 다시 통화</p>
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                          item.isMine ? "bg-white/20 text-white" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
+                        }`}
+                        aria-hidden
+                      >
+                        <CallGlyph className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
+                          <span
+                            className={`text-[14px] font-semibold leading-snug ${
+                              item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"
+                            }`}
+                          >
+                            {item.callKind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
+                          </span>
+                          <span
+                            className={`text-[11px] font-medium leading-snug ${
+                              item.isMine ? "text-white/75" : "text-[color:var(--cm-room-text-muted)]"
+                            }`}
+                          >
+                            {tt(formatRoomCallStatus(item.callStatus))}
+                          </span>
+                        </div>
+                      </div>
                     </button>
                   );
                 }
                 return (
-                  <div className="flex max-w-full flex-col gap-2">
+                  <div className="flex w-max max-w-full flex-col gap-2">
                     <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
-                      <p className="min-w-0 max-w-full break-words text-[14px] leading-snug text-gray-900 [word-break:break-word]">
+                      <p
+                        className={`inline-block w-fit max-w-full text-[14px] leading-snug break-keep [overflow-wrap:break-word] ${
+                          mineLight ? "text-white" : "text-[color:var(--cm-room-text)]"
+                        }`}
+                      >
                         {item.content}
                       </p>
                       {item.pending ? (
-                        <span className="shrink-0 text-[11px] text-gray-500">{t("common_sending")}</span>
+                        <span
+                          className={`shrink-0 text-[11px] ${mineLight ? "text-white/70" : "text-[color:var(--cm-room-text-muted)]"}`}
+                        >
+                          {t("common_sending")}
+                        </span>
                       ) : null}
                     </div>
                     {roomPreferences.linkPreviewEnabled && extractHttpUrls(item.content).length ? (
@@ -2455,10 +2724,10 @@ export function CommunityMessengerRoomClient({
                               href={url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`inline-flex max-w-[220px] truncate rounded-ui-rect border px-2.5 py-1 text-[11px] ${
+                              className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 text-[11px] ${
                                 mineLight
-                                  ? "border-[#665CAC]/25 bg-white/80 text-[#665CAC]"
-                                  : "border-gray-200 bg-gray-50 text-gray-700"
+                                  ? "border-white/35 bg-white/15 text-white"
+                                  : "border-[color:var(--cm-room-divider)] bg-white text-[color:var(--cm-room-text-muted)]"
                               }`}
                             >
                               {url.replace(/^https?:\/\//i, "")}
@@ -2474,7 +2743,7 @@ export function CommunityMessengerRoomClient({
                 <div
                   key={item.id}
                   id={`cm-room-msg-${item.id}`}
-                  className={`flex scroll-mt-24 ${
+                  className={`mb-2.5 flex scroll-mt-24 last:mb-0 ${
                     item.messageType === "system" ? "justify-center" : item.isMine ? "justify-end" : "justify-start"
                   }`}
                 >
@@ -2486,12 +2755,12 @@ export function CommunityMessengerRoomClient({
                     </div>
                   ) : (
                     <div
-                      className={`flex w-full max-w-[min(100%,560px)] items-end gap-2 ${
-                        item.isMine ? "ml-auto justify-end" : "mr-auto justify-start"
+                      className={`flex w-full min-w-0 max-w-full items-end gap-3 ${
+                        item.isMine ? "justify-end" : "justify-start"
                       }`}
                     >
                       {!item.isMine ? (
-                        <div className="w-9 shrink-0 self-end pb-0.5">
+                        <div className="relative z-[1] w-9 shrink-0 self-end pb-0.5">
                           {showPeerAvatar ? (
                             peerAvatar?.avatarUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
@@ -2501,8 +2770,8 @@ export function CommunityMessengerRoomClient({
                                 className="h-9 w-9 rounded-full border border-black/10 object-cover shadow-sm"
                               />
                             ) : (
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white text-[12px] font-semibold text-gray-600 shadow-sm">
-                                {peerAvatar?.initials?.slice(0, 2) ?? "?"}
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-black/10 bg-white text-center text-[14px] font-semibold leading-none text-gray-600 shadow-sm">
+                                {peerAvatar?.initials?.slice(0, 1) ?? "?"}
                               </div>
                             )
                           ) : (
@@ -2512,22 +2781,26 @@ export function CommunityMessengerRoomClient({
                       ) : null}
 
                       <div
-                        className={`flex min-w-0 flex-col ${item.isMine ? "items-end" : "items-start"}`}
+                        className={`flex min-h-0 min-w-0 flex-1 flex-col ${item.isMine ? "items-end" : "items-start"}`}
                       >
                         {isGroupRoom && !item.isMine && showPeerAvatar ? (
-                          <p className="mb-0.5 max-w-full pl-0.5 text-[12px] font-semibold text-[#665CAC]">
+                          <p className="mb-0.5 max-w-full pl-0.5 text-[12px] font-semibold text-[color:var(--cm-room-primary)]">
                             {tt(item.senderLabel)}
                           </p>
                         ) : null}
 
-                        <div className="flex max-w-[min(100%,440px)] items-end gap-1.5">
+                        <div
+                          className={`flex w-full min-w-0 max-w-[min(85vw,70%)] shrink-0 items-end gap-1.5 ${
+                            item.isMine ? "flex-row justify-end" : "flex-row justify-start"
+                          }`}
+                        >
                           {item.isMine ? (
                             <>
-                              <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-gray-400">
+                              <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                                 {formatTime(item.createdAt)}
                               </span>
                               <div
-                                className="min-w-0 inline-block max-w-[min(82vw,400px)] align-bottom"
+                                className="inline-block w-max max-w-full shrink-0 align-bottom"
                                 {...bindMessageInteraction}
                               >
                                 <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
@@ -2542,7 +2815,7 @@ export function CommunityMessengerRoomClient({
                           ) : (
                             <>
                               <div
-                                className="min-w-0 inline-block max-w-[min(82vw,400px)] align-bottom"
+                                className="inline-block w-max max-w-full shrink-0 align-bottom"
                                 {...bindMessageInteraction}
                               >
                                 <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
@@ -2553,7 +2826,7 @@ export function CommunityMessengerRoomClient({
                                   )}
                                 </ViberChatBubble>
                               </div>
-                              <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-gray-400">
+                              <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                                 {formatTime(item.createdAt)}
                               </span>
                             </>
@@ -2562,7 +2835,7 @@ export function CommunityMessengerRoomClient({
                       </div>
 
                       {item.isMine ? (
-                        <div className="w-9 shrink-0 self-end pb-0.5">
+                        <div className="relative z-[1] w-9 shrink-0 self-end pb-0.5">
                           {showMyAvatar ? (
                             myAvatar?.avatarUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
@@ -2572,8 +2845,8 @@ export function CommunityMessengerRoomClient({
                                 className="h-9 w-9 rounded-full border border-black/10 object-cover shadow-sm"
                               />
                             ) : (
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white text-[12px] font-semibold text-gray-600 shadow-sm">
-                                {myAvatar?.initials?.slice(0, 2) ?? "나"}
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-black/10 bg-white text-center text-[14px] font-semibold leading-none text-gray-600 shadow-sm">
+                                {myAvatar?.initials?.slice(0, 1) ?? "나"}
                               </div>
                             )
                           ) : (
@@ -2587,133 +2860,197 @@ export function CommunityMessengerRoomClient({
               );
             })
           ) : (
-            <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-8 text-center text-[13px] text-gray-500">
-              첫 메시지를 보내서 대화를 시작해 보세요.
+            <div className="px-4 py-12 text-center text-[13px] text-[color:var(--cm-room-text-muted)]">
+              아직 메시지가 없습니다.
+              <br />
+              <span className="mt-1 inline-block text-[12px]">첫 인사를 남겨보세요.</span>
             </div>
           )}
           <div ref={messageEndRef} />
         </main>
-        {messageContextMenu ? (
-          <>
-            <button
-              type="button"
-              className="fixed inset-0 z-[60] cursor-default bg-black/0"
-              aria-label="메뉴 닫기"
-              onClick={() => setMessageContextMenu(null)}
-            />
-            <div
-              role="menu"
-              className="fixed z-[70] min-w-[176px] overflow-hidden rounded-[12px] border border-black/10 bg-white py-1 shadow-lg"
-              style={{
-                left:
-                  typeof window !== "undefined"
-                    ? Math.min(Math.max(8, messageContextMenu.x), window.innerWidth - 184)
-                    : messageContextMenu.x,
-                top:
-                  typeof window !== "undefined"
-                    ? Math.min(Math.max(8, messageContextMenu.y), window.innerHeight - 220)
-                    : messageContextMenu.y,
-              }}
-            >
-              {(() => {
-                const cm = messageContextMenu.item;
-                const close = () => setMessageContextMenu(null);
-                return (
-                  <>
-                    {!cm.isMine && cm.messageType !== "system" ? (
-                      <>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="flex w-full px-3 py-2.5 text-left text-[14px] text-gray-900 hover:bg-gray-50 active:bg-gray-100"
-                          onClick={() => {
-                            close();
-                            void reportTarget({
-                              reportType: "message",
-                              messageId: cm.id,
-                              reportedUserId: cm.senderId ?? undefined,
-                            });
-                          }}
-                        >
-                          메시지 신고
-                        </button>
-                        {cm.senderId ? (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full px-3 py-2.5 text-left text-[14px] text-gray-900 hover:bg-gray-50 active:bg-gray-100"
-                            onClick={() => {
-                              close();
-                              void reportTarget({
-                                reportType: "user",
-                                reportedUserId: cm.senderId ?? undefined,
-                              });
-                            }}
-                          >
-                            사용자 신고
-                          </button>
-                        ) : null}
-                        {cm.senderId ? (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full px-3 py-2.5 text-left text-[14px] text-red-600 hover:bg-red-50 active:bg-red-100"
-                            disabled={busy === "block-peer" || roomUnavailable}
-                            onClick={() => {
-                              close();
-                              void blockPeerFromMessage(cm.senderId!);
-                            }}
-                          >
-                            차단
-                          </button>
-                        ) : null}
-                      </>
-                    ) : null}
-                    {cm.isMine && cm.messageType !== "system" && !cm.pending ? (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="flex w-full px-3 py-2.5 text-left text-[14px] text-gray-900 hover:bg-gray-50 active:bg-gray-100"
-                        disabled={busy === "delete-message" || roomUnavailable}
-                        onClick={() => {
-                          close();
-                          void deleteRoomMessage(cm.id);
-                        }}
-                      >
-                        삭제
-                      </button>
-                    ) : null}
-                  </>
-                );
-              })()}
-            </div>
-          </>
-        ) : null}
       </div>
 
+      {messageActionItem ? (
+        <CommunityMessengerMessageActionSheet
+          item={messageActionItem}
+          busy={busy}
+          roomUnavailable={roomUnavailable}
+          onClose={() => setMessageActionItem(null)}
+          onCopy={() => void copyMessageText(messageActionItem)}
+          onDelete={
+            messageActionItem.isMine &&
+            messageActionItem.messageType !== "system" &&
+            !messageActionItem.pending
+              ? () => {
+                  setMessageActionItem(null);
+                  void deleteRoomMessage(messageActionItem.id);
+                }
+              : undefined
+          }
+          onForward={() => void forwardMessage(messageActionItem)}
+          onReply={() => {
+            setReplyToMessage(messageActionItem);
+            setMessageActionItem(null);
+            window.requestAnimationFrame(() => composerTextareaRef.current?.focus());
+          }}
+          onReportMessage={
+            !messageActionItem.isMine && messageActionItem.messageType !== "system"
+              ? () => {
+                  setMessageActionItem(null);
+                  void reportTarget({
+                    reportType: "message",
+                    messageId: messageActionItem.id,
+                    reportedUserId: messageActionItem.senderId ?? undefined,
+                  });
+                }
+              : undefined
+          }
+          onReportUser={
+            !messageActionItem.isMine && messageActionItem.senderId && messageActionItem.messageType !== "system"
+              ? () => {
+                  setMessageActionItem(null);
+                  void reportTarget({
+                    reportType: "user",
+                    reportedUserId: messageActionItem.senderId ?? undefined,
+                  });
+                }
+              : undefined
+          }
+          onBlockUser={
+            !messageActionItem.isMine && messageActionItem.senderId && messageActionItem.messageType !== "system"
+              ? () => {
+                  setMessageActionItem(null);
+                  void blockPeerFromMessage(messageActionItem.senderId!);
+                }
+              : undefined
+          }
+        />
+      ) : null}
+      {callStubSheet ? (
+        <div className="fixed inset-0 z-[65] flex flex-col justify-end bg-black/30" role="dialog" aria-modal="true">
+          <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={() => setCallStubSheet(null)} />
+          <div className="w-full max-h-[min(72vh,480px)] overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
+            <div className="border-b border-ui-border px-4 py-3">
+              <p className="text-[13px] font-semibold text-ui-fg">통화 메시지</p>
+              <p className="mt-1 line-clamp-2 text-[12px] text-ui-muted">{callStubSheet.content}</p>
+            </div>
+            <nav className="flex flex-col p-1" aria-label="통화 로그 작업">
+              <button
+                type="button"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-ui-fg active:bg-ui-hover disabled:opacity-40"
+                disabled={
+                  roomUnavailable ||
+                  (busy != null && String(busy).startsWith("managed-call:")) ||
+                  call.busy === "call-start" ||
+                  call.busy === "device-prepare" ||
+                  call.busy === "call-accept"
+                }
+                onClick={() => {
+                  const kind = callStubSheet.callKind === "video" ? "video" : "voice";
+                  setCallStubSheet(null);
+                  void requestOutgoingCallFromStub(kind);
+                }}
+              >
+                다시 걸기
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-ui-fg active:bg-ui-hover"
+                onClick={() => {
+                  setCallStubSheet(null);
+                  window.requestAnimationFrame(() => composerTextareaRef.current?.focus());
+                }}
+              >
+                메시지 보내기
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-ui-fg active:bg-ui-hover"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(callStubSheet.content);
+                  } catch {
+                    window.alert("복사하지 못했습니다.");
+                  }
+                  setCallStubSheet(null);
+                }}
+              >
+                텍스트 복사
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-ui-fg active:bg-ui-hover"
+                onClick={() => hideCallStubLocally(callStubSheet.id)}
+              >
+                이 기기에서만 숨기기
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-red-600 active:bg-red-50"
+                onClick={() => {
+                  const id = callStubSheet.id;
+                  setCallStubSheet(null);
+                  void reportTarget({ reportType: "message", messageId: id });
+                }}
+              >
+                신고
+              </button>
+            </nav>
+            <button
+              type="button"
+              onClick={() => setCallStubSheet(null)}
+              className="mt-1 w-full border-t border-ui-border py-3 text-[14px] font-medium text-ui-muted"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {replyToMessage && !voiceRecording ? (
+        <div className="flex shrink-0 items-center gap-2 border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2">
+          <div className="min-w-0 flex-1 border-l-2 border-[color:var(--cm-room-primary)] pl-2">
+            <p className="text-[10px] font-semibold text-[color:var(--cm-room-primary)]">답장</p>
+            <p className="line-clamp-2 text-[12px] text-[color:var(--cm-room-text-muted)]">
+              {replyToMessage.messageType === "text"
+                ? replyToMessage.content
+                : `(${replyToMessage.messageType})`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReplyToMessage(null)}
+            className="shrink-0 rounded-full px-2 py-1 text-[12px] font-medium text-[color:var(--cm-room-text-muted)] active:bg-white/80"
+          >
+            취소
+          </button>
+        </div>
+      ) : null}
+
       <footer
-        className={`shrink-0 border-t px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] transition-[background-color,box-shadow,border-color] duration-300 ${
+        className={`sticky bottom-0 z-[5] shrink-0 border-t border-[color:var(--cm-room-divider)] px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] transition-[background-color] duration-300 ${
           voiceRecording
             ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white shadow-[0_-6px_18px_rgba(42,171,238,0.08)]"
-            : "border-gray-200 bg-white"
+            : "bg-[color:var(--cm-room-header-bg)]"
         }`}
       >
-        <div className="grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_auto] items-end gap-2">
+        <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_auto] items-center gap-2">
           {!voiceRecording ? (
             <button
               type="button"
               onClick={() => setActiveSheet("attach")}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-700"
+              className="flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90"
               aria-label="첨부 메뉴"
             >
               <PlusIcon className="h-5 w-5" />
             </button>
           ) : (
-            <div className="h-11 w-11 shrink-0" aria-hidden />
+            <div className="h-10 w-10 shrink-0 self-center" aria-hidden />
           )}
-          <div className="col-start-2 min-w-0">
+          <div className="col-start-2 flex min-h-0 min-w-0 items-center">
             {!voiceRecording ? (
               <textarea
+                ref={composerTextareaRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={1}
@@ -2727,7 +3064,7 @@ export function CommunityMessengerRoomClient({
                         : "보관된 방입니다"
                     : "메시지"
                 }
-                className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-ui-rect border border-gray-200 px-4 py-3 text-[14px] outline-none focus:border-gray-400 disabled:bg-gray-100 disabled:text-gray-500"
+                className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-3 text-[14px] leading-normal text-[color:var(--cm-room-text)] outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50"
               />
             ) : voiceHandsFree ? (
               <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-gray-300 bg-gray-50 px-3 py-2 shadow-inner ring-1 ring-gray-200">
@@ -2775,7 +3112,7 @@ export function CommunityMessengerRoomClient({
           </div>
 
           {!voiceHandsFree ? (
-            <div className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center overflow-visible">
+            <div className="relative z-[1] flex h-10 w-10 shrink-0 items-center justify-center self-center overflow-visible">
               {voiceRecording && !voiceHandsFree ? (
                 <div
                   className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-ui-rect px-2.5 py-2 shadow-md ${
@@ -2804,7 +3141,7 @@ export function CommunityMessengerRoomClient({
                   Boolean(message.trim()) ||
                   (voiceRecording && voiceHandsFree)
                 }
-                className={`touch-none flex h-11 w-11 shrink-0 origin-center select-none items-center justify-center rounded-full shadow-md transition-transform duration-200 active:scale-95 disabled:opacity-35 ${
+                className={`touch-none flex h-10 w-10 shrink-0 origin-center select-none items-center justify-center rounded-full shadow-md transition-transform duration-200 active:scale-95 disabled:opacity-35 ${
                   voiceRecording && !voiceHandsFree
                     ? "scale-110 bg-gray-900 text-white ring-4 ring-gray-300 shadow-lg"
                     : "bg-gray-200 text-gray-800 ring-2 ring-gray-300"
@@ -2820,7 +3157,7 @@ export function CommunityMessengerRoomClient({
               </button>
             </div>
           ) : (
-            <div className="h-11 w-11 shrink-0" aria-hidden />
+            <div className="h-10 w-10 shrink-0 self-center" aria-hidden />
           )}
 
           {!voiceRecording ? (
@@ -2836,87 +3173,89 @@ export function CommunityMessengerRoomClient({
                 busy === "send-voice" ||
                 busy === "delete-message"
               }
-              className="rounded-ui-rect bg-gray-900 px-3.5 py-3 text-[14px] font-semibold text-white disabled:opacity-40 sm:px-4"
+              className="flex h-10 min-w-[40px] shrink-0 items-center justify-center self-center rounded-full bg-[color:var(--cm-room-primary)] px-2.5 text-[13px] font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"
+              aria-label="전송"
             >
-              전송
+              <SendPlaneIcon className="h-5 w-5 text-white" />
             </button>
           ) : voiceRecording && !voiceHandsFree ? (
-            <div className="h-11 min-w-[4.75rem] shrink-0" aria-hidden />
+            <div className="h-10 min-w-[4.75rem] shrink-0 self-center" aria-hidden />
           ) : (
-            <div className="h-11 w-0 min-w-0 max-w-0 shrink-0 overflow-hidden p-0" aria-hidden />
+            <div className="h-10 w-0 min-w-0 max-w-0 shrink-0 self-center overflow-hidden p-0" aria-hidden />
           )}
         </div>
       </footer>
 
       {activeSheet ? (
-        <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/30 px-4 pb-6" onClick={dismissRoomSheet}>
+        <div className="fixed inset-0 z-20 flex flex-col justify-end bg-black/30" onClick={dismissRoomSheet}>
           <div
-            className="max-h-[78vh] w-full max-w-[520px] overflow-y-auto rounded-ui-rect border border-gray-200 bg-white p-5 shadow-[0_10px_30px_rgba(17,24,39,0.08)]"
+            className={`max-h-[85vh] w-full overflow-y-auto shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
+              activeSheet === "attach"
+                ? "rounded-t-[14px] border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                : "mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-5"
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
             {activeSheet === "attach" ? (
               <>
-                <p className="text-[13px] font-medium text-gray-700">첨부</p>
-                <h2 className="mt-1 text-[20px] font-semibold text-gray-900">보내기</h2>
-                <div className="mt-4 grid gap-2">
+                <div className="border-b border-[color:var(--cm-room-divider)] px-4 py-3">
+                  <p className="text-[13px] font-semibold text-[color:var(--cm-room-text)]">첨부</p>
+                  <p className="mt-0.5 text-[12px] text-[color:var(--cm-room-text-muted)]">보낼 항목을 선택하세요</p>
+                </div>
+                <nav className="flex flex-col" aria-label="첨부">
                   <button
                     type="button"
                     onClick={openImagePicker}
                     disabled={roomUnavailable || busy === "send-image" || !canUploadAttachments}
-                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left disabled:opacity-40"
+                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left text-[15px] font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
                   >
-                    <div>
-                      <p className="text-[15px] font-semibold text-gray-900">사진 보내기</p>
-                      <p className="mt-1 text-[12px] text-gray-500">이미지 첨부</p>
-                    </div>
-                    <span className="text-[18px] text-gray-300">›</span>
+                    사진 (갤러리)
+                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCameraPicker}
+                    disabled={roomUnavailable || busy === "send-image" || !canUploadAttachments}
+                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left text-[15px] font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
+                  >
+                    카메라
+                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
                   <button
                     type="button"
                     onClick={openFilePicker}
                     disabled={roomUnavailable || busy === "send-file" || !canUploadAttachments}
-                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left disabled:opacity-40"
+                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left text-[15px] font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
                   >
-                    <div>
-                      <p className="text-[15px] font-semibold text-gray-900">파일 보내기</p>
-                      <p className="mt-1 text-[12px] text-gray-500">문서 · 압축파일</p>
-                    </div>
-                    <span className="text-[18px] text-gray-300">›</span>
+                    파일
+                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setActiveSheet("media")}
-                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                    onClick={() => void sendLocationMessage()}
+                    disabled={roomUnavailable}
+                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left text-[15px] font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
                   >
-                    <div>
-                      <p className="text-[15px] font-semibold text-gray-900">사진 모아보기</p>
-                      <p className="mt-1 text-[12px] text-gray-500">사진 {photoMessageCount} · 음성 {voiceMessageCount}</p>
-                    </div>
-                    <span className="text-[18px] text-gray-300">›</span>
+                    위치
+                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveSheet("files")}
-                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
-                  >
-                    <div>
-                      <p className="text-[15px] font-semibold text-gray-900">파일 모아보기</p>
-                      <p className="mt-1 text-[12px] text-gray-500">파일 {fileMessageCount}개</p>
-                    </div>
-                    <span className="text-[18px] text-gray-300">›</span>
-                  </button>
+                </nav>
+                <div className="px-4 py-2">
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                    className="w-full rounded-[10px] bg-[color:var(--cm-room-chat-bg)] px-3 py-2.5 text-center text-[12px] font-medium text-[color:var(--cm-room-text-muted)] active:opacity-90"
                   >
-                    <div>
-                      <p className="text-[15px] font-semibold text-gray-900">채팅방 서랍 열기</p>
-                      <p className="mt-1 text-[12px] text-gray-500">참여자 · 공지 · 설정</p>
-                    </div>
-                    <span className="text-[18px] text-gray-300">›</span>
+                    사진·파일 모아보기 · 채팅방 정보는 서랍에서
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={dismissRoomSheet}
+                  className="mt-1 w-full border-t border-[color:var(--cm-room-divider)] py-3 text-[14px] font-medium text-[color:var(--cm-room-text-muted)] active:bg-[color:var(--cm-room-primary-soft)]"
+                >
+                  취소
+                </button>
               </>
             ) : null}
 
@@ -4325,226 +4664,19 @@ export function CommunityMessengerRoomClient({
       ) : null}
 
       {isGroupRoom && call.panel ? (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/45 px-4 pb-4 sm:items-center sm:pb-0">
-          <div className="w-full max-w-[420px] rounded-ui-rect border border-gray-200 bg-white px-5 pb-5 pt-6 text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
-            <div className="flex items-center justify-between gap-3">
-              <span className="rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-1 text-[12px] font-semibold text-gray-700">
-                {isGroupRoom ? t("nav_messenger_group_prefix") : ""}
-                {call.panel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
-              </span>
-              {call.panel.mode === "active" ? (
-                <span className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1 text-[12px] font-semibold text-gray-800">
-                  {formatDuration(call.elapsedSeconds)}
-                </span>
-              ) : null}
-            </div>
-
-            <div className="mt-5 overflow-hidden rounded-ui-rect bg-black">
-              {call.panel.kind === "video" ? (
-                <div className="relative min-h-[250px] bg-black">
-                  {call.localStream ? (
-                    <video
-                      ref={call.localVideoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="h-[250px] w-full bg-black object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-[250px] flex-col items-center justify-center gap-3 bg-[#020617] px-6 text-center">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-ui-rect border border-white/12 bg-white/5 text-[12px] font-semibold">
-                        VIDEO
-                      </div>
-                      <p className="text-[13px] text-white/75">{call.panel.mode === "incoming" ? "참여 준비" : "영상 준비"}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex h-[250px] flex-col items-center justify-center gap-4 bg-[#020617]">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-ui-rect border border-white/12 bg-white/5 text-[26px] font-semibold text-white">
-                    MIC
-                  </div>
-                  <p className="text-[13px] text-white/70">{call.panel.mode === "incoming" ? "참여 준비" : "음성 준비"}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-5 text-center">
-              <h2 className="text-[24px] font-semibold text-gray-900">{call.panel.peerLabel}</h2>
-              <p className="mt-1 text-[14px] text-gray-500">{call.callStatusLabel}</p>
-              {call.connectionBadge ? (
-                <p
-                  className="mt-3 inline-flex rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-1 text-[12px] font-semibold text-gray-700"
-                >
-                  {call.connectionBadge.label}
-                </p>
-              ) : null}
-              {isGroupRoom && groupCall.participants.length ? (
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  {groupCall.participants.map((participant) => (
-                    <span
-                      key={participant.userId}
-                      className="rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-700"
-                    >
-                      {participant.label} · {tt(formatParticipantStatus(participant.status))}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              {isGroupRoom && groupCall.remotePeers.length ? (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {groupCall.remotePeers.map((peer) => (
-                    <div key={peer.userId} className="overflow-hidden rounded-ui-rect bg-black">
-                      <video
-                        ref={(node) => {
-                          groupCall.bindRemoteVideo(peer.userId, node);
-                        }}
-                        autoPlay
-                        playsInline
-                        className="h-24 w-full bg-black object-cover"
-                      />
-                      <p className="px-2 py-2 text-[11px] text-white/75">{peer.label}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            {call.errorMessage ? (
-              <div className="mt-4 rounded-ui-rect border border-gray-200 bg-gray-50 p-4 text-left">
-                <p className="text-[13px] font-semibold text-gray-800">{call.errorMessage}</p>
-                {permissionGuide?.description ? <p className="mt-2 text-[12px] text-gray-500">{permissionGuide.description}</p> : null}
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void retryCallDevicePermission()}
-                    disabled={call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"}
-                    className="flex-1 rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[13px] font-semibold text-gray-800 disabled:opacity-40"
-                  >
-                    {call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"
-                      ? t("nav_messenger_checking")
-                      : permissionGuide?.retryLabel ?? t("nav_messenger_permission_check")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openCallPermissionHelp}
-                    className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[13px] font-medium text-gray-700"
-                  >
-                    {permissionGuide?.settingsLabel ?? t("nav_messenger_permission_guide")}
-                  </button>
-                </div>
-              </div>
-            ) : (call.panel.mode === "dialing" || call.panel.mode === "connecting") && !call.localStream ? (
-              <div className="mt-4 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => void retryCallDevicePermission()}
-                  disabled={call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"}
-                  className="flex-1 rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[13px] font-semibold text-gray-800 disabled:opacity-40"
-                >
-                  {call.busy === "call-start" || call.busy === "call-accept" || call.busy === "device-prepare"
-                    ? t("nav_messenger_checking")
-                    : permissionGuide?.retryLabel ?? t("nav_messenger_permission_check")}
-                </button>
-                <button
-                  type="button"
-                  onClick={openCallPermissionHelp}
-                  className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[13px] font-medium text-gray-700"
-                >
-                  {permissionGuide?.settingsLabel ?? t("nav_messenger_permission_guide")}
-                </button>
-              </div>
-            ) : null}
-
-            <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-[11px] font-semibold tracking-[0.02em] text-gray-400">통화 제어</p>
-                <p className="text-[11px] text-gray-400">
-                  {call.panel.mode === "incoming"
-                    ? "응답 대기"
-                    : call.panel.mode === "dialing" || call.panel.mode === "connecting"
-                      ? "연결 준비 중"
-                      : "통화 진행 중"}
-                </p>
-              </div>
-              <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-3">
-              {call.panel.mode === "incoming" ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void call.rejectIncomingCall()}
-                    disabled={call.busy === "call-reject"}
-                    className="cursor-pointer touch-manipulation rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[14px] text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    거절
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleAcceptIncomingCall()}
-                    disabled={call.busy === "call-accept"}
-                    className="flex-1 cursor-pointer touch-manipulation select-none rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[14px] font-semibold text-gray-900 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    받기
-                  </button>
-                </div>
-              ) : call.panel.mode === "dialing" || call.panel.mode === "connecting" ? (
-                <div className="grid gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (call.panel?.sessionId) {
-                        void call.cancelOutgoingCall();
-                        return;
-                      }
-                      call.dismissPanel();
-                    }}
-                    disabled={call.panel?.sessionId ? call.busy === "call-cancel" : false}
-                    className="flex-1 rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[14px] font-semibold text-gray-800 disabled:opacity-40"
-                  >
-                    통화 취소
-                  </button>
-                </div>
-              ) : (
-                <div className="grid gap-2">
-                  <div className={`grid gap-2 ${call.connectionBadge?.tone === "poor" ? "grid-cols-2" : "grid-cols-1"}`}>
-                  <button
-                    type="button"
-                    onClick={() => void call.endActiveCall()}
-                    disabled={call.busy === "call-end"}
-                    className="flex-1 rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[14px] font-semibold text-gray-800 disabled:opacity-40"
-                  >
-                    통화 종료
-                  </button>
-                  {call.connectionBadge?.tone === "poor" ? (
-                    <button
-                      type="button"
-                      onClick={() => void call.retryConnection()}
-                      disabled={call.busy === "call-retry"}
-                      className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-[14px] font-medium text-gray-700"
-                    >
-                      다시 연결
-                    </button>
-                  ) : null}
-                  </div>
-                </div>
-              )}
-              </div>
-            </div>
-            {call.panel.kind !== "video" ? (
-              groupCall.remotePeers.map((peer) => (
-                <audio
-                  key={`audio:${peer.userId}`}
-                  ref={(node) => {
-                    bindMediaStreamToElement(node, peer.stream);
-                  }}
-                  autoPlay
-                  playsInline
-                  className="hidden"
-                />
-              ))
-            ) : null}
-          </div>
-        </div>
+        <GroupRoomCallOverlay
+          t={t}
+          tt={tt}
+          isGroupRoom={isGroupRoom}
+          groupPrefix={t("nav_messenger_group_prefix")}
+          groupCall={call}
+          permissionGuide={permissionGuide}
+          formatDuration={formatDuration}
+          formatParticipantStatus={formatParticipantStatus}
+          onOpenCallPermissionHelp={openCallPermissionHelp}
+          onRetryCallDevicePermission={retryCallDevicePermission}
+          onAcceptIncomingCall={handleAcceptIncomingCall}
+        />
       ) : null}
 
       {!isGroupRoom && snapshot && returnToCallSessionId ? (
@@ -4703,7 +4835,7 @@ function getLatestCallStubForSession(
   return best;
 }
 
-/** Viber 스타일 — 밝은 수신 / 시안 발신. `showTail`: 새 덩어리(프로필 옆)만 꼬리 표시 */
+/** Viber 톤 — 브랜드 보라 발신 / 화이트 수신. `showTail`: 새 덩어리(프로필 옆)만 꼬리 표시 */
 function ViberChatBubble({
   isMine,
   showTail,
@@ -4713,24 +4845,27 @@ function ViberChatBubble({
   showTail: boolean;
   children: ReactNode;
 }) {
-  const fill = isMine ? "#CDEEF7" : "#FFFFFF";
+  const fill = isMine ? "var(--cm-room-bubble-outgoing)" : "var(--cm-room-bubble-incoming)";
   return (
     <div
-      className="relative inline-block min-w-0 max-w-full overflow-visible rounded-[20px] shadow-[0_1px_4px_rgba(0,0,0,0.1)] ring-1 ring-black/[0.09]"
-      style={{ backgroundColor: fill }}
+      className="relative inline-block w-max max-w-full overflow-visible shadow-[0_1px_3px_rgba(115,96,242,0.12)]"
+      style={{
+        backgroundColor: fill,
+        borderRadius: "var(--cm-room-radius-bubble)",
+      }}
     >
       {showTail ? (
         !isMine ? (
           <span
             aria-hidden
-            className="pointer-events-none absolute -left-[10px] top-[9px] z-[1] h-0 w-0 border-y-[11px] border-y-transparent border-r-[13px]"
-            style={{ borderRightColor: fill }}
+            className="pointer-events-none absolute -left-[8px] top-[8px] z-[1] h-0 w-0 border-y-[9px] border-y-transparent border-r-[11px]"
+            style={{ borderRightColor: "var(--cm-room-bubble-incoming)" }}
           />
         ) : (
           <span
             aria-hidden
-            className="pointer-events-none absolute -right-[10px] top-[9px] z-[1] h-0 w-0 border-y-[11px] border-y-transparent border-l-[13px]"
-            style={{ borderLeftColor: fill }}
+            className="pointer-events-none absolute -right-[8px] top-[8px] z-[1] h-0 w-0 border-y-[9px] border-y-transparent border-l-[11px]"
+            style={{ borderLeftColor: "var(--cm-room-bubble-outgoing)" }}
           />
         )
       ) : null}
@@ -4755,10 +4890,7 @@ function communityMessengerMemberAvatar(
       ? member.aliasProfile.displayName.trim()
       : member.label.trim();
   const compact = rawLabel.replace(/\s+/g, "");
-  const initials =
-    compact.length >= 2
-      ? `${compact[0]!}${compact[compact.length - 1]!}`
-      : compact.slice(0, 2) || "?";
+  const initials = compact[0] ?? "?";
   return { avatarUrl, initials };
 }
 
@@ -4901,6 +5033,14 @@ function PlusIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SendPlaneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
     </svg>
   );
 }

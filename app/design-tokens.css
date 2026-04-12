@@ -40,6 +40,24 @@
   --ig-highlight: var(--ui-hover-surface);
 }
 
+/**
+ * 커뮤니티 메신저 채팅방 전용 — 래퍼 `[data-cm-room]` 에서만 적용 (Viber 톤 라이트 고정).
+ */
+[data-cm-room] {
+  --cm-room-primary: #7360f2;
+  --cm-room-primary-soft: #f1eeff;
+  --cm-room-page-bg: #f7f8fa;
+  --cm-room-chat-bg: #eceff5;
+  --cm-room-text: #1a1a1a;
+  --cm-room-text-muted: #8a8f98;
+  --cm-room-divider: #e5e7eb;
+  --cm-room-header-bg: #ffffff;
+  --cm-room-bubble-incoming: #ffffff;
+  --cm-room-bubble-outgoing: #7360f2;
+  --cm-room-radius-bubble: 18px;
+  --cm-room-radius-input: 20px;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --ui-page-bg: #18191a;

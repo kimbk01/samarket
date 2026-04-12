@@ -2,12 +2,7 @@
 
 import type { RefObject } from "react";
 import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
-import {
-  MessengerSettingsBlock,
-  MiniMetricCard,
-  SettingsActionRow,
-  SettingsToggleRow,
-} from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerSettingsBlock, SettingsActionRow, SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -111,12 +106,17 @@ export function MessengerSettingsSheet({
                 onChange={(next) => void updateNotificationSetting("store_enabled", next)}
               />
               <SettingsToggleRow
-                title="벨소리·수신 통화 톤"
-                checked={incomingCallSoundEnabled && notificationSettings.sound_enabled}
-                onChange={(next) => {
-                  onIncomingCallSoundChange(next);
-                  void updateNotificationSetting("sound_enabled", next);
-                }}
+                title="채팅·서비스 알림 소리"
+                description="메시지·거래·주문 등 알림음"
+                checked={notificationSettings.sound_enabled}
+                disabled={busyId === "notification-setting:sound_enabled"}
+                onChange={(next) => void updateNotificationSetting("sound_enabled", next)}
+              />
+              <SettingsToggleRow
+                title="수신 통화 벨"
+                description="이 기기에서 통화 수신 시 재생합니다. 관리자가 서버에 지정한 통화 톤이 있으면 그 톤이 우선될 수 있습니다."
+                checked={incomingCallSoundEnabled}
+                onChange={(next) => onIncomingCallSoundChange(next)}
               />
               <SettingsToggleRow
                 title="수신 통화 화면 안내"
@@ -137,11 +137,9 @@ export function MessengerSettingsSheet({
             </MessengerSettingsBlock>
 
             <MessengerSettingsBlock title="친구">
-              <div className="grid grid-cols-3 gap-1.5 px-3 py-2">
-                <MiniMetricCard label="차단" value={String(blocked.length)} helper="연결 차단" compact />
-                <MiniMetricCard label="숨김" value={String(hidden.length)} helper="목록만 숨김" compact />
-                <MiniMetricCard label="즐겨찾기" value={String(favoriteCount)} helper="빠른 접근" compact />
-              </div>
+              <p className="px-3 py-2 text-[12px] leading-snug text-ui-muted">
+                차단 {blocked.length}명 · 숨김 {hidden.length}명 · 즐겨찾기 {favoriteCount}명
+              </p>
               <SettingsToggleRow
                 title="전화번호로 친구 추가"
                 description="연락처 탭 사용"

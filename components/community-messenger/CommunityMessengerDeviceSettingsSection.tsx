@@ -76,11 +76,11 @@ export function CommunityMessengerDeviceSettingsSection({
           </p>
         </>
       ) : (
-        <p className="mb-3 text-[12px] leading-snug text-gray-500">
+        <p className="mb-2 text-[12px] leading-snug text-gray-500">
           마이크·카메라 기본 장치와 테스트입니다.
         </p>
       )}
-      <div className="space-y-3 rounded-ui-rect border border-gray-100 bg-gray-50 px-4 py-3">
+      <div className="space-y-3 rounded-ui-rect border border-gray-100 bg-gray-50 px-3 py-2.5">
         <label className="block">
           <span className="mb-1 block text-[12px] font-medium text-gray-700">마이크</span>
           <select
@@ -131,6 +131,6 @@ export function CommunityMessengerDeviceSettingsSection({
     </>
   );
 
-  if (embedded) return <div className="py-1">{body}</div>;
+  if (embedded) return <div className="py-0.5">{body}</div>;
   return <section>{body}</section>;
 }

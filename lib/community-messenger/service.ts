@@ -12,6 +12,7 @@ import {
   downsampleVoiceWaveformPeaks,
   parseVoiceWaveformPeaksFromMetadata,
 } from "@/lib/community-messenger/voice-waveform";
+import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
@@ -1679,9 +1680,15 @@ function formatCommunityMessengerCallStubStatus(status: CommunityMessengerCallSt
 
 function buildCommunityMessengerCallStubLabel(
   callKind: CommunityMessengerCallKind,
-  status: CommunityMessengerCallStatus
+  status: CommunityMessengerCallStatus,
+  durationSeconds?: number
 ): string {
-  return `${callKind === "video" ? "영상 통화" : "음성 통화"} · ${formatCommunityMessengerCallStubStatus(status)}`;
+  const kindLabel = callKind === "video" ? "영상 통화" : "음성 통화";
+  const dur = Math.max(0, Math.floor(Number(durationSeconds ?? 0)));
+  if (status === "ended" && dur > 0) {
+    return `${kindLabel} · ${formatCommunityMessengerCallDurationLabel(dur)}`;
+  }
+  return `${kindLabel} · ${formatCommunityMessengerCallStubStatus(status)}`;
 }
 
 function isCallStubRecord(value: unknown): value is Record<string, unknown> {
@@ -1702,13 +1709,18 @@ async function appendCallStubMessage(input: {
   createdAt: string;
   replaceExisting?: boolean;
   incrementUnread?: boolean;
+  durationSeconds?: number;
 }) {
   if (!input.roomId) return;
-  const label = buildCommunityMessengerCallStubLabel(input.callKind, input.status);
+  const label = buildCommunityMessengerCallStubLabel(input.callKind, input.status, input.durationSeconds);
   const metadata = {
     callKind: input.callKind,
     callStatus: input.status,
     sessionId: trimText(input.sessionId ?? "") || null,
+    durationSeconds:
+      input.status === "ended" && Math.max(0, Number(input.durationSeconds ?? 0)) > 0
+        ? Math.max(0, Math.floor(Number(input.durationSeconds ?? 0)))
+        : null,
   };
   const shouldIncrementUnread = input.incrementUnread ?? true;
   const sb = getSupabaseOrNull();
@@ -4889,6 +4901,7 @@ export async function createCommunityMessengerCallLog(input: {
         createdAt: startedAt,
         replaceExisting: input.replaceExistingStub,
         incrementUnread: !input.replaceExistingStub,
+        durationSeconds: input.durationSeconds,
       });
       return { ok: true };
     }
@@ -4916,6 +4929,7 @@ export async function createCommunityMessengerCallLog(input: {
     createdAt: startedAt,
     replaceExisting: input.replaceExistingStub,
     incrementUnread: !input.replaceExistingStub,
+    durationSeconds: input.durationSeconds,
   });
   return { ok: true };
 }

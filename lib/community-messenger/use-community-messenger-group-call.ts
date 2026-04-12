@@ -940,3 +940,5 @@ export function useCommunityMessengerGroupCall(args: Props) {
     retryConnection,
   };
 }
+
+export type CommunityMessengerGroupCallHandle = ReturnType<typeof useCommunityMessengerGroupCall>;
