@@ -50,7 +50,7 @@ type AppBackButtonProps = {
   preferHistoryBack?: boolean;
   /** backHref가 없을 때만 사용됩니다. */
   onBack?: () => void;
-  /** 미지정 시 기본: text-gray-900 hover:bg-gray-100 */
+  /** 미지정 시 기본: text-sam-fg hover:bg-sam-surface-muted */
   className?: string;
   iconClassName?: string;
   /** 접근성 라벨 (기본: 뒤로가기) */
@@ -59,7 +59,7 @@ type AppBackButtonProps = {
 
 const structuralClass =
   "flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full";
-const defaultToneClass = "text-gray-900 hover:bg-gray-100";
+const defaultToneClass = "text-sam-fg hover:bg-sam-surface-muted";
 
 export function AppBackButton({
   backHref,

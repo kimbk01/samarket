@@ -24,9 +24,9 @@ function PointsBackendNotice() {
 function PointsLoadingSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="h-20 rounded-ui-rect bg-white shadow-sm ring-1 ring-black/[0.06]" />
-      <div className="h-20 rounded-ui-rect bg-white shadow-sm ring-1 ring-black/[0.06]" />
-      <div className="h-40 rounded-ui-rect bg-white shadow-sm ring-1 ring-black/[0.06]" />
+      <div className="h-20 rounded-ui-rect bg-sam-surface shadow-sm ring-1 ring-black/[0.06]" />
+      <div className="h-20 rounded-ui-rect bg-sam-surface shadow-sm ring-1 ring-black/[0.06]" />
+      <div className="h-40 rounded-ui-rect bg-sam-surface shadow-sm ring-1 ring-black/[0.06]" />
     </div>
   );
 }
@@ -123,27 +123,27 @@ export default function MypagePointsPage() {
           </Link>
           <Link
             href="/my/points/ledger"
-            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg"
           >
             {t("points_ledger")}
           </Link>
           <Link
             href="/my/points/promotions"
-            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg"
           >
             {t("points_promotion")}
           </Link>
           <Link
             href="/my/points/expiring"
-            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg"
           >
             {t("points_expiring")}
           </Link>
         </div>
         <div>
-          <h2 className="mb-2 text-[15px] font-semibold text-gray-900">{t("points_charge_history")}</h2>
+          <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">{t("points_charge_history")}</h2>
           {loading ? (
-            <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">불러오는 중…</div>
+            <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>
           ) : (
             <PointChargeRequestList requests={requests} />
           )}

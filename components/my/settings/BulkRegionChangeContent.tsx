@@ -46,7 +46,7 @@ export function BulkRegionChangeContent() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[14px] text-gray-600">
+      <p className="text-[14px] text-sam-muted">
         거래 기본 주소를 우선 사용하고, 없으면 현재 프로필 지역을 기준으로 등록한 판매 글의 동네를 한 번에 변경합니다.
       </p>
       {success ? <div className="rounded-ui-rect bg-emerald-50 px-4 py-3 text-[13px] text-emerald-700">{success}</div> : null}
@@ -61,14 +61,14 @@ export function BulkRegionChangeContent() {
           {busy ? "변경 중" : "동네 일괄 변경"}
         </button>
       ) : (
-        <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
-          <p className="text-[14px] text-gray-700">정말 현재 기본 지역 기준으로 판매 글 동네를 일괄 변경하시겠습니까?</p>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
+          <p className="text-[14px] text-sam-fg">정말 현재 기본 지역 기준으로 판매 글 동네를 일괄 변경하시겠습니까?</p>
           <div className="mt-3 flex gap-2">
             <button
               type="button"
               disabled={busy}
               onClick={() => setConfirming(false)}
-              className="rounded border border-gray-300 px-3 py-1.5 text-[14px] text-gray-700"
+              className="rounded border border-sam-border px-3 py-1.5 text-[14px] text-sam-fg"
             >
               취소
             </button>

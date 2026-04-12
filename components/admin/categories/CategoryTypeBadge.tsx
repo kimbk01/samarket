@@ -16,7 +16,7 @@ export function CategoryTypeBadge({ type }: CategoryTypeBadgeProps) {
         ? "bg-blue-100 text-blue-800"
         : type === "service"
           ? "bg-amber-100 text-amber-800"
-          : "bg-gray-100 text-gray-800";
+          : "bg-sam-surface-muted text-sam-fg";
 
   return (
     <span className={`inline-flex rounded px-1.5 py-0.5 text-[12px] font-medium ${color}`}>

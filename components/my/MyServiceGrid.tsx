@@ -28,12 +28,12 @@ export function MyServiceGrid({ services }: MyServiceGridProps) {
         <Link
           key={s.code}
           href={s.href}
-          className="flex flex-col items-center justify-center rounded-ui-rect bg-white py-4 shadow-sm"
+          className="flex flex-col items-center justify-center rounded-ui-rect bg-sam-surface py-4 shadow-sm"
         >
-          <span className="mb-2 flex h-10 w-10 items-center justify-center text-gray-600">
+          <span className="mb-2 flex h-10 w-10 items-center justify-center text-sam-muted">
             {ICON_MAP[s.icon_key] ?? ICON_MAP.default}
           </span>
-          <span className="text-[13px] font-medium text-gray-900">{s.label}</span>
+          <span className="text-[13px] font-medium text-sam-fg">{s.label}</span>
         </Link>
       ))}
     </div>

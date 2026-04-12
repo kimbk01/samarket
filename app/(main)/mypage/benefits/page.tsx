@@ -54,13 +54,13 @@
      <div className="min-h-screen bg-background">
        <MySubpageHeader title="회원 혜택" subtitle="이벤트·프로모션" backHref="/mypage" hideCtaStrip />
        <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-4 py-4`}>
-         <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-           <p className="text-[13px] text-gray-500">내 회원 구분</p>
+         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+           <p className="text-[13px] text-sam-muted">내 회원 구분</p>
            <div className="mt-1 flex items-center gap-2">
              {role === undefined ? (
-               <span className="text-[14px] text-gray-400">불러오는 중…</span>
+               <span className="text-[14px] text-sam-meta">불러오는 중…</span>
              ) : role === null ? (
-               <span className="text-[14px] text-gray-600">로그인 후 회원 혜택을 확인할 수 있습니다.</span>
+               <span className="text-[14px] text-sam-muted">로그인 후 회원 혜택을 확인할 수 있습니다.</span>
              ) : (
                <span className="rounded bg-ig-highlight px-2 py-1 text-[14px] font-medium text-foreground">
                  {roleLabel(role)}
@@ -72,7 +72,7 @@
            혜택 정책은 운영 데이터 기준으로 노출되며, 현재 등록된 정책만 표시합니다.
          </div>
          <div>
-           <h2 className="mb-2 text-[15px] font-semibold text-gray-900">적용 혜택</h2>
+           <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">적용 혜택</h2>
            <MemberBenefitList
              policies={policies}
              emptyMessage="현재 적용 중인 혜택이 없습니다. 공지사항과 이벤트를 확인해 주세요."

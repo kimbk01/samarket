@@ -26,7 +26,7 @@ export function AdminAuditFilterBar({
         onChange={(e) =>
           onFiltersChange({ ...filters, searchQuery: e.target.value })
         }
-        className="min-w-[200px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+        className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
       />
       <select
         value={filters.category}
@@ -36,7 +36,7 @@ export function AdminAuditFilterBar({
             category: e.target.value as AuditLogCategory | "",
           })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {CATEGORY_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -51,7 +51,7 @@ export function AdminAuditFilterBar({
         onChange={(e) =>
           onFiltersChange({ ...filters, adminNickname: e.target.value })
         }
-        className="min-w-[120px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+        className="min-w-[120px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
       />
       <select
         value={filters.result}
@@ -61,7 +61,7 @@ export function AdminAuditFilterBar({
             result: e.target.value as AuditLogResult | "",
           })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {RESULT_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -77,7 +77,7 @@ export function AdminAuditFilterBar({
             sortKey: e.target.value as AuditSortKey,
           })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         <option value="newest">최신순</option>
         <option value="oldest">오래된순</option>

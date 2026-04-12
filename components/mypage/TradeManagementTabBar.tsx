@@ -39,7 +39,7 @@ export function TradeManagementTabBar<T extends string>({
               }`}
             >
               {labelKey ? t(labelKey) : tt(label)}
-              <span className={isActive ? "ml-1 opacity-90" : "ml-1 text-gray-400"}>({n})</span>
+              <span className={isActive ? "ml-1 opacity-90" : "ml-1 text-sam-meta"}>({n})</span>
             </button>
           );
         })}

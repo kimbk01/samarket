@@ -59,43 +59,43 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
 
   if (logs.length === 0 && total === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-gray-50/50 py-10 text-center">
-        <p className="text-[14px] text-gray-500">설정 변경 이력이 없습니다.</p>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-app/50 py-10 text-center">
+        <p className="text-[14px] text-sam-muted">설정 변경 이력이 없습니다.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-        <h3 className="text-[15px] font-semibold text-gray-800">
+      <div className="flex items-center justify-between border-b border-sam-border-soft pb-3">
+        <h3 className="text-[15px] font-semibold text-sam-fg">
           설정 변경 이력
         </h3>
-        <p className="text-[13px] text-gray-500">
+        <p className="text-[13px] text-sam-muted">
           전체 {total}건 · {currentPage}/{totalPages}페이지
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[640px] text-left text-[13px]">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-gray-700">
+            <tr className="border-b border-sam-border bg-sam-app">
+              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-sam-fg">
                 번호
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-gray-700">
+              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-sam-fg">
                 설정 항목
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-gray-700">
+              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-sam-fg">
                 이전 값
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-gray-700">
+              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-sam-fg">
                 변경 값
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-gray-700">
+              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-sam-fg">
                 변경자
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-gray-700">
+              <th className="whitespace-nowrap px-3 py-2.5 font-medium text-sam-fg">
                 변경 일시
               </th>
             </tr>
@@ -104,24 +104,24 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
             {logs.map((log, i) => (
               <tr
                 key={log.id}
-                className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50"
+                className="border-b border-sam-border-soft last:border-0 hover:bg-sam-app/50"
               >
-                <td className="px-3 py-2.5 text-gray-500">
+                <td className="px-3 py-2.5 text-sam-muted">
                   {from + i}
                 </td>
-                <td className="px-3 py-2.5 font-medium text-gray-800">
+                <td className="px-3 py-2.5 font-medium text-sam-fg">
                   {getKeyLabel(log.key)}
                 </td>
-                <td className="max-w-[140px] truncate px-3 py-2.5 text-gray-600" title={log.oldValue}>
+                <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-muted" title={log.oldValue}>
                   {log.oldValue}
                 </td>
-                <td className="max-w-[140px] truncate px-3 py-2.5 text-gray-800" title={log.newValue}>
+                <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-fg" title={log.newValue}>
                   {log.newValue}
                 </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-gray-600">
+                <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
                   {log.adminNickname}
                 </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">
+                <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
                   {new Date(log.createdAt).toLocaleString("ko-KR")}
                 </td>
               </tr>
@@ -131,8 +131,8 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-          <p className="text-[13px] text-gray-500">
+        <div className="flex items-center justify-between border-t border-sam-border-soft pt-3">
+          <p className="text-[13px] text-sam-muted">
             {from}–{to} / {total}건
           </p>
           <div className="flex items-center gap-1">
@@ -140,18 +140,18 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700 disabled:opacity-40 hover:bg-gray-50"
+              className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg disabled:opacity-40 hover:bg-sam-app"
             >
               이전
             </button>
-            <span className="px-2 text-[13px] text-gray-600">
+            <span className="px-2 text-[13px] text-sam-muted">
               {currentPage} / {totalPages}
             </span>
             <button
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
-              className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700 disabled:opacity-40 hover:bg-gray-50"
+              className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg disabled:opacity-40 hover:bg-sam-app"
             >
               다음
             </button>

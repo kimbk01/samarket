@@ -46,18 +46,18 @@ export function OpsRunbookStartForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-ui-rect border border-gray-200 bg-white p-4">
-      <h3 className="text-[14px] font-medium text-gray-900">런북 실행 시작</h3>
-      <p className="text-[13px] text-gray-600">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <h3 className="text-[14px] font-medium text-sam-fg">런북 실행 시작</h3>
+      <p className="text-[13px] text-sam-muted">
         활성(active) 문서만 선택 가능합니다. 연결 타입과 ID로 35단계 이슈·33단계 배포·34단계 Fallback/킬스위치와 연결할 수 있습니다.
       </p>
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-gray-700">문서 선택</label>
+        <label className="mb-1 block text-[12px] font-medium text-sam-fg">문서 선택</label>
         <select
           value={documentId}
           onChange={(e) => setDocumentId(e.target.value)}
           required
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">선택</option>
           {activeDocs.map((d) => (
@@ -71,11 +71,11 @@ export function OpsRunbookStartForm() {
         )}
       </div>
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-gray-700">연결 유형</label>
+        <label className="mb-1 block text-[12px] font-medium text-sam-fg">연결 유형</label>
         <select
           value={linkedType}
           onChange={(e) => setLinkedType(e.target.value as OpsRunbookLinkedType)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {LINKED_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -83,13 +83,13 @@ export function OpsRunbookStartForm() {
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-gray-700">연결 ID (선택)</label>
+        <label className="mb-1 block text-[12px] font-medium text-sam-fg">연결 ID (선택)</label>
         <input
           type="text"
           value={linkedId}
           onChange={(e) => setLinkedId(e.target.value)}
           placeholder="예: inc-1, rd-1"
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <button

@@ -80,7 +80,7 @@ export function OwnerOrderChatPageClient({
 
   if (!order || order.store_id !== storeId || order.owner_user_id !== ownerId) {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center text-sm text-gray-600">
+      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center text-sm text-sam-muted">
         채팅을 열 수 없어요.
         <Link href="/my/business/store-orders" className="mt-4 block text-violet-700 underline">
           주문 목록
@@ -94,7 +94,7 @@ export function OwnerOrderChatPageClient({
 
   return (
     <div className="flex min-h-screen flex-col bg-[#e8edf3]">
-      <div className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
+      <div className="sticky top-0 z-20 border-b border-sam-border bg-sam-surface shadow-sm">
         <div className="flex items-center gap-2 px-2 py-2">
           <AppBackButton backHref={detailHref} />
           <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold">주문 채팅</h1>
@@ -112,7 +112,7 @@ export function OwnerOrderChatPageClient({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <OrderChatMessageList messages={messages} perspective="owner" />
       </div>
-      {toast ? <p className="bg-gray-900 py-1 text-center text-xs text-white">{toast}</p> : null}
+      {toast ? <p className="bg-sam-ink py-1 text-center text-xs text-white">{toast}</p> : null}
       <OwnerChatInput
         disabled={chatBlocked}
         onSend={(t) => {

@@ -73,15 +73,15 @@ export function ChatProductSummary({
             />
           ) : thumbExchange ? (
             <div
-              className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-gray-700"
+              className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg"
               aria-hidden
             >
               <span>{CURRENCY_SYMBOLS.PHP}</span>
-              <span className="text-[10px] text-gray-500">↔</span>
+              <span className="text-[10px] text-sam-muted">↔</span>
               <span>{CURRENCY_SYMBOLS.KRW}</span>
             </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400" aria-hidden>
+            <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>
               이미지
             </div>
           )}
@@ -91,7 +91,7 @@ export function ChatProductSummary({
             <>
               <Link
                 href={detailHref}
-                className="flex min-h-0 min-w-0 flex-1 flex-col text-left transition active:bg-gray-50/0"
+                className="flex min-h-0 min-w-0 flex-1 flex-col text-left transition active:bg-sam-app/0"
                 aria-label={`${product.title || "상품"} 상세 보기`}
               >
                 <PostListPreviewColumn
@@ -107,34 +107,34 @@ export function ChatProductSummary({
                     <>
                       <span className="shrink-0">{product.regionLabel}</span>
                       {rel ? (
-                        <span className="text-gray-300" aria-hidden>
+                        <span className="text-sam-meta" aria-hidden>
                           ·
                         </span>
                       ) : null}
                     </>
                   ) : null}
-                  {rel ? <span className="shrink-0 text-gray-500">{rel}</span> : null}
+                  {rel ? <span className="shrink-0 text-sam-muted">{rel}</span> : null}
                 </div>
               )}
             </>
           ) : (
             <Link
               href={detailHref}
-              className="block text-left transition active:bg-gray-50/0"
+              className="block text-left transition active:bg-sam-app/0"
               aria-label={`${product.title || "상품"} 상세 보기`}
             >
-              <p className="line-clamp-2 text-[13px] font-medium leading-snug text-gray-900">
+              <p className="line-clamp-2 text-[13px] font-medium leading-snug text-sam-fg">
                 {product.title || "상품"}
               </p>
               {!isPhilifeCard ? (
-                <p className="mt-0.5 text-[15px] font-bold text-gray-900">
+                <p className="mt-0.5 text-[15px] font-bold text-sam-fg">
                   {isExchange ? (
                     exchangePhp != null ? (
                       <>
                         {CURRENCY_SYMBOLS.PHP} {exchangePhp.toLocaleString()}
                       </>
                     ) : (
-                      <span className="text-[14px] font-semibold text-gray-600">금액 문의</span>
+                      <span className="text-[14px] font-semibold text-sam-muted">금액 문의</span>
                     )
                   ) : (
                     formatPrice(product.price, currency)
@@ -142,7 +142,7 @@ export function ChatProductSummary({
                 </p>
               ) : null}
               {!isPhilifeCard && isExchange ? (
-                <p className="mt-0.5 text-[12px] font-medium text-gray-700">
+                <p className="mt-0.5 text-[12px] font-medium text-sam-fg">
                   {exchangeRateLine ? (
                     <>환율 {exchangeRateLine}</>
                   ) : (
@@ -156,13 +156,13 @@ export function ChatProductSummary({
                     <>
                       <span className="shrink-0">{product.regionLabel}</span>
                       {rel ? (
-                        <span className="text-gray-300" aria-hidden>
+                        <span className="text-sam-meta" aria-hidden>
                           ·
                         </span>
                       ) : null}
                     </>
                   ) : null}
-                  {rel ? <span className="shrink-0 text-gray-500">{rel}</span> : null}
+                  {rel ? <span className="shrink-0 text-sam-muted">{rel}</span> : null}
                 </div>
               )}
             </Link>
@@ -170,7 +170,7 @@ export function ChatProductSummary({
         </div>
       </div>
       {!hideFavorite && !isPhilifeCard && (
-        <div className="flex shrink-0 items-center border-l border-gray-100 px-2">
+        <div className="flex shrink-0 items-center border-l border-sam-border-soft px-2">
           <PostFavoriteButton
             postId={product.id}
             authorUserId={sellerUserId}

@@ -55,7 +55,7 @@ export function NoticesContent() {
   }, []);
 
   if (loading) {
-    return <div className="py-12 text-center text-[14px] text-gray-500">불러오는 중입니다.</div>;
+    return <div className="py-12 text-center text-[14px] text-sam-muted">불러오는 중입니다.</div>;
   }
 
   if (error) {
@@ -64,21 +64,21 @@ export function NoticesContent() {
 
   if (notices.length === 0) {
     return (
-      <div className="py-12 text-center text-[14px] text-gray-500">
+      <div className="py-12 text-center text-[14px] text-sam-muted">
         공지사항이 없습니다.
       </div>
     );
   }
 
   return (
-    <ul className="divide-y divide-gray-100">
+    <ul className="divide-y divide-sam-border-soft">
       {notices.map((n) => (
         <li key={n.id} className="py-3">
-          <p className="font-medium text-gray-900">{n.title}</p>
+          <p className="font-medium text-sam-fg">{n.title}</p>
           {n.createdAt ? (
-            <p className="mt-1 text-[12px] text-gray-400">{formatDate(n.createdAt)}</p>
+            <p className="mt-1 text-[12px] text-sam-meta">{formatDate(n.createdAt)}</p>
           ) : null}
-          <p className="mt-1 text-[13px] text-gray-600">{n.body}</p>
+          <p className="mt-1 text-[13px] text-sam-muted">{n.body}</p>
         </li>
       ))}
     </ul>

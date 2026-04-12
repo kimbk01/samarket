@@ -48,7 +48,7 @@ export function ReleaseArchiveDetailPage({
 
   if (!archive) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
         릴리즈 아카이브를 찾을 수 없습니다.
       </div>
     );
@@ -56,8 +56,8 @@ export function ReleaseArchiveDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
           <span>{archive.releaseVersion}</span>
           <span>{archive.buildTag}</span>
           <span
@@ -68,17 +68,17 @@ export function ReleaseArchiveDetailPage({
                   ? "bg-blue-50 text-blue-700"
                   : archive.releaseStatus === "stable"
                     ? "bg-emerald-50 text-emerald-700"
-                    : "bg-gray-100 text-gray-600"
+                    : "bg-sam-surface-muted text-sam-muted"
             }`}
           >
             {getReleaseStatusLabel(archive.releaseStatus)}
           </span>
         </div>
-        <h2 className="mt-2 text-[18px] font-semibold text-gray-900">
+        <h2 className="mt-2 text-[18px] font-semibold text-sam-fg">
           {archive.releaseTitle}
         </h2>
-        <p className="mt-2 text-[14px] text-gray-700">{archive.summary}</p>
-        <p className="mt-2 text-[12px] text-gray-500">
+        <p className="mt-2 text-[14px] text-sam-fg">{archive.summary}</p>
+        <p className="mt-2 text-[12px] text-sam-muted">
           릴리즈일 {archive.releaseDate}
         </p>
         <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
@@ -95,22 +95,22 @@ export function ReleaseArchiveDetailPage({
         </div>
       </div>
 
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <h3 className="text-[15px] font-medium text-gray-900">변경 항목</h3>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className="text-[15px] font-medium text-sam-fg">변경 항목</h3>
         {items.length === 0 ? (
-          <p className="mt-2 text-[13px] text-gray-500">항목 없음</p>
+          <p className="mt-2 text-[13px] text-sam-muted">항목 없음</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {items.map((i) => (
               <li
                 key={i.id}
-                className="flex flex-wrap items-start gap-2 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
+                className="flex flex-wrap items-start gap-2 border-b border-sam-border-soft pb-2 last:border-0 last:pb-0"
               >
-                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-gray-600">
+                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[12px] text-sam-muted">
                   {getChangeTypeLabel(i.changeType)}
                 </span>
-                <span className="font-medium text-gray-900">{i.title}</span>
-                <span className="text-[13px] text-gray-600">{i.description}</span>
+                <span className="font-medium text-sam-fg">{i.title}</span>
+                <span className="text-[13px] text-sam-muted">{i.description}</span>
                 <span className="flex gap-1 text-[12px]">
                   {i.linkedQaIssueId && (
                     <Link href="/admin/qa-board" className="text-signature hover:underline">
@@ -129,12 +129,12 @@ export function ReleaseArchiveDetailPage({
         )}
       </div>
 
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <h3 className="text-[15px] font-medium text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className="text-[15px] font-medium text-sam-fg">
           회귀 이슈 (detected → fix → verify 흐름)
         </h3>
         {issues.length === 0 ? (
-          <p className="mt-2 text-[13px] text-gray-500">회귀 이슈 없음</p>
+          <p className="mt-2 text-[13px] text-sam-muted">회귀 이슈 없음</p>
         ) : (
           <div className="mt-2 space-y-2">
             {issues.map((issue) => (
@@ -148,26 +148,26 @@ export function ReleaseArchiveDetailPage({
         )}
       </div>
 
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <h3 className="text-[15px] font-medium text-gray-900">릴리즈 학습 메모</h3>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className="text-[15px] font-medium text-sam-fg">릴리즈 학습 메모</h3>
         {learningNotes.length === 0 ? (
-          <p className="mt-2 text-[13px] text-gray-500">학습 메모 없음</p>
+          <p className="mt-2 text-[13px] text-sam-muted">학습 메모 없음</p>
         ) : (
           <div className="mt-2 space-y-4">
             {learningNotes.map((n) => (
-              <div key={n.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                <p className="text-[12px] text-gray-500">
+              <div key={n.id} className="border-b border-sam-border-soft pb-4 last:border-0 last:pb-0">
+                <p className="text-[12px] text-sam-muted">
                   {n.createdByAdminNickname} ·{" "}
                   {new Date(n.createdAt).toLocaleString()}
                 </p>
-                <p className="mt-2 text-[13px] font-medium text-gray-800">잘 된 점</p>
-                <p className="mt-1 text-[13px] text-gray-600">{n.whatWentWell}</p>
-                <p className="mt-2 text-[13px] font-medium text-gray-800">깨진 점</p>
-                <p className="mt-1 text-[13px] text-gray-600">{n.whatBroke}</p>
-                <p className="mt-2 text-[13px] font-medium text-gray-800">회귀 요약</p>
-                <p className="mt-1 text-[13px] text-gray-600">{n.regressionSummary}</p>
-                <p className="mt-2 text-[13px] font-medium text-gray-800">다음 체크리스트</p>
-                <p className="mt-1 text-[13px] text-gray-600">{n.nextReleaseChecklist}</p>
+                <p className="mt-2 text-[13px] font-medium text-sam-fg">잘 된 점</p>
+                <p className="mt-1 text-[13px] text-sam-muted">{n.whatWentWell}</p>
+                <p className="mt-2 text-[13px] font-medium text-sam-fg">깨진 점</p>
+                <p className="mt-1 text-[13px] text-sam-muted">{n.whatBroke}</p>
+                <p className="mt-2 text-[13px] font-medium text-sam-fg">회귀 요약</p>
+                <p className="mt-1 text-[13px] text-sam-muted">{n.regressionSummary}</p>
+                <p className="mt-2 text-[13px] font-medium text-sam-fg">다음 체크리스트</p>
+                <p className="mt-1 text-[13px] text-sam-muted">{n.nextReleaseChecklist}</p>
               </div>
             ))}
           </div>

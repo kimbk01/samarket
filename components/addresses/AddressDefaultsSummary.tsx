@@ -5,9 +5,9 @@ import { buildTradePublicLine, stripCountryFromAddressDisplayLine } from "@/lib/
 
 function Line({ label, text }: { label: string; text: string | null }) {
   return (
-    <div className="rounded-ui-rect bg-gray-50 px-3 py-2">
-      <p className="text-[11px] font-medium text-gray-500">{label}</p>
-      <p className="mt-0.5 text-[13px] text-gray-900">{text?.trim() || "미설정"}</p>
+    <div className="rounded-ui-rect bg-sam-app px-3 py-2">
+      <p className="text-[11px] font-medium text-sam-muted">{label}</p>
+      <p className="mt-0.5 text-[13px] text-sam-fg">{text?.trim() || "미설정"}</p>
     </div>
   );
 }

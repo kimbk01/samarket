@@ -24,7 +24,7 @@ export function OpsDocumentLogList({ documentId }: OpsDocumentLogListProps) {
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
         변경 이력이 없습니다.
       </div>
     );
@@ -35,16 +35,16 @@ export function OpsDocumentLogList({ documentId }: OpsDocumentLogListProps) {
       {logs.map((log) => (
         <li
           key={log.id}
-          className="flex flex-wrap items-center gap-2 rounded border border-gray-100 bg-white px-3 py-2 text-[13px]"
+          className="flex flex-wrap items-center gap-2 rounded border border-sam-border-soft bg-sam-surface px-3 py-2 text-[13px]"
         >
-          <span className="rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-700">
+          <span className="rounded bg-sam-surface-muted px-2 py-0.5 font-medium text-sam-fg">
             {ACTION_LABELS[log.actionType] ?? log.actionType}
           </span>
-          <span className="text-gray-600">{log.actorNickname}</span>
+          <span className="text-sam-muted">{log.actorNickname}</span>
           {log.note && (
-            <span className="text-gray-500">· {log.note}</span>
+            <span className="text-sam-muted">· {log.note}</span>
           )}
-          <span className="ml-auto text-gray-400">
+          <span className="ml-auto text-sam-meta">
             {new Date(log.createdAt).toLocaleString("ko-KR")}
           </span>
         </li>

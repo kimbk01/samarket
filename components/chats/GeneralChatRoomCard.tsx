@@ -52,8 +52,8 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
     <>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="min-w-0 truncate text-[15px] font-semibold text-gray-900">
-            <span className="mr-1.5 rounded bg-signature/10 px-1.5 py-0.5 text-[11px] font-medium text-gray-800">
+          <p className="min-w-0 truncate text-[15px] font-semibold text-sam-fg">
+            <span className="mr-1.5 rounded bg-signature/10 px-1.5 py-0.5 text-[11px] font-medium text-sam-fg">
               {label}
             </span>
             {title}
@@ -63,33 +63,33 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
                 {t("nav_chat_order_status")}
               </span>
-              <span className="text-[12px] font-medium text-gray-700">{statusSummary}</span>
+              <span className="text-[12px] font-medium text-sam-fg">{statusSummary}</span>
             </div>
           ) : null}
         </div>
-        <time className="shrink-0 text-[12px] text-gray-400">{formatChatTime(room.lastMessageAt)}</time>
+        <time className="shrink-0 text-[12px] text-sam-meta">{formatChatTime(room.lastMessageAt)}</time>
       </div>
       {isStoreOrder ? (
         <div className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-3 py-2.5">
-          <p className="text-[12px] font-medium text-gray-900">{t("nav_chat_order_follow_notice")}</p>
-          <p className="mt-1 line-clamp-2 text-[12px] text-gray-600">{room.lastMessage || t("nav_chat_start_conversation")}</p>
+          <p className="text-[12px] font-medium text-sam-fg">{t("nav_chat_order_follow_notice")}</p>
+          <p className="mt-1 line-clamp-2 text-[12px] text-sam-muted">{room.lastMessage || t("nav_chat_start_conversation")}</p>
         </div>
       ) : (
-        <p className="line-clamp-2 text-[14px] text-gray-600">{room.lastMessage || t("nav_chat_start_conversation")}</p>
+        <p className="line-clamp-2 text-[14px] text-sam-muted">{room.lastMessage || t("nav_chat_start_conversation")}</p>
       )}
       {product?.thumbnail || product?.title ? (
-        <div className="flex gap-3 border-t border-gray-100 pt-2">
+        <div className="flex gap-3 border-t border-sam-border-soft pt-2">
           <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight">
             {product?.thumbnail ? (
               <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">
+              <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">
                 {t("common_image")}
               </div>
             )}
           </div>
           <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
-            <p className="line-clamp-2 text-[14px] font-medium text-gray-900">
+            <p className="line-clamp-2 text-[14px] font-medium text-sam-fg">
               {product?.title || title}
             </p>
             {subtitle ? (
@@ -121,7 +121,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
       className={`relative flex flex-col gap-2 overflow-visible transition-shadow hover:shadow-[0_3px_8px_rgba(0,0,0,0.12)] ${APP_FEED_LIST_CARD_SHELL}`}
     >
       {room.unreadCount > 0 && (
-        <span className="absolute right-11 top-2 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+        <span className="absolute right-11 top-2 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-sam-surface">
           {room.unreadCount > 99 ? "99+" : room.unreadCount}
         </span>
       )}

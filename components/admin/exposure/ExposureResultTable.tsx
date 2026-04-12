@@ -21,7 +21,7 @@ export function ExposureResultTable({
 
   if (results.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         시뮬레이션 결과가 없습니다. 후보 상품이 없거나 정책을 선택하세요.
       </div>
     );
@@ -31,29 +31,29 @@ export function ExposureResultTable({
 
   return (
     <div className="space-y-4">
-      <p className="text-[14px] text-gray-600">
+      <p className="text-[14px] text-sam-muted">
         {policyName} · {results.length}건 (점수순 정렬)
       </p>
-      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[640px] border-collapse text-[14px]">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <tr className="border-b border-sam-border bg-sam-app">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 상품 ID
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 제목
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 판매자 / 구분
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 최종 점수
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 사유
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 작업
               </th>
             </tr>
@@ -62,21 +62,21 @@ export function ExposureResultTable({
             {results.map(({ candidate, result }) => (
               <tr
                 key={candidate.id}
-                className="border-b border-gray-100 hover:bg-gray-50"
+                className="border-b border-sam-border-soft hover:bg-sam-app"
               >
-                <td className="px-3 py-2.5 font-medium text-gray-900">
+                <td className="px-3 py-2.5 font-medium text-sam-fg">
                   {candidate.id}
                 </td>
-                <td className="max-w-[180px] truncate px-3 py-2.5 text-gray-700">
+                <td className="max-w-[180px] truncate px-3 py-2.5 text-sam-fg">
                   {candidate.title}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-gray-600">
+                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                   {candidate.sellerNickname} ({MEMBER_TYPE_LABELS[candidate.memberType]})
                 </td>
-                <td className="px-3 py-2.5 font-semibold text-gray-900">
+                <td className="px-3 py-2.5 font-semibold text-sam-fg">
                   {result.finalScore}
                 </td>
-                <td className="max-w-[160px] truncate px-3 py-2.5 text-[13px] text-gray-600">
+                <td className="max-w-[160px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
                   {result.appliedReasons.join(", ") || "-"}
                 </td>
                 <td className="px-3 py-2.5">

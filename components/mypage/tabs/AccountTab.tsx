@@ -31,13 +31,13 @@ export function AccountTab({
     return (
       <div className="space-y-4">
         <MyPageSectionHeader description="닉네임, 프로필 사진, 기본 소개와 지역 정보를 확인하고 수정합니다." />
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <div className="space-y-2">
-            <p className="text-[14px] font-semibold text-gray-900">
+            <p className="text-[14px] font-semibold text-sam-fg">
               {profile.nickname?.trim() || "닉네임 없음"}
             </p>
-            <p className="text-[12px] text-gray-500">{profile.email ?? "이메일 정보 없음"}</p>
-            <p className="text-[12px] text-gray-500">
+            <p className="text-[12px] text-sam-muted">{profile.email ?? "이메일 정보 없음"}</p>
+            <p className="text-[12px] text-sam-muted">
               연락처 {profile.phone?.trim() || "미등록"} · {profile.phone_verified ? "인증 완료" : "인증 필요"}
             </p>
             <div className="pt-1">
@@ -88,7 +88,7 @@ export function AccountTab({
     return (
       <div className="space-y-4">
         <MyPageSectionHeader description="모아보는 사용자를 관리합니다. 거래, 커뮤니티, 메신저에서 공통으로 참조되는 사용자 목록입니다." />
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <UserListContent type="favorite" emptyMessage="모아보는 사용자가 없습니다." />
         </div>
       </div>
@@ -99,7 +99,7 @@ export function AccountTab({
     return (
       <div className="space-y-4">
         <MyPageSectionHeader description="차단된 사용자는 거래, 커뮤니티, 메신저에서 공통으로 제한됩니다." />
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <UserListContent type="blocked" emptyMessage="차단한 사용자가 없습니다." />
         </div>
       </div>
@@ -110,7 +110,7 @@ export function AccountTab({
     return (
       <div className="space-y-4">
         <MyPageSectionHeader description="숨김 처리한 사용자는 피드와 일부 목록 노출에서 제외됩니다." />
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <UserListContent type="hidden" emptyMessage="숨긴 사용자가 없습니다." />
         </div>
       </div>
@@ -120,15 +120,15 @@ export function AccountTab({
   return (
     <div className="space-y-4">
       <MyPageSectionHeader description="내 계정 상태와 주요 활동을 한눈에 확인합니다." />
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="space-y-2">
-          <p className="text-[15px] font-bold text-gray-900">
+          <p className="text-[15px] font-bold text-sam-fg">
             {profile.nickname?.trim() || "닉네임 없음"}
           </p>
-          <p className="text-[12px] text-gray-500">
+          <p className="text-[12px] text-sam-muted">
             {profile.email ?? "이메일 없음"}
           </p>
-          <p className="text-[12px] text-gray-500">
+          <p className="text-[12px] text-sam-muted">
             연락처 {profile.phone?.trim() || "미등록"} ·{" "}
             {profile.phone_verified ? "인증 완료" : "인증 필요"}
           </p>
@@ -162,9 +162,9 @@ export function AccountTab({
 
 function SummaryBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5">
-      <p className="text-[12px] text-gray-500">{label}</p>
-      <p className="mt-1 text-[15px] font-semibold tabular-nums text-gray-900">{value}</p>
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5">
+      <p className="text-[12px] text-sam-muted">{label}</p>
+      <p className="mt-1 text-[15px] font-semibold tabular-nums text-sam-fg">{value}</p>
     </div>
   );
 }

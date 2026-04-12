@@ -45,38 +45,38 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
           : isCompleted
             ? "border-emerald-200 bg-emerald-50/30"
             : isDropped
-              ? "border-gray-200 bg-gray-50"
-              : "border-gray-200 bg-white"
+              ? "border-sam-border bg-sam-app"
+              : "border-sam-border bg-sam-surface"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
         <span>{DOMAIN_LABELS[plan.domain]}</span>
-        <span className="rounded bg-gray-100 px-1.5 py-0.5">
+        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
           {PRIORITY_LABELS[plan.priority]}
         </span>
-        <span className="rounded bg-gray-100 px-1.5 py-0.5">
+        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
           {STATUS_LABELS[plan.status]}
         </span>
         <span>
           {plan.year} {plan.quarter}
         </span>
       </div>
-      <h3 className="mt-2 font-medium text-gray-900">{plan.title}</h3>
-      <p className="mt-1 line-clamp-2 text-[13px] text-gray-600">
+      <h3 className="mt-2 font-medium text-sam-fg">{plan.title}</h3>
+      <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">
         {plan.description}
       </p>
       {(plan.targetMetric || plan.targetValue) && (
-        <p className="mt-2 text-[12px] text-gray-500">
+        <p className="mt-2 text-[12px] text-sam-muted">
           목표: {plan.targetMetric} = {plan.targetValue}
         </p>
       )}
       {plan.milestone && (
-        <p className="mt-1 text-[12px] text-gray-500">
+        <p className="mt-1 text-[12px] text-sam-muted">
           마일스톤: {plan.milestone}
         </p>
       )}
       {plan.relatedRoadmapItemId && (
-        <p className="mt-1 text-[12px] text-gray-500">
+        <p className="mt-1 text-[12px] text-sam-muted">
           로드맵:{" "}
           <Link
             href="/admin/ops-maturity"
@@ -87,7 +87,7 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
         </p>
       )}
       {(plan.ownerAdminNickname || plan.dueDate) && (
-        <p className="mt-2 text-[12px] text-gray-500">
+        <p className="mt-2 text-[12px] text-sam-muted">
           {plan.ownerAdminNickname && `담당 ${plan.ownerAdminNickname}`}
           {plan.dueDate && ` · 기한 ${plan.dueDate}`}
         </p>

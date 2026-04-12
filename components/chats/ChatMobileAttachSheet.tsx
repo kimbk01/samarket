@@ -74,19 +74,19 @@ export function ChatMobileAttachSheet({
       />
       <div
         className={`relative mx-auto max-h-[min(85dvh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] w-full max-w-lg overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] shadow-[0_-8px_32px_rgba(0,0,0,0.12)] ${
-          instagram ? "border-t border-ig-border bg-white" : "border-t border-gray-200 bg-white"
+          instagram ? "border-t border-ig-border bg-sam-surface" : "border-t border-sam-border bg-sam-surface"
         }`}
         style={{
           paddingBottom: "max(1.25rem, calc(12px + env(safe-area-inset-bottom, 0px)))",
         }}
       >
-        <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 border-b border-black/[0.06] bg-white px-3 py-3">
-          <h2 id="chat-attach-sheet-title" className="min-w-0 flex-1 pl-1 text-[16px] font-semibold text-gray-900">
+        <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 border-b border-sam-fg/[0.06] bg-sam-surface px-3 py-3">
+          <h2 id="chat-attach-sheet-title" className="min-w-0 flex-1 pl-1 text-[16px] font-semibold text-sam-fg">
             사진 보내기
           </h2>
           <button
             type="button"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-700 hover:bg-black/5"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-black/5"
             aria-label="닫기"
             disabled={disabled}
             onClick={onClose}

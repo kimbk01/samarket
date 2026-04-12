@@ -224,7 +224,7 @@ export function HomeProductList() {
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-gray-800 px-4 py-2 text-[14px] text-white shadow-lg">
+        <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg">
           {toast}
         </div>
       )}
@@ -243,8 +243,8 @@ export function HomeProductList() {
 function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-      <p className="mt-3 text-[14px] text-gray-500">로딩 중...</p>
+      <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
+      <p className="mt-3 text-[14px] text-sam-muted">로딩 중...</p>
     </div>
   );
 }
@@ -252,7 +252,7 @@ function LoadingState() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-[14px] text-gray-500">등록된 상품이 없어요</p>
+      <p className="text-[14px] text-sam-muted">등록된 상품이 없어요</p>
     </div>
   );
 }
@@ -260,7 +260,7 @@ function EmptyState() {
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-[14px] text-gray-600">문제가 발생했어요</p>
+      <p className="text-[14px] text-sam-muted">문제가 발생했어요</p>
       <button
         type="button"
         onClick={onRetry}

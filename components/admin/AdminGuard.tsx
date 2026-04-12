@@ -105,7 +105,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
 
   if (checking) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-[14px] text-gray-500">
+      <div className="flex min-h-[40vh] items-center justify-center text-[14px] text-sam-muted">
         확인 중…
       </div>
     );
@@ -114,10 +114,10 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   if (requireAuth && !allowed) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-        <p className="text-[15px] font-medium text-gray-900">관리자 인증이 필요합니다</p>
-        <p className="mt-2 text-[13px] text-gray-500">
+        <p className="text-[15px] font-medium text-sam-fg">관리자 인증이 필요합니다</p>
+        <p className="mt-2 text-[13px] text-sam-muted">
           개발용 계정은 로그인 페이지에서 aaaa(또는 해당 계정)로 로그인한 뒤 다시 열어 주세요. Supabase만 쓰는 경우{" "}
-          <code className="rounded bg-gray-100 px-1">NEXT_PUBLIC_ADMIN_ALLOWED_EMAIL</code>에 이메일을 넣어
+          <code className="rounded bg-sam-surface-muted px-1">NEXT_PUBLIC_ADMIN_ALLOWED_EMAIL</code>에 이메일을 넣어
           주세요.
         </p>
         <Link href="/home" className="mt-4 text-[14px] font-medium text-signature underline">

@@ -96,8 +96,8 @@ export function AdminStoreProductsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 상품 검수" />
-      <p className="text-[13px] text-gray-600">
-        차단(blocked)·숨김·판매중 복구. 공개 목록은 <code className="rounded bg-gray-100 px-1">active</code> 만
+      <p className="text-[13px] text-sam-muted">
+        차단(blocked)·숨김·판매중 복구. 공개 목록은 <code className="rounded bg-sam-surface-muted px-1">active</code> 만
         노출됩니다.
       </p>
 
@@ -109,8 +109,8 @@ export function AdminStoreProductsPage() {
             onClick={() => setFilter(f.value)}
             className={`rounded-full px-3 py-1.5 text-[13px] font-medium ${
               filter === f.value
-                ? "bg-gray-900 text-white"
-                : "border border-gray-200 bg-white text-gray-700"
+                ? "bg-sam-ink text-white"
+                : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
             {f.label}
@@ -125,15 +125,15 @@ export function AdminStoreProductsPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-[14px] text-gray-500">불러오는 중…</p>
+        <p className="text-[14px] text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           상품이 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="min-w-[900px] w-full border-collapse text-left text-[13px]">
-            <thead className="border-b border-gray-200 bg-gray-50 text-[12px] text-gray-600">
+            <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
                 <th className="px-3 py-2 font-medium">상품</th>
                 <th className="px-3 py-2 font-medium">매장</th>
@@ -146,26 +146,26 @@ export function AdminStoreProductsPage() {
               {rows.map((r) => {
                 const dis = busyId === r.id;
                 return (
-                  <tr key={r.id} className="border-b border-gray-100">
+                  <tr key={r.id} className="border-b border-sam-border-soft">
                     <td className="px-3 py-2 align-top">
                       <div className="flex gap-2">
-                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-gray-100">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-sam-surface-muted">
                           {r.thumbnail_url ? (
                              
                             <img src={r.thumbnail_url} alt="" className="h-full w-full object-cover" />
                           ) : null}
                         </div>
                         <div>
-                          <div className="font-medium text-gray-900">{r.title}</div>
-                          <div className="text-[12px] text-gray-500">
+                          <div className="font-medium text-sam-fg">{r.title}</div>
+                          <div className="text-[12px] text-sam-muted">
                             {typeof r.price === "number" ? formatMoneyPhp(r.price) : r.price}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-2 align-top text-[12px] text-gray-700">
+                    <td className="px-3 py-2 align-top text-[12px] text-sam-fg">
                       {r.store?.store_name ?? "-"}
-                      <div className="text-[11px] text-gray-400">/{r.store?.slug}</div>
+                      <div className="text-[11px] text-sam-meta">/{r.store?.slug}</div>
                     </td>
                     <td className="px-3 py-2 align-top">{r.product_status}</td>
                     <td className="px-3 py-2 align-top text-[12px]">{r.admin_review_status}</td>
@@ -185,7 +185,7 @@ export function AdminStoreProductsPage() {
                           <button
                             type="button"
                             disabled={dis}
-                            className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-left text-[12px] disabled:opacity-50"
+                            className="rounded border border-sam-border bg-sam-app px-2 py-1 text-left text-[12px] disabled:opacity-50"
                             onClick={() => void run(r.id, "hide")}
                           >
                             숨김

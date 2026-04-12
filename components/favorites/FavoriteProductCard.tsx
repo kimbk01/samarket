@@ -25,7 +25,7 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
 
   return (
     <div
-      className={`relative flex gap-3 rounded-ui-rect bg-white p-3 ${isSold ? "opacity-70" : ""}`}
+      className={`relative flex gap-3 rounded-ui-rect bg-sam-surface p-3 ${isSold ? "opacity-70" : ""}`}
     >
       <div
         className="absolute right-2 top-2 z-[1]"
@@ -35,7 +35,7 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
         <FavoriteToggleButton productId={product.id} iconClassName="h-5 w-5" />
       </div>
       <Link href={`/products/${product.id}`} className="flex min-w-0 flex-1 gap-3">
-        <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+        <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
           {product.thumbnail ? (
             <img
               src={product.thumbnail}
@@ -43,7 +43,7 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="h-full w-full bg-gray-200" />
+            <div className="h-full w-full bg-sam-border-soft" />
           )}
           {product.isBoosted && (
             <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 text-[10px] font-medium text-white">

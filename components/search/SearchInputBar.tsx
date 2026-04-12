@@ -56,7 +56,7 @@ export function SearchInputBar({
 function SearchIcon() {
   return (
     <svg
-      className="h-4 w-4 shrink-0 self-center text-gray-500"
+      className="h-4 w-4 shrink-0 self-center text-sam-muted"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

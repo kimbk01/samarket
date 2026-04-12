@@ -54,13 +54,13 @@ export function ReviewWriteForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 p-4">
-      <p className="text-[14px] text-gray-600">
+      <p className="text-[14px] text-sam-muted">
         {productTitle && <span className="font-medium">{productTitle}</span>}
         {productTitle && " · "}
         {targetLabel}에게 후기를 남겨 주세요.
       </p>
       <div>
-        <p className="mb-2 text-[13px] font-medium text-gray-700">평점</p>
+        <p className="mb-2 text-[13px] font-medium text-sam-fg">평점</p>
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((r) => (
             <button
@@ -70,7 +70,7 @@ export function ReviewWriteForm({
               className={`rounded border px-2 py-1 text-[14px] ${
                 rating >= r
                   ? "border-signature bg-signature/10 text-signature"
-                  : "border-gray-200 text-gray-400"
+                  : "border-sam-border text-sam-meta"
               }`}
             >
               ★
@@ -79,7 +79,7 @@ export function ReviewWriteForm({
         </div>
       </div>
       <div>
-        <p className="mb-2 text-[13px] font-medium text-gray-700">태그 (선택)</p>
+        <p className="mb-2 text-[13px] font-medium text-sam-fg">태그 (선택)</p>
         <div className="flex flex-wrap gap-2">
           {REVIEW_TAGS.map((tag) => (
             <button
@@ -89,7 +89,7 @@ export function ReviewWriteForm({
               className={`rounded-full border px-3 py-1.5 text-[12px] ${
                 tags.includes(tag)
                   ? "border-signature bg-signature/10 text-signature"
-                  : "border-gray-200 text-gray-600"
+                  : "border-sam-border text-sam-muted"
               }`}
             >
               {tag}
@@ -98,7 +98,7 @@ export function ReviewWriteForm({
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[13px] font-medium text-gray-700">
+        <label className="mb-1 block text-[13px] font-medium text-sam-fg">
           한줄 코멘트 (선택)
         </label>
         <textarea
@@ -106,14 +106,14 @@ export function ReviewWriteForm({
           onChange={(e) => setComment(e.target.value)}
           placeholder="거래는 어떠셨나요?"
           rows={3}
-          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
         />
       </div>
       <div className="flex gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-ui-rect border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600"
+          className="rounded-ui-rect border border-sam-border px-4 py-2.5 text-[14px] text-sam-muted"
         >
           취소
         </button>

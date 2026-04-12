@@ -14,12 +14,12 @@ export function ServiceCategoryItem({ category }: ServiceCategoryItemProps) {
   return (
     <Link
       href={href}
-      className="flex min-w-[72px] shrink-0 flex-col items-center justify-center rounded-ui-rect bg-gray-50 py-4 transition-colors hover:bg-gray-100"
+      className="flex min-w-[72px] shrink-0 flex-col items-center justify-center rounded-ui-rect bg-sam-app py-4 transition-colors hover:bg-sam-surface-muted"
     >
-      <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm">
+      <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-sm">
         <CategoryIcon iconKey={category.icon_key} />
       </span>
-      <span className="text-center text-[13px] font-medium text-gray-800">{category.name}</span>
+      <span className="text-center text-[13px] font-medium text-sam-fg">{category.name}</span>
     </Link>
   );
 }

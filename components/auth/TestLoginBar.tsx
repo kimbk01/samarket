@@ -69,9 +69,9 @@ export function TestLoginBar({ redirectTo }: TestLoginBarProps) {
     <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[13px]">
       {auth ? (
         <>
-          <span className="font-medium text-gray-800">
+          <span className="font-medium text-sam-fg">
             {auth.username}
-            <span className="ml-1 text-gray-500">
+            <span className="ml-1 text-sam-muted">
               (
               {auth.role === "master"
                 ? "최고 관리자"
@@ -86,7 +86,7 @@ export function TestLoginBar({ redirectTo }: TestLoginBarProps) {
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded bg-gray-200 px-2 py-1 font-medium text-gray-700 hover:bg-gray-300"
+            className="rounded bg-sam-border-soft px-2 py-1 font-medium text-sam-fg hover:bg-sam-surface-muted"
           >
             로그아웃
           </button>
@@ -98,7 +98,7 @@ export function TestLoginBar({ redirectTo }: TestLoginBarProps) {
             placeholder="아이디"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-24 rounded border border-gray-300 px-2 py-1"
+            className="w-24 rounded border border-sam-border px-2 py-1"
           />
           <input
             type="password"
@@ -106,7 +106,7 @@ export function TestLoginBar({ redirectTo }: TestLoginBarProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-            className="w-20 rounded border border-gray-300 px-2 py-1"
+            className="w-20 rounded border border-sam-border px-2 py-1"
           />
           <button
             type="button"

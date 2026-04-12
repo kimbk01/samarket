@@ -24,7 +24,7 @@ export default function MyPointsPromotionsPage() {
         </div>
         <PointBalanceCard balance={balance} />
         <div>
-          <h2 className="mb-2 text-[15px] font-semibold text-gray-900">
+          <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">
             내 노출 신청 내역
           </h2>
           <PointPromotionOrderList orders={orders} />

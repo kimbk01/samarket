@@ -87,7 +87,7 @@ export default function PostDetailPage() {
 
   if (!id) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-[14px] text-gray-500">
+      <div className="flex min-h-screen items-center justify-center text-[14px] text-sam-muted">
         잘못된 접근입니다.
       </div>
     );
@@ -97,12 +97,12 @@ export default function PostDetailPage() {
     <>
       <PostDetailFeedChromeReset />
       {post === undefined ? (
-        <div className="flex min-h-screen items-center justify-center text-[14px] text-gray-500">
+        <div className="flex min-h-screen items-center justify-center text-[14px] text-sam-muted">
           불러오는 중…
         </div>
       ) : post === null ? (
         <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-          <p className="text-[15px] font-medium text-gray-700">글을 찾을 수 없습니다.</p>
+          <p className="text-[15px] font-medium text-sam-fg">글을 찾을 수 없습니다.</p>
           <div className="mt-4 flex justify-center">
             <AppBackButton className="text-signature hover:bg-signature/10" />
           </div>

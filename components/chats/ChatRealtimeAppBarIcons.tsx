@@ -47,12 +47,12 @@ export function ChatRealtimeAppBarIcons({
 
   const dotClass =
     messagesLoading || state === "disabled"
-      ? "bg-gray-400"
+      ? "bg-sam-primary-soft"
       : state === "live"
         ? "bg-emerald-500"
         : state === "connecting" || state === "reconnecting"
           ? "animate-pulse bg-amber-500"
-          : "bg-gray-400";
+          : "bg-sam-primary-soft";
 
   const dotLabel =
     messagesLoading || state === "disabled"
@@ -81,7 +81,7 @@ export function ChatRealtimeAppBarIcons({
         className={
           ig
             ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-black/[0.05] active:bg-black/[0.08]"
-            : "flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-gray-800 hover:bg-black/10 active:bg-black/15"
+            : "flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 active:bg-black/15"
         }
         aria-label={messageSoundMuted ? "이 채팅방 메시지 알림음 켜기" : "이 채팅방 메시지 알림음 끄기"}
         aria-pressed={messageSoundMuted}

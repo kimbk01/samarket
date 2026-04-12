@@ -53,18 +53,18 @@ export function MemberOrdersPageClient() {
   }, [all]);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
-      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-2 py-2">
+    <div className="min-h-screen bg-sam-app pb-10">
+      <header className="sticky top-0 z-10 border-b border-sam-border-soft bg-sam-surface px-2 py-2">
         <div className="mx-auto flex max-w-lg items-center gap-2">
           <AppBackButton backHref="/my" />
-          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold text-gray-900">
+          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold text-sam-fg">
             {t("member_orders_title")}
           </h1>
           <div className="flex shrink-0 items-center gap-1">
             <MemberNotificationBell />
             <button
               type="button"
-              className="shrink-0 text-[11px] text-gray-500 underline"
+              className="shrink-0 text-[11px] text-sam-muted underline"
               onClick={() => {
                 if (confirm(t("member_orders_reset_confirm"))) resetMemberOrdersMock();
               }}
@@ -73,14 +73,14 @@ export function MemberOrdersPageClient() {
             </button>
           </div>
         </div>
-        <p className="mx-auto max-w-lg px-3 pb-2 text-center text-[11px] text-gray-500">
+        <p className="mx-auto max-w-lg px-3 pb-2 text-center text-[11px] text-sam-muted">
           {t("member_orders_simulation_hint")}
         </p>
       </header>
 
       <div className="mx-auto max-w-lg space-y-4 px-3 pt-4">
         {toast ? (
-          <p className="rounded-ui-rect bg-gray-900 px-3 py-2 text-center text-xs text-white">{toast}</p>
+          <p className="rounded-ui-rect bg-sam-ink px-3 py-2 text-center text-xs text-white">{toast}</p>
         ) : null}
 
         {!buyerId ? (
@@ -91,7 +91,7 @@ export function MemberOrdersPageClient() {
 
         <MemberOrderTabs active={tab} onChange={setTab} counts={counts} />
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-sam-muted">
           <Link href="/my/store-orders" className="text-violet-700 underline">
             {t("member_orders_chat_list")}
           </Link>

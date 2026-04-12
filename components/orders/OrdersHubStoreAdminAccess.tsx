@@ -163,11 +163,11 @@ export function OrdersHubStoreAdminMenuTrigger() {
     hub.kind === "ok" && storeRow ? (
       <MyBusinessNavList
         groups={groups}
-        className="rounded-ui-rect shadow-none ring-1 ring-gray-100"
+        className="rounded-ui-rect shadow-none ring-1 ring-sam-border-soft"
         onNavigate={() => setDrawerOpen(false)}
       />
     ) : hub.kind === "loading" ? (
-      <p className="px-4 py-6 text-center text-sm text-gray-500">매장 정보 불러오는 중…</p>
+      <p className="px-4 py-6 text-center text-sm text-sam-muted">매장 정보 불러오는 중…</p>
     ) : hub.kind === "no_supabase" ? (
       <div className="space-y-3 px-4 py-6 text-center">
         <p className="text-sm text-amber-800">매장 DB가 연결되지 않았습니다.</p>
@@ -191,7 +191,7 @@ export function OrdersHubStoreAdminMenuTrigger() {
         </button>
       </div>
     ) : (
-      <p className="px-4 py-6 text-center text-sm text-gray-500">상태를 확인할 수 없습니다.</p>
+      <p className="px-4 py-6 text-center text-sm text-sam-muted">상태를 확인할 수 없습니다.</p>
     );
 
   const drawer =
@@ -209,20 +209,20 @@ export function OrdersHubStoreAdminMenuTrigger() {
               aria-label="메뉴 닫기"
               onClick={() => setDrawerOpen(false)}
             />
-            <div className="relative flex h-full w-[min(100vw,22rem)] max-w-full flex-col bg-white shadow-2xl sm:w-[24rem]">
-              <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-3">
-                <p className="min-w-0 truncate text-[15px] font-semibold text-gray-900">매장 관리</p>
+            <div className="relative flex h-full w-[min(100vw,22rem)] max-w-full flex-col bg-sam-surface shadow-2xl sm:w-[24rem]">
+              <div className="flex h-12 shrink-0 items-center justify-between border-b border-sam-border px-3">
+                <p className="min-w-0 truncate text-[15px] font-semibold text-sam-fg">매장 관리</p>
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(false)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-[20px] leading-none text-gray-600 hover:bg-gray-100"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-[20px] leading-none text-sam-muted hover:bg-sam-surface-muted"
                   aria-label="닫기"
                 >
                   ×
                 </button>
               </div>
               {hub.kind === "ok" && storeRow?.store_name?.trim() ? (
-                <p className="truncate border-b border-gray-100 bg-gray-50 px-3 py-2 text-[13px] text-gray-700">
+                <p className="truncate border-b border-sam-border-soft bg-sam-app px-3 py-2 text-[13px] text-sam-fg">
                   {storeRow.store_name.trim()}
                 </p>
               ) : null}
@@ -242,12 +242,12 @@ export function OrdersHubStoreAdminMenuTrigger() {
 
   return (
     <>
-      <div className="flex h-[55px] w-11 shrink-0 flex-col justify-center border-l border-gray-100 bg-white">
+      <div className="flex h-[55px] w-11 shrink-0 flex-col justify-center border-l border-sam-border-soft bg-sam-surface">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
           disabled={hub.kind === "loading"}
-          className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-ui-rect text-gray-900 hover:bg-gray-100 active:bg-gray-200 disabled:cursor-wait disabled:opacity-50"
+          className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted active:bg-sam-border-soft disabled:cursor-wait disabled:opacity-50"
           aria-label="매장 관리자 메뉴 열기"
           aria-expanded={drawerOpen}
           aria-busy={hub.kind === "loading"}

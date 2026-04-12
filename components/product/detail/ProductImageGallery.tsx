@@ -36,7 +36,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
   }, [current, list.length, goTo]);
 
   return (
-    <div className="relative w-full bg-gray-100">
+    <div className="relative w-full bg-sam-surface-muted">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -56,7 +56,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
                 draggable={false}
               />
             ) : (
-              <div className="h-full w-full bg-gray-200" aria-hidden />
+              <div className="h-full w-full bg-sam-border-soft" aria-hidden />
             )}
           </div>
         ))}

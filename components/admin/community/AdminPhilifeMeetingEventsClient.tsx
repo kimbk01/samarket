@@ -87,22 +87,22 @@ export function AdminPhilifeMeetingEventsClient() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-3">
-        <label className="flex flex-col gap-1 text-[12px] text-gray-600">
+      <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-sam-border bg-sam-app/80 p-3">
+        <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
           모임 ID (UUID)
           <input
             value={meetingId}
             onChange={(e) => setMeetingId(e.target.value)}
             placeholder="비우면 전체"
-            className="min-w-[240px] rounded border border-gray-300 bg-white px-2 py-1.5 font-mono text-[12px]"
+            className="min-w-[240px] rounded border border-sam-border bg-sam-surface px-2 py-1.5 font-mono text-[12px]"
           />
         </label>
-        <label className="flex flex-col gap-1 text-[12px] text-gray-600">
+        <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
           유형
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="min-w-[10rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-[13px]"
+            className="min-w-[10rem] rounded border border-sam-border bg-sam-surface px-2 py-1.5 text-[13px]"
           >
             <option value="">전체</option>
             {MEETING_EVENT_TYPES.map((t) => (
@@ -123,15 +123,15 @@ export function AdminPhilifeMeetingEventsClient() {
         <button
           type="button"
           onClick={downloadCsv}
-          className="rounded-ui-rect border border-gray-400 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg"
         >
           CSV 내려받기 (최대 500건)
         </button>
       </div>
       {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
-      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
-        <table className="min-w-full text-left text-[12px] text-gray-800">
-          <thead className="bg-gray-50 text-[11px] uppercase text-gray-500">
+      <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
+        <table className="min-w-full text-left text-[12px] text-sam-fg">
+          <thead className="bg-sam-app text-[11px] uppercase text-sam-muted">
             <tr>
               <th className="px-2 py-2">시각</th>
               <th className="px-2 py-2">모임</th>
@@ -150,13 +150,13 @@ export function AdminPhilifeMeetingEventsClient() {
                 : e.event_type;
               const desc = formatMeetingEventDescription(e);
               return (
-                <tr key={e.id} className="border-t border-gray-100 align-top">
-                  <td className="whitespace-nowrap px-2 py-2 text-[11px] text-gray-500">{time}</td>
+                <tr key={e.id} className="border-t border-sam-border-soft align-top">
+                  <td className="whitespace-nowrap px-2 py-2 text-[11px] text-sam-muted">{time}</td>
                   <td className="max-w-[200px] px-2 py-2">
-                    <div className="truncate font-medium text-gray-900" title={e.meeting_title ?? ""}>
+                    <div className="truncate font-medium text-sam-fg" title={e.meeting_title ?? ""}>
                       {e.meeting_title || "—"}
                     </div>
-                    <div className="font-mono text-[10px] text-gray-400">{e.meeting_id.slice(0, 8)}…</div>
+                    <div className="font-mono text-[10px] text-sam-meta">{e.meeting_id.slice(0, 8)}…</div>
                     <Link
                       href={philifeAppPaths.meeting(e.meeting_id)}
                       className="text-[11px] text-sky-700 underline"
@@ -175,14 +175,14 @@ export function AdminPhilifeMeetingEventsClient() {
         </table>
       </div>
       {events.length === 0 && !loading ? (
-        <p className="text-[13px] text-gray-500">해당 조건에 맞는 기록이 없습니다.</p>
+        <p className="text-[13px] text-sam-muted">해당 조건에 맞는 기록이 없습니다.</p>
       ) : null}
       {hasMore ? (
         <button
           type="button"
           disabled={loading}
           onClick={() => void load({ append: true })}
-          className="w-full rounded-ui-rect border border-gray-300 bg-white py-2 text-[13px] disabled:opacity-50"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2 text-[13px] disabled:opacity-50"
         >
           {loading ? "불러오는 중…" : "더보기"}
         </button>

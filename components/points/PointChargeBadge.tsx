@@ -12,10 +12,10 @@ const LABELS: Record<PointChargeRequestStatus, string> = {
 const STYLES: Record<PointChargeRequestStatus, string> = {
   pending: "bg-blue-100 text-blue-800",
   waiting_confirm: "bg-amber-100 text-amber-800",
-  on_hold: "bg-gray-100 text-gray-600",
+  on_hold: "bg-sam-surface-muted text-sam-muted",
   approved: "bg-emerald-100 text-emerald-800",
   rejected: "bg-red-100 text-red-700",
-  cancelled: "bg-gray-100 text-gray-400",
+  cancelled: "bg-sam-surface-muted text-sam-meta",
 };
 
 export function PointChargeBadge({ status }: { status: PointChargeRequestStatus }) {

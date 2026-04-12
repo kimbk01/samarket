@@ -85,9 +85,9 @@ function ReviewSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-ui-rect border border-gray-100 bg-gray-50/60 p-3">
-      <h3 className="text-[13px] font-bold text-gray-900">{title}</h3>
-      {hint ? <p className="mt-1 text-[11px] leading-relaxed text-gray-500">{hint}</p> : null}
+    <section className="rounded-ui-rect border border-sam-border-soft bg-sam-app/60 p-3">
+      <h3 className="text-[13px] font-bold text-sam-fg">{title}</h3>
+      {hint ? <p className="mt-1 text-[11px] leading-relaxed text-sam-muted">{hint}</p> : null}
       <div className="mt-2 space-y-2.5">{children}</div>
     </section>
   );
@@ -96,8 +96,8 @@ function ReviewSection({
 function Field({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium text-gray-500">{label}</p>
-      <div className="mt-0.5 text-[13px] text-gray-900">{value}</div>
+      <p className="text-[11px] font-medium text-sam-muted">{label}</p>
+      <div className="mt-0.5 text-[13px] text-sam-fg">{value}</div>
     </div>
   );
 }
@@ -153,44 +153,44 @@ export function AdminStoreReviewSheet({
         onClick={onClose}
       />
       <aside
-        className="relative flex h-full w-full max-w-lg flex-col border-l border-gray-200 bg-white shadow-xl"
+        className="relative flex h-full w-full max-w-lg flex-col border-l border-sam-border bg-sam-surface shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="store-review-sheet-title"
       >
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <h2 id="store-review-sheet-title" className="text-[16px] font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
+          <h2 id="store-review-sheet-title" className="text-[16px] font-semibold text-sam-fg">
             매장 신청 심사
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect px-3 py-1.5 text-[13px] font-medium text-gray-600 hover:bg-gray-100"
+            className="rounded-ui-rect px-3 py-1.5 text-[13px] font-medium text-sam-muted hover:bg-sam-surface-muted"
           >
             닫기
           </button>
         </div>
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
           <div className="rounded-ui-rect border border-signature/20 bg-signature/5 px-3 py-3">
-            <p className="text-[12px] text-gray-600">
-              아래 순서는 <code className="rounded bg-white/80 px-1">/my/business/apply</code> 신청 폼과
-              동일합니다. DB 컬럼 <code className="rounded bg-white/80 px-1">applicant_nickname</code>이
-              없으면 오너 <code className="rounded bg-white/80 px-1">profiles.nickname</code>으로 표시됩니다.
+            <p className="text-[12px] text-sam-muted">
+              아래 순서는 <code className="rounded bg-sam-surface/80 px-1">/my/business/apply</code> 신청 폼과
+              동일합니다. DB 컬럼 <code className="rounded bg-sam-surface/80 px-1">applicant_nickname</code>이
+              없으면 오너 <code className="rounded bg-sam-surface/80 px-1">profiles.nickname</code>으로 표시됩니다.
             </p>
           </div>
 
-          <div className="rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-gray-900 px-2.5 py-0.5 text-[11px] font-bold text-white">
+              <span className="rounded-full bg-sam-ink px-2.5 py-0.5 text-[11px] font-bold text-white">
                 {statusKo}
               </span>
               {store.is_visible ?
                 <span className="text-[11px] font-medium text-emerald-700">노출 Y</span>
-              : <span className="text-[11px] font-medium text-gray-500">노출 N</span>}
+              : <span className="text-[11px] font-medium text-sam-muted">노출 N</span>}
             </div>
-            <p className="mt-2 text-[17px] font-bold text-gray-900">{dash(store.store_name)}</p>
-            <p className="mt-1 font-mono text-[11px] text-gray-500">/stores/{store.slug}</p>
-            <p className="mt-2 text-[12px] text-gray-500">
+            <p className="mt-2 text-[17px] font-bold text-sam-fg">{dash(store.store_name)}</p>
+            <p className="mt-1 font-mono text-[11px] text-sam-muted">/stores/{store.slug}</p>
+            <p className="mt-2 text-[12px] text-sam-muted">
               신청 {new Date(store.created_at).toLocaleString("ko-KR")}
               {store.approved_at ?
                 <> · 승인 {new Date(store.approved_at).toLocaleString("ko-KR")}</>
@@ -208,7 +208,7 @@ export function AdminStoreReviewSheet({
                 <span className="font-medium">
                   {dash(store.applicant_nickname)}
                   {!store.applicant_nickname?.trim() ?
-                    <span className="ml-1 text-[11px] font-normal text-gray-400">(미전달)</span>
+                    <span className="ml-1 text-[11px] font-normal text-sam-meta">(미전달)</span>
                   : null}
                 </span>
               }
@@ -253,7 +253,7 @@ export function AdminStoreReviewSheet({
             <Field label={STORE_ADDRESS_DETAIL_LABEL} value={dash(store.address_line2)} />
             <Field
               label="한 줄 주소 (검수)"
-              value={<span className="font-medium text-gray-950">{formatAdminStoreAddressOneLine(store)}</span>}
+              value={<span className="font-medium text-sam-fg">{formatAdminStoreAddressOneLine(store)}</span>}
             />
           </ReviewSection>
 
@@ -294,7 +294,7 @@ export function AdminStoreReviewSheet({
           : null}
           {store.suspended_reason?.trim() ?
             <ReviewSection title="정지 사유">
-              <p className="whitespace-pre-wrap text-[13px] text-gray-900">{store.suspended_reason.trim()}</p>
+              <p className="whitespace-pre-wrap text-[13px] text-sam-fg">{store.suspended_reason.trim()}</p>
             </ReviewSection>
           : null}
 
@@ -302,12 +302,12 @@ export function AdminStoreReviewSheet({
             <ReviewSection title="이미지">
               {imgs.map(({ label, url }) => (
                 <div key={label}>
-                  <p className="mb-1 text-[11px] text-gray-500">{label}</p>
+                  <p className="mb-1 text-[11px] text-sam-muted">{label}</p>
                   <a
                     href={url!}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block overflow-hidden rounded-ui-rect border border-gray-200"
+                    className="block overflow-hidden rounded-ui-rect border border-sam-border"
                   >
                     <img src={url!} alt="" className="max-h-48 w-full object-cover" />
                   </a>
@@ -317,16 +317,16 @@ export function AdminStoreReviewSheet({
           : null}
 
           {onSetOwnerIdentityEditable ?
-            <div className="rounded-ui-rect border border-gray-200 bg-white p-3">
-              <p className="text-[13px] font-medium text-gray-900">매장 관리자 수정 권한</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+              <p className="text-[13px] font-medium text-sam-fg">매장 관리자 수정 권한</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">
                 허용 시 오너는 기본 정보에서 매장 이름·1차·2차 업종을 직접 수정할 수 있습니다.
               </p>
               <button
                 type="button"
                 disabled={identityActionBusy}
                 onClick={() => onSetOwnerIdentityEditable(!store.owner_can_edit_store_identity)}
-                className="mt-3 rounded-ui-rect border border-gray-300 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-900 disabled:opacity-50"
+                className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 text-[13px] font-medium text-sam-fg disabled:opacity-50"
               >
                 {identityActionBusy ?
                   "처리 중…"

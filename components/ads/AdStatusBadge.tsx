@@ -2,14 +2,14 @@ import type { AdApplyStatus } from "@/lib/ads/types";
 import { AD_APPLY_STATUS_LABELS } from "@/lib/ads/types";
 
 const STATUS_STYLES: Record<AdApplyStatus, string> = {
-  draft: "bg-gray-100 text-gray-600",
+  draft: "bg-sam-surface-muted text-sam-muted",
   pending_payment: "bg-amber-100 text-amber-800",
   pending_review: "bg-blue-100 text-blue-800",
   approved: "bg-sky-100 text-sky-800",
   active: "bg-emerald-100 text-emerald-800",
   rejected: "bg-red-100 text-red-700",
-  expired: "bg-gray-100 text-gray-500",
-  cancelled: "bg-gray-100 text-gray-500",
+  expired: "bg-sam-surface-muted text-sam-muted",
+  cancelled: "bg-sam-surface-muted text-sam-muted",
 };
 
 export function AdStatusBadge({ status }: { status: AdApplyStatus }) {

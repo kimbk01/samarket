@@ -72,36 +72,36 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-ui-rect border border-gray-200 bg-gray-50 px-4 py-3">
-        <p className="text-[13px] font-medium text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
+        <p className="text-[13px] font-medium text-sam-fg">
           {mode === "dm" ? "1:1 채팅" : "그룹 채팅"} 미확인 {unreadCount}건
         </p>
-        <p className="mt-1 text-[12px] text-gray-500">
+        <p className="mt-1 text-[12px] text-sam-muted">
           최근 대화방을 여기서 확인하고, 상세 운영은 메신저 화면으로 이어집니다.
         </p>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface">
         {loading ? (
-          <div className="px-4 py-8 text-center text-[12px] text-gray-500">불러오는 중입니다.</div>
+          <div className="px-4 py-8 text-center text-[12px] text-sam-muted">불러오는 중입니다.</div>
         ) : error ? (
           <div className="px-4 py-8 text-center text-[12px] text-red-600">{error}</div>
         ) : items.length === 0 ? (
-          <div className="px-4 py-8 text-center text-[12px] text-gray-500">{emptyMessage}</div>
+          <div className="px-4 py-8 text-center text-[12px] text-sam-muted">{emptyMessage}</div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-sam-border">
             {items.slice(0, 6).map((room) => (
               <Link
                 key={room.id}
                 href={`/community-messenger/rooms/${encodeURIComponent(room.id)}`}
-                className="block px-4 py-3 hover:bg-gray-50"
+                className="block px-4 py-3 hover:bg-sam-app"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-gray-900">{room.title}</p>
-                    <p className="mt-1 line-clamp-2 text-[12px] text-gray-600">
+                    <p className="truncate text-[14px] font-medium text-sam-fg">{room.title}</p>
+                    <p className="mt-1 line-clamp-2 text-[12px] text-sam-muted">
                       {room.lastMessage || room.summary || "메시지가 없습니다."}
                     </p>
-                    <p className="mt-1 text-[11px] text-gray-400">
+                    <p className="mt-1 text-[11px] text-sam-meta">
                       {[room.memberCount > 0 ? `참여 ${room.memberCount}명` : "", formatDateTime(room.lastMessageAt)]
                         .filter(Boolean)
                         .join(" · ")}
@@ -125,14 +125,14 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
               ? "/community-messenger?section=chats"
               : "/community-messenger?section=chats&filter=private_group"
           }
-          className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
+          className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] font-medium text-sam-fg"
         >
           전체 메신저 열기
         </Link>
         {mode === "dm" ? (
           <Link
             href="/mypage/section/settings/chat-settings"
-            className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] font-medium text-sam-fg"
           >
             채팅 설정
           </Link>

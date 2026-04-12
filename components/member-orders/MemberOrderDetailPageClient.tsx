@@ -19,8 +19,8 @@ export function MemberOrderDetailPageClient({ orderId }: { orderId: string }) {
 
   if (!buyerId) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 py-16 text-center">
-        <p className="text-sm text-gray-600">
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center">
+        <p className="text-sm text-sam-muted">
           회원 역할로 전환한 뒤 다시 열어 주세요.
         </p>
         <Link href={BASE} className="mt-4 inline-block text-sm font-semibold text-signature underline">
@@ -32,8 +32,8 @@ export function MemberOrderDetailPageClient({ orderId }: { orderId: string }) {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 py-16 text-center">
-        <p className="text-sm text-gray-600">주문을 찾을 수 없어요.</p>
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center">
+        <p className="text-sm text-sam-muted">주문을 찾을 수 없어요.</p>
         <Link href={BASE} className="mt-4 inline-block text-sm font-semibold text-signature underline">
           목록으로
         </Link>

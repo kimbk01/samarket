@@ -78,11 +78,11 @@ export function BusinessDashboardKpiStrip({
         <Link
           key={c.label}
           href={c.href}
-          className="rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm transition hover:border-signature/30 hover:bg-signature/[0.03]"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm transition hover:border-signature/30 hover:bg-signature/[0.03]"
         >
-          <p className="text-[11px] font-medium text-gray-500">{c.label}</p>
-          <p className="mt-1 text-lg font-bold text-gray-900">{c.value}</p>
-          <p className="mt-0.5 text-[10px] text-gray-400">{c.hint}</p>
+          <p className="text-[11px] font-medium text-sam-muted">{c.label}</p>
+          <p className="mt-1 text-lg font-bold text-sam-fg">{c.value}</p>
+          <p className="mt-0.5 text-[10px] text-sam-meta">{c.hint}</p>
         </Link>
       ))}
     </div>

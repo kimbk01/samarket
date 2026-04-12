@@ -173,7 +173,7 @@ export function ChatInputBar({
     onImageFilesSelected(sliced);
   };
 
-  const attachBtnClass = `flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${ig ? "text-foreground hover:bg-black/[0.05]" : "text-gray-600 hover:bg-gray-100"}`;
+  const attachBtnClass = `flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${ig ? "text-foreground hover:bg-black/[0.05]" : "text-sam-muted hover:bg-sam-surface-muted"}`;
 
   return (
     <>
@@ -185,11 +185,11 @@ export function ChatInputBar({
       {showEmojiButton && emojiOpen && (
         <div
           ref={emojiPanelRef}
-          className={`absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-ui-rect border bg-white shadow-lg sm:max-h-[min(48dvh,380px)] md:max-w-lg md:mx-auto ${ig ? "border-ig-border" : "border-gray-200"}`}
+          className={`absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-ui-rect border bg-sam-surface shadow-lg sm:max-h-[min(48dvh,380px)] md:max-w-lg md:mx-auto ${ig ? "border-ig-border" : "border-sam-border"}`}
         >
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-2.5 py-2">
-            <span className="text-[13px] font-semibold text-gray-900">{t("common_emoji")}</span>
-            <span className="text-[11px] text-gray-500">{t("common_emoji_panel_hint")}</span>
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border-soft px-2.5 py-2">
+            <span className="text-[13px] font-semibold text-sam-fg">{t("common_emoji")}</span>
+            <span className="text-[11px] text-sam-muted">{t("common_emoji_panel_hint")}</span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pt-2.5">
             <div className="grid grid-cols-7 gap-1 touch-manipulation sm:grid-cols-8 md:grid-cols-7 md:gap-1.5">
@@ -210,7 +210,7 @@ export function ChatInputBar({
             {!emojiShowAll && ALL_CHAT_EMOJIS.length > EMOJI_PANEL_PREVIEW_COUNT ? (
               <button
                 type="button"
-                className="mt-2 w-full rounded-ui-rect border border-gray-200 bg-[var(--sub-bg)] py-2.5 text-[13px] font-medium text-gray-900 hover:bg-black/[0.04] active:bg-black/[0.06]"
+                className="mt-2 w-full rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] py-2.5 text-[13px] font-medium text-sam-fg hover:bg-black/[0.04] active:bg-black/[0.06]"
                 onClick={() => setEmojiShowAll(true)}
               >
                 {t("common_emoji_show_more")} · {ALL_CHAT_EMOJIS.length - EMOJI_PANEL_PREVIEW_COUNT}+
@@ -272,12 +272,12 @@ export function ChatInputBar({
           {!preferMobileImageSheet && attachOpen ? (
             <div
               role="menu"
-              className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-ui-rect py-1 shadow-lg ring-1 ring-black/10 ${ig ? "border border-ig-border bg-white" : "border border-gray-200 bg-white"}`}
+              className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-ui-rect py-1 shadow-lg ring-1 ring-black/10 ${ig ? "border border-ig-border bg-sam-surface" : "border border-sam-border bg-sam-surface"}`}
             >
               <button
                 type="button"
                 role="menuitem"
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-gray-800 hover:bg-gray-50"}`}
+                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-sam-fg hover:bg-sam-app"}`}
                 onClick={() => {
                   setAttachOpen(false);
                   cameraInputRef.current?.click();
@@ -289,7 +289,7 @@ export function ChatInputBar({
               <button
                 type="button"
                 role="menuitem"
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-gray-800 hover:bg-gray-50"}`}
+                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-sam-fg hover:bg-sam-app"}`}
                 onClick={() => {
                   setAttachOpen(false);
                   galleryInputRef.current?.click();
@@ -307,7 +307,7 @@ export function ChatInputBar({
         </button>
       )}
       <div
-        className={`flex min-h-[44px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-ig-border bg-white px-1.5" : "rounded-ui-rect bg-[#F5F5F5] px-1"}`}
+        className={`flex min-h-[44px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-ig-border bg-sam-surface px-1.5" : "rounded-ui-rect bg-[#F5F5F5] px-1"}`}
       >
         <textarea
           ref={inputRef}

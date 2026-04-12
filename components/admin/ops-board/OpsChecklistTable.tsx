@@ -64,12 +64,12 @@ export function OpsChecklistTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-[14px] font-medium text-gray-700">점검일</label>
+        <label className="text-[14px] font-medium text-sam-fg">점검일</label>
         <input
           type="date"
           value={checklistDate}
           onChange={(e) => setChecklistDate(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         />
         <button
           type="button"
@@ -80,30 +80,30 @@ export function OpsChecklistTable() {
         </button>
       </div>
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           해당 날짜의 점검 항목이 없습니다. 위에서 &quot;템플릿으로 당일 체크리스트 생성&quot;을 눌러 주세요.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse text-[14px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <tr className="border-b border-sam-border bg-sam-app">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   제목
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   카테고리 / surface
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   우선순위
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   상태
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   담당
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   조치
                 </th>
               </tr>
@@ -112,15 +112,15 @@ export function OpsChecklistTable() {
               {items.map((i) => (
                 <tr
                   key={i.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="px-3 py-2.5 font-medium text-gray-900">
+                  <td className="px-3 py-2.5 font-medium text-sam-fg">
                     {i.title}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {CATEGORY_LABELS[i.category] ?? i.category} / {SURFACE_LABELS[i.surface]}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {PRIORITY_LABELS[i.priority]}
                   </td>
                   <td className="px-3 py-2.5">
@@ -130,13 +130,13 @@ export function OpsChecklistTable() {
                           ? "bg-emerald-50 text-emerald-800"
                           : i.status === "in_progress"
                             ? "bg-amber-50 text-amber-800"
-                            : "bg-gray-100 text-gray-600"
+                            : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
                       {STATUS_LABELS[i.status]}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-gray-600">
+                  <td className="px-3 py-2.5 text-sam-muted">
                     {i.assignedAdminNickname ?? "-"}
                   </td>
                   <td className="px-3 py-2.5">
@@ -159,7 +159,7 @@ export function OpsChecklistTable() {
                         <button
                           type="button"
                           onClick={() => handleStatusChange(i.id, "skipped")}
-                          className="rounded border border-gray-200 bg-gray-100 px-2 py-1 text-[12px] text-gray-600"
+                          className="rounded border border-sam-border bg-sam-surface-muted px-2 py-1 text-[12px] text-sam-muted"
                         >
                           스킵
                         </button>

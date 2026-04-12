@@ -33,7 +33,7 @@ export function AdminFeedEmergencyPage() {
         title="피드 장애 대응"
         description="킬스위치·섹션 비활성화·Fallback·긴급 조치 로그"
       />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -42,7 +42,7 @@ export function AdminFeedEmergencyPage() {
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {tab.label}

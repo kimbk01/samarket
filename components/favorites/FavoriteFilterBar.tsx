@@ -28,7 +28,7 @@ export function FavoriteFilterBar({
 }: FavoriteFilterBarProps) {
   const { tt, t } = useI18n();
   return (
-    <div className="space-y-3 border-b border-gray-100 bg-white px-4 py-3">
+    <div className="space-y-3 border-b border-sam-border-soft bg-sam-surface px-4 py-3">
       <div className="flex gap-1 overflow-x-auto">
         {FAVORITE_STATUS_OPTIONS.map((opt) => (
           <button
@@ -44,11 +44,11 @@ export function FavoriteFilterBar({
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-[12px] text-gray-500">{t("common_sort")}</span>
+        <span className="text-[12px] text-sam-muted">{t("common_sort")}</span>
         <select
           value={sortKey}
           onChange={(e) => onSortKeyChange(e.target.value as FavoriteSortKey)}
-          className="rounded-ui-rect border border-gray-300 bg-gray-100 px-2 py-1 text-[13px] font-semibold text-gray-900"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[13px] font-semibold text-sam-fg"
         >
           {FAVORITE_SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

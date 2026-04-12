@@ -7,7 +7,7 @@ import { BUSINESS_STATUS_LABELS } from "@/lib/business/business-utils";
 const STATUS_CLASS: Record<BusinessProfile["status"], string> = {
   pending: "bg-amber-100 text-amber-800",
   active: "bg-emerald-50 text-emerald-800",
-  paused: "bg-gray-200 text-gray-700",
+  paused: "bg-sam-border-soft text-sam-fg",
   rejected: "bg-red-50 text-red-700",
 };
 
@@ -17,23 +17,23 @@ interface AdminBusinessTableProps {
 
 export function AdminBusinessTable({ profiles }: AdminBusinessTableProps) {
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               상점명
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               소유자
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               상태
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               상품/후기
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               신청일
             </th>
           </tr>
@@ -42,7 +42,7 @@ export function AdminBusinessTable({ profiles }: AdminBusinessTableProps) {
           {profiles.map((p) => (
             <tr
               key={p.id}
-              className="border-b border-gray-100 hover:bg-gray-50"
+              className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="px-3 py-2.5">
                 <Link
@@ -52,7 +52,7 @@ export function AdminBusinessTable({ profiles }: AdminBusinessTableProps) {
                   {p.shopName}
                 </Link>
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {p.ownerNickname} ({p.ownerUserId})
               </td>
               <td className="px-3 py-2.5">
@@ -62,10 +62,10 @@ export function AdminBusinessTable({ profiles }: AdminBusinessTableProps) {
                   {BUSINESS_STATUS_LABELS[p.status]}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-gray-600">
+              <td className="px-3 py-2.5 text-sam-muted">
                 {p.productCount} / {p.reviewCount}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(p.createdAt).toLocaleDateString("ko-KR")}
               </td>
             </tr>

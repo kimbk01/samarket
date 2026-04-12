@@ -8,24 +8,24 @@ export function OpsDocumentSummaryCards() {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <p className="text-[12px] text-gray-500">전체 문서</p>
-        <p className="text-[20px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <p className="text-[12px] text-sam-muted">전체 문서</p>
+        <p className="text-[20px] font-semibold text-sam-fg">
           {summary.totalDocuments}
         </p>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <p className="text-[12px] text-gray-500">활성 / 초안 / 보관</p>
-        <p className="text-[20px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <p className="text-[12px] text-sam-muted">활성 / 초안 / 보관</p>
+        <p className="text-[20px] font-semibold text-sam-fg">
           {summary.totalActive} / {summary.totalDraft} / {summary.totalArchived}
         </p>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <p className="text-[12px] text-gray-500">고정 문서</p>
-        <p className="text-[20px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <p className="text-[12px] text-sam-muted">고정 문서</p>
+        <p className="text-[20px] font-semibold text-sam-fg">
           {summary.totalPinned}
         </p>
-        <p className="text-[13px] text-gray-600">
+        <p className="text-[13px] text-sam-muted">
           최근 수정 {summary.latestUpdatedAt ? new Date(summary.latestUpdatedAt).toLocaleString("ko-KR") : "-"}
         </p>
       </div>

@@ -11,7 +11,7 @@ export function MyPageSectionMenuClient({ section }: { section: MyPageMobileSect
 
   return (
     <MyPageStackShell title={section.label} backHref="/mypage">
-      <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
         {section.items.map((it) => (
           <MyPageMobileMenuRow
             key={it.id}
@@ -20,7 +20,7 @@ export function MyPageSectionMenuClient({ section }: { section: MyPageMobileSect
           />
         ))}
         {showAdminEntry ? (
-          <div className="border-t border-gray-200 bg-ui-page">
+          <div className="border-t border-sam-border bg-ui-page">
             <MyPageAdminMenuEntry />
           </div>
         ) : null}

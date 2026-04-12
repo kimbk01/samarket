@@ -15,9 +15,9 @@ export function StoreDetailSectionTitle({
   const Tag = level;
   return (
     <Tag className={STORE_DETAIL_SECTION_HEAD}>
-      <span className="h-px min-w-[1.5rem] flex-1 bg-stone-300" aria-hidden />
+      <span className="h-px min-w-[1.5rem] flex-1 bg-sam-surface-muted" aria-hidden />
       <span className="shrink-0 tracking-tight">♦ {children} ♦</span>
-      <span className="h-px min-w-[1.5rem] flex-1 bg-stone-300" aria-hidden />
+      <span className="h-px min-w-[1.5rem] flex-1 bg-sam-surface-muted" aria-hidden />
     </Tag>
   );
 }

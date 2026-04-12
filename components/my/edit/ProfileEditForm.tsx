@@ -202,14 +202,14 @@ export function ProfileEditForm() {
 
   if (loading) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         프로필을 불러오는 중…
       </div>
     );
   }
   if (!profile) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         로그인 화면으로 이동 중…
       </div>
     );
@@ -254,7 +254,7 @@ export function ProfileEditForm() {
       <div className="flex gap-3">
         <Link
           href="/my"
-          className="flex-1 rounded-ui-rect border border-gray-300 py-2.5 text-center text-[14px] font-medium text-gray-700"
+          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-center text-[14px] font-medium text-sam-fg"
         >
           취소
         </Link>

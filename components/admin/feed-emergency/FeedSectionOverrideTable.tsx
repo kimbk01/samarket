@@ -43,13 +43,13 @@ export function FeedSectionOverrideTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-gray-700">surface</label>
+        <label className="text-[14px] font-medium text-sam-fg">surface</label>
         <select
           value={surface}
           onChange={(e) =>
             setSurface(e.target.value as RecommendationSurface)
           }
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {SURFACES.map((s) => (
             <option key={s} value={s}>
@@ -58,20 +58,20 @@ export function FeedSectionOverrideTable() {
           ))}
         </select>
       </div>
-      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[480px] border-collapse text-[14px]">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <tr className="border-b border-sam-border bg-sam-app">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 섹션
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 강제 비활성
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 사유
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 조치
               </th>
             </tr>
@@ -83,9 +83,9 @@ export function FeedSectionOverrideTable() {
               return (
                 <tr
                   key={sectionKey}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="px-3 py-2.5 font-medium text-gray-900">
+                  <td className="px-3 py-2.5 font-medium text-sam-fg">
                     {SECTION_OVERRIDE_LABELS[sectionKey]}
                   </td>
                   <td className="px-3 py-2.5">
@@ -93,13 +93,13 @@ export function FeedSectionOverrideTable() {
                       className={`inline-block rounded px-2 py-0.5 text-[12px] ${
                         disabled
                           ? "bg-amber-50 text-amber-800"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
                       {disabled ? "비활성" : "정상"}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-[13px] text-gray-600">
+                  <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                     {ov?.reason ?? "-"}
                   </td>
                   <td className="px-3 py-2.5">
@@ -108,7 +108,7 @@ export function FeedSectionOverrideTable() {
                       onClick={() => handleToggle(sectionKey, !disabled)}
                       className={`rounded border px-2 py-1 text-[13px] ${
                         disabled
-                          ? "border-gray-200 bg-gray-50 text-gray-700"
+                          ? "border-sam-border bg-sam-app text-sam-fg"
                           : "border-amber-200 bg-amber-50 text-amber-800"
                       }`}
                     >
@@ -122,7 +122,7 @@ export function FeedSectionOverrideTable() {
         </table>
       </div>
       {overrides.length === 0 && (
-        <p className="text-[13px] text-gray-500">
+        <p className="text-[13px] text-sam-muted">
           현재 비활성 오버라이드가 없습니다. 위에서 섹션별 비활성화를 적용할 수 있습니다.
         </p>
       )}

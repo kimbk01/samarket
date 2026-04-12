@@ -7,7 +7,7 @@ export function ChatImageStack({ urls, alignEnd }: { urls: string[]; alignEnd: b
   if (urls.length === 0) return null;
 
   const gridClass =
-    urls.length === 1 ? "grid grid-cols-1 gap-0" : "grid grid-cols-3 gap-px bg-white/20 dark:bg-white/10";
+    urls.length === 1 ? "grid grid-cols-1 gap-0" : "grid grid-cols-3 gap-px bg-sam-surface/20 dark:bg-sam-surface/10";
 
   return (
     <div className={`flex min-w-0 max-w-[min(86.4vw,22.2rem)] flex-col ${alignEnd ? "items-end" : "items-start"}`}>

@@ -106,9 +106,9 @@ function SignupPageContent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md rounded-ui-rect border border-gray-200 bg-white p-6 shadow-sm">
-        <h1 className="text-center text-xl font-semibold text-gray-900">{t("signup_title")}</h1>
-        <p className="mt-2 text-center text-[13px] leading-relaxed text-gray-500">
+      <div className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
+        <h1 className="text-center text-xl font-semibold text-sam-fg">{t("signup_title")}</h1>
+        <p className="mt-2 text-center text-[13px] leading-relaxed text-sam-muted">
           {t("signup_desc")}
         </p>
 
@@ -119,52 +119,52 @@ function SignupPageContent() {
               type="button"
               disabled={!supabaseReady || busy !== null}
               onClick={() => void handleOAuth(provider.id)}
-              className="w-full rounded-ui-rect border border-gray-300 bg-white px-4 py-3 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-[14px] font-medium text-sam-fg disabled:opacity-50"
             >
               {busy === provider.id ? t("signup_oauth_moving") : provider.label}
             </button>
           ))}
         </div>
 
-        <div className="my-5 flex items-center gap-3 text-[12px] text-gray-400">
-          <div className="h-px flex-1 bg-gray-200" />
+        <div className="my-5 flex items-center gap-3 text-[12px] text-sam-meta">
+          <div className="h-px flex-1 bg-sam-border-soft" />
           <span>{t("signup_or_email")}</span>
-          <div className="h-px flex-1 bg-gray-200" />
+          <div className="h-px flex-1 bg-sam-border-soft" />
         </div>
 
         <form onSubmit={handleEmailSignup} className="space-y-4">
           <div>
-            <label className="block text-[13px] font-medium text-gray-700">{t("signup_nickname")}</label>
+            <label className="block text-[13px] font-medium text-sam-fg">{t("signup_nickname")}</label>
             <input
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               maxLength={20}
               required
-              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px]"
               placeholder={t("signup_nickname_placeholder")}
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-gray-700">{t("signup_email")}</label>
+            <label className="block text-[13px] font-medium text-sam-fg">{t("signup_email")}</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px]"
               placeholder={t("signup_email_placeholder")}
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-gray-700">{t("signup_password")}</label>
+            <label className="block text-[13px] font-medium text-sam-fg">{t("signup_password")}</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               minLength={6}
               required
-              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px]"
               placeholder={t("signup_password_placeholder")}
             />
           </div>
@@ -179,7 +179,7 @@ function SignupPageContent() {
           </button>
         </form>
 
-        <p className="mt-4 text-center text-[13px] text-gray-500">
+        <p className="mt-4 text-center text-[13px] text-sam-muted">
           {t("signup_has_account")}{" "}
           <Link href="/login" className="font-medium text-signature underline">
             {t("common_login")}
@@ -194,7 +194,7 @@ export default function SignupPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-gray-500">
+        <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-sam-muted">
           <SignupFallback />
         </div>
       }

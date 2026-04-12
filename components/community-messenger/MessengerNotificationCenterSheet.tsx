@@ -410,16 +410,21 @@ export function MessengerNotificationCenterSheet({
     <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
       <div
+        data-messenger-shell
         role="dialog"
         aria-modal="true"
         aria-label="알림 센터"
-        className="max-h-[min(78vh,calc(100dvh-2rem))] overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
+        className="max-h-[min(78vh,calc(100dvh-2rem))] overflow-y-auto rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--messenger-shadow-soft)]"
       >
-        <p className="text-center text-[15px] font-semibold text-ui-fg">알림</p>
+        <p className="text-center text-[15px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+          알림
+        </p>
         {summaryLine ? (
-          <p className="mt-1 text-center text-[11px] leading-snug text-ui-muted">{summaryLine}</p>
+          <p className="mt-1 text-center text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+            {summaryLine}
+          </p>
         ) : null}
-        <div className="mt-2 divide-y divide-ui-border overflow-hidden rounded-ui-rect border border-ui-border">
+        <div className="mt-2 divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
           {items.length ? (
             items.map((item) =>
               item.kind === "request" ? (
@@ -457,10 +462,17 @@ export function MessengerNotificationCenterSheet({
               )
             )
           ) : (
-            <p className="px-3 py-4 text-center text-[12px] text-ui-muted">새 알림이 없습니다.</p>
+            <p className="px-3 py-4 text-center text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+              새 알림이 없습니다.
+            </p>
           )}
         </div>
-        <button type="button" className="mt-2 w-full py-2 text-[13px] text-ui-muted" onClick={onClose}>
+        <button
+          type="button"
+          className="mt-2 w-full py-2 text-[13px]"
+          style={{ color: "var(--messenger-text-secondary)" }}
+          onClick={onClose}
+        >
           닫기
         </button>
       </div>

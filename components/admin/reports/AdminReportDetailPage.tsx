@@ -53,7 +53,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
 
   if (loading && !report) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -61,7 +61,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
 
   if (!report) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         신고를 찾을 수 없습니다.
       </div>
     );
@@ -75,11 +75,11 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       <AdminCard title="신고 정보">
         <dl className="grid gap-2 text-[14px]">
           <div>
-            <dt className="text-gray-500">ID</dt>
-            <dd className="font-medium text-gray-900">{report.id}</dd>
+            <dt className="text-sam-muted">ID</dt>
+            <dd className="font-medium text-sam-fg">{report.id}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">유형</dt>
+            <dt className="text-sam-muted">유형</dt>
             <dd>
               {report.targetType === "product"
                 ? "상품·게시글"
@@ -91,20 +91,20 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">대상</dt>
+            <dt className="text-sam-muted">대상</dt>
             <dd className="truncate">{report.targetTitle ?? report.targetId}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">사유</dt>
+            <dt className="text-sam-muted">사유</dt>
             <dd>
               {report.reasonLabel}
               {report.detail ? (
-                <span className="mt-1 block whitespace-pre-wrap text-[13px] text-gray-600">{report.detail}</span>
+                <span className="mt-1 block whitespace-pre-wrap text-[13px] text-sam-muted">{report.detail}</span>
               ) : null}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">상태</dt>
+            <dt className="text-sam-muted">상태</dt>
             <dd>
               <span
                 className={`inline-block rounded px-2 py-0.5 text-[12px] ${
@@ -112,7 +112,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
                     ? "bg-amber-100 text-amber-800"
                     : report.status === "rejected" || report.status === "sanctioned"
                       ? "bg-red-50 text-red-700"
-                      : "bg-gray-100 text-gray-700"
+                      : "bg-sam-surface-muted text-sam-fg"
                 }`}
               >
                 {STATUS_DISPLAY[report.status] ?? report.status}
@@ -120,7 +120,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">신고일</dt>
+            <dt className="text-sam-muted">신고일</dt>
             <dd>
               {new Date(report.createdAt).toLocaleString("ko-KR")}
             </dd>
@@ -131,23 +131,23 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       <AdminCard title="신고자 / 대상자">
         <dl className="grid gap-2 text-[14px]">
           <div>
-            <dt className="text-gray-500">신고자</dt>
+            <dt className="text-sam-muted">신고자</dt>
             <dd>
               {report.reporterNickname ?? report.reporterId} ({report.reporterId})
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">피신고자(게시글 작성자) ID</dt>
+            <dt className="text-sam-muted">피신고자(게시글 작성자) ID</dt>
             <dd className="font-mono text-[13px]">{report.targetUserId || "—"}</dd>
           </div>
           {report.targetType === "product" && report.targetId && (
             <div>
-              <dt className="text-gray-500">게시글</dt>
+              <dt className="text-sam-muted">게시글</dt>
               <dd className="flex flex-wrap gap-3">
                 <Link href={`/post/${report.targetId}`} className="text-signature hover:underline" target="_blank" rel="noreferrer">
                   웹에서 글 보기
                 </Link>
-                <Link href="/admin/posts" className="text-[13px] text-gray-600 hover:underline">
+                <Link href="/admin/posts" className="text-[13px] text-sam-muted hover:underline">
                   게시글 관리 목록
                 </Link>
               </dd>
@@ -157,7 +157,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       </AdminCard>
 
       <AdminCard title="처리 · 제재 (DB 연동)">
-        <p className="mb-3 text-[13px] text-gray-600">
+        <p className="mb-3 text-[13px] text-sam-muted">
           반려·경고·채팅 제한·<strong>게시글 숨김</strong>(posts.status → hidden)·계정 정지 등은{" "}
           <code className="text-[11px]">report_actions</code>에 기록되고, 해당 시{" "}
           <code className="text-[11px]">sanctions</code>에 제재가 쌓입니다.
@@ -171,21 +171,21 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       </AdminCard>
       <AdminCard title="처리 이력 (report_actions)">
         {actionLogs.length === 0 ? (
-          <p className="text-[13px] text-gray-500">처리 이력이 없습니다.</p>
+          <p className="text-[13px] text-sam-muted">처리 이력이 없습니다.</p>
         ) : (
           <ul className="space-y-2">
             {actionLogs.map((a) => (
               <li
                 key={a.id}
-                className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 text-[13px]"
+                className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 text-[13px]"
               >
-                <span className="font-medium text-gray-800">
+                <span className="font-medium text-sam-fg">
                   {MODERATION_ACTION_LABELS[a.actionType] ?? labelReportActionType(a.actionType)}
                 </span>
-                <span className="text-gray-500">{new Date(a.createdAt).toLocaleString("ko-KR")}</span>
-                <span className="text-gray-500">· {a.adminNickname}</span>
+                <span className="text-sam-muted">{new Date(a.createdAt).toLocaleString("ko-KR")}</span>
+                <span className="text-sam-muted">· {a.adminNickname}</span>
                 {a.actionNote ? (
-                  <span className="w-full text-gray-600">메모: {a.actionNote}</span>
+                  <span className="w-full text-sam-muted">메모: {a.actionNote}</span>
                 ) : null}
               </li>
             ))}

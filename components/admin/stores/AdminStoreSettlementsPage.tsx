@@ -75,18 +75,18 @@ export function AdminStoreSettlementsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 정산" />
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         결제 완료 주문마다 예정 건이 생성됩니다. 지급 완료는 운영에서 처리합니다.
       </p>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-500">정산 건이 없습니다.</p>
+        <p className="text-sm text-sam-muted">정산 건이 없습니다.</p>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
           <table className="min-w-full text-left text-[13px]">
-            <thead className="border-b border-gray-100 bg-gray-50 text-gray-600">
+            <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
               <tr>
                 <th className="px-3 py-2">매장</th>
                 <th className="px-3 py-2">주문</th>
@@ -98,24 +98,24 @@ export function AdminStoreSettlementsPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-gray-50">
-                  <td className="px-3 py-2 font-medium text-gray-900">{r.store_name || r.store_id}</td>
-                  <td className="px-3 py-2 text-gray-600">{r.order_no || r.order_id.slice(0, 8)}</td>
+                <tr key={r.id} className="border-b border-sam-border-soft">
+                  <td className="px-3 py-2 font-medium text-sam-fg">{r.store_name || r.store_id}</td>
+                  <td className="px-3 py-2 text-sam-muted">{r.order_no || r.order_id.slice(0, 8)}</td>
                   <td className="px-3 py-2">
                     <span className="font-medium">{formatMoneyPhp(Number(r.settlement_amount) || 0)}</span>
-                    <span className="ml-1 text-[11px] text-gray-400">
+                    <span className="ml-1 text-[11px] text-sam-meta">
                       (수수료 {formatMoneyPhp(Number(r.fee_amount) || 0)})
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-gray-700">{r.settlement_status}</td>
-                  <td className="px-3 py-2 text-gray-600">{r.settlement_due_date}</td>
+                  <td className="px-3 py-2 text-sam-fg">{r.settlement_status}</td>
+                  <td className="px-3 py-2 text-sam-muted">{r.settlement_due_date}</td>
                   <td className="px-3 py-2">
                     {r.settlement_status === "scheduled" ? (
                       <div className="flex flex-col gap-1">
                         <button
                           type="button"
                           disabled={busyId === r.id}
-                          className="rounded bg-gray-900 px-2 py-1 text-[11px] text-white disabled:opacity-50"
+                          className="rounded bg-sam-ink px-2 py-1 text-[11px] text-white disabled:opacity-50"
                           onClick={() => void patch(r.id, { settlement_status: "paid" })}
                         >
                           지급완료
@@ -123,13 +123,13 @@ export function AdminStoreSettlementsPage() {
                         <button
                           type="button"
                           disabled={busyId === r.id}
-                          className="rounded border border-gray-300 px-2 py-1 text-[11px] disabled:opacity-50"
+                          className="rounded border border-sam-border px-2 py-1 text-[11px] disabled:opacity-50"
                           onClick={() => void patch(r.id, { settlement_status: "processing" })}
                         >
                           처리중
                         </button>
                         <input
-                          className="w-36 rounded border border-gray-200 px-1 py-0.5 text-[11px]"
+                          className="w-36 rounded border border-sam-border px-1 py-0.5 text-[11px]"
                           placeholder="보류 사유"
                           value={holdMemo[r.id] ?? ""}
                           onChange={(e) => setHoldMemo((m) => ({ ...m, [r.id]: e.target.value }))}
@@ -152,13 +152,13 @@ export function AdminStoreSettlementsPage() {
                       <button
                         type="button"
                         disabled={busyId === r.id}
-                        className="rounded bg-gray-900 px-2 py-1 text-[11px] text-white disabled:opacity-50"
+                        className="rounded bg-sam-ink px-2 py-1 text-[11px] text-white disabled:opacity-50"
                         onClick={() => void patch(r.id, { settlement_status: "paid" })}
                       >
                         지급완료
                       </button>
                     ) : (
-                      <span className="text-[11px] text-gray-400">—</span>
+                      <span className="text-[11px] text-sam-meta">—</span>
                     )}
                   </td>
                 </tr>

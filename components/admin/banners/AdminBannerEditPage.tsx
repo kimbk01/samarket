@@ -17,7 +17,7 @@ export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
 
   if (!banner) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         배너를 찾을 수 없습니다.
       </div>
     );

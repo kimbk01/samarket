@@ -54,16 +54,16 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
   };
 
   return (
-    <div className="rounded-ui-rect border border-gray-200 bg-gray-100 p-4">
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[15px] font-semibold text-gray-900">글을 숨겼어요</p>
-          <p className="mt-0.5 text-[13px] text-gray-600">이유를 알려주세요.</p>
+          <p className="text-[15px] font-semibold text-sam-fg">글을 숨겼어요</p>
+          <p className="mt-0.5 text-[13px] text-sam-muted">이유를 알려주세요.</p>
         </div>
         <button
           type="button"
           onClick={onUndo}
-          className="flex shrink-0 items-center gap-1 rounded-ui-rect px-2 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-200"
+          className="flex shrink-0 items-center gap-1 rounded-ui-rect px-2 py-1.5 text-[13px] font-medium text-sam-fg hover:bg-sam-border-soft"
         >
           <IconUndo className="h-4 w-4" />
           되돌리기
@@ -71,14 +71,14 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
       </div>
 
       {!feedbackSent ? (
-        <ul className="mt-3 border-t border-gray-200">
+        <ul className="mt-3 border-t border-sam-border">
           <li>
             <button
               type="button"
               onClick={() => handleFeedback("bought_elsewhere")}
-              className="flex w-full items-center gap-3 border-b border-gray-200 py-3 text-left text-[14px] text-gray-800 hover:bg-gray-200/50"
+              className="flex w-full items-center gap-3 border-b border-sam-border py-3 text-left text-[14px] text-sam-fg hover:bg-sam-border-soft/50"
             >
-              <IconShoppingBag className="h-5 w-5 shrink-0 text-gray-500" />
+              <IconShoppingBag className="h-5 w-5 shrink-0 text-sam-muted" />
               이미 다른 물품을 구매했어요
             </button>
           </li>
@@ -86,9 +86,9 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
             <button
               type="button"
               onClick={() => handleFeedback("not_interested")}
-              className="flex w-full items-center gap-3 border-b border-gray-200 py-3 text-left text-[14px] text-gray-800 hover:bg-gray-200/50"
+              className="flex w-full items-center gap-3 border-b border-sam-border py-3 text-left text-[14px] text-sam-fg hover:bg-sam-border-soft/50"
             >
-              <IconThumbsDown className="h-5 w-5 shrink-0 text-gray-500" />
+              <IconThumbsDown className="h-5 w-5 shrink-0 text-sam-muted" />
               이 물품에 관심없어요
             </button>
           </li>
@@ -96,15 +96,15 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
             <button
               type="button"
               onClick={() => handleFeedback("offensive")}
-              className="flex w-full items-center gap-3 py-3 text-left text-[14px] text-gray-800 hover:bg-gray-200/50"
+              className="flex w-full items-center gap-3 py-3 text-left text-[14px] text-sam-fg hover:bg-sam-border-soft/50"
             >
-              <IconSad className="h-5 w-5 shrink-0 text-gray-500" />
+              <IconSad className="h-5 w-5 shrink-0 text-sam-muted" />
               이 글이 불쾌해요
             </button>
           </li>
         </ul>
       ) : (
-        <p className="mt-3 text-[13px] text-gray-600">의견을 남겨주셔서 감사해요.</p>
+        <p className="mt-3 text-[13px] text-sam-muted">의견을 남겨주셔서 감사해요.</p>
       )}
     </div>
   );

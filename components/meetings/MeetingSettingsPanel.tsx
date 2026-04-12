@@ -61,25 +61,25 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
   };
 
   return (
-    <div id="meeting-settings-accordion" className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
+    <div id="meeting-settings-accordion" className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
       {/* 헤더 (토글) */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between px-4 py-3.5"
       >
-        <span className="text-[14px] font-semibold text-gray-900">⚙️ 모임 설정</span>
-        <span className="text-[18px] leading-none text-gray-400">{open ? "∧" : "∨"}</span>
+        <span className="text-[14px] font-semibold text-sam-fg">⚙️ 모임 설정</span>
+        <span className="text-[18px] leading-none text-sam-meta">{open ? "∧" : "∨"}</span>
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-gray-100 px-4 pb-4 pt-3">
+        <div className="space-y-4 border-t border-sam-border-soft px-4 pb-4 pt-3">
           {/* 환영 메시지 */}
           <div>
-            <label className="block text-[12px] font-semibold text-gray-700">
+            <label className="block text-[12px] font-semibold text-sam-fg">
               환영 메시지
             </label>
-            <p className="mb-1 text-[11px] text-gray-400">
+            <p className="mb-1 text-[11px] text-sam-meta">
               신규 멤버가 승인됐을 때 홈 탭에 표시됩니다.
             </p>
             <textarea
@@ -88,14 +88,14 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
               rows={3}
               maxLength={500}
               placeholder="모임에 오신 것을 환영합니다! ..."
-              className="w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+              className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg placeholder-sam-meta outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
             />
-            <p className="mt-0.5 text-right text-[10px] text-gray-400">{welcomeMsg.length}/500</p>
+            <p className="mt-0.5 text-right text-[10px] text-sam-meta">{welcomeMsg.length}/500</p>
           </div>
 
           {/* 최대 인원 */}
           <div>
-            <label className="block text-[12px] font-semibold text-gray-700">
+            <label className="block text-[12px] font-semibold text-sam-fg">
               최대 인원
             </label>
             <input
@@ -104,7 +104,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
               max={500}
               value={maxMembers}
               onChange={(e) => setMaxMembers(e.target.value)}
-              className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[13px] text-gray-800 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
               placeholder={String(meeting.max_members || 20)}
             />
           </div>
@@ -112,18 +112,18 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
           {/* 피드 허용 토글 */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] font-medium text-gray-800">피드 글 허용</p>
-              <p className="text-[11px] text-gray-400">멤버가 피드에 글을 올릴 수 있습니다.</p>
+              <p className="text-[13px] font-medium text-sam-fg">피드 글 허용</p>
+              <p className="text-[11px] text-sam-meta">멤버가 피드에 글을 올릴 수 있습니다.</p>
             </div>
             <button
               type="button"
               onClick={() => setAllowFeed((v) => !v)}
               className={`relative h-6 w-11 rounded-full transition-colors ${
-                allowFeed ? "bg-emerald-500" : "bg-gray-200"
+                allowFeed ? "bg-emerald-500" : "bg-sam-border-soft"
               }`}
             >
               <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-sam-surface shadow transition-transform ${
                   allowFeed ? "translate-x-5" : "translate-x-0.5"
                 }`}
               />
@@ -133,18 +133,18 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
           {/* 앨범 업로드 허용 토글 */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] font-medium text-gray-800">앨범 업로드 허용</p>
-              <p className="text-[11px] text-gray-400">멤버가 사진을 앨범에 올릴 수 있습니다.</p>
+              <p className="text-[13px] font-medium text-sam-fg">앨범 업로드 허용</p>
+              <p className="text-[11px] text-sam-meta">멤버가 사진을 앨범에 올릴 수 있습니다.</p>
             </div>
             <button
               type="button"
               onClick={() => setAllowAlbum((v) => !v)}
               className={`relative h-6 w-11 rounded-full transition-colors ${
-                allowAlbum ? "bg-emerald-500" : "bg-gray-200"
+                allowAlbum ? "bg-emerald-500" : "bg-sam-border-soft"
               }`}
             >
               <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-sam-surface shadow transition-transform ${
                   allowAlbum ? "translate-x-5" : "translate-x-0.5"
                 }`}
               />

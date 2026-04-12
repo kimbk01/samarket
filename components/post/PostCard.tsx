@@ -70,7 +70,7 @@ export function PostCard({
   const isExchangeThumb = listPreview?.thumbnailMode === "exchange";
   return (
     <div
-      className={`relative flex flex-col transition-colors hover:bg-neutral-50/60 ${APP_FEED_LIST_CARD_SHELL}`}
+      className={`relative flex flex-col transition-colors hover:bg-sam-app/60 ${APP_FEED_LIST_CARD_SHELL}`}
     >
       <div className="relative flex gap-3 p-3">
         <div
@@ -96,20 +96,20 @@ export function PostCard({
               e.stopPropagation();
               setMenuOpen(true);
             }}
-            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted"
             aria-label="메뉴"
           >
             <span className="text-[18px] leading-none">⋮</span>
           </button>
         </div>
         <Link href={`/post/${post.id}`} className="flex min-w-0 flex-1 gap-3">
-          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {thumbnailUrl ? (
               <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
             ) : isExchangeThumb ? (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-gray-700" aria-hidden><span>₱</span><span className="text-[10px] text-gray-500">↔</span><span>₩</span></div>
+              <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[10px] text-sam-muted">↔</span><span>₩</span></div>
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">이미지</div>
+              <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
             )}
           </div>
           <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
@@ -124,7 +124,7 @@ export function PostCard({
         </Link>
       </div>
       {footer ? (
-        <div className="border-t border-gray-100 bg-white px-3 py-2.5">{footer}</div>
+        <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2.5">{footer}</div>
       ) : null}
       <PostListMenuBottomSheet
         open={menuOpen}

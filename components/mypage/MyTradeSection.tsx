@@ -16,7 +16,7 @@ const ITEMS: { label: string; href: string; icon: React.ReactNode }[] = [
 
 export function MyTradeSection() {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-white p-4">
+    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
       <h2 className="mb-3 text-[13px] font-semibold text-muted">거래 관리 · 내 정보</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (

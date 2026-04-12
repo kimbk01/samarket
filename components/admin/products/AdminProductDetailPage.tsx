@@ -34,7 +34,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
 
   if (loading && !product) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -42,7 +42,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
 
   if (!product) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         상품을 찾을 수 없습니다.
       </div>
     );
@@ -57,7 +57,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
       <AdminCard title="기본 정보">
         <div className="flex gap-4">
           {images.length > 0 ? (
-            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
               <img
                 src={images[0]}
                 alt=""
@@ -65,15 +65,15 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
               />
             </div>
           ) : (
-            <div className="h-24 w-24 shrink-0 rounded-ui-rect bg-gray-100" />
+            <div className="h-24 w-24 shrink-0 rounded-ui-rect bg-sam-surface-muted" />
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-gray-900">{product.title}</p>
-            <p className="mt-1 text-[14px] font-medium text-gray-800">
+            <p className="text-[15px] font-semibold text-sam-fg">{product.title}</p>
+            <p className="mt-1 text-[14px] font-medium text-sam-fg">
               {formatMoneyPhp(product.price)}
             </p>
             <AdminStatusBadge status={product.status} className="mt-2" />
-            <p className="mt-2 text-[13px] text-gray-500">
+            <p className="mt-2 text-[13px] text-sam-muted">
               등록 {new Date(product.createdAt).toLocaleString("ko-KR")}
               {product.updatedAt && (
                 <> · 수정 {new Date(product.updatedAt).toLocaleString("ko-KR")}</>
@@ -92,15 +92,15 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
       <AdminCard title="판매자">
         <dl className="grid gap-1 text-[14px]">
           <div>
-            <dt className="text-gray-500">닉네임</dt>
+            <dt className="text-sam-muted">닉네임</dt>
             <dd>{product.seller?.nickname ?? product.sellerId ?? "-"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">ID</dt>
+            <dt className="text-sam-muted">ID</dt>
             <dd>{product.seller?.id ?? product.sellerId ?? "-"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">지역</dt>
+            <dt className="text-sam-muted">지역</dt>
             <dd>{product.seller?.location ?? product.location ?? "-"}</dd>
           </div>
         </dl>
@@ -109,15 +109,15 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
       <AdminCard title="상품 정보">
         <dl className="grid gap-2 text-[14px]">
           <div>
-            <dt className="text-gray-500">카테고리</dt>
+            <dt className="text-sam-muted">카테고리</dt>
             <dd>{product.category ?? "-"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">지역</dt>
+            <dt className="text-sam-muted">지역</dt>
             <dd>{product.location}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">찜 / 채팅 / 조회</dt>
+            <dt className="text-sam-muted">찜 / 채팅 / 조회</dt>
             <dd>
               {product.likesCount ?? 0} / {product.chatCount ?? 0} /{" "}
               {product.viewCount ?? 0}
@@ -125,14 +125,14 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
           </div>
           {product.reportCount != null && product.reportCount > 0 && (
             <div>
-              <dt className="text-gray-500">신고 수</dt>
+              <dt className="text-sam-muted">신고 수</dt>
               <dd>{product.reportCount}</dd>
             </div>
           )}
           {product.description && (
             <div>
-              <dt className="text-gray-500">설명</dt>
-              <dd className="whitespace-pre-wrap text-gray-700">
+              <dt className="text-sam-muted">설명</dt>
+              <dd className="whitespace-pre-wrap text-sam-fg">
                 {product.description}
               </dd>
             </div>
@@ -147,7 +147,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
       <AdminCard title="상태 변경 이력">
         <AdminProductStatusLogList logs={logs} />
         {logs.length === 0 && (
-          <p className="text-[13px] text-gray-500">상태 변경 이력은 DB 연동 후 제공됩니다.</p>
+          <p className="text-[13px] text-sam-muted">상태 변경 이력은 DB 연동 후 제공됩니다.</p>
         )}
       </AdminCard>
     </div>

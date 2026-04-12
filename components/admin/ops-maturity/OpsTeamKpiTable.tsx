@@ -18,7 +18,7 @@ const KPI_LABELS: Record<string, string> = {
 
 function deltaBadge(current: number, previous: number, lowerIsBetter = false): React.ReactNode {
   const delta = current - previous;
-  if (delta === 0) return <span className="text-gray-500">-</span>;
+  if (delta === 0) return <span className="text-sam-muted">-</span>;
   const good = lowerIsBetter ? delta < 0 : delta > 0;
   return (
     <span className={good ? "text-emerald-600" : "text-red-600"}>
@@ -67,28 +67,28 @@ export function OpsTeamKpiTable() {
         <select
           value={periodType}
           onChange={(e) => setPeriodType(e.target.value as OpsKpiPeriodType)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="weekly">주간 (이번 주 vs 지난 주)</option>
           <option value="monthly">월간 (이번 달 vs 지난 달)</option>
         </select>
       </div>
-      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[520px] border-collapse text-[14px]">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">지표</th>
-              <th className="px-3 py-2.5 text-right font-medium text-gray-700">현재</th>
-              <th className="px-3 py-2.5 text-right font-medium text-gray-700">이전</th>
-              <th className="px-3 py-2.5 text-right font-medium text-gray-700">증감</th>
+            <tr className="border-b border-sam-border bg-sam-app">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">지표</th>
+              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">현재</th>
+              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">이전</th>
+              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">증감</th>
             </tr>
           </thead>
           <tbody>
             {rows.map(({ key, label, current, previous, fmt, lowerIsBetter }) => (
-              <tr key={key} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-3 py-2.5 font-medium text-gray-900">{label}</td>
-                <td className="px-3 py-2.5 text-right text-gray-700">{fmt(current)}</td>
-                <td className="px-3 py-2.5 text-right text-gray-600">{fmt(previous)}</td>
+              <tr key={key} className="border-b border-sam-border-soft hover:bg-sam-app">
+                <td className="px-3 py-2.5 font-medium text-sam-fg">{label}</td>
+                <td className="px-3 py-2.5 text-right text-sam-fg">{fmt(current)}</td>
+                <td className="px-3 py-2.5 text-right text-sam-muted">{fmt(previous)}</td>
                 <td className="px-3 py-2.5 text-right">
                   {key === "incidentAvgResolutionMinutes"
                     ? (current - previous < 0 ? (

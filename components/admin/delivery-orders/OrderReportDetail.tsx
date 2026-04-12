@@ -20,43 +20,43 @@ export function OrderReportDetail({
   storeName: string;
 }) {
   if (!report) {
-    return <p className="text-sm text-gray-500">왼쪽 목록에서 신고를 선택하세요.</p>;
+    return <p className="text-sm text-sam-muted">왼쪽 목록에서 신고를 선택하세요.</p>;
   }
   return (
     <div className="space-y-3 text-sm">
       <div>
-        <p className="text-xs text-gray-500">신고번호</p>
+        <p className="text-xs text-sam-muted">신고번호</p>
         <p className="font-mono font-medium">{report.id}</p>
       </div>
       <div>
-        <p className="text-xs text-gray-500">주문</p>
+        <p className="text-xs text-sam-muted">주문</p>
         <p>
           <Link href={`/admin/delivery-orders/${encodeURIComponent(report.orderId)}`} className="text-signature underline">
             {orderNo}
           </Link>
-          <span className="ml-2 text-gray-500">{storeName}</span>
+          <span className="ml-2 text-sam-muted">{storeName}</span>
         </p>
       </div>
       <div>
-        <p className="text-xs text-gray-500">신고자</p>
+        <p className="text-xs text-sam-muted">신고자</p>
         <p>
           {report.reporterName}{" "}
-          <span className="text-xs text-gray-500">({report.reporterUserId})</span>
+          <span className="text-xs text-sam-muted">({report.reporterUserId})</span>
         </p>
       </div>
       <div>
-        <p className="text-xs text-gray-500">유형 · 상태</p>
+        <p className="text-xs text-sam-muted">유형 · 상태</p>
         <p>
           {report.reportType} · {STATUS_KO[report.status]}
         </p>
       </div>
       <div>
-        <p className="text-xs text-gray-500">내용</p>
-        <p className="whitespace-pre-wrap rounded border border-gray-100 bg-gray-50/80 p-2">{report.content}</p>
+        <p className="text-xs text-sam-muted">내용</p>
+        <p className="whitespace-pre-wrap rounded border border-sam-border-soft bg-sam-app/80 p-2">{report.content}</p>
       </div>
       {report.adminResult ? (
         <div>
-          <p className="text-xs text-gray-500">조치결과</p>
+          <p className="text-xs text-sam-muted">조치결과</p>
           <p className="whitespace-pre-wrap">{report.adminResult}</p>
         </div>
       ) : null}

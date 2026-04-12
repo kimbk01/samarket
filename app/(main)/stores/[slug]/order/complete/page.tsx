@@ -5,7 +5,7 @@ export default async function StoreOrderCompletePage({ params }: { params: Promi
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
   return (
-    <Suspense fallback={<p className="p-6 text-center text-sm text-gray-500">불러오는 중…</p>}>
+    <Suspense fallback={<p className="p-6 text-center text-sm text-sam-muted">불러오는 중…</p>}>
       <RestaurantOrderCompleteClient storeSlug={safe} />
     </Suspense>
   );

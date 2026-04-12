@@ -9,7 +9,7 @@ interface AdminChatMessageTimelineProps {
 export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineProps) {
   if (messages.length === 0) {
     return (
-      <p className="py-6 text-center text-[13px] text-gray-500">메시지가 없습니다.</p>
+      <p className="py-6 text-center text-[13px] text-sam-muted">메시지가 없습니다.</p>
     );
   }
   return (
@@ -19,12 +19,12 @@ export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineP
           key={m.id}
           className={`rounded-ui-rect border px-3 py-2 text-[14px] ${
             m.isHidden
-              ? "border-gray-100 bg-gray-50 text-gray-400"
-              : "border-gray-100 bg-white text-gray-800"
+              ? "border-sam-border-soft bg-sam-app text-sam-meta"
+              : "border-sam-border-soft bg-sam-surface text-sam-fg"
           }`}
         >
-          <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
-            <span className="font-medium text-gray-700">{m.senderNickname}</span>
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
+            <span className="font-medium text-sam-fg">{m.senderNickname}</span>
             <span>{new Date(m.createdAt).toLocaleString("ko-KR")}</span>
             {m.isReported && (
               <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
@@ -32,7 +32,7 @@ export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineP
               </span>
             )}
             {m.isHidden && (
-              <span className="rounded bg-gray-200 px-1.5 py-0.5 text-gray-600">
+              <span className="rounded bg-sam-border-soft px-1.5 py-0.5 text-sam-muted">
                 숨김
               </span>
             )}

@@ -22,8 +22,8 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_CLASS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
   reviewing: "bg-amber-100 text-amber-800",
-  reviewed: "bg-gray-100 text-gray-700",
-  resolved: "bg-gray-100 text-gray-700",
+  reviewed: "bg-sam-surface-muted text-sam-fg",
+  resolved: "bg-sam-surface-muted text-sam-fg",
   rejected: "bg-red-50 text-red-700",
   sanctioned: "bg-red-50 text-red-700",
 };
@@ -34,54 +34,54 @@ interface AdminReportTableProps {
 
 export function AdminReportTable({ reports }: AdminReportTableProps) {
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">신고 id</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">출처</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">신고일</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">신고자</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">대상 타입</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">대상자</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">상품명</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">사유</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">처리자</th>
-            <th className="px-3 py-2.5 text-right font-medium text-gray-700">상세보기</th>
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">신고 id</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">출처</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">신고일</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">신고자</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">대상 타입</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">대상자</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상품명</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">사유</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">처리자</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">상세보기</th>
           </tr>
         </thead>
         <tbody>
           {reports.map((r) => (
-            <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="max-w-[90px] truncate px-3 py-2.5 font-mono text-[12px] text-gray-600">
+            <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-app">
+              <td className="max-w-[90px] truncate px-3 py-2.5 font-mono text-[12px] text-sam-muted">
                 {r.id.slice(0, 8)}…
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[12px] text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[12px] text-sam-muted">
                 {r.reportSource === "community_feed" ? "피드" : "DB"}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(r.createdAt).toLocaleString("ko-KR")}
               </td>
-              <td className="max-w-[80px] truncate px-3 py-2.5 text-gray-700">
+              <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg">
                 {r.reporterNickname ?? r.reporterId}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">{TARGET_LABEL[r.targetType]}</td>
-              <td className="max-w-[100px] truncate px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">{TARGET_LABEL[r.targetType]}</td>
+              <td className="max-w-[100px] truncate px-3 py-2.5 text-sam-fg">
                 {r.targetTitle ?? r.targetId}
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2.5 text-gray-600">
+              <td className="max-w-[120px] truncate px-3 py-2.5 text-sam-muted">
                 {r.productTitle ?? "-"}
               </td>
-              <td className="max-w-[100px] truncate px-3 py-2.5 text-gray-700">{r.reasonLabel}</td>
+              <td className="max-w-[100px] truncate px-3 py-2.5 text-sam-fg">{r.reasonLabel}</td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${STATUS_CLASS[r.status] ?? "bg-gray-100 text-gray-700"}`}
+                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${STATUS_CLASS[r.status] ?? "bg-sam-surface-muted text-sam-fg"}`}
                 >
                   {STATUS_LABEL[r.status] ?? r.status}
                 </span>
               </td>
-              <td className="max-w-[80px] truncate px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="max-w-[80px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
                 {r.resolvedBy ?? "-"}
               </td>
               <td className="px-3 py-2.5 text-right">

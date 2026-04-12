@@ -24,7 +24,7 @@ const SORTS: {
 
 const CHIP_BASE =
   "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors border";
-const CHIP_OFF = "border-gray-200 bg-white text-gray-600";
+const CHIP_OFF = "border-sam-border bg-sam-surface text-sam-muted";
 const CHIP_ON = "border-signature bg-signature text-white";
 
 export function StoreListFilters({
@@ -41,7 +41,7 @@ export function StoreListFilters({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{t("common_sort")}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-sam-meta">{t("common_sort")}</span>
         <div className="flex flex-wrap gap-1">
           {SORTS.map(({ id, labelKey }) => {
             const on = sort === id;
@@ -67,7 +67,7 @@ export function StoreListFilters({
       </div>
       <Link
         href="/regions"
-        className="inline-flex items-center rounded-full border border-dashed border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 active:bg-gray-50"
+        className="inline-flex items-center rounded-full border border-dashed border-sam-border bg-sam-surface px-2.5 py-1 text-[11px] font-semibold text-sam-fg active:bg-sam-app"
       >
         {t("nav_store_region_settings")}
       </Link>

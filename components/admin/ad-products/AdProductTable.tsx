@@ -44,7 +44,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
   };
 
   if (products.length === 0) {
-    return <p className="py-8 text-center text-[13px] text-gray-500">광고 상품이 없습니다.</p>;
+    return <p className="py-8 text-center text-[13px] text-sam-muted">광고 상품이 없습니다.</p>;
   }
 
   return (
@@ -54,9 +54,9 @@ export function AdProductTable({ products }: AdProductTableProps) {
       ) : null}
       <table className="w-full min-w-[700px] border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
+          <tr className="border-b border-sam-border bg-sam-app">
             {["상품명", "게시판", "유형", "기간", "포인트", "기본 순위", "활성", "관리"].map((h) => (
-              <th key={h} className="px-3 py-2 text-left font-semibold text-gray-600">
+              <th key={h} className="px-3 py-2 text-left font-semibold text-sam-muted">
                 {h}
               </th>
             ))}
@@ -66,22 +66,22 @@ export function AdProductTable({ products }: AdProductTableProps) {
           {products.map((p) => {
             const isEditing = editing === p.id;
             return (
-              <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={p.id} className="border-b border-sam-border-soft hover:bg-sam-app">
                 <td className="px-3 py-2">
                   {isEditing ? (
                     <input
                       type="text"
                       value={form.name ?? ""}
                       onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                      className="w-40 rounded border border-gray-300 px-2 py-1 text-[12px]"
+                      className="w-40 rounded border border-sam-border px-2 py-1 text-[12px]"
                     />
                   ) : (
-                    <span className="font-medium text-gray-900">{p.name}</span>
+                    <span className="font-medium text-sam-fg">{p.name}</span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-gray-600">{p.boardKey ?? "전체"}</td>
-                <td className="px-3 py-2 text-gray-600">{AD_TYPE_LABELS[p.adType]}</td>
-                <td className="px-3 py-2 text-gray-600">
+                <td className="px-3 py-2 text-sam-muted">{p.boardKey ?? "전체"}</td>
+                <td className="px-3 py-2 text-sam-muted">{AD_TYPE_LABELS[p.adType]}</td>
+                <td className="px-3 py-2 text-sam-muted">
                   {isEditing ? (
                     <input
                       type="number"
@@ -90,7 +90,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       onChange={(e) =>
                         setForm((f) => ({ ...f, durationDays: Number(e.target.value) }))
                       }
-                      className="w-16 rounded border border-gray-300 px-2 py-1 text-[12px]"
+                      className="w-16 rounded border border-sam-border px-2 py-1 text-[12px]"
                     />
                   ) : (
                     `${p.durationDays}일`
@@ -105,7 +105,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       onChange={(e) =>
                         setForm((f) => ({ ...f, pointCost: Number(e.target.value) }))
                       }
-                      className="w-20 rounded border border-gray-300 px-2 py-1 text-[12px]"
+                      className="w-20 rounded border border-sam-border px-2 py-1 text-[12px]"
                     />
                   ) : (
                     `${p.pointCost.toLocaleString()}P`
@@ -119,7 +119,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       onChange={(e) =>
                         setForm((f) => ({ ...f, priorityDefault: Number(e.target.value) }))
                       }
-                      className="w-16 rounded border border-gray-300 px-2 py-1 text-[12px]"
+                      className="w-16 rounded border border-sam-border px-2 py-1 text-[12px]"
                     />
                   ) : (
                     p.priorityDefault
@@ -135,7 +135,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                   ) : (
                     <span
                       className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                        p.isActive ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-500"
+                        p.isActive ? "bg-emerald-100 text-emerald-800" : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
                       {p.isActive ? "활성" : "비활성"}
@@ -156,7 +156,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       <button
                         type="button"
                         onClick={() => setEditing(null)}
-                        className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-600"
+                        className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted"
                       >
                         취소
                       </button>
@@ -165,7 +165,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                     <button
                       type="button"
                       onClick={() => startEdit(p)}
-                      className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+                      className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-fg hover:bg-sam-app"
                     >
                       수정
                     </button>

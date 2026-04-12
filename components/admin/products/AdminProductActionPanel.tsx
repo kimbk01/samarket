@@ -100,7 +100,7 @@ export function AdminProductActionPanel({
 
   if (actions.length === 0) {
     return (
-      <p className="text-[14px] text-gray-500">
+      <p className="text-[14px] text-sam-muted">
         삭제된 상품은 추가 액션을 할 수 없습니다.
       </p>
     );
@@ -114,7 +114,7 @@ export function AdminProductActionPanel({
           type="button"
           disabled={loading !== null}
           onClick={() => run(action)}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
           {loading === action ? "처리 중..." : ACTION_LABELS[action]}
         </button>

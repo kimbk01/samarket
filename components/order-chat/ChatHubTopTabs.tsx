@@ -92,7 +92,7 @@ export function ChatHubTopTabs({
   }, [active, scrollActiveTabIntoView, updateIndicator]);
 
   return (
-    <div className="w-full border-b border-gray-200 bg-white">
+    <div className="w-full border-b border-sam-border bg-sam-surface">
       <div
         ref={outerRef}
         className={`relative ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}
@@ -115,7 +115,7 @@ export function ChatHubTopTabs({
                 aria-current={isOn ? "page" : undefined}
                 className={[
                   "flex shrink-0 items-center whitespace-nowrap text-[14px] leading-snug transition-colors duration-200 sm:text-[15px]",
-                  isOn ? "font-semibold text-gray-900" : "font-medium text-gray-500 hover:text-gray-700",
+                  isOn ? "font-semibold text-sam-fg" : "font-medium text-sam-muted hover:text-sam-fg",
                 ].join(" ")}
               >
                 {labelKey ? t(labelKey) : label}
@@ -124,7 +124,7 @@ export function ChatHubTopTabs({
           })}
         </nav>
         <div
-          className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-gray-900 transition-[left,width] duration-300 ease-out"
+          className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-sam-ink transition-[left,width] duration-300 ease-out"
           style={{ left: indicator.left, width: indicator.width }}
           aria-hidden
         />

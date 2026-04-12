@@ -23,23 +23,23 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
   };
 
   const content = (
-    <div className="relative flex min-h-[72px] items-center gap-3 rounded-ui-rect bg-white p-3 shadow-sm">
+    <div className="relative flex min-h-[72px] items-center gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm">
       {banner.image_url && (
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
           <Image src={banner.image_url} alt="" fill className="object-cover" sizes="48px" />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-medium text-gray-900">{banner.title}</p>
+        <p className="text-[14px] font-medium text-sam-fg">{banner.title}</p>
         {banner.description && (
-          <p className="mt-0.5 text-[12px] text-gray-500">{banner.description}</p>
+          <p className="mt-0.5 text-[12px] text-sam-muted">{banner.description}</p>
         )}
       </div>
       {banner.dismissible && (
         <button
           type="button"
           onClick={handleDismiss}
-          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-sam-meta hover:bg-sam-surface-muted hover:text-sam-muted"
           aria-label="닫기"
         >
           <span className="text-[18px] leading-none">×</span>

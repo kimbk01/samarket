@@ -38,7 +38,7 @@ export function AdminOrderChatList() {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-gray-600">
+      <p className="text-xs text-sam-muted">
         신고·환불·취소 요청·admin_review 방이 위로 정렬됩니다.
       </p>
       {rows.map((r) => {
@@ -47,22 +47,22 @@ export function AdminOrderChatList() {
           <Link
             key={r.id}
             href={`/admin/delivery-orders/${encodeURIComponent(r.order_id)}/chat`}
-            className="flex items-start justify-between gap-3 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm hover:border-signature"
+            className="flex items-start justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm hover:border-signature"
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-gray-500">{r.order_no}</span>
+                <span className="font-mono text-xs text-sam-muted">{r.order_no}</span>
                 {r.room_status === "admin_review" ? (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
                     검토
                   </span>
                 ) : null}
               </div>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-semibold text-sam-fg">
                 {r.store_name} · {r.buyer_name}
               </p>
-              <p className="mt-1 line-clamp-2 text-xs text-gray-600">{r.last_message}</p>
-              {o ? <p className="mt-1 text-[11px] text-gray-500">주문상태 {o.order_status}</p> : null}
+              <p className="mt-1 line-clamp-2 text-xs text-sam-muted">{r.last_message}</p>
+              {o ? <p className="mt-1 text-[11px] text-sam-muted">주문상태 {o.order_status}</p> : null}
             </div>
             <UnreadBadge count={r.unread_count_admin} />
           </Link>

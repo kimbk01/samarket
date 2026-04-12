@@ -15,7 +15,7 @@ export default async function AdminPostsManagementRoute() {
   const initialProducts = await loadPostsServerSide();
 
   return (
-    <Suspense fallback={<div className="p-4 text-gray-500">로딩 중…</div>}>
+    <Suspense fallback={<div className="p-4 text-sam-muted">로딩 중…</div>}>
       <AdminPostsManagementPage initialProducts={initialProducts} />
     </Suspense>
   );

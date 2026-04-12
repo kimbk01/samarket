@@ -160,7 +160,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
   if (!selectedRow) {
     return (
       <div className="min-h-screen bg-[#F0F2F5] px-4 py-8">
-        <p className="text-sm text-gray-600">매장을 불러오는 중…</p>
+        <p className="text-sm text-sam-muted">매장을 불러오는 중…</p>
       </div>
     );
   }
@@ -169,14 +169,14 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
 
   const sidebarBody = (
     <>
-      <div className="border-b border-gray-100 px-3 py-4">
+      <div className="border-b border-sam-border-soft px-3 py-4">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] text-[15px] font-semibold text-white">
             {shopInitial}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-semibold text-gray-900">{shopName}</p>
-            <p className="text-[11px] text-gray-500">매장 운영 센터</p>
+            <p className="truncate text-[15px] font-semibold text-sam-fg">{shopName}</p>
+            <p className="text-[11px] text-sam-muted">매장 운영 센터</p>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -199,10 +199,10 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
           onNavigate={() => setDrawerOpen(false)}
         />
       </div>
-      <div className="border-t border-gray-100 p-3">
+      <div className="border-t border-sam-border-soft p-3">
         <Link
           href="/my"
-          className="block rounded-ui-rect px-3 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+          className="block rounded-ui-rect px-3 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
           onClick={() => setDrawerOpen(false)}
         >
           ← 내 정보(홈)
@@ -224,7 +224,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
         ) : null}
 
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[88vw] flex-col border-r border-gray-200 bg-white shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-0 lg:h-screen lg:max-w-none lg:w-[260px] lg:translate-x-0 lg:shadow-none ${
+          className={`fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[88vw] flex-col border-r border-sam-border bg-sam-surface shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-0 lg:h-screen lg:max-w-none lg:w-[260px] lg:translate-x-0 lg:shadow-none ${
             drawerOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           }`}
         >
@@ -232,7 +232,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
         </aside>
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+          <header className="sticky top-0 z-30 border-b border-sam-border bg-sam-surface/95 backdrop-blur-sm">
             <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4">
               <AppBackButton
                 backHref={adminBackFallbackHref}
@@ -240,7 +240,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
               />
               <button
                 type="button"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-800 hover:bg-gray-100 lg:hidden"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted lg:hidden"
                 aria-label="메뉴 열기"
                 onClick={() => setDrawerOpen(true)}
               >
@@ -250,19 +250,19 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
               </button>
               <div className="min-w-0 flex-1 lg:hidden">
                 {pageTitle ? (
-                  <h1 className="truncate text-[16px] font-semibold text-gray-900">{pageTitle}</h1>
+                  <h1 className="truncate text-[16px] font-semibold text-sam-fg">{pageTitle}</h1>
                 ) : (
-                  <h1 className="truncate text-[16px] font-semibold text-gray-900">운영 대시보드</h1>
+                  <h1 className="truncate text-[16px] font-semibold text-sam-fg">운영 대시보드</h1>
                 )}
-                <p className="truncate text-[11px] text-gray-500">{shopName}</p>
+                <p className="truncate text-[11px] text-sam-muted">{shopName}</p>
               </div>
               <div className="hidden min-w-0 flex-1 items-baseline gap-3 lg:flex">
                 {pageTitle ? (
-                  <h1 className="text-[18px] font-semibold text-gray-900">{pageTitle}</h1>
+                  <h1 className="text-[18px] font-semibold text-sam-fg">{pageTitle}</h1>
                 ) : (
-                  <h1 className="text-[18px] font-semibold text-gray-900">운영 대시보드</h1>
+                  <h1 className="text-[18px] font-semibold text-sam-fg">운영 대시보드</h1>
                 )}
-                <span className="text-[13px] text-gray-500">{shopName}</span>
+                <span className="text-[13px] text-sam-muted">{shopName}</span>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Link
@@ -270,7 +270,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
                     storeId: selectedRow.id,
                     ackOwnerNotifications: true,
                   })}
-                  className="relative flex h-11 w-11 items-center justify-center rounded-full text-gray-800 hover:bg-gray-100"
+                  className="relative flex h-11 w-11 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
                   aria-label="배달 주문 알림"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -281,7 +281,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
                     />
                   </svg>
                   {ownerCommerceUnread != null && ownerCommerceUnread > 0 ? (
-                    <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-white/80`}>
+                    <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
                       {ownerCommerceUnread > 99 ? "99+" : ownerCommerceUnread}
                     </span>
                   ) : null}
@@ -289,7 +289,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
                 {publicStoreHref ? (
                   <Link
                     href={publicStoreHref}
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-gray-800 hover:bg-gray-100"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
                     aria-label="고객 매장 페이지"
                   >
                     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

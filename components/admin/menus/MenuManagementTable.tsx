@@ -45,56 +45,56 @@ export function MenuManagementTable({
 }: MenuManagementTableProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         등록된 항목이 없습니다. 항목 추가로 메뉴·카테고리를 등록해 주세요.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[720px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2 text-left font-medium text-gray-700">순서</th>
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
             {showTypeColumn ? (
-              <th className="px-3 py-2 text-left font-medium text-gray-700">메인 글 유형</th>
+              <th className="px-3 py-2 text-left font-medium text-sam-fg">메인 글 유형</th>
             ) : null}
-            <th className="px-3 py-2 text-left font-medium text-gray-700">이름</th>
-            <th className="px-3 py-2 text-left font-medium text-gray-700">slug</th>
-            <th className="px-3 py-2 text-left font-medium text-gray-700">기능 선택</th>
-            <th className="px-3 py-2 text-left font-medium text-gray-700">메뉴·칩 노출</th>
-            <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-gray-700">글쓰기 런처</th>
-            <th className="px-3 py-2 text-center font-medium text-gray-700">아이콘</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">이름</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">slug</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">기능 선택</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">메뉴·칩 노출</th>
+            <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-sam-fg">글쓰기 런처</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">아이콘</th>
             {tradeSubtopicsEnabled ? (
-              <th className="min-w-[160px] max-w-[240px] px-3 py-2 text-left font-medium text-gray-700">주제 목록</th>
+              <th className="min-w-[160px] max-w-[240px] px-3 py-2 text-left font-medium text-sam-fg">주제 목록</th>
             ) : null}
             {tradeSubtopicsEnabled ? (
-              <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-gray-700">2행 주제</th>
+              <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-sam-fg">2행 주제</th>
             ) : null}
-            <th className="px-3 py-2 text-right font-medium text-gray-700">관리</th>
+            <th className="px-3 py-2 text-right font-medium text-sam-fg">관리</th>
           </tr>
         </thead>
         <tbody>
           {items.map((c, index) => (
-            <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50/50">
-              <td className="px-3 py-2 text-gray-600">{c.sort_order + 1}</td>
+            <tr key={c.id} className="border-b border-sam-border-soft hover:bg-sam-app/50">
+              <td className="px-3 py-2 text-sam-muted">{c.sort_order + 1}</td>
               {showTypeColumn ? (
                 <td className="px-3 py-2">
                   <CategoryTypeBadge type={c.type} />
-                  <p className="mt-0.5 text-[11px] text-gray-500">
+                  <p className="mt-0.5 text-[11px] text-sam-muted">
                     {c.type === "trade" ? "홈 상단 칩(중고)" : "게시판형 글"}
                   </p>
                 </td>
               ) : null}
-              <td className="px-3 py-2 font-medium text-gray-900">{c.name}</td>
-              <td className="px-3 py-2 text-[12px] text-gray-600">{c.slug}</td>
+              <td className="px-3 py-2 font-medium text-sam-fg">{c.name}</td>
+              <td className="px-3 py-2 text-[12px] text-sam-muted">{c.slug}</td>
               <td className="px-3 py-2">
                 <div className="flex flex-wrap gap-1 text-[11px]">
-                  {c.settings?.can_write !== false && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600">글쓰기</span>}
-                  {c.settings?.has_price && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600">가격</span>}
-                  {c.settings?.has_chat && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600">채팅</span>}
-                  {c.settings?.has_location !== false && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600">위치</span>}
+                  {c.settings?.can_write !== false && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">글쓰기</span>}
+                  {c.settings?.has_price && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">가격</span>}
+                  {c.settings?.has_chat && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">채팅</span>}
+                  {c.settings?.has_location !== false && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">위치</span>}
                   {c.settings?.has_direct_deal !== false && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">직거래</span>}
                   {c.settings?.has_free_share !== false && <span className="rounded bg-green-50 px-1.5 py-0.5 text-green-700">나눔</span>}
                 </div>
@@ -112,9 +112,9 @@ export function MenuManagementTable({
                     type="checkbox"
                     checked={c.show_in_home_chips !== false}
                     onChange={() => onToggleShowOnMenu(c.id, c.show_in_home_chips !== false)}
-                    className="rounded border-gray-300"
+                    className="rounded border-sam-border"
                   />
-                  <span className="text-[13px] text-gray-700">
+                  <span className="text-[13px] text-sam-fg">
                     {c.show_in_home_chips !== false ? "적용" : "미적용"}
                   </span>
                 </label>
@@ -129,35 +129,35 @@ export function MenuManagementTable({
                       type="checkbox"
                       checked={c.quick_create_enabled === true}
                       onChange={() => onToggleQuickLauncher(c.id, c.quick_create_enabled === true)}
-                      className="rounded border-gray-300"
+                      className="rounded border-sam-border"
                     />
-                    <span className="text-[10px] text-gray-500">{c.quick_create_enabled ? "ON" : "OFF"}</span>
+                    <span className="text-[10px] text-sam-muted">{c.quick_create_enabled ? "ON" : "OFF"}</span>
                   </label>
                 ) : (
-                  <span className="text-[12px] text-gray-400">—</span>
+                  <span className="text-[12px] text-sam-meta">—</span>
                 )}
               </td>
               <td className="px-3 py-2">
                 <div className="flex justify-center" title={`icon_key: ${c.icon_key}`}>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-200 text-neutral-700">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sam-border-soft text-sam-fg">
                     <CategoryIcon iconKey={c.icon_key} className="size-[18px] text-current" />
                   </span>
                 </div>
               </td>
               {tradeSubtopicsEnabled ? (
-                <td className="max-w-[240px] align-top px-3 py-2 text-[12px] text-gray-700">
+                <td className="max-w-[240px] align-top px-3 py-2 text-[12px] text-sam-fg">
                   {(() => {
                     const subs = subtopicsForParent(allCategories, c.id);
                     if (subs.length === 0) {
-                      return <span className="text-gray-400">등록된 주제 없음</span>;
+                      return <span className="text-sam-meta">등록된 주제 없음</span>;
                     }
                     return (
                       <ul className="space-y-0.5">
                         {subs.map((s) => (
                           <li key={s.id} className="truncate" title={`${s.name} (${s.slug})`}>
-                            {!s.is_active ? <span className="text-gray-400">(비활성) </span> : null}
+                            {!s.is_active ? <span className="text-sam-meta">(비활성) </span> : null}
                             {s.name}
-                            <span className="ml-1 text-[11px] text-gray-400">{s.slug}</span>
+                            <span className="ml-1 text-[11px] text-sam-meta">{s.slug}</span>
                           </li>
                         ))}
                       </ul>
@@ -177,7 +177,7 @@ export function MenuManagementTable({
                       주제 관리
                     </button>
                   ) : (
-                    <span className="text-[12px] text-gray-400">—</span>
+                    <span className="text-[12px] text-sam-meta">—</span>
                   )}
                 </td>
               ) : null}
@@ -187,7 +187,7 @@ export function MenuManagementTable({
                     type="button"
                     onClick={() => onMoveUp(c.id)}
                     disabled={index === 0}
-                    className="rounded p-1 text-gray-500 hover:bg-gray-200 disabled:opacity-40"
+                    className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
                     title="위로"
                   >
                     ▲
@@ -196,7 +196,7 @@ export function MenuManagementTable({
                     type="button"
                     onClick={() => onMoveDown(c.id)}
                     disabled={index === items.length - 1}
-                    className="rounded p-1 text-gray-500 hover:bg-gray-200 disabled:opacity-40"
+                    className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
                     title="아래로"
                   >
                     ▼

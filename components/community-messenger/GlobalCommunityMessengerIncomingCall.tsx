@@ -467,24 +467,29 @@ export function GlobalCommunityMessengerIncomingCall() {
   const callTypeLabel = visibleSession.callKind === "video" ? "영상 통화" : "음성 통화";
 
   return (
-    <CallScreenShell surfaceClassName="bg-transparent" className="min-h-[100dvh]">
-      <div className="absolute inset-0 bg-black/30" aria-hidden />
+    <CallScreenShell className="min-h-[100dvh]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,24,0.35)_0%,transparent_55%)]" aria-hidden />
       <div className="relative flex min-h-0 flex-1 flex-col">
         {isMinimized ? (
-          <div className="mx-3 mt-[max(12px,env(safe-area-inset-top))] flex items-center gap-3 rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-2 shadow-[var(--ui-shadow-card)]">
+          <div className="mx-3 mt-[max(12px,env(safe-area-inset-top))] flex items-center gap-3 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]/95 px-3 py-2 shadow-[var(--messenger-shadow-soft)] backdrop-blur-sm">
             <button
               type="button"
               onClick={() => setMinimizedSessionId(null)}
               className="min-w-0 flex-1 touch-manipulation text-left"
             >
-              <p className="truncate text-[13px] font-semibold text-ui-fg">{visibleSession.peerLabel}</p>
-              <p className="truncate text-[11px] text-ui-muted">{callTypeLabel} 수신</p>
+              <p className="truncate text-[13px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+                {visibleSession.peerLabel}
+              </p>
+              <p className="truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+                {callTypeLabel} 수신
+              </p>
             </button>
             <button
               type="button"
               onClick={() => void rejectCall(visibleSession.id)}
               disabled={busyId === `reject:${visibleSession.id}` || busyId === `block:${visibleSession.id}`}
-              className="touch-manipulation rounded-ui-rect border border-ui-border px-3 py-2 text-[12px] font-medium text-ui-fg disabled:opacity-40"
+              className="touch-manipulation rounded-[var(--messenger-radius-sm)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-2 text-[12px] font-medium disabled:opacity-40"
+              style={{ color: "var(--messenger-text)" }}
             >
               거절
             </button>
@@ -492,31 +497,44 @@ export function GlobalCommunityMessengerIncomingCall() {
               type="button"
               onClick={() => void acceptCall(visibleSession)}
               disabled={busyId === `accept:${visibleSession.id}`}
-              className="touch-manipulation rounded-ui-rect border border-ui-border bg-ui-fg px-3 py-2 text-[12px] font-semibold text-ui-surface disabled:opacity-40"
+              className="touch-manipulation rounded-[var(--messenger-radius-sm)] border border-transparent bg-[color:var(--messenger-primary)] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
             >
               수락
             </button>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col justify-between border-t border-ui-border bg-ui-surface px-5 pb-[max(20px,calc(env(safe-area-inset-bottom)+12px))] pt-[max(16px,calc(env(safe-area-inset-top)+8px))]">
+          <div className="flex min-h-0 flex-1 flex-col justify-between rounded-t-[var(--messenger-radius-lg)] border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-5 pb-[max(20px,calc(env(safe-area-inset-bottom)+12px))] pt-[max(16px,calc(env(safe-area-inset-top)+8px))] shadow-[0_-8px_32px_rgba(17,24,39,0.08)]">
             <div>
               <div className="flex items-center justify-between">
-                <span className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] font-medium text-ui-muted">
+                <span
+                  className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                  style={{
+                    backgroundColor: "var(--messenger-primary-soft)",
+                    color: "var(--messenger-primary)",
+                  }}
+                >
                   {t("nav_incoming_call")}
                 </span>
                 <button
                   type="button"
                   onClick={() => setMinimizedSessionId(visibleSession.id)}
-                  className="rounded-ui-rect border border-ui-border px-3 py-2 text-[12px] font-medium text-ui-fg"
+                  className="rounded-[var(--messenger-radius-sm)] px-3 py-2 text-[12px] font-medium active:bg-[color:var(--messenger-primary-soft)]"
+                  style={{ color: "var(--messenger-text)" }}
                 >
                   최소화
                 </button>
               </div>
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-10 text-center">
                 <IncomingAvatar label={visibleSession.peerLabel} />
-                <h2 className="mt-5 text-[22px] font-semibold tracking-tight text-ui-fg">{visibleSession.peerLabel}</h2>
-                <p className="mt-2 text-[13px] text-ui-muted">수신 통화</p>
-                <p className="mt-1 text-[14px] font-medium text-ui-fg">{callTypeLabel}</p>
+                <h2 className="mt-5 text-[22px] font-semibold tracking-tight" style={{ color: "var(--messenger-text)" }}>
+                  {visibleSession.peerLabel}
+                </h2>
+                <p className="mt-2 text-[13px]" style={{ color: "var(--messenger-text-secondary)" }}>
+                  수신 통화
+                </p>
+                <p className="mt-1 text-[14px] font-medium" style={{ color: "var(--messenger-text)" }}>
+                  {callTypeLabel}
+                </p>
               </div>
             </div>
 
@@ -528,7 +546,8 @@ export function GlobalCommunityMessengerIncomingCall() {
                     setReplySheetSessionId((prev) => (prev === visibleSession.id ? null : visibleSession.id))
                   }
                   disabled={busyId === `reply:${visibleSession.id}`}
-                  className="rounded-ui-rect border border-ui-border px-4 py-3 text-[13px] font-medium text-ui-fg disabled:opacity-40"
+                  className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-4 py-3 text-[13px] font-medium disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
+                  style={{ color: "var(--messenger-text)" }}
                 >
                   메시지 응답
                 </button>
@@ -536,14 +555,17 @@ export function GlobalCommunityMessengerIncomingCall() {
                   type="button"
                   onClick={() => void blockCaller(visibleSession)}
                   disabled={busyId === `block:${visibleSession.id}`}
-                  className="rounded-ui-rect border border-ui-border bg-ui-surface px-4 py-3 text-[13px] font-medium text-ui-fg disabled:opacity-40"
+                  className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 text-[13px] font-medium disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
+                  style={{ color: "var(--messenger-text)" }}
                 >
                   {busyId === `block:${visibleSession.id}` ? "차단 중..." : "차단"}
                 </button>
               </div>
               {replySheetSessionId === visibleSession.id ? (
-                <div className="rounded-ui-rect border border-ui-border bg-ui-page p-2">
-                  <p className="px-1 pb-2 text-[11px] font-medium text-ui-muted">메시지 후 거절</p>
+                <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] p-2">
+                  <p className="px-1 pb-2 text-[11px] font-medium" style={{ color: "var(--messenger-text-secondary)" }}>
+                    메시지 후 거절
+                  </p>
                   <div className="grid gap-2">
                     {QUICK_REPLY_OPTIONS.map((option) => (
                       <button
@@ -551,7 +573,8 @@ export function GlobalCommunityMessengerIncomingCall() {
                         type="button"
                         onClick={() => void sendQuickReplyAndReject(visibleSession, option)}
                         disabled={busyId === `reply:${visibleSession.id}`}
-                        className="rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-2 text-left text-[12px] text-ui-fg disabled:opacity-40"
+                        className="rounded-[var(--messenger-radius-sm)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-2 text-left text-[12px] disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
+                        style={{ color: "var(--messenger-text)" }}
                       >
                         {busyId === `reply:${visibleSession.id}` ? "전송 중..." : option}
                       </button>
@@ -587,7 +610,13 @@ export function GlobalCommunityMessengerIncomingCall() {
 function IncomingAvatar({ label }: { label: string }) {
   const initial = label.trim().slice(0, 1) || "?";
   return (
-    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-ui-hover text-[32px] font-semibold text-ui-muted">
+    <div
+      className="flex h-24 w-24 items-center justify-center rounded-full text-[32px] font-semibold ring-4 ring-[color:var(--messenger-primary-soft-2)]"
+      style={{
+        backgroundColor: "var(--messenger-primary-soft)",
+        color: "var(--messenger-primary)",
+      }}
+    >
       {initial}
     </div>
   );

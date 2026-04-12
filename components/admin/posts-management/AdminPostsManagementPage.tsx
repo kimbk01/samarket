@@ -247,7 +247,7 @@ export function AdminPostsManagementPage({
   return (
     <div className={`min-w-0 space-y-4${showBottomFixedScroll ? " pb-14" : ""}`}>
       <AdminPageHeader title="게시물 관리" />
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-sam-border pb-3">
         {POSTS_MANAGEMENT_TABS.map((t) => (
           <Link
             key={t.value}
@@ -255,7 +255,7 @@ export function AdminPostsManagementPage({
             className={`rounded-ui-rect px-4 py-2 text-[14px] font-medium ${
               tab === t.value
                 ? "bg-signature text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
             }`}
           >
             {t.label}{" "}
@@ -280,7 +280,7 @@ export function AdminPostsManagementPage({
         onShowProductIdColumnChange={setShowProductIdColumn}
       />
       {!loading && products.length > 0 && (
-        <p className="text-[13px] text-gray-600">
+        <p className="text-[13px] text-sam-muted">
           DB에서 불러온 글 <strong>{products.length}</strong>건 · 현재 탭·필터 적용 후{" "}
           <strong>{filtered.length}</strong>건
           {filtered.length > 0 && (
@@ -293,47 +293,47 @@ export function AdminPostsManagementPage({
         </p>
       )}
       {loading ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           불러오는 중…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-12 text-center">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-12 text-center">
           {products.length === 0 ? (
-            <div className="mx-auto max-w-lg space-y-3 text-left text-[14px] text-gray-700">
+            <div className="mx-auto max-w-lg space-y-3 text-left text-[14px] text-sam-fg">
               {listQueryError ? (
                 <>
                   <p className="font-medium text-red-800">posts 조회 실패</p>
                   <p className="rounded-ui-rect bg-red-50 px-3 py-2 font-mono text-[12px] text-red-900">
                     {listQueryError}
                   </p>
-                  <p className="text-[13px] text-gray-600">
-                    <code className="rounded bg-gray-100 px-1">web/.env.local</code>에{" "}
+                  <p className="text-[13px] text-sam-muted">
+                    <code className="rounded bg-sam-surface-muted px-1">web/.env.local</code>에{" "}
                     <strong>NEXT_PUBLIC_SUPABASE_URL</strong>,{" "}
                     <strong>NEXT_PUBLIC_SUPABASE_ANON_KEY</strong>, 권장{" "}
                     <strong>SUPABASE_SERVICE_ROLE_KEY</strong>(service_role 또는 sb_secret)를 넣고{" "}
-                    <code className="rounded bg-gray-100 px-1">npm run dev</code>를 재시작하세요. 터미널의{" "}
-                    <code className="rounded bg-gray-100 px-1">[admin posts-management]</code> 로그에 PostgREST
+                    <code className="rounded bg-sam-surface-muted px-1">npm run dev</code>를 재시작하세요. 터미널의{" "}
+                    <code className="rounded bg-sam-surface-muted px-1">[admin posts-management]</code> 로그에 PostgREST
                     메시지가 더 나올 수 있습니다.
                   </p>
                 </>
               ) : !listUsedServiceRole ? (
                 <>
-                  <p className="font-medium text-gray-900">불러온 글이 0건입니다.</p>
-                  <p className="text-[13px] text-gray-600">
+                  <p className="font-medium text-sam-fg">불러온 글이 0건입니다.</p>
+                  <p className="text-[13px] text-sam-muted">
                     서버에 <strong>SUPABASE_SERVICE_ROLE_KEY</strong>가 없으면 anon 키로만 조회합니다. RLS가
                     막으면 실제 글이 있어도 목록이 비어 보일 수 있습니다. 어드민 게시물 관리에는{" "}
                     <strong>service_role 키 설정을 권장</strong>합니다. (
-                    <code className="rounded bg-gray-100 px-1">web/docs/supabase-env-setup.md</code> 참고)
+                    <code className="rounded bg-sam-surface-muted px-1">web/docs/supabase-env-setup.md</code> 참고)
                   </p>
-                  <p className="text-[13px] text-gray-600">
-                    키를 넣은 뒤에도 0건이면 <code className="rounded bg-gray-100 px-1">public.posts</code>에
+                  <p className="text-[13px] text-sam-muted">
+                    키를 넣은 뒤에도 0건이면 <code className="rounded bg-sam-surface-muted px-1">public.posts</code>에
                     행이 있는지 Supabase Table Editor에서 확인하세요.
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="font-medium text-gray-900">불러온 글이 0건입니다.</p>
-                  <p className="text-[13px] text-gray-600">
+                  <p className="font-medium text-sam-fg">불러온 글이 0건입니다.</p>
+                  <p className="text-[13px] text-sam-muted">
                     service_role로 조회했으며 쿼리는 성공했습니다. DB에 아직 글이 없거나, 다른 프로젝트를
                     바라보고 있을 수 있습니다. 탭·필터를 &quot;전체&quot;로 두고 다시 확인해 보세요.
                   </p>
@@ -341,18 +341,18 @@ export function AdminPostsManagementPage({
               )}
             </div>
           ) : (
-            <div className="mx-auto max-w-lg space-y-4 text-[14px] text-gray-700">
-              <p className="font-medium text-gray-900">
+            <div className="mx-auto max-w-lg space-y-4 text-[14px] text-sam-fg">
+              <p className="font-medium text-sam-fg">
                 불러온 글은 {products.length}건인데, 지금 조건에는 0건입니다.
               </p>
-              <ul className="list-inside list-disc text-left text-[13px] text-gray-600">
+              <ul className="list-inside list-disc text-left text-[13px] text-sam-muted">
                 <li>
                   {tab === "used-car" ||
                   tab === "real-estate" ||
                   tab === "jobs" ||
                   tab === "exchange" ? (
                     <>
-                      탭 <strong>{tabLabel}</strong>은 DB의 <code className="rounded bg-gray-100 px-1">services.service_type</code> 또는
+                      탭 <strong>{tabLabel}</strong>은 DB의 <code className="rounded bg-sam-surface-muted px-1">services.service_type</code> 또는
                       카테고리(slug·icon·이름)로 그 영역에 올린 글만 보여 줍니다.
                     </>
                   ) : tab === "trade" ? (
@@ -402,7 +402,7 @@ export function AdminPostsManagementPage({
                   href="/admin/posts-management?tab=all"
                   className={`rounded-ui-rect px-4 py-2 text-[13px] font-medium ${
                     tradeTabCount > 0 && tab !== "trade"
-                      ? "border border-gray-300 bg-white text-gray-800"
+                      ? "border border-sam-border bg-sam-surface text-sam-fg"
                       : "bg-signature text-white"
                   }`}
                 >
@@ -412,7 +412,7 @@ export function AdminPostsManagementPage({
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="rounded-ui-rect border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
+                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg"
                   >
                     필터·검색 초기화
                   </button>
@@ -432,7 +432,7 @@ export function AdminPostsManagementPage({
           />
 
           {showBottomFixedScroll && (
-            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white md:hidden px-3">
+            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface md:hidden px-3">
               <div
                 ref={bottomScrollRef}
                 onScroll={onBottomHorizontalScroll}
@@ -447,9 +447,9 @@ export function AdminPostsManagementPage({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-white px-3 py-2.5 md:px-4">
-            <p className="text-[13px] text-gray-600">
-              <span className="font-medium text-gray-900">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sam-border bg-sam-surface px-3 py-2.5 md:px-4">
+            <p className="text-[13px] text-sam-muted">
+              <span className="font-medium text-sam-fg">
                 {safePage} / {totalPages}
               </span>{" "}
               페이지 · 총 {filtered.length}건
@@ -459,7 +459,7 @@ export function AdminPostsManagementPage({
                 type="button"
                 disabled={safePage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="rounded-ui-rect border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg disabled:cursor-not-allowed disabled:opacity-40"
               >
                 이전
               </button>
@@ -468,7 +468,7 @@ export function AdminPostsManagementPage({
                   item === "ellipsis" ? (
                     <span
                       key={`e-${idx}`}
-                      className="px-1 text-[13px] text-gray-400"
+                      className="px-1 text-[13px] text-sam-meta"
                     >
                       …
                     </span>
@@ -480,7 +480,7 @@ export function AdminPostsManagementPage({
                       className={`min-w-[2.25rem] rounded-ui-rect px-2 py-1.5 text-[13px] font-medium ${
                         item === safePage
                           ? "bg-signature text-white"
-                          : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                          : "border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
                       }`}
                     >
                       {item}
@@ -494,7 +494,7 @@ export function AdminPostsManagementPage({
                 onClick={() =>
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
-                className="rounded-ui-rect border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg disabled:cursor-not-allowed disabled:opacity-40"
               >
                 다음
               </button>

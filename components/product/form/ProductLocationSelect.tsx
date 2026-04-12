@@ -21,8 +21,8 @@ export function ProductLocationSelect({
   const cities = selectedRegion?.cities ?? [];
 
   return (
-    <section className="border-b border-gray-100 bg-white px-4 py-4">
-      <p className="mb-2 text-[14px] font-medium text-gray-800">
+    <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+      <p className="mb-2 text-[14px] font-medium text-sam-fg">
         거래 지역 <span className="text-red-500">*</span>
       </p>
       <div className="space-y-3">
@@ -32,7 +32,7 @@ export function ProductLocationSelect({
             onRegionChange(e.target.value);
             onCityChange("");
           }}
-          className="w-full rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
           aria-invalid={!!error}
         >
           <option value="">Select region</option>
@@ -45,7 +45,7 @@ export function ProductLocationSelect({
         <select
           value={city}
           onChange={(e) => onCityChange(e.target.value)}
-          className="w-full rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
           disabled={!region}
           aria-invalid={!!error}
         >

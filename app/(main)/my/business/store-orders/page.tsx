@@ -5,7 +5,7 @@ import { OwnerStoreOrdersView } from "@/components/business/owner/OwnerStoreOrde
 
 export default function OwnerStoreOrdersPage() {
   return (
-    <Suspense fallback={<p className="px-4 pt-4 text-sm text-gray-500">불러오는 중…</p>}>
+    <Suspense fallback={<p className="px-4 pt-4 text-sm text-sam-muted">불러오는 중…</p>}>
       <OwnerStoreOrdersView />
     </Suspense>
   );

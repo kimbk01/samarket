@@ -12,7 +12,7 @@ export default function ShopSlugRoute() {
 
   if (!slug) {
     return (
-      <div className="px-4 py-8 text-center text-[14px] text-gray-500">
+      <div className="px-4 py-8 text-center text-[14px] text-sam-muted">
         <Link href="/home" className="text-signature">홈으로</Link>
       </div>
     );
@@ -20,9 +20,9 @@ export default function ShopSlugRoute() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 flex items-center border-b border-gray-100 bg-white px-4 py-3">
+      <header className="sticky top-0 z-10 flex items-center border-b border-sam-border-soft bg-sam-surface px-4 py-3">
         <AppBackButton backHref="/" />
-        <h1 className="flex-1 text-center text-[16px] font-semibold text-gray-900">
+        <h1 className="flex-1 text-center text-[16px] font-semibold text-sam-fg">
           상점
         </h1>
         <span className="w-11 shrink-0" />

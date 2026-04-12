@@ -38,7 +38,7 @@ export function QuestionForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {needCategory && (
         <div>
-          <label htmlFor="q-board-category" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="q-board-category" className="mb-1 block text-sm font-medium text-sam-fg">
             카테고리
           </label>
           <select
@@ -46,7 +46,7 @@ export function QuestionForm({
             value={boardCategoryId}
             onChange={(e) => setBoardCategoryId(e.target.value)}
             required
-            className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
             disabled={isSubmitting}
           >
             {boardCategories.map((c) => (
@@ -61,7 +61,7 @@ export function QuestionForm({
         <span className="text-sm font-medium text-blue-800">질문하기</span>
       </div>
       <div>
-        <label htmlFor="q-title" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="q-title" className="block text-sm font-medium text-sam-fg mb-1">
           질문 제목
         </label>
         <input
@@ -72,12 +72,12 @@ export function QuestionForm({
           required
           maxLength={200}
           placeholder="질문을 한 줄로 요약해 주세요"
-          className="w-full px-3 py-2 border border-gray-300 rounded-ui-rect focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           disabled={isSubmitting}
         />
       </div>
       <div>
-        <label htmlFor="q-content" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="q-content" className="block text-sm font-medium text-sam-fg mb-1">
           상세 내용
         </label>
         <textarea
@@ -87,7 +87,7 @@ export function QuestionForm({
           required
           rows={6}
           placeholder="질문 내용을 자세히 적어 주세요"
-          className="w-full px-3 py-2 border border-gray-300 rounded-ui-rect focus:ring-2 focus:ring-blue-500 resize-y"
+          className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-blue-500 resize-y"
           disabled={isSubmitting}
         />
       </div>
@@ -99,7 +99,7 @@ export function QuestionForm({
         >
           {isSubmitting ? "등록 중…" : "질문 등록"}
         </button>
-        <Link href={cancelHref} className="px-4 py-2 border border-gray-300 rounded-ui-rect text-gray-700 hover:bg-gray-50">
+        <Link href={cancelHref} className="px-4 py-2 border border-sam-border rounded-ui-rect text-sam-fg hover:bg-sam-app">
           취소
         </Link>
       </div>

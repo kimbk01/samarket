@@ -71,45 +71,45 @@ export function AdminStoreReviewsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 리뷰 검수" />
-      <p className="text-[13px] text-gray-600">노출 숨김 처리만 지원합니다. 삭제는 DB 정책에 따릅니다.</p>
+      <p className="text-[13px] text-sam-muted">노출 숨김 처리만 지원합니다. 삭제는 DB 정책에 따릅니다.</p>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-500">리뷰가 없습니다.</p>
+        <p className="text-sm text-sam-muted">리뷰가 없습니다.</p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <li key={r.id} className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
+            <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
               <div className="flex flex-wrap justify-between gap-2">
-                <span className="font-medium text-gray-900">{r.store_name || r.store_id}</span>
+                <span className="font-medium text-sam-fg">{r.store_name || r.store_id}</span>
                 <span
                   className={
-                    r.status === "visible" ? "text-xs text-green-700" : "text-xs text-gray-500"
+                    r.status === "visible" ? "text-xs text-green-700" : "text-xs text-sam-muted"
                   }
                 >
                   {r.status}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-sam-muted">
                 주문 {r.order_id} · 구매자 {r.buyer_user_id}
               </p>
               <p className="mt-2 text-amber-800">{"★".repeat(r.rating)}</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">{r.content}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
               {r.owner_reply_content?.trim() ? (
-                <div className="mt-2 rounded-ui-rect border border-gray-200 bg-gray-50 p-2">
-                  <p className="text-[12px] font-semibold text-gray-700">사장님 댓글</p>
-                  <p className="mt-1 whitespace-pre-wrap text-[13px] text-gray-800">
+                <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
+                  <p className="text-[12px] font-semibold text-sam-fg">사장님 댓글</p>
+                  <p className="mt-1 whitespace-pre-wrap text-[13px] text-sam-fg">
                     {r.owner_reply_content}
                   </p>
                   {r.owner_reply_created_at ? (
-                    <p className="mt-1 text-right text-[11px] text-gray-500">
+                    <p className="mt-1 text-right text-[11px] text-sam-muted">
                       {new Date(r.owner_reply_created_at).toLocaleDateString("ko-KR")}
                     </p>
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-2 text-[12px] text-gray-400">사장님 댓글 없음</p>
+                <p className="mt-2 text-[12px] text-sam-meta">사장님 댓글 없음</p>
               )}
               <div className="mt-3 flex gap-2">
                 {r.status === "visible" ? (
@@ -117,7 +117,7 @@ export function AdminStoreReviewsPage() {
                     type="button"
                     disabled={busyId !== null}
                     onClick={() => void setStatus(r.id, "hidden")}
-                    className="rounded-ui-rect border border-gray-300 px-3 py-1.5 text-xs"
+                    className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs"
                   >
                     숨김
                   </button>

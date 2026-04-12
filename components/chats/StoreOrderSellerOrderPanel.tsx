@@ -373,7 +373,7 @@ export function StoreOrderSellerOrderPanel({
             {presentation === "drawer" ? (
               <div
                 id={surfaceId}
-                className={`fixed top-0 right-0 ${surfaceZ} flex h-[100dvh] w-[min(100vw,22rem)] flex-col bg-white shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+                className={`fixed top-0 right-0 ${surfaceZ} flex h-[100dvh] w-[min(100vw,22rem)] flex-col bg-sam-surface shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
                   open ? "translate-x-0" : "translate-x-full"
                 }`}
                 role="dialog"
@@ -392,7 +392,7 @@ export function StoreOrderSellerOrderPanel({
               >
                 <div
                   id={surfaceId}
-                  className={`flex max-h-[min(90dvh,640px)] w-full max-w-lg flex-col rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-xl transition-all duration-300 ease-out sm:rounded-ui-rect ${
+                  className={`flex max-h-[min(90dvh,640px)] w-full max-w-lg flex-col rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl transition-all duration-300 ease-out sm:rounded-ui-rect ${
                     open ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 sm:translate-y-0 sm:scale-95"
                   }`}
                   role="dialog"

@@ -65,10 +65,10 @@ export function TradeSubtopicsPanel({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-[17px] font-semibold text-gray-900">
+          <h2 className="text-[17px] font-semibold text-sam-fg">
             {onClose ? "주제(하위) 관리" : `「${parent.name}」 주제`}
           </h2>
-          <p className="mt-1 text-[13px] text-gray-500">
+          <p className="mt-1 text-[13px] text-sam-muted">
             이 메뉴를 탭했을 때 홈·마켓 상단 2행 칩·글쓰기 주제로 쓰입니다. 주제가 없으면 2행은 표시되지 않습니다.
           </p>
         </div>
@@ -76,7 +76,7 @@ export function TradeSubtopicsPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect px-2 py-1 text-[14px] text-gray-500 hover:bg-gray-100"
+            className="rounded-ui-rect px-2 py-1 text-[14px] text-sam-muted hover:bg-sam-surface-muted"
             aria-label="닫기"
           >
             ✕
@@ -96,7 +96,7 @@ export function TradeSubtopicsPanel({
 
       {siblings.length === 0 ? (
         <div className="space-y-3">
-          <p className="rounded-ui-rect border border-dashed border-gray-200 py-6 text-center text-[14px] text-gray-500">
+          <p className="rounded-ui-rect border border-dashed border-sam-border py-6 text-center text-[14px] text-sam-muted">
             아래에서 주제를 추가하면 목록이 여기 표시됩니다. 사용자 화면에서는 주제가 없으면 2행 칩이 나타나지 않습니다.
           </p>
           <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
@@ -106,31 +106,31 @@ export function TradeSubtopicsPanel({
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[480px] border-collapse text-[14px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-3 py-2 text-left font-medium text-gray-700">순서</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-700">이름</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-700">slug</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-700">상태</th>
-                <th className="px-3 py-2 text-right font-medium text-gray-700">관리</th>
+              <tr className="border-b border-sam-border bg-sam-app">
+                <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
+                <th className="px-3 py-2 text-left font-medium text-sam-fg">이름</th>
+                <th className="px-3 py-2 text-left font-medium text-sam-fg">slug</th>
+                <th className="px-3 py-2 text-left font-medium text-sam-fg">상태</th>
+                <th className="px-3 py-2 text-right font-medium text-sam-fg">관리</th>
               </tr>
             </thead>
             <tbody>
               {siblings.map((c, index) => (
-                <tr key={c.id} className="border-b border-gray-100">
-                  <td className="px-3 py-2 text-gray-600">{c.sort_order}</td>
-                  <td className="px-3 py-2 font-medium text-gray-900">{c.name}</td>
-                  <td className="px-3 py-2 text-[12px] text-gray-600">{c.slug}</td>
-                  <td className="px-3 py-2 text-[13px] text-gray-600">{c.is_active ? "사용" : "비활성"}</td>
+                <tr key={c.id} className="border-b border-sam-border-soft">
+                  <td className="px-3 py-2 text-sam-muted">{c.sort_order}</td>
+                  <td className="px-3 py-2 font-medium text-sam-fg">{c.name}</td>
+                  <td className="px-3 py-2 text-[12px] text-sam-muted">{c.slug}</td>
+                  <td className="px-3 py-2 text-[13px] text-sam-muted">{c.is_active ? "사용" : "비활성"}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       <button
                         type="button"
                         onClick={() => handleMoveUp(c.id)}
                         disabled={index === 0}
-                        className="rounded p-1 text-gray-500 hover:bg-gray-200 disabled:opacity-40"
+                        className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
                       >
                         ▲
                       </button>
@@ -138,7 +138,7 @@ export function TradeSubtopicsPanel({
                         type="button"
                         onClick={() => handleMoveDown(c.id)}
                         disabled={index === siblings.length - 1}
-                        className="rounded p-1 text-gray-500 hover:bg-gray-200 disabled:opacity-40"
+                        className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
                       >
                         ▼
                       </button>

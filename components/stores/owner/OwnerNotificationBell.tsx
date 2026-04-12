@@ -23,7 +23,7 @@ export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId
     <div className="flex flex-col items-end gap-0.5">
       <Link
         href={`/stores/${encodeURIComponent(slug)}/owner/notifications`}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ig-border bg-white text-foreground"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ig-border bg-sam-surface text-foreground"
         aria-label={
           refundRequestedCount > 0 ? `알림 · 환불요청 ${refundRequestedCount}건` : "알림"
         }

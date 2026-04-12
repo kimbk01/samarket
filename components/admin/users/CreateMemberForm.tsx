@@ -137,30 +137,30 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-white shadow-xl">
-        <div className="border-b border-gray-200 px-5 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">회원 수동 입력</h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
-            <code className="rounded bg-gray-100 px-1">auth.users</code>·
-            <code className="rounded bg-gray-100 px-1">profiles</code>에 생성되며, 동일 UUID로{" "}
-            <code className="rounded bg-gray-100 px-1">test_users</code> 행도 둡니다(도구·일부 API 보강용).
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
+        <div className="border-b border-sam-border px-5 py-4">
+          <h2 className="text-lg font-semibold text-sam-fg">회원 수동 입력</h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-sam-muted">
+            <code className="rounded bg-sam-surface-muted px-1">auth.users</code>·
+            <code className="rounded bg-sam-surface-muted px-1">profiles</code>에 생성되며, 동일 UUID로{" "}
+            <code className="rounded bg-sam-surface-muted px-1">test_users</code> 행도 둡니다(도구·일부 API 보강용).
           </p>
         </div>
         {createdLoginId ? (
           <div className="space-y-4 p-5">
-            <p className="text-[14px] text-gray-800">
-              <strong className="text-gray-900">{createdLoginId}</strong> 계정을 만들었습니다.
+            <p className="text-[14px] text-sam-fg">
+              <strong className="text-sam-fg">{createdLoginId}</strong> 계정을 만들었습니다.
             </p>
             <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[13px] leading-relaxed text-emerald-950">
               <p className="font-medium">실제 회원(Supabase Auth)으로 들어갑니다.</p>
               <p className="mt-1 text-emerald-900/90">
                 로그인 페이지 <strong>이메일 또는 아이디</strong> 칸에{" "}
-                <code className="rounded bg-white/80 px-1 py-0.5">{createdLoginEmail}</code> 전체 또는{" "}
-                <code className="rounded bg-white/80 px-1 py-0.5">{createdLoginId}</code> 만 + 생성 시 비밀번호
+                <code className="rounded bg-sam-surface/80 px-1 py-0.5">{createdLoginEmail}</code> 전체 또는{" "}
+                <code className="rounded bg-sam-surface/80 px-1 py-0.5">{createdLoginId}</code> 만 + 생성 시 비밀번호
                 → 일반 회원과 같은 Supabase 세션입니다.
               </p>
             </div>
-            <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-gray-600">
+            <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-sam-muted">
               <li>
                 로그인하면 브라우저에 <strong>쿠키</strong>가 저장되어 서버가 이 회원 UUID로 요청을 처리합니다.
               </li>
@@ -173,7 +173,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 다시 볼 수 있습니다.
               </li>
             </ul>
-            <div className="flex flex-wrap gap-2 border-t border-gray-200 pt-4">
+            <div className="flex flex-wrap gap-2 border-t border-sam-border pt-4">
               <Link
                 href="/login"
                 className="rounded bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
@@ -183,7 +183,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded border border-gray-300 px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+                className="rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
               >
                 닫기
               </button>
@@ -192,19 +192,19 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 p-5">
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">아이디 (로그인 ID)</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">아이디 (로그인 ID)</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 maxLength={64}
                 autoComplete="username"
-                className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
                 placeholder="2~64자 (영문/숫자)"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">비밀번호</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">비밀번호</label>
               <input
                 type="password"
                 value={password}
@@ -212,36 +212,36 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 minLength={4}
                 maxLength={128}
                 autoComplete="new-password"
-                className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
                 placeholder="4자 이상"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">닉네임</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">닉네임</label>
               <input
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 maxLength={20}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
                 placeholder="서비스에서 표시할 닉네임"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">
-                이메일 <span className="font-normal text-gray-400">(선택)</span>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">
+                이메일 <span className="font-normal text-sam-meta">(선택)</span>
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
                 placeholder="비워두면 아이디@manual.local 로 생성"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">
-                연락처 <span className="font-normal text-gray-400">(선택)</span>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">
+                연락처 <span className="font-normal text-sam-meta">(선택)</span>
               </label>
               <input
                 type="tel"
@@ -249,11 +249,11 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 autoComplete="tel"
                 value={formatPhMobileDisplay(contactPhoneDigits)}
                 onChange={(e) => setContactPhoneDigits(parsePhMobileInput(e.target.value))}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
                 placeholder={PH_LOCAL_09_PLACEHOLDER}
               />
             </div>
-            <div className="rounded-ui-rect border border-gray-200 bg-gray-50/80 p-3">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app/80 p-3">
               <LocationSelector
                 embedded
                 showRequired={false}
@@ -272,7 +272,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 label="거래 지역"
                 showZipLookup={false}
               />
-              <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
+              <p className="mt-2 text-[12px] leading-relaxed text-sam-muted">
                 {STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER}
               </p>
               <div className="mt-2">
@@ -281,16 +281,16 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                   addressDetail={addressDetail}
                   onAddressStreetLineChange={setAddressStreetLine}
                   onAddressDetailChange={setAddressDetail}
-                  inputClassName="w-full rounded border border-gray-300 bg-white px-3 py-2 text-[14px]"
+                  inputClassName="w-full rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px]"
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">권한</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">권한</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as "normal" | "premium")}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
               >
                 {ROLE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -299,7 +299,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 ))}
               </select>
             </div>
-            <label className="flex items-center gap-2 rounded-ui-rect border border-amber-200 bg-amber-50/70 px-3 py-2 text-[13px] text-gray-800">
+            <label className="flex items-center gap-2 rounded-ui-rect border border-amber-200 bg-amber-50/70 px-3 py-2 text-[13px] text-sam-fg">
               <input
                 type="checkbox"
                 checked={phoneVerified}
@@ -309,11 +309,11 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
             </label>
 
             {error && <p className="text-[13px] text-red-600">{error}</p>}
-            <div className="flex justify-end gap-2 border-t border-gray-200 pt-4">
+            <div className="flex justify-end gap-2 border-t border-sam-border pt-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded border border-gray-300 px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+                className="rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
               >
                 취소
               </button>

@@ -13,10 +13,10 @@ export function MyPageQuickActions({ items }: { items: QuickActionItem[] }) {
         <Link
           key={`${item.label}:${item.href}`}
           href={item.href}
-          className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 transition-colors hover:bg-gray-50"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 transition-colors hover:bg-sam-app"
         >
-          <p className="text-[14px] font-semibold text-gray-900">{item.label}</p>
-          <p className="mt-1 text-[12px] text-gray-500">{item.caption ?? "바로 이동"}</p>
+          <p className="text-[14px] font-semibold text-sam-fg">{item.label}</p>
+          <p className="mt-1 text-[12px] text-sam-muted">{item.caption ?? "바로 이동"}</p>
         </Link>
       ))}
     </div>

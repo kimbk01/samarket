@@ -83,12 +83,12 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
   if (!staff) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="rounded-ui-rect bg-white p-6 shadow-xl">
-          <p className="text-gray-600">해당 관리자를 찾을 수 없습니다.</p>
+        <div className="rounded-ui-rect bg-sam-surface p-6 shadow-xl">
+          <p className="text-sam-muted">해당 관리자를 찾을 수 없습니다.</p>
           <button
             type="button"
             onClick={onClose}
-            className="mt-4 rounded border border-gray-300 px-4 py-2 text-[14px] text-gray-700"
+            className="mt-4 rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg"
           >
             닫기
           </button>
@@ -99,42 +99,42 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-white shadow-xl">
-        <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-5 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">관리자 수정</h2>
-          <p className="mt-1 text-[13px] text-gray-500">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
+        <div className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-5 py-4">
+          <h2 className="text-lg font-semibold text-sam-fg">관리자 수정</h2>
+          <p className="mt-1 text-[13px] text-sam-muted">
             {staff.loginId} — 항목별로 클릭해 권한 부여 여부를 변경하세요.
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">로그인 ID</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">로그인 ID</label>
               <input
                 type="text"
                 value={staff.loginId}
                 readOnly
-                className="w-full rounded border border-gray-200 bg-gray-50 px-3 py-2 text-[14px] text-gray-500"
+                className="w-full rounded border border-sam-border bg-sam-app px-3 py-2 text-[14px] text-sam-muted"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">표시 이름</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">표시 이름</label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={64}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
                 placeholder="관리자 목록에 표시될 이름 (64자 이내)"
               />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-[13px] font-medium text-gray-700">역할</label>
+            <label className="mb-1 block text-[13px] font-medium text-sam-fg">역할</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as AdminRole)}
-              className="w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-[14px]"
+              className="w-full max-w-xs rounded border border-sam-border px-3 py-2 text-[14px]"
             >
               {ROLE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -142,7 +142,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
             </select>
           </div>
 
-          <div className="border-t border-gray-200 pt-4">
+          <div className="border-t border-sam-border pt-4">
             <AdminPermissionToggles
               permissions={permissions}
               onToggle={togglePermission}
@@ -154,11 +154,11 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
           </div>
 
           {error && <p className="text-[13px] text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2 border-t border-gray-200 pt-4">
+          <div className="flex justify-end gap-2 border-t border-sam-border pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-gray-300 px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+              className="rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
             >
               취소
             </button>

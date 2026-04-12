@@ -37,7 +37,7 @@ export function BasicDetailSkin({
   };
 
   return (
-    <article className="bg-white rounded-ui-rect border border-gray-200 overflow-hidden">
+    <article className="bg-sam-surface rounded-ui-rect border border-sam-border overflow-hidden">
       <div className="p-4">
         <div className="flex flex-wrap items-start gap-2">
           {post.community_topic?.name ? (
@@ -45,14 +45,14 @@ export function BasicDetailSkin({
               {post.community_topic.name}
             </span>
           ) : null}
-          <h1 className="min-w-0 flex-1 text-xl font-semibold text-gray-900">{post.title}</h1>
+          <h1 className="min-w-0 flex-1 text-xl font-semibold text-sam-fg">{post.title}</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-gray-500">
+        <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-sam-muted">
           {post.author?.name && <span>{post.author.name}</span>}
           <span>{new Date(post.created_at).toLocaleString("ko-KR")}</span>
           {post.view_count > 0 && <span>조회 {post.view_count}</span>}
         </div>
-        <div className="mt-4 prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+        <div className="mt-4 prose prose-sm max-w-none text-sam-fg whitespace-pre-wrap">
           {post.content}
         </div>
         {post.images && post.images.length > 0 && (
@@ -70,16 +70,16 @@ export function BasicDetailSkin({
           </div>
         )}
       </div>
-      <footer className="px-4 py-3 border-t border-gray-100 flex gap-2">
+      <footer className="px-4 py-3 border-t border-sam-border-soft flex gap-2">
         {showLike && (
-          <button type="button" className="text-sm text-gray-600 hover:text-gray-900">
+          <button type="button" className="text-sm text-sam-muted hover:text-sam-fg">
             좋아요
           </button>
         )}
         {showComments && (
           <a
             href="#community-post-comments"
-            className="text-sm text-gray-600 hover:text-gray-900"
+            className="text-sm text-sam-muted hover:text-sam-fg"
           >
             댓글
           </a>
@@ -89,7 +89,7 @@ export function BasicDetailSkin({
             type="button"
             disabled={reportBusy}
             onClick={() => void onReport()}
-            className="ml-auto text-sm text-gray-500 hover:text-red-600 disabled:opacity-50"
+            className="ml-auto text-sm text-sam-muted hover:text-red-600 disabled:opacity-50"
           >
             {reportBusy ? "처리 중…" : "신고"}
           </button>

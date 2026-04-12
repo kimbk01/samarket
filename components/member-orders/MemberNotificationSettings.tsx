@@ -22,11 +22,11 @@ function Row({
   description?: string;
 }) {
   return (
-    <div className="border-b border-gray-100 px-4 py-3">
+    <div className="border-b border-sam-border-soft px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[15px] font-medium text-gray-900">{label}</p>
-          {description ? <p className="mt-0.5 text-[12px] text-gray-500">{description}</p> : null}
+          <p className="text-[15px] font-medium text-sam-fg">{label}</p>
+          {description ? <p className="mt-0.5 text-[12px] text-sam-muted">{description}</p> : null}
         </div>
         <button
           type="button"
@@ -34,11 +34,11 @@ function Row({
           aria-checked={checked}
           onClick={() => onChange(!checked)}
           className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-            checked ? "bg-signature" : "bg-gray-200"
+            checked ? "bg-signature" : "bg-sam-border-soft"
           }`}
         >
           <span
-            className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+            className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
               checked ? "translate-x-6" : "translate-x-0.5"
             }`}
           />
@@ -77,17 +77,17 @@ export function MemberNotificationSettings() {
 
   if (!p) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-4 text-sm text-gray-500 shadow-sm">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-sm text-sam-muted shadow-sm">
         알림 설정을 준비 중입니다.
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-gray-100 rounded-ui-rect border border-gray-200 bg-white shadow-sm">
+    <div className="divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <div className="px-4 py-3">
-        <h2 className="text-sm font-bold text-gray-900">{t("order_notifications_header")}</h2>
-        <p className="mt-1 text-[12px] text-gray-500">
+        <h2 className="text-sm font-bold text-sam-fg">{t("order_notifications_header")}</h2>
+        <p className="mt-1 text-[12px] text-sam-muted">
           {t("order_notifications_demo_desc", { userId })}
         </p>
       </div>

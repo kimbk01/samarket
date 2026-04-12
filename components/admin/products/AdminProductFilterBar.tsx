@@ -36,7 +36,7 @@ export function AdminProductFilterBar({
           placeholder={t("admin_search_product")}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="min-w-[180px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+          className="min-w-[180px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
         />
         <select
           value={filters.status}
@@ -46,7 +46,7 @@ export function AdminProductFilterBar({
               status: e.target.value as ProductStatus | "",
             })
           }
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value || "all"} value={o.value}>
@@ -57,7 +57,7 @@ export function AdminProductFilterBar({
         <select
           value={filters.category}
           onChange={(e) => onFiltersChange({ ...filters, category: e.target.value })}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
         >
           <option value="">{t("admin_category_all")}</option>
           {categories.map((c) => (
@@ -71,7 +71,7 @@ export function AdminProductFilterBar({
           placeholder={t("common_region")}
           value={filters.location}
           onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
-          className="min-w-[100px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+          className="min-w-[100px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
         />
         <select
           value={filters.sortKey}
@@ -81,7 +81,7 @@ export function AdminProductFilterBar({
               sortKey: e.target.value as AdminProductSortKey,
             })
           }
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>

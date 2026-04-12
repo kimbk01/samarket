@@ -43,44 +43,44 @@ export function OpsIssuePatternTable({
 
   if (patterns.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
         반복 패턴이 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">패턴</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">surface / 유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">발생</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">추세</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">연결 문서</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">상태</th>
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">패턴</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">surface / 유형</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">발생</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">추세</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">연결 문서</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
           </tr>
         </thead>
         <tbody>
           {patterns.map((p) => (
             <tr
               key={p.id}
-              className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+              className="border-b border-sam-border-soft hover:bg-sam-app cursor-pointer"
               onClick={() => onSelectPattern?.(p.id)}
             >
               <td className="px-3 py-2.5">
-                <span className="font-medium text-gray-900">{p.title}</span>
-                <p className="text-[12px] text-gray-500">{p.patternKey}</p>
+                <span className="font-medium text-sam-fg">{p.title}</span>
+                <p className="text-[12px] text-sam-muted">{p.patternKey}</p>
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {SURFACE_LABELS[p.surface]} · {p.incidentType}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {p.occurrenceCount}회
                 {p.avgResolutionMinutes != null && ` / 약 ${p.avgResolutionMinutes}분`}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {TREND_LABELS[p.severityTrend]}
               </td>
               <td className="px-3 py-2.5">
@@ -97,7 +97,7 @@ export function OpsIssuePatternTable({
                 )}
               </td>
               <td className="px-3 py-2.5">
-                <span className="rounded bg-gray-100 px-2 py-0.5 text-[12px] text-gray-700">
+                <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] text-sam-fg">
                   {STATUS_LABELS[p.status]}
                 </span>
               </td>

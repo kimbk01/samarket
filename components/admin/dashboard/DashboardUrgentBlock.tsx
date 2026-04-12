@@ -21,7 +21,7 @@ export function DashboardUrgentBlock() {
           <li key={label + href}>
             <Link
               href={href}
-              className="inline-block rounded border border-amber-300 bg-white px-3 py-1.5 text-[13px] text-amber-800 hover:bg-amber-100"
+              className="inline-block rounded border border-amber-300 bg-sam-surface px-3 py-1.5 text-[13px] text-amber-800 hover:bg-amber-100"
             >
               {label}
             </Link>

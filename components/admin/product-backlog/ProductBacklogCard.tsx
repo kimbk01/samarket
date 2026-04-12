@@ -20,10 +20,10 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
       : null;
 
   return (
-    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-500">
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-sam-muted">
         <span>{getCategoryLabel(item.category)}</span>
-        <span className="rounded bg-gray-100 px-1.5 py-0.5">
+        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
           {getPriorityLabel(item.priority)}
         </span>
         <span>{getOwnerTypeLabel(item.ownerType)}</span>
@@ -33,13 +33,13 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
           </span>
         )}
       </div>
-      <p className="mt-2 font-medium text-gray-900">{item.title}</p>
+      <p className="mt-2 font-medium text-sam-fg">{item.title}</p>
       {item.description && (
-        <p className="mt-1 line-clamp-2 text-[13px] text-gray-600">
+        <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">
           {item.description}
         </p>
       )}
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
         <span
           className={`rounded px-1.5 py-0.5 ${
             item.status === "released"
@@ -48,7 +48,7 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
                 ? "bg-blue-50 text-blue-700"
                 : item.status === "inbox"
                   ? "bg-amber-50 text-amber-700"
-                  : "bg-gray-100 text-gray-600"
+                  : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
           {getBacklogStatusLabel(item.status)}
@@ -76,7 +76,7 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
         )}
       </div>
       {item.handoffNote && (
-        <p className="mt-2 border-t border-gray-100 pt-2 text-[12px] text-gray-500">
+        <p className="mt-2 border-t border-sam-border-soft pt-2 text-[12px] text-sam-muted">
           {item.handoffNote}
         </p>
       )}

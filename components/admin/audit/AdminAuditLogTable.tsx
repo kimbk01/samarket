@@ -25,23 +25,23 @@ interface AdminAuditLogTableProps {
 
 export function AdminAuditLogTable({ logs }: AdminAuditLogTableProps) {
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[720px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">ID</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">액션</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">결과</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">관리자</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">대상</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">요약</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">일시</th>
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">ID</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">유형</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">액션</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">결과</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">관리자</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">대상</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">요약</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">일시</th>
           </tr>
         </thead>
         <tbody>
           {logs.map((l) => (
-            <tr key={l.id} className="border-b border-gray-100 hover:bg-gray-50">
+            <tr key={l.id} className="border-b border-sam-border-soft hover:bg-sam-app">
               <td className="px-3 py-2.5">
                 <Link
                   href={`/admin/audit-logs/${l.id}`}
@@ -50,10 +50,10 @@ export function AdminAuditLogTable({ logs }: AdminAuditLogTableProps) {
                   {l.id}
                 </Link>
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {CATEGORY_LABELS[l.category]}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">{l.actionType}</td>
+              <td className="px-3 py-2.5 text-sam-fg">{l.actionType}</td>
               <td className="px-3 py-2.5">
                 <span
                   className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${RESULT_CLASS[l.result]}`}
@@ -65,14 +65,14 @@ export function AdminAuditLogTable({ logs }: AdminAuditLogTableProps) {
                       : "오류"}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-gray-700">{l.adminNickname}</td>
-              <td className="max-w-[100px] truncate px-3 py-2.5 text-gray-600">
+              <td className="px-3 py-2.5 text-sam-fg">{l.adminNickname}</td>
+              <td className="max-w-[100px] truncate px-3 py-2.5 text-sam-muted">
                 {l.targetLabel ?? l.targetId ?? "-"}
               </td>
-              <td className="max-w-[180px] truncate px-3 py-2.5 text-gray-600">
+              <td className="max-w-[180px] truncate px-3 py-2.5 text-sam-muted">
                 {l.summary}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(l.createdAt).toLocaleString("ko-KR")}
               </td>
             </tr>

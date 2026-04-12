@@ -16,8 +16,8 @@ export function CategoryEmptyState({
 }: CategoryEmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <p className="text-[15px] font-medium text-gray-700">{message}</p>
-      <p className="mt-1 text-[13px] text-gray-500">{subMessage}</p>
+      <p className="text-[15px] font-medium text-sam-fg">{message}</p>
+      <p className="mt-1 text-[13px] text-sam-muted">{subMessage}</p>
     </div>
   );
 }

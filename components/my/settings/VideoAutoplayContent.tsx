@@ -39,12 +39,12 @@ export function VideoAutoplayContent() {
   };
 
   return (
-    <ul className="divide-y divide-gray-100">
+    <ul className="divide-y divide-sam-border-soft">
       {OPTIONS.map((opt) => (
         <li key={opt.value}>
           <button
             type="button"
-            className="flex w-full items-center justify-between py-3 text-left text-[15px] text-gray-900"
+            className="flex w-full items-center justify-between py-3 text-left text-[15px] text-sam-fg"
             onClick={() => select(opt.value)}
           >
             <span>{opt.label}</span>

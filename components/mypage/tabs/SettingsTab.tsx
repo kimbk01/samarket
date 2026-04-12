@@ -120,14 +120,14 @@ export function SettingsTab({ section }: { section: string }) {
           <NoticesContent />
         </SettingsBlock>
         <SettingsBlock title="고객센터">
-          <div className="space-y-2 text-[12px] leading-5 text-gray-500">
+          <div className="space-y-2 text-[12px] leading-5 text-sam-muted">
             <p>주문 문제는 주문 내역과 주문 상세에서 먼저 상태를 확인하세요.</p>
             <p>거래 문제는 거래 채팅과 거래 후기 화면에서 먼저 확인하세요.</p>
             <p>그래도 해결되지 않으면 운영 문의 흐름으로 접수하는 구조를 유지합니다.</p>
           </div>
         </SettingsBlock>
         <SettingsBlock title="이용약관">
-          <div className="space-y-2 text-[12px] leading-5 text-gray-500">
+          <div className="space-y-2 text-[12px] leading-5 text-sam-muted">
             <p>계정, 거래, 주문, 커뮤니티 사용 정책은 서비스 공통 규칙으로 적용됩니다.</p>
             <p>정확한 프로필, 지역, 연락처 정보는 거래와 주문 신뢰도에 직접 연결됩니다.</p>
           </div>

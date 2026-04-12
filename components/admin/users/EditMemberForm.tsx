@@ -106,19 +106,19 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-ui-rect border border-gray-200 bg-white p-6 shadow-xl"
+        className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-900">회원 수정</h2>
-        <p className="mt-1 text-[13px] text-gray-600">
+        <h2 className="text-lg font-semibold text-sam-fg">회원 수정</h2>
+        <p className="mt-1 text-[13px] text-sam-muted">
           {user.nickname}
           {showMemberUuid ? (
-            <span className="ml-2 font-mono text-[12px] text-gray-400">{user.loginUsername ?? user.id}</span>
+            <span className="ml-2 font-mono text-[12px] text-sam-meta">{user.loginUsername ?? user.id}</span>
           ) : user.loginUsername ? (
-            <span className="ml-2 font-mono text-[12px] text-gray-400">{user.loginUsername}</span>
+            <span className="ml-2 font-mono text-[12px] text-sam-meta">{user.loginUsername}</span>
           ) : (
             <>
-              <span className="ml-2 text-[12px] text-gray-500">(내부 ID 숨김)</span>
+              <span className="ml-2 text-[12px] text-sam-muted">(내부 ID 숨김)</span>
               <button
                 type="button"
                 className="ml-2 text-[12px] font-medium text-signature hover:underline"
@@ -141,12 +141,12 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
 
         <div className="mt-5 space-y-4">
           <label className="block">
-            <span className="text-[13px] font-medium text-gray-700">회원 구분</span>
+            <span className="text-[13px] font-medium text-sam-fg">회원 구분</span>
             <select
               value={memberType}
               onChange={(e) => setMemberType(e.target.value as MemberType)}
               disabled={memberLocked}
-              className="mt-1.5 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-gray-100"
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
             >
               {memberOptions.map((v) => (
                 <option key={v} value={v}>
@@ -159,18 +159,18 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
                 최고 관리자 계정은 DB role이 유지됩니다. 전화 인증만 바꿀 수 있습니다.
               </span>
             ) : !isMasterUi ? (
-              <span className="mt-1 block text-[11px] text-gray-500">
+              <span className="mt-1 block text-[11px] text-sam-muted">
                 일반·특별 ↔ 관리자 변경은 최고 관리자만 할 수 있습니다.
               </span>
             ) : null}
           </label>
 
           <label className="block">
-            <span className="text-[13px] font-medium text-gray-700">전화 인증 상태</span>
+            <span className="text-[13px] font-medium text-sam-fg">전화 인증 상태</span>
             <select
               value={phoneStatus}
               onChange={(e) => setPhoneStatus(e.target.value)}
-              className="mt-1.5 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
             >
               {PHONE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -187,7 +187,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
           >
             취소
           </button>

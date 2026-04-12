@@ -97,26 +97,26 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
             <section
               key={g.key}
               className={
-                gi > 0 ? "mt-4 rounded-ui-rect border border-zinc-200/80 bg-white p-1 shadow-sm" : "rounded-ui-rect border border-zinc-200/80 bg-white p-1 shadow-sm"
+                gi > 0 ? "mt-4 rounded-ui-rect border border-sam-border/80 bg-sam-surface p-1 shadow-sm" : "rounded-ui-rect border border-sam-border/80 bg-sam-surface p-1 shadow-sm"
               }
             >
               <div className="px-3 pb-2 pt-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] font-semibold text-zinc-900">{g.label}</h3>
+                  <h3 className="text-[15px] font-semibold text-sam-fg">{g.label}</h3>
                   {required ? (
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-[#1877F2]">
                       필수
                     </span>
                   ) : (
-                    <span className="text-[12px] text-zinc-500">선택 {rangeHint}</span>
+                    <span className="text-[12px] text-sam-muted">선택 {rangeHint}</span>
                   )}
                 </div>
                 {g.description ? (
-                  <p className="mt-1 text-[13px] leading-snug text-zinc-500">{g.description}</p>
+                  <p className="mt-1 text-[13px] leading-snug text-sam-muted">{g.description}</p>
                 ) : null}
               </div>
               {g.inputType === "quantity" ? (
-                <ul className="divide-y divide-zinc-100">
+                <ul className="divide-y divide-sam-border-soft">
                   {g.options.map((opt) => {
                     const q = Math.floor(value.qty[g.key]?.[opt.key] ?? 0);
                     const prev = value.qty[g.key] ?? {};
@@ -134,15 +134,15 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                     return (
                       <li key={opt.key} className="flex items-center justify-between gap-3 px-3 py-2.5">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[15px] text-zinc-900">{opt.name}</p>
-                          <p className="text-[13px] text-zinc-500">{deltaLabel(opt.priceDelta)}</p>
+                          <p className="text-[15px] text-sam-fg">{opt.name}</p>
+                          <p className="text-[13px] text-sam-muted">{deltaLabel(opt.priceDelta)}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <button
                             type="button"
                             disabled={dim || q <= 0 || blockDec}
                             onClick={() => setQty(g.key, opt.key, q - 1)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-lg leading-none text-zinc-800 transition-colors hover:bg-zinc-200 disabled:opacity-40"
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-sam-surface-muted text-lg leading-none text-sam-fg transition-colors hover:bg-sam-border-soft disabled:opacity-40"
                           >
                             −
                           </button>
@@ -164,7 +164,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                   })}
                 </ul>
               ) : (
-                <ul className="divide-y divide-zinc-100">
+                <ul className="divide-y divide-sam-border-soft">
                   {g.options.map((opt) => {
                     const selected = (value.pick[g.key] ?? []).includes(opt.name);
                     const dim = disabled || opt.soldOut;
@@ -182,11 +182,11 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                               setPick(g.key, [opt.name]);
                             }}
                             className={`flex w-full items-center gap-3 rounded-ui-rect px-2 py-2.5 text-left transition-colors ${
-                              selected ? "bg-[#E7F3FF]" : "hover:bg-zinc-50"
+                              selected ? "bg-[#E7F3FF]" : "hover:bg-sam-app"
                             } ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                           >
                             <span
-                              className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 border-white bg-white shadow-sm"
+                              className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 border-sam-surface bg-sam-surface shadow-sm"
                               style={{
                                 borderColor: selected ? SHEET_ACCENT : "#CCD0D5",
                               }}
@@ -198,9 +198,9 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                                 />
                               ) : null}
                             </span>
-                            <span className="min-w-0 flex-1 text-[15px] text-zinc-900">{opt.name}</span>
+                            <span className="min-w-0 flex-1 text-[15px] text-sam-fg">{opt.name}</span>
                             <span
-                              className={`shrink-0 text-[14px] font-semibold ${selected ? "text-[#1877F2]" : "text-zinc-600"}`}
+                              className={`shrink-0 text-[14px] font-semibold ${selected ? "text-[#1877F2]" : "text-sam-muted"}`}
                             >
                               {deltaLabel(opt.priceDelta)}
                             </span>
@@ -221,11 +221,11 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                             !dim && toggleMulti(g.key, opt.name, maxS, minS, value.pick[g.key] ?? [])
                           }
                           className={`flex w-full items-center gap-3 rounded-ui-rect px-2 py-2.5 text-left transition-colors ${
-                            selected ? "bg-[#E7F3FF]" : "hover:bg-zinc-50"
+                            selected ? "bg-[#E7F3FF]" : "hover:bg-sam-app"
                           } ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                         >
                           <span
-                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-white text-[11px] font-bold leading-none shadow-sm"
+                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-sam-surface text-[11px] font-bold leading-none shadow-sm"
                             style={{
                               borderColor: selected ? SHEET_ACCENT : "#CCD0D5",
                               color: selected ? "#fff" : "transparent",
@@ -234,9 +234,9 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           >
                             {selected ? "✓" : ""}
                           </span>
-                          <span className="min-w-0 flex-1 text-[15px] text-zinc-900">{opt.name}</span>
+                          <span className="min-w-0 flex-1 text-[15px] text-sam-fg">{opt.name}</span>
                           <span
-                            className={`shrink-0 text-[14px] font-semibold ${selected ? "text-[#1877F2]" : "text-zinc-600"}`}
+                            className={`shrink-0 text-[14px] font-semibold ${selected ? "text-[#1877F2]" : "text-sam-muted"}`}
                           >
                             {deltaLabel(opt.priceDelta)}
                           </span>
@@ -273,23 +273,23 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
 
         const header = (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[15px] font-semibold text-gray-900">{g.label}</span>
+            <span className="text-[15px] font-semibold text-sam-fg">{g.label}</span>
             {required ? (
               <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
                 필수
               </span>
             ) : (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+              <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] font-medium text-sam-muted">
                 선택
               </span>
             )}
-            <span className="text-[12px] text-gray-500">{rangeHint}</span>
+            <span className="text-[12px] text-sam-muted">{rangeHint}</span>
           </div>
         );
 
         const body = (
           <div className="mt-2 space-y-2">
-            {g.description ? <p className="text-[12px] text-gray-500">{g.description}</p> : null}
+            {g.description ? <p className="text-[12px] text-sam-muted">{g.description}</p> : null}
             {g.inputType === "quantity" ? (
               <ul className="space-y-3">
                 {g.options.map((opt) => {
@@ -308,18 +308,18 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                   return (
                     <li
                       key={opt.key}
-                      className="flex items-center justify-between gap-3 rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5"
+                      className="flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-[14px] font-medium text-gray-900">{opt.name}</p>
-                        <p className="text-[13px] text-gray-600">{deltaLabel(opt.priceDelta)}</p>
+                        <p className="text-[14px] font-medium text-sam-fg">{opt.name}</p>
+                        <p className="text-[13px] text-sam-muted">{deltaLabel(opt.priceDelta)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button
                           type="button"
                           disabled={disabled || opt.soldOut || q <= 0 || blockDec}
                           onClick={() => setQty(g.key, opt.key, q - 1)}
-                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-gray-200 text-lg leading-none text-gray-800 disabled:opacity-40"
+                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-sam-border text-lg leading-none text-sam-fg disabled:opacity-40"
                         >
                           −
                         </button>
@@ -328,7 +328,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           type="button"
                           disabled={disabled || opt.soldOut || q >= maxForThis}
                           onClick={() => setQty(g.key, opt.key, q + 1)}
-                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-gray-200 text-lg leading-none text-gray-800 disabled:opacity-40"
+                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-sam-border text-lg leading-none text-sam-fg disabled:opacity-40"
                         >
                           +
                         </button>
@@ -346,8 +346,8 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                   const selected = (value.pick[g.key] ?? []).includes(opt.name);
                   const btnBase =
                     "flex w-full items-center justify-between rounded-ui-rect border px-3 py-3 text-left transition-colors";
-                  const btnOn = "border-signature bg-signature/5 text-gray-900";
-                  const btnOff = "border-gray-200 bg-white text-gray-900";
+                  const btnOn = "border-signature bg-signature/5 text-sam-fg";
+                  const btnOff = "border-sam-border bg-sam-surface text-sam-fg";
                   const dim = disabled || opt.soldOut;
                   if (single) {
                     return (
@@ -365,7 +365,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           className={`${btnBase} ${selected ? btnOn : btnOff} ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                         >
                           <span className="text-[15px] font-medium">{opt.name}</span>
-                          <span className="shrink-0 text-[14px] font-semibold text-gray-700">
+                          <span className="shrink-0 text-[14px] font-semibold text-sam-fg">
                             {deltaLabel(opt.priceDelta)}
                           </span>
                         </button>
@@ -385,7 +385,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                         className={`${btnBase} ${selected ? btnOn : btnOff} ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                       >
                         <span className="text-[15px] font-medium">{opt.name}</span>
-                        <span className="shrink-0 text-[14px] font-semibold text-gray-700">
+                        <span className="shrink-0 text-[14px] font-semibold text-sam-fg">
                           {deltaLabel(opt.priceDelta)}
                         </span>
                       </button>
@@ -402,7 +402,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
             <details
               key={g.key}
               open={isOpen}
-              className="rounded-ui-rect border border-gray-100 bg-white p-3 shadow-sm"
+              className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm"
               onToggle={(e) => {
                 const el = e.currentTarget;
                 setOpenKeys((k) => ({ ...k, [g.key]: el.open }));
@@ -417,7 +417,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
         }
 
         return (
-          <section key={g.key} className="rounded-ui-rect border border-gray-100 bg-white p-3 shadow-sm">
+          <section key={g.key} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm">
             {header}
             {body}
           </section>

@@ -76,18 +76,18 @@ export function HomeFeedPolicyForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         섹션: {SECTION_LABELS[initial.sectionKey]}
       </p>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           섹션 라벨
         </label>
         <input
           type="text"
           value={sectionLabel}
           onChange={(e) => setSectionLabel(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -96,20 +96,20 @@ export function HomeFeedPolicyForm({
           id="hfpActive"
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
-          className="rounded border-gray-300"
+          className="rounded border-sam-border"
         />
-        <label htmlFor="hfpActive" className="text-[14px] text-gray-700">
+        <label htmlFor="hfpActive" className="text-[14px] text-sam-fg">
           활성
         </label>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           정렬
         </label>
         <select
           value={sortMode}
           onChange={(e) => setSortMode(e.target.value as HomeFeedSortMode)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {SORT_OPTIONS.map((m) => (
             <option key={m} value={m}>
@@ -119,7 +119,7 @@ export function HomeFeedPolicyForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           최대 노출 수
         </label>
         <input
@@ -128,11 +128,11 @@ export function HomeFeedPolicyForm({
           max={50}
           value={maxItems}
           onChange={(e) => setMaxItems(Number(e.target.value) || 1)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           지역 범위
         </label>
         <select
@@ -140,7 +140,7 @@ export function HomeFeedPolicyForm({
           onChange={(e) =>
             setRegionScope(e.target.value as HomeFeedRegionScope)
           }
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {REGION_OPTIONS.map((r) => (
             <option key={r} value={r}>
@@ -150,7 +150,7 @@ export function HomeFeedPolicyForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           순서
         </label>
         <input
@@ -158,65 +158,65 @@ export function HomeFeedPolicyForm({
           min={0}
           value={priorityOrder}
           onChange={(e) => setPriorityOrder(Number(e.target.value) || 0)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex flex-wrap gap-3">
-        <label className="flex items-center gap-2 text-[14px] text-gray-700">
+        <label className="flex items-center gap-2 text-[14px] text-sam-fg">
           <input
             type="checkbox"
             checked={allowSponsoredMix}
             onChange={(e) => setAllowSponsoredMix(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-sam-border"
           />
           광고 혼합
         </label>
-        <label className="flex items-center gap-2 text-[14px] text-gray-700">
+        <label className="flex items-center gap-2 text-[14px] text-sam-fg">
           <input
             type="checkbox"
             checked={allowPremiumBoost}
             onChange={(e) => setAllowPremiumBoost(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-sam-border"
           />
           프리미엄 부스트
         </label>
-        <label className="flex items-center gap-2 text-[14px] text-gray-700">
+        <label className="flex items-center gap-2 text-[14px] text-sam-fg">
           <input
             type="checkbox"
             checked={allowBusinessBoost}
             onChange={(e) => setAllowBusinessBoost(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-sam-border"
           />
           상점 부스트
         </label>
-        <label className="flex items-center gap-2 text-[14px] text-gray-700">
+        <label className="flex items-center gap-2 text-[14px] text-sam-fg">
           <input
             type="checkbox"
             checked={allowPointPromotionBoost}
             onChange={(e) => setAllowPointPromotionBoost(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-sam-border"
           />
           포인트 프로모션
         </label>
-        <label className="flex items-center gap-2 text-[14px] text-gray-700">
+        <label className="flex items-center gap-2 text-[14px] text-sam-fg">
           <input
             type="checkbox"
             checked={dedupeEnabled}
             onChange={(e) => setDedupeEnabled(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-sam-border"
           />
           중복 제거
         </label>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           관리자 메모
         </label>
         <textarea
           value={adminMemo}
           onChange={(e) => setAdminMemo(e.target.value)}
           rows={2}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex gap-2">
@@ -230,7 +230,7 @@ export function HomeFeedPolicyForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg"
           >
             취소
           </button>

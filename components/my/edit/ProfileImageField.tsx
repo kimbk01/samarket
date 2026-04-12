@@ -53,13 +53,13 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
         type="button"
         onClick={pickFile}
         disabled={uploading}
-        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-gray-100 outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-60"
+        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-sam-surface-muted outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-60"
         aria-label="프로필 사진 선택"
       >
         {avatarUrl ? (
           <Image src={avatarUrl} alt="프로필" fill className="object-cover" sizes="80px" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[28px] text-gray-400">👤</div>
+          <div className="flex h-full w-full items-center justify-center text-[28px] text-sam-meta">👤</div>
         )}
       </button>
       <input
@@ -78,7 +78,7 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
             {" · "}
             <button
               type="button"
-              className="text-gray-500 underline"
+              className="text-sam-muted underline"
               onClick={() => onChangeUrl(null)}
               disabled={uploading}
             >

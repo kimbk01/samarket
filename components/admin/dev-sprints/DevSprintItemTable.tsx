@@ -29,11 +29,11 @@ export function DevSprintItemTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">스프린트</span>
+        <span className="text-[13px] text-sam-muted">스프린트</span>
         <select
           value={sprintId}
           onChange={(e) => setSprintId(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           {sprints.map((s) => (
@@ -42,13 +42,13 @@ export function DevSprintItemTable() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-gray-600">상태</span>
+        <span className="text-[13px] text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as DevSprintItemStatus | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="todo">할 일</option>
@@ -61,7 +61,7 @@ export function DevSprintItemTable() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 조건의 스프린트 작업이 없습니다.
         </div>
       ) : (
@@ -81,14 +81,14 @@ export function DevSprintItemTable() {
             return (
               <tr
                 key={i.id}
-                className={`border-b border-gray-100 ${
+                className={`border-b border-sam-border-soft ${
                   i.status === "blocked" ? "bg-red-50/30" : ""
                 }`}
               >
-                <td className="px-3 py-2.5 font-medium text-gray-900">
+                <td className="px-3 py-2.5 font-medium text-sam-fg">
                   {i.title}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-gray-600">
+                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                   {sprint?.sprintName ?? i.sprintId}
                 </td>
                 <td className="px-3 py-2.5">
@@ -98,16 +98,16 @@ export function DevSprintItemTable() {
                         ? "bg-red-100 text-red-800"
                         : i.status === "done"
                           ? "bg-emerald-50 text-emerald-700"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >
                     {getSprintItemStatusLabel(i.status)}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-gray-600">
+                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                   {getSprintItemPriorityLabel(i.priority)}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-gray-500">
+                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                   {getSprintItemOwnerTypeLabel(i.ownerType)} {i.ownerName}
                 </td>
                 <td className="px-3 py-2.5 text-[13px] text-red-600">

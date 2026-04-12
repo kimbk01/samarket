@@ -5,7 +5,7 @@ import { parseRoomId } from "@/lib/validate-params";
 
 function OrdersHubFallback() {
   return (
-    <div className="flex min-h-[40vh] items-center justify-center bg-background text-sm text-gray-500">
+    <div className="flex min-h-[40vh] items-center justify-center bg-background text-sm text-sam-muted">
       불러오는 중…
     </div>
   );

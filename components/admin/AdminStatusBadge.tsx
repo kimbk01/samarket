@@ -15,8 +15,8 @@ const LABELS: Record<ProductStatus, string> = {
 const CLASSES: Record<ProductStatus, string> = {
   active: "bg-emerald-50 text-emerald-800",
   reserved: "bg-amber-100 text-amber-800",
-  sold: "bg-gray-200 text-gray-700",
-  hidden: "bg-gray-100 text-gray-600",
+  sold: "bg-sam-border-soft text-sam-fg",
+  hidden: "bg-sam-surface-muted text-sam-muted",
   blinded: "bg-orange-100 text-orange-800",
   deleted: "bg-red-50 text-red-700",
 };

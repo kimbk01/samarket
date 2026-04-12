@@ -38,12 +38,12 @@ export function BehaviorEventTable() {
           placeholder="userId"
           value={userIdFilter}
           onChange={(e) => setUserIdFilter(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         />
         <select
           value={eventType}
           onChange={(e) => setEventType(e.target.value as BehaviorEventType | "")}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">전체</option>
           {(Object.keys(EVENT_LABELS) as BehaviorEventType[]).map((k) => (
@@ -57,34 +57,34 @@ export function BehaviorEventTable() {
           placeholder="sectionKey"
           value={sectionKeyFilter}
           onChange={(e) => setSectionKeyFilter(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       {events.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           이벤트가 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse text-[14px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <tr className="border-b border-sam-border bg-sam-app">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   일시
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   사용자
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   이벤트
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   productId
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   sectionKey
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   query
                 </th>
               </tr>
@@ -93,18 +93,18 @@ export function BehaviorEventTable() {
               {events.map((e) => (
                 <tr
                   key={e.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-600">
+                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                     {new Date(e.createdAt).toLocaleString("ko-KR")}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">{e.userId}</td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">{e.userId}</td>
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {EVENT_LABELS[e.eventType]}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-600">{e.productId ?? "-"}</td>
-                  <td className="px-3 py-2.5 text-gray-600">{e.sectionKey ?? "-"}</td>
-                  <td className="max-w-[120px] truncate px-3 py-2.5 text-gray-600">
+                  <td className="px-3 py-2.5 text-sam-muted">{e.productId ?? "-"}</td>
+                  <td className="px-3 py-2.5 text-sam-muted">{e.sectionKey ?? "-"}</td>
+                  <td className="max-w-[120px] truncate px-3 py-2.5 text-sam-muted">
                     {e.query ?? "-"}
                   </td>
                 </tr>

@@ -50,8 +50,13 @@ export function MessengerFriendsScreen({
     <section className="pt-1">
       <MessengerFriendsMyProfileStrip me={me} onEdit={() => me && onOpenProfile(me)} onOpenInviteTools={onOpenInviteTools} />
 
-      <div className="border-b border-ui-border bg-ui-page px-1 py-2">
-        <h2 className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-ui-muted">즐겨찾기</h2>
+      <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-1 py-2 shadow-[var(--messenger-shadow-soft)]">
+        <h2
+          className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide"
+          style={{ color: "var(--messenger-text-secondary)" }}
+        >
+          즐겨찾기
+        </h2>
         {favoriteFriends.length ? (
           <div className="-mx-0.5 flex gap-2 overflow-x-auto pb-0.5 pt-0.5 [scrollbar-width:thin]">
             {favoriteFriends.map((friend) => (
@@ -64,23 +69,31 @@ export function MessengerFriendsScreen({
             ))}
           </div>
         ) : (
-          <p className="px-2 py-2 text-center text-[11px] text-ui-muted">즐겨찾기 친구가 없습니다.</p>
+          <p className="px-2 py-2 text-center text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+            즐겨찾기 친구가 없습니다.
+          </p>
         )}
       </div>
 
       <button
         type="button"
         onClick={() => setRequestsSheetOpen(true)}
-        className="flex w-full items-center justify-between border-b border-ui-border bg-ui-surface px-3 py-2.5 text-left active:bg-ui-hover"
+        className="mt-2 flex w-full items-center justify-between rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-2.5 text-left shadow-[var(--messenger-shadow-soft)] active:bg-[color:var(--messenger-primary-soft)]"
+        style={{ color: "var(--messenger-text)" }}
       >
-        <span className="text-[14px] font-medium text-ui-fg">친구 요청{requestTotal > 0 ? ` (${requestTotal})` : ""}</span>
-        <span className="text-[12px] text-ui-muted" aria-hidden>
+        <span className="text-[14px] font-medium">친구 요청{requestTotal > 0 ? ` (${requestTotal})` : ""}</span>
+        <span className="text-[12px]" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
           ›
         </span>
       </button>
 
-      <div className="mt-0 border-b border-ui-border bg-ui-surface">
-        <h2 className="border-b border-ui-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-ui-muted">친구</h2>
+      <div className="mt-2 overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+        <h2
+          className="border-b border-[color:var(--messenger-divider)] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide"
+          style={{ color: "var(--messenger-text-secondary)" }}
+        >
+          친구
+        </h2>
         {sortedFriends.length ? (
           sortedFriends.map((friend) => (
             <MessengerLineFriendRow
@@ -93,23 +106,26 @@ export function MessengerFriendsScreen({
             />
           ))
         ) : (
-          <div className="px-3 py-5 text-center text-[12px] text-ui-muted">아직 친구가 없습니다.</div>
+          <div className="px-3 py-5 text-center text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+            아직 친구가 없습니다.
+          </div>
         )}
       </div>
 
-      <div className="mt-0 border-b border-ui-border">
+      <div className="mt-2">
         <button
           type="button"
           onClick={onOpenPrivacySummary}
-          className="flex w-full items-center justify-between bg-ui-surface px-3 py-2.5 text-left active:bg-ui-hover"
+          className="flex w-full items-center justify-between rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-2.5 text-left shadow-[var(--messenger-shadow-soft)] active:bg-[color:var(--messenger-primary-soft)]"
+          style={{ color: "var(--messenger-text)" }}
         >
           <div>
-            <p className="text-[14px] font-medium text-ui-fg">숨김 · 차단 · 알림 끔</p>
-            <p className="mt-0.5 text-[11px] text-ui-muted tabular-nums">
+            <p className="text-[14px] font-medium">숨김 · 차단 · 알림 끔</p>
+            <p className="mt-0.5 text-[11px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
               숨김 {friendStateModel.hidden.length} · 차단 {friendStateModel.blocked.length} · 끔 {friendStateModel.muted.length}
             </p>
           </div>
-          <span className="text-[12px] text-ui-muted" aria-hidden>
+          <span className="text-[12px]" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
             ›
           </span>
         </button>
@@ -161,15 +177,22 @@ function FavoriteStripCell({
           onOpenProfile();
         }}
       >
-        <div className="h-11 w-11 overflow-hidden rounded-full bg-ui-hover">
+        <div className="h-11 w-11 overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] ring-2 ring-[color:var(--messenger-primary-soft-2)]">
           {friend.avatarUrl?.trim() ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={friend.avatarUrl.trim()} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[12px] font-semibold text-ui-muted">{initial}</div>
+            <div
+              className="flex h-full w-full items-center justify-center text-[12px] font-semibold"
+              style={{ color: "var(--messenger-text-secondary)" }}
+            >
+              {initial}
+            </div>
           )}
         </div>
-        <span className="w-full truncate text-center text-[10px] font-medium leading-tight text-ui-fg">{friend.label}</span>
+        <span className="w-full truncate text-center text-[10px] font-medium leading-tight" style={{ color: "var(--messenger-text)" }}>
+          {friend.label}
+        </span>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ export type ChatHubSecondaryTabItem = {
 export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem[] }) {
   const { t, tt } = useI18n();
   return (
-    <div className="border-b border-ig-border bg-white">
+    <div className="border-b border-ig-border bg-sam-surface">
       <div className={`mx-auto flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4`}>
         {items.map((item) => (
           <Link

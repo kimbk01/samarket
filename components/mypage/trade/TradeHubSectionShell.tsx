@@ -38,11 +38,11 @@ export function TradeHubSectionShell({
 
       <div className="mb-4">
 
-        <h2 className="text-[17px] font-semibold text-gray-900">{tt(title)}</h2>
+        <h2 className="text-[17px] font-semibold text-sam-fg">{tt(title)}</h2>
 
         {description ? (
 
-          <p className="mt-1 text-[12px] leading-relaxed text-gray-500">{tt(description)}</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">{tt(description)}</p>
 
         ) : null}
 

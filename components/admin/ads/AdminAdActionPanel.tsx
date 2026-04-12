@@ -66,7 +66,7 @@ export function AdminAdActionPanel({
         <button
           type="button"
           onClick={() => handle(() => expireAdApplication(application.id))}
-          className="rounded border border-gray-200 bg-gray-100 px-3 py-2 text-[14px] text-gray-700 hover:bg-gray-200"
+          className="rounded border border-sam-border bg-sam-surface-muted px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-border-soft"
         >
           노출 종료
         </button>

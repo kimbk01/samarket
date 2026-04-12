@@ -59,26 +59,26 @@ export function OrderActionPanel({
 
   return (
     <div className="rounded-ui-rect border border-amber-200 bg-amber-50/40 p-4">
-      <p className="text-sm font-bold text-gray-900">운영 액션</p>
+      <p className="text-sm font-bold text-sam-fg">운영 액션</p>
       <p className="mt-1 text-xs text-amber-900">
         강제 변경은 사유 필수 · 모든 변경은 감사 로그에 쌓입니다 (mock).
       </p>
 
       {toast ? (
-        <p className="mt-2 rounded bg-white px-2 py-1 text-xs text-gray-800 ring-1 ring-gray-200">{toast}</p>
+        <p className="mt-2 rounded bg-sam-surface px-2 py-1 text-xs text-sam-fg ring-1 ring-sam-border">{toast}</p>
       ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
           onClick={() => quick("접수", () => setOrderStatus(orderId, "accepted", { actorId: "admin", actorType: "admin" }))}
         >
           주문 승인
         </button>
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
           onClick={() => quick("조리중", () => setOrderStatus(orderId, "preparing", { actorId: "admin", actorType: "admin" }))}
         >
           조리중
@@ -87,7 +87,7 @@ export function OrderActionPanel({
           <>
             <button
               type="button"
-              className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+              className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
               onClick={() =>
                 quick("픽업준비", () =>
                   setOrderStatus(orderId, "ready_for_pickup", { actorId: "admin", actorType: "admin" })
@@ -98,7 +98,7 @@ export function OrderActionPanel({
             </button>
             <button
               type="button"
-              className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+              className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
               onClick={() =>
                 quick("배송중", () => setOrderStatus(orderId, "delivering", { actorId: "admin", actorType: "admin" }))
               }
@@ -107,7 +107,7 @@ export function OrderActionPanel({
             </button>
             <button
               type="button"
-              className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+              className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
               onClick={() =>
                 quick("배송지도착", () => setOrderStatus(orderId, "arrived", { actorId: "admin", actorType: "admin" }))
               }
@@ -118,7 +118,7 @@ export function OrderActionPanel({
         ) : (
           <button
             type="button"
-            className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+            className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
             onClick={() =>
               quick("픽업대기", () =>
                 setOrderStatus(orderId, "ready_for_pickup", { actorId: "admin", actorType: "admin" })
@@ -130,7 +130,7 @@ export function OrderActionPanel({
         )}
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
           onClick={() =>
             quick("주문완료", () => setOrderStatus(orderId, "completed", { actorId: "admin", actorType: "admin" }))
           }
@@ -139,7 +139,7 @@ export function OrderActionPanel({
         </button>
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium text-red-700 ring-1 ring-red-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium text-red-700 ring-1 ring-red-200"
           onClick={() => setModal({ kind: "custom_status", next: "cancelled", force: true })}
         >
           주문 취소(강제)
@@ -149,28 +149,28 @@ export function OrderActionPanel({
       <div className="mt-3 flex flex-wrap gap-2 border-t border-amber-200/60 pt-3">
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
           onClick={() => setModal({ kind: "approve_cancel" })}
         >
           취소 요청 승인
         </button>
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
           onClick={() => setModal({ kind: "reject_cancel" })}
         >
           취소 요청 거절
         </button>
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-300 text-gray-800"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border text-sam-fg"
           onClick={() => setModal({ kind: "approve_refund" })}
         >
           환불 승인
         </button>
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
           onClick={() => setModal({ kind: "reject_refund" })}
         >
           환불 거절
@@ -180,21 +180,21 @@ export function OrderActionPanel({
       <div className="mt-3 flex flex-wrap gap-2 border-t border-amber-200/60 pt-3">
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-orange-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-orange-200"
           onClick={() => setModal({ kind: "hold_settlement" })}
         >
           정산 보류
         </button>
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-gray-200"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-sam-border"
           onClick={() => setModal({ kind: "release_settlement" })}
         >
           정산 해제
         </button>
         <button
           type="button"
-          className="rounded-ui-rect bg-white px-3 py-1.5 text-xs font-medium ring-1 ring-emerald-200 text-emerald-800"
+          className="rounded-ui-rect bg-sam-surface px-3 py-1.5 text-xs font-medium ring-1 ring-emerald-200 text-emerald-800"
           onClick={() => setModal({ kind: "mark_paid" })}
         >
           정산 완료
@@ -205,32 +205,32 @@ export function OrderActionPanel({
         <Link href="/admin/stores" className="text-signature underline">
           매장 심사/제재
         </Link>
-        <span className="text-gray-300">|</span>
+        <span className="text-sam-meta">|</span>
         <Link
           href={`/admin/delivery-orders/by-store/${encodeURIComponent(storeId)}`}
           className="text-signature underline"
         >
           이 매장 주문 이력
         </Link>
-        <span className="text-gray-300">|</span>
+        <span className="text-sam-meta">|</span>
         <Link
           href={`/admin/delivery-orders/by-buyer/${encodeURIComponent(buyerUserId)}`}
           className="text-signature underline"
         >
           이 회원 주문 이력
         </Link>
-        <span className="text-gray-300">|</span>
+        <span className="text-sam-meta">|</span>
         <Link href="/admin/delivery-orders" className="text-signature underline">
           전체 주문
         </Link>
       </div>
 
-      <div className="mt-4 rounded border border-gray-200 bg-white p-2">
-        <p className="text-xs font-semibold text-gray-700">상태 직접 변경</p>
+      <div className="mt-4 rounded border border-sam-border bg-sam-surface p-2">
+        <p className="text-xs font-semibold text-sam-fg">상태 직접 변경</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <select
             id="admin-order-next-status"
-            className="rounded border border-gray-200 px-2 py-1 text-xs"
+            className="rounded border border-sam-border px-2 py-1 text-xs"
             defaultValue="preparing"
           >
             {OS_KEYS.map((k) => (
@@ -245,7 +245,7 @@ export function OrderActionPanel({
           </label>
           <button
             type="button"
-            className="rounded bg-gray-900 px-2 py-1 text-xs text-white"
+            className="rounded bg-sam-ink px-2 py-1 text-xs text-white"
             onClick={() => {
               const sel = document.getElementById("admin-order-next-status") as HTMLSelectElement;
               const force = (document.getElementById("admin-force-status") as HTMLInputElement).checked;

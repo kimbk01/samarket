@@ -60,12 +60,12 @@ export function CountrySettingsContent() {
   );
 
   return (
-    <ul className="divide-y divide-gray-100">
+    <ul className="divide-y divide-sam-border-soft">
       {list.map((c) => (
         <li key={c.code}>
           <button
             type="button"
-            className="flex w-full items-center justify-between py-3 text-left text-[15px] text-gray-900"
+            className="flex w-full items-center justify-between py-3 text-left text-[15px] text-sam-fg"
             onClick={() => select(c.code)}
           >
             <span>{c.name}</span>

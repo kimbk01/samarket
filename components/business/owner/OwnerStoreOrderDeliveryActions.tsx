@@ -11,14 +11,14 @@ import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events"
 const BTN_PRIMARY =
   "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-2 text-center text-[13px] font-medium leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
 const BTN_DANGER =
-  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-white px-2 py-2 text-center text-[13px] font-medium leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
+  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-sam-surface px-2 py-2 text-center text-[13px] font-medium leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
 const OC_SM =
-  "text-[13px] font-normal leading-snug text-gray-500 [overflow-wrap:anywhere] [word-break:break-word]";
+  "text-[13px] font-normal leading-snug text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
 
 const TB_BTN_PRIMARY =
   "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 const TB_BTN_DANGER =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-white px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-sam-surface px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 
 export type OwnerDeliveryOrderRef = {
   id: string;
@@ -153,7 +153,7 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
     }
     if (!showTransitionButtons) {
       return (
-        <p className={`${OC_SM} text-gray-400`}>이 주문은 더 이상 상태를 바꿀 수 없습니다.</p>
+        <p className={`${OC_SM} text-sam-meta`}>이 주문은 더 이상 상태를 바꿀 수 없습니다.</p>
       );
     }
     return null;
@@ -226,10 +226,10 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
       );
     }
     if (order.order_status === "refunded") {
-      return <p className="text-[11px] leading-snug text-gray-500">환불 처리 완료</p>;
+      return <p className="text-[11px] leading-snug text-sam-muted">환불 처리 완료</p>;
     }
     if (!showTransitionButtons) {
-      return <p className="text-[11px] leading-snug text-gray-400">이 단계에서는 변경할 수 없습니다.</p>;
+      return <p className="text-[11px] leading-snug text-sam-meta">이 단계에서는 변경할 수 없습니다.</p>;
     }
     return null;
   }, [order.order_status, showTransitionButtons]);
@@ -237,7 +237,7 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
   return (
     <div className="shrink-0 border-b border-ig-border bg-background px-3 py-2">
       <div className="mb-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-        <p className="min-w-0 truncate text-[13px] font-semibold text-gray-900">
+        <p className="min-w-0 truncate text-[13px] font-semibold text-sam-fg">
           <span className="text-muted">주문</span> {orderNo}
         </p>
         <p className="shrink-0 text-[12px] font-medium text-[#555]">{statusLabel}</p>
@@ -289,7 +289,7 @@ export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactN
     return <p className={OC_SM}>환불 처리된 주문입니다.</p>;
   }
   if (!showTransitionButtons) {
-    return <p className={`${OC_SM} text-gray-400`}>이 주문은 더 이상 상태를 바꿀 수 없습니다.</p>;
+    return <p className={`${OC_SM} text-sam-meta`}>이 주문은 더 이상 상태를 바꿀 수 없습니다.</p>;
   }
   return null;
 }

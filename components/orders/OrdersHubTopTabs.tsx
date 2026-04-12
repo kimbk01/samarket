@@ -71,7 +71,7 @@ export function OrdersHubTopTabs({
 
   return (
     <div
-      className="flex w-full min-w-0 touch-pan-y border-t border-black/[0.08] bg-white"
+      className="flex w-full min-w-0 touch-pan-y border-t border-sam-fg/[0.08] bg-sam-surface"
       onTouchStart={onSwipeTouchStart}
       onTouchEnd={onSwipeTouchEnd}
     >
@@ -95,7 +95,7 @@ export function OrdersHubTopTabs({
                 onClick={() => onSelect(id)}
                 className={[
                   "flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center px-1 text-center text-[14px] leading-snug transition-colors duration-200 [text-wrap:balance] sm:px-1.5 sm:text-[15px]",
-                  isOn ? "font-semibold text-gray-900" : "font-medium text-gray-500 hover:text-gray-700",
+                  isOn ? "font-semibold text-sam-fg" : "font-medium text-sam-muted hover:text-sam-fg",
                 ].join(" ")}
               >
                 {labelKey ? t(labelKey) : tt(label)}
@@ -104,7 +104,7 @@ export function OrdersHubTopTabs({
           })}
         </div>
         <div
-          className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-gray-900 transition-[left,width] duration-300 ease-out"
+          className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-sam-ink transition-[left,width] duration-300 ease-out"
           style={{ left: indicator.left, width: indicator.width }}
           aria-hidden
         />

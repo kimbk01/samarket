@@ -9,33 +9,33 @@ interface UserBehaviorProfileTableProps {
 export function UserBehaviorProfileTable({ profiles }: UserBehaviorProfileTableProps) {
   if (profiles.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         사용자 행동 프로필이 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               사용자
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               선호 지역
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               관심 카테고리
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               최근 본
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               찜/채팅
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               갱신
             </th>
           </tr>
@@ -44,24 +44,24 @@ export function UserBehaviorProfileTable({ profiles }: UserBehaviorProfileTableP
           {profiles.map((p) => (
             <tr
               key={p.userId}
-              className="border-b border-gray-100 hover:bg-gray-50"
+              className="border-b border-sam-border-soft hover:bg-sam-app"
             >
-              <td className="px-3 py-2.5 font-medium text-gray-900">{p.userId}</td>
-              <td className="max-w-[140px] truncate px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">{p.userId}</td>
+              <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-fg">
                 {[p.preferredRegion, p.preferredCity, p.preferredBarangay]
                   .filter(Boolean)
                   .join(" · ") || "-"}
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="max-w-[120px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
                 {p.favoriteCategories.slice(0, 3).join(", ") || "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {p.recentViewedProductIds.length}건 / {p.recentViewedCategories.slice(0, 2).join(", ") || "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 찜 {p.recentFavoritedProductIds.length} / 채팅 {p.recentChattedProductIds.length}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(p.updatedAt).toLocaleString("ko-KR")}
               </td>
             </tr>

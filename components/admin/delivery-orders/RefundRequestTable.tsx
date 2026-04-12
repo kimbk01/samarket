@@ -13,13 +13,13 @@ export function RefundRequestTable({
   onReject: (orderId: string) => void;
 }) {
   if (rows.length === 0) {
-    return <p className="py-6 text-center text-sm text-gray-500">대기 중인 환불 요청이 없습니다.</p>;
+    return <p className="py-6 text-center text-sm text-sam-muted">대기 중인 환불 요청이 없습니다.</p>;
   }
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[960px] border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-600">
+          <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
             <th className="px-2 py-2">주문번호</th>
             <th className="px-2 py-2">요청자</th>
             <th className="px-2 py-2">매장</th>
@@ -31,12 +31,12 @@ export function RefundRequestTable({
         </thead>
         <tbody>
           {rows.map((o) => (
-            <tr key={o.id} className="border-b border-gray-100">
+            <tr key={o.id} className="border-b border-sam-border-soft">
               <td className="px-2 py-2 font-mono text-[12px]">{o.orderNo}</td>
               <td className="px-2 py-2">{o.refundRequest?.requestedBy ?? "—"}</td>
               <td className="px-2 py-2 max-w-[160px] truncate">{o.storeName}</td>
               <td className="px-2 py-2 text-xs">{o.refundRequest?.category ?? "—"}</td>
-              <td className="px-2 py-2 whitespace-nowrap text-gray-600">
+              <td className="px-2 py-2 whitespace-nowrap text-sam-muted">
                 {o.refundRequest ? new Date(o.refundRequest.requestedAt).toLocaleString("ko-KR") : "—"}
               </td>
               <td className="px-2 py-2 max-w-[260px]">{o.refundRequest?.reason ?? "—"}</td>

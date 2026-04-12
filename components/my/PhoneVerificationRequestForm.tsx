@@ -86,45 +86,45 @@ export function PhoneVerificationRequestForm() {
   };
 
   if (loading) {
-    return <p className="py-8 text-center text-[14px] text-gray-500">불러오는 중…</p>;
+    return <p className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</p>;
   }
 
   return (
     <div className="space-y-4">
       <div className="rounded-ui-rect border border-ig-border bg-signature/5 px-4 py-3">
-        <p className="text-sm font-semibold text-gray-900">필리핀 전화번호 인증</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
+        <p className="text-sm font-semibold text-sam-fg">필리핀 전화번호 인증</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">
           전화번호 인증 전까지는 열람만 가능하며 글쓰기, 거래, 주문, 채팅은 사용할 수 없습니다. 현재 단계에서는
           인증 요청을 저장한 뒤 관리자가 승인합니다.
         </p>
       </div>
 
-      <div className="rounded-ui-rect bg-white p-4 shadow-sm">
-        <p className="text-[13px] text-gray-500">현재 상태</p>
-        <p className="mt-1 text-[16px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect bg-sam-surface p-4 shadow-sm">
+        <p className="text-[13px] text-sam-muted">현재 상태</p>
+        <p className="mt-1 text-[16px] font-semibold text-sam-fg">
           {status?.phone_verified
             ? "인증 완료"
             : status?.phone_verification_status === "pending"
               ? "승인 대기"
               : "미인증"}
         </p>
-        <p className="mt-1 text-[13px] text-gray-600">{status?.help_text ?? ""}</p>
+        <p className="mt-1 text-[13px] text-sam-muted">{status?.help_text ?? ""}</p>
       </div>
 
-      <form onSubmit={submit} className="space-y-4 rounded-ui-rect bg-white p-4 shadow-sm">
+      <form onSubmit={submit} className="space-y-4 rounded-ui-rect bg-sam-surface p-4 shadow-sm">
         <div>
-          <label className="block text-[13px] font-medium text-gray-700">닉네임</label>
+          <label className="block text-[13px] font-medium text-sam-fg">닉네임</label>
           <input
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             maxLength={20}
             required
-            className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         <div>
-          <label className="block text-[13px] font-medium text-gray-700">필리핀 전화번호</label>
+          <label className="block text-[13px] font-medium text-sam-fg">필리핀 전화번호</label>
           <input
             type="tel"
             inputMode="numeric"
@@ -133,7 +133,7 @@ export function PhoneVerificationRequestForm() {
             onChange={(e) => setPhoneDigits(parsePhMobileInput(e.target.value))}
             placeholder={PH_MOBILE_PLACEHOLDER}
             required
-            className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         {error ? <p className="text-[13px] text-red-600">{error}</p> : null}

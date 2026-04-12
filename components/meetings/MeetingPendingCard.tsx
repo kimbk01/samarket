@@ -40,7 +40,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
   };
 
   return (
-    <div className="mx-0 mt-4 overflow-hidden rounded-ui-rect border border-amber-200 bg-white shadow-sm">
+    <div className="mx-0 mt-4 overflow-hidden rounded-ui-rect border border-amber-200 bg-sam-surface shadow-sm">
       {/* 상단 상태 바 */}
       <div className="flex items-center gap-3 bg-amber-50 px-5 py-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
@@ -56,7 +56,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
 
       {/* 안내 내용 */}
       <div className="px-5 py-4">
-        <ul className="space-y-2 text-[13px] text-gray-600">
+        <ul className="space-y-2 text-[13px] text-sam-muted">
           <li className="flex items-start gap-2">
             <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
             승인되면 모임 상세를 이용할 수 있어요.
@@ -67,8 +67,8 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
           </li>
           {requestedAt && (
             <li className="flex items-start gap-2">
-              <span className="mt-0.5 shrink-0 text-gray-400">·</span>
-              <span className="text-gray-400">신청일: {formatKorDateTime(requestedAt)}</span>
+              <span className="mt-0.5 shrink-0 text-sam-meta">·</span>
+              <span className="text-sam-meta">신청일: {formatKorDateTime(requestedAt)}</span>
             </li>
           )}
         </ul>
@@ -79,7 +79,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
           <button
             type="button"
             onClick={onInquiry}
-            className="flex-1 rounded-ui-rect border border-gray-200 py-3 text-[13px] font-semibold text-gray-700 hover:bg-gray-50"
+            className="flex-1 rounded-ui-rect border border-sam-border py-3 text-[13px] font-semibold text-sam-fg hover:bg-sam-app"
           >
             운영자 문의
           </button>

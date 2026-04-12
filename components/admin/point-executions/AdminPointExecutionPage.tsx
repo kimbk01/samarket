@@ -71,7 +71,7 @@ export function AdminPointExecutionPage() {
     <div className="space-y-4">
       <AdminPageHeader title="포인트 지급/회수 실행" />
 
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+      <div className="flex flex-wrap gap-2 border-b border-sam-border">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -80,7 +80,7 @@ export function AdminPointExecutionPage() {
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === t.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {t.label}
@@ -93,42 +93,42 @@ export function AdminPointExecutionPage() {
           <AdminCard title="테스트 지급 실행">
             <form onSubmit={handleTestExecute} className="flex flex-wrap items-end gap-2 text-[14px]">
               <div>
-                <label className="mb-0.5 block text-[12px] text-gray-600">게시판</label>
-                <select name="boardKey" className="rounded border border-gray-200 px-2 py-1.5" defaultValue="general">
+                <label className="mb-0.5 block text-[12px] text-sam-muted">게시판</label>
+                <select name="boardKey" className="rounded border border-sam-border px-2 py-1.5" defaultValue="general">
                   {BOARD_OPTIONS.map((b) => (
                     <option key={b.key} value={b.key}>{b.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-gray-600">행동</label>
-                <select name="actionType" className="rounded border border-gray-200 px-2 py-1.5" defaultValue="write">
+                <label className="mb-0.5 block text-[12px] text-sam-muted">행동</label>
+                <select name="actionType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="write">
                   <option value="write">글쓰기</option>
                   <option value="comment">댓글</option>
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-gray-600">대상 ID</label>
-                <input name="targetId" type="text" className="w-28 rounded border border-gray-200 px-2 py-1.5" defaultValue="post-test-1" />
+                <label className="mb-0.5 block text-[12px] text-sam-muted">대상 ID</label>
+                <input name="targetId" type="text" className="w-28 rounded border border-sam-border px-2 py-1.5" defaultValue="post-test-1" />
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-gray-600">대상 유형</label>
-                <select name="targetType" className="rounded border border-gray-200 px-2 py-1.5" defaultValue="post">
+                <label className="mb-0.5 block text-[12px] text-sam-muted">대상 유형</label>
+                <select name="targetType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="post">
                   <option value="post">글</option>
                   <option value="comment">댓글</option>
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-gray-600">사용자 ID</label>
-                <input name="userId" type="text" className="w-24 rounded border border-gray-200 px-2 py-1.5" defaultValue="me" />
+                <label className="mb-0.5 block text-[12px] text-sam-muted">사용자 ID</label>
+                <input name="userId" type="text" className="w-24 rounded border border-sam-border px-2 py-1.5" defaultValue="me" />
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-gray-600">닉네임</label>
-                <input name="userNickname" type="text" className="w-24 rounded border border-gray-200 px-2 py-1.5" defaultValue="테스트" />
+                <label className="mb-0.5 block text-[12px] text-sam-muted">닉네임</label>
+                <input name="userNickname" type="text" className="w-24 rounded border border-sam-border px-2 py-1.5" defaultValue="테스트" />
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-gray-600">회원 유형</label>
-                <select name="userType" className="rounded border border-gray-200 px-2 py-1.5" defaultValue="free">
+                <label className="mb-0.5 block text-[12px] text-sam-muted">회원 유형</label>
+                <select name="userType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="free">
                   <option value="free">{USER_TYPE_LABELS.free}</option>
                   <option value="premium">{USER_TYPE_LABELS.premium}</option>
                 </select>

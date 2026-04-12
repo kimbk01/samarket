@@ -38,13 +38,13 @@ export function ProductionMigrationTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">도메인</span>
+        <span className="text-[13px] text-sam-muted">도메인</span>
         <select
           value={domain}
           onChange={(e) =>
             setDomain((e.target.value || "") as ProductionMigrationDomain | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           {domains.map((d) => (
             <option key={d.value || "all"} value={d.value}>
@@ -55,7 +55,7 @@ export function ProductionMigrationTable() {
       </div>
 
       {tables.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 도메인 테이블이 없습니다.
         </div>
       ) : (
@@ -76,14 +76,14 @@ export function ProductionMigrationTable() {
           {tables.map((t) => (
             <tr
               key={t.id}
-              className={`border-b border-gray-100 ${
+              className={`border-b border-sam-border-soft ${
                 t.blockerReason ? "bg-red-50/30" : ""
               }`}
             >
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getDomainLabel(t.domain)}
               </td>
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {t.tableName}
               </td>
               <td className="px-3 py-2.5">
@@ -92,32 +92,32 @@ export function ProductionMigrationTable() {
                     t.status === "production_ready"
                       ? "bg-emerald-100 text-emerald-800"
                       : t.status === "mock_only"
-                        ? "bg-gray-100 text-gray-600"
+                        ? "bg-sam-surface-muted text-sam-muted"
                         : "bg-amber-100 text-amber-800"
                   }`}
                 >
                   {getTableStatusLabel(t.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {t.hasRls ? "Y" : "N"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {t.hasIndexes ? "Y" : "N"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {t.hasTriggers ? "Y" : "N"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {t.hasViews ? "Y" : "N"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {t.hasRpc ? "Y" : "N"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {t.ownerAdminNickname ?? "-"}
               </td>
-              <td className="max-w-[180px] px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="max-w-[180px] px-3 py-2.5 text-[13px] text-sam-muted">
                 {t.blockerReason || t.note || "-"}
               </td>
             </tr>

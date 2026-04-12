@@ -79,7 +79,7 @@ export function MyPointsView() {
         <button
           type="button"
           onClick={() => setShowChargeForm(true)}
-          className="mt-4 rounded-ui-rect border border-white/40 bg-white/20 px-4 py-2 text-[14px] font-semibold text-white backdrop-blur hover:bg-white/30"
+          className="mt-4 rounded-ui-rect border border-sam-surface/40 bg-sam-surface/20 px-4 py-2 text-[14px] font-semibold text-white backdrop-blur hover:bg-sam-surface/30"
         >
           + 포인트 충전 신청
         </button>
@@ -91,7 +91,7 @@ export function MyPointsView() {
       </div>
 
       {/* 탭 */}
-      <div className="sticky top-0 z-10 flex gap-0 border-b border-gray-200 bg-white">
+      <div className="sticky top-0 z-10 flex gap-0 border-b border-sam-border bg-sam-surface">
         {(
           [
             { id: "balance", label: "내역 요약" },
@@ -106,7 +106,7 @@ export function MyPointsView() {
             className={`flex-1 py-3 text-[13px] font-semibold transition-colors ${
               activeTab === id
                 ? "border-b-2 border-sky-600 text-sky-700"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-sam-muted hover:text-sam-fg"
             }`}
           >
             {label}
@@ -138,30 +138,30 @@ export function MyPointsView() {
                   color: "text-red-600",
                 },
               ].map(({ label, value, color }) => (
-                <div key={label} className="rounded-ui-rect border border-gray-100 bg-white px-4 py-3 text-center shadow-sm">
+                <div key={label} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-3 text-center shadow-sm">
                   <p className={`text-[18px] font-bold ${color}`}>{value}</p>
-                  <p className="mt-1 text-[11px] text-gray-500">{label}</p>
+                  <p className="mt-1 text-[11px] text-sam-muted">{label}</p>
                 </div>
               ))}
             </div>
 
             {/* 최근 원장 5건 */}
-            <div className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
-              <div className="border-b border-gray-100 px-4 py-3">
-                <h3 className="text-[14px] font-semibold text-gray-900">최근 포인트 내역</h3>
+            <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
+              <div className="border-b border-sam-border-soft px-4 py-3">
+                <h3 className="text-[14px] font-semibold text-sam-fg">최근 포인트 내역</h3>
               </div>
               {ledger.length === 0 ? (
-                <p className="py-8 text-center text-[13px] text-gray-400">내역이 없습니다.</p>
+                <p className="py-8 text-center text-[13px] text-sam-meta">내역이 없습니다.</p>
               ) : (
-                <ul className="divide-y divide-gray-50">
+                <ul className="divide-y divide-sam-border-soft">
                   {ledger.slice(0, 5).map((l) => (
                     <li key={l.id} className="flex items-center justify-between px-4 py-3">
                       <div>
-                        <p className="text-[13px] font-medium text-gray-900">
+                        <p className="text-[13px] font-medium text-sam-fg">
                           {LEDGER_TYPE_LABELS[l.entryType] ?? l.entryType}
                         </p>
-                        <p className="text-[11px] text-gray-500">{l.description}</p>
-                        <p className="text-[10px] text-gray-400">
+                        <p className="text-[11px] text-sam-muted">{l.description}</p>
+                        <p className="text-[10px] text-sam-meta">
                           {new Date(l.createdAt).toLocaleString("ko-KR")}
                         </p>
                       </div>
@@ -169,14 +169,14 @@ export function MyPointsView() {
                         <p className={`text-[15px] font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                           {l.amount >= 0 ? "+" : ""}{l.amount.toLocaleString()}P
                         </p>
-                        <p className="text-[11px] text-gray-400">잔액 {l.balanceAfter.toLocaleString()}P</p>
+                        <p className="text-[11px] text-sam-meta">잔액 {l.balanceAfter.toLocaleString()}P</p>
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
               {ledger.length > 5 && (
-                <div className="border-t border-gray-100 px-4 py-2 text-center">
+                <div className="border-t border-sam-border-soft px-4 py-2 text-center">
                   <button
                     type="button"
                     onClick={() => setActiveTab("ledger")}
@@ -190,16 +190,16 @@ export function MyPointsView() {
 
             {/* 충전 신청 현황 */}
             {charges.length > 0 && (
-              <div className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
-                <div className="border-b border-gray-100 px-4 py-3">
-                  <h3 className="text-[14px] font-semibold text-gray-900">충전 신청 현황</h3>
+              <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
+                <div className="border-b border-sam-border-soft px-4 py-3">
+                  <h3 className="text-[14px] font-semibold text-sam-fg">충전 신청 현황</h3>
                 </div>
-                <ul className="divide-y divide-gray-50">
+                <ul className="divide-y divide-sam-border-soft">
                   {charges.slice(0, 3).map((c) => (
                     <li key={c.id} className="flex items-center justify-between px-4 py-3">
                       <div>
-                        <p className="text-[13px] font-medium text-gray-900">{c.planName}</p>
-                        <p className="text-[11px] text-gray-400">
+                        <p className="text-[13px] font-medium text-sam-fg">{c.planName}</p>
+                        <p className="text-[11px] text-sam-meta">
                           {new Date(c.requestedAt).toLocaleDateString("ko-KR")}
                         </p>
                       </div>
@@ -217,11 +217,11 @@ export function MyPointsView() {
 
         {/* ── 원장 탭 ── */}
         {activeTab === "ledger" && (
-          <div className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
             {ledger.length === 0 ? (
-              <p className="py-10 text-center text-[13px] text-gray-400">포인트 내역이 없습니다.</p>
+              <p className="py-10 text-center text-[13px] text-sam-meta">포인트 내역이 없습니다.</p>
             ) : (
-              <ul className="divide-y divide-gray-50">
+              <ul className="divide-y divide-sam-border-soft">
                 {ledger.map((l) => (
                   <li key={l.id} className="flex items-start justify-between px-4 py-3">
                     <div className="min-w-0 flex-1">
@@ -235,9 +235,9 @@ export function MyPointsView() {
                         >
                           {LEDGER_TYPE_LABELS[l.entryType] ?? l.entryType}
                         </span>
-                        <p className="truncate text-[13px] font-medium text-gray-900">{l.description}</p>
+                        <p className="truncate text-[13px] font-medium text-sam-fg">{l.description}</p>
                       </div>
-                      <p className="mt-0.5 text-[11px] text-gray-400">
+                      <p className="mt-0.5 text-[11px] text-sam-meta">
                         {new Date(l.createdAt).toLocaleString("ko-KR")}
                       </p>
                     </div>
@@ -245,7 +245,7 @@ export function MyPointsView() {
                       <p className={`text-[14px] font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                         {l.amount >= 0 ? "+" : ""}{l.amount.toLocaleString()}P
                       </p>
-                      <p className="text-[11px] text-gray-400">{l.balanceAfter.toLocaleString()}P</p>
+                      <p className="text-[11px] text-sam-meta">{l.balanceAfter.toLocaleString()}P</p>
                     </div>
                   </li>
                 ))}
@@ -266,18 +266,18 @@ export function MyPointsView() {
             </button>
 
             {charges.length === 0 ? (
-              <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-10 text-center text-[13px] text-gray-400">
+              <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center text-[13px] text-sam-meta">
                 충전 신청 내역이 없습니다.
               </div>
             ) : (
-              <div className="rounded-ui-rect border border-gray-100 bg-white shadow-sm">
-                <ul className="divide-y divide-gray-50">
+              <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
+                <ul className="divide-y divide-sam-border-soft">
                   {charges.map((c) => (
                     <li key={c.id} className="px-4 py-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-[14px] font-semibold text-gray-900">{c.planName}</p>
-                          <dl className="mt-1 space-y-0.5 text-[12px] text-gray-500">
+                          <p className="text-[14px] font-semibold text-sam-fg">{c.planName}</p>
+                          <dl className="mt-1 space-y-0.5 text-[12px] text-sam-muted">
                             <div className="flex gap-2">
                               <dt className="w-16 shrink-0">결제 방식</dt>
                               <dd>{c.paymentMethod === "manual_confirm" ? "계좌 입금" : "이체"}</dd>
@@ -308,7 +308,7 @@ export function MyPointsView() {
                               type="button"
                               disabled={cancelling === c.id}
                               onClick={() => void cancelCharge(c.id)}
-                              className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-600 disabled:opacity-50"
+                              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted disabled:opacity-50"
                             >
                               {cancelling === c.id ? "취소중…" : "신청 취소"}
                             </button>

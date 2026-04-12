@@ -10,7 +10,7 @@ export function MyPageSectionHeader({
 }) {
   if (!title?.trim() && !description?.trim()) return null;
   return (
-    <div className="space-y-1 border-b border-gray-200 pb-2.5">
+    <div className="space-y-1 border-b border-sam-border pb-2.5">
       {title?.trim() ? <h2 className={MYPAGE_TYPO.title}>{title.trim()}</h2> : null}
       {description?.trim() ? (
         <p className={MYPAGE_TYPO.description}>{description.trim()}</p>

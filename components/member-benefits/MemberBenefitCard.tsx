@@ -14,12 +14,12 @@ export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardP
 
   return (
     <div
-      className={`rounded-ui-rect border bg-white p-4 ${
+      className={`rounded-ui-rect border bg-sam-surface p-4 ${
         isPremium
           ? "border-amber-200 bg-amber-50/30"
           : isAdmin
             ? "border-indigo-200 bg-indigo-50/30"
-            : "border-gray-200"
+            : "border-sam-border"
       } ${className}`}
     >
       <div className="flex items-center gap-2">
@@ -29,24 +29,24 @@ export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardP
               ? "bg-amber-100 text-amber-800"
               : isAdmin
                 ? "bg-indigo-100 text-indigo-800"
-                : "bg-gray-100 text-gray-700"
+                : "bg-sam-surface-muted text-sam-fg"
           }`}
         >
           {MEMBER_TYPE_LABELS[policy.memberType]}
         </span>
         {!policy.isActive && (
-          <span className="rounded bg-gray-200 px-2 py-0.5 text-[11px] text-gray-600">
+          <span className="rounded bg-sam-border-soft px-2 py-0.5 text-[11px] text-sam-muted">
             비활성
           </span>
         )}
       </div>
-      <h3 className="mt-2 text-[15px] font-semibold text-gray-900">
+      <h3 className="mt-2 text-[15px] font-semibold text-sam-fg">
         {policy.title}
       </h3>
       {policy.description && (
-        <p className="mt-1 text-[13px] text-gray-600">{policy.description}</p>
+        <p className="mt-1 text-[13px] text-sam-muted">{policy.description}</p>
       )}
-      <ul className="mt-3 space-y-1 text-[13px] text-gray-700">
+      <ul className="mt-3 space-y-1 text-[13px] text-sam-fg">
         {policy.badgeLabel && (
           <li>· 프로필 배지: {policy.badgeLabel}</li>
         )}

@@ -742,20 +742,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (!cart.hydrated) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-gray-500">{t("common_loading")}</div>
+      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-sam-muted">{t("common_loading")}</div>
     );
   }
 
   if (storeLoading) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-gray-500">{t("common_loading")}</div>
+      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-sam-muted">{t("common_loading")}</div>
     );
   }
 
   if (storeLoadFailed || !store) {
     return (
       <div className="min-h-screen bg-[#F7F7F7]">
-        <p className="px-4 py-12 text-center text-sm text-gray-600">{t("common_store_info_load_failed")}</p>
+        <p className="px-4 py-12 text-center text-sm text-sam-muted">{t("common_store_info_load_failed")}</p>
         <div className="px-4 text-center">
           <Link href="/stores" className="text-sm font-medium text-signature">
             {t("common_store")}
@@ -769,9 +769,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return (
       <div className="min-h-screen bg-[#F7F7F7] pb-8">
         <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
-          <div className="w-full border-b border-gray-100 bg-white">
+          <div className="w-full border-b border-sam-border-soft bg-sam-surface">
             <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-              <h1 className="py-3 text-center text-[16px] font-semibold text-gray-900">장바구니</h1>
+              <h1 className="py-3 text-center text-[16px] font-semibold text-sam-fg">장바구니</h1>
             </div>
           </div>
         </div>
@@ -786,19 +786,19 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </Link>
             <Link
               href={`/my/store-orders/${encodeURIComponent(lastOrderId)}`}
-              className="text-[14px] text-gray-700 underline"
+              className="text-[14px] text-sam-fg underline"
             >
               이 주문 진행 보기
             </Link>
             <Link
               href={`/my/store-orders/${encodeURIComponent(lastOrderId)}/chat`}
-              className="text-[14px] text-gray-700 underline"
+              className="text-[14px] text-sam-fg underline"
             >
               매장 문의 남기기
             </Link>
             <Link
               href={`/stores/${encodeURIComponent(store.slug)}`}
-              className="text-[14px] text-gray-600 underline"
+              className="text-[14px] text-sam-muted underline"
             >
               매장으로 돌아가기
             </Link>
@@ -812,14 +812,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return (
       <div className="min-h-screen bg-[#F7F7F7] pb-8">
         <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
-          <div className="w-full border-b border-gray-100 bg-white">
+          <div className="w-full border-b border-sam-border-soft bg-sam-surface">
             <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-              <h1 className="py-3 text-center text-[16px] font-semibold text-gray-900">장바구니</h1>
+              <h1 className="py-3 text-center text-[16px] font-semibold text-sam-fg">장바구니</h1>
             </div>
           </div>
         </div>
         <div className="px-4 py-6">
-          <p className="text-[14px] text-gray-600">이 매장 장바구니가 비어 있습니다.</p>
+          <p className="text-[14px] text-sam-muted">이 매장 장바구니가 비어 있습니다.</p>
           {otherBuckets.length > 0 ? (
             <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] leading-relaxed text-amber-950">
               <p className="font-medium text-amber-950">
@@ -886,9 +886,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
-        <div className="w-full border-b border-gray-100 bg-white">
+        <div className="w-full border-b border-sam-border-soft bg-sam-surface">
           <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-            <h1 className="py-3 text-center text-[16px] font-semibold text-gray-900">{t("common_cart")}</h1>
+            <h1 className="py-3 text-center text-[16px] font-semibold text-sam-fg">{t("common_cart")}</h1>
           </div>
         </div>
       </div>
@@ -911,7 +911,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           return (
             <div
               key={line.lineId}
-              className="flex gap-3 rounded border border-stone-300 bg-white p-3 shadow-sm"
+              className="flex gap-3 rounded border border-sam-border bg-sam-surface p-3 shadow-sm"
             >
               <div className="relative h-16 w-16 shrink-0 overflow-visible">
                 {showDiscBadge ? (
@@ -919,7 +919,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     {lineDiscPct}%
                   </span>
                 ) : null}
-                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded bg-gradient-to-br from-gray-100 to-gray-200 text-2xl text-gray-400">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded bg-gradient-to-br from-sam-surface-muted to-sam-border-soft text-2xl text-sam-meta">
                   {line.thumbnailUrl?.trim() ? (
                     <img
                       src={line.thumbnailUrl.trim()}
@@ -932,9 +932,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-semibold text-gray-900">{line.title}</p>
-                <p className="mt-0.5 text-[12px] text-gray-500">
-                  <span className="font-medium text-gray-600">{t("common_option")}</span>{" "}
+                <p className="text-[15px] font-semibold text-sam-fg">{line.title}</p>
+                <p className="mt-0.5 text-[12px] text-sam-muted">
+                  <span className="font-medium text-sam-muted">{t("common_option")}</span>{" "}
                   {line.optionsSummary?.trim() ? line.optionsSummary.trim() : t("common_none")}
                 </p>
                 {line.lineNote?.trim() ? (
@@ -943,24 +943,24 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   </p>
                 ) : null}
                 <div className="mt-1 flex flex-wrap items-baseline gap-2">
-                  <span className="text-sm font-bold text-gray-900">
+                  <span className="text-sm font-bold text-sam-fg">
                     {formatMoneyPhp(line.unitPricePhp)}
                   </span>
                   {listU != null && listU > line.unitPricePhp ? (
-                    <span className="text-xs font-normal text-gray-400 line-through">
+                    <span className="text-xs font-normal text-sam-meta line-through">
                       {formatMoneyPhp(listU)}
                     </span>
                   ) : null}
-                  <span className="text-xs text-gray-500">× {line.qty}</span>
+                  <span className="text-xs text-sam-muted">× {line.qty}</span>
                 </div>
-                <div className="mt-1 flex flex-wrap items-baseline justify-end gap-2 border-t border-gray-100 pt-1.5">
-                  <span className="text-[11px] text-gray-500">줄 합계</span>
+                <div className="mt-1 flex flex-wrap items-baseline justify-end gap-2 border-t border-sam-border-soft pt-1.5">
+                  <span className="text-[11px] text-sam-muted">줄 합계</span>
                   {lineListTotal != null && lineListTotal > lineTotal ? (
-                    <span className="text-xs font-normal text-gray-400 line-through">
+                    <span className="text-xs font-normal text-sam-meta line-through">
                       {formatMoneyPhp(lineListTotal)}
                     </span>
                   ) : null}
-                  <span className="text-[15px] font-bold text-gray-900">{formatMoneyPhp(lineTotal)}</span>
+                  <span className="text-[15px] font-bold text-sam-fg">{formatMoneyPhp(lineTotal)}</span>
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end justify-end gap-2 self-end">
@@ -969,7 +969,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     type="button"
                     disabled={busy || line.qty <= line.minOrderQty}
                     onClick={() => cart.updateLineQuantity(line.lineId, line.qty - 1)}
-                    className="flex h-9 w-9 items-center justify-center rounded border border-gray-200 bg-white text-lg text-gray-800 disabled:opacity-40"
+                    className="flex h-9 w-9 items-center justify-center rounded border border-sam-border bg-sam-surface text-lg text-sam-fg disabled:opacity-40"
                   >
                     −
                   </button>
@@ -978,7 +978,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     type="button"
                     disabled={busy || line.qty >= line.maxOrderQty}
                     onClick={() => cart.updateLineQuantity(line.lineId, line.qty + 1)}
-                    className="flex h-9 w-9 items-center justify-center rounded border border-gray-200 bg-white text-lg text-gray-800 disabled:opacity-40"
+                    className="flex h-9 w-9 items-center justify-center rounded border border-sam-border bg-sam-surface text-lg text-sam-fg disabled:opacity-40"
                   >
                     +
                   </button>
@@ -1000,32 +1000,32 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       <div className="mx-3 mt-2">
         <Link
           href={`/stores/${encodeURIComponent(store.slug)}`}
-          className="inline-flex w-full items-center justify-center rounded border border-stone-300 bg-white py-3 text-[14px] font-semibold text-signature shadow-sm active:bg-stone-50"
+          className="inline-flex w-full items-center justify-center rounded border border-sam-border bg-sam-surface py-3 text-[14px] font-semibold text-signature shadow-sm active:bg-sam-app"
         >
           {t("common_menu_more")}
         </Link>
       </div>
 
       {otherBuckets.length > 0 ? (
-        <div className="mx-3 mt-3 rounded border border-stone-200 bg-white px-3 py-2.5 text-[12px] text-stone-600">
+        <div className="mx-3 mt-3 rounded border border-sam-border bg-sam-surface px-3 py-2.5 text-[12px] text-sam-muted">
           다른 매장 장바구니도 있습니다. 해당 매장 페이지에서 장바구니를 열 수 있어요.
         </div>
       ) : null}
 
       <div className="mx-3 mt-3 space-y-3">
-        <div className="rounded border border-gray-200 bg-white p-3.5 shadow-sm">
+        <div className="rounded border border-sam-border bg-sam-surface p-3.5 shadow-sm">
             <dl className="space-y-2.5 text-[14px] leading-snug">
               <div className="flex justify-between gap-3">
-                <dt className="text-gray-600">총상품금액</dt>
-                <dd className="shrink-0 text-right font-semibold tabular-nums text-gray-900">
+                <dt className="text-sam-muted">총상품금액</dt>
+                <dd className="shrink-0 text-right font-semibold tabular-nums text-sam-fg">
                   {formatMoneyPhp(listSubtotalPhp)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-gray-600">
+                <dt className="text-sam-muted">
                   할인금액
                   {discountAmountPhp > 0 && discountPercentOverall > 0 ? (
-                    <span className="ml-1 text-[11px] font-normal text-gray-400">
+                    <span className="ml-1 text-[11px] font-normal text-sam-meta">
                       ({discountPercentOverall}%)
                     </span>
                   ) : null}
@@ -1037,22 +1037,22 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-gray-600">예상배달비</dt>
-                <dd className="shrink-0 text-right font-semibold tabular-nums text-gray-900">
+                <dt className="text-sam-muted">예상배달비</dt>
+                <dd className="shrink-0 text-right font-semibold tabular-nums text-sam-fg">
                   {fulfillment === "local_delivery"
                     ? formatMoneyPhp(deliveryFeeForCheckout)
                     : formatMoneyPhp(0)}
                 </dd>
               </div>
             </dl>
-            <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
+            <div className="mt-3 border-t border-dashed border-sam-border pt-3">
               <div className="flex items-end justify-between gap-3">
-                <span className="text-[15px] font-bold text-gray-900">결제예정금액</span>
+                <span className="text-[15px] font-bold text-sam-fg">결제예정금액</span>
                 <span className="text-[20px] font-bold leading-none text-rose-600 tabular-nums">
                   {formatMoneyPhp(displayGrand)}
                 </span>
               </div>
-              <p className="mt-2 text-[11px] text-gray-400">
+              <p className="mt-2 text-[11px] text-sam-meta">
                 최소 주문 금액 : {formatMoneyPhp(minOrderPhp)}
               </p>
             </div>
@@ -1090,7 +1090,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         ) : null}
 
         {fulfillment !== "local_delivery" ? (
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[11px] text-sam-muted">
             배달을 선택하면 매장에 설정된 예상 배달비가 위 요약에 반영됩니다.
           </p>
         ) : null}
@@ -1107,10 +1107,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
       </div>
 
-      <div className="mx-3 mt-3 space-y-3 rounded border border-gray-300 bg-white p-4 shadow-sm">
+      <div className="mx-3 mt-3 space-y-3 rounded border border-sam-border bg-sam-surface p-4 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
           <div className="min-w-0 sm:max-w-[8.5rem] sm:shrink-0">
-            <p className="text-[14px] font-medium text-gray-600">수령 방식</p>
+            <p className="text-[14px] font-medium text-sam-muted">수령 방식</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {fulfillmentOptions.map((o) => (
                 <button
@@ -1127,7 +1127,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   className={`rounded-full px-3 py-1.5 text-[13px] ${
                     fulfillment === o.value
                       ? "bg-signature text-white"
-                      : "border border-gray-200 bg-white text-gray-700"
+                      : "border border-sam-border bg-sam-surface text-sam-fg"
                   }`}
                 >
                   {o.label}
@@ -1147,8 +1147,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               )
             ) : null}
           </div>
-          <div className="min-w-0 flex-1 border-t border-gray-300 pt-4 sm:border-t-0 sm:border-l sm:border-gray-300 sm:pt-0 sm:pl-3">
-            <p className="text-[14px] font-medium text-gray-600">
+          <div className="min-w-0 flex-1 border-t border-sam-border pt-4 sm:border-t-0 sm:border-l sm:border-sam-border sm:pt-0 sm:pl-3">
+            <p className="text-[14px] font-medium text-sam-muted">
               결제 방법 <span className="text-red-600">*</span>
             </p>
             <div
@@ -1161,14 +1161,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   key={opt.id}
                   className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-ui-rect border px-3 py-2 text-[13px] font-medium shadow-sm ${
                     selectedPaymentMethod === opt.id
-                      ? "border-signature bg-signature/5 text-gray-900 ring-1 ring-signature/25"
-                      : "border-gray-200 bg-white text-gray-700"
+                      ? "border-signature bg-signature/5 text-sam-fg ring-1 ring-signature/25"
+                      : "border-sam-border bg-sam-surface text-sam-fg"
                   } ${busy ? "pointer-events-none opacity-60" : ""}`}
                 >
                   <input
                     type="radio"
                     name="cart-checkout-payment"
-                    className="h-4 w-4 shrink-0 border-gray-300 accent-signature focus:ring-2 focus:ring-signature/40 focus:ring-offset-0"
+                    className="h-4 w-4 shrink-0 border-sam-border accent-signature focus:ring-2 focus:ring-signature/40 focus:ring-offset-0"
                     checked={selectedPaymentMethod === opt.id}
                     onChange={() => setSelectedPaymentMethod(opt.id)}
                     disabled={busy}
@@ -1211,33 +1211,33 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         <div
           className={
             needsAddressAndPhone
-              ? "flex flex-col gap-4 border-t border-gray-300 pt-4 sm:flex-row sm:items-start sm:gap-4"
-              : "border-t border-gray-300 pt-4"
+              ? "flex flex-col gap-4 border-t border-sam-border pt-4 sm:flex-row sm:items-start sm:gap-4"
+              : "border-t border-sam-border pt-4"
           }
         >
           <div className={needsAddressAndPhone ? "min-w-0 sm:max-w-[13rem] sm:shrink-0" : undefined}>
-            <p className="text-[14px] font-medium text-gray-600">
+            <p className="text-[14px] font-medium text-sam-muted">
               연락처
               {fulfillment === "pickup" ? (
-                <span className="font-normal text-gray-400"> (선택)</span>
+                <span className="font-normal text-sam-meta"> (선택)</span>
               ) : (
                 <span className="text-red-600"> *</span>
               )}
             </p>
-            <p className="mt-2 text-[16px] font-medium tabular-nums tracking-tight text-gray-900">
+            <p className="mt-2 text-[16px] font-medium tabular-nums tracking-tight text-sam-fg">
               {formattedPhoneDisplay}
             </p>
           </div>
 
           {needsAddressAndPhone ? (
-            <div className="min-w-0 flex-1 border-t border-gray-300 pt-4 sm:border-t-0 sm:border-l sm:border-gray-300 sm:pl-4 sm:pt-0">
-            <p className="text-[14px] font-medium text-gray-600">
+            <div className="min-w-0 flex-1 border-t border-sam-border pt-4 sm:border-t-0 sm:border-l sm:border-sam-border sm:pl-4 sm:pt-0">
+            <p className="text-[14px] font-medium text-sam-muted">
               배송지 <span className="text-red-600">*</span>
             </p>
             <ul className="mt-2 space-y-2">
               {!checkoutContactReady ? (
-                <li className="rounded border border-gray-200 bg-white p-3">
-                  <p className="text-[12px] text-gray-500">배달 주소 정보를 불러오는 중입니다…</p>
+                <li className="rounded border border-sam-border bg-sam-surface p-3">
+                  <p className="text-[12px] text-sam-muted">배달 주소 정보를 불러오는 중입니다…</p>
                 </li>
               ) : null}
               {checkoutContactReady && !profileSnap && addressBook.length === 0 ? (
@@ -1252,7 +1252,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   className={`rounded border p-3 ${
                     selectedAddressId === PROFILE_DELIVERY_SELECTION_ID
                       ? "border-signature bg-signature/5 ring-1 ring-signature/30"
-                      : "border-gray-200 bg-white"
+                      : "border-sam-border bg-sam-surface"
                   }`}
                 >
                   <div className="flex items-start gap-2">
@@ -1265,11 +1265,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       aria-label="배달주소 1 (마이페이지) 선택"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-bold text-gray-900">배달주소 1</p>
-                      <p className="mt-0.5 text-[11px] font-medium text-gray-500">
+                      <p className="text-[13px] font-bold text-sam-fg">배달주소 1</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-sam-muted">
                         내정보 · 주소 관리 기본 배달
                       </p>
-                      <p className="mt-1 whitespace-pre-wrap text-[12px] font-normal leading-relaxed text-gray-800">
+                      <p className="mt-1 whitespace-pre-wrap text-[12px] font-normal leading-relaxed text-sam-fg">
                         {profileAddressBodyText ||
                           "마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 아래 배송지 추가를 이용해 주세요."}
                       </p>
@@ -1292,7 +1292,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   <li
                     key={e.id}
                     className={`rounded border p-3 ${
-                      isSel ? "border-signature bg-signature/5 ring-1 ring-signature/30" : "border-gray-200 bg-white"
+                      isSel ? "border-signature bg-signature/5 ring-1 ring-signature/30" : "border-sam-border bg-sam-surface"
                     }`}
                   >
                     <div className="flex items-start gap-2">
@@ -1305,8 +1305,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                         aria-label={`${slotLabel} 선택`}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold text-gray-900">{slotLabel}</p>
-                        <p className="mt-1 whitespace-pre-wrap text-[12px] font-normal leading-relaxed text-gray-800">
+                        <p className="text-[13px] font-bold text-sam-fg">{slotLabel}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-[12px] font-normal leading-relaxed text-sam-fg">
                           {body || "—"}
                         </p>
                       </div>
@@ -1330,7 +1330,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 type="button"
                 disabled={busy}
                 onClick={openAddressModalAdd}
-                className="rounded border border-signature bg-white px-3 py-2 text-[13px] font-bold text-signature shadow-sm"
+                className="rounded border border-signature bg-sam-surface px-3 py-2 text-[13px] font-bold text-signature shadow-sm"
               >
                 + 배송지 추가
               </button>
@@ -1350,7 +1350,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           ) : null}
         </div>
         <div>
-          <label htmlFor="cart-buyer-note" className="text-[14px] font-medium text-gray-600">
+          <label htmlFor="cart-buyer-note" className="text-[14px] font-medium text-sam-muted">
             요청 사항 (선택)
           </label>
           <textarea
@@ -1359,16 +1359,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             value={buyerNote}
             disabled={busy}
             onChange={(e) => setBuyerNote(e.target.value)}
-            className="mt-2 w-full resize-none rounded border border-gray-200 px-3 py-2 text-sm text-gray-900"
+            className="mt-2 w-full resize-none rounded border border-sam-border px-3 py-2 text-sm text-sam-fg"
             maxLength={500}
           />
-          <p className="mt-1 text-[11px] leading-snug text-gray-500">
+          <p className="mt-1 text-[11px] leading-snug text-sam-muted">
             입력하시면 매장 사장님 주문 관리 화면에 &apos;고객 요청 사항&apos;으로 표시됩니다.
           </p>
         </div>
 
         {fulfillment === "local_delivery" && commerce.deliveryCourierLabel?.trim() ? (
-          <p className="text-[11px] leading-snug text-gray-500">
+          <p className="text-[11px] leading-snug text-sam-muted">
             배달 업체(안내): {commerce.deliveryCourierLabel.trim()}
           </p>
         ) : null}
@@ -1383,14 +1383,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       </div>
 
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 border-t border-stone-200 border-b border-stone-400 bg-stone-50/95 px-4 py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-sm ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
+        className={`fixed bottom-0 left-0 right-0 z-50 border-t border-sam-border border-b border-sam-border bg-sam-app/95 px-4 py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-sm ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
         <button
           type="button"
           disabled={busy || !meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}
           onClick={() => void submitOrder()}
-          className="w-full rounded bg-signature py-3.5 text-[15px] font-bold text-white shadow-sm disabled:bg-gray-300 disabled:text-gray-600"
+          className="w-full rounded bg-signature py-3.5 text-[15px] font-bold text-white shadow-sm disabled:bg-sam-surface-muted disabled:text-sam-muted"
         >
           {busy ? t("common_processing") : t("common_order_action")}
         </button>
@@ -1405,16 +1405,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           }}
         >
           <div
-            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded sm:p-5"
+            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t bg-sam-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded sm:p-5"
             role="dialog"
             aria-modal
             aria-labelledby="cart-addr-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="cart-addr-modal-title" className="text-base font-bold text-gray-900">
+            <h2 id="cart-addr-modal-title" className="text-base font-bold text-sam-fg">
               {`${t("common_delivery_label")}지 추가`}
             </h2>
-            <p className="mt-1 text-[12px] leading-snug text-gray-500">
+            <p className="mt-1 text-[12px] leading-snug text-sam-muted">
               저장하면 목록에 배달주소 {addressBook.length + (profileSnap ? 2 : 1)}로 추가됩니다. 라디오로
               이번 주문에 쓸 주소를
               고를 수 있습니다.
@@ -1437,12 +1437,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 label={t("common_location")}
               />
               <div className="space-y-2">
-                <p className="text-[12px] leading-snug text-gray-500">{STORE_ADDRESS_STREET_HINT}</p>
+                <p className="text-[12px] leading-snug text-sam-muted">{STORE_ADDRESS_STREET_HINT}</p>
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   <div className="min-w-0">
                     <label
                       htmlFor="cart-modal-addr-line"
-                      className="block text-[12px] font-medium text-gray-600"
+                      className="block text-[12px] font-medium text-sam-muted"
                     >
                       {STORE_ADDRESS_STREET_LABEL}
                     </label>
@@ -1454,14 +1454,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       disabled={busy}
                       onChange={(e) => setModalFreeLine(e.target.value)}
                       placeholder={STORE_ADDRESS_STREET_PLACEHOLDER}
-                      className="mt-1.5 w-full rounded border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      className="mt-1.5 w-full rounded border border-sam-border px-3 py-2 text-sm text-sam-fg"
                       maxLength={300}
                     />
                   </div>
                   <div className="min-w-0">
                     <label
                       htmlFor="cart-modal-addr-detail"
-                      className="block text-[12px] font-medium text-gray-600"
+                      className="block text-[12px] font-medium text-sam-muted"
                     >
                       {STORE_ADDRESS_DETAIL_LABEL}
                     </label>
@@ -1472,7 +1472,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       value={modalDetail}
                       disabled={busy}
                       onChange={(e) => setModalDetail(e.target.value)}
-                      className="mt-1.5 w-full rounded border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      className="mt-1.5 w-full rounded border border-sam-border px-3 py-2 text-sm text-sam-fg"
                       maxLength={500}
                     />
                   </div>
@@ -1482,12 +1482,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {modalLocationError ? (
               <p className="mt-3 text-[13px] text-red-600">{modalLocationError}</p>
             ) : null}
-            <div className="mt-5 flex gap-2 border-t border-gray-100 pt-4">
+            <div className="mt-5 flex gap-2 border-t border-sam-border-soft pt-4">
               <button
                 type="button"
                 disabled={busy}
                 onClick={closeAddressModal}
-                className="flex-1 rounded border border-gray-300 py-3 text-sm font-semibold text-gray-800"
+                className="flex-1 rounded border border-sam-border py-3 text-sm font-semibold text-sam-fg"
               >
                 취소
               </button>

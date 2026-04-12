@@ -96,7 +96,7 @@ export function MeetingCard({
   if (variant === "postEmbed") {
     const descLine = meeting.description.replace(/\s+/g, " ").trim();
     return (
-      <div className="rounded-ui-rect border-2 border-[#10a37f]/80 bg-white px-3 py-3 sm:px-4">
+      <div className="rounded-ui-rect border-2 border-[#10a37f]/80 bg-sam-surface px-3 py-3 sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100/80 pb-2.5">
           <div className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-[#0d8f6a]">
             <LockIcon className="h-4 w-4 shrink-0 text-[#10a37f]" />
@@ -109,35 +109,35 @@ export function MeetingCard({
             자세히
           </Link>
         </div>
-        <dl className="mt-3 space-y-2 text-[12px] leading-snug text-gray-800">
+        <dl className="mt-3 space-y-2 text-[12px] leading-snug text-sam-fg">
           <div className="flex gap-2">
-            <dt className="w-14 shrink-0 font-medium text-gray-500">방장</dt>
-            <dd className="min-w-0 break-all text-gray-900">{hostLabel}</dd>
+            <dt className="w-14 shrink-0 font-medium text-sam-muted">방장</dt>
+            <dd className="min-w-0 break-all text-sam-fg">{hostLabel}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-14 shrink-0 font-medium text-gray-500">일시</dt>
-            <dd className="min-w-0 text-gray-900">{when}</dd>
+            <dt className="w-14 shrink-0 font-medium text-sam-muted">일시</dt>
+            <dd className="min-w-0 text-sam-fg">{when}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-14 shrink-0 font-medium text-gray-500">참여</dt>
-            <dd className="min-w-0 text-gray-900">
+            <dt className="w-14 shrink-0 font-medium text-sam-muted">참여</dt>
+            <dd className="min-w-0 text-sam-fg">
               {joined}/{meeting.max_members}명{pendingNote}
               {closedNote}
             </dd>
           </div>
           {descLine ? (
             <div className="flex gap-2">
-              <dt className="w-14 shrink-0 font-medium text-gray-500">소개</dt>
-              <dd className="min-w-0 text-gray-900">{descLine}</dd>
+              <dt className="w-14 shrink-0 font-medium text-sam-muted">소개</dt>
+              <dd className="min-w-0 text-sam-fg">{descLine}</dd>
             </div>
           ) : null}
           <div className="flex gap-2">
-            <dt className="w-14 shrink-0 font-medium text-gray-500">참여방식</dt>
-            <dd className="min-w-0 text-gray-900">{joinMethodLabel(meeting.entry_policy)}</dd>
+            <dt className="w-14 shrink-0 font-medium text-sam-muted">참여방식</dt>
+            <dd className="min-w-0 text-sam-fg">{joinMethodLabel(meeting.entry_policy)}</dd>
           </div>
         </dl>
         <div className="mt-4">{joinButton}</div>
-        <p className="mt-2 text-center text-[11px] text-gray-500">※ 모임 참여 후 상세 정보를 볼 수 있습니다</p>
+        <p className="mt-2 text-center text-[11px] text-sam-muted">※ 모임 참여 후 상세 정보를 볼 수 있습니다</p>
       </div>
     );
   }
@@ -147,7 +147,7 @@ export function MeetingCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[13px] font-semibold text-emerald-900">모임</p>
-          <p className="mt-1 text-[15px] font-bold text-gray-900">{meeting.title}</p>
+          <p className="mt-1 text-[15px] font-bold text-sam-fg">{meeting.title}</p>
         </div>
         <Link
           href={philifeAppPaths.meeting(meeting.id)}

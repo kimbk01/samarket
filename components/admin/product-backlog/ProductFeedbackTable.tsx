@@ -34,13 +34,13 @@ export function ProductFeedbackTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">카테고리</span>
+        <span className="text-[13px] text-sam-muted">카테고리</span>
         <select
           value={category}
           onChange={(e) =>
             setCategory((e.target.value || "") as ProductFeedbackCategory | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="onboarding">온보딩</option>
@@ -54,13 +54,13 @@ export function ProductFeedbackTable() {
           <option value="performance">성능</option>
           <option value="bug">버그</option>
         </select>
-        <span className="text-[13px] text-gray-600">소스</span>
+        <span className="text-[13px] text-sam-muted">소스</span>
         <select
           value={sourceType}
           onChange={(e) =>
             setSourceType((e.target.value || "") as ProductFeedbackSourceType | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="user_feedback">사용자 피드백</option>
@@ -70,13 +70,13 @@ export function ProductFeedbackTable() {
           <option value="qa_issue">QA 이슈</option>
           <option value="analytics_signal">분석 시그널</option>
         </select>
-        <span className="text-[13px] text-gray-600">상태</span>
+        <span className="text-[13px] text-sam-muted">상태</span>
         <select
           value={feedbackStatus}
           onChange={(e) =>
             setFeedbackStatus((e.target.value || "") as ProductFeedbackStatus | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="new">신규</option>
@@ -87,7 +87,7 @@ export function ProductFeedbackTable() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 조건의 피드백이 없습니다.
         </div>
       ) : (
@@ -103,12 +103,12 @@ export function ProductFeedbackTable() {
           ]}
         >
           {items.map((i) => (
-            <tr key={i.id} className="border-b border-gray-100">
-              <td className="px-3 py-2.5 font-medium text-gray-900">{i.title}</td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-600">
+            <tr key={i.id} className="border-b border-sam-border-soft">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">{i.title}</td>
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {getSourceLabel(i.sourceType)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {getCategoryLabel(i.category)}
               </td>
               <td className="px-3 py-2.5">
@@ -118,16 +118,16 @@ export function ProductFeedbackTable() {
                       ? "bg-red-100 text-red-800"
                       : i.severity === "high"
                         ? "bg-amber-100 text-amber-800"
-                        : "bg-gray-100 text-gray-600"
+                        : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {getSeverityLabel(i.severity)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {getFeedbackStatusLabel(i.feedbackStatus)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {i.sourceUserNickname ?? "-"}
               </td>
               <td className="px-3 py-2.5 text-[13px]">

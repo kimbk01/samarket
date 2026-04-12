@@ -23,7 +23,7 @@ export function AdminAdApplicationFilterBar({
               .value as AdminAdApplicationFilters["applicationStatus"],
           })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {AD_APPLICATION_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>

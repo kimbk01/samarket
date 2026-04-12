@@ -41,7 +41,7 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
           onChange={(e) =>
             setTypeFilter(e.target.value === "" ? "" : (e.target.value as ReportType))
           }
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">전체 유형</option>
           <option value="daily">일간</option>
@@ -50,27 +50,27 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
         </select>
       </div>
       {reports.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           보고서가 없습니다. 기간을 선택한 뒤 생성 버튼을 눌러 주세요.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse text-[14px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <tr className="border-b border-sam-border bg-sam-app">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   제목
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   유형
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   surface
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   기간
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   생성
                 </th>
               </tr>
@@ -79,7 +79,7 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
               {reports.map((r) => (
                 <tr
                   key={r.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="px-3 py-2.5">
                     <Link
@@ -89,16 +89,16 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
                       {r.title}
                     </Link>
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {REPORT_TYPE_LABELS[r.reportType]}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {SURFACE_LABELS[r.surface]}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-600">
+                  <td className="px-3 py-2.5 text-sam-muted">
                     {r.dateFrom} ~ {r.dateTo}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                     {new Date(r.generatedAt).toLocaleString("ko-KR", { hour12: false })}
                   </td>
                 </tr>

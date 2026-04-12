@@ -23,8 +23,8 @@ function JsonBlock({ label, v }: { label: string; v: unknown }) {
   if (s === "null" || s === "{}") return null;
   return (
     <details className="mt-1 text-left">
-      <summary className="cursor-pointer text-[11px] text-gray-500">{label}</summary>
-      <pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-50 p-2 text-[10px] text-gray-800">
+      <summary className="cursor-pointer text-[11px] text-sam-muted">{label}</summary>
+      <pre className="mt-1 max-h-40 overflow-auto rounded bg-sam-app p-2 text-[10px] text-sam-fg">
         {s}
       </pre>
     </details>
@@ -71,15 +71,15 @@ export function AdminAuditLogsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="로그 감사" />
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         매장 커머스: 관리자 조작, 매장 오너 주문 상태 변경(user), 결제 웹훅(system) 등이 기록됩니다. IP는 프록시
         환경에 따라 다를 수 있습니다.
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="block">
-          <span className="text-xs text-gray-600">target_type 필터</span>
+          <span className="text-xs text-sam-muted">target_type 필터</span>
           <input
-            className="mt-0.5 block rounded-ui-rect border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-0.5 block rounded-ui-rect border border-sam-border px-2 py-1.5 text-sm"
             placeholder="예: store_order, cron_job"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -88,31 +88,31 @@ export function AdminAuditLogsPage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-ui-rect bg-gray-900 px-3 py-1.5 text-sm text-white"
+          className="rounded-ui-rect bg-sam-ink px-3 py-1.5 text-sm text-white"
         >
           조회
         </button>
       </div>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-500">로그가 없습니다.</p>
+        <p className="text-sm text-sam-muted">로그가 없습니다.</p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <li key={r.id} className="rounded-ui-rect border border-gray-200 bg-white p-3 text-sm shadow-sm">
+            <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm shadow-sm">
               <div className="flex flex-wrap justify-between gap-2">
-                <span className="font-mono text-[11px] text-gray-500">{r.created_at}</span>
-                <span className="text-xs text-gray-600">
+                <span className="font-mono text-[11px] text-sam-muted">{r.created_at}</span>
+                <span className="text-xs text-sam-muted">
                   {r.actor_type}
                   {r.actor_id ? ` · ${r.actor_id.slice(0, 8)}…` : ""}
                 </span>
               </div>
-              <Link href={`/admin/audit-logs/${r.id}`} className="mt-1 block font-medium text-gray-900 hover:text-signature">
+              <Link href={`/admin/audit-logs/${r.id}`} className="mt-1 block font-medium text-sam-fg hover:text-signature">
                 {r.action}
               </Link>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-sam-muted">
                 {r.target_type} · <span className="font-mono">{r.target_id}</span>
                 {r.ip ? ` · ${r.ip}` : ""}
               </p>

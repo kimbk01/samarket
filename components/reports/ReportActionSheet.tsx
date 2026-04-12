@@ -86,11 +86,11 @@ export function ReportActionSheet({
   if (alreadyReported) {
     return (
       <div className="p-4">
-        <p className="text-[14px] text-gray-600">이미 신고한 대상입니다.</p>
+        <p className="text-[14px] text-sam-muted">이미 신고한 대상입니다.</p>
         <button
           type="button"
           onClick={onClose}
-          className="mt-4 w-full rounded-ui-rect border border-gray-200 py-2.5 text-[14px] text-gray-700"
+          className="mt-4 w-full rounded-ui-rect border border-sam-border py-2.5 text-[14px] text-sam-fg"
         >
           닫기
         </button>
@@ -100,7 +100,7 @@ export function ReportActionSheet({
 
   return (
     <form onSubmit={handleSubmit} className="p-4">
-      <p className="mb-3 text-[14px] text-gray-600">
+      <p className="mb-3 text-[14px] text-sam-muted">
         {targetLabel && <span>{targetLabel} </span>}
         신고 사유를 선택해 주세요.
       </p>
@@ -113,7 +113,7 @@ export function ReportActionSheet({
       />
       {reasonCode === "other" && (
         <div className="mt-3">
-          <label className="mb-1 block text-[13px] text-gray-600">
+          <label className="mb-1 block text-[13px] text-sam-muted">
             기타 사유 (선택)
           </label>
           <input
@@ -121,7 +121,7 @@ export function ReportActionSheet({
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             placeholder="구체적으로 적어 주세요"
-            className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] text-gray-900"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
           />
         </div>
       )}
@@ -131,7 +131,7 @@ export function ReportActionSheet({
           type="button"
           onClick={onClose}
           disabled={submitting}
-          className="rounded-ui-rect border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600 disabled:opacity-50"
+          className="rounded-ui-rect border border-sam-border px-4 py-2.5 text-[14px] text-sam-muted disabled:opacity-50"
         >
           취소
         </button>

@@ -63,18 +63,18 @@ export function StoreBusinessBlockedModal({
         onClick={onClose}
       />
       <div
-        className="relative z-10 w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] border border-gray-200 bg-white p-6 shadow-2xl sm:rounded-ui-rect"
+        className="relative z-10 w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] border border-sam-border bg-sam-surface p-6 shadow-2xl sm:rounded-ui-rect"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="store-business-blocked-title" className="text-lg font-semibold text-gray-900">
+        <h2 id="store-business-blocked-title" className="text-lg font-semibold text-sam-fg">
           {title}
         </h2>
-        <p className="mt-2 text-[14px] leading-relaxed text-gray-600">{body}</p>
+        <p className="mt-2 text-[14px] leading-relaxed text-sam-muted">{body}</p>
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect bg-gray-900 py-3 text-center text-[14px] font-medium text-white active:opacity-90"
+            className="rounded-ui-rect bg-sam-ink py-3 text-center text-[14px] font-medium text-white active:opacity-90"
           >
             {primaryCloseLabel}
           </button>
@@ -91,7 +91,7 @@ export function StoreBusinessBlockedModal({
             <Link
               href="/my/business/apply"
               onClick={onClose}
-              className="rounded-ui-rect border border-gray-200 py-3 text-center text-[14px] font-medium text-gray-800 active:bg-gray-50"
+              className="rounded-ui-rect border border-sam-border py-3 text-center text-[14px] font-medium text-sam-fg active:bg-sam-app"
             >
               매장 등록 신청
             </Link>

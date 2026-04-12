@@ -130,7 +130,7 @@ export function SearchView() {
           <RecentSearches onSelectKeyword={handleSelectRecent} />
           {showPopular && (
             <section className="px-4 py-3">
-              <p className="text-[13px] font-medium text-gray-700">
+              <p className="text-[13px] font-medium text-sam-fg">
                 인기 검색어
               </p>
               <ul className="mt-2 flex flex-wrap gap-2">
@@ -139,7 +139,7 @@ export function SearchView() {
                     <button
                       type="button"
                       onClick={() => handleSelectRecent(word)}
-                      className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[13px] text-gray-800"
+                      className="rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg"
                     >
                       {word}
                     </button>

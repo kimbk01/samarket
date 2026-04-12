@@ -22,7 +22,7 @@ export function LaunchChecklistTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">단계</span>
+        <span className="text-[13px] text-sam-muted">단계</span>
         {(["pre_launch", "launch_day", "post_launch"] as const).map((p) => (
           <button
             key={p}
@@ -31,7 +31,7 @@ export function LaunchChecklistTable() {
             className={`rounded border px-3 py-1.5 text-[13px] ${
               phase === p
                 ? "border-signature bg-signature/10 text-signature"
-                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
             }`}
           >
             {getPhaseLabel(p)}
@@ -40,7 +40,7 @@ export function LaunchChecklistTable() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 단계 점검 항목이 없습니다.
         </div>
       ) : (
@@ -60,7 +60,7 @@ export function LaunchChecklistTable() {
           {items.map((i) => (
             <tr
               key={i.id}
-              className={`border-b border-gray-100 ${
+              className={`border-b border-sam-border-soft ${
                 i.status === "blocked"
                   ? "bg-red-50/30"
                   : i.status !== "ready"
@@ -68,10 +68,10 @@ export function LaunchChecklistTable() {
                     : ""
               }`}
             >
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getAreaLabel(i.area)}
               </td>
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {i.title}
               </td>
               <td className="px-3 py-2.5">
@@ -81,7 +81,7 @@ export function LaunchChecklistTable() {
                       ? "bg-red-100 text-red-800"
                       : i.gateType === "should_have"
                         ? "bg-amber-100 text-amber-800"
-                        : "bg-gray-100 text-gray-600"
+                        : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {getGateLabel(i.gateType)}
@@ -96,25 +96,25 @@ export function LaunchChecklistTable() {
                         ? "bg-red-100 text-red-800"
                         : i.status === "in_progress"
                           ? "bg-blue-100 text-blue-800"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {getStatusLabel(i.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getPriorityLabel(i.priority)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {i.ownerAdminNickname ?? "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {i.dueDate ?? "-"}
               </td>
               <td className="max-w-[160px] px-3 py-2.5 text-[13px] text-red-700">
                 {i.blockerReason ?? "-"}
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="max-w-[120px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
                 {i.note || "-"}
               </td>
             </tr>

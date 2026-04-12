@@ -15,13 +15,13 @@ export function StoreOrderSellerHamburger({ chatRoomId, drawerOpen, onDrawerOpen
     <button
       type="button"
       onClick={() => onDrawerOpenChange(!drawerOpen)}
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-gray-800 hover:bg-black/10"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10"
       aria-expanded={drawerOpen}
       aria-label={drawerOpen ? "주문 내역 패널 닫기" : "주문 내역 패널 열기"}
       aria-controls={`seller-drawer-${chatRoomId}`}
     >
       <svg
-        className="h-5 w-5 text-neutral-800"
+        className="h-5 w-5 text-sam-fg"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"

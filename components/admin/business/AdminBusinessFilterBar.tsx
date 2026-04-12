@@ -22,7 +22,7 @@ export function AdminBusinessFilterBar({
             status: e.target.value as AdminBusinessFilters["status"],
           })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {BUSINESS_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>

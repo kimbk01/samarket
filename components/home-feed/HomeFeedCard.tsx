@@ -36,9 +36,9 @@ export function HomeFeedCard({ item, product }: HomeFeedCardProps) {
     <div>
       <Link
         href={`/products/${item.targetId}`}
-        className="flex gap-3 rounded-ui-rect bg-white p-3"
+        className="flex gap-3 rounded-ui-rect bg-sam-surface p-3"
       >
-        <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+        <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
           {item.thumbnail ? (
             <img
               src={item.thumbnail}
@@ -46,7 +46,7 @@ export function HomeFeedCard({ item, product }: HomeFeedCardProps) {
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="h-full w-full bg-gray-200" />
+            <div className="h-full w-full bg-sam-border-soft" />
           )}
         </div>
         <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">

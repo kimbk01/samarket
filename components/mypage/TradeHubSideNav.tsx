@@ -18,7 +18,7 @@ export function TradeHubSideNav() {
       }}
       aria-label="거래 관리 사이드 메뉴"
     >
-      <nav className="max-h-[calc(100dvh-7.5rem)] overflow-y-auto rounded-ui-rect border border-ig-border bg-white py-1 shadow-sm">
+      <nav className="max-h-[calc(100dvh-7.5rem)] overflow-y-auto rounded-ui-rect border border-ig-border bg-sam-surface py-1 shadow-sm">
         <ul className="flex flex-col">
           {MENU_ITEMS.map((item) => (
             <li key={item.sectionId} className="border-b border-[#F0F0F0] last:border-b-0">

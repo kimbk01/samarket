@@ -20,7 +20,7 @@ export function DeliveryOrdersByStoreClient({ storeId }: { storeId: string }) {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title={`매장 주문 이력 · ${title}`} backHref="/admin/delivery-orders" />
-      <p className="mb-2 text-xs text-gray-500">
+      <p className="mb-2 text-xs text-sam-muted">
         storeId: <span className="font-mono">{storeId}</span> ·{" "}
         <Link href="/admin/stores" className="text-signature underline">
           매장 심사

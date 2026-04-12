@@ -165,7 +165,7 @@ function TabShell({
   return (
     <div className="space-y-3">
       <MyPageSectionHeader description={description} />
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-3">{children}</div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">{children}</div>
     </div>
   );
 }

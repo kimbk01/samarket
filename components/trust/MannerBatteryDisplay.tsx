@@ -44,7 +44,7 @@ export function MannerBatteryDisplay({
     <div className={`flex flex-col items-end gap-0.5 ${className}`}>
       <MannerBatteryIcon tier={tier} percent={percent} size={size === "sm" ? "sm" : "md"} />
       <span className={`text-[15px] font-bold tabular-nums ${accent}`}>{percent}%</span>
-      <p className="text-[10px] text-gray-500">{displayLabel}</p>
+      <p className="text-[10px] text-sam-muted">{displayLabel}</p>
     </div>
   );
 }
@@ -74,7 +74,7 @@ export function MannerBatteryInline({
       <MannerBatteryIcon tier={tier} percent={percent} size={size} />
       <div className={`min-w-0 ${textAlign}`}>
         {showLabel ? (
-          <p className="text-[10px] leading-tight text-gray-500">{displayLabel}</p>
+          <p className="text-[10px] leading-tight text-sam-muted">{displayLabel}</p>
         ) : null}
         <p className={`text-[14px] font-bold tabular-nums leading-tight ${accent}`}>{percent}%</p>
       </div>

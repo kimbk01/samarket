@@ -33,7 +33,7 @@ export function OpsBenchmarkCards() {
 
   if (benchmarks.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
         해당 기간 벤치마크 데이터가 없습니다.
       </div>
     );
@@ -42,7 +42,7 @@ export function OpsBenchmarkCards() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">범위</span>
+        <span className="text-[13px] text-sam-muted">범위</span>
         {(["quarterly", "yearly"] as const).map((s) => (
           <button
             key={s}
@@ -51,7 +51,7 @@ export function OpsBenchmarkCards() {
             className={`rounded border px-3 py-1.5 text-[13px] ${
               scope === s
                 ? "border-signature bg-signature/10 text-signature"
-                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
             }`}
           >
             {SCOPE_LABELS[s]}
@@ -67,20 +67,20 @@ export function OpsBenchmarkCards() {
                 ? "border-amber-200 bg-amber-50/50"
                 : b.gapScore <= 0
                   ? "border-emerald-200 bg-emerald-50/30"
-                  : "border-gray-200 bg-white"
+                  : "border-sam-border bg-sam-surface"
             }`}
           >
-            <p className="text-[12px] text-gray-500">
+            <p className="text-[12px] text-sam-muted">
               {DOMAIN_LABELS[b.domain]}
             </p>
             <div className="mt-2 flex flex-wrap items-baseline gap-2 text-[14px]">
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-sam-fg">
                 현재 {b.currentScore}
               </span>
-              <span className="text-gray-400">/</span>
-              <span className="text-gray-600">목표 {b.targetScore}</span>
-              <span className="text-gray-400">/</span>
-              <span className="text-gray-500">기준 {b.referenceScore}</span>
+              <span className="text-sam-meta">/</span>
+              <span className="text-sam-muted">목표 {b.targetScore}</span>
+              <span className="text-sam-meta">/</span>
+              <span className="text-sam-muted">기준 {b.referenceScore}</span>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span
@@ -89,12 +89,12 @@ export function OpsBenchmarkCards() {
                     ? "text-amber-700"
                     : b.gapScore <= 0
                       ? "text-emerald-700"
-                      : "text-gray-600"
+                      : "text-sam-muted"
                 }`}
               >
                 갭 {b.gapScore > 0 ? `+${b.gapScore}` : b.gapScore}
               </span>
-              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">
+              <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[11px] text-sam-muted">
                 {TREND_LABELS[b.trend]}
               </span>
             </div>

@@ -59,17 +59,17 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
       <AdminCard title="신고 정보">
         <dl className="grid gap-2 text-[14px]">
           <div>
-            <dt className="text-gray-500">ID</dt>
-            <dd className="font-mono text-[12px] text-gray-900">{row.id}</dd>
+            <dt className="text-sam-muted">ID</dt>
+            <dd className="font-mono text-[12px] text-sam-fg">{row.id}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">대상</dt>
+            <dt className="text-sam-muted">대상</dt>
             <dd className="font-mono text-[12px]">
               {row.target_type} · {row.target_id}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">글</dt>
+            <dt className="text-sam-muted">글</dt>
             <dd>
               {row.target_type === "post" && row.post_title ? (
                 <Link
@@ -81,37 +81,37 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
                   {row.post_title}
                 </Link>
               ) : (
-                <span className="text-gray-400">—</span>
+                <span className="text-sam-meta">—</span>
               )}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">신고자</dt>
+            <dt className="text-sam-muted">신고자</dt>
             <dd className="font-mono text-[12px]">{row.reporter_id}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">사유 코드</dt>
+            <dt className="text-sam-muted">사유 코드</dt>
             <dd>{row.reason_type}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">내용</dt>
-            <dd className="whitespace-pre-wrap text-[13px] text-gray-700">{row.reason_text ?? "—"}</dd>
+            <dt className="text-sam-muted">내용</dt>
+            <dd className="whitespace-pre-wrap text-[13px] text-sam-fg">{row.reason_text ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">상태</dt>
+            <dt className="text-sam-muted">상태</dt>
             <dd>
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-[12px]">
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px]">
                 {STATUS_LABEL[row.status] ?? row.status}
               </span>
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">접수일</dt>
+            <dt className="text-sam-muted">접수일</dt>
             <dd>{row.created_at ? new Date(row.created_at).toLocaleString("ko-KR") : "—"}</dd>
           </div>
           {row.processed_at ? (
             <div>
-              <dt className="text-gray-500">처리 시각</dt>
+              <dt className="text-sam-muted">처리 시각</dt>
               <dd>{new Date(row.processed_at).toLocaleString("ko-KR")}</dd>
             </div>
           ) : null}
@@ -120,15 +120,15 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
 
       <AdminCard title="관리자 메모 · 상태">
         <label className="mb-3 flex flex-col gap-1 text-[13px]">
-          <span className="text-gray-600">메모</span>
+          <span className="text-sam-muted">메모</span>
           <textarea
-            className="min-h-[100px] rounded border border-gray-200 px-2 py-2"
+            className="min-h-[100px] rounded border border-sam-border px-2 py-2"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="내부 메모 (선택)"
           />
         </label>
-        <p className="mb-2 text-[12px] text-gray-500">상태 변경 시 위 메모가 함께 저장됩니다.</p>
+        <p className="mb-2 text-[12px] text-sam-muted">상태 변경 시 위 메모가 함께 저장됩니다.</p>
         <div className="flex flex-wrap gap-2">
           {(["open", "reviewing", "resolved", "dismissed"] as const).map((s) => (
             <button
@@ -136,7 +136,7 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
               type="button"
               disabled={busy || row.status === s}
               onClick={() => void patchStatus(s)}
-              className="rounded border border-gray-200 px-3 py-1.5 text-[13px] hover:bg-gray-50 disabled:opacity-40"
+              className="rounded border border-sam-border px-3 py-1.5 text-[13px] hover:bg-sam-app disabled:opacity-40"
             >
               {STATUS_LABEL[s] ?? s}
             </button>

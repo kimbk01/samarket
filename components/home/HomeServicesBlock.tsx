@@ -33,7 +33,7 @@ export function HomeServicesBlock() {
 
   if (loading) {
     return (
-      <div className="rounded-ui-rect bg-white py-8 text-center text-[14px] text-gray-500 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-8 text-center text-[14px] text-sam-muted shadow-sm">
         불러오는 중…
       </div>
     );
@@ -41,7 +41,7 @@ export function HomeServicesBlock() {
 
   if (error) {
     return (
-      <div className="rounded-ui-rect bg-white py-6 text-center text-[14px] text-red-500 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-6 text-center text-[14px] text-red-500 shadow-sm">
         {error}
       </div>
     );
@@ -50,8 +50,8 @@ export function HomeServicesBlock() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between px-0">
-        <h2 className="text-[15px] font-semibold text-gray-900">서비스</h2>
-        <Link href="/services" className="text-[14px] font-medium text-gray-700 hover:text-signature">
+        <h2 className="text-[15px] font-semibold text-sam-fg">서비스</h2>
+        <Link href="/services" className="text-[14px] font-medium text-sam-fg hover:text-signature">
           전체 서비스
         </Link>
       </div>

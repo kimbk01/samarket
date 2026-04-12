@@ -49,7 +49,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
   };
 
   if (rows.length === 0) {
-    return <p className="py-8 text-center text-[13px] text-gray-500">광고 신청 내역이 없습니다.</p>;
+    return <p className="py-8 text-center text-[13px] text-sam-muted">광고 신청 내역이 없습니다.</p>;
   }
 
   return (
@@ -59,10 +59,10 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
       ) : null}
       <table className="w-full min-w-[800px] border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
+          <tr className="border-b border-sam-border bg-sam-app">
             {["게시글", "광고주", "게시판", "상품", "유형", "상태", "포인트", "기간", "신청일", "액션"].map(
               (h) => (
-                <th key={h} className="px-3 py-2 text-left font-semibold text-gray-600">
+                <th key={h} className="px-3 py-2 text-left font-semibold text-sam-muted">
                   {h}
                 </th>
               )
@@ -74,26 +74,26 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
             const busy = busyId === row.id;
             const note = noteInputs[row.id] ?? "";
             return (
-              <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="max-w-[160px] truncate px-3 py-2 font-medium text-gray-900">
+              <tr key={row.id} className="border-b border-sam-border-soft hover:bg-sam-app">
+                <td className="max-w-[160px] truncate px-3 py-2 font-medium text-sam-fg">
                   {row.postTitle}
                 </td>
-                <td className="px-3 py-2 text-gray-700">{row.userNickname}</td>
-                <td className="px-3 py-2 text-gray-500">{row.boardKey}</td>
-                <td className="px-3 py-2 text-gray-700">{row.adProductName}</td>
-                <td className="px-3 py-2 text-gray-500">{AD_TYPE_LABELS[row.adType]}</td>
+                <td className="px-3 py-2 text-sam-fg">{row.userNickname}</td>
+                <td className="px-3 py-2 text-sam-muted">{row.boardKey}</td>
+                <td className="px-3 py-2 text-sam-fg">{row.adProductName}</td>
+                <td className="px-3 py-2 text-sam-muted">{AD_TYPE_LABELS[row.adType]}</td>
                 <td className="px-3 py-2">
                   <AdStatusBadge status={row.applyStatus} />
                 </td>
-                <td className="px-3 py-2 text-right text-gray-700">
+                <td className="px-3 py-2 text-right text-sam-fg">
                   {row.pointCost.toLocaleString()}P
                 </td>
-                <td className="px-3 py-2 text-gray-500">
+                <td className="px-3 py-2 text-sam-muted">
                   {row.startAt
                     ? `${new Date(row.startAt).toLocaleDateString("ko-KR")}~${new Date(row.endAt ?? "").toLocaleDateString("ko-KR")}`
                     : "-"}
                 </td>
-                <td className="px-3 py-2 text-gray-500">
+                <td className="px-3 py-2 text-sam-muted">
                   {new Date(row.createdAt).toLocaleDateString("ko-KR")}
                 </td>
                 <td className="px-3 py-2">
@@ -105,7 +105,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                         setNoteInputs((prev) => ({ ...prev, [row.id]: e.target.value }))
                       }
                       placeholder="관리자 메모"
-                      className="w-36 rounded border border-gray-200 px-2 py-1 text-[12px]"
+                      className="w-36 rounded border border-sam-border px-2 py-1 text-[12px]"
                     />
                     <div className="flex flex-wrap gap-1">
                       {row.applyStatus === "pending_review" || row.applyStatus === "pending_payment" ? (
@@ -133,7 +133,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                           type="button"
                           disabled={busy}
                           onClick={() => void doAction(row.id, "expire", note)}
-                          className="rounded bg-gray-500 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                          className="rounded bg-sam-muted px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
                         >
                           강제종료
                         </button>
@@ -142,7 +142,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(row.id, "cancel", note)}
-                        className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-600 disabled:opacity-50"
+                        className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted disabled:opacity-50"
                       >
                         취소
                       </button>

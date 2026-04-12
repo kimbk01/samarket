@@ -25,7 +25,7 @@ interface AdminUserModerationLogListProps {
 export function AdminUserModerationLogList({ logs }: AdminUserModerationLogListProps) {
   if (logs.length === 0) {
     return (
-      <p className="text-[13px] text-gray-500">제재 이력이 없습니다.</p>
+      <p className="text-[13px] text-sam-muted">제재 이력이 없습니다.</p>
     );
   }
   const sorted = [...logs].sort(
@@ -36,21 +36,21 @@ export function AdminUserModerationLogList({ logs }: AdminUserModerationLogListP
       {sorted.map((log) => (
         <li
           key={log.id}
-          className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 text-[13px]"
+          className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 text-[13px]"
         >
-          <span className="text-gray-500">
+          <span className="text-sam-muted">
             {STATUS_LABELS[log.fromStatus] ?? log.fromStatus} →{" "}
             {STATUS_LABELS[log.toStatus] ?? log.toStatus}
           </span>
-          <span className="font-medium text-gray-700">
+          <span className="font-medium text-sam-fg">
             {ACTION_LABELS[log.actionType] ?? log.actionType}
           </span>
-          <span className="text-gray-500">
+          <span className="text-sam-muted">
             {new Date(log.createdAt).toLocaleString("ko-KR")}
           </span>
-          <span className="text-gray-500">· {log.adminNickname}</span>
+          <span className="text-sam-muted">· {log.adminNickname}</span>
           {log.note && (
-            <span className="w-full text-gray-600">메모: {log.note}</span>
+            <span className="w-full text-sam-muted">메모: {log.note}</span>
           )}
         </li>
       ))}

@@ -90,9 +90,9 @@ function BaeminSectionCard({
   className?: string;
 }) {
   return (
-    <div className={`overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm ${className}`}>
-      <div className="border-b border-gray-100 px-4 py-3">
-        <h2 className="text-[15px] font-semibold text-gray-900">{title}</h2>
+    <div className={`overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm ${className}`}>
+      <div className="border-b border-sam-border-soft px-4 py-3">
+        <h2 className="text-[15px] font-semibold text-sam-fg">{title}</h2>
       </div>
       <div className="py-3">{children}</div>
     </div>
@@ -111,8 +111,8 @@ function StatusToggleRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2.5 last:border-0">
-      <span className="text-[14px] text-gray-800">{label}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-sam-border-soft px-4 py-2.5 last:border-0">
+      <span className="text-[14px] text-sam-fg">{label}</span>
       <button
         type="button"
         role="switch"
@@ -122,11 +122,11 @@ function StatusToggleRow({
           if (!disabled) onToggle();
         }}
         className={`relative h-8 w-14 shrink-0 rounded-full transition disabled:opacity-40 ${
-          checked ? "bg-signature" : "bg-gray-200"
+          checked ? "bg-signature" : "bg-sam-border-soft"
         }`}
       >
         <span
-          className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition ${
+          className={`absolute top-1 h-6 w-6 rounded-full bg-sam-surface shadow transition ${
             checked ? "left-7" : "left-1"
           }`}
         />
@@ -462,7 +462,7 @@ export function OwnerProductForm({
   if (loading) {
     return (
       <div className="px-4 py-6">
-        <p className="text-[14px] text-gray-500">불러오는 중…</p>
+        <p className="text-[14px] text-sam-muted">불러오는 중…</p>
       </div>
     );
   }
@@ -470,15 +470,15 @@ export function OwnerProductForm({
   const idTrim = values.menu_section_id.trim();
 
   return (
-    <div className="bg-gray-50 pb-[calc(8.75rem+env(safe-area-inset-bottom,0px))]">
-      <div className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
+    <div className="bg-sam-app pb-[calc(8.75rem+env(safe-area-inset-bottom,0px))]">
+      <div className="sticky top-0 z-20 border-b border-sam-border bg-sam-surface shadow-sm">
         <div
           ref={categoryStripRef}
-          className="border-t border-gray-100 bg-white px-2 py-2"
+          className="border-t border-sam-border-soft bg-sam-surface px-2 py-2"
           role="tablist"
           aria-label="등록 카테고리"
         >
-          <p className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+          <p className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-sam-meta">
             {menuSections.length > 0 ? "카테고리 (필수 · 상품 목록과 동일)" : "카테고리"}
           </p>
           <div className="-mx-1 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -489,7 +489,7 @@ export function OwnerProductForm({
                 aria-selected={idTrim === ""}
                 onClick={() => setValues((v) => ({ ...v, menu_section_id: "" }))}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-medium ${
-                  idTrim === "" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
+                  idTrim === "" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
                 }`}
               >
                 기타
@@ -505,7 +505,7 @@ export function OwnerProductForm({
                   aria-selected={on}
                   onClick={() => setValues((v) => ({ ...v, menu_section_id: s.id }))}
                   className={`max-w-[220px] shrink-0 truncate rounded-full px-3 py-1.5 text-[13px] font-medium ${
-                    on ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
+                    on ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
                   }`}
                 >
                   {s.name}
@@ -514,7 +514,7 @@ export function OwnerProductForm({
               );
             })}
           </div>
-          <p className="mt-1.5 px-1 text-[11px] text-gray-500">
+          <p className="mt-1.5 px-1 text-[11px] text-sam-muted">
             {menuSections.length > 0 ? (
               <>
                 카테고리를 고르지 않으면 저장할 수 없습니다. 새 카테고리는{" "}
@@ -535,12 +535,12 @@ export function OwnerProductForm({
           </p>
         </div>
 
-        <nav className="flex border-t border-gray-100 px-2">
+        <nav className="flex border-t border-sam-border-soft px-2">
           <button
             type="button"
             onClick={() => setFormTab("basic")}
             className={`min-w-0 flex-1 border-b-2 py-2.5 text-[13px] font-medium transition ${
-              formTab === "basic" ? "border-signature text-signature" : "border-transparent text-gray-500"
+              formTab === "basic" ? "border-signature text-signature" : "border-transparent text-sam-muted"
             }`}
           >
             기본정보
@@ -549,7 +549,7 @@ export function OwnerProductForm({
             type="button"
             onClick={() => setFormTab("options")}
             className={`min-w-0 flex-1 border-b-2 py-2.5 text-[13px] font-medium transition ${
-              formTab === "options" ? "border-signature text-signature" : "border-transparent text-gray-500"
+              formTab === "options" ? "border-signature text-signature" : "border-transparent text-sam-muted"
             }`}
           >
             옵션설정
@@ -558,7 +558,7 @@ export function OwnerProductForm({
             type="button"
             onClick={() => setFormTab("language")}
             className={`min-w-0 flex-1 border-b-2 py-2.5 text-[13px] font-medium transition ${
-              formTab === "language" ? "border-signature text-signature" : "border-transparent text-gray-500"
+              formTab === "language" ? "border-signature text-signature" : "border-transparent text-sam-muted"
             }`}
           >
             언어
@@ -614,7 +614,7 @@ export function OwnerProductForm({
             <BaeminSectionCard title="필수정보">
               <div className="space-y-3 px-4">
                 <div>
-                  <label className="mb-1 block text-[14px] font-medium text-gray-700">상품명</label>
+                  <label className="mb-1 block text-[14px] font-medium text-sam-fg">상품명</label>
                   <input
                     required
                     value={values.title}
@@ -623,7 +623,7 @@ export function OwnerProductForm({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[14px] font-medium text-gray-700">
+                  <label className="mb-1 block text-[14px] font-medium text-sam-fg">
                     기본 가격 ({priceUnit}) *
                   </label>
                   <input
@@ -637,8 +637,8 @@ export function OwnerProductForm({
                     placeholder="0"
                   />
                 </div>
-                <p className="text-[12px] leading-relaxed text-gray-500">
-                  <strong className="font-medium text-gray-700">카테고리</strong>는 화면 상단 칩에서만
+                <p className="text-[12px] leading-relaxed text-sam-muted">
+                  <strong className="font-medium text-sam-fg">카테고리</strong>는 화면 상단 칩에서만
                   지정합니다. (메뉴 분류·중복 선택 없음)
                 </p>
               </div>
@@ -647,7 +647,7 @@ export function OwnerProductForm({
             <BaeminSectionCard title="할인">
               <div className="space-y-3 px-4">
                 <div>
-                  <label className="mb-1 block text-[14px] font-medium text-gray-700">할인율 (%)</label>
+                  <label className="mb-1 block text-[14px] font-medium text-sam-fg">할인율 (%)</label>
                   <div className="flex items-center gap-2">
                     <input
                       inputMode="numeric"
@@ -662,21 +662,21 @@ export function OwnerProductForm({
                       placeholder="0"
                       maxLength={3}
                     />
-                    <span className="text-[15px] font-semibold text-gray-700">%</span>
+                    <span className="text-[15px] font-semibold text-sam-fg">%</span>
                   </div>
                 </div>
-                <div className="rounded-ui-rect border border-gray-100 bg-gray-50 px-3 py-2">
-                  <p className="text-[12px] text-gray-600">
+                <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
+                  <p className="text-[12px] text-sam-muted">
                     할인 적용가(주문 단가)
                     {saleAfterDiscount != null ? (
                       <span className="ml-2 text-[15px] font-bold text-signature">
                         {formatPrice(saleAfterDiscount, previewCurrency)}
                       </span>
                     ) : (
-                      <span className="ml-2 text-[14px] font-medium text-gray-400">—</span>
+                      <span className="ml-2 text-[14px] font-medium text-sam-meta">—</span>
                     )}
                   </p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                  <p className="mt-1 text-[11px] leading-relaxed text-sam-muted">
                     판매가 × (100% − 할인율)로 자동 계산되어 저장됩니다. 고객 주문 금액에 반영됩니다.
                   </p>
                 </div>
@@ -686,15 +686,15 @@ export function OwnerProductForm({
             <BaeminSectionCard title="재고 · 정렬 · 한 줄 설명">
               <div className="space-y-3 px-4">
                 <div>
-                  <p className="mb-2 text-[13px] font-medium text-gray-800">재고 관리</p>
+                  <p className="mb-2 text-[13px] font-medium text-sam-fg">재고 관리</p>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => setValues((v) => ({ ...v, track_inventory: false }))}
                       className={`min-h-[44px] flex-1 rounded-ui-rect px-2 text-[13px] font-semibold ${
                         !values.track_inventory
-                          ? "bg-gray-900 text-white"
-                          : "border border-gray-200 bg-white text-gray-700"
+                          ? "bg-sam-ink text-white"
+                          : "border border-sam-border bg-sam-surface text-sam-fg"
                       }`}
                     >
                       재고 확인 안 함
@@ -704,14 +704,14 @@ export function OwnerProductForm({
                       onClick={() => setValues((v) => ({ ...v, track_inventory: true }))}
                       className={`min-h-[44px] flex-1 rounded-ui-rect px-2 text-[13px] font-semibold ${
                         values.track_inventory
-                          ? "bg-gray-900 text-white"
-                          : "border border-gray-200 bg-white text-gray-700"
+                          ? "bg-sam-ink text-white"
+                          : "border border-sam-border bg-sam-surface text-sam-fg"
                       }`}
                     >
                       재고 입력
                     </button>
                   </div>
-                  <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
+                  <p className="mt-2 text-[11px] leading-relaxed text-sam-muted">
                     {values.track_inventory
                       ? "주문 확정 시 재고가 줄고, 0이 되면 자동으로 품절(판매 중지) 처리됩니다."
                       : "재고를 세지 않습니다. 주문해도 수량이 줄지 않으며 자동 품절도 없습니다."}
@@ -719,7 +719,7 @@ export function OwnerProductForm({
                 </div>
                 {values.track_inventory ? (
                   <div>
-                    <label className="mb-1 block text-[14px] font-medium text-gray-700">재고 수량</label>
+                    <label className="mb-1 block text-[14px] font-medium text-sam-fg">재고 수량</label>
                     <input
                       inputMode="numeric"
                       value={formatPriceInput(values.stock_qty)}
@@ -732,8 +732,8 @@ export function OwnerProductForm({
                   </div>
                 ) : null}
                 <div>
-                  <label className="mb-1 block text-[14px] font-medium text-gray-700">목록 정렬</label>
-                  <p className="mb-1 text-[11px] text-gray-500">숫자가 작을수록 위쪽</p>
+                  <label className="mb-1 block text-[14px] font-medium text-sam-fg">목록 정렬</label>
+                  <p className="mb-1 text-[11px] text-sam-muted">숫자가 작을수록 위쪽</p>
                   <input
                     inputMode="numeric"
                     value={values.sort_order}
@@ -743,7 +743,7 @@ export function OwnerProductForm({
                   />
                 </div>
                 <div className="min-w-0">
-                  <label className="mb-1 block text-[14px] font-medium text-gray-700">한 줄 설명</label>
+                  <label className="mb-1 block text-[14px] font-medium text-sam-fg">한 줄 설명</label>
                   <input
                     value={values.summary}
                     onChange={(e) => setValues((v) => ({ ...v, summary: e.target.value }))}
@@ -757,7 +757,7 @@ export function OwnerProductForm({
             <BaeminSectionCard title="상품 이미지">
               <div className="space-y-3 px-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <label className="cursor-pointer rounded-full border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-gray-800">
+                  <label className="cursor-pointer rounded-full border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg">
                     {uploading ? "업로드 중…" : "이미지 선택"}
                     <input
                       type="file"
@@ -771,7 +771,7 @@ export function OwnerProductForm({
                     <button
                       type="button"
                       onClick={() => setValues((v) => ({ ...v, thumbnail_url: "" }))}
-                      className="rounded-full border border-gray-200 bg-white px-3 py-2 text-[12px] font-medium text-gray-600 hover:bg-gray-50"
+                      className="rounded-full border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-medium text-sam-muted hover:bg-sam-app"
                     >
                       이미지 제거
                     </button>
@@ -780,24 +780,24 @@ export function OwnerProductForm({
                 {values.thumbnail_url ? (
                   <div className="flex flex-wrap items-end gap-4">
                     <div className="shrink-0 space-y-1">
-                      <p className="text-[11px] font-medium text-gray-500">목록용</p>
+                      <p className="text-[11px] font-medium text-sam-muted">목록용</p>
                       <img
                         src={values.thumbnail_url}
                         alt=""
-                        className="h-16 w-16 rounded-ui-rect border border-gray-200 object-cover shadow-sm"
+                        className="h-16 w-16 rounded-ui-rect border border-sam-border object-cover shadow-sm"
                       />
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
-                      <p className="text-[11px] font-medium text-gray-500">상세용</p>
+                      <p className="text-[11px] font-medium text-sam-muted">상세용</p>
                       <img
                         src={values.thumbnail_url}
                         alt=""
-                        className="max-h-52 w-full max-w-[280px] rounded-ui-rect border border-gray-200 object-cover shadow-sm"
+                        className="max-h-52 w-full max-w-[280px] rounded-ui-rect border border-sam-border object-cover shadow-sm"
                       />
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[12px] leading-relaxed text-gray-500">
+                  <p className="text-[12px] leading-relaxed text-sam-muted">
                     사진을 올리면 목록용·상세용 크기로 미리보기가 각각 표시됩니다.
                   </p>
                 )}
@@ -818,8 +818,8 @@ export function OwnerProductForm({
             </BaeminSectionCard>
 
             <BaeminSectionCard title="대표 상품 (실물)">
-              <p className="border-b border-gray-100 px-4 pb-2 text-[12px] leading-relaxed text-gray-500">
-                이 화면은 <strong className="font-medium text-gray-700">실물 상품</strong> 기준입니다. 픽업·배달·택배
+              <p className="border-b border-sam-border-soft px-4 pb-2 text-[12px] leading-relaxed text-sam-muted">
+                이 화면은 <strong className="font-medium text-sam-fg">실물 상품</strong> 기준입니다. 픽업·배달·택배
                 여부는 매장 기본 정보·설정에서 다룹니다.
               </p>
               <StatusToggleRow
@@ -844,22 +844,22 @@ export function OwnerProductForm({
 
         {formTab === "options" ? (
           <div className="space-y-4">
-            <p className="px-1 text-[12px] leading-relaxed text-gray-500">
+            <p className="px-1 text-[12px] leading-relaxed text-sam-muted">
               이 상품만의 옵션(맵기·토핑 등)을 여기서만 만듭니다. 저장하면 이 상품의{" "}
-              <code className="rounded bg-gray-100 px-0.5 text-[11px]">options_json</code>에만 반영되며,
+              <code className="rounded bg-sam-surface-muted px-0.5 text-[11px]">options_json</code>에만 반영되며,
               다른 메뉴와 따로 관리됩니다.
             </p>
 
             {values.optionGroups.length === 0 ? (
-              <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-10 text-center">
-                <p className="text-[13px] text-gray-500">옵션이 없습니다</p>
+              <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center">
+                <p className="text-[13px] text-sam-muted">옵션이 없습니다</p>
                 <button
                   type="button"
                   aria-label="옵션 그룹 추가"
                   onClick={() =>
                     setValues((v) => ({ ...v, optionGroups: [...v.optionGroups, emptyOptionGroup()] }))
                   }
-                  className="mt-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 bg-white text-[22px] font-light leading-none text-gray-700 hover:bg-gray-50"
+                  className="mt-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-[22px] font-light leading-none text-sam-fg hover:bg-sam-app"
                 >
                   +
                 </button>
@@ -871,7 +871,7 @@ export function OwnerProductForm({
                   return (
                     <li
                       key={group.groupLocalId}
-                      className="relative overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm"
+                      className="relative overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
                     >
                       <button
                         type="button"
@@ -882,13 +882,13 @@ export function OwnerProductForm({
                             optionGroups: v.optionGroups.filter((_, j) => j !== gi),
                           }))
                         }
-                        className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full text-[18px] leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                        className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full text-[18px] leading-none text-sam-meta hover:bg-sam-surface-muted hover:text-sam-fg"
                       >
                         ×
                       </button>
                       <div className="space-y-3 p-4 pr-12">
                         <div>
-                          <label className="mb-1 block text-[13px] font-medium text-gray-800">
+                          <label className="mb-1 block text-[13px] font-medium text-sam-fg">
                             옵션 그룹명
                           </label>
                           <input
@@ -905,7 +905,7 @@ export function OwnerProductForm({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-[13px] font-medium text-gray-800">그룹 설명 (선택)</label>
+                          <label className="mb-1 block text-[13px] font-medium text-sam-fg">그룹 설명 (선택)</label>
                           <input
                             value={group.description}
                             onChange={(e) =>
@@ -920,7 +920,7 @@ export function OwnerProductForm({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-[13px] font-medium text-gray-800">노출 순서</label>
+                          <label className="mb-1 block text-[13px] font-medium text-sam-fg">노출 순서</label>
                           <input
                             inputMode="numeric"
                             value={group.sortOrder}
@@ -933,9 +933,9 @@ export function OwnerProductForm({
                             }
                             className={`${OWNER_STORE_CONTROL_COMPACT_CLASS} max-w-[100px]`}
                           />
-                          <p className="mt-0.5 text-[11px] text-gray-500">숫자가 작을수록 먼저 표시</p>
+                          <p className="mt-0.5 text-[11px] text-sam-muted">숫자가 작을수록 먼저 표시</p>
                         </div>
-                        <label className="flex cursor-pointer items-center gap-2 text-[13px] text-gray-800">
+                        <label className="flex cursor-pointer items-center gap-2 text-[13px] text-sam-fg">
                           <input
                             type="checkbox"
                             checked={group.quantityMode}
@@ -952,12 +952,12 @@ export function OwnerProductForm({
                                 return { ...v, optionGroups: next };
                               })
                             }
-                            className="h-4 w-4 rounded border-gray-300"
+                            className="h-4 w-4 rounded border-sam-border"
                           />
                           수량형(스테퍼) — 공기밥 추가 등 개수 선택
                         </label>
                         <div>
-                          <label className="mb-1 block text-[13px] font-medium text-gray-800">선택 방식</label>
+                          <label className="mb-1 block text-[13px] font-medium text-sam-fg">선택 방식</label>
                           <select
                             value={preset}
                             disabled={group.quantityMode}
@@ -985,7 +985,7 @@ export function OwnerProductForm({
                         {preset === "custom" || group.quantityMode ? (
                           <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
                             <div>
-                              <label className="mb-0.5 block text-[11px] text-gray-600">최소 선택</label>
+                              <label className="mb-0.5 block text-[11px] text-sam-muted">최소 선택</label>
                               <input
                                 inputMode="numeric"
                                 value={group.minSelect}
@@ -1000,7 +1000,7 @@ export function OwnerProductForm({
                               />
                             </div>
                             <div>
-                              <label className="mb-0.5 block text-[11px] text-gray-600">최대 선택</label>
+                              <label className="mb-0.5 block text-[11px] text-sam-muted">최대 선택</label>
                               <input
                                 inputMode="numeric"
                                 value={group.maxSelect}
@@ -1016,10 +1016,10 @@ export function OwnerProductForm({
                             </div>
                           </div>
                         ) : null}
-                        <p className="text-[11px] font-medium text-gray-600">선택지 (이름 · 추가 금액 · 품절·기본선택)</p>
+                        <p className="text-[11px] font-medium text-sam-muted">선택지 (이름 · 추가 금액 · 품절·기본선택)</p>
                         <ul className="space-y-2">
                           {group.options.map((opt, oi) => (
-                            <li key={opt.id} className="flex flex-col gap-2 rounded-ui-rect border border-gray-100 bg-gray-50/80 p-2">
+                            <li key={opt.id} className="flex flex-col gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-app/80 p-2">
                               <div className="flex flex-wrap items-end gap-2">
                                 <input
                                   value={opt.name}
@@ -1035,10 +1035,10 @@ export function OwnerProductForm({
                                     })
                                   }
                                   placeholder="예: 순한맛, 보통"
-                                  className="min-w-[120px] flex-1 rounded-ui-rect border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
+                                  className="min-w-[120px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 text-[14px] text-sam-fg"
                                 />
                                 <div className="flex items-center gap-1">
-                                  <span className="text-[12px] text-gray-500">+</span>
+                                  <span className="text-[12px] text-sam-muted">+</span>
                                   <input
                                     inputMode="numeric"
                                     value={opt.priceDelta}
@@ -1053,9 +1053,9 @@ export function OwnerProductForm({
                                         return { ...v, optionGroups: next };
                                       })
                                     }
-                                    className="w-[4.5rem] rounded-ui-rect border border-gray-200 bg-white px-2 py-2 text-[14px] text-gray-900"
+                                    className="w-[4.5rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 text-[14px] text-sam-fg"
                                   />
-                                  <span className="text-[12px] text-gray-500">{priceUnit}</span>
+                                  <span className="text-[12px] text-sam-muted">{priceUnit}</span>
                                 </div>
                                 <button
                                   type="button"
@@ -1074,7 +1074,7 @@ export function OwnerProductForm({
                                   삭제
                                 </button>
                               </div>
-                              <div className="flex flex-wrap items-center gap-3 text-[12px] text-gray-700">
+                              <div className="flex flex-wrap items-center gap-3 text-[12px] text-sam-fg">
                                 <label className="inline-flex items-center gap-1.5">
                                   <input
                                     type="checkbox"
@@ -1090,7 +1090,7 @@ export function OwnerProductForm({
                                         return { ...v, optionGroups: next };
                                       })
                                     }
-                                    className="h-4 w-4 rounded border-gray-300"
+                                    className="h-4 w-4 rounded border-sam-border"
                                   />
                                   품절
                                 </label>
@@ -1109,7 +1109,7 @@ export function OwnerProductForm({
                                         return { ...v, optionGroups: next };
                                       })
                                     }
-                                    className="h-4 w-4 rounded border-gray-300"
+                                    className="h-4 w-4 rounded border-sam-border"
                                   />
                                   기본 선택
                                 </label>
@@ -1130,7 +1130,7 @@ export function OwnerProductForm({
                                 return { ...v, optionGroups: next };
                               })
                             }
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-[20px] font-light leading-none text-gray-700 hover:bg-gray-50"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-[20px] font-light leading-none text-sam-fg hover:bg-sam-app"
                           >
                             +
                           </button>
@@ -1150,7 +1150,7 @@ export function OwnerProductForm({
                   onClick={() =>
                     setValues((v) => ({ ...v, optionGroups: [...v.optionGroups, emptyOptionGroup()] }))
                   }
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-dashed border-gray-300 bg-white text-[22px] font-light leading-none text-gray-600 hover:border-gray-400 hover:bg-gray-50"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-dashed border-sam-border bg-sam-surface text-[22px] font-light leading-none text-sam-muted hover:border-sam-border hover:bg-sam-app"
                 >
                   +
                 </button>
@@ -1161,37 +1161,37 @@ export function OwnerProductForm({
 
         {formTab === "language" ? (
           <BaeminSectionCard title="언어">
-            <div className="px-4 py-4 text-center text-[14px] leading-relaxed text-gray-600">
+            <div className="px-4 py-4 text-center text-[14px] leading-relaxed text-sam-muted">
               상품명·옵션·소개의 다국어 입력은 추후 지원 예정입니다.
             </div>
           </BaeminSectionCard>
         ) : null}
       </form>
       <div
-        className={`fixed left-0 right-0 z-30 border-t border-gray-200 bg-white p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
+        className={`fixed left-0 right-0 z-30 border-t border-sam-border bg-sam-surface p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
       >
         <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Link
             href={productsHubHref}
-            className="flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+            className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center text-[13px] font-semibold text-sam-fg"
           >
             메뉴 관리
           </Link>
           <Link
             href={ordersQuickHref}
-            className="flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+            className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center text-[13px] font-semibold text-sam-fg"
           >
             주문
           </Link>
           <Link
             href={categoriesHref}
-            className="flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+            className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center text-[13px] font-semibold text-sam-fg"
           >
             카테고리
           </Link>
           <Link
             href={dashboardHref}
-            className="flex items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-2.5 text-center text-[13px] font-semibold text-gray-800"
+            className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center text-[13px] font-semibold text-sam-fg"
           >
             대시보드
           </Link>

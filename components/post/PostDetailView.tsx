@@ -172,14 +172,14 @@ function JobsMetaBlock({
   if (rows.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
-      <h3 className="text-[15px] font-semibold text-gray-700">알바 정보</h3>
-      <p className="mb-3 mt-1 text-[12px] text-gray-500">연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
+    <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
+      <h3 className="text-[15px] font-semibold text-sam-fg">알바 정보</h3>
+      <p className="mb-3 mt-1 text-[12px] text-sam-muted">연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
       <dl className="space-y-2.5 text-[14px]">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex justify-between gap-3">
-            <dt className="shrink-0 text-gray-500">{label}</dt>
-            <dd className="min-w-0 text-right font-medium text-gray-900">{value}</dd>
+            <dt className="shrink-0 text-sam-muted">{label}</dt>
+            <dd className="min-w-0 text-right font-medium text-sam-fg">{value}</dd>
           </div>
         ))}
       </dl>
@@ -220,7 +220,7 @@ function ExchangeMetaBlock({
   const rateDisplay =
     rateBase != null && rateBase > 0
       ? rateBaseRaw != null && rateBaseRaw > 0 && ratePlus != null && !Number.isNaN(ratePlus) && ratePlus !== 0
-        ? <>1 PHP = {rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW <span className="font-bold text-gray-900">+{ratePlus}</span></>
+        ? <>1 PHP = {rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW <span className="font-bold text-sam-fg">+{ratePlus}</span></>
         : <>1 PHP = {rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW</>
       : null;
 
@@ -244,13 +244,13 @@ function ExchangeMetaBlock({
   if (rows.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
-      <h3 className="mb-3 text-[15px] font-semibold text-gray-700">환전 정보</h3>
+    <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
+      <h3 className="mb-3 text-[15px] font-semibold text-sam-fg">환전 정보</h3>
       <dl className="space-y-2.5 text-[14px]">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex justify-between gap-3 items-center">
-            <dt className="shrink-0 text-gray-500">{label}</dt>
-            <dd className="min-w-0 text-right font-medium text-gray-900">{value}</dd>
+            <dt className="shrink-0 text-sam-muted">{label}</dt>
+            <dd className="min-w-0 text-right font-medium text-sam-fg">{value}</dd>
           </div>
         ))}
       </dl>
@@ -300,13 +300,13 @@ function UsedCarMetaBlock({
   }
   if (rows.length === 0) return null;
   return (
-    <div className="mt-4 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
-      <h3 className="mb-3 text-[15px] font-semibold text-gray-700">차량 정보</h3>
+    <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
+      <h3 className="mb-3 text-[15px] font-semibold text-sam-fg">차량 정보</h3>
       <dl className="space-y-2.5 text-[14px]">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex justify-between gap-3">
-            <dt className="shrink-0 text-gray-500">{label}</dt>
-            <dd className="min-w-0 text-right font-medium text-gray-900">{value}</dd>
+            <dt className="shrink-0 text-sam-muted">{label}</dt>
+            <dd className="min-w-0 text-right font-medium text-sam-fg">{value}</dd>
           </div>
         ))}
       </dl>
@@ -382,23 +382,23 @@ function RealEstateMetaBlock({
   const rightRows = rows.slice(half);
 
   return (
-    <div className={`rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4 ${compactTop ? "mt-1" : "mt-4"}`}>
-      <h3 className="mb-3 text-[15px] font-semibold text-gray-700">부동산 정보</h3>
+    <div className={`rounded-ui-rect border border-sam-border bg-sam-app/80 p-4 ${compactTop ? "mt-1" : "mt-4"}`}>
+      <h3 className="mb-3 text-[15px] font-semibold text-sam-fg">부동산 정보</h3>
       <div className="grid grid-cols-[1fr_auto_1fr] gap-x-0 gap-y-4 text-[14px] items-stretch">
         <dl className="space-y-4 pr-6">
           {leftRows.map(({ label, value }) => (
             <div key={label} className="flex justify-between gap-4">
-              <dt className="shrink-0 text-gray-500">{label}</dt>
-              <dd className="min-w-0 text-right font-medium text-gray-900 truncate" title={value}>{value}</dd>
+              <dt className="shrink-0 text-sam-muted">{label}</dt>
+              <dd className="min-w-0 text-right font-medium text-sam-fg truncate" title={value}>{value}</dd>
             </div>
           ))}
         </dl>
-        <div className="w-px bg-gray-200 self-stretch" aria-hidden />
+        <div className="w-px bg-sam-border-soft self-stretch" aria-hidden />
         <dl className="space-y-4 pl-6">
           {rightRows.map(({ label, value }) => (
             <div key={label} className="flex justify-between gap-4">
-              <dt className="shrink-0 text-gray-500">{label}</dt>
-              <dd className="min-w-0 text-right font-medium text-gray-900 truncate" title={value}>{value}</dd>
+              <dt className="shrink-0 text-sam-muted">{label}</dt>
+              <dd className="min-w-0 text-right font-medium text-sam-fg truncate" title={value}>{value}</dd>
             </div>
           ))}
         </dl>
@@ -436,14 +436,14 @@ function TradeMetaBlock({
     .map(([k, v]) => [k, labels[k] ?? k, String(v)]);
   if (entries.length === 0) return null;
   return (
-    <div className="mt-3 rounded-ui-rect border border-gray-100 bg-gray-50 p-3">
-      <span className="text-[11px] font-medium text-gray-500">
+    <div className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+      <span className="text-[11px] font-medium text-sam-muted">
         {TRADE_SKIN_LABELS[skinKey] ?? skinKey}
       </span>
-      <ul className="mt-2 space-y-1 text-[13px] text-gray-700">
+      <ul className="mt-2 space-y-1 text-[13px] text-sam-fg">
         {entries.map(([key, label, value]) => (
           <li key={key}>
-            <span className="text-gray-500">{label}</span> {value}
+            <span className="text-sam-muted">{label}</span> {value}
           </li>
         ))}
       </ul>
@@ -494,7 +494,7 @@ function PostDetailSellerProfileRow({
   return (
     <div className="flex items-center justify-between gap-3 min-w-0">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 text-[15px] font-semibold text-gray-500">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sam-border-soft text-[15px] font-semibold text-sam-muted">
           {author?.avatar_url ? (
             <img src={author.avatar_url} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -502,7 +502,7 @@ function PostDetailSellerProfileRow({
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-[14px] font-semibold text-gray-900 truncate">{author?.nickname ?? "사용자"}</p>
+          <p className="text-[14px] font-semibold text-sam-fg truncate">{author?.nickname ?? "사용자"}</p>
           {regionLine}
         </div>
       </div>
@@ -1040,13 +1040,13 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       <div className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
         <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
           {/* 1. 이미지 — 태블릿·데스크톱에서 좌측 고정 폭 + 스티키 */}
-          <div className="min-w-0 bg-white md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
-            <div className="relative w-full bg-gray-100">
+          <div className="min-w-0 bg-sam-surface md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
+            <div className="relative w-full bg-sam-surface-muted">
               <div className="relative w-full">
                 {imgList.length > 0 ? (
                   <ProductImageGallery images={imgList} title={post.title ?? ""} />
                 ) : (
-                  <div className="flex aspect-square max-h-[320px] w-full items-center justify-center text-gray-400 sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
+                  <div className="flex aspect-square max-h-[320px] w-full items-center justify-center text-sam-meta sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
                     이미지
                   </div>
                 )}
@@ -1058,29 +1058,29 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             {/* 2. 판매자 — profiles 연동 (서버 공개 API + 매너 배터리) */}
             <div
               id={POST_DETAIL_SELLER_ANCHOR_ID}
-              className="scroll-mt-14 border-b border-gray-100 bg-white px-4 py-3 md:border-t-0"
+              className="scroll-mt-14 border-b border-sam-border-soft bg-sam-surface px-4 py-3 md:border-t-0"
             >
-              <p className="mb-2 text-[12px] font-medium text-gray-500">판매자</p>
+              <p className="mb-2 text-[12px] font-medium text-sam-muted">판매자</p>
               <PostDetailSellerProfileRow
                 author={author}
                 regionLine={
                   listingLocationLine ? (
-                    <p className="text-[12px] text-gray-500 truncate">{listingLocationLine}</p>
+                    <p className="text-[12px] text-sam-muted truncate">{listingLocationLine}</p>
                   ) : null
                 }
               />
             </div>
 
             {/* 3. 부동산 정보: 제목 → 매물 설명 → 테이블, 좌우 여백 0 (하단 흰색 제거) */}
-            <div className="border-t border-gray-100 bg-white px-0 pt-2 pb-0 md:border-t-0">
+            <div className="border-t border-sam-border-soft bg-sam-surface px-0 pt-2 pb-0 md:border-t-0">
           <div className="mb-2 px-4">
             <TradeListingStatusBadge post={post} size="detail" />
           </div>
-          <h2 className="mb-2 text-[16px] font-bold text-gray-900 px-4">{post.title}</h2>
+          <h2 className="mb-2 text-[16px] font-bold text-sam-fg px-4">{post.title}</h2>
           {post.content && (
-            <div className="mt-2 mb-0 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
-              <h3 className="mb-2 text-[15px] font-semibold text-gray-700">매물 설명</h3>
-              <p className="text-[14px] text-gray-700 whitespace-pre-wrap">{post.content}</p>
+            <div className="mt-2 mb-0 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
+              <h3 className="mb-2 text-[15px] font-semibold text-sam-fg">매물 설명</h3>
+              <p className="text-[14px] text-sam-fg whitespace-pre-wrap">{post.content}</p>
             </div>
           )}
           <RealEstateMetaBlock
@@ -1091,7 +1091,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             cityId={post.city}
             compactTop
           />
-          <ul className="mt-2 space-y-1 border-t border-gray-100 px-4 py-3 text-[13px] text-gray-600">
+          <ul className="mt-2 space-y-1 border-t border-sam-border-soft px-4 py-3 text-[13px] text-sam-muted">
             {(() => {
               const s = [post.view_count != null && `조회 ${post.view_count}`, !isOwnPost && `관심 ${favoriteCount}`].filter(Boolean).join(" · ");
               return s ? <li>{s}</li> : null;
@@ -1103,13 +1103,13 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
         {/* 4. 비슷한 조건의 매물 더보기 (하단 고정바 바로 위) */}
         {similarPosts.length > 0 && (
-          <div className="mt-4 border-t border-gray-100 bg-white px-4 py-4">
+          <div className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
             <Link
               href={backHref}
-              className="flex items-center justify-between text-[14px] font-medium text-gray-800"
+              className="flex items-center justify-between text-[14px] font-medium text-sam-fg"
             >
               <span>비슷한 조건의 매물 더보기</span>
-              <span className="text-gray-400">›</span>
+              <span className="text-sam-meta">›</span>
             </Link>
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {similarPosts.slice(0, 6).map((p) => {
@@ -1138,24 +1138,24 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                 const pIsExchange = hasExchangeMeta(pMeta);
                 return (
                   <Link key={p.id} href={`/post/${p.id}`} className="block">
-                    <div className="overflow-hidden border border-gray-100 bg-gray-50">
-                      <div className="aspect-[4/3] w-full bg-gray-100">
+                    <div className="overflow-hidden border border-sam-border-soft bg-sam-app">
+                      <div className="aspect-[4/3] w-full bg-sam-surface-muted">
                         {thumb ? (
                           <img src={thumb} alt="" className="h-full w-full object-cover" />
                         ) : pIsExchange ? (
-                          <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-gray-700" aria-hidden><span>₱</span><span className="text-[10px] text-gray-500">↔</span><span>₩</span></div>
+                          <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[10px] text-sam-muted">↔</span><span>₩</span></div>
                         ) : (
-                          <div className="flex h-full items-center justify-center text-[11px] text-gray-400">이미지</div>
+                          <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
                         )}
                       </div>
                       <div className="p-2">
-                        <p className="text-[12px] text-gray-600">
+                        <p className="text-[12px] text-sam-muted">
                           {[pEstateType, pSizeStr, pRoomBath].filter(Boolean).join(" · ") || p.title}
                         </p>
-                        {pPriceLabel && <p className="mt-0.5 text-[13px] font-bold text-gray-900">{pPriceLabel}</p>}
-                        <p className="mt-0.5 line-clamp-1 text-[12px] text-gray-500">
+                        {pPriceLabel && <p className="mt-0.5 text-[13px] font-bold text-sam-fg">{pPriceLabel}</p>}
+                        <p className="mt-0.5 line-clamp-1 text-[12px] text-sam-muted">
                           {pMgmtText}
-                          {pLocationBuilding && <> · <span className="font-semibold text-gray-700">{pLocationBuilding}</span></>}
+                          {pLocationBuilding && <> · <span className="font-semibold text-sam-fg">{pLocationBuilding}</span></>}
                         </p>
                       </div>
                     </div>
@@ -1172,7 +1172,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             <button
               type="button"
               onClick={handleFavorite}
-              className="flex shrink-0 flex-col items-center justify-center gap-0.5 border-r border-gray-100 px-3 py-2 text-gray-600"
+              className="flex shrink-0 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft px-3 py-2 text-sam-muted"
               aria-label={isFavorite ? "관심 해제" : "관심"}
             >
               <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
@@ -1181,8 +1181,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           )}
           {reFooterPrice && (
             <div className="flex min-w-0 max-w-[38%] shrink flex-col justify-center px-2 py-1">
-              <p className="truncate text-[13px] font-bold text-gray-900">{reDealType === "판매" ? `판매가 ${reFooterPrice}` : reFooterPrice}</p>
-              <p className="text-[10px] text-gray-500">예상 중개수수료</p>
+              <p className="truncate text-[13px] font-bold text-sam-fg">{reDealType === "판매" ? `판매가 ${reFooterPrice}` : reFooterPrice}</p>
+              <p className="text-[10px] text-sam-muted">예상 중개수수료</p>
             </div>
           )}
           {!isOwnPost && (
@@ -1211,7 +1211,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
             </div>
           )}
           {showSellerTradeControls && (
-            <div className="w-full basis-full border-t border-gray-100 px-2 pt-2">
+            <div className="w-full basis-full border-t border-sam-border-soft px-2 pt-2">
               <PostDetailSellerTradeLifecycleBar
                 postId={post.id}
                 status={post.status ?? "active"}
@@ -1251,21 +1251,21 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         {reportOpen && (
           <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50">
             <div
-              className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 py-4`}
+              className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 py-4`}
             >
-              <h2 className="text-[16px] font-semibold text-gray-900">신고하기</h2>
+              <h2 className="text-[16px] font-semibold text-sam-fg">신고하기</h2>
               <input
                 type="text"
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
                 placeholder="신고 사유"
-                className="mt-3 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+                className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
               />
               {reportError ? (
                 <p className="mt-2 text-[13px] text-red-600">{reportError}</p>
               ) : null}
               <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => setReportOpen(false)} className="flex-1 rounded-ui-rect border border-gray-300 py-2 text-[14px] text-gray-700">취소</button>
+                <button type="button" onClick={() => setReportOpen(false)} className="flex-1 rounded-ui-rect border border-sam-border py-2 text-[14px] text-sam-fg">취소</button>
                 <button type="button" onClick={handleReport} disabled={!reportReason.trim() || reportSubmitting} className="flex-1 rounded-ui-rect bg-red-600 py-2 text-[14px] font-medium text-white disabled:opacity-50">신고</button>
               </div>
             </div>
@@ -1279,8 +1279,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     <div className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
       <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
         {/* 1. 이미지 — 태블릿·가로: 좌측 열 + 스크롤 시 고정 */}
-        <div className="min-w-0 bg-white md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
-          <div className="relative w-full bg-gray-100">
+        <div className="min-w-0 bg-sam-surface md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
+          <div className="relative w-full bg-sam-surface-muted">
             <div className="relative w-full">
               {(() => {
                 const imgArr = Array.isArray(post.images)
@@ -1295,15 +1295,15 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                 if (list.length === 0) {
                   const isExchange = hasExchangeMeta(post.meta ?? {});
                   return (
-                    <div className="relative flex aspect-square max-h-[320px] w-full items-center justify-center bg-gray-100 sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
+                    <div className="relative flex aspect-square max-h-[320px] w-full items-center justify-center bg-sam-surface-muted sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
                       {isExchange ? (
-                        <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-emerald-50 text-6xl font-semibold text-gray-700" aria-hidden>
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-emerald-50 text-6xl font-semibold text-sam-fg" aria-hidden>
                           <span>₱</span>
-                          <span className="text-2xl text-gray-500">↔</span>
+                          <span className="text-2xl text-sam-muted">↔</span>
                           <span>₩</span>
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">이미지</span>
+                        <span className="text-sm text-sam-meta">이미지</span>
                       )}
                     </div>
                   );
@@ -1318,14 +1318,14 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           {/* 2. 판매자(프로필) — `/api/users/.../public-profile` + TrustSummaryCard(매너 배터리) */}
           <div
             id={POST_DETAIL_SELLER_ANCHOR_ID}
-            className="scroll-mt-14 border-b border-gray-100 bg-white px-4 py-3 md:border-t-0"
+            className="scroll-mt-14 border-b border-sam-border-soft bg-sam-surface px-4 py-3 md:border-t-0"
           >
-        <p className="mb-2 text-[12px] font-medium text-gray-500">판매자</p>
+        <p className="mb-2 text-[12px] font-medium text-sam-muted">판매자</p>
         <PostDetailSellerProfileRow
           author={author}
           regionLine={
             listingLocationLine ? (
-              <p className="text-[12px] text-gray-500 truncate">{listingLocationLine}</p>
+              <p className="text-[12px] text-sam-muted truncate">{listingLocationLine}</p>
             ) : null
           }
         />
@@ -1334,7 +1334,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           {isOwnPost ? <PostSellerTradeStrip postId={post.id} isSeller={isOwnPost} /> : null}
 
           {/* 3. 제목 + 가격 + 메타 — 상품 상세(/products) 타이포와 통일 */}
-          <div className="border-b border-gray-100 bg-white px-4 py-4 md:border-t-0">
+          <div className="border-b border-sam-border-soft bg-sam-surface px-4 py-4 md:border-t-0">
         <div className="flex flex-wrap items-center gap-2">
           <TradeListingStatusBadge post={post} size="detail" />
           {category?.icon_key === "used-car" &&
@@ -1343,24 +1343,24 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               if (!lab) return null;
               return (
                 <>
-                  <span className="text-[12px] font-medium text-gray-300" aria-hidden>
+                  <span className="text-[12px] font-medium text-sam-meta" aria-hidden>
                     |
                   </span>
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-[12px] font-semibold text-gray-800">
+                  <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] font-semibold text-sam-fg">
                     {lab}
                   </span>
                 </>
               );
             })()}
         </div>
-        <h2 className={`mt-2 text-[20px] font-bold leading-7 text-gray-900 ${isSold ? "opacity-80" : ""}`}>{post.title}</h2>
+        <h2 className={`mt-2 text-[20px] font-bold leading-7 text-sam-fg ${isSold ? "opacity-80" : ""}`}>{post.title}</h2>
         {showPrice && (() => {
           const isRealEstate = category?.icon_key === "real-estate";
           const meta = post.meta as Record<string, unknown> | undefined;
           const dealType = meta?.deal_type as string | undefined;
           if (isRealEstate && dealType === "임대") return null;
           return (
-            <p className="mt-1 text-[22px] font-bold text-gray-900">
+            <p className="mt-1 text-[22px] font-bold text-sam-fg">
               {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
             </p>
           );
@@ -1368,14 +1368,14 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         {(post.is_free_share || (post.meta as Record<string, unknown> | undefined)?.direct_deal === true) && (
           <div className="mt-1 flex flex-wrap gap-1.5">
             {post.is_free_share && (
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-[12px] font-medium text-gray-700">나눔</span>
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] font-medium text-sam-fg">나눔</span>
             )}
             {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true && (
               <span className="rounded bg-blue-50 px-2 py-0.5 text-[12px] font-medium text-blue-700">직거래</span>
             )}
           </div>
         )}
-        <ul className="mt-3 space-y-1 text-[13px] text-gray-600">
+        <ul className="mt-3 space-y-1 text-[13px] text-sam-muted">
           {showLocation && listingLocationLine ? <li>지역 · {listingLocationLine}</li> : null}
           <li>등록 · {formatTimeAgo(post.created_at)}</li>
           {(() => {
@@ -1441,11 +1441,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       {post.content && (
         <div className="px-4">
           <div className="-mx-4 mt-0">
-            <div className="rounded-ui-rect border border-gray-200 bg-gray-50/80 p-4">
-              <h3 className="mb-2 text-[15px] font-semibold text-gray-700">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
+              <h3 className="mb-2 text-[15px] font-semibold text-sam-fg">
                 {(category?.icon_key === "jobs" || category?.icon_key === "job") ? "상세 설명" : "내용"}
               </h3>
-              <p className="text-[14px] text-gray-700 whitespace-pre-wrap">{post.content}</p>
+              <p className="text-[14px] text-sam-fg whitespace-pre-wrap">{post.content}</p>
             </div>
           </div>
         </div>
@@ -1459,10 +1459,10 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       )}
 
       {otherPosts.length > 0 && (
-        <div className="mt-4 border-t border-gray-100 bg-white px-4 py-4">
-          <div className="flex items-center justify-between text-[14px] font-medium text-gray-800">
+        <div className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
+          <div className="flex items-center justify-between text-[14px] font-medium text-sam-fg">
             <span>{author?.nickname ?? "판매자"}님의 판매 물품</span>
-            <span className="text-gray-400">›</span>
+            <span className="text-sam-meta">›</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {(["all", "trading", "done"] as const).map((t) => (
@@ -1472,19 +1472,19 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                 onClick={() => setAuthorSalesTab(t)}
                 className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
                   authorSalesTab === t
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-sam-ink text-white"
+                    : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
                 }`}
               >
                 {t === "all" ? "전체" : t === "trading" ? "판매중" : "거래완료"}
               </button>
             ))}
           </div>
-          <p className="mt-1 text-[11px] text-gray-500">
+          <p className="mt-1 text-[11px] text-sam-muted">
             판매중: 판매·문의·예약 단계 물품 · 거래완료: 판매된 물품
           </p>
           {filteredAuthorPosts.length === 0 ? (
-            <p className="mt-4 text-center text-[13px] text-gray-500">이 조건에 맞는 물품이 없어요.</p>
+            <p className="mt-4 text-center text-[13px] text-sam-muted">이 조건에 맞는 물품이 없어요.</p>
           ) : (
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {filteredAuthorPosts.slice(0, 12).map((p) => {
@@ -1492,29 +1492,29 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                 const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
                 return (
                   <Link key={p.id} href={`/post/${p.id}`} className="block">
-                    <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-gray-50">
-                      <div className="aspect-square w-full bg-gray-100">
+                    <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app">
+                      <div className="aspect-square w-full bg-sam-surface-muted">
                         {thumb ? (
                           <img src={thumb} alt="" className="h-full w-full object-cover" />
                         ) : isExchange ? (
                           <div
-                            className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-xl font-semibold text-gray-700"
+                            className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-xl font-semibold text-sam-fg"
                             aria-hidden
                           >
                             <span>₱</span>
-                            <span className="text-[8px] text-gray-500">↔</span>
+                            <span className="text-[8px] text-sam-muted">↔</span>
                             <span>₩</span>
                           </div>
                         ) : (
-                          <div className="flex h-full items-center justify-center text-[11px] text-gray-400">이미지</div>
+                          <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
                         )}
                       </div>
                       <div className="p-2">
                         <div className="mb-1">
                           <TradeListingStatusBadge post={p} size="list" />
                         </div>
-                        <p className="line-clamp-2 text-[12px] font-medium text-gray-900">{p.title}</p>
-                        <p className="mt-0.5 text-[13px] font-bold text-gray-900">
+                        <p className="line-clamp-2 text-[12px] font-medium text-sam-fg">{p.title}</p>
+                        <p className="mt-0.5 text-[13px] font-bold text-sam-fg">
                           {p.price != null
                             ? formatPrice(p.price, defaultCurrency)
                             : p.is_free_share
@@ -1532,13 +1532,13 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       )}
 
       {similarPosts.length > 0 && (
-        <div className="mt-4 border-t border-gray-100 bg-white px-4 py-4">
+        <div className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
           <Link
             href={backHref}
-            className="flex items-center justify-between text-[14px] font-medium text-gray-800"
+            className="flex items-center justify-between text-[14px] font-medium text-sam-fg"
           >
             <span>보고 있는 물품과 비슷한 물품</span>
-            <span className="text-gray-400">›</span>
+            <span className="text-sam-meta">›</span>
           </Link>
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {similarPosts.slice(0, 6).map((p) => {
@@ -1546,21 +1546,21 @@ export function PostDetailView({ post }: PostDetailViewProps) {
                 const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
                 return (
               <Link key={p.id} href={`/post/${p.id}`} className="block">
-                <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-gray-50">
-                  <div className="aspect-square w-full bg-gray-100">
+                <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app">
+                  <div className="aspect-square w-full bg-sam-surface-muted">
                     {thumb ? (
                       <img src={thumb} alt="" className="h-full w-full object-cover" />
                     ) : isExchange ? (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-xl font-semibold text-gray-700" aria-hidden><span>₱</span><span className="text-[8px] text-gray-500">↔</span><span>₩</span></div>
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[8px] text-sam-muted">↔</span><span>₩</span></div>
                     ) : (
-                      <div className="flex h-full items-center justify-center text-[11px] text-gray-400">이미지</div>
+                      <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
                     )}
                   </div>
                   <div className="p-2">
-                    <p className="line-clamp-2 text-[12px] font-medium text-gray-900">
+                    <p className="line-clamp-2 text-[12px] font-medium text-sam-fg">
                       {p.title}
                     </p>
-                    <p className="mt-0.5 text-[13px] font-bold text-gray-900">
+                    <p className="mt-0.5 text-[13px] font-bold text-sam-fg">
                       {p.price != null
                         ? formatPrice(p.price, defaultCurrency)
                         : p.is_free_share
@@ -1581,7 +1581,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           <button
             type="button"
             onClick={handleFavorite}
-            className="flex shrink-0 flex-col items-center justify-center gap-0.5 border-r border-gray-100 px-3 py-2 text-gray-600"
+            className="flex shrink-0 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft px-3 py-2 text-sam-muted"
             aria-label={isFavorite ? "관심 해제" : "관심"}
           >
             <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
@@ -1614,7 +1614,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           </div>
         )}
         {showSellerTradeControls && (
-          <div className="w-full basis-full border-t border-gray-100 px-2 pt-2">
+          <div className="w-full basis-full border-t border-sam-border-soft px-2 pt-2">
             <PostDetailSellerTradeLifecycleBar
               postId={post.id}
               status={post.status ?? "active"}
@@ -1654,15 +1654,15 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       {reportOpen && (
         <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50">
           <div
-            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 py-4`}
+            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 py-4`}
           >
-            <h2 className="text-[16px] font-semibold text-gray-900">신고하기</h2>
+            <h2 className="text-[16px] font-semibold text-sam-fg">신고하기</h2>
             <input
               type="text"
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
               placeholder="신고 사유"
-              className="mt-3 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+              className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
             />
             {reportError ? (
               <p className="mt-2 text-[13px] text-red-600">{reportError}</p>
@@ -1671,7 +1671,7 @@ export function PostDetailView({ post }: PostDetailViewProps) {
               <button
                 type="button"
                 onClick={() => setReportOpen(false)}
-                className="flex-1 rounded-ui-rect border border-gray-300 py-2 text-[14px] text-gray-700"
+                className="flex-1 rounded-ui-rect border border-sam-border py-2 text-[14px] text-sam-fg"
               >
                 취소
               </button>

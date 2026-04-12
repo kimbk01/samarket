@@ -40,7 +40,7 @@ export function AdminMemberBenefitDetailPage({
           title="회원 혜택 상세"
           backHref="/admin/member-benefits"
         />
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           정책을 찾을 수 없습니다.
         </div>
       </div>
@@ -84,21 +84,21 @@ export function AdminMemberBenefitDetailPage({
       <AdminCard title="기본 정보">
         <dl className="grid grid-cols-1 gap-2 text-[14px] sm:grid-cols-2">
           <div>
-            <dt className="text-gray-500">구분</dt>
+            <dt className="text-sam-muted">구분</dt>
             <dd>{MEMBER_TYPE_LABELS[policy.memberType]}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">제목</dt>
-            <dd className="font-medium text-gray-900">{policy.title}</dd>
+            <dt className="text-sam-muted">제목</dt>
+            <dd className="font-medium text-sam-fg">{policy.title}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">상태</dt>
+            <dt className="text-sam-muted">상태</dt>
             <dd>
               <span
                 className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
                   policy.isActive
                     ? "bg-emerald-50 text-emerald-800"
-                    : "bg-gray-200 text-gray-600"
+                    : "bg-sam-border-soft text-sam-muted"
                 }`}
               >
                 {policy.isActive ? "활성" : "비활성"}
@@ -106,21 +106,21 @@ export function AdminMemberBenefitDetailPage({
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">노출 우선</dt>
+            <dt className="text-sam-muted">노출 우선</dt>
             <dd>
               홈 +{policy.homePriorityBoost} / 검색 +{policy.searchPriorityBoost}{" "}
               / 상점 +{policy.shopFeaturedPriorityBoost}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">포인트 보너스 / 광고 할인</dt>
+            <dt className="text-sam-muted">포인트 보너스 / 광고 할인</dt>
             <dd>
               {(policy.pointRewardBonusRate * 100).toFixed(0)}% /{" "}
               {(policy.adDiscountRate * 100).toFixed(0)}%
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">수정일</dt>
+            <dt className="text-sam-muted">수정일</dt>
             <dd>{new Date(policy.updatedAt).toLocaleString("ko-KR")}</dd>
           </div>
         </dl>
@@ -135,7 +135,7 @@ export function AdminMemberBenefitDetailPage({
           <button
             type="button"
             onClick={handleToggleActive}
-            className="rounded border border-gray-200 bg-white px-3 py-1.5 text-[13px] text-gray-700"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg"
           >
             {policy.isActive ? "비활성화" : "활성화"}
           </button>

@@ -15,7 +15,7 @@ import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detai
 function CommerceMetricVSeparator() {
   return (
     <div className="flex w-[2px] shrink-0 self-stretch py-0" aria-hidden>
-      <div className="min-h-0 flex-1 rounded-ui-rect bg-stone-300" />
+      <div className="min-h-0 flex-1 rounded-ui-rect bg-sam-surface-muted" />
     </div>
   );
 }
@@ -24,8 +24,8 @@ function CommerceMetricVSeparator() {
 function CommerceMetricCell({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0 px-1.5 py-0 text-center">
-      <span className="text-[11px] font-medium leading-none text-stone-500">{label}</span>
-      <div className="w-full min-w-0 text-[13px] font-semibold leading-tight text-stone-900">{value}</div>
+      <span className="text-[11px] font-medium leading-none text-sam-muted">{label}</span>
+      <div className="w-full min-w-0 text-[13px] font-semibold leading-tight text-sam-fg">{value}</div>
     </div>
   );
 }
@@ -80,7 +80,7 @@ export function StoreDetailCommerceMetrics({
       <CommerceMetricCell
         label="영업시간"
         value={
-          <span className="line-clamp-2 break-words tabular-nums text-stone-900">{hoursBusiness}</span>
+          <span className="line-clamp-2 break-words tabular-nums text-sam-fg">{hoursBusiness}</span>
         }
       />
     </div>
@@ -93,7 +93,7 @@ export function StoreDetailCommerceMetrics({
         role="group"
         aria-label="배달·주문 요약"
       >
-        <div className="border-b border-stone-200 py-0">
+        <div className="border-b border-sam-border py-0">
           {metricsRow}
         </div>
       </div>
@@ -101,8 +101,8 @@ export function StoreDetailCommerceMetrics({
         <p className="mt-2.5 text-[12px] font-medium text-emerald-800">{freeLine}</p>
       ) : null}
       {courier ? (
-        <p className="mt-1 text-[12px] text-stone-600">
-          <span className="font-medium text-stone-700">배달 안내</span> · {courier}
+        <p className="mt-1 text-[12px] text-sam-muted">
+          <span className="font-medium text-sam-fg">배달 안내</span> · {courier}
         </p>
       ) : null}
     </>
@@ -136,7 +136,7 @@ export function StoreDetailCommerceStrip({
           deliveryAvailable={deliveryAvailable}
         />
       </div>
-      <p className="mt-3 text-[12px] leading-snug text-stone-500">
+      <p className="mt-3 text-[12px] leading-snug text-sam-muted">
         상세 주소·전단지는{" "}
         <Link
           href={`/stores/${encodeURIComponent(storeSlug)}/info`}
@@ -156,7 +156,7 @@ export function StoreDetailInquiryActions({ phone }: { phone: string | null }) {
   const btn =
     "flex flex-1 items-center justify-center rounded-ui-rect border border-ig-border bg-background py-2.5 text-center text-[14px] font-semibold text-foreground shadow-sm active:bg-ig-highlight";
   const disabled =
-    "flex flex-1 cursor-not-allowed items-center justify-center rounded-ui-rect border border-stone-200 bg-stone-50 py-2.5 text-center text-[14px] text-stone-400";
+    "flex flex-1 cursor-not-allowed items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app py-2.5 text-center text-[14px] text-sam-meta";
   return (
     <div className={`${STORE_DETAIL_GUTTER} mt-3 ${STORE_DETAIL_CARD} p-4`}>
       <StoreDetailSectionTitle level="h2">문의</StoreDetailSectionTitle>

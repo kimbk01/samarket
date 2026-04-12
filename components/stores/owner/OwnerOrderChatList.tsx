@@ -29,7 +29,7 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
   }, [cv, ov, ownerId, storeId]);
 
   if (storeId !== SHARED_SIM_STORE_ID) {
-    return <p className="text-sm text-gray-600">시뮬 매장만 주문 채팅 목록을 씁니다.</p>;
+    return <p className="text-sm text-sam-muted">시뮬 매장만 주문 채팅 목록을 씁니다.</p>;
   }
 
   if (!ownerId) {
@@ -43,7 +43,7 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
   return (
     <div className="space-y-2">
       {rows.length === 0 ? (
-        <p className="rounded-ui-rect bg-white p-6 text-sm text-gray-500">주문 채팅이 없어요.</p>
+        <p className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted">주문 채팅이 없어요.</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => {
@@ -55,19 +55,19 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
               <li key={r.id}>
                 <Link
                   href={`/my/business/store-order-chat/${encodeURIComponent(r.order_id)}`}
-                  className="flex items-start justify-between gap-2 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm"
+                  className="flex items-start justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-bold text-gray-900">{r.buyer_name}</p>
+                      <p className="font-bold text-sam-fg">{r.buyer_name}</p>
                       {issue ? (
                         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
                           확인
                         </span>
                       ) : null}
                     </div>
-                    <p className="font-mono text-xs text-gray-400">{r.order_no}</p>
-                    <p className="mt-1 line-clamp-2 text-sm text-gray-600">{r.last_message}</p>
+                    <p className="font-mono text-xs text-sam-meta">{r.order_no}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-sam-muted">{r.last_message}</p>
                   </div>
                   <UnreadBadge count={r.unread_count_owner} />
                 </Link>

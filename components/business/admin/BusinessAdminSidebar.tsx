@@ -42,14 +42,14 @@ export function BusinessAdminSidebar({
     <nav className={`flex flex-col gap-6 ${className}`} aria-label="매장 어드민 메뉴">
       {sections.map((section) => (
         <div key={section.title}>
-          <p className="px-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{section.title}</p>
+          <p className="px-3 text-[11px] font-bold uppercase tracking-wide text-sam-meta">{section.title}</p>
           <ul className="mt-1.5 space-y-0.5">
             {section.items.map((item) => {
               const active = isNavActive(item.href, pathname, searchParams);
               const isExternal = item.href.startsWith("/stores/");
               const common =
                 "flex items-center justify-between gap-2 rounded-ui-rect px-3 py-2.5 text-[14px] font-medium transition-colors";
-              const activeCls = active ? "bg-[#E7F3FF] text-[#1877F2]" : "text-gray-800 hover:bg-gray-100";
+              const activeCls = active ? "bg-[#E7F3FF] text-[#1877F2]" : "text-sam-fg hover:bg-sam-surface-muted";
               const inner = (
                 <>
                   <span className="min-w-0 truncate">{item.label}</span>

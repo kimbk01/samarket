@@ -29,15 +29,15 @@ export function WriteLauncherItem({ category, onNavigate }: WriteLauncherItemPro
     <button
       type="button"
       onClick={handleClick}
-      className="flex w-full items-center gap-3 rounded-ui-rect px-4 py-3 text-left transition-colors hover:bg-neutral-100/90"
+      className="flex w-full items-center gap-3 rounded-ui-rect px-4 py-3 text-left transition-colors hover:bg-sam-surface-muted/90"
     >
       <span
-        className="box-border flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-700 aspect-square"
+        className="box-border flex size-11 shrink-0 items-center justify-center rounded-full bg-sam-border-soft text-sam-fg aspect-square"
         aria-hidden
       >
         <CategoryIcon iconKey={category.icon_key} className="size-[22px] text-current" />
       </span>
-      <span className="min-w-0 flex-1 text-[15px] font-medium text-neutral-900">{category.name}</span>
+      <span className="min-w-0 flex-1 text-[15px] font-medium text-sam-fg">{category.name}</span>
     </button>
   );
 }

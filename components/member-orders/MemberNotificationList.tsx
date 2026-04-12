@@ -58,7 +58,7 @@ export function MemberNotificationList() {
   return (
     <div className="space-y-3" id="order-sim">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <label className="flex items-center gap-2 text-[12px] text-gray-700">
+        <label className="flex items-center gap-2 text-[12px] text-sam-fg">
           <input
             type="checkbox"
             checked={orderOnly}
@@ -69,7 +69,7 @@ export function MemberNotificationList() {
         {buyerId && rows.some((r) => !r.is_read) ? (
           <button
             type="button"
-            className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-800"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-fg"
             onClick={() => markAllNotificationsReadForTarget("member", buyerId)}
           >
             전체 읽음
@@ -77,7 +77,7 @@ export function MemberNotificationList() {
         ) : null}
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-ui-rect bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">
+        <p className="rounded-ui-rect bg-sam-surface p-4 text-sm text-sam-muted ring-1 ring-sam-border-soft">
           주문 시뮬 알림이 없어요. 주문을 진행하면 여기에 쌓여요.
         </p>
       ) : (
@@ -86,15 +86,15 @@ export function MemberNotificationList() {
             <li
               key={r.id}
               className={`rounded-ui-rect border px-3 py-3 shadow-sm ${
-                r.is_read ? "border-gray-100 bg-white" : "border-gray-200 bg-signature/5/80"
+                r.is_read ? "border-sam-border-soft bg-sam-surface" : "border-sam-border bg-signature/5/80"
               }`}
             >
-              <div className="flex flex-wrap justify-between gap-1 text-[11px] text-gray-400">
+              <div className="flex flex-wrap justify-between gap-1 text-[11px] text-sam-meta">
                 <span className="font-mono">{r.type}</span>
                 <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
               </div>
-              <p className="mt-1 text-[14px] font-semibold text-gray-900">{r.title}</p>
-              <p className="mt-0.5 text-[13px] text-gray-700">{r.message}</p>
+              <p className="mt-1 text-[14px] font-semibold text-sam-fg">{r.title}</p>
+              <p className="mt-0.5 text-[13px] text-sam-fg">{r.message}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Link
                   href="/my/store-orders"
@@ -108,7 +108,7 @@ export function MemberNotificationList() {
                 {!r.is_read ? (
                   <button
                     type="button"
-                    className="text-[12px] text-gray-600 underline"
+                    className="text-[12px] text-sam-muted underline"
                     onClick={() => markNotificationRead(r.id)}
                   >
                     읽음
@@ -119,7 +119,7 @@ export function MemberNotificationList() {
           ))}
         </ul>
       )}
-      <p className="text-[11px] text-gray-500">
+      <p className="text-[11px] text-sam-muted">
         알림 on/off는{" "}
         <Link href="/mypage/order-notifications" className="text-signature underline">
           주문 알림 설정

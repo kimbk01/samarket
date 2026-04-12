@@ -93,7 +93,7 @@ export function AdminTradeCompletionPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title={t("admin_page_trade_completion")} />
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         {t("admin_page_trade_completion_desc")}
       </p>
       {error ? (
@@ -102,12 +102,12 @@ export function AdminTradeCompletionPage() {
         </div>
       ) : null}
       {loading ? (
-        <p className="text-[14px] text-gray-500">{t("common_loading")}</p>
+        <p className="text-[14px] text-sam-muted">{t("common_loading")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
           <table className="w-full min-w-[960px] border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-gray-600">
+              <tr className="border-b border-sam-border-soft bg-sam-app text-left text-sam-muted">
                 <th className="px-3 py-2 font-medium">{t("admin_trade_completion_status")}</th>
                 <th className="px-3 py-2 font-medium">{t("admin_trade_completion_chat")}</th>
                 <th className="px-3 py-2 font-medium">{t("admin_trade_completion_post")}</th>
@@ -121,8 +121,8 @@ export function AdminTradeCompletionPage() {
               {items.map((r) => (
                 <tr
                   key={r.roomId}
-                  className={`border-b border-gray-50 ${
-                    r.buyerPending ? "bg-amber-50/90 hover:bg-amber-50" : "hover:bg-gray-50/80"
+                  className={`border-b border-sam-border-soft ${
+                    r.buyerPending ? "bg-amber-50/90 hover:bg-amber-50" : "hover:bg-sam-app/80"
                   }`}
                 >
                   <td className="px-3 py-2">
@@ -131,7 +131,7 @@ export function AdminTradeCompletionPage() {
                         {t("admin_trade_completion_pending_buyer")}
                       </span>
                     ) : (
-                      <span className="text-gray-500">{t("admin_trade_completion_done")}</span>
+                      <span className="text-sam-muted">{t("admin_trade_completion_done")}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono text-[12px]">
@@ -143,10 +143,10 @@ export function AdminTradeCompletionPage() {
                     {r.postTitle}
                   </td>
                   <td className="px-3 py-2">{r.tradeFlowStatus}</td>
-                  <td className="px-3 py-2 text-gray-600">
+                  <td className="px-3 py-2 text-sam-muted">
                     {r.sellerCompletedAt ? new Date(r.sellerCompletedAt).toLocaleString("ko-KR") : "—"}
                   </td>
-                  <td className="px-3 py-2 text-gray-600">
+                  <td className="px-3 py-2 text-sam-muted">
                     {r.buyerConfirmedAt
                       ? `${new Date(r.buyerConfirmedAt).toLocaleString("ko-KR")} (${r.buyerConfirmSource ?? "—"})`
                       : "—"}
@@ -157,12 +157,12 @@ export function AdminTradeCompletionPage() {
                         type="button"
                         disabled={busyId === r.roomId}
                         onClick={() => void confirmBuyer(r.roomId)}
-                        className="rounded border border-gray-300 bg-signature/5 px-2 py-1 text-[11px] font-medium text-gray-900 hover:bg-signature/10 disabled:opacity-50"
+                        className="rounded border border-sam-border bg-signature/5 px-2 py-1 text-[11px] font-medium text-sam-fg hover:bg-signature/10 disabled:opacity-50"
                       >
                         {busyId === r.roomId ? t("admin_chat_processing") : t("admin_trade_completion_admin_confirm")}
                       </button>
                     ) : (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-sam-meta">—</span>
                     )}
                   </td>
                 </tr>
@@ -170,7 +170,7 @@ export function AdminTradeCompletionPage() {
             </tbody>
           </table>
           {items.length === 0 && (
-            <p className="px-4 py-10 text-center text-[14px] text-gray-500">{t("admin_trade_completion_no_items")}</p>
+            <p className="px-4 py-10 text-center text-[14px] text-sam-muted">{t("admin_trade_completion_no_items")}</p>
           )}
         </div>
       )}

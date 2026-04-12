@@ -9,9 +9,9 @@ export function AutomationLogList() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[12px] text-gray-500">자동화 룰 실행 로그</p>
+      <p className="text-[12px] text-sam-muted">자동화 룰 실행 로그</p>
       {logs.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           실행 로그가 없습니다.
         </div>
       ) : (
@@ -21,13 +21,13 @@ export function AutomationLogList() {
             return (
               <li
                 key={l.id}
-                className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-gray-200 bg-white p-3 text-[13px] text-gray-700"
+                className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-[13px] text-sam-fg"
               >
                 <span className="font-medium">{rule?.ruleName ?? l.ruleId}</span>
-                <span className="text-gray-500">
+                <span className="text-sam-muted">
                   {new Date(l.triggeredAt).toLocaleString()}
                 </span>
-                <span className="text-gray-600">→ {l.actionResult}</span>
+                <span className="text-sam-muted">→ {l.actionResult}</span>
               </li>
             );
           })}

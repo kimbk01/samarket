@@ -27,7 +27,7 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
 
   if (!banner) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         배너를 찾을 수 없습니다.
       </div>
     );
@@ -46,11 +46,11 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/admin/banners/${bannerId}/edit`}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
         >
           수정
         </Link>
-        <span className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-gray-400">
+        <span className="rounded border border-sam-border bg-sam-app px-3 py-2 text-[13px] text-sam-meta">
           순서 조정 (예정)
         </span>
         {(banner.status === "draft" || banner.status === "paused" || banner.status === "hidden") && (
@@ -85,29 +85,29 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
       <AdminCard title="배너 정보">
         <dl className="grid gap-2 text-[14px]">
           <div>
-            <dt className="text-gray-500">제목</dt>
-            <dd className="font-medium text-gray-900">{banner.title || "(제목 없음)"}</dd>
+            <dt className="text-sam-muted">제목</dt>
+            <dd className="font-medium text-sam-fg">{banner.title || "(제목 없음)"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">설명</dt>
-            <dd className="text-gray-700">{banner.description || "-"}</dd>
+            <dt className="text-sam-muted">설명</dt>
+            <dd className="text-sam-fg">{banner.description || "-"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">위치</dt>
+            <dt className="text-sam-muted">위치</dt>
             <dd>{placementDef?.label ?? banner.placement}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">상태</dt>
+            <dt className="text-sam-muted">상태</dt>
             <dd>
               <AdminBannerStatusBadge status={banner.status} />
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">우선순위</dt>
+            <dt className="text-sam-muted">우선순위</dt>
             <dd>{banner.priority}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">노출 기간</dt>
+            <dt className="text-sam-muted">노출 기간</dt>
             <dd>
               {banner.startAt && banner.endAt
                 ? `${new Date(banner.startAt).toLocaleString("ko-KR")} ~ ${new Date(banner.endAt).toLocaleString("ko-KR")}`
@@ -115,8 +115,8 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">클릭 URL</dt>
-            <dd className="truncate text-gray-700">
+            <dt className="text-sam-muted">클릭 URL</dt>
+            <dd className="truncate text-sam-fg">
               {banner.targetUrl ? (
                 <a
                   href={banner.targetUrl}
@@ -132,18 +132,18 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">클릭 / 노출</dt>
+            <dt className="text-sam-muted">클릭 / 노출</dt>
             <dd>{banner.clickCount} / {banner.impressionCount}</dd>
           </div>
           {banner.adminMemo && (
             <div>
-              <dt className="text-gray-500">관리자 메모</dt>
-              <dd className="whitespace-pre-wrap text-gray-700">{banner.adminMemo}</dd>
+              <dt className="text-sam-muted">관리자 메모</dt>
+              <dd className="whitespace-pre-wrap text-sam-fg">{banner.adminMemo}</dd>
             </div>
           )}
           <div>
-            <dt className="text-gray-500">등록일 / 수정일</dt>
-            <dd className="text-[13px] text-gray-500">
+            <dt className="text-sam-muted">등록일 / 수정일</dt>
+            <dd className="text-[13px] text-sam-muted">
               {new Date(banner.createdAt).toLocaleString("ko-KR")} /{" "}
               {new Date(banner.updatedAt).toLocaleString("ko-KR")}
             </dd>

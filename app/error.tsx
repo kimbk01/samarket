@@ -16,10 +16,10 @@ export default function RootError({ error, reset }: ErrorProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 antialiased">
       <div className="flex flex-col items-center justify-center text-center">
-        <p className="text-[15px] font-medium text-gray-900">
+        <p className="text-[15px] font-medium text-sam-fg">
           일시적인 오류가 발생했어요
         </p>
-        <p className="mt-2 text-[13px] text-gray-500">
+        <p className="mt-2 text-[13px] text-sam-muted">
           잠시 후 다시 시도해 주세요.
         </p>
         <div className="mt-8 flex flex-col gap-3">

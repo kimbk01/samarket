@@ -22,7 +22,7 @@ function CloseIcon() {
 
 function CameraIcon() {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-gray-600" aria-hidden>
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-sam-muted" aria-hidden>
       <path
         d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2v11z"
         stroke="currentColor"
@@ -201,19 +201,19 @@ export function StoreOrderReviewForm({
 
   const shell = (body: React.ReactNode) => {
     if (layout === "inline") {
-      return <div className="text-[15px] text-gray-900">{body}</div>;
+      return <div className="text-[15px] text-sam-fg">{body}</div>;
     }
     return (
-      <div className="min-h-screen bg-white">
-        <header className="sticky top-0 z-10 flex h-12 items-center border-b border-gray-100 bg-white px-2">
+      <div className="min-h-screen bg-sam-surface">
+        <header className="sticky top-0 z-10 flex h-12 items-center border-b border-sam-border-soft bg-sam-surface px-2">
           <Link
             href={detailHref}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-800 hover:bg-gray-100"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
             aria-label="닫기"
           >
             <CloseIcon />
           </Link>
-          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-gray-900">
+          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-sam-fg">
             {loading ? "…" : headerTitle}
           </h1>
           <span className="w-11 shrink-0" />
@@ -224,11 +224,11 @@ export function StoreOrderReviewForm({
   };
 
   if (loading) {
-    return shell(<p className="text-center text-sm text-gray-500">불러오는 중…</p>);
+    return shell(<p className="text-center text-sm text-sam-muted">불러오는 중…</p>);
   }
   if (hasReview) {
     return shell(
-      <div className="space-y-4 text-center text-sm text-gray-600">
+      <div className="space-y-4 text-center text-sm text-sam-muted">
         <p>이 주문에는 이미 리뷰가 있습니다.</p>
         <Link href={detailHref} className="inline-block font-semibold text-signature underline">
           주문 상세로
@@ -238,13 +238,13 @@ export function StoreOrderReviewForm({
   }
   if (!canSubmit) {
     return shell(
-      <div className="space-y-4 text-center text-sm text-gray-600">
+      <div className="space-y-4 text-center text-sm text-sam-muted">
         <p>주문이 완료된 뒤에 리뷰를 작성할 수 있습니다.</p>
         <Link href={detailHref} className="inline-block font-semibold text-signature underline">
           주문 상세로
         </Link>
         <div>
-          <Link href={listHref} className="text-[13px] text-gray-500 underline">
+          <Link href={listHref} className="text-[13px] text-sam-muted underline">
             주문 목록
           </Link>
         </div>
@@ -263,7 +263,7 @@ export function StoreOrderReviewForm({
             className="p-1 transition-transform active:scale-95"
             aria-label={`별점 ${n}점`}
           >
-            <span className={`text-[36px] leading-none ${n <= rating ? "text-amber-400" : "text-gray-200"}`}>
+            <span className={`text-[36px] leading-none ${n <= rating ? "text-amber-400" : "text-sam-meta"}`}>
               ★
             </span>
           </button>
@@ -277,7 +277,7 @@ export function StoreOrderReviewForm({
           rows={6}
           maxLength={2000}
           placeholder="리뷰는 솔직하게 작성해주세요"
-          className="w-full resize-none rounded-ui-rect border border-gray-200 bg-gray-50/80 px-4 py-3 text-[15px] leading-relaxed text-gray-900 placeholder:text-gray-400"
+          className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app/80 px-4 py-3 text-[15px] leading-relaxed text-sam-fg placeholder:text-sam-meta"
         />
       </div>
 
@@ -292,7 +292,7 @@ export function StoreOrderReviewForm({
         />
         <div className="flex flex-wrap gap-2">
           {imageUrls.map((url, i) => (
-            <div key={url} className="relative h-20 w-20 overflow-hidden rounded-ui-rect border border-gray-200 bg-gray-100">
+            <div key={url} className="relative h-20 w-20 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface-muted">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" className="h-full w-full object-cover" />
               <button
@@ -310,7 +310,7 @@ export function StoreOrderReviewForm({
               type="button"
               disabled={uploadBusy}
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-20 w-20 flex-col items-center justify-center rounded-ui-rect border-2 border-dashed border-gray-200 bg-gray-50 text-gray-500 disabled:opacity-50"
+              className="flex h-20 w-20 flex-col items-center justify-center rounded-ui-rect border-2 border-dashed border-sam-border bg-sam-app text-sam-muted disabled:opacity-50"
             >
               <CameraIcon />
               <span className="mt-1 text-[10px] font-medium">사진</span>
@@ -319,34 +319,34 @@ export function StoreOrderReviewForm({
         </div>
       </div>
 
-      <label className="flex cursor-pointer items-start gap-3 rounded-ui-rect border border-gray-100 bg-gray-50/60 px-3 py-3">
+      <label className="flex cursor-pointer items-start gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app/60 px-3 py-3">
         <input
           type="checkbox"
           checked={ownerOnly}
           onChange={(e) => setOwnerOnly(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-gray-300"
+          className="mt-0.5 h-4 w-4 rounded border-sam-border"
         />
-        <span className="text-[14px] leading-snug text-gray-800">사장님에게만 보이게</span>
+        <span className="text-[14px] leading-snug text-sam-fg">사장님에게만 보이게</span>
       </label>
-      <p className="-mt-4 text-[11px] leading-snug text-gray-500">
+      <p className="-mt-4 text-[11px] leading-snug text-sam-muted">
         체크 시 다른 고객이 보는 매장 리뷰 목록에는 표시되지 않을 수 있어요. 매장·운영 검수 목적에 활용됩니다.
       </p>
 
       {items.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-[15px] font-semibold text-gray-900">메뉴는 괜찮았나요?</p>
+          <p className="text-[15px] font-semibold text-sam-fg">메뉴는 괜찮았나요?</p>
           <ul className="space-y-3">
             {items.map((it) => {
               const v = itemVote[it.id];
               return (
                 <li
                   key={it.id}
-                  className="flex items-center justify-between gap-3 rounded-ui-rect border border-gray-100 bg-white px-3 py-3 shadow-sm"
+                  className="flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3 shadow-sm"
                 >
-                  <span className="min-w-0 flex-1 text-[14px] font-medium text-gray-900">
+                  <span className="min-w-0 flex-1 text-[14px] font-medium text-sam-fg">
                     {it.product_title_snapshot}
                     {it.qty && it.qty > 1 ? (
-                      <span className="ml-1 text-[12px] font-normal text-gray-500">×{it.qty}</span>
+                      <span className="ml-1 text-[12px] font-normal text-sam-muted">×{it.qty}</span>
                     ) : null}
                   </span>
                   <div className="flex shrink-0 gap-1">
@@ -354,7 +354,7 @@ export function StoreOrderReviewForm({
                       type="button"
                       onClick={() => setVote(it.id, "up")}
                       className={`rounded-ui-rect px-3 py-2 text-lg ${
-                        v === "up" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-400"
+                        v === "up" ? "bg-emerald-100 text-emerald-800" : "bg-sam-surface-muted text-sam-meta"
                       }`}
                       aria-label="좋아요"
                     >
@@ -364,7 +364,7 @@ export function StoreOrderReviewForm({
                       type="button"
                       onClick={() => setVote(it.id, "down")}
                       className={`rounded-ui-rect px-3 py-2 text-lg ${
-                        v === "down" ? "bg-rose-100 text-rose-800" : "bg-gray-100 text-gray-400"
+                        v === "down" ? "bg-rose-100 text-rose-800" : "bg-sam-surface-muted text-sam-meta"
                       }`}
                       aria-label="아쉬워요"
                     >
@@ -378,18 +378,18 @@ export function StoreOrderReviewForm({
         </div>
       ) : null}
 
-      <div className="rounded-ui-rect bg-gray-100 px-3 py-3 text-[11px] leading-relaxed text-gray-600">
+      <div className="rounded-ui-rect bg-sam-surface-muted px-3 py-3 text-[11px] leading-relaxed text-sam-muted">
         솔직한 리뷰는 다른 이용자에게 큰 도움이 됩니다. 허위·비방·불법적인 내용은 제재 대상이 될 수 있어요.
       </div>
 
       {err ? <p className="text-center text-sm text-red-600">{err}</p> : null}
 
-      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-sam-border-soft bg-sam-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto max-w-lg">
           <button
             type="submit"
             disabled={busy || content.trim().length < 5}
-            className="w-full rounded-ui-rect bg-gray-900 py-3.5 text-[16px] font-semibold text-white disabled:opacity-40"
+            className="w-full rounded-ui-rect bg-sam-ink py-3.5 text-[16px] font-semibold text-white disabled:opacity-40"
           >
             {busy ? "등록 중…" : "리뷰 작성 완료"}
           </button>

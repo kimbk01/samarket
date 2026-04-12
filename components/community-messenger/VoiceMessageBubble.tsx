@@ -141,8 +141,8 @@ export function VoiceMessageBubble({
   }, [loadError, pending]);
 
   const mineLight = isMine && mineBubbleStyle === "viberLight";
-  const inactiveBar = isMine ? (mineLight ? "bg-white/35" : "bg-white/30") : "bg-gray-200";
-  const activeBar = isMine ? (mineLight ? "bg-[color:var(--cm-room-primary)]" : "bg-white") : "bg-gray-900";
+  const inactiveBar = isMine ? (mineLight ? "bg-sam-surface/35" : "bg-sam-surface/30") : "bg-sam-border-soft";
+  const activeBar = isMine ? (mineLight ? "bg-[color:var(--cm-room-primary)]" : "bg-sam-surface") : "bg-sam-ink";
 
   return (
     <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">
@@ -154,9 +154,9 @@ export function VoiceMessageBubble({
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
             isMine
               ? mineLight
-                ? "bg-white/25 text-white ring-2 ring-white/40"
-                : "bg-white/25 text-white ring-2 ring-white/35"
-              : "bg-gray-900 text-white ring-2 ring-gray-300"
+                ? "bg-sam-surface/25 text-white ring-2 ring-sam-surface/40"
+                : "bg-sam-surface/25 text-white ring-2 ring-sam-surface/35"
+              : "bg-sam-ink text-white ring-2 ring-sam-border"
           }`}
           aria-label={playing ? t("common_pause") : t("common_play")}
         >
@@ -189,7 +189,7 @@ export function VoiceMessageBubble({
           </div>
           <div
             className={`flex items-baseline justify-between gap-2 text-[11px] leading-tight ${
-              isMine ? (mineLight ? "text-white/85" : "text-white/90") : "text-gray-500"
+              isMine ? (mineLight ? "text-white/85" : "text-white/90") : "text-sam-muted"
             }`}
           >
             <span className="shrink-0 tabular-nums font-medium">{formatVoiceDuration(durationSeconds)}</span>
@@ -220,7 +220,7 @@ export function VoiceMessageBubble({
         </span>
       ) : null}
       {pending ? (
-        <span className={`text-[11px] ${isMine ? (mineLight ? "text-gray-500" : "text-white/80") : "text-gray-500"}`}>
+        <span className={`text-[11px] ${isMine ? (mineLight ? "text-sam-muted" : "text-white/80") : "text-sam-muted"}`}>
           {t("common_sending")}
         </span>
       ) : null}

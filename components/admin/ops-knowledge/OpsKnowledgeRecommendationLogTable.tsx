@@ -18,29 +18,29 @@ export function OpsKnowledgeRecommendationLogTable() {
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
         추천 로그가 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[560px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">출처</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">문서</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">사유</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">점수</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">클릭</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">시각</th>
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">출처</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">문서</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">사유</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">점수</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">클릭</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">시각</th>
           </tr>
         </thead>
         <tbody>
           {logs.map((log) => (
-            <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="px-3 py-2.5 text-gray-700">
+            <tr key={log.id} className="border-b border-sam-border-soft hover:bg-sam-app">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {SOURCE_LABELS[log.sourceType]}
                 {log.sourceId && ` · ${log.sourceId}`}
               </td>
@@ -52,20 +52,20 @@ export function OpsKnowledgeRecommendationLogTable() {
                   {log.recommendedDocumentId}
                 </Link>
               </td>
-              <td className="px-3 py-2.5 text-gray-600 text-[13px]">
+              <td className="px-3 py-2.5 text-sam-muted text-[13px]">
                 {log.recommendationReason}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {(log.score * 100).toFixed(0)}%
               </td>
               <td className="px-3 py-2.5">
                 {log.clicked ? (
                   <span className="text-emerald-600">Y</span>
                 ) : (
-                  <span className="text-gray-400">N</span>
+                  <span className="text-sam-meta">N</span>
                 )}
               </td>
-              <td className="px-3 py-2.5 text-gray-600">
+              <td className="px-3 py-2.5 text-sam-muted">
                 {new Date(log.createdAt).toLocaleString("ko-KR")}
               </td>
             </tr>

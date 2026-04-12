@@ -83,7 +83,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
   };
 
   if (loading) {
-    return <div className="py-12 text-center text-[14px] text-gray-500">불러오는 중입니다.</div>;
+    return <div className="py-12 text-center text-[14px] text-sam-muted">불러오는 중입니다.</div>;
   }
 
   if (error) {
@@ -92,21 +92,21 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
 
   if (items.length === 0) {
     return (
-      <div className="py-12 text-center text-[14px] text-gray-500">
+      <div className="py-12 text-center text-[14px] text-sam-muted">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <ul className="divide-y divide-gray-100">
+    <ul className="divide-y divide-sam-border-soft">
       {items.map((item) => (
         <li key={item.id} className="flex items-center justify-between py-3">
           <div className="min-w-0 pr-3">
-            <p className="truncate text-[15px] font-medium text-gray-900">
+            <p className="truncate text-[15px] font-medium text-sam-fg">
               {item.nickname?.trim() || item.targetId}
             </p>
-            <p className="mt-1 text-[12px] text-gray-500">
+            <p className="mt-1 text-[12px] text-sam-muted">
               {[item.regionName, formatDate(item.createdAt)].filter(Boolean).join(" · ") || item.targetId}
             </p>
           </div>

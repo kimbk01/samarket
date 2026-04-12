@@ -124,12 +124,12 @@ export function PurchaseHistoryCard({
   };
 
   return (
-    <li className="relative rounded-ui-rect border border-gray-100 bg-white shadow-sm">
+    <li className="relative rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
       <div
         className={`flex gap-2 p-3 ${needsBuyerTradeConfirm || needsReviewCallToAction ? "pb-2" : ""}`}
       >
         <Link href={purchaseDetailHref} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {row.thumbnail && !thumbFailed ? (
               <img
                 src={row.thumbnail}
@@ -138,24 +138,24 @@ export function PurchaseHistoryCard({
                 onError={() => setThumbFailed(true)}
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-[11px] text-gray-400">이미지</div>
+              <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
             )}
           </div>
           <div className="min-w-0 flex-1 pr-1">
-            <p className="line-clamp-2 text-[14px] font-medium text-gray-900">{row.title || "상품"}</p>
-            <p className="mt-0.5 text-[15px] font-bold text-gray-900">{formatPrice(row.price, currency)}</p>
+            <p className="line-clamp-2 text-[14px] font-medium text-sam-fg">{row.title || "상품"}</p>
+            <p className="mt-0.5 text-[15px] font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>
             {row.sellerNickname ? (
-              <p className="mt-0.5 truncate text-[12px] text-gray-600">{row.sellerNickname}</p>
+              <p className="mt-0.5 truncate text-[12px] text-sam-muted">{row.sellerNickname}</p>
             ) : null}
-            <p className="mt-0.5 text-[11px] text-gray-400">거래 {tradeAtLabel}</p>
+            <p className="mt-0.5 text-[11px] text-sam-meta">거래 {tradeAtLabel}</p>
             <div className="mt-1.5 flex flex-wrap gap-1">
               <span className="rounded-ui-rect bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
                 상품 · {productBadge}
               </span>
-              <span className="rounded-ui-rect bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-800">
+              <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
                 진행 · {tradeBadge}
               </span>
-              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
+              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
                 후기 · {reviewBadge}
               </span>
             </div>
@@ -165,13 +165,13 @@ export function PurchaseHistoryCard({
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="rounded-ui-rect p-2 text-gray-500 hover:bg-gray-100"
+            className="rounded-ui-rect p-2 text-sam-muted hover:bg-sam-surface-muted"
             aria-label="더보기"
           >
             <DotsIcon />
           </button>
           {menuOpen ? (
-            <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-ui-rect border border-gray-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg">
               <MenuLink
                 href={tradeHubChatRoomHref(row.chatId, "product_chat")}
                 onNavigate={() => setMenuOpen(false)}
@@ -234,7 +234,7 @@ export function PurchaseHistoryCard({
       </div>
 
       {needsBuyerTradeConfirm ? (
-        <div className="border-t border-gray-100 px-3 py-2.5">
+        <div className="border-t border-sam-border-soft px-3 py-2.5">
           <button
             type="button"
             disabled={!!actionLoading}
@@ -243,15 +243,15 @@ export function PurchaseHistoryCard({
           >
             {actionLoading?.endsWith("/buyer-confirm") ? "처리 중…" : "거래완료 확인"}
           </button>
-          <p className="mt-1.5 text-center text-[10px] text-gray-500">
+          <p className="mt-1.5 text-center text-[10px] text-sam-muted">
             문제가 있으면 ⋮ 메뉴에서 「문제있어요」를 눌러 주세요.
           </p>
         </div>
       ) : null}
 
       {needsReviewCallToAction ? (
-        <div className="border-t border-gray-100 px-3 py-2.5">
-          <p className="mb-2 text-center text-[11px] text-gray-900">
+        <div className="border-t border-sam-border-soft px-3 py-2.5">
+          <p className="mb-2 text-center text-[11px] text-sam-fg">
             거래완료 확인이 끝났어요. 이제 <strong className="font-semibold">평가·후기</strong>를 남겨 주세요.
           </p>
           <button
@@ -290,7 +290,7 @@ export function PurchaseHistoryCard({
 
       {report.open ? (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white">
+          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface">
             <ReportActionSheet
               targetType="user"
               targetId={row.sellerId}
@@ -321,7 +321,7 @@ function MenuLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-800 hover:bg-gray-50"
+      className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
     >
       {children}
     </Link>
@@ -342,7 +342,7 @@ function MenuButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+      className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
     >
       {children}
     </button>

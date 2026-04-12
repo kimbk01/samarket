@@ -20,13 +20,13 @@ export function ReleaseArchiveTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">버전 상태</span>
+        <span className="text-[13px] text-sam-muted">버전 상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as ReleaseArchiveStatus | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="active">활성</option>
@@ -38,7 +38,7 @@ export function ReleaseArchiveTable() {
       </div>
 
       {archives.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 조건의 릴리즈 아카이브가 없습니다.
         </div>
       ) : (
@@ -56,17 +56,17 @@ export function ReleaseArchiveTable() {
           {archives.map((a) => (
             <tr
               key={a.id}
-              className={`border-b border-gray-100 ${
+              className={`border-b border-sam-border-soft ${
                 a.releaseStatus === "rolled_back" ? "bg-red-50/30" : ""
               }`}
             >
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {a.releaseVersion}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {a.buildTag}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {a.releaseTitle}
               </td>
               <td className="px-3 py-2.5">
@@ -80,16 +80,16 @@ export function ReleaseArchiveTable() {
                           ? "bg-emerald-50 text-emerald-700"
                           : a.releaseStatus === "hotfix"
                             ? "bg-amber-50 text-amber-700"
-                            : "bg-gray-100 text-gray-600"
+                            : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {getReleaseStatusLabel(a.releaseStatus)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {a.releaseDate}
               </td>
-              <td className="max-w-[200px] px-3 py-2.5 text-[13px] text-gray-600 line-clamp-2">
+              <td className="max-w-[200px] px-3 py-2.5 text-[13px] text-sam-muted line-clamp-2">
                 {a.summary}
               </td>
               <td className="px-3 py-2.5">

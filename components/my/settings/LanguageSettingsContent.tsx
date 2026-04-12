@@ -85,13 +85,13 @@ export function LanguageSettingsContent() {
 
   return (
     <div className="space-y-3">
-      <ul className="divide-y divide-gray-100">
+      <ul className="divide-y divide-sam-border-soft">
         {list.map((c) => (
           <li key={c.code}>
             <button
               type="button"
               disabled={busy}
-              className="flex w-full items-center justify-between py-3 text-left text-[15px] text-gray-900 disabled:opacity-60"
+              className="flex w-full items-center justify-between py-3 text-left text-[15px] text-sam-fg disabled:opacity-60"
               onClick={() => void select(c.code as AppLanguageCode)}
             >
               <span>{c.name}</span>

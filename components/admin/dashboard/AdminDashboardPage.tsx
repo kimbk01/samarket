@@ -96,14 +96,14 @@ export function AdminDashboardPage() {
     <div className="space-y-6">
       <AdminPageHeader title="대시보드" />
       <section>
-        <h2 className="mb-3 text-[13px] font-medium text-gray-500">
+        <h2 className="mb-3 text-[13px] font-medium text-sam-muted">
           오늘 운영 현황
         </h2>
         <AdminKpiCards stats={payload.stats} />
       </section>
       <DashboardUrgentBlock />
       <section>
-        <h2 className="mb-3 text-[13px] font-medium text-gray-500">
+        <h2 className="mb-3 text-[13px] font-medium text-sam-muted">
           영역별 바로가기
         </h2>
         <DashboardQuickLinksBySection />

@@ -11,7 +11,7 @@ export default async function AdminStoreOrdersRoutePage({
 
   return (
     <div className="p-4 md:p-6">
-      <Suspense fallback={<p className="text-sm text-gray-500">불러오는 중…</p>}>
+      <Suspense fallback={<p className="text-sm text-sam-muted">불러오는 중…</p>}>
         <AdminStoreOrdersPage initialFilters={orderId ? { orderId } : undefined} />
       </Suspense>
     </div>

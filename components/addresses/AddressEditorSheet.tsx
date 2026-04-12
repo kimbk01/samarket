@@ -33,7 +33,7 @@ function AddressMapThumb({ lat, lng }: { lat: number; lng: number }) {
   if (!src || i >= candidates.length) {
     return (
       <div
-        className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-ui-rect bg-gray-100 text-[11px] text-gray-400"
+        className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface-muted text-[11px] text-sam-meta"
         aria-hidden
       >
         지도
@@ -49,7 +49,7 @@ function AddressMapThumb({ lat, lng }: { lat: number; lng: number }) {
       alt=""
       width={72}
       height={72}
-      className="h-[72px] w-[72px] shrink-0 rounded-ui-rect object-cover bg-gray-100"
+      className="h-[72px] w-[72px] shrink-0 rounded-ui-rect object-cover bg-sam-surface-muted"
       loading="lazy"
       decoding="async"
       onError={() => setI((x) => x + 1)}
@@ -256,16 +256,16 @@ export function AddressEditorSheet(props: {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col justify-end bg-black/40 sm:items-center sm:justify-center sm:p-4">
       <div
-        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white sm:max-h-[90vh] sm:max-w-lg sm:rounded-ui-rect sm:shadow-xl"
+        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface sm:max-h-[90vh] sm:max-w-lg sm:rounded-ui-rect sm:shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="addr-editor-title"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-3 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft bg-sam-surface px-3 py-3">
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 min-w-[44px] items-center justify-center rounded-ui-rect text-[14px] text-gray-600"
+            className="flex h-10 min-w-[44px] items-center justify-center rounded-ui-rect text-[14px] text-sam-muted"
             aria-label="닫기"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -277,7 +277,7 @@ export function AddressEditorSheet(props: {
               />
             </svg>
           </button>
-          <h2 id="addr-editor-title" className="text-[16px] font-semibold text-gray-900">
+          <h2 id="addr-editor-title" className="text-[16px] font-semibold text-sam-fg">
             주소상세
           </h2>
           <button
@@ -292,7 +292,7 @@ export function AddressEditorSheet(props: {
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-6">
           <div>
-            <p className="mb-2 text-[14px] font-medium text-gray-900">
+            <p className="mb-2 text-[14px] font-medium text-sam-fg">
               이름 <span className="text-red-600">*</span>
             </p>
             <input
@@ -304,7 +304,7 @@ export function AddressEditorSheet(props: {
               placeholder="예: 우리집, 사무실"
               autoComplete="off"
               aria-required
-              className="w-full border-0 border-b border-gray-200 bg-transparent py-2 text-[17px] text-gray-900 outline-none placeholder:text-gray-400"
+              className="w-full border-0 border-b border-sam-border bg-transparent py-2 text-[17px] text-sam-fg outline-none placeholder:text-sam-meta"
             />
           </div>
 
@@ -319,7 +319,7 @@ export function AddressEditorSheet(props: {
                 );
                 router.push("/address/select");
               }}
-              className="w-full rounded-ui-rect bg-gray-100 py-4 text-[15px] font-medium text-gray-900"
+              className="w-full rounded-ui-rect bg-sam-surface-muted py-4 text-[15px] font-medium text-sam-fg"
             >
               위치 선택
             </button>
@@ -327,7 +327,7 @@ export function AddressEditorSheet(props: {
 
           {latitude != null && longitude != null ? (
             <div className="flex gap-3">
-              <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-gray-700">
+              <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-sam-fg">
                 {fullAddress.trim() ||
                   `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
               </p>
@@ -337,12 +337,12 @@ export function AddressEditorSheet(props: {
 
           <div>
             <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[14px] font-medium text-gray-900">상세주소</p>
+              <p className="text-[14px] font-medium text-sam-fg">상세주소</p>
               {unitFloorRoom.trim() ? (
                 <button
                   type="button"
                   onClick={() => setUnitFloorRoom("")}
-                  className="text-[13px] text-gray-400 hover:text-gray-700"
+                  className="text-[13px] text-sam-meta hover:text-sam-fg"
                   aria-label="상세주소 지우기"
                 >
                   ✕
@@ -353,7 +353,7 @@ export function AddressEditorSheet(props: {
               value={unitFloorRoom}
               onChange={(e) => setUnitFloorRoom(e.target.value)}
               placeholder="지번, 건물명, 동·호 등"
-              className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900 placeholder:text-gray-400"
+              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg placeholder:text-sam-meta"
             />
           </div>
 

@@ -44,16 +44,16 @@ export function CommunityWritePage({
   const Form = getWriteForm(board.form_type);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+    <div className="min-h-screen bg-sam-app">
+      <div className="bg-sam-surface border-b border-sam-border sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-2">
           <AppBackButton backHref={cancelHref} ariaLabel="취소" />
-          <h1 className="text-lg font-semibold text-gray-900">글쓰기</h1>
+          <h1 className="text-lg font-semibold text-sam-fg">글쓰기</h1>
         </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-4">
-        <div className="bg-white rounded-ui-rect border border-gray-200 p-4">
+        <div className="bg-sam-surface rounded-ui-rect border border-sam-border p-4">
           <Form
             board={board}
             onSubmit={handleSubmit}

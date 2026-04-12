@@ -198,16 +198,16 @@ export function AdminMainBottomNavPage() {
         description="탭 추가·삭제(최대 10개), 순서, 숨김(노출 끄기), 라벨·경로·아이콘, 폰트·글자 크기·라벨·아이콘 색 프리셋을 설정합니다."
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-[13px] text-gray-600">
+      <div className="flex flex-wrap items-center gap-2 text-[13px] text-sam-muted">
         <span>
-          저장 위치: <code className="rounded bg-gray-100 px-1">admin_settings.main_bottom_nav</code>
+          저장 위치: <code className="rounded bg-sam-surface-muted px-1">admin_settings.main_bottom_nav</code>
         </span>
         {fromDb ? (
           <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">DB 적용 중</span>
         ) : (
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700">코드 기본값</span>
+          <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-sam-fg">코드 기본값</span>
         )}
-        {updatedAt ? <span className="text-gray-500">마지막 수정: {updatedAt}</span> : null}
+        {updatedAt ? <span className="text-sam-muted">마지막 수정: {updatedAt}</span> : null}
       </div>
 
       {message ? (
@@ -233,7 +233,7 @@ export function AdminMainBottomNavPage() {
           type="button"
           disabled={saving || loading || !rows || rows.length >= MAX_TABS}
           onClick={addRow}
-          className="rounded-ui-rect border border-gray-300 bg-white px-4 py-2 text-[14px] text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
           메뉴 추가
         </button>
@@ -241,7 +241,7 @@ export function AdminMainBottomNavPage() {
           type="button"
           disabled={saving || loading}
           onClick={() => void load()}
-          className="rounded-ui-rect border border-gray-300 bg-white px-4 py-2 text-[14px] text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
           다시 불러오기
         </button>
@@ -256,23 +256,23 @@ export function AdminMainBottomNavPage() {
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
-          className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
         >
           {showAdvanced ? "고급(Tailwind 직접) 접기" : "고급(Tailwind 직접) 펼치기"}
         </button>
       </div>
 
       {loading ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">불러오는 중…</div>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center text-[14px] text-sam-muted">불러오는 중…</div>
       ) : !rows ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
           목록을 불러오지 못했습니다. 관리자 권한·Supabase 환경을 확인해 주세요.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="min-w-[1100px] w-full border-collapse text-left text-[12px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+              <tr className="border-b border-sam-border bg-sam-app text-sam-muted">
                 <th className="px-2 py-2 font-medium">순서</th>
                 <th className="px-2 py-2 font-medium">노출</th>
                 <th className="px-2 py-2 font-medium">삭제</th>
@@ -298,14 +298,14 @@ export function AdminMainBottomNavPage() {
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={row.id} className="border-b border-gray-100 align-top">
+                <tr key={row.id} className="border-b border-sam-border-soft align-top">
                   <td className="px-2 py-2">
                     <div className="flex flex-col gap-1">
                       <button
                         type="button"
                         disabled={i === 0}
                         onClick={() => move(i, -1)}
-                        className="rounded border border-gray-200 px-1.5 py-0.5 text-[11px] disabled:opacity-30"
+                        className="rounded border border-sam-border px-1.5 py-0.5 text-[11px] disabled:opacity-30"
                       >
                         ↑
                       </button>
@@ -313,7 +313,7 @@ export function AdminMainBottomNavPage() {
                         type="button"
                         disabled={i === rows.length - 1}
                         onClick={() => move(i, 1)}
-                        className="rounded border border-gray-200 px-1.5 py-0.5 text-[11px] disabled:opacity-30"
+                        className="rounded border border-sam-border px-1.5 py-0.5 text-[11px] disabled:opacity-30"
                       >
                         ↓
                       </button>
@@ -339,10 +339,10 @@ export function AdminMainBottomNavPage() {
                       삭제
                     </button>
                   </td>
-                  <td className="max-w-[100px] truncate px-2 py-2 font-mono text-[11px] text-gray-700" title={row.id}>
+                  <td className="max-w-[100px] truncate px-2 py-2 font-mono text-[11px] text-sam-fg" title={row.id}>
                     {row.id}
                     {isBuiltinBottomNavTabId(row.id) ? (
-                      <span className="ml-1 text-[10px] text-gray-400">(내장)</span>
+                      <span className="ml-1 text-[10px] text-sam-meta">(내장)</span>
                     ) : (
                       <span className="ml-1 text-[10px] text-signature">(추가)</span>
                     )}
@@ -351,7 +351,7 @@ export function AdminMainBottomNavPage() {
                     <input
                       value={row.label}
                       onChange={(e) => patchRow(i, { label: e.target.value })}
-                      className="w-[88px] max-w-full rounded border border-gray-200 px-1.5 py-1 text-[12px]"
+                      className="w-[88px] max-w-full rounded border border-sam-border px-1.5 py-1 text-[12px]"
                       maxLength={24}
                     />
                   </td>
@@ -359,7 +359,7 @@ export function AdminMainBottomNavPage() {
                     <input
                       value={row.href}
                       onChange={(e) => patchRow(i, { href: e.target.value })}
-                      className="w-[100px] max-w-full rounded border border-gray-200 px-1.5 py-1 font-mono text-[11px]"
+                      className="w-[100px] max-w-full rounded border border-sam-border px-1.5 py-1 font-mono text-[11px]"
                       maxLength={160}
                     />
                   </td>
@@ -367,7 +367,7 @@ export function AdminMainBottomNavPage() {
                     <select
                       value={row.icon}
                       onChange={(e) => patchRow(i, { icon: e.target.value as BottomNavIconKey })}
-                      className="max-w-[120px] rounded border border-gray-200 px-1 py-1 text-[11px]"
+                      className="max-w-[120px] rounded border border-sam-border px-1 py-1 text-[11px]"
                     >
                       {ICON_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -380,7 +380,7 @@ export function AdminMainBottomNavPage() {
                     <select
                       value={row.labelFontFamilyClass ?? ""}
                       onChange={(e) => patchRow(i, { labelFontFamilyClass: e.target.value || undefined })}
-                      className="max-w-[100px] rounded border border-gray-200 px-1 py-1 text-[11px]"
+                      className="max-w-[100px] rounded border border-sam-border px-1 py-1 text-[11px]"
                     >
                       {MAIN_BOTTOM_NAV_FONT_FAMILY_PRESETS.map((o) => (
                         <option key={o.label} value={o.value}>
@@ -397,7 +397,7 @@ export function AdminMainBottomNavPage() {
                         if (v === "__custom__") return;
                         patchRow(i, { labelSizeClass: v || undefined });
                       }}
-                      className="max-w-[100px] rounded border border-gray-200 px-1 py-1 text-[11px]"
+                      className="max-w-[100px] rounded border border-sam-border px-1 py-1 text-[11px]"
                     >
                       {MAIN_BOTTOM_NAV_LABEL_SIZE_PRESETS.map((o) => (
                         <option key={o.label} value={o.value}>
@@ -417,7 +417,7 @@ export function AdminMainBottomNavPage() {
                         if (v === "__custom__") return;
                         patchRow(i, { labelActiveClass: v || undefined });
                       }}
-                      className="max-w-[120px] rounded border border-gray-200 px-1 py-1 text-[11px]"
+                      className="max-w-[120px] rounded border border-sam-border px-1 py-1 text-[11px]"
                     >
                       {MAIN_BOTTOM_NAV_LABEL_ACTIVE_STYLE_PRESETS.map((o) => (
                         <option key={o.label} value={o.value}>
@@ -438,7 +438,7 @@ export function AdminMainBottomNavPage() {
                         if (v === "__custom__") return;
                         patchRow(i, { labelInactiveClass: v || undefined });
                       }}
-                      className="max-w-[120px] rounded border border-gray-200 px-1 py-1 text-[11px]"
+                      className="max-w-[120px] rounded border border-sam-border px-1 py-1 text-[11px]"
                     >
                       {MAIN_BOTTOM_NAV_LABEL_INACTIVE_STYLE_PRESETS.map((o) => (
                         <option key={o.label} value={o.value}>
@@ -459,7 +459,7 @@ export function AdminMainBottomNavPage() {
                         if (v === "__custom__") return;
                         patchRow(i, { iconActiveClass: v || undefined });
                       }}
-                      className="max-w-[100px] rounded border border-gray-200 px-1 py-1 text-[11px]"
+                      className="max-w-[100px] rounded border border-sam-border px-1 py-1 text-[11px]"
                     >
                       {MAIN_BOTTOM_NAV_ICON_ACTIVE_STYLE_PRESETS.map((o) => (
                         <option key={o.label} value={o.value}>
@@ -480,7 +480,7 @@ export function AdminMainBottomNavPage() {
                         if (v === "__custom__") return;
                         patchRow(i, { iconInactiveClass: v || undefined });
                       }}
-                      className="max-w-[100px] rounded border border-gray-200 px-1 py-1 text-[11px]"
+                      className="max-w-[100px] rounded border border-sam-border px-1 py-1 text-[11px]"
                     >
                       {MAIN_BOTTOM_NAV_ICON_INACTIVE_STYLE_PRESETS.map((o) => (
                         <option key={o.label} value={o.value}>
@@ -500,7 +500,7 @@ export function AdminMainBottomNavPage() {
                           value={row.labelSizeClass ?? ""}
                           onChange={(e) => patchRow(i, { labelSizeClass: e.target.value || undefined })}
                           placeholder="text-[11px]"
-                          className="w-[100px] rounded border border-gray-200 px-1.5 py-1 font-mono text-[11px]"
+                          className="w-[100px] rounded border border-sam-border px-1.5 py-1 font-mono text-[11px]"
                           maxLength={120}
                           title="프리셋과 병합됨. 비우면 프리셋/기본값"
                         />
@@ -510,7 +510,7 @@ export function AdminMainBottomNavPage() {
                           value={row.labelActiveExtraClass ?? ""}
                           onChange={(e) => patchRow(i, { labelActiveExtraClass: e.target.value || undefined })}
                           placeholder="추가 클래스"
-                          className="w-[100px] rounded border border-gray-200 px-1.5 py-1 font-mono text-[11px]"
+                          className="w-[100px] rounded border border-sam-border px-1.5 py-1 font-mono text-[11px]"
                           maxLength={120}
                         />
                       </td>
@@ -518,7 +518,7 @@ export function AdminMainBottomNavPage() {
                         <input
                           value={row.labelInactiveExtraClass ?? ""}
                           onChange={(e) => patchRow(i, { labelInactiveExtraClass: e.target.value || undefined })}
-                          className="w-[100px] rounded border border-gray-200 px-1.5 py-1 font-mono text-[11px]"
+                          className="w-[100px] rounded border border-sam-border px-1.5 py-1 font-mono text-[11px]"
                           maxLength={120}
                         />
                       </td>
@@ -527,7 +527,7 @@ export function AdminMainBottomNavPage() {
                           value={row.iconSizeClass ?? ""}
                           onChange={(e) => patchRow(i, { iconSizeClass: e.target.value || undefined })}
                           placeholder="h-6 w-6"
-                          className="w-[90px] rounded border border-gray-200 px-1.5 py-1 font-mono text-[11px]"
+                          className="w-[90px] rounded border border-sam-border px-1.5 py-1 font-mono text-[11px]"
                           maxLength={120}
                         />
                       </td>
@@ -540,8 +540,8 @@ export function AdminMainBottomNavPage() {
         </div>
       )}
 
-      <p className="text-[12px] leading-relaxed text-gray-500">
-        추가 탭 id는 <code className="rounded bg-gray-100 px-0.5">custom_*</code> 형식입니다. 경로는 내부 링크만(/로 시작). 최소 1개 탭·1개 이상 노출이어야 저장됩니다. 채팅 읽지 않음 배지는 아이콘이
+      <p className="text-[12px] leading-relaxed text-sam-muted">
+        추가 탭 id는 <code className="rounded bg-sam-surface-muted px-0.5">custom_*</code> 형식입니다. 경로는 내부 링크만(/로 시작). 최소 1개 탭·1개 이상 노출이어야 저장됩니다. 채팅 읽지 않음 배지는 아이콘이
         &quot;chat&quot;인 탭에만 붙습니다.
       </p>
     </div>

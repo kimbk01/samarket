@@ -53,15 +53,15 @@ export function ReportReasonModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-white">
-      <header className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+    <div className="fixed inset-0 z-40 flex flex-col bg-sam-surface">
+      <header className="flex shrink-0 items-center justify-between border-b border-sam-border bg-sam-surface px-4 py-3">
         <AppBackButton onBack={onClose} ariaLabel="닫기" />
-        <span className="text-[16px] font-medium text-gray-900">신고</span>
+        <span className="text-[16px] font-medium text-sam-fg">신고</span>
         <span className="w-11 shrink-0" />
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <h2 className="text-[18px] font-bold text-gray-900">
+        <h2 className="text-[18px] font-bold text-sam-fg">
           게시글을 신고하는 이유를 선택해주세요.
         </h2>
 
@@ -69,7 +69,7 @@ export function ReportReasonModal({
           <p className="mt-2 text-[14px] text-red-600">{error}</p>
         )}
 
-        <ul className="mt-4 divide-y divide-gray-100">
+        <ul className="mt-4 divide-y divide-sam-border-soft">
           {POST_REPORT_REASONS.map((r) => (
             <li key={r.code}>
               <button
@@ -77,16 +77,16 @@ export function ReportReasonModal({
                 disabled={submitting}
                 onClick={() => handleSelect(r.label, r.code)}
                 className={`flex w-full items-center justify-between gap-2 py-4 text-left disabled:opacity-50 ${
-                  r.isAuthor ? "text-blue-600" : "text-gray-900"
+                  r.isAuthor ? "text-blue-600" : "text-sam-fg"
                 }`}
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-medium">{r.label}</p>
                   {r.subLabel && (
-                    <p className="mt-0.5 text-[13px] text-gray-500">{r.subLabel}</p>
+                    <p className="mt-0.5 text-[13px] text-sam-muted">{r.subLabel}</p>
                   )}
                 </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
+                <ChevronRight className="h-5 w-5 shrink-0 text-sam-meta" />
               </button>
             </li>
           ))}

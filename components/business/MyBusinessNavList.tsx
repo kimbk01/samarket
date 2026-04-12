@@ -168,16 +168,16 @@ export function MyBusinessNavList({ groups, className = "", onNavigate }: Props)
       {groups.map((group, gi) => (
         <div
           key={group.title}
-          className="h-full rounded-ui-rect border border-ig-border bg-white p-2 shadow-[0_6px_24px_rgba(15,23,42,0.05)]"
+          className="h-full rounded-ui-rect border border-ig-border bg-sam-surface p-2 shadow-[0_6px_24px_rgba(15,23,42,0.05)]"
         >
-          <h2 className={`px-3 text-[13px] font-medium text-gray-500 ${gi === 0 ? "pt-2" : "pt-2"}`}>
+          <h2 className={`px-3 text-[13px] font-medium text-sam-muted ${gi === 0 ? "pt-2" : "pt-2"}`}>
             {group.title}
           </h2>
           <ul className="mt-2 space-y-1">
             {group.items.map((item, i) => (
               <li key={`${group.title}-${item.label}`}>
                 <NavRow item={item} isMuted={item.disabled} onNavigate={onNavigate} />
-                {i < group.items.length - 1 ? <hr className="mx-3 border-gray-100" /> : null}
+                {i < group.items.length - 1 ? <hr className="mx-3 border-sam-border-soft" /> : null}
               </li>
             ))}
           </ul>
@@ -196,7 +196,7 @@ function NavRow({
   isMuted?: boolean;
   onNavigate?: () => void;
 }) {
-  const iconTone = isMuted ? "text-gray-400" : "text-gray-700";
+  const iconTone = isMuted ? "text-sam-meta" : "text-sam-fg";
   const icon = (
     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F5F6F8] ${iconTone}`} aria-hidden>
       {NAV_ICONS[item.icon]}
@@ -205,11 +205,11 @@ function NavRow({
 
   const textBlock = (
     <span className="min-w-0 flex-1">
-      <span className={`block text-[14px] font-medium ${isMuted ? "text-gray-400" : "text-gray-900"}`}>
+      <span className={`block text-[14px] font-medium ${isMuted ? "text-sam-meta" : "text-sam-fg"}`}>
         {item.label}
       </span>
       {item.hint ? (
-        <span className="mt-0.5 block text-[12px] leading-relaxed text-gray-500">{item.hint}</span>
+        <span className="mt-0.5 block text-[12px] leading-relaxed text-sam-muted">{item.hint}</span>
       ) : null}
     </span>
   );
@@ -226,8 +226,8 @@ function NavRow({
   );
 
   const rowClass =
-    "flex items-center gap-3 rounded-ui-rect px-3 py-3 text-left active:bg-gray-50 " +
-    (isMuted ? "" : "text-gray-800");
+    "flex items-center gap-3 rounded-ui-rect px-3 py-3 text-left active:bg-sam-app " +
+    (isMuted ? "" : "text-sam-fg");
 
   if (item.disabled) {
     return (
@@ -283,7 +283,7 @@ function NavRow({
 function ChevronRight({ muted }: { muted?: boolean }) {
   return (
     <svg
-      className={`h-5 w-5 shrink-0 ${muted ? "text-gray-300" : "text-gray-400"}`}
+      className={`h-5 w-5 shrink-0 ${muted ? "text-sam-meta" : "text-sam-meta"}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

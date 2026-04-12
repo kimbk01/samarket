@@ -28,8 +28,8 @@ export function RestaurantOrderDetailClient({
           ← 매장
         </HistoryBackTextLink>
       </div>
-      <p className="text-sm text-gray-600">주문을 찾을 수 없거나 올바른 주문 번호가 아닙니다.</p>
-      <p className="mt-2 text-sm text-gray-500">
+      <p className="text-sm text-sam-muted">주문을 찾을 수 없거나 올바른 주문 번호가 아닙니다.</p>
+      <p className="mt-2 text-sm text-sam-muted">
         실매장에서 주문하셨다면 내 배달 주문에서 확인해 주세요.
       </p>
       <Link

@@ -35,13 +35,13 @@ export function LaunchReadinessSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">단계</span>
+        <span className="text-[13px] text-sam-muted">단계</span>
         <select
           value={phase}
           onChange={(e) =>
             setPhase((e.target.value || "") as LaunchReadinessPhase | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           {PHASE_OPTIONS.map((opt) => (
             <option key={opt.value || "all"} value={opt.value}>
@@ -52,24 +52,24 @@ export function LaunchReadinessSummaryCards() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">Readiness 점수</p>
-          <p className="text-[24px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">Readiness 점수</p>
+          <p className="text-[24px] font-semibold text-sam-fg">
             {summary.overallScore}%
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">Must-Have</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">Must-Have</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {summary.mustHaveReady} / {summary.mustHaveTotal}
           </p>
           {summary.mustHaveReady < summary.mustHaveTotal && (
             <p className="mt-1 text-[12px] text-amber-600">미완료 항목 있음</p>
           )}
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">Should-Have</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">Should-Have</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {summary.shouldHaveReady} / {summary.shouldHaveTotal}
           </p>
         </div>
@@ -82,7 +82,7 @@ export function LaunchReadinessSummaryCards() {
                 : "border-emerald-200 bg-emerald-50/30"
           }`}
         >
-          <p className="text-[12px] text-gray-500">최종 Go / No-Go</p>
+          <p className="text-[12px] text-sam-muted">최종 Go / No-Go</p>
           <p className={`text-[20px] font-semibold ${goClass}`}>
             {getGoLiveLabel(summary.goLiveRecommendation)}
           </p>
@@ -95,17 +95,17 @@ export function LaunchReadinessSummaryCards() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">준비 완료 영역</p>
-          <p className="text-[14px] text-gray-700">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">준비 완료 영역</p>
+          <p className="text-[14px] text-sam-fg">
             {summary.readyAreas.length > 0
               ? summary.readyAreas.map(getAreaLabel).join(", ")
               : "없음"}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">미준비 영역</p>
-          <p className="text-[14px] text-gray-700">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">미준비 영역</p>
+          <p className="text-[14px] text-sam-fg">
             {summary.notReadyAreas.length > 0
               ? summary.notReadyAreas.map(getAreaLabel).join(", ")
               : "없음"}
@@ -114,7 +114,7 @@ export function LaunchReadinessSummaryCards() {
       </div>
 
       {summary.latestUpdatedAt && (
-        <p className="text-[12px] text-gray-500">
+        <p className="text-[12px] text-sam-muted">
           최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
         </p>
       )}

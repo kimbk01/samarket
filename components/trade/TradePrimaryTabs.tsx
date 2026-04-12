@@ -135,10 +135,10 @@ export function TradePrimaryTabs({
         <span
           className={
             appearance === "inline-text"
-              ? `${APP_MARKET_MENU_TEXT_BASE} text-gray-400`
+              ? `${APP_MARKET_MENU_TEXT_BASE} text-sam-meta`
               : appearance === "orders-tab" || embedInAppHeader
-                ? "shrink-0 text-[14px] font-medium text-gray-400 sm:text-[15px]"
-                : `${APP_TOP_MENU_ROW1_BASE} bg-gray-100 text-gray-400`
+                ? "shrink-0 text-[14px] font-medium text-sam-meta sm:text-[15px]"
+                : `${APP_TOP_MENU_ROW1_BASE} bg-sam-surface-muted text-sam-meta`
           }
         >
           로딩…
@@ -147,7 +147,7 @@ export function TradePrimaryTabs({
     );
     if (embedInAppHeader) {
       return (
-        <div className="border-b border-gray-200 bg-gray-100">
+        <div className="border-b border-sam-border bg-sam-surface-muted">
           <div className={APP_MAIN_HEADER_INNER_CLASS}>{loadingInner}</div>
         </div>
       );
@@ -159,7 +159,7 @@ export function TradePrimaryTabs({
     const errInner = <div className="pb-2 text-[13px] text-red-500">{error}</div>;
     if (embedInAppHeader) {
       return (
-        <div className="border-b border-gray-200 bg-gray-100">
+        <div className="border-b border-sam-border bg-sam-surface-muted">
           <div className={APP_MAIN_HEADER_INNER_CLASS}>{errInner}</div>
         </div>
       );
@@ -173,16 +173,16 @@ export function TradePrimaryTabs({
       : useTradePrimaryRow
         ? [
             "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px]",
-            pathname === "/home" ? "font-semibold text-gray-900" : "font-medium text-gray-500 hover:text-gray-700",
+            pathname === "/home" ? "font-semibold text-sam-fg" : "font-medium text-sam-muted hover:text-sam-fg",
           ].join(" ")
         : `${APP_TOP_MENU_ROW1_BASE} ${pathname === "/home" ? APP_TOP_MENU_ROW1_ACTIVE : APP_TOP_MENU_ROW1_INACTIVE}`;
 
   const emptyClass =
     appearance === "inline-text"
-      ? `${APP_MARKET_MENU_TEXT_BASE} text-gray-400`
+      ? `${APP_MARKET_MENU_TEXT_BASE} text-sam-meta`
       : useTradePrimaryRow
-        ? "flex h-[55px] shrink-0 items-center whitespace-nowrap text-[14px] font-medium text-gray-400 sm:text-[15px]"
-        : `${APP_TOP_MENU_ROW1_BASE} bg-gray-100 text-gray-500`;
+        ? "flex h-[55px] shrink-0 items-center whitespace-nowrap text-[14px] font-medium text-sam-meta sm:text-[15px]"
+        : `${APP_TOP_MENU_ROW1_BASE} bg-sam-surface-muted text-sam-muted`;
 
   const inner = (
     <>
@@ -237,7 +237,7 @@ export function TradePrimaryTabs({
 
   if (useTradePrimaryRow) {
     return (
-      <div className="min-w-0 overflow-x-hidden border-t border-black/[0.08] bg-gray-100">
+      <div className="min-w-0 overflow-x-hidden border-t border-sam-fg/[0.08] bg-sam-surface-muted">
         <div className={APP_MAIN_HEADER_INNER_CLASS}>
           <div
             ref={tabsOuterRef}
@@ -264,8 +264,8 @@ export function TradePrimaryTabs({
                       ? "flex h-[55px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px]"
                       : "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px]",
                     tab.isActive
-                      ? "font-semibold text-gray-900"
-                      : "font-medium text-gray-500 hover:text-gray-700",
+                      ? "font-semibold text-sam-fg"
+                      : "font-medium text-sam-muted hover:text-sam-fg",
                   ].join(" ")}
                   aria-current={tab.isActive ? "page" : undefined}
                 >
@@ -273,7 +273,7 @@ export function TradePrimaryTabs({
                 </Link>
               ))}
               <div
-                className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-gray-900 transition-[left,width] duration-300 ease-out"
+                className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-sam-ink transition-[left,width] duration-300 ease-out"
                 style={{ left: indicator.left, width: indicator.width }}
                 aria-hidden
               />
@@ -286,7 +286,7 @@ export function TradePrimaryTabs({
 
   const shellClass = embed
     ? embedInAppHeader
-      ? `${TRADE_PRIMARY_TABS_EMBED_SCROLL_SHELL_CLASS} border-b border-gray-100 py-2 ${APP_MAIN_HEADER_INNER_CLASS}`
+      ? `${TRADE_PRIMARY_TABS_EMBED_SCROLL_SHELL_CLASS} border-b border-sam-border-soft py-2 ${APP_MAIN_HEADER_INNER_CLASS}`
       : `${TRADE_PRIMARY_TABS_EMBED_SCROLL_SHELL_CLASS} px-0 py-1`
     : TRADE_PRIMARY_TABS_STICKY_FALLBACK_SHELL_CLASS;
 

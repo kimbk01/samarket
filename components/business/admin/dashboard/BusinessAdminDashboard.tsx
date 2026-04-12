@@ -361,8 +361,8 @@ export function BusinessAdminDashboard({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[12px] font-medium text-gray-500">매장 운영 센터</p>
-          <p className="text-[18px] font-bold text-gray-900">지금 처리할 일을 먼저 확인하세요</p>
+          <p className="text-[12px] font-medium text-sam-muted">매장 운영 센터</p>
+          <p className="text-[18px] font-bold text-sam-fg">지금 처리할 일을 먼저 확인하세요</p>
         </div>
         <button
           type="button"
@@ -370,7 +370,7 @@ export function BusinessAdminDashboard({
             void loadRemote();
             void loadDashboard();
           }}
-          className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg"
         >
           새로고침
         </button>
@@ -383,7 +383,7 @@ export function BusinessAdminDashboard({
         </p>
       ) : null}
 
-      {dashLoading ? <p className="text-[14px] text-gray-500">대시보드 데이터 불러오는 중…</p> : null}
+      {dashLoading ? <p className="text-[14px] text-sam-muted">대시보드 데이터 불러오는 중…</p> : null}
 
       <BusinessDashboardKpiStrip
         kpi={kpi}
@@ -399,7 +399,7 @@ export function BusinessAdminDashboard({
 
       <BusinessDashboardQuickRow links={quickLinks} />
 
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <BusinessOwnerOpsStrip row={row} profile={profile} canSell={canSell} />
         <Link
           href={`/my/business/ops-status?${q}`}

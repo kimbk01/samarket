@@ -149,16 +149,16 @@ export function AdminBoardCreateForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-board-create-title"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-gray-200 bg-white shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-xl"
       >
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <h2 id="admin-board-create-title" className="text-[16px] font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
+          <h2 id="admin-board-create-title" className="text-[16px] font-semibold text-sam-fg">
             게시판 추가
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect px-2 py-1 text-[20px] leading-none text-gray-500 hover:bg-gray-100"
+            className="rounded-ui-rect px-2 py-1 text-[20px] leading-none text-sam-muted hover:bg-sam-surface-muted"
             aria-label="닫기"
           >
             ×
@@ -167,18 +167,18 @@ export function AdminBoardCreateForm({
 
         <form onSubmit={(e) => void submit(e)} className="space-y-3 px-4 py-4 text-[14px]">
           {loadingSvc ? (
-            <p className="text-gray-500">서비스 목록 불러오는 중…</p>
+            <p className="text-sam-muted">서비스 목록 불러오는 중…</p>
           ) : services.length === 0 ? (
             <p className="text-amber-800">활성 서비스가 없습니다. DB에 `services` 행을 먼저 추가하세요.</p>
           ) : null}
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-gray-700">서비스</span>
+            <span className="mb-1 block text-[13px] font-medium text-sam-fg">서비스</span>
             <select
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
               required
-              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
             >
               {services.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -189,45 +189,45 @@ export function AdminBoardCreateForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-gray-700">게시판 이름</span>
+            <span className="mb-1 block text-[13px] font-medium text-sam-fg">게시판 이름</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
               maxLength={120}
-              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
               placeholder="예: 동네 맛집"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-gray-700">slug (URL)</span>
+            <span className="mb-1 block text-[13px] font-medium text-sam-fg">slug (URL)</span>
             <input
               value={slug}
               onChange={(e) => setSlug(normalizeBoardSlug(e.target.value))}
               required
               maxLength={64}
-              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 font-mono text-[13px]"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2 font-mono text-[13px]"
               placeholder="예: food"
             />
-            <span className="mt-0.5 block text-[12px] text-gray-500">사용자 피드: /community (게시판 slug 미노출)</span>
+            <span className="mt-0.5 block text-[12px] text-sam-muted">사용자 피드: /community (게시판 slug 미노출)</span>
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-gray-700">설명 (선택)</span>
+            <span className="mb-1 block text-[13px] font-medium text-sam-fg">설명 (선택)</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={500}
               rows={2}
-              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
             />
           </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[13px] font-medium text-gray-700">스킨</span>
-              <select value={skinType} onChange={(e) => setSkinType(e.target.value)} className="w-full rounded-ui-rect border border-gray-200 px-2 py-2 text-[13px]">
+              <span className="mb-1 block text-[13px] font-medium text-sam-fg">스킨</span>
+              <select value={skinType} onChange={(e) => setSkinType(e.target.value)} className="w-full rounded-ui-rect border border-sam-border px-2 py-2 text-[13px]">
                 {ADMIN_BOARD_SKIN_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -236,8 +236,8 @@ export function AdminBoardCreateForm({
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-[13px] font-medium text-gray-700">폼</span>
-              <select value={formType} onChange={(e) => setFormType(e.target.value)} className="w-full rounded-ui-rect border border-gray-200 px-2 py-2 text-[13px]">
+              <span className="mb-1 block text-[13px] font-medium text-sam-fg">폼</span>
+              <select value={formType} onChange={(e) => setFormType(e.target.value)} className="w-full rounded-ui-rect border border-sam-border px-2 py-2 text-[13px]">
                 {ADMIN_BOARD_SKIN_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -248,11 +248,11 @@ export function AdminBoardCreateForm({
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-gray-700">카테고리 모드</span>
+            <span className="mb-1 block text-[13px] font-medium text-sam-fg">카테고리 모드</span>
             <select
               value={categoryMode}
               onChange={(e) => setCategoryMode(e.target.value)}
-              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[13px]"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
             >
               {ADMIN_BOARD_CATEGORY_MODES.map((m) => (
                 <option key={m} value={m}>
@@ -264,28 +264,28 @@ export function AdminBoardCreateForm({
 
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-            <span className="text-[13px] text-gray-800">노출(활성)</span>
+            <span className="text-[13px] text-sam-fg">노출(활성)</span>
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-gray-700">정렬 순서</span>
+            <span className="mb-1 block text-[13px] font-medium text-sam-fg">정렬 순서</span>
             <input
               type="number"
               min={0}
               max={99999}
               value={sortOrder}
               onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
-              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
             />
           </label>
 
           {error ? <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] text-red-800">{error}</p> : null}
 
-          <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
+          <div className="flex justify-end gap-2 border-t border-sam-border-soft pt-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+              className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
             >
               취소
             </button>

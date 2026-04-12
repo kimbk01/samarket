@@ -43,8 +43,8 @@ export function StoreProductOptionPicker({ groups, value, onChange, disabled }: 
 
   const btnBase =
     "flex w-full items-center justify-between rounded-ui-rect border px-3 py-2.5 text-left text-sm transition-colors";
-  const btnOn = "border-signature bg-signature/5 text-gray-900";
-  const btnOff = "border-gray-200 bg-white text-gray-900";
+  const btnOn = "border-signature bg-signature/5 text-sam-fg";
+  const btnOff = "border-sam-border bg-sam-surface text-sam-fg";
 
   return (
     <div className="space-y-4">
@@ -60,9 +60,9 @@ export function StoreProductOptionPicker({ groups, value, onChange, disabled }: 
 
         return (
           <div key={g.key}>
-            <p className="mb-2 text-sm font-semibold text-gray-900">
+            <p className="mb-2 text-sm font-semibold text-sam-fg">
               {g.label}
-              <span className="ml-1 text-xs font-normal text-gray-500">{rangeHint}</span>
+              <span className="ml-1 text-xs font-normal text-sam-muted">{rangeHint}</span>
             </p>
             <ul className="space-y-2">
               {g.options.map((opt) => {
@@ -86,7 +86,7 @@ export function StoreProductOptionPicker({ groups, value, onChange, disabled }: 
                         className={`${btnBase} ${checked ? btnOn : btnOff} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                       >
                         <span>{opt.name}</span>
-                        <span className="shrink-0 text-gray-700">{delta}</span>
+                        <span className="shrink-0 text-sam-fg">{delta}</span>
                       </button>
                     </li>
                   );
@@ -104,7 +104,7 @@ export function StoreProductOptionPicker({ groups, value, onChange, disabled }: 
                       className={`${btnBase} ${checked ? btnOn : btnOff} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                     >
                       <span>{opt.name}</span>
-                      <span className="shrink-0 text-gray-700">{delta}</span>
+                      <span className="shrink-0 text-sam-fg">{delta}</span>
                     </button>
                   </li>
                 );

@@ -37,7 +37,7 @@ export function ExperimentWinnerTable() {
 
   if (experiments.length === 0 && summaries.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         종료된 실험이나 승자 요약이 없습니다.
       </div>
     );
@@ -46,13 +46,13 @@ export function ExperimentWinnerTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-gray-700">
+        <label className="text-[14px] font-medium text-sam-fg">
           승자 선택 기준
         </label>
         <select
           value={metric}
           onChange={(e) => setMetric(e.target.value as WinningMetric)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {(Object.keys(WINNING_METRIC_LABELS) as WinningMetric[]).map((m) => (
             <option key={m} value={m}>
@@ -61,26 +61,26 @@ export function ExperimentWinnerTable() {
           ))}
         </select>
       </div>
-      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[560px] border-collapse text-[14px]">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <tr className="border-b border-sam-border bg-sam-app">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 실험
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 승자 버전
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 그룹
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 기준 / 값
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 배포 추천
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 작업
               </th>
             </tr>
@@ -92,18 +92,18 @@ export function ExperimentWinnerTable() {
               return (
                 <tr
                   key={s.experimentId}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="px-3 py-2.5 font-medium text-gray-900">
+                  <td className="px-3 py-2.5 font-medium text-sam-fg">
                     {exp?.experimentName ?? s.experimentId}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {version?.versionName ?? s.winningVersionId}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {ASSIGNED_GROUP_LABELS[s.winningGroup]}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {WINNING_METRIC_LABELS[s.winningMetric]} / {s.winningValue}
                   </td>
                   <td className="px-3 py-2.5">
@@ -122,15 +122,15 @@ export function ExperimentWinnerTable() {
               .map((e) => (
                 <tr
                   key={e.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="px-3 py-2.5 font-medium text-gray-900">
+                  <td className="px-3 py-2.5 font-medium text-sam-fg">
                     {e.experimentName}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-500">-</td>
-                  <td className="px-3 py-2.5 text-gray-500">-</td>
-                  <td className="px-3 py-2.5 text-gray-500">-</td>
-                  <td className="px-3 py-2.5 text-gray-500">-</td>
+                  <td className="px-3 py-2.5 text-sam-muted">-</td>
+                  <td className="px-3 py-2.5 text-sam-muted">-</td>
+                  <td className="px-3 py-2.5 text-sam-muted">-</td>
+                  <td className="px-3 py-2.5 text-sam-muted">-</td>
                   <td className="px-3 py-2.5">
                     <button
                       type="button"

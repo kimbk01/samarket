@@ -10,7 +10,7 @@ interface AdminSettingsTabsProps {
 
 export function AdminSettingsTabs({ active, onChange }: AdminSettingsTabsProps) {
   return (
-    <div className="flex flex-wrap gap-1 border-b border-gray-200">
+    <div className="flex flex-wrap gap-1 border-b border-sam-border">
       {SETTINGS_SECTIONS.map(({ key, label }) => (
         <button
           key={key}
@@ -18,8 +18,8 @@ export function AdminSettingsTabs({ active, onChange }: AdminSettingsTabsProps) 
           onClick={() => onChange(key)}
           className={`rounded-t px-4 py-2.5 text-[14px] font-medium ${
             active === key
-              ? "border border-b-0 border-gray-200 bg-white text-gray-900"
-              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              ? "border border-b-0 border-sam-border bg-sam-surface text-sam-fg"
+              : "text-sam-muted hover:bg-sam-surface-muted hover:text-sam-fg"
           }`}
         >
           {label}

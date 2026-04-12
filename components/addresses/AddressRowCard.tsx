@@ -43,19 +43,19 @@ export function AddressRowCard(props: {
         }
       >
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[15px] font-semibold text-gray-900">{title}</span>
+          <span className="text-[15px] font-semibold text-sam-fg">{title}</span>
           {row.isDefaultMaster ? (
             <span className="rounded-full bg-signature/10 px-2 py-0.5 text-[10px] font-semibold text-signature">
               대표
             </span>
           ) : (
-            <span className="text-[10px] font-medium text-gray-400">탭하여 대표</span>
+            <span className="text-[10px] font-medium text-sam-meta">탭하여 대표</span>
           )}
         </div>
-        <p className="mt-0.5 text-[13px] leading-snug text-gray-500">{sub || "—"}</p>
+        <p className="mt-0.5 text-[13px] leading-snug text-sam-muted">{sub || "—"}</p>
         {detailLine ? (
           <p
-            className="mt-1 text-[13px] leading-snug text-gray-600"
+            className="mt-1 text-[13px] leading-snug text-sam-muted"
             translate="no"
           >
             ({detailLine})
@@ -67,7 +67,7 @@ export function AddressRowCard(props: {
           type="button"
           onClick={onEdit}
           disabled={rowBusy}
-          className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+          className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-muted hover:bg-sam-app disabled:opacity-40"
           aria-label="수정"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -84,7 +84,7 @@ export function AddressRowCard(props: {
           type="button"
           onClick={onDelete}
           disabled={rowBusy}
-          className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-gray-500 hover:bg-gray-50 hover:text-red-700 disabled:opacity-40"
+          className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-muted hover:bg-sam-app hover:text-red-700 disabled:opacity-40"
           aria-label="삭제"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>

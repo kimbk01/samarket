@@ -28,12 +28,12 @@ export function CommunityCommentForm({
         name="c"
         disabled={disabled}
         placeholder={placeholder}
-        className="min-w-0 flex-1 rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
+        className="min-w-0 flex-1 rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
       />
       <button
         type="submit"
         disabled={disabled}
-        className="rounded-ui-rect bg-gray-900 px-3 py-2 text-[13px] font-medium text-white disabled:opacity-50"
+        className="rounded-ui-rect bg-sam-ink px-3 py-2 text-[13px] font-medium text-white disabled:opacity-50"
       >
         등록
       </button>

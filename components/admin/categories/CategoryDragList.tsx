@@ -61,7 +61,7 @@ export function CategoryDragList({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-center text-[14px] text-sam-muted">
         등록된 카테고리가 없습니다.
       </div>
     );
@@ -78,24 +78,24 @@ export function CategoryDragList({
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, c.id)}
           onDragEnd={handleDragEnd}
-          className={`flex items-center gap-3 rounded-ui-rect border bg-white px-3 py-2 ${
+          className={`flex items-center gap-3 rounded-ui-rect border bg-sam-surface px-3 py-2 ${
             draggedId === c.id ? "opacity-50" : ""
-          } ${overId === c.id ? "border-signature bg-signature/5" : "border-gray-200"}`}
+          } ${overId === c.id ? "border-signature bg-signature/5" : "border-sam-border"}`}
         >
-          <span className="cursor-grab text-gray-400" aria-label="드래그">
+          <span className="cursor-grab text-sam-meta" aria-label="드래그">
             ⋮⋮
           </span>
-          <span className="w-8 text-[13px] text-gray-500">{c.sort_order + 1}</span>
-          <span className="min-w-[100px] font-medium text-gray-900">{c.name}</span>
-          <span className="text-[13px] text-gray-500">{c.slug}</span>
-          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-gray-600">
+          <span className="w-8 text-[13px] text-sam-muted">{c.sort_order + 1}</span>
+          <span className="min-w-[100px] font-medium text-sam-fg">{c.name}</span>
+          <span className="text-[13px] text-sam-muted">{c.slug}</span>
+          <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[12px] text-sam-muted">
             {CATEGORY_TYPE_LABELS[c.type]}
           </span>
           <button
             type="button"
             onClick={() => onToggleActive(c.id)}
             className={`rounded px-2 py-1 text-[12px] font-medium ${
-              c.is_active ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-600"
+              c.is_active ? "bg-green-100 text-green-800" : "bg-sam-border-soft text-sam-muted"
             }`}
           >
             {c.is_active ? "ON" : "OFF"}

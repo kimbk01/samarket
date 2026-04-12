@@ -28,12 +28,12 @@ export function AdminSidebar() {
   const menu = filterMenuByRole(adminMenu, role);
 
   return (
-    <aside className="sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r border-gray-200 bg-white">
+    <aside className="sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r border-sam-border bg-sam-surface">
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center border-b border-gray-100 px-3 py-3">
+        <div className="flex shrink-0 items-center border-b border-sam-border-soft px-3 py-3">
           <Link
             href="/admin"
-            className="text-[17px] font-bold text-gray-900"
+            className="text-[17px] font-bold text-sam-fg"
           >
             {t("admin_brand")}
           </Link>

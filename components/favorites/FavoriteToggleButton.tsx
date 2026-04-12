@@ -26,7 +26,7 @@ export function FavoriteToggleButton({
         e.stopPropagation();
         toggle(productId);
       }}
-      className={`flex shrink-0 flex-col items-center gap-0.5 text-[11px] text-gray-500 ${className}`}
+      className={`flex shrink-0 flex-col items-center gap-0.5 text-[11px] text-sam-muted ${className}`}
       aria-label={liked ? "관심 해제" : "관심"}
     >
       {liked ? (

@@ -66,38 +66,38 @@ export function OpsTradePolicyPanel() {
   };
 
   if (loading) {
-    return <p className="text-[13px] text-gray-500">거래 정책 불러오는 중…</p>;
+    return <p className="text-[13px] text-sam-muted">거래 정책 불러오는 중…</p>;
   }
 
   return (
-    <div className="mt-8 border-t border-gray-200 pt-6">
-      <h3 className="text-[15px] font-semibold text-gray-900">구매자 거래·평가 (DB 연동)</h3>
-      <p className="mt-1 text-[12px] text-gray-500">
+    <div className="mt-8 border-t border-sam-border pt-6">
+      <h3 className="text-[15px] font-semibold text-sam-fg">구매자 거래·평가 (DB 연동)</h3>
+      <p className="mt-1 text-[12px] text-sam-muted">
         판매자 거래완료 후 구매자가 확인하지 않을 때 자동으로 거래완료 확인 처리되는 일수, 그리고 확인 후 평가·후기 제한
         모드 전까지의 일수입니다. Supabase에 <code className="text-[11px]">ops_trade_policy</code> 테이블이 있어야
         저장됩니다.
       </p>
       <div className="mt-4 grid max-w-md gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-[13px] font-medium text-gray-700">구매자 미반영 자동 처리 (일)</label>
+          <label className="block text-[13px] font-medium text-sam-fg">구매자 미반영 자동 처리 (일)</label>
           <input
             type="number"
             min={1}
             max={365}
             value={autoDays}
             onChange={(e) => setAutoDays(Number(e.target.value))}
-            className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         <div>
-          <label className="block text-[13px] font-medium text-gray-700">평가·후기 기한 (일)</label>
+          <label className="block text-[13px] font-medium text-sam-fg">평가·후기 기한 (일)</label>
           <input
             type="number"
             min={1}
             max={365}
             value={reviewDays}
             onChange={(e) => setReviewDays(Number(e.target.value))}
-            className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
       </div>
@@ -110,7 +110,7 @@ export function OpsTradePolicyPanel() {
         >
           {saving ? "저장 중…" : "거래 정책 저장"}
         </button>
-        {msg ? <span className="text-[13px] text-gray-600">{msg}</span> : null}
+        {msg ? <span className="text-[13px] text-sam-muted">{msg}</span> : null}
       </div>
     </div>
   );

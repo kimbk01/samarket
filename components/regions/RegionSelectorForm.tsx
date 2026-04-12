@@ -39,7 +39,7 @@ export function RegionSelectorForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[13px] font-medium text-gray-700">
+        <label className="mb-1 block text-[13px] font-medium text-sam-fg">
           지역
         </label>
         <select
@@ -48,7 +48,7 @@ export function RegionSelectorForm({
             setRegionId(e.target.value);
             setCityId("");
           }}
-          className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[14px] text-sam-fg"
         >
           <option value="">Select region</option>
           {REGIONS.map((r) => (
@@ -59,14 +59,14 @@ export function RegionSelectorForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[13px] font-medium text-gray-700">
+        <label className="mb-1 block text-[13px] font-medium text-sam-fg">
           Area
         </label>
         <select
           value={cityId}
           onChange={(e) => setCityId(e.target.value)}
           disabled={!regionId}
-          className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[14px] text-sam-fg"
         >
           <option value="">Select area</option>
           {cities.map((c) => (
@@ -77,7 +77,7 @@ export function RegionSelectorForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[13px] font-medium text-gray-700">
+        <label className="mb-1 block text-[13px] font-medium text-sam-fg">
           바랑가이 (선택)
         </label>
         <input
@@ -85,15 +85,15 @@ export function RegionSelectorForm({
           value={barangay}
           onChange={(e) => setBarangay(e.target.value)}
           placeholder=""
-          className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[14px] text-sam-fg"
         />
       </div>
-      <label className="flex items-center gap-2 text-[14px] text-gray-700">
+      <label className="flex items-center gap-2 text-[14px] text-sam-fg">
         <input
           type="checkbox"
           checked={setAsPrimary}
           onChange={(e) => setSetAsPrimary(e.target.checked)}
-          className="rounded border-gray-300"
+          className="rounded border-sam-border"
         />
         대표 동네로 설정
       </label>
@@ -101,7 +101,7 @@ export function RegionSelectorForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-ui-rect border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600"
+          className="rounded-ui-rect border border-sam-border px-4 py-2.5 text-[14px] text-sam-muted"
         >
           취소
         </button>

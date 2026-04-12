@@ -48,17 +48,17 @@ export function CommunityBoardPage({
   const showCategoryFilter = board.category_mode === "board_category";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+    <div className="min-h-screen bg-sam-app">
+      <div className="bg-sam-surface border-b border-sam-border sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-sam-fg">
             {headerTitleOverride?.trim() ? headerTitleOverride.trim() : board.name}
           </h1>
           {!hideBoardDescription && board.description ? (
-            <p className="text-sm text-gray-500 mt-1">{board.description}</p>
+            <p className="text-sm text-sam-muted mt-1">{board.description}</p>
           ) : null}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-sam-muted">
               글 {totalPostCount ?? posts.length}개
             </span>
             <div className="flex flex-wrap items-center gap-2">
@@ -75,11 +75,11 @@ export function CommunityBoardPage({
             </div>
           </div>
           {localTopics.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-sam-border-soft pt-3">
               <Link
                 href={filterBaseHref}
                 className={`rounded-full px-3 py-1 text-[12px] font-medium ${
-                  !topicSlug ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  !topicSlug ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
                 }`}
               >
                 전체

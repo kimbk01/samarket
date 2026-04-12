@@ -50,13 +50,13 @@ export function WriteLauncherPanel({
     <div
       className={`flex w-[280px] max-w-[calc(100vw-2rem)] flex-col items-end ${hideFabClose ? "" : subFabClose ? "gap-3" : "gap-2"}`}
     >
-      <div className="w-full rounded-ui-rect bg-white py-2 shadow-xl">
+      <div className="w-full rounded-ui-rect bg-sam-surface py-2 shadow-xl">
         {loading ? (
-          <p className="py-8 text-center text-[14px] text-gray-500">불러오는 중…</p>
+          <p className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</p>
         ) : categories.length === 0 ? (
-          <div className="px-4 py-8 text-center text-[14px] text-gray-500">
+          <div className="px-4 py-8 text-center text-[14px] text-sam-muted">
             <p>노출할 주제가 없습니다.</p>
-            <p className="mt-2 text-[12px] leading-relaxed text-gray-400">
+            <p className="mt-2 text-[12px] leading-relaxed text-sam-meta">
               관리자 → 메뉴 관리에서 항목의 「런처 노출」을 켜 주세요.
             </p>
           </div>
@@ -64,7 +64,7 @@ export function WriteLauncherPanel({
           <>
             {sections.map((s, i) => (
               <div key={s.type}>
-                {i > 0 ? <div className="my-2 border-t border-gray-100" /> : null}
+                {i > 0 ? <div className="my-2 border-t border-sam-border-soft" /> : null}
                 <WriteLauncherGroup
                   groupKey={s.type}
                   title={s.title}
@@ -83,7 +83,7 @@ export function WriteLauncherPanel({
           className={
             subFabClose
               ? HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS
-              : "flex h-12 w-12 items-center justify-center rounded-full bg-white text-gray-600 shadow-lg hover:bg-gray-50"
+              : "flex h-12 w-12 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-lg hover:bg-sam-app"
           }
           aria-label="닫기"
         >

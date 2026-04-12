@@ -86,7 +86,7 @@ export function OrdersHubContent() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-screen flex-col bg-sam-app">
       <TradePrimaryColumnStickyAppBar
         hidePrimaryRow={false}
         hideBackButton

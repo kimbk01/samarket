@@ -37,7 +37,7 @@ export function AdminPointChargeListPage() {
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
-          { label: "전체", value: counts.total, color: "text-gray-900" },
+          { label: "전체", value: counts.total, color: "text-sam-fg" },
           { label: "입금확인대기", value: counts.waiting, color: "text-amber-700" },
           { label: "대기중", value: counts.pending, color: "text-blue-700" },
           { label: "승인완료", value: counts.approved, color: "text-emerald-700" },
@@ -45,10 +45,10 @@ export function AdminPointChargeListPage() {
         ].map(({ label, value, color }) => (
           <div
             key={label}
-            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-center shadow-sm"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-center shadow-sm"
           >
             <p className={`text-[22px] font-bold ${color}`}>{value}</p>
-            <p className="text-[11px] text-gray-500">{label}</p>
+            <p className="text-[11px] text-sam-muted">{label}</p>
           </div>
         ))}
       </div>
@@ -66,9 +66,9 @@ export function AdminPointChargeListPage() {
 
       <AdminPointChargeFilterBar filters={filters} onChange={setFilters} />
 
-      <div className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-4 py-3">
-          <h2 className="text-[14px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
+        <div className="border-b border-sam-border-soft px-4 py-3">
+          <h2 className="text-[14px] font-semibold text-sam-fg">
             충전 신청 목록 ({filtered.length}건)
           </h2>
         </div>

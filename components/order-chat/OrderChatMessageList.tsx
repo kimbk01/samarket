@@ -12,8 +12,8 @@ function Bubble({
   if (m.sender_type === "system") {
     return (
       <div className="flex justify-center py-1">
-        <div className="max-w-[90%] rounded-ui-rect bg-gray-100 px-3 py-2 text-center text-xs text-gray-700">
-          <span className="font-semibold text-gray-500">시스템 · </span>
+        <div className="max-w-[90%] rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-center text-xs text-sam-fg">
+          <span className="font-semibold text-sam-muted">시스템 · </span>
           {m.content}
         </div>
       </div>
@@ -35,7 +35,7 @@ function Bubble({
             ? "bg-amber-100 text-amber-950 ring-1 ring-amber-200"
             : mine
               ? "bg-signature text-white"
-              : "bg-white text-gray-900 ring-1 ring-gray-200"
+              : "bg-sam-surface text-sam-fg ring-1 ring-sam-border"
         }`}
       >
         {!mine && (
@@ -61,7 +61,7 @@ export function OrderChatMessageList({
   perspective: "member" | "owner" | "admin";
 }) {
   if (messages.length === 0) {
-    return <p className="py-12 text-center text-sm text-gray-500">아직 메시지가 없어요.</p>;
+    return <p className="py-12 text-center text-sm text-sam-muted">아직 메시지가 없어요.</p>;
   }
   return (
     <div className="space-y-1 px-2 py-3">

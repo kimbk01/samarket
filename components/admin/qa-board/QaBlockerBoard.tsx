@@ -11,7 +11,7 @@ export function QaBlockerBoard() {
 
   if (blockedOrFailed.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
         차단(blocked) 또는 실패(failed) 테스트 케이스가 없습니다.
       </div>
     );
@@ -19,7 +19,7 @@ export function QaBlockerBoard() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         Must-Pass 실패/차단은 Go-Live No-Go 사유가 됩니다.
       </p>
       <div className="space-y-3">
@@ -35,9 +35,9 @@ export function QaBlockerBoard() {
                   : "border-amber-200 bg-amber-50/50"
               }`}
             >
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-600">
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
                 {suite && <span>{getDomainLabel(suite.domain)}</span>}
-                <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
                   {getCaseStatusLabel(c.status)}
                 </span>
                 {isMustPass && (
@@ -46,19 +46,19 @@ export function QaBlockerBoard() {
                   </span>
                 )}
               </div>
-              <p className="mt-2 font-medium text-gray-900">{c.title}</p>
+              <p className="mt-2 font-medium text-sam-fg">{c.title}</p>
               <p className="mt-2 text-[14px] text-red-800">
                 {c.failureNote || c.blockerReason}
               </p>
               {(c.ownerAdminNickname || c.executedAt) && (
-                <p className="mt-2 text-[12px] text-gray-500">
+                <p className="mt-2 text-[12px] text-sam-muted">
                   담당 {c.ownerAdminNickname ?? "-"}
                   {c.executedAt &&
                     ` · 실행 ${new Date(c.executedAt).toLocaleString()}`}
                 </p>
               )}
               {c.linkedType && c.linkedId && (
-                <p className="mt-1 text-[12px] text-gray-500">
+                <p className="mt-1 text-[12px] text-sam-muted">
                   연결: {c.linkedType}{" "}
                   {c.linkedType === "readiness_item" && (
                     <Link

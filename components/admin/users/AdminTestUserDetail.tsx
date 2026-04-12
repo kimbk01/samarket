@@ -55,20 +55,20 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
       <AdminCard title="회원 계정">
         <dl className="grid gap-3 text-[14px]">
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">로그인 아이디</dt>
-            <dd className="mt-0.5 font-mono text-[15px] font-semibold text-gray-900">{user.username ?? "—"}</dd>
+            <dt className="text-[12px] font-medium text-sam-muted">로그인 아이디</dt>
+            <dd className="mt-0.5 font-mono text-[15px] font-semibold text-sam-fg">{user.username ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">닉네임</dt>
-            <dd className="mt-0.5 text-gray-900">{display}</dd>
+            <dt className="text-[12px] font-medium text-sam-muted">닉네임</dt>
+            <dd className="mt-0.5 text-sam-fg">{display}</dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">이메일</dt>
-            <dd className="mt-0.5 text-gray-900">{user.email?.trim() || "—"}</dd>
+            <dt className="text-[12px] font-medium text-sam-muted">이메일</dt>
+            <dd className="mt-0.5 text-sam-fg">{user.email?.trim() || "—"}</dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">회원 UUID (DB PK)</dt>
-            <dd className="mt-0.5 text-[13px] text-gray-800">
+            <dt className="text-[12px] font-medium text-sam-muted">회원 UUID (DB PK)</dt>
+            <dd className="mt-0.5 text-[13px] text-sam-fg">
               {showMemberUuid ? (
                 <>
                   <span className="break-all font-mono text-[12px]">{user.id}</span>
@@ -84,7 +84,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
                     </button>
                     <button
                       type="button"
-                      className="text-[12px] font-medium text-gray-500 hover:underline"
+                      className="text-[12px] font-medium text-sam-muted hover:underline"
                       onClick={() => setShowMemberUuid(false)}
                     >
                       숨기기
@@ -92,7 +92,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
                   </div>
                 </>
               ) : (
-                <span className="text-gray-500">
+                <span className="text-sam-muted">
                   숨김{" "}
                   <button
                     type="button"
@@ -106,38 +106,38 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
             </dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">권한(role)</dt>
-            <dd className="mt-0.5 text-gray-900">{roleLabelKo(user.role)}</dd>
+            <dt className="text-[12px] font-medium text-sam-muted">권한(role)</dt>
+            <dd className="mt-0.5 text-sam-fg">{roleLabelKo(user.role)}</dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">전화번호 인증</dt>
-            <dd className="mt-0.5 text-gray-800">
+            <dt className="text-[12px] font-medium text-sam-muted">전화번호 인증</dt>
+            <dd className="mt-0.5 text-sam-fg">
               {user.phone_verified ? "완료" : user.phone_verification_status === "pending" ? "승인 대기" : "미인증"}
             </dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">등록일</dt>
-            <dd className="mt-0.5 text-gray-800">
+            <dt className="text-[12px] font-medium text-sam-muted">등록일</dt>
+            <dd className="mt-0.5 text-sam-fg">
               {user.created_at ? new Date(user.created_at).toLocaleString("ko-KR") : "—"}
             </dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">연락처 (수동 입력)</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-gray-900">
+            <dt className="text-[12px] font-medium text-sam-muted">연락처 (수동 입력)</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap text-sam-fg">
               {user.contact_phone?.trim() ? (
                 contactPhoneDisplay(user.contact_phone)
               ) : (
-                <span className="text-gray-400">—</span>
+                <span className="text-sam-meta">—</span>
               )}
             </dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium text-gray-500">주소 (수동 입력)</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-gray-900">
+            <dt className="text-[12px] font-medium text-sam-muted">주소 (수동 입력)</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap text-sam-fg">
               {user.contact_address?.trim() ? (
                 user.contact_address.trim()
               ) : (
-                <span className="text-gray-400">—</span>
+                <span className="text-sam-meta">—</span>
               )}
             </dd>
           </div>
@@ -182,7 +182,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
               }
               window.location.reload();
             }}
-            className="rounded border border-gray-300 px-4 py-2 text-[13px] font-medium text-gray-700"
+            className="rounded border border-sam-border px-4 py-2 text-[13px] font-medium text-sam-fg"
           >
             인증 초기화
           </button>
@@ -192,7 +192,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
       <AdminUserPointsSection userId={user.id} />
 
       <AdminCard title="로그인·테스트 안내">
-        <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-gray-700">
+        <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-sam-fg">
           <li>
             <Link href="/login" className="text-signature underline">
               로그인 페이지

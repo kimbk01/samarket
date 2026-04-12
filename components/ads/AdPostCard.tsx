@@ -21,27 +21,27 @@ export function AdPostCard({ ad, href }: AdPostCardProps) {
   const linkHref = href ?? `/philife/${ad.postId}`;
 
   return (
-    <article className="border-b border-gray-200 bg-white">
-      <Link href={linkHref} className="block active:bg-gray-50/80">
+    <article className="border-b border-sam-border bg-sam-surface">
+      <Link href={linkHref} className="block active:bg-sam-app/80">
         <div className="flex items-center gap-2.5 px-3 py-2.5">
           <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold uppercase text-gray-500"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-[10px] font-bold uppercase text-sam-muted"
             aria-hidden
           >
             AD
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-semibold text-gray-900">{ad.advertiserName}</p>
-            <p className="text-[12px] text-gray-500">
+            <p className="truncate text-[14px] font-semibold text-sam-fg">{ad.advertiserName}</p>
+            <p className="text-[12px] text-sam-muted">
               스폰서 · {ad.locationLabel ? `${ad.locationLabel} · ` : ""}
               {daysLeft(ad.endAt)}
             </p>
           </div>
         </div>
         <div className="space-y-1.5 px-3 pb-3">
-          <p className="text-[15px] font-semibold leading-snug text-gray-900">{ad.postTitle}</p>
+          <p className="text-[15px] font-semibold leading-snug text-sam-fg">{ad.postTitle}</p>
           {ad.postSummary ? (
-            <p className="line-clamp-2 text-[14px] leading-relaxed text-gray-700">{ad.postSummary}</p>
+            <p className="line-clamp-2 text-[14px] leading-relaxed text-sam-fg">{ad.postSummary}</p>
           ) : null}
           <p className="text-[12px] text-signature">자세히 보기</p>
         </div>

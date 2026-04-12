@@ -23,14 +23,14 @@ export function AdminTrendChart({ data, title = "일별 추이" }: AdminTrendCha
   );
 
   return (
-    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       {title && (
-        <h2 className="mb-3 text-[15px] font-medium text-gray-900">{title}</h2>
+        <h2 className="mb-3 text-[15px] font-medium text-sam-fg">{title}</h2>
       )}
       <div className="space-y-2">
         {data.map((d) => (
           <div key={d.date} className="flex items-center gap-2 text-[13px]">
-            <span className="w-16 shrink-0 text-gray-500">
+            <span className="w-16 shrink-0 text-sam-muted">
               {formatDate(d.date)}
             </span>
             <div className="flex flex-1 gap-1">
@@ -59,7 +59,7 @@ export function AdminTrendChart({ data, title = "일별 추이" }: AdminTrendCha
                 title={`신고 ${d.reports}`}
               />
               <div
-                className="h-6 rounded bg-gray-400/30"
+                className="h-6 rounded bg-sam-primary-soft/30"
                 style={{
                   width: `${(d.completedTransactions / maxVal) * 100}%`,
                   minWidth: d.completedTransactions > 0 ? "4px" : "0",
@@ -70,7 +70,7 @@ export function AdminTrendChart({ data, title = "일별 추이" }: AdminTrendCha
           </div>
         ))}
       </div>
-      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
+      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-sam-muted">
         <span>■ 상품</span>
         <span>■ 회원</span>
         <span>■ 신고</span>

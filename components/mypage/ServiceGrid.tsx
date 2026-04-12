@@ -15,7 +15,7 @@ const SERVICES: { label: string; href: string; icon: React.ReactNode }[] = [
 
 export function ServiceGrid() {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-white p-4">
+    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
       <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
         {SERVICES.map(({ label, href, icon }) => (
           <Link

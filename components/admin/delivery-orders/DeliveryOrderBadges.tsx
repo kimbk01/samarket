@@ -15,10 +15,10 @@ export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
     status === "paid"
       ? "bg-emerald-50 text-emerald-800"
       : status === "refunded"
-        ? "bg-signature/5 text-gray-800"
+        ? "bg-signature/5 text-sam-fg"
         : status === "failed" || status === "cancelled"
           ? "bg-red-50 text-red-800"
-          : "bg-gray-100 text-gray-700";
+          : "bg-sam-surface-muted text-sam-fg";
   return <span className={`${base} ${cls}`}>{PAYMENT_LABEL[status]}</span>;
 }
 
@@ -27,7 +27,7 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
     status === "completed"
       ? "bg-emerald-50 text-emerald-800"
       : status === "cancelled" || status === "refunded"
-        ? "bg-gray-100 text-gray-700"
+        ? "bg-sam-surface-muted text-sam-fg"
         : status === "refund_requested" || status === "cancel_requested"
           ? "bg-amber-50 text-amber-900"
           : "bg-sky-50 text-sky-900";
@@ -41,18 +41,18 @@ export function SettlementStatusBadge({ status }: { status: SettlementStatus }) 
       : status === "held"
         ? "bg-orange-50 text-orange-900"
         : status === "cancelled"
-          ? "bg-gray-100 text-gray-600"
+          ? "bg-sam-surface-muted text-sam-muted"
           : "bg-blue-50 text-blue-800";
   return <span className={`${base} ${cls}`}>{SETTLEMENT_LABEL[status]}</span>;
 }
 
 export function AdminActionStatusBadge({ status }: { status: AdminActionStatus }) {
-  if (status === "none") return <span className="text-[11px] text-gray-400">—</span>;
+  if (status === "none") return <span className="text-[11px] text-sam-meta">—</span>;
   const cls =
     status === "dispute_reviewing" || status === "manual_hold"
       ? "bg-orange-50 text-orange-900"
       : status === "refund_approved"
-        ? "bg-signature/5 text-gray-800"
-        : "bg-gray-100 text-gray-700";
+        ? "bg-signature/5 text-sam-fg"
+        : "bg-sam-surface-muted text-sam-fg";
   return <span className={`${base} ${cls}`}>{ADMIN_ACTION_LABEL[status]}</span>;
 }

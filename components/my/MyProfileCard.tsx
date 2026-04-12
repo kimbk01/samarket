@@ -61,7 +61,7 @@ export function MyProfileCard({
   if (!profile.realname_verified) chips.push({ key: "realname", label: tt("본인인증 필요"), warn: true });
 
   return (
-    <div className="rounded-ui-rect border border-ig-border bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
+    <div className="rounded-ui-rect border border-ig-border bg-sam-surface p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
       {/* 1행: 아바타 · 닉네임 · 회원 · 프로필 편집 */}
       <div className="flex items-start gap-3 sm:gap-4">
         <div className="rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] p-[2px]">
@@ -161,7 +161,7 @@ function StatMini({
     <Link
       href={href}
       className={`min-w-0 flex-1 rounded-ui-rect px-2.5 py-2 sm:max-w-[140px] ${
-        warn ? "bg-amber-50 ring-1 ring-amber-200/70" : "bg-white/80 ring-1 ring-[#E5E7EB]"
+        warn ? "bg-amber-50 ring-1 ring-amber-200/70" : "bg-sam-surface/80 ring-1 ring-[#E5E7EB]"
       }`}
     >
       <p className="text-[10px] text-muted">{label}</p>

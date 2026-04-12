@@ -9,8 +9,8 @@ import { RejectOrderModal } from "./RejectOrderModal";
 
 function btnClass(primary?: boolean) {
   return primary
-    ? "flex-1 rounded-ui-rect bg-gray-900 py-3 text-sm font-bold text-white shadow-sm active:scale-[0.99] disabled:opacity-50"
-    : "flex-1 rounded-ui-rect bg-white py-3 text-sm font-semibold text-gray-800 ring-1 ring-gray-200 active:bg-gray-50 disabled:opacity-50";
+    ? "flex-1 rounded-ui-rect bg-sam-ink py-3 text-sm font-bold text-white shadow-sm active:scale-[0.99] disabled:opacity-50"
+    : "flex-1 rounded-ui-rect bg-sam-surface py-3 text-sm font-semibold text-sam-fg ring-1 ring-sam-border active:bg-sam-app disabled:opacity-50";
 }
 
 export function OwnerOrderActionPanel({
@@ -65,7 +65,7 @@ export function OwnerOrderActionPanel({
 
   if (s === "refunded") {
     return (
-      <p className="rounded-ui-rect bg-gray-100 px-3 py-2 text-center text-xs text-gray-600 ring-1 ring-gray-200">
+      <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-center text-xs text-sam-muted ring-1 ring-sam-border">
         환불 처리된 주문입니다.
       </p>
     );
@@ -74,7 +74,7 @@ export function OwnerOrderActionPanel({
   return (
     <div className="space-y-2">
       {toast ? (
-        <p className="rounded-ui-rect bg-gray-100 px-3 py-2 text-center text-xs text-gray-800 ring-1 ring-gray-200">
+        <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-center text-xs text-sam-fg ring-1 ring-sam-border">
           {toast}
         </p>
       ) : null}

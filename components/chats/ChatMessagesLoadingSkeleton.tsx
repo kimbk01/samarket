@@ -13,11 +13,11 @@ export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
     ? IG_DM_BUBBLE_ROW_MAX
     : "max-w-[min(82vw,20rem)] sm:max-w-[72%] md:max-w-[min(75%,34rem)]";
   const gap = ig ? "gap-2.5" : "gap-2";
-  const avatar = ig ? "h-8 w-8 rounded-full bg-black/[0.06]" : "h-[34px] w-[34px] rounded-full bg-gray-200/90";
+  const avatar = ig ? "h-8 w-8 rounded-full bg-black/[0.06]" : "h-[34px] w-[34px] rounded-full bg-sam-border-soft/90";
 
   const opponentBubble = ig
     ? `min-h-[36px] min-w-[120px] rounded-ui-rect bg-[#F0F0F0]/80 ${IG_DM_BUBBLE_PAD}`
-    : "min-h-[36px] min-w-[120px] rounded-ui-rect bg-white shadow-sm";
+    : "min-h-[36px] min-w-[120px] rounded-ui-rect bg-sam-surface shadow-sm";
   const mineBubble = ig ? `min-h-[36px] min-w-[100px] rounded-ui-rect bg-signature/35 ${IG_DM_BUBBLE_PAD}` : "min-h-[36px] min-w-[100px] rounded-ui-rect bg-[#FEE500]/50 shadow-sm";
 
   return (
@@ -32,11 +32,11 @@ export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
         <div className={`flex ${rowMax} items-end ${gap}`}>
           <div className={`shrink-0 ${avatar} animate-pulse`} />
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            {!ig ? <div className="h-3 w-16 animate-pulse rounded bg-gray-200/80" /> : null}
+            {!ig ? <div className="h-3 w-16 animate-pulse rounded bg-sam-border-soft/80" /> : null}
             <div className={`${opponentBubble} animate-pulse`}>
               <div className={`space-y-2 ${ig ? "py-0.5" : ""}`}>
-                <div className={`h-2.5 rounded-full ${ig ? "bg-black/[0.08]" : "bg-gray-200/90"} w-[85%]`} />
-                <div className={`h-2.5 rounded-full ${ig ? "bg-black/[0.06]" : "bg-gray-100"} w-[55%]`} />
+                <div className={`h-2.5 rounded-full ${ig ? "bg-black/[0.08]" : "bg-sam-border-soft/90"} w-[85%]`} />
+                <div className={`h-2.5 rounded-full ${ig ? "bg-black/[0.06]" : "bg-sam-surface-muted"} w-[55%]`} />
               </div>
             </div>
           </div>
@@ -46,7 +46,7 @@ export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
       <li className={`flex justify-end ${ig ? "mt-2.5" : "mt-3"}`}>
         <div className={`flex flex-col items-end ${rowMax}`}>
           <div className={`${mineBubble} animate-pulse`}>
-            <div className={`h-2.5 rounded-full ${ig ? "bg-white/40" : "bg-[#111]/10"} w-[72%]`} />
+            <div className={`h-2.5 rounded-full ${ig ? "bg-sam-surface/40" : "bg-[#111]/10"} w-[72%]`} />
           </div>
         </div>
       </li>
@@ -55,10 +55,10 @@ export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
         <div className={`flex ${rowMax} items-end ${gap}`}>
           <div className={`shrink-0 ${avatar} animate-pulse`} />
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            {!ig ? <div className="h-3 w-20 animate-pulse rounded bg-gray-200/80" /> : null}
+            {!ig ? <div className="h-3 w-20 animate-pulse rounded bg-sam-border-soft/80" /> : null}
             <div className={`${opponentBubble} animate-pulse`}>
               <div
-                className={`h-2.5 w-[40%] rounded-full ${ig ? "bg-black/[0.08]" : "bg-gray-200/80"}`}
+                className={`h-2.5 w-[40%] rounded-full ${ig ? "bg-black/[0.08]" : "bg-sam-border-soft/80"}`}
               />
             </div>
           </div>
@@ -69,8 +69,8 @@ export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
         <div className={`flex flex-col items-end ${rowMax}`}>
           <div className={`${mineBubble} animate-pulse`}>
             <div className="space-y-2">
-              <div className={`h-2.5 rounded-full ${ig ? "bg-white/35" : "bg-[#111]/10"} w-[90%]`} />
-              <div className={`h-2.5 rounded-full ${ig ? "bg-white/25" : "bg-[#111]/8"} w-[40%]`} />
+              <div className={`h-2.5 rounded-full ${ig ? "bg-sam-surface/35" : "bg-[#111]/10"} w-[90%]`} />
+              <div className={`h-2.5 rounded-full ${ig ? "bg-sam-surface/25" : "bg-[#111]/8"} w-[40%]`} />
             </div>
           </div>
         </div>

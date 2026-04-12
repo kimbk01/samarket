@@ -45,16 +45,16 @@ export function ProductSellerCard({ seller, trustSummary, onReportUser }: Produc
 
   return (
     <MemberProfileFrame memberType={memberType} variant="full" className="rounded-ui-rect">
-      <div className="flex items-center gap-3 rounded-ui-rect bg-white p-3">
+      <div className="flex items-center gap-3 rounded-ui-rect bg-sam-surface p-3">
         <Link href={`/users/${seller.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-200">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-sam-border-soft">
             {seller.avatar ? (
               <img src={seller.avatar} alt="" className="h-full w-full object-cover" />
             ) : null}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-medium text-gray-900">{seller.nickname}</p>
-            <p className="text-[12px] text-gray-500">{seller.location}</p>
+            <p className="text-[14px] font-medium text-sam-fg">{seller.nickname}</p>
+            <p className="text-[12px] text-sam-muted">{seller.location}</p>
           </div>
           {displaySummary && (
             <div className="shrink-0">
@@ -67,18 +67,18 @@ export function ProductSellerCard({ seller, trustSummary, onReportUser }: Produc
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); setMenuOpen((v) => !v); }}
-            className="rounded p-1.5 text-gray-500"
+            className="rounded p-1.5 text-sam-muted"
             aria-label="더보기"
           >
             <MoreIcon className="h-5 w-5" />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-ui-rect border border-gray-200 bg-white py-1">
+            <div className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-ui-rect border border-sam-border bg-sam-surface py-1">
               {onReportUser && (
                 <button
                   type="button"
                   onClick={() => { onReportUser(); setMenuOpen(false); }}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700"
+                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg"
                 >
                   신고
                 </button>

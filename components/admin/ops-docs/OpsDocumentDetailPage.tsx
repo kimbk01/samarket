@@ -49,7 +49,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
     return (
       <>
         <AdminPageHeader title="문서 없음" backHref="/admin/ops-docs" />
-        <p className="text-[14px] text-gray-500">해당 문서를 찾을 수 없습니다.</p>
+        <p className="text-[14px] text-sam-muted">해당 문서를 찾을 수 없습니다.</p>
       </>
     );
   }
@@ -76,14 +76,14 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href={`/admin/ops-docs/${documentId}/edit`}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
         >
           수정
         </Link>
         <button
           type="button"
           onClick={handleDuplicate}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
         >
           복제
         </button>
@@ -91,7 +91,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
           <button
             type="button"
             onClick={() => handleStatusChange("archived")}
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
           >
             보관
           </button>
@@ -106,7 +106,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
           </button>
         )}
       </div>
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -115,7 +115,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {tab.label}
@@ -126,10 +126,10 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
         <AdminCard>
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2 text-[13px]">
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-gray-700">
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
                 {DOC_TYPE_LABELS[doc.docType]}
               </span>
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-gray-700">
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
                 {CATEGORY_LABELS[doc.category]}
               </span>
               <span
@@ -138,25 +138,25 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
                     ? "bg-emerald-50 text-emerald-800"
                     : doc.status === "draft"
                       ? "bg-amber-50 text-amber-800"
-                      : "bg-gray-100 text-gray-600"
+                      : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
                 {STATUS_LABELS[doc.status]}
               </span>
               {doc.versionLabel && (
-                <span className="text-gray-500">v{doc.versionLabel}</span>
+                <span className="text-sam-muted">v{doc.versionLabel}</span>
               )}
             </div>
-            <p className="text-[14px] text-gray-700">{doc.summary}</p>
-            <div className="rounded border border-gray-100 bg-gray-50 p-4 font-mono text-[13px] text-gray-800 whitespace-pre-wrap">
+            <p className="text-[14px] text-sam-fg">{doc.summary}</p>
+            <div className="rounded border border-sam-border-soft bg-sam-app p-4 font-mono text-[13px] text-sam-fg whitespace-pre-wrap">
               {doc.content}
             </div>
             {doc.tags.length > 0 && (
-              <p className="text-[13px] text-gray-500">
+              <p className="text-[13px] text-sam-muted">
                 태그: {doc.tags.join(", ")}
               </p>
             )}
-            <div className="border-t border-gray-100 pt-3 text-[13px] text-gray-500">
+            <div className="border-t border-sam-border-soft pt-3 text-[13px] text-sam-muted">
               작성: {doc.createdByAdminNickname} · 최근 수정{" "}
               {new Date(doc.updatedAt).toLocaleString("ko-KR")}
               {doc.approvedByAdminNickname && (

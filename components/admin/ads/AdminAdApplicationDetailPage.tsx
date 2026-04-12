@@ -34,7 +34,7 @@ export function AdminAdApplicationDetailPage({
 
   if (!application) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         광고 신청을 찾을 수 없습니다.
       </div>
     );
@@ -56,33 +56,33 @@ export function AdminAdApplicationDetailPage({
       <AdminCard title="신청 정보">
         <dl className="grid gap-2 text-[14px]">
           <div>
-            <dt className="text-gray-500">대상</dt>
+            <dt className="text-sam-muted">대상</dt>
             <dd>
               {AD_TARGET_LABELS[application.targetType]} ·{" "}
               {application.targetTitle}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">노출 위치</dt>
+            <dt className="text-sam-muted">노출 위치</dt>
             <dd>{AD_PLACEMENT_LABELS[application.placement]}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">플랜 / 기간 / 금액</dt>
+            <dt className="text-sam-muted">플랜 / 기간 / 금액</dt>
             <dd>
               {application.planName} · {application.durationDays}일 · ₩
               {application.totalPrice.toLocaleString()}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">결제 방식</dt>
+            <dt className="text-sam-muted">결제 방식</dt>
             <dd>{AD_PAYMENT_METHOD_LABELS[application.paymentMethod]}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">결제 상태</dt>
+            <dt className="text-sam-muted">결제 상태</dt>
             <dd>{AD_PAYMENT_STATUS_LABELS[application.paymentStatus]}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">신청 상태</dt>
+            <dt className="text-sam-muted">신청 상태</dt>
             <dd>
               <span
                 className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
@@ -90,7 +90,7 @@ export function AdminAdApplicationDetailPage({
                     ? "bg-signature/10 text-signature"
                     : application.applicationStatus === "rejected"
                       ? "bg-red-50 text-red-700"
-                      : "bg-gray-100 text-gray-700"
+                      : "bg-sam-surface-muted text-sam-fg"
                 }`}
               >
                 {AD_APPLICATION_STATUS_LABELS[application.applicationStatus]}
@@ -98,15 +98,15 @@ export function AdminAdApplicationDetailPage({
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">신청자</dt>
+            <dt className="text-sam-muted">신청자</dt>
             <dd>
               {application.applicantNickname} ({application.applicantUserId})
             </dd>
           </div>
           {(application.startAt || application.endAt) && (
             <div>
-              <dt className="text-gray-500">노출 기간</dt>
-              <dd className="text-[13px] text-gray-600">
+              <dt className="text-sam-muted">노출 기간</dt>
+              <dd className="text-[13px] text-sam-muted">
                 {application.startAt &&
                   new Date(application.startAt).toLocaleString("ko-KR")}
                 {" ~ "}
@@ -116,15 +116,15 @@ export function AdminAdApplicationDetailPage({
             </div>
           )}
           <div>
-            <dt className="text-gray-500">신청일</dt>
-            <dd className="text-[13px] text-gray-500">
+            <dt className="text-sam-muted">신청일</dt>
+            <dd className="text-[13px] text-sam-muted">
               {new Date(application.createdAt).toLocaleString("ko-KR")}
             </dd>
           </div>
           {application.applicantMemo && (
             <div>
-              <dt className="text-gray-500">신청자 메모</dt>
-              <dd className="whitespace-pre-wrap text-gray-700">
+              <dt className="text-sam-muted">신청자 메모</dt>
+              <dd className="whitespace-pre-wrap text-sam-fg">
                 {application.applicantMemo}
               </dd>
             </div>
@@ -138,18 +138,18 @@ export function AdminAdApplicationDetailPage({
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
             placeholder="메모 입력"
-            className="flex-1 rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="flex-1 rounded border border-sam-border px-3 py-2 text-[14px]"
           />
           <button
             type="button"
             onClick={handleSaveMemo}
-            className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-[14px] text-gray-700 hover:bg-gray-100"
+            className="rounded border border-sam-border bg-sam-app px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-surface-muted"
           >
             저장
           </button>
         </div>
         {application.adminMemo && (
-          <p className="mt-2 text-[13px] text-gray-600">
+          <p className="mt-2 text-[13px] text-sam-muted">
             {application.adminMemo}
           </p>
         )}

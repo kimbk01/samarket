@@ -120,7 +120,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-gray-500">
+      <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -129,7 +129,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (status === "locked" || status === "error") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
-        <p className="text-[14px] text-gray-700">{errorMessage}</p>
+        <p className="text-[14px] text-sam-fg">{errorMessage}</p>
         <AppBackButton className="text-signature hover:bg-signature/10" />
       </div>
     );
@@ -138,7 +138,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (status === "no_write" && category && snapshot && id) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <p className="text-[15px] font-medium text-gray-700">이 카테고리에는 글을 쓸 수 없습니다.</p>
+        <p className="text-[15px] font-medium text-sam-fg">이 카테고리에는 글을 쓸 수 없습니다.</p>
         <button
           type="button"
           onClick={() => router.push(`/products/${id}`)}
@@ -153,7 +153,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (status !== "ready" || !category || !snapshot) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <p className="text-[14px] text-gray-500">카테고리 정보를 불러오는 중입니다.</p>
+        <p className="text-[14px] text-sam-muted">카테고리 정보를 불러오는 중입니다.</p>
       </div>
     );
   }
@@ -161,7 +161,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (category.type !== "trade") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
-        <p className="text-[14px] text-gray-600">이 상품은 이 화면에서 수정할 수 없습니다.</p>
+        <p className="text-[14px] text-sam-muted">이 상품은 이 화면에서 수정할 수 없습니다.</p>
         <Link href={`/products/${id}`} className="text-[14px] font-medium text-signature">
           상품으로
         </Link>

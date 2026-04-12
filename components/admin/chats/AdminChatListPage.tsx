@@ -382,19 +382,19 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         onSearchChange={setSearchQuery}
       />
       {!loading && (filtered.length > 0 || rooms.length > 0) ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[13px]">
-          <span className="text-gray-600">
+        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
+          <span className="text-sam-muted">
             {t("admin_chat_selected_summary", {
               selected: selectedIds.size,
               visible: visibleFiltered.length,
             })}
           </span>
-          <span className="hidden sm:inline text-gray-300">|</span>
+          <span className="hidden sm:inline text-sam-meta">|</span>
           <button
             type="button"
             disabled={visibleFiltered.length === 0 || actionBusy}
             onClick={() => handleToggleAllVisible(true)}
-            className="rounded border border-gray-200 bg-white px-2.5 py-1.5 font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
           >
             {t("admin_chat_select_all_visible")}
           </button>
@@ -402,7 +402,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             type="button"
             disabled={selectedIds.size === 0 || actionBusy}
             onClick={() => setSelectedIds(new Set())}
-            className="rounded border border-gray-200 bg-white px-2.5 py-1.5 font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
           >
             {t("admin_chat_clear_selection")}
           </button>
@@ -435,16 +435,16 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         </div>
       ) : null}
       {actionMessage ? (
-        <p className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-gray-800">
+        <p className="rounded border border-sam-border bg-sam-app px-3 py-2 text-[13px] text-sam-fg">
           {actionMessage}
         </p>
       ) : null}
       {loading ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           {t("admin_chat_loading_room")}
         </div>
       ) : visibleFiltered.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           {emptyCopy}
         </div>
       ) : (

@@ -27,9 +27,9 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
   const regionDisplay = regionLines.length > 0 ? regionLines.join("\n") : "지역 미설정";
 
   return (
-    <div className="mx-auto max-w-[480px] rounded-ui-rect bg-white p-4 shadow-sm">
+    <div className="mx-auto max-w-[480px] rounded-ui-rect bg-sam-surface p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-100">
+        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-sam-surface-muted">
           {profile.avatar_url ? (
             <Image
               src={profile.avatar_url}
@@ -39,17 +39,17 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
               sizes="64px"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[20px] text-gray-400">
+            <div className="flex h-full w-full items-center justify-center text-[20px] text-sam-meta">
               👤
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[16px] font-semibold text-gray-900">
+            <span className="text-[16px] font-semibold text-sam-fg">
               {profile.nickname || "닉네임 없음"}
             </span>
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">
+            <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[11px] text-sam-muted">
               {memberLabel}
             </span>
             {isBusinessMember && (
@@ -58,11 +58,11 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
               </span>
             )}
           </div>
-          <p className="mt-0.5 whitespace-pre-line text-[13px] text-gray-500">{regionDisplay}</p>
+          <p className="mt-0.5 whitespace-pre-line text-[13px] text-sam-muted">{regionDisplay}</p>
           {extraStat && (
             <Link
               href="/my/reviews"
-              className="mt-1 inline-block text-[12px] text-gray-500 underline-offset-1 hover:underline"
+              className="mt-1 inline-block text-[12px] text-sam-muted underline-offset-1 hover:underline"
             >
               {extraStat.label} {extraStat.value}
             </Link>
@@ -70,7 +70,7 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
         </div>
       </div>
 
-      <div className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
+      <div className="mt-3 space-y-1.5 border-t border-sam-border-soft pt-3">
         <ProfileStatRow label="포인트" value={profile.points} />
         <ProfileStatRow
           label="실명 인증"
@@ -79,7 +79,7 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
       </div>
 
       {profile.bio && (
-        <p className="mt-3 border-t border-gray-100 pt-3 text-[13px] text-gray-600">
+        <p className="mt-3 border-t border-sam-border-soft pt-3 text-[13px] text-sam-muted">
           {profile.bio}
         </p>
       )}

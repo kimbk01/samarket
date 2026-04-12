@@ -24,17 +24,17 @@ export function AdminAuditJsonViewer({ label, data }: AdminAuditJsonViewerProps)
   if (text === "-") return null;
 
   return (
-    <div className="rounded border border-gray-100 bg-gray-50">
+    <div className="rounded border border-sam-border-soft bg-sam-app">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] font-medium text-gray-700 hover:bg-gray-100"
+        className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] font-medium text-sam-fg hover:bg-sam-surface-muted"
       >
         {label}
-        <span className="text-gray-500">{open ? "▲" : "▼"}</span>
+        <span className="text-sam-muted">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-        <pre className="max-h-48 overflow-auto border-t border-gray-100 px-3 py-2 text-[12px] text-gray-600 whitespace-pre-wrap break-all">
+        <pre className="max-h-48 overflow-auto border-t border-sam-border-soft px-3 py-2 text-[12px] text-sam-muted whitespace-pre-wrap break-all">
           {text}
         </pre>
       )}

@@ -83,7 +83,7 @@ export function AdminCommerceSettingsPage() {
   return (
     <div className="max-w-lg space-y-6">
       <AdminPageHeader title="매장 커머스 수치" />
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         DB에 값이 있으면 <strong>.env보다 우선</strong>합니다. &quot;DB 제거&quot;는 해당 항목만 환경변수 기본으로
         돌립니다. 주문 채팅 일치 알림음은{" "}
         <Link href="/admin/stores/application-settings" className="text-signature underline">
@@ -94,10 +94,10 @@ export function AdminCommerceSettingsPage() {
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {msg ? <p className="text-sm text-green-800">{msg}</p> : null}
       {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">불러오는 중…</p>
       ) : (
         <form
-          className="space-y-5 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm"
+          className="space-y-5 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault();
             void save({
@@ -108,12 +108,12 @@ export function AdminCommerceSettingsPage() {
           }}
         >
           <label className="block">
-            <span className="text-xs font-medium text-gray-700">
+            <span className="text-xs font-medium text-sam-fg">
               자동 구매확정(일) — 픽업 가능·배송중 후{" "}
               {overridden?.store_auto_complete_days ? (
                 <span className="text-signature">DB</span>
               ) : (
-                <span className="text-gray-400">env</span>
+                <span className="text-sam-meta">env</span>
               )}
             </span>
             <input
@@ -121,19 +121,19 @@ export function AdminCommerceSettingsPage() {
               min={1}
               max={90}
               required
-              className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
               value={autoDays}
               onChange={(e) => setAutoDays(e.target.value)}
             />
-            <span className="mt-0.5 block text-[11px] text-gray-400">1~90</span>
+            <span className="mt-0.5 block text-[11px] text-sam-meta">1~90</span>
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-gray-700">
+            <span className="text-xs font-medium text-sam-fg">
               정산 수수료(만분율, 300=3%){" "}
               {overridden?.store_settlement_fee_bp ? (
                 <span className="text-signature">DB</span>
               ) : (
-                <span className="text-gray-400">env</span>
+                <span className="text-sam-meta">env</span>
               )}
             </span>
             <input
@@ -141,18 +141,18 @@ export function AdminCommerceSettingsPage() {
               min={0}
               max={10000}
               required
-              className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
               value={feeBp}
               onChange={(e) => setFeeBp(e.target.value)}
             />
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-gray-700">
+            <span className="text-xs font-medium text-sam-fg">
               정산 지급 예정(결제일+N일){" "}
               {overridden?.store_settlement_delay_days ? (
                 <span className="text-signature">DB</span>
               ) : (
-                <span className="text-gray-400">env</span>
+                <span className="text-sam-meta">env</span>
               )}
             </span>
             <input
@@ -160,7 +160,7 @@ export function AdminCommerceSettingsPage() {
               min={0}
               max={365}
               required
-              className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
               value={delayDays}
               onChange={(e) => setDelayDays(e.target.value)}
             />
@@ -169,7 +169,7 @@ export function AdminCommerceSettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-ui-rect bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {saving ? "저장 중…" : "세 항목 저장"}
             </button>
@@ -177,11 +177,11 @@ export function AdminCommerceSettingsPage() {
         </form>
       )}
       {!loading ? (
-        <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+        <div className="flex flex-wrap gap-2 border-t border-sam-border-soft pt-4">
           <button
             type="button"
             disabled={saving}
-            className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 disabled:opacity-50"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
             onClick={() =>
               void save({
                 store_auto_complete_days: null,

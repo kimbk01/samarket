@@ -17,7 +17,7 @@ export function BusinessDashboardMobileBar({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-3 py-2 backdrop-blur-sm lg:hidden pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-surface/95 px-3 py-2 backdrop-blur-sm lg:hidden pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
       <div className="mx-auto flex max-w-lg gap-2">
         <Link
           href={storeOrdersHref}
@@ -32,7 +32,7 @@ export function BusinessDashboardMobileBar({
         </Link>
         <Link
           href={inquiriesHref}
-          className="relative flex flex-1 items-center justify-center rounded-ui-rect border border-gray-200 bg-white py-3 text-[14px] font-semibold text-gray-900"
+          className="relative flex flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-3 text-[14px] font-semibold text-sam-fg"
         >
           문의
           {inquiryOpenCount > 0 ? (

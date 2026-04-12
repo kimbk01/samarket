@@ -12,7 +12,7 @@ import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContex
 import type { StoreFulfillmentPref } from "@/lib/stores/store-fulfillment-pref";
 
 const iconBtnClass =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect text-stone-800 hover:bg-stone-100/90 active:bg-stone-200/80 disabled:pointer-events-none disabled:opacity-40";
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80 disabled:pointer-events-none disabled:opacity-40";
 
 export type StoreStickyOrderChrome = {
   isOpenForOrder: boolean;
@@ -108,20 +108,20 @@ export function StoreDetailStickyTopRow({
 
   const segBase =
     "min-w-0 flex-1 rounded-full px-2 py-1.5 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
-  const segOn = "bg-white text-stone-900 shadow-sm";
-  const segOff = "text-stone-600 active:bg-stone-200/60";
+  const segOn = "bg-sam-surface text-sam-fg shadow-sm";
+  const segOff = "text-sam-muted active:bg-sam-border-soft/60";
 
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-1 py-0.5">
     <div className="flex w-full min-w-0 max-w-full min-h-[40px] items-center gap-1.5">
       <StoreDetailBackLink fallbackHref={fallbackHref} />
-      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-ui-rect border border-stone-200 bg-stone-100">
+      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface-muted">
         {profileImageUrl?.trim() ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={profileImageUrl.trim()} alt="" className="h-full w-full object-cover" />
         ) : (
           <div
-            className="flex h-full w-full items-center justify-center text-[12px] font-semibold text-stone-400"
+            className="flex h-full w-full items-center justify-center text-[12px] font-semibold text-sam-meta"
             aria-hidden
           >
             {initialGlyph}
@@ -129,10 +129,10 @@ export function StoreDetailStickyTopRow({
         )}
       </div>
       <div className="min-w-0 flex-1 py-0.5">
-        <h1 className="truncate text-[15px] font-bold leading-tight text-stone-900">{storeName}</h1>
-        <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-stone-600">
-          <span className="text-stone-900">★ {ratingLabel}</span>
-          <span className="mx-1 text-stone-300" aria-hidden>
+        <h1 className="truncate text-[15px] font-bold leading-tight text-sam-fg">{storeName}</h1>
+        <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-sam-muted">
+          <span className="text-sam-fg">★ {ratingLabel}</span>
+          <span className="mx-1 text-sam-meta" aria-hidden>
             ·
           </span>
           리뷰 {reviewCount.toLocaleString("en-PH")}
@@ -207,35 +207,35 @@ export function StoreDetailStickyTopRow({
             className={`${iconBtnClass} list-none [&::-webkit-details-marker]:hidden`}
             aria-label="더보기"
           >
-            <span className="text-lg font-bold leading-none text-stone-600">⋯</span>
+            <span className="text-lg font-bold leading-none text-sam-muted">⋯</span>
           </summary>
           <div
-            className="absolute right-0 z-[50] mt-1 w-44 rounded-ui-rect border border-stone-200 bg-white py-1 shadow-lg"
+            className="absolute right-0 z-[50] mt-1 w-44 rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg"
             role="menu"
           >
             {telHref ? (
               <a
                 href={telHref}
-                className="block px-3 py-2.5 text-[13px] font-medium text-stone-800 hover:bg-stone-50"
+                className="block px-3 py-2.5 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
                 role="menuitem"
               >
                 전화
               </a>
             ) : (
-              <span className="block px-3 py-2.5 text-[13px] text-stone-400" role="menuitem">
+              <span className="block px-3 py-2.5 text-[13px] text-sam-meta" role="menuitem">
                 전화 없음
               </span>
             )}
             <Link
               href="/chat"
-              className="block px-3 py-2.5 text-[13px] font-medium text-stone-800 hover:bg-stone-50"
+              className="block px-3 py-2.5 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
               role="menuitem"
             >
               채팅 문의
             </Link>
             <Link
               href={infoHref}
-              className="block px-3 py-2.5 text-[13px] font-medium text-stone-800 hover:bg-stone-50"
+              className="block px-3 py-2.5 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
               role="menuitem"
             >
               가게 정보
@@ -246,7 +246,7 @@ export function StoreDetailStickyTopRow({
     </div>
 
       {orderChrome ? (
-        <div className="flex w-full min-w-0 items-center gap-2 border-t border-stone-200/80 pt-1">
+        <div className="flex w-full min-w-0 items-center gap-2 border-t border-sam-border/80 pt-1">
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
               orderChrome.isOpenForOrder ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
@@ -256,13 +256,13 @@ export function StoreDetailStickyTopRow({
           </span>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-              orderChrome.deliveryAvailable ? "bg-sky-50 text-sky-900" : "bg-stone-100 text-stone-600"
+              orderChrome.deliveryAvailable ? "bg-sky-50 text-sky-900" : "bg-sam-surface-muted text-sam-muted"
             }`}
           >
             {orderChrome.deliveryAvailable ? "배달 가능" : "배달 불가"}
           </span>
           <div
-            className="ml-auto flex min-w-0 max-w-[11rem] flex-1 rounded-full border border-stone-200 bg-stone-100 p-0.5"
+            className="ml-auto flex min-w-0 max-w-[11rem] flex-1 rounded-full border border-sam-border bg-sam-surface-muted p-0.5"
             role="group"
             aria-label="수령 방식"
           >

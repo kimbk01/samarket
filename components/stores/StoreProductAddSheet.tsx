@@ -371,7 +371,7 @@ export function StoreProductAddSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col justify-end bg-zinc-900/45 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[100] flex flex-col justify-end bg-sam-ink/45 backdrop-blur-[2px]"
       role="dialog"
       aria-modal
     >
@@ -379,15 +379,15 @@ export function StoreProductAddSheet({
       <div
         className={`flex w-full justify-center ${STORE_DETAIL_GUTTER} pb-[max(12px,env(safe-area-inset-bottom))]`}
       >
-        <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-ui-rect bg-white shadow-2xl ring-1 ring-zinc-900/10">
-        <div className="relative flex shrink-0 items-center justify-center border-b border-zinc-200/80 bg-white px-10 py-3">
-          <h2 className="line-clamp-2 text-center text-[16px] font-bold leading-snug tracking-tight text-zinc-900">
+        <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-ui-rect bg-sam-surface shadow-2xl ring-1 ring-sam-border/10">
+        <div className="relative flex shrink-0 items-center justify-center border-b border-sam-border/80 bg-sam-surface px-10 py-3">
+          <h2 className="line-clamp-2 text-center text-[16px] font-bold leading-snug tracking-tight text-sam-fg">
             {loading ? "불러오는 중…" : product && !notFound ? product.title : "메뉴 담기"}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[20px] leading-none text-zinc-500 hover:bg-zinc-100"
+            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[20px] leading-none text-sam-muted hover:bg-sam-surface-muted"
             aria-label="닫기"
           >
             ✕
@@ -396,10 +396,10 @@ export function StoreProductAddSheet({
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#F0F2F5]">
           {loading ? (
-            <p className="py-10 text-center text-sm text-zinc-500">불러오는 중…</p>
+            <p className="py-10 text-center text-sm text-sam-muted">불러오는 중…</p>
           ) : notFound || !product || !store ? (
             <div className="px-4 py-10 text-center">
-              <p className="text-sm text-zinc-600">상품을 불러올 수 없습니다.</p>
+              <p className="text-sm text-sam-muted">상품을 불러올 수 없습니다.</p>
               <button
                 type="button"
                 onClick={onClose}
@@ -420,13 +420,13 @@ export function StoreProductAddSheet({
                 </p>
               ) : null}
               {soldOut ? (
-                <p className="mx-3 mt-3 rounded-ui-rect bg-zinc-200/60 px-3 py-2 text-sm font-medium text-zinc-700">
+                <p className="mx-3 mt-3 rounded-ui-rect bg-sam-border-soft/60 px-3 py-2 text-sm font-medium text-sam-fg">
                   품절
                 </p>
               ) : null}
 
-              <div className="mx-3 mt-3 flex gap-3 rounded-ui-rect bg-white p-3 shadow-sm ring-1 ring-zinc-200/70">
-                <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-zinc-100">
+              <div className="mx-3 mt-3 flex gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
+                <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                   {galleryUrls[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -435,48 +435,48 @@ export function StoreProductAddSheet({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[11px] text-zinc-400">
+                    <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">
                       이미지 없음
                     </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-[15px] font-semibold leading-snug text-zinc-900">{product.title}</h3>
-                    <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600">
+                    <h3 className="text-[15px] font-semibold leading-snug text-sam-fg">{product.title}</h3>
+                    <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 text-[11px] font-medium text-sam-muted">
                       찜 {favCount.toLocaleString("en-PH")}
                     </span>
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
                     {Math.floor(product.price) !== Math.floor(baseUnit) ? (
-                      <span className="text-[13px] text-zinc-400 line-through">
+                      <span className="text-[13px] text-sam-meta line-through">
                         {formatMoneyPhp(Math.floor(product.price))}
                       </span>
                     ) : null}
-                    <span className="text-[18px] font-bold text-zinc-900">
+                    <span className="text-[18px] font-bold text-sam-fg">
                       {formatMoneyPhp(Math.floor(baseUnit))}
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center rounded-full bg-zinc-200/70 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700">
+                    <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 text-[11px] font-medium text-sam-fg">
                       ★ {ratingLabel ?? "—"} · 리뷰 {reviewCountDisp.toLocaleString("en-PH")}
                     </span>
-                    <span className="inline-flex items-center rounded-full bg-zinc-200/70 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700">
+                    <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 text-[11px] font-medium text-sam-fg">
                       주문 {orderCountDisp.toLocaleString("en-PH")}+
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="mx-3 mt-3 space-y-1.5 rounded-ui-rect bg-white p-3 shadow-sm ring-1 ring-zinc-200/70">
-                <div className="flex items-center justify-between text-[13px] text-zinc-700">
+              <div className="mx-3 mt-3 space-y-1.5 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
+                <div className="flex items-center justify-between text-[13px] text-sam-fg">
                   <span>기본 단가</span>
-                  <span className="font-semibold tabular-nums text-zinc-900">
+                  <span className="font-semibold tabular-nums text-sam-fg">
                     {formatMoneyPhp(Math.floor(baseUnit))}
                   </span>
                 </div>
                 {optionValidation.ok && optionValidation.unitDelta !== 0 ? (
-                  <div className="flex items-center justify-between text-[13px] text-zinc-600">
+                  <div className="flex items-center justify-between text-[13px] text-sam-muted">
                     <span>옵션 추가</span>
                     <span className="font-semibold tabular-nums">
                       {optionValidation.unitDelta > 0 ? "+" : ""}
@@ -484,15 +484,15 @@ export function StoreProductAddSheet({
                     </span>
                   </div>
                 ) : null}
-                <div className="flex items-center justify-between border-t border-zinc-100 pt-2 text-[13px] font-semibold text-zinc-900">
+                <div className="flex items-center justify-between border-t border-sam-border-soft pt-2 text-[13px] font-semibold text-sam-fg">
                   <span>1개당</span>
                   <span className="tabular-nums">{formatMoneyPhp(unitWithOptions)}</span>
                 </div>
-                <div className="flex items-center justify-between text-[13px] text-zinc-600">
+                <div className="flex items-center justify-between text-[13px] text-sam-muted">
                   <span>수량</span>
                   <span className="font-medium tabular-nums">× {qty}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-zinc-200 pt-2 text-[16px] font-bold text-zinc-900">
+                <div className="flex items-center justify-between border-t border-sam-border pt-2 text-[16px] font-bold text-sam-fg">
                   <span>이 라인 합계</span>
                   <span className="tabular-nums text-[#1877F2]">{formatMoneyPhp(lineTotal)}</span>
                 </div>
@@ -500,14 +500,14 @@ export function StoreProductAddSheet({
 
               {galleryUrls.length > 1 ? (
                 <div className="mt-2 px-3">
-                  <div className="flex gap-2 overflow-x-auto rounded-ui-rect bg-white p-2 shadow-sm ring-1 ring-zinc-200/70 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="flex gap-2 overflow-x-auto rounded-ui-rect bg-sam-surface p-2 shadow-sm ring-1 ring-sam-border/70 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {galleryUrls.slice(1).map((url, i) => (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         key={`${url}-${i}`}
                         src={url}
                         alt=""
-                        className="h-14 w-14 shrink-0 rounded-ui-rect object-cover ring-1 ring-zinc-200/80"
+                        className="h-14 w-14 shrink-0 rounded-ui-rect object-cover ring-1 ring-sam-border/80"
                       />
                     ))}
                   </div>
@@ -515,21 +515,21 @@ export function StoreProductAddSheet({
               ) : null}
 
               {reviewSnippets.length > 0 ? (
-                <details className="mx-3 mt-3 rounded-ui-rect border border-zinc-200/80 bg-white shadow-sm">
-                  <summary className="cursor-pointer px-3 py-2.5 text-[13px] font-semibold text-zinc-800">
+                <details className="mx-3 mt-3 rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">
+                  <summary className="cursor-pointer px-3 py-2.5 text-[13px] font-semibold text-sam-fg">
                     리뷰 미리보기 ({reviewSnippets.length})
                   </summary>
-                  <div className="grid grid-cols-1 gap-2 border-t border-zinc-100 px-3 pb-3 pt-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 border-t border-sam-border-soft px-3 pb-3 pt-2 sm:grid-cols-2">
                     {reviewSnippets.map((r) => (
                       <div
                         key={`${r.created_at}-${r.content.slice(0, 12)}`}
-                        className="rounded-ui-rect bg-zinc-50 p-2.5 ring-1 ring-zinc-200/60"
+                        className="rounded-ui-rect bg-sam-app p-2.5 ring-1 ring-sam-border/60"
                       >
-                        <p className="line-clamp-3 text-[12px] leading-snug text-zinc-800">
+                        <p className="line-clamp-3 text-[12px] leading-snug text-sam-fg">
                           {r.rating != null && r.rating >= 4 ? "★ " : ""}
                           {r.content}
                         </p>
-                        <p className="mt-1.5 text-[10px] text-zinc-500">{r.created_at}</p>
+                        <p className="mt-1.5 text-[10px] text-sam-muted">{r.created_at}</p>
                       </div>
                     ))}
                   </div>
@@ -537,15 +537,15 @@ export function StoreProductAddSheet({
               ) : null}
 
               {product.summary ? (
-                <p className="mx-3 mt-3 rounded-ui-rect bg-white px-3 py-2.5 text-[13px] leading-relaxed text-zinc-600 shadow-sm ring-1 ring-zinc-200/70">
+                <p className="mx-3 mt-3 rounded-ui-rect bg-sam-surface px-3 py-2.5 text-[13px] leading-relaxed text-sam-muted shadow-sm ring-1 ring-sam-border/70">
                   {product.summary}
                 </p>
               ) : null}
 
               {optionGroups.length > 0 ? (
                 <div className="mt-4 px-3">
-                  <p className="mb-1 px-0.5 text-[12px] font-bold text-zinc-800">옵션 선택</p>
-                  <p className="mb-2 px-0.5 text-[12px] text-zinc-500">
+                  <p className="mb-1 px-0.5 text-[12px] font-bold text-sam-fg">옵션 선택</p>
+                  <p className="mb-2 px-0.5 text-[12px] text-sam-muted">
                     필수 항목을 고르면 위 금액이 바로 바뀌어요.
                   </p>
                   <StoreModifierPicker
@@ -559,7 +559,7 @@ export function StoreProductAddSheet({
               ) : null}
 
               <div className="mx-3 mt-3">
-                <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-semibold text-zinc-800">
+                <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-semibold text-sam-fg">
                   요청사항 (선택)
                 </label>
                 <textarea
@@ -569,7 +569,7 @@ export function StoreProductAddSheet({
                   onChange={(e) => setLineNote(e.target.value)}
                   disabled={soldOut || orderBlocked}
                   placeholder="예: 덜 맵게, 양파 빼주세요"
-                  className="mt-1 w-full resize-none rounded-ui-rect border border-zinc-200 bg-white px-3 py-2 text-[13px] text-zinc-900 placeholder:text-zinc-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/20 disabled:bg-zinc-100"
+                  className="mt-1 w-full resize-none rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg placeholder:text-sam-meta focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/20 disabled:bg-sam-surface-muted"
                 />
               </div>
 
@@ -596,19 +596,19 @@ export function StoreProductAddSheet({
         </div>
 
         {!loading && !notFound && product && store ? (
-          <div className="shrink-0 border-t border-zinc-200/80 bg-white px-3 pt-3">
+          <div className="shrink-0 border-t border-sam-border/80 bg-sam-surface px-3 pt-3">
             {sheetErr ? <p className="mb-2 text-center text-xs text-red-600">{sheetErr}</p> : null}
             <div className="flex items-stretch gap-2.5">
-              <div className="flex items-center gap-1 rounded-full bg-zinc-100 px-1 py-1">
+              <div className="flex items-center gap-1 rounded-full bg-sam-surface-muted px-1 py-1">
                 <button
                   type="button"
                   disabled={qty <= minQ || soldOut || orderBlocked}
                   onClick={() => setQty((q) => Math.max(minQ, q - 1))}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none text-zinc-800 transition-colors hover:bg-zinc-200/80 disabled:opacity-40"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none text-sam-fg transition-colors hover:bg-sam-border-soft/80 disabled:opacity-40"
                 >
                   −
                 </button>
-                <span className="min-w-[1.75rem] text-center text-[16px] font-bold text-zinc-900">{qty}</span>
+                <span className="min-w-[1.75rem] text-center text-[16px] font-bold text-sam-fg">{qty}</span>
                 <button
                   type="button"
                   disabled={qty >= capQty || soldOut || orderBlocked}
@@ -628,7 +628,7 @@ export function StoreProductAddSheet({
                   capQty < minQ
                 }
                 onClick={addToCart}
-                className="min-w-0 flex-1 rounded-ui-rect py-3 text-center text-[15px] font-bold leading-tight text-white shadow-sm transition-opacity hover:opacity-95 disabled:bg-zinc-300"
+                className="min-w-0 flex-1 rounded-ui-rect py-3 text-center text-[15px] font-bold leading-tight text-white shadow-sm transition-opacity hover:opacity-95 disabled:bg-sam-surface-muted"
                 style={{ backgroundColor: SHEET_PRIMARY }}
               >
                 <span className="block">{formatMoneyPhp(lineTotal)} 담기</span>

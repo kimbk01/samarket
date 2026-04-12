@@ -1,0 +1,421 @@
+/**
+ * Samarket 제품 UI — 재사용 시맨틱 컴포넌트 클래스.
+ * 토큰: design-tokens.css (`--sam-*`) · Tailwind: `bg-sam-*`, `rounded-sam-md` 등.
+ *
+ * 네이밍: `sam-<영역>--<변형>` (BEM 스타일 `--` 변형).
+ * 버튼은 보통 `sam-btn sam-btn--primary` 를 함께 쓰거나, 레거시 단일 클래스 `sam-btn-primary`.
+ * 관리자(`data-admin`)는 동일 토큰을 쓰되 레이아웃은 별도 컴포넌트에서 처리.
+ */
+
+@layer components {
+  /* -------------------------------------------------------------------------- */
+  /* 페이지 · 타이포 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-page {
+    @apply bg-sam-app text-sam-fg;
+    padding-left: var(--sam-screen-padding-x);
+    padding-right: var(--sam-screen-padding-x);
+  }
+
+  .sam-text-page-title {
+    font-size: var(--sam-text-page-title-size);
+    @apply font-bold leading-tight text-sam-fg;
+  }
+
+  .sam-text-section-title {
+    font-size: var(--sam-text-section-title-size);
+    @apply font-bold leading-snug text-sam-fg;
+  }
+
+  .sam-text-card-title {
+    font-size: var(--sam-text-card-title-size);
+    @apply font-semibold leading-snug text-sam-fg;
+  }
+
+  .sam-text-body-secondary {
+    font-size: var(--sam-text-body-secondary-size);
+    @apply font-normal leading-[var(--sam-font-body-line)] text-sam-muted;
+  }
+
+  .sam-text-helper {
+    font-size: var(--sam-text-helper-size);
+    @apply font-normal leading-tight text-sam-meta;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 카드 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-card {
+    @apply rounded-sam-md border border-sam-border-soft bg-sam-surface shadow-sam-card;
+  }
+
+  .sam-card--elevated {
+    @apply rounded-sam-lg border border-sam-border-soft bg-sam-surface shadow-sam-soft;
+  }
+
+  .sam-card--flat {
+    @apply rounded-sam-md border border-sam-border-soft bg-sam-surface;
+    box-shadow: none;
+  }
+
+  .sam-card--muted {
+    @apply rounded-sam-md border border-sam-border-soft bg-sam-surface-muted;
+    box-shadow: none;
+  }
+
+  /* 레거시 별칭 (= sam-card--elevated) */
+  .sam-card-elevated {
+    @apply rounded-sam-lg border border-sam-border-soft bg-sam-surface shadow-sam-soft;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 버튼 — 조합: `sam-btn sam-btn--primary` 또는 단일 `sam-btn-primary` */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-btn {
+    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md px-4 font-semibold transition-[background-color,border-color,color,opacity,filter] duration-150;
+    font-size: var(--sam-text-body-size);
+  }
+
+  .sam-btn:disabled {
+    @apply cursor-not-allowed opacity-45;
+  }
+
+  .sam-btn--primary {
+    @apply border border-transparent bg-sam-primary text-sam-on-primary;
+  }
+
+  .sam-btn--primary:not(:disabled):active {
+    @apply bg-sam-primary-hover;
+  }
+
+  .sam-btn--secondary {
+    @apply border border-sam-primary-border bg-sam-primary-soft text-sam-primary;
+  }
+
+  .sam-btn--secondary:not(:disabled):active {
+    filter: brightness(0.97);
+  }
+
+  .sam-btn--ghost {
+    @apply border border-transparent bg-transparent text-sam-fg;
+  }
+
+  .sam-btn--ghost:not(:disabled):active {
+    @apply bg-sam-primary-soft;
+  }
+
+  .sam-btn--danger {
+    @apply border border-transparent bg-sam-danger-soft text-sam-danger;
+  }
+
+  .sam-btn--outline {
+    @apply border-sam-border bg-sam-surface text-sam-fg;
+  }
+
+  .sam-btn--outline:not(:disabled):active {
+    @apply bg-sam-primary-soft;
+  }
+
+  .sam-btn--pill {
+    border-radius: var(--sam-radius-pill);
+  }
+
+  .sam-btn--sm {
+    @apply min-h-10 px-3 text-[13px];
+  }
+
+  .sam-btn--block {
+    @apply w-full;
+  }
+
+  /* 단일 클래스 (레거시 / 빠른 사용) */
+  .sam-btn-primary {
+    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-primary px-4 font-semibold text-sam-on-primary transition-[background-color,opacity] duration-150;
+    font-size: var(--sam-text-body-size);
+  }
+
+  .sam-btn-primary:disabled {
+    @apply cursor-not-allowed opacity-45;
+  }
+
+  .sam-btn-primary:not(:disabled):active {
+    @apply bg-sam-primary-hover;
+  }
+
+  .sam-btn-secondary {
+    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft px-4 font-semibold text-sam-primary transition-[filter,opacity] duration-150;
+    font-size: var(--sam-text-body-size);
+  }
+
+  .sam-btn-secondary:disabled {
+    @apply cursor-not-allowed opacity-45;
+  }
+
+  .sam-btn-secondary:not(:disabled):active {
+    filter: brightness(0.97);
+  }
+
+  .sam-btn-ghost {
+    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-transparent px-4 font-semibold text-sam-fg transition-colors duration-150;
+    font-size: var(--sam-text-body-size);
+  }
+
+  .sam-btn-ghost:not(:disabled):active {
+    @apply bg-sam-primary-soft;
+  }
+
+  .sam-btn-danger {
+    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-danger-soft px-4 font-semibold text-sam-danger transition-opacity duration-150;
+    font-size: var(--sam-text-body-size);
+  }
+
+  .sam-btn-danger:disabled {
+    @apply cursor-not-allowed opacity-45;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 입력 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-input {
+    @apply w-full rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2.5 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    font-size: var(--sam-text-body-size);
+    line-height: var(--sam-font-body-line);
+  }
+
+  .sam-input::placeholder {
+    @apply text-sam-meta;
+  }
+
+  .sam-input:focus {
+    @apply border-sam-primary;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 22%, transparent);
+  }
+
+  .sam-input--soft {
+    @apply border-sam-border bg-sam-primary-soft;
+  }
+
+  .sam-input--soft:focus {
+    @apply bg-sam-surface;
+  }
+
+  /* 레거시 별칭 (= sam-input sam-input--soft) */
+  .sam-input-surface-soft {
+    @apply w-full rounded-sam-md border border-sam-border bg-sam-primary-soft px-3 py-2.5 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    font-size: var(--sam-text-body-size);
+    line-height: var(--sam-font-body-line);
+  }
+
+  .sam-input-surface-soft::placeholder {
+    @apply text-sam-meta;
+  }
+
+  .sam-input-surface-soft:focus {
+    @apply border-sam-primary bg-sam-surface;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 22%, transparent);
+  }
+
+  .sam-textarea {
+    @apply w-full min-h-[100px] resize-y rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2.5 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    font-size: var(--sam-text-body-size);
+    line-height: var(--sam-font-body-line);
+  }
+
+  .sam-textarea::placeholder {
+    @apply text-sam-meta;
+  }
+
+  .sam-textarea:focus {
+    @apply border-sam-primary;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 22%, transparent);
+  }
+
+  .sam-select {
+    @apply w-full appearance-none rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2.5 pr-9 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    font-size: var(--sam-text-body-size);
+    line-height: var(--sam-font-body-line);
+  }
+
+  .sam-select:focus {
+    @apply border-sam-primary;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 22%, transparent);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 탭 (상단 텍스트 탭) */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-tabs {
+    @apply flex w-full border-b border-sam-border-soft bg-sam-surface;
+  }
+
+  .sam-tab {
+    @apply relative min-w-0 flex-1 px-1 py-2.5 text-center text-[13px] font-medium text-sam-muted transition-colors;
+  }
+
+  .sam-tab[aria-selected="true"],
+  .sam-tab--active {
+    @apply font-semibold text-sam-fg;
+  }
+
+  .sam-tab[aria-selected="true"]::after,
+  .sam-tab--active::after {
+    content: "";
+    @apply absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-sam-primary;
+  }
+
+  .sam-tab:disabled {
+    @apply opacity-40;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 칩 · 필터 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-chip {
+    @apply inline-flex min-h-8 items-center justify-center rounded-sam-pill px-3 font-semibold;
+    font-size: var(--sam-text-helper-size);
+  }
+
+  .sam-chip--active {
+    @apply bg-sam-primary text-sam-on-primary;
+  }
+
+  .sam-chip--inactive {
+    @apply bg-sam-primary-soft text-sam-muted;
+  }
+
+  .sam-chip--neutral {
+    @apply border border-sam-border-soft bg-sam-surface-muted text-sam-fg;
+  }
+
+  .sam-chip-active {
+    @apply inline-flex min-h-8 items-center justify-center rounded-sam-pill bg-sam-primary px-3 font-semibold text-sam-on-primary;
+    font-size: var(--sam-text-helper-size);
+  }
+
+  .sam-chip-inactive {
+    @apply inline-flex min-h-8 items-center justify-center rounded-sam-pill bg-sam-primary-soft px-3 font-semibold text-sam-muted;
+    font-size: var(--sam-text-helper-size);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 리스트 행 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-list-row {
+    @apply border-b border-sam-border-soft bg-sam-surface;
+  }
+
+  .sam-list-row--interactive:active {
+    @apply bg-sam-primary-soft;
+  }
+
+  .sam-list-row--selected {
+    @apply bg-sam-primary-soft;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 바텀 시트 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-sheet-backdrop {
+    @apply fixed inset-0 z-40 bg-sam-ink/40 backdrop-blur-[2px];
+  }
+
+  .sam-sheet-panel {
+    @apply z-50 w-full max-w-[100vw] rounded-t-sam-lg border border-sam-border-soft border-b-0 bg-sam-surface shadow-sam-soft;
+  }
+
+  .sam-sheet-handle {
+    @apply mx-auto mt-2 h-1 w-10 rounded-full bg-sam-border;
+  }
+
+  .sam-sheet-header {
+    @apply flex shrink-0 items-center justify-between border-b border-sam-border-soft px-3 py-2.5;
+  }
+
+  .sam-sheet-body {
+    @apply min-h-0 flex-1 overflow-y-auto bg-sam-app px-3 py-3;
+  }
+
+  .sam-sheet-footer {
+    @apply shrink-0 border-t border-sam-border-soft bg-sam-surface px-3 py-2.5;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 뱃지 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-badge {
+    @apply inline-flex max-w-full items-center rounded-sam-pill px-2 py-0.5 text-[11px] font-semibold leading-tight;
+  }
+
+  .sam-badge--neutral {
+    @apply bg-sam-surface-muted text-sam-muted;
+  }
+
+  .sam-badge--primary {
+    @apply bg-sam-primary-soft text-sam-primary;
+  }
+
+  .sam-badge--success {
+    @apply bg-sam-success-soft text-sam-success;
+  }
+
+  .sam-badge--warning {
+    @apply bg-sam-warning-soft text-sam-warning;
+  }
+
+  .sam-badge--danger {
+    @apply bg-sam-danger-soft text-sam-danger;
+  }
+
+  .sam-badge--info {
+    @apply bg-sam-info-soft text-sam-info;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 메신저 말풍선 — `[data-cm-room]` 안에서 채팅 토큰과 연결 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-bubble {
+    @apply relative inline-block w-max max-w-full overflow-visible rounded-sam-lg;
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--sam-primary) 12%, transparent);
+  }
+
+  [data-cm-room] .sam-bubble--outgoing {
+    background-color: var(--cm-room-bubble-outgoing);
+    color: var(--sam-text-on-primary);
+  }
+
+  [data-cm-room] .sam-bubble--incoming {
+    background-color: var(--cm-room-bubble-incoming);
+    color: var(--sam-text-primary);
+  }
+
+  .sam-bubble--system {
+    @apply rounded-sam-md bg-sam-primary-soft px-3 py-2 text-center text-[12px] text-sam-muted;
+    box-shadow: none;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 설정 · 마이페이지 그룹 */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-settings-section-title {
+    @apply px-4 pb-2 text-[13px] font-medium text-sam-muted;
+  }
+
+  .sam-settings-group {
+    @apply overflow-hidden rounded-sam-md border border-sam-border-soft bg-sam-surface;
+  }
+
+  .sam-divider {
+    @apply h-px w-full bg-sam-border-soft;
+  }
+}

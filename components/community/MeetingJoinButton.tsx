@@ -215,7 +215,7 @@ export function MeetingJoinButton({
       </button>
 
       {helperText ? (
-        <p className={embedChrome ? "text-[11px] leading-relaxed text-gray-500" : "text-[12px] leading-relaxed text-gray-500"}>
+        <p className={embedChrome ? "text-[11px] leading-relaxed text-sam-muted" : "text-[12px] leading-relaxed text-sam-muted"}>
           {helperText}
         </p>
       ) : null}

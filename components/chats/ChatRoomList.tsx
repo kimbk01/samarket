@@ -126,7 +126,7 @@ export function ChatRoomList({
 
   if (sessionDenied) {
     return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-gray-600`}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-sam-muted`}>
         <p>{t("common_login_required_for_chat_list")}</p>
         <Link href="/login" className="mt-3 inline-block font-medium text-signature underline">
           {t("common_login")}
@@ -176,7 +176,7 @@ export function ChatRoomList({
   }
 
   return (
-    <ul className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} space-y-0 divide-y divide-gray-200 bg-white`}>
+    <ul className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} space-y-0 divide-y divide-sam-border bg-sam-surface`}>
       {rooms.map((room) => (
         <li key={room.id}>
           {room.generalChat ? (

@@ -15,22 +15,25 @@ type Props = {
  */
 export function MessengerPrimarySectionNav({ value, onChange }: Props) {
   return (
-    <div className="flex w-full gap-0 border-b border-ui-border bg-ui-surface pb-0 shadow-[var(--ui-shadow-card)]">
+    <div
+      className="sam-tabs rounded-t-[var(--messenger-radius-md)] pb-0 shadow-[var(--messenger-shadow-soft)]"
+      style={{ color: "var(--messenger-text)" }}
+    >
       {SECTIONS.map((id) => {
         const active = value === id;
         return (
           <button
             key={id}
             type="button"
+            role="tab"
+            aria-selected={active}
             onClick={() => onChange(id)}
-            className={`relative min-w-0 flex-1 px-1 py-3 text-[13px] font-medium transition-colors ${
-              active ? "text-ui-fg" : "text-ui-muted active:text-ui-fg"
-            }`}
+            className="sam-tab py-3 text-[13px] transition-colors active:bg-[color:var(--messenger-primary-soft)]"
+            style={{ color: active ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
           >
             <span className="flex items-center justify-center">
               <span className="truncate">{messengerSectionLabel(id)}</span>
             </span>
-            {active ? <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-neutral-900" /> : null}
           </button>
         );
       })}

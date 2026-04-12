@@ -21,19 +21,19 @@ function Row({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
-      <span className="text-[15px] text-gray-900">{label}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-sam-border-soft px-4 py-3">
+      <span className="text-[15px] text-sam-fg">{label}</span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-          checked ? "bg-signature" : "bg-gray-200"
+          checked ? "bg-signature" : "bg-sam-border-soft"
         }`}
       >
         <span
-          className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
             checked ? "translate-x-6" : "translate-x-0.5"
           }`}
         />
@@ -66,7 +66,7 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   };
 
   if (storeId !== SHARED_SIM_STORE_ID) {
-    return <p className="text-sm text-gray-600">시뮬 매장만 설정할 수 있어요.</p>;
+    return <p className="text-sm text-sam-muted">시뮬 매장만 설정할 수 있어요.</p>;
   }
 
   if (!userId || !p) {
@@ -78,10 +78,10 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-100 px-4 py-3">
-        <h2 className="text-sm font-bold text-gray-900">매장 알림 (시뮬)</h2>
-        <p className="mt-1 text-[12px] text-gray-500 font-mono">{userId}</p>
+    <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
+      <div className="border-b border-sam-border-soft px-4 py-3">
+        <h2 className="text-sm font-bold text-sam-fg">매장 알림 (시뮬)</h2>
+        <p className="mt-1 text-[12px] text-sam-muted font-mono">{userId}</p>
       </div>
       <Row label="새 주문 알림 받기" checked={p.allow_new_order} onChange={(x) => patch({ allow_new_order: x })} />
       <Row label="취소 요청 알림 받기" checked={p.allow_cancel} onChange={(x) => patch({ allow_cancel: x })} />

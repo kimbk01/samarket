@@ -13,7 +13,7 @@ export default async function PhilifeMyPage() {
     <div className="min-h-screen bg-[#f3f4f6] pb-24">
       <TradePrimaryColumnStickyAppBar title="내 커뮤니티 활동" backButtonProps={{ backHref: "/philife" }} />
       <div className={`${APP_MAIN_GUTTER_X_CLASS} pt-3`}>
-        <p className="text-[13px] text-gray-600">
+        <p className="text-[13px] text-sam-muted">
           작성 글과 참여 중인 모임은 피드에서 확인하거나 아래에서 빠르게 이동할 수 있어요.
         </p>
         <CommunityMyHubClient userId={uid} />

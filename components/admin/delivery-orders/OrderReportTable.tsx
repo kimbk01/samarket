@@ -23,13 +23,13 @@ export function OrderReportTable({
   onSelect: (id: string) => void;
 }) {
   if (rows.length === 0) {
-    return <p className="py-6 text-center text-sm text-gray-500">접수된 신고가 없습니다.</p>;
+    return <p className="py-6 text-center text-sm text-sam-muted">접수된 신고가 없습니다.</p>;
   }
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[920px] border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-600">
+          <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
             <th className="px-2 py-2">신고번호</th>
             <th className="px-2 py-2">주문번호</th>
             <th className="px-2 py-2">신고자</th>
@@ -46,7 +46,7 @@ export function OrderReportTable({
             return (
               <tr
                 key={r.id}
-                className={`cursor-pointer border-b border-gray-100 ${active ? "bg-amber-50/80" : "hover:bg-gray-50/80"}`}
+                className={`cursor-pointer border-b border-sam-border-soft ${active ? "bg-amber-50/80" : "hover:bg-sam-app/80"}`}
                 onClick={() => onSelect(r.id)}
               >
                 <td className="px-2 py-2 font-mono text-[12px]">{r.id}</td>
@@ -54,11 +54,11 @@ export function OrderReportTable({
                 <td className="px-2 py-2">{r.reporterName}</td>
                 <td className="px-2 py-2 max-w-[140px] truncate">{storeNameByOrderId[r.orderId] ?? "—"}</td>
                 <td className="px-2 py-2">{r.reportType}</td>
-                <td className="px-2 py-2 whitespace-nowrap text-gray-600">
+                <td className="px-2 py-2 whitespace-nowrap text-sam-muted">
                   {new Date(r.createdAt).toLocaleString("ko-KR")}
                 </td>
                 <td className="px-2 py-2">{STATUS_KO[r.status]}</td>
-                <td className="px-2 py-2 max-w-[200px] truncate text-xs text-gray-600">{r.adminResult ?? "—"}</td>
+                <td className="px-2 py-2 max-w-[200px] truncate text-xs text-sam-muted">{r.adminResult ?? "—"}</td>
               </tr>
             );
           })}

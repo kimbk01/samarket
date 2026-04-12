@@ -25,7 +25,7 @@ export function StoreMyBusinessHubBanner({
 }) {
   if (loading && ownerStores.length === 0) {
     return (
-      <div className={`rounded-ui-rect border border-[#E4E6EB] bg-white/90 px-4 py-3 dark:border-[#3E4042] dark:bg-[#242526]`}>
+      <div className={`rounded-ui-rect border border-[#E4E6EB] bg-sam-surface/90 px-4 py-3 dark:border-[#3E4042] dark:bg-[#242526]`}>
         <p className={`text-[12px] ${FB.metaSm}`}>내 매장 상태 확인 중…</p>
       </div>
     );
@@ -50,7 +50,7 @@ export function StoreMyBusinessHubBanner({
 
   return (
     <section
-      className={`rounded-ui-rect border border-[#E4E6EB] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none`}
+      className={`rounded-ui-rect border border-[#E4E6EB] bg-sam-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">

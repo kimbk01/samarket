@@ -61,9 +61,9 @@ export function AdminStoreInquiriesPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 문의 모니터링" />
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         회원이 매장에 보낸 문의·오너 답변 상태를 조회합니다. 답변은 오너 화면(
-        <code className="rounded bg-gray-100 px-1">/my/business/inquiries</code>)에서 처리합니다.
+        <code className="rounded bg-sam-surface-muted px-1">/my/business/inquiries</code>)에서 처리합니다.
       </p>
 
       {error ? (
@@ -71,32 +71,32 @@ export function AdminStoreInquiriesPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-500">문의가 없습니다.</p>
+        <p className="text-sm text-sam-muted">문의가 없습니다.</p>
       ) : (
         <div className="space-y-3">
           {rows.map((r) => (
             <article
               key={r.id}
-              className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm"
+              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
             >
               <div className="flex flex-wrap justify-between gap-2 text-[13px]">
-                <span className="font-semibold text-gray-900">{r.store_name || r.store_id}</span>
-                <span className="text-gray-500">{STATUS_LABEL[r.status] ?? r.status}</span>
+                <span className="font-semibold text-sam-fg">{r.store_name || r.store_id}</span>
+                <span className="text-sam-muted">{STATUS_LABEL[r.status] ?? r.status}</span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-sam-muted">
                 문의자 <span className="font-mono">{r.from_user_id}</span> · {r.inquiry_type} ·{" "}
                 {new Date(r.created_at).toLocaleString("ko-KR")}
               </p>
-              <p className="mt-2 font-medium text-gray-900">{r.subject}</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">{r.content}</p>
+              <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
               {r.answer ? (
-                <div className="mt-3 rounded-ui-rect bg-gray-50 p-3 text-sm text-gray-800">
-                  <p className="text-xs font-medium text-gray-500">매장 답변</p>
+                <div className="mt-3 rounded-ui-rect bg-sam-app p-3 text-sm text-sam-fg">
+                  <p className="text-xs font-medium text-sam-muted">매장 답변</p>
                   <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                   {r.answered_at ? (
-                    <p className="mt-1 text-[11px] text-gray-400">
+                    <p className="mt-1 text-[11px] text-sam-meta">
                       {new Date(r.answered_at).toLocaleString("ko-KR")}
                     </p>
                   ) : null}

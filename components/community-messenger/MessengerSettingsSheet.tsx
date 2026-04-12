@@ -68,14 +68,24 @@ export function MessengerSettingsSheet({
   return (
     <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
-      <div className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[12px] border border-ui-border bg-ui-surface shadow-[var(--ui-shadow-card)]">
-        <div className="flex shrink-0 items-center justify-between border-b border-ui-border px-3 py-2.5">
-          <p className="text-[16px] font-semibold text-ui-fg">설정</p>
-          <button type="button" className="rounded-ui-rect px-2 py-1 text-[14px] text-ui-muted" onClick={onClose}>
+      <div
+        data-messenger-shell
+        className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
+          <p className="text-[16px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+            설정
+          </p>
+          <button
+            type="button"
+            className="rounded-[var(--messenger-radius-sm)] px-2 py-1 text-[14px] active:bg-[color:var(--messenger-primary-soft)]"
+            style={{ color: "var(--messenger-text-secondary)" }}
+            onClick={onClose}
+          >
             닫기
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <div className="space-y-4">
             <MessengerSettingsBlock title="알림">
               <SettingsToggleRow

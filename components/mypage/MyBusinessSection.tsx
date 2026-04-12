@@ -10,16 +10,16 @@ const ITEMS: { label: string; href: string; icon: React.ReactNode }[] = [
 
 export function MyBusinessSection() {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-white p-4">
+    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
       <h2 className="mb-3 text-[13px] font-semibold text-muted">나의 비즈니스</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
           <li key={item.label}>
             <Link
               href={item.href}
-              className="flex items-center gap-3 py-3 text-[14px] text-gray-800"
+              className="flex items-center gap-3 py-3 text-[14px] text-sam-fg"
             >
-              <span className="flex h-8 w-8 items-center justify-center text-gray-500">
+              <span className="flex h-8 w-8 items-center justify-center text-sam-muted">
                 {item.icon}
               </span>
               <span className="flex-1">{item.label}</span>

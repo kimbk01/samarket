@@ -16,12 +16,12 @@ export function MemberOrderTimeline({ logs }: { logs: MemberOrderLog[] }) {
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
   return (
-    <ol className="relative space-y-0 border-l-2 border-gray-200 pl-4">
+    <ol className="relative space-y-0 border-l-2 border-sam-border pl-4">
       {sorted.map((l) => (
         <li key={l.id} className="mb-4 ml-1 last:mb-0">
-          <span className="absolute -left-[9px] mt-1.5 h-3 w-3 rounded-full bg-white ring-2 ring-gray-400" />
-          <p className="text-xs text-gray-500">{fmt(l.created_at)}</p>
-          <p className="text-sm font-medium text-gray-900">{l.message}</p>
+          <span className="absolute -left-[9px] mt-1.5 h-3 w-3 rounded-full bg-sam-surface ring-2 ring-sam-border" />
+          <p className="text-xs text-sam-muted">{fmt(l.created_at)}</p>
+          <p className="text-sm font-medium text-sam-fg">{l.message}</p>
         </li>
       ))}
     </ol>

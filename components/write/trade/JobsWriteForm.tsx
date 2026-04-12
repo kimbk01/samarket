@@ -379,14 +379,14 @@ export function JobsWriteForm({
   const policyHint = tradePolicy?.hint?.trim() ?? "";
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-sam-app pb-28">
       <WriteScreenTier1Sync title={tierTitle} backHref={backHref} />
       <form
         onSubmit={handleSubmit}
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
       >
-        <div className="border-b border-gray-100 bg-white px-4 py-3">
-          <p className="text-[13px] text-gray-500">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>
+        <div className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+          <p className="text-[13px] text-sam-muted">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>
         </div>
 
         {editPostId && policyHint ? (
@@ -394,9 +394,9 @@ export function JobsWriteForm({
         ) : null}
 
         <section
-          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 text-[14px] font-semibold text-gray-900">무엇을 올리시나요?</p>
+          <p className="mb-2 text-[14px] font-semibold text-sam-fg">무엇을 올리시나요?</p>
           <div className="grid grid-cols-2 gap-2">
             {JOB_LISTING_KIND_OPTIONS.map((opt) => (
               <button
@@ -405,8 +405,8 @@ export function JobsWriteForm({
                 onClick={() => setListingKind(opt.value)}
                 className={`rounded-ui-rect border px-3 py-3 text-[14px] font-medium ${
                   listingKind === opt.value
-                    ? "border-gray-900 bg-gray-900 text-white"
-                    : "border-gray-200 bg-white text-gray-800"
+                    ? "border-sam-border bg-sam-ink text-white"
+                    : "border-sam-border bg-sam-surface text-sam-fg"
                 }`}
               >
                 {opt.label}
@@ -424,9 +424,9 @@ export function JobsWriteForm({
         </div>
 
         <section
-          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 text-[14px] font-semibold text-gray-900">제목</p>
+          <p className="mb-2 text-[14px] font-semibold text-sam-fg">제목</p>
           <input
             type="text"
             value={title}
@@ -434,17 +434,17 @@ export function JobsWriteForm({
             placeholder={listingKind === "hire" ? "예) 주말 카페 서빙 알바" : "예) 평일 오전 청소 가능해요"}
             maxLength={JOB_TITLE_MAX}
             className={`w-full rounded-ui-rect border px-3 py-2.5 text-[15px] ${
-              errors.title ? "border-red-400 bg-red-50" : "border-gray-300"
+              errors.title ? "border-red-400 bg-red-50" : "border-sam-border"
             }`}
           />
           {errors.title && <p className="mt-1 text-[13px] text-red-500">{errors.title}</p>}
-          <p className="mt-1 text-[12px] text-gray-500">{title.length}/{JOB_TITLE_MAX}</p>
+          <p className="mt-1 text-[12px] text-sam-muted">{title.length}/{JOB_TITLE_MAX}</p>
         </section>
 
         <section
-          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 text-[14px] font-semibold text-gray-900">업종</p>
+          <p className="mb-2 text-[14px] font-semibold text-sam-fg">업종</p>
           <div className="flex flex-wrap gap-2">
             {WORK_CATEGORY_OPTIONS.map((cat) => (
               <button
@@ -456,8 +456,8 @@ export function JobsWriteForm({
                 }}
                 className={`rounded-full border px-3 py-1.5 text-[13px] ${
                   workCategory === cat
-                    ? "border-gray-900 bg-gray-900 text-white"
-                    : "border-gray-200 bg-white text-gray-700"
+                    ? "border-sam-border bg-sam-ink text-white"
+                    : "border-sam-border bg-sam-surface text-sam-fg"
                 }`}
               >
                 {cat}
@@ -466,17 +466,17 @@ export function JobsWriteForm({
           </div>
           {workCategory === WORK_CATEGORY_OTHER && (
             <div className="mt-3">
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">기타 업종 (직접 입력)</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">기타 업종 (직접 입력)</label>
               <input
                 type="text"
                 value={workCategoryOther}
                 onChange={(e) => setWorkCategoryOther(e.target.value.slice(0, WORK_CATEGORY_OTHER_MAX))}
                 placeholder="예) 이벤트 스태프, 물류 피킹"
                 className={`w-full rounded-ui-rect border px-3 py-2.5 text-[15px] ${
-                  errors.workCategoryOther ? "border-red-400 bg-red-50" : "border-gray-300"
+                  errors.workCategoryOther ? "border-red-400 bg-red-50" : "border-sam-border"
                 }`}
               />
-              <p className="mt-1 text-[12px] text-gray-500">
+              <p className="mt-1 text-[12px] text-sam-muted">
                 {workCategoryOther.length}/{WORK_CATEGORY_OTHER_MAX} · 상세·목록에 함께 표시돼요
               </p>
             </div>
@@ -499,9 +499,9 @@ export function JobsWriteForm({
         </div>
 
         <section
-          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 text-[14px] font-semibold text-gray-900">근무 형태</p>
+          <p className="mb-2 text-[14px] font-semibold text-sam-fg">근무 형태</p>
           <div className="flex flex-wrap gap-2">
             {JOB_WORK_TYPE_OPTIONS.map((opt) => (
               <button
@@ -510,8 +510,8 @@ export function JobsWriteForm({
                 onClick={() => setWorkTerm(opt.value)}
                 className={`rounded-full border px-3 py-1.5 text-[13px] ${
                   workTerm === opt.value
-                    ? "border-gray-900 bg-gray-900 text-white"
-                    : "border-gray-200 bg-white text-gray-700"
+                    ? "border-sam-border bg-sam-ink text-white"
+                    : "border-sam-border bg-sam-surface text-sam-fg"
                 }`}
               >
                 {opt.label}
@@ -523,13 +523,13 @@ export function JobsWriteForm({
         {listingKind === "hire" && (
           <>
             <section
-              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 text-[14px] font-semibold text-gray-900">근무 날짜</p>
-              <p className="mb-2 text-[12px] text-gray-500">오늘 이전 날짜는 선택할 수 없어요. 기본은 오늘입니다.</p>
+              <p className="mb-2 text-[14px] font-semibold text-sam-fg">근무 날짜</p>
+              <p className="mb-2 text-[12px] text-sam-muted">오늘 이전 날짜는 선택할 수 없어요. 기본은 오늘입니다.</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <span className="mb-1 block text-[11px] text-gray-500">시작</span>
+                  <span className="mb-1 block text-[11px] text-sam-muted">시작</span>
                   <input
                     type="date"
                     min={todayMin || undefined}
@@ -544,12 +544,12 @@ export function JobsWriteForm({
                       });
                     }}
                     className={`w-full rounded-ui-rect border px-2 py-2 text-[14px] ${
-                      errors.workDate ? "border-red-400 bg-red-50" : "border-gray-300"
+                      errors.workDate ? "border-red-400 bg-red-50" : "border-sam-border"
                     }`}
                   />
                 </div>
                 <div>
-                  <span className="mb-1 block text-[11px] text-gray-500">종료</span>
+                  <span className="mb-1 block text-[11px] text-sam-muted">종료</span>
                   <input
                     type="date"
                     min={
@@ -570,7 +570,7 @@ export function JobsWriteForm({
                       setWorkDateEnd(v < floor ? floor : v);
                     }}
                     className={`w-full rounded-ui-rect border px-2 py-2 text-[14px] ${
-                      errors.workDateEnd ? "border-red-400 bg-red-50" : "border-gray-300"
+                      errors.workDateEnd ? "border-red-400 bg-red-50" : "border-sam-border"
                     }`}
                   />
                 </div>
@@ -580,22 +580,22 @@ export function JobsWriteForm({
               )}
             </section>
             <section
-              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 text-[14px] font-semibold text-gray-900">근무 시간 (선택)</p>
+              <p className="mb-2 text-[14px] font-semibold text-sam-fg">근무 시간 (선택)</p>
               <div className="flex items-center gap-2">
                 <input
                   type="time"
                   value={workTimeStart}
                   onChange={(e) => setWorkTimeStart(e.target.value)}
-                  className="rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
+                  className="rounded-ui-rect border border-sam-border px-2 py-2 text-[14px]"
                 />
-                <span className="text-gray-400">~</span>
+                <span className="text-sam-meta">~</span>
                 <input
                   type="time"
                   value={workTimeEnd}
                   onChange={(e) => setWorkTimeEnd(e.target.value)}
-                  className="rounded-ui-rect border border-gray-300 px-2 py-2 text-[14px]"
+                  className="rounded-ui-rect border border-sam-border px-2 py-2 text-[14px]"
                 />
               </div>
               <label className="mt-2 flex items-center gap-2">
@@ -603,21 +603,21 @@ export function JobsWriteForm({
                   type="checkbox"
                   checked={sameDayPay}
                   onChange={(e) => setSameDayPay(e.target.checked)}
-                  className="rounded border-gray-300"
+                  className="rounded border-sam-border"
                 />
-                <span className="text-[14px] text-gray-800">당일 지급</span>
+                <span className="text-[14px] text-sam-fg">당일 지급</span>
               </label>
             </section>
             <section
-              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 text-[14px] font-semibold text-gray-900">업체명 (선택)</p>
+              <p className="mb-2 text-[14px] font-semibold text-sam-fg">업체명 (선택)</p>
               <input
                 type="text"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="브랜드·상호"
-                className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px]"
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px]"
               />
             </section>
           </>
@@ -626,21 +626,21 @@ export function JobsWriteForm({
         {listingKind === "work" && (
           <>
             <section
-              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 text-[14px] font-semibold text-gray-900">가능한 시간</p>
+              <p className="mb-2 text-[14px] font-semibold text-sam-fg">가능한 시간</p>
               <input
                 type="text"
                 value={availableTime}
                 onChange={(e) => setAvailableTime(e.target.value)}
                 placeholder="예) 평일 9~15시, 주말 종일"
-                className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px]"
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px]"
               />
             </section>
             <section
-              className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 text-[14px] font-semibold text-gray-900">경력</p>
+              <p className="mb-2 text-[14px] font-semibold text-sam-fg">경력</p>
               <div className="flex flex-wrap gap-2">
                 {EXPERIENCE_LEVEL_OPTIONS.map((opt) => (
                   <button
@@ -649,8 +649,8 @@ export function JobsWriteForm({
                     onClick={() => setExperienceLevel(opt.value)}
                     className={`rounded-full border px-3 py-1.5 text-[13px] ${
                       experienceLevel === opt.value
-                        ? "border-gray-900 bg-gray-900 text-white"
-                        : "border-gray-200 bg-white text-gray-700"
+                        ? "border-sam-border bg-sam-ink text-white"
+                        : "border-sam-border bg-sam-surface text-sam-fg"
                     }`}
                   >
                     {opt.label}
@@ -662,9 +662,9 @@ export function JobsWriteForm({
         )}
 
         <section
-          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 text-[14px] font-semibold text-gray-900">급여</p>
+          <p className="mb-2 text-[14px] font-semibold text-sam-fg">급여</p>
           <div className="mb-2 flex flex-wrap gap-2">
             {PAY_TYPE_OPTIONS.map((opt) => (
               <button
@@ -673,15 +673,15 @@ export function JobsWriteForm({
                 onClick={() => setPayType(opt.value)}
                 className={`rounded-full border px-3 py-1.5 text-[13px] ${
                   payType === opt.value
-                    ? "border-gray-900 bg-gray-900 text-white"
-                    : "border-gray-200 bg-white text-gray-700"
+                    ? "border-sam-border bg-sam-ink text-white"
+                    : "border-sam-border bg-sam-surface text-sam-fg"
                 }`}
               >
                 {opt.label}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2 rounded-ui-rect border border-gray-300 px-3 py-2.5">
+          <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border px-3 py-2.5">
             <input
               type="text"
               inputMode="decimal"
@@ -692,14 +692,14 @@ export function JobsWriteForm({
                 errors.payAmount ? "text-red-600" : ""
               }`}
             />
-            <span className="text-[15px] text-gray-600">{getCurrencyUnitLabel(currency)}</span>
+            <span className="text-[15px] text-sam-muted">{getCurrencyUnitLabel(currency)}</span>
           </div>
-          {payDisplay && <p className="mt-1 text-[12px] text-gray-500">{payDisplay}</p>}
+          {payDisplay && <p className="mt-1 text-[12px] text-sam-muted">{payDisplay}</p>}
           {errors.payAmount && <p className="mt-1 text-[13px] text-red-500">{errors.payAmount}</p>}
         </section>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
-          <p className="mb-2 text-[14px] font-semibold text-gray-900">상세 설명</p>
+        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+          <p className="mb-2 text-[14px] font-semibold text-sam-fg">상세 설명</p>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -708,31 +708,31 @@ export function JobsWriteForm({
             rows={5}
             maxLength={JOB_DESCRIPTION_MAX}
             className={`w-full resize-none rounded-ui-rect border px-3 py-2.5 text-[14px] ${
-              errors.description ? "border-red-400 bg-red-50" : "border-gray-300"
-            } ${showDescriptionAppend ? "bg-gray-50 text-gray-700" : ""}`}
+              errors.description ? "border-red-400 bg-red-50" : "border-sam-border"
+            } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : ""}`}
           />
-          <p className="mt-1 text-right text-[12px] text-gray-500">{description.length}/{JOB_DESCRIPTION_MAX}</p>
+          <p className="mt-1 text-right text-[12px] text-sam-muted">{description.length}/{JOB_DESCRIPTION_MAX}</p>
           {errors.description && <p className="text-[13px] text-red-500">{errors.description}</p>}
           {showDescriptionAppend ? (
             <div className="mt-3">
-              <p className="mb-1 text-[13px] font-medium text-gray-800">추가 안내 (선택)</p>
-              <p className="mb-2 text-[12px] text-gray-500">기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.</p>
+              <p className="mb-1 text-[13px] font-medium text-sam-fg">추가 안내 (선택)</p>
+              <p className="mb-2 text-[12px] text-sam-muted">기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.</p>
               <textarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}
                 placeholder="예) 면접 장소 변경, 준비물 추가 안내"
                 rows={3}
-                className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[14px]"
+                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px]"
               />
             </div>
           ) : null}
         </section>
 
         <section
-          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 text-[14px] font-semibold text-gray-900">연락 (선택)</p>
-          <p className="mb-2 text-[12px] text-gray-500">기본은 채팅만 사용해요. 전화번호는 글 본문에 나오지 않습니다.</p>
+          <p className="mb-2 text-[14px] font-semibold text-sam-fg">연락 (선택)</p>
+          <p className="mb-2 text-[12px] text-sam-muted">기본은 채팅만 사용해요. 전화번호는 글 본문에 나오지 않습니다.</p>
           <input
             type="tel"
             inputMode="tel"
@@ -740,40 +740,40 @@ export function JobsWriteForm({
             value={contactPhone}
             onChange={(e) => setContactPhone(e.target.value.replace(/[^\d+\s-]/g, "").slice(0, 22))}
             placeholder={PH_MOBILE_PLACEHOLDER}
-            className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px]"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px]"
           />
           <label className="mt-2 flex items-start gap-2">
             <input
               type="checkbox"
               checked={phoneAllowed}
               onChange={(e) => setPhoneAllowed(e.target.checked)}
-              className="mt-0.5 rounded border-gray-300"
+              className="mt-0.5 rounded border-sam-border"
             />
-            <span className="text-[13px] text-gray-700">
+            <span className="text-[13px] text-sam-fg">
               채팅방에서 상대에게만 연락처 공개 (체크하지 않으면 번호는 저장만 되고 대화창에도 안 보여요)
             </span>
           </label>
         </section>
 
         <section
-          className={`border-b border-gray-100 bg-white px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
           <label className="flex cursor-pointer items-start gap-2">
             <input
               type="checkbox"
               checked={termsAgreed}
               onChange={(e) => setTermsAgreed(e.target.checked)}
-              className="mt-0.5 rounded border-gray-300"
+              className="mt-0.5 rounded border-sam-border"
             />
-            <span className="text-[13px] text-gray-700">
+            <span className="text-[13px] text-sam-fg">
               허위·불법 채용 금지, 최저임금·근로 관련 법령 준수에 동의합니다.
             </span>
           </label>
           {errors.termsAgreed && <p className="mt-1 text-[13px] text-red-500">{errors.termsAgreed}</p>}
         </section>
 
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
-          <p className="mb-2 text-[14px] font-semibold text-gray-900">사진 (선택)</p>
+        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+          <p className="mb-2 text-[14px] font-semibold text-sam-fg">사진 (선택)</p>
           <ImageUploader
             value={images}
             onChange={setImages}
@@ -785,7 +785,7 @@ export function JobsWriteForm({
 
         {errors.submit && <p className="px-4 py-2 text-[13px] text-red-500">{errors.submit}</p>}
 
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white px-4 py-3 safe-area-pb">
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface px-4 py-3 safe-area-pb">
           <SubmitButton label={editPostId ? "수정하기" : "등록하기"} submitting={submitting} onCancel={onCancel} />
         </div>
       </form>

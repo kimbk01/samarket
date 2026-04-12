@@ -57,9 +57,9 @@ export function StoreCommerceSummaryCard({
     deliveryFeePhp != null && deliveryFeePhp >= 0 ? formatMoneyPhp(deliveryFeePhp) : "문의";
 
   return (
-    <div className="mx-4 mt-3 space-y-2 rounded-ui-rect border border-gray-100 bg-white p-3 shadow-sm">
+    <div className="mx-4 mt-3 space-y-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-bold text-gray-900">{storeName}</h2>
+        <h2 className="text-base font-bold text-sam-fg">{storeName}</h2>
         {statusBadge(isOpen)}
       </div>
       <div className="flex flex-wrap gap-2 text-[11px]">
@@ -68,7 +68,7 @@ export function StoreCommerceSummaryCard({
             배달 가능
           </span>
         ) : (
-          <span className="rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-gray-600">
+          <span className="rounded border border-sam-border bg-sam-app px-2 py-0.5 text-sam-muted">
             배달 불가
           </span>
         )}
@@ -77,23 +77,23 @@ export function StoreCommerceSummaryCard({
             포장 가능
           </span>
         ) : (
-          <span className="rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-gray-600">
+          <span className="rounded border border-sam-border bg-sam-app px-2 py-0.5 text-sam-muted">
             포장 불가
           </span>
         )}
       </div>
-      <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-[12px] text-gray-700">
-        <dt className="text-gray-500">최소주문</dt>
+      <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-[12px] text-sam-fg">
+        <dt className="text-sam-muted">최소주문</dt>
         <dd className="text-right font-medium">{minOrderDd}</dd>
-        <dt className="text-gray-500">배달비</dt>
+        <dt className="text-sam-muted">배달비</dt>
         <dd className="text-right font-medium">{deliveryAvailable ? deliveryDd : "—"}</dd>
-        <dt className="text-gray-500">예상 조리</dt>
+        <dt className="text-sam-muted">예상 조리</dt>
         <dd className="text-right font-medium">{estPrepLabel}</dd>
-        <dt className="text-gray-500">지역</dt>
+        <dt className="text-sam-muted">지역</dt>
         <dd className="text-right">{regionLabel || "—"}</dd>
         {phone ? (
           <>
-            <dt className="text-gray-500">연락처</dt>
+            <dt className="text-sam-muted">연락처</dt>
             <dd className="text-right font-medium">
               <a
                 href={
@@ -110,9 +110,9 @@ export function StoreCommerceSummaryCard({
         ) : null}
       </dl>
       {intro ? (
-        <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-700">{intro}</p>
+        <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-sam-fg">{intro}</p>
       ) : null}
-      <p className="text-[11px] leading-relaxed text-gray-500">{disclaimer}</p>
+      <p className="text-[11px] leading-relaxed text-sam-muted">{disclaimer}</p>
     </div>
   );
 }

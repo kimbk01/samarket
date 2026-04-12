@@ -86,8 +86,8 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
       : tradeTone === "amber"
         ? "text-amber-800"
         : tradeTone === "muted"
-          ? "text-gray-400"
-          : "text-gray-600";
+          ? "text-sam-meta"
+          : "text-sam-muted";
 
   /** 통합 채팅(chat_rooms)만 참가자 API(나가기·숨김) 사용 — 레거시 product_chats 전용 행은 메뉴 없음 */
   const listMenuRoomId =
@@ -108,7 +108,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
             <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
           ) : isExchangeThumb ? (
             <div
-              className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-gray-700"
+              className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg"
               aria-hidden
             >
               <span>{CURRENCY_SYMBOLS.PHP}</span>
@@ -116,14 +116,14 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
               <span>{CURRENCY_SYMBOLS.KRW}</span>
             </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">
+            <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">
               {t("common_image")}
             </div>
           )}
         </div>
         {room.unreadCount > 0 && (
           <span
-            className="pointer-events-none absolute right-0 top-0 z-[2] flex h-5 min-w-[20px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-md ring-2 ring-white"
+            className="pointer-events-none absolute right-0 top-0 z-[2] flex h-5 min-w-[20px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-md ring-2 ring-sam-surface"
             aria-label={t("nav_trade_unread_messages", { count: room.unreadCount > 99 ? "99+" : room.unreadCount })}
           >
             {room.unreadCount > 99 ? "99+" : room.unreadCount}
@@ -133,7 +133,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
       <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[14px]">
-            <span className="shrink-0 rounded-full bg-signature/5 px-2 py-0.5 text-[11px] font-semibold text-gray-800">
+            <span className="shrink-0 rounded-full bg-signature/5 px-2 py-0.5 text-[11px] font-semibold text-sam-fg">
               {roleLabel}
             </span>
             <span
@@ -142,11 +142,11 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
             >
               {tradeStatusLabel}
             </span>
-            <span className="min-w-0 truncate font-medium text-gray-900" title={roleLine}>
+            <span className="min-w-0 truncate font-medium text-sam-fg" title={roleLine}>
               {roleLine}
             </span>
           </div>
-          <span className="shrink-0 text-[11px] text-gray-400">
+          <span className="shrink-0 text-[11px] text-sam-meta">
             {room.lastMessageAt ? formatChatTime(room.lastMessageAt) : ""}
           </span>
         </div>
@@ -160,14 +160,14 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
             />
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
-              <p className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-gray-900">
+              <p className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-sam-fg">
                 {productTitle}
               </p>
               <p className="mt-0.5 line-clamp-1 text-[12px] leading-snug text-muted">
                 {t("nav_trade_chat_with_partner", { nickname: room.partnerNickname })}
               </p>
               {product && isExchangeLegacy ? (
-                <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-gray-600">
+                <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-sam-muted">
                   {exchangeSubtitleLegacy(product, {
                     amountInquiry: t("nav_trade_amount_inquiry"),
                     exchangeRateUnset: t("nav_trade_exchange_rate_unset"),
@@ -181,7 +181,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
         {sellerPreview ? (
           <p className="mt-1 shrink-0 text-[12px] text-signature line-clamp-1">{sellerPreview}</p>
         ) : lastMessageDisplay ? (
-          <p className="mt-1 shrink-0 text-[12px] text-gray-600 line-clamp-1">{lastMessageDisplay}</p>
+          <p className="mt-1 shrink-0 text-[12px] text-sam-muted line-clamp-1">{lastMessageDisplay}</p>
         ) : null}
       </div>
     </>

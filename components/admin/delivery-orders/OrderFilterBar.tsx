@@ -23,33 +23,33 @@ export function OrderFilterBar({
   };
 
   return (
-    <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-white p-4">
-      <p className="text-sm font-semibold text-gray-900">필터</p>
+    <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <p className="text-sm font-semibold text-sam-fg">필터</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           시작일
           <input
             type="date"
             value={filters.dateFrom}
             onChange={(e) => patch({ dateFrom: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           종료일
           <input
             type="date"
             value={filters.dateTo}
             onChange={(e) => patch({ dateTo: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           주문 상태
           <select
             value={filters.orderStatus}
             onChange={(e) => patch({ orderStatus: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           >
             <option value="">전체</option>
             {OS_KEYS.map((k) => (
@@ -59,12 +59,12 @@ export function OrderFilterBar({
             ))}
           </select>
         </label>
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           결제 상태
           <select
             value={filters.paymentStatus}
             onChange={(e) => patch({ paymentStatus: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           >
             <option value="">전체</option>
             {PS_KEYS.map((k) => (
@@ -74,12 +74,12 @@ export function OrderFilterBar({
             ))}
           </select>
         </label>
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           정산 상태
           <select
             value={filters.settlementStatus}
             onChange={(e) => patch({ settlementStatus: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           >
             <option value="">전체</option>
             {SS_KEYS.map((k) => (
@@ -89,42 +89,42 @@ export function OrderFilterBar({
             ))}
           </select>
         </label>
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           주문 방식
           <select
             value={filters.orderType}
             onChange={(e) => patch({ orderType: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           >
             <option value="">전체</option>
             <option value="delivery">배달</option>
             <option value="pickup">포장</option>
           </select>
         </label>
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           매장·운영자
           <input
             value={filters.storeQuery}
             onChange={(e) => patch({ storeQuery: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
             placeholder="매장명·슬러그·ID·사장님"
           />
         </label>
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           주문자
           <input
             value={filters.buyerQuery}
             onChange={(e) => patch({ buyerQuery: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
             placeholder="이름·전화·회원 ID"
           />
         </label>
-        <label className="block text-xs text-gray-500">
+        <label className="block text-xs text-sam-muted">
           주문번호
           <input
             value={filters.orderNoQuery}
             onChange={(e) => patch({ orderNoQuery: e.target.value })}
-            className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
             placeholder="FD-…"
           />
         </label>

@@ -23,7 +23,7 @@ export function FeedEmergencyLogList() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-gray-700">surface</label>
+        <label className="text-[14px] font-medium text-sam-fg">surface</label>
         <select
           value={surfaceFilter}
           onChange={(e) =>
@@ -33,7 +33,7 @@ export function FeedEmergencyLogList() {
                 : (e.target.value as RecommendationSurface)
             )
           }
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">전체</option>
           <option value="home">홈</option>
@@ -42,30 +42,30 @@ export function FeedEmergencyLogList() {
         </select>
       </div>
       {logs.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           긴급 조치 로그가 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse text-[14px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <tr className="border-b border-sam-border bg-sam-app">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   일시
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   surface
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   액션
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   섹션
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   담당
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   비고
                 </th>
               </tr>
@@ -74,26 +74,26 @@ export function FeedEmergencyLogList() {
               {logs.map((l) => (
                 <tr
                   key={l.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-600">
+                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                     {new Date(l.createdAt).toLocaleString("ko-KR")}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {SURFACE_LABELS[l.surface]}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {getFeedEmergencyActionLabel(l.actionType)}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-600">
+                  <td className="px-3 py-2.5 text-sam-muted">
                     {l.sectionKey
                       ? SECTION_OVERRIDE_LABELS[l.sectionKey as FeedSectionOverrideKey]
                       : "-"}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-600">
+                  <td className="px-3 py-2.5 text-sam-muted">
                     {l.actorNickname} ({l.actorType})
                   </td>
-                  <td className="max-w-[200px] truncate px-3 py-2.5 text-[13px] text-gray-500">
+                  <td className="max-w-[200px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
                     {l.note}
                   </td>
                 </tr>

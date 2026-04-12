@@ -148,11 +148,11 @@ export function BusinessApplyForm({
 
   return (
     <form onSubmit={handleSubmit} className={OWNER_STORE_STACK_Y_CLASS}>
-      <div className="border-b border-gray-100 pb-5">
+      <div className="border-b border-sam-border-soft pb-5">
         <p className={OWNER_STORE_FORM_LEAD_CLASS}>신청자 정보</p>
         <p className={OWNER_STORE_FORM_HINT_CLASS}>
           내 프로필에서 가져온 값으로 채워지며, 이 신청서에서만 바꿔도{" "}
-          <span className="font-medium text-gray-600">개인 프로필(내정보 → 프로필 수정)은 변경되지 않습니다</span>.
+          <span className="font-medium text-sam-muted">개인 프로필(내정보 → 프로필 수정)은 변경되지 않습니다</span>.
         </p>
         <div>
           <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
@@ -265,7 +265,7 @@ export function BusinessApplyForm({
       />
       <div>
         <p className={OWNER_STORE_FORM_HINT_CLASS}>
-          어드민 «매장 설정»·<span className="font-medium text-gray-600">/stores</span> 와 같은 1·2차
+          어드민 «매장 설정»·<span className="font-medium text-sam-muted">/stores</span> 와 같은 1·2차
           업종입니다. 1차 선택 후 세부(예: 한식·중식)를 고르세요.
         </p>
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>

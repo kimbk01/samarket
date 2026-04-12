@@ -42,35 +42,35 @@ export function FeedVersionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           버전 키
         </label>
         <input
           type="text"
           value={versionKey}
           onChange={(e) => setVersionKey(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           버전명
         </label>
         <input
           type="text"
           value={versionName}
           onChange={(e) => setVersionName(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           surface
         </label>
         <select
           value={surface}
           onChange={(e) => setSurface(e.target.value as FeedVersionSurface)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {SURFACES.map((s) => (
             <option key={s} value={s}>
@@ -85,14 +85,14 @@ export function FeedVersionForm({
           id="fvActive"
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
-          className="rounded border-gray-300"
+          className="rounded border-sam-border"
         />
-        <label htmlFor="fvActive" className="text-[14px] text-gray-700">
+        <label htmlFor="fvActive" className="text-[14px] text-sam-fg">
           활성
         </label>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           중복 제거 전략
         </label>
         <select
@@ -100,21 +100,21 @@ export function FeedVersionForm({
           onChange={(e) =>
             setDedupeStrategy(e.target.value as "global" | "per_section")
           }
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="global">전체 공통</option>
           <option value="per_section">섹션별</option>
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           비고
         </label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex gap-2">
@@ -128,7 +128,7 @@ export function FeedVersionForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg"
           >
             취소
           </button>

@@ -27,11 +27,11 @@ export function ReleaseChangeHistoryTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">릴리즈</span>
+        <span className="text-[13px] text-sam-muted">릴리즈</span>
         <select
           value={versionFilter}
           onChange={(e) => setVersionFilter(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           {archives.map((a) => (
@@ -40,13 +40,13 @@ export function ReleaseChangeHistoryTable() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-gray-600">변경 유형</span>
+        <span className="text-[13px] text-sam-muted">변경 유형</span>
         <select
           value={changeTypeFilter}
           onChange={(e) =>
             setChangeTypeFilter((e.target.value || "") as ReleaseArchiveChangeType | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="feature">기능</option>
@@ -59,7 +59,7 @@ export function ReleaseChangeHistoryTable() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 조건의 변경 이력이 없습니다.
         </div>
       ) : (
@@ -69,19 +69,19 @@ export function ReleaseChangeHistoryTable() {
           {items.map((i) => {
             const archive = getReleaseArchiveById(i.releaseArchiveId);
             return (
-              <tr key={i.id} className="border-b border-gray-100">
-                <td className="px-3 py-2.5 font-medium text-gray-900">
+              <tr key={i.id} className="border-b border-sam-border-soft">
+                <td className="px-3 py-2.5 font-medium text-sam-fg">
                   {archive?.releaseVersion ?? i.releaseArchiveId}
                 </td>
                 <td className="px-3 py-2.5">
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-gray-700">
+                  <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[12px] text-sam-fg">
                     {getChangeTypeLabel(i.changeType)}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-gray-700">
+                <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                   {i.title}
                 </td>
-                <td className="max-w-[200px] px-3 py-2.5 text-[13px] text-gray-600 line-clamp-2">
+                <td className="max-w-[200px] px-3 py-2.5 text-[13px] text-sam-muted line-clamp-2">
                   {i.description}
                 </td>
                 <td className="px-3 py-2.5 text-[13px]">

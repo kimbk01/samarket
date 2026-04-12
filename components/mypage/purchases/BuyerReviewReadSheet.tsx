@@ -65,22 +65,22 @@ export function BuyerReviewReadSheet({
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 sm:items-center">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-xl sm:rounded-ui-rect">
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <h2 className="text-[16px] font-semibold text-gray-900">{title}</h2>
-          <button type="button" onClick={onClose} className="text-[14px] text-gray-500">
+      <div className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:rounded-ui-rect">
+        <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
+          <h2 className="text-[16px] font-semibold text-sam-fg">{title}</h2>
+          <button type="button" onClick={onClose} className="text-[14px] text-sam-muted">
             닫기
           </button>
         </div>
         <div className="max-h-[calc(85vh-52px)] overflow-y-auto p-4">
           {loading ? (
-            <p className="py-8 text-center text-[14px] text-gray-500">불러오는 중…</p>
+            <p className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</p>
           ) : err ? (
             <p className="py-8 text-center text-[14px] text-red-600">{err}</p>
           ) : rev ? (
-            <div className="space-y-3 text-[14px] text-gray-800">
+            <div className="space-y-3 text-[14px] text-sam-fg">
               <p>
-                <span className="text-gray-500">총평</span>{" "}
+                <span className="text-sam-muted">총평</span>{" "}
                 <span className="font-medium">
                   {rev.public_review_type === "good"
                     ? "좋아요"
@@ -91,12 +91,12 @@ export function BuyerReviewReadSheet({
               </p>
               {(rev.positive_tag_keys?.length ?? 0) > 0 ? (
                 <div>
-                  <p className="mb-1 text-[12px] font-medium text-gray-600">긍정</p>
+                  <p className="mb-1 text-[12px] font-medium text-sam-muted">긍정</p>
                   <ul className="flex flex-wrap gap-1">
                     {(rev.positive_tag_keys ?? []).map((k) => (
                       <li
                         key={k}
-                        className="rounded-full bg-signature/5 px-2 py-0.5 text-[11px] text-gray-900"
+                        className="rounded-full bg-signature/5 px-2 py-0.5 text-[11px] text-sam-fg"
                       >
                         {LABEL.get(k) ?? k}
                       </li>
@@ -106,7 +106,7 @@ export function BuyerReviewReadSheet({
               ) : null}
               {(rev.negative_tag_keys?.length ?? 0) > 0 ? (
                 <div>
-                  <p className="mb-1 text-[12px] font-medium text-gray-600">부정</p>
+                  <p className="mb-1 text-[12px] font-medium text-sam-muted">부정</p>
                   <ul className="flex flex-wrap gap-1">
                     {(rev.negative_tag_keys ?? []).map((k) => (
                       <li
@@ -120,16 +120,16 @@ export function BuyerReviewReadSheet({
                 </div>
               ) : null}
               {rev.review_comment ? (
-                <p className="whitespace-pre-wrap text-[13px] text-gray-700">{rev.review_comment}</p>
+                <p className="whitespace-pre-wrap text-[13px] text-sam-fg">{rev.review_comment}</p>
               ) : null}
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-sam-meta">
                 {rev.created_at
                   ? new Date(rev.created_at).toLocaleString("ko-KR")
                   : ""}
               </p>
             </div>
           ) : (
-            <p className="py-8 text-center text-gray-500">후기가 없습니다.</p>
+            <p className="py-8 text-center text-sam-muted">후기가 없습니다.</p>
           )}
         </div>
       </div>

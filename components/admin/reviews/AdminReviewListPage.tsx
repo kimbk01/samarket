@@ -54,13 +54,13 @@ export function AdminReviewListPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="거래 후기 목록" />
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         마이페이지 「후기」(
-        <code className="rounded bg-gray-100 px-1">/mypage/trade/reviews</code>)와 동일하게{" "}
-        <code className="rounded bg-gray-100 px-1">transaction_reviews</code> 테이블을 사용합니다. (
-        <code className="rounded bg-gray-100 px-1">GET /api/my/received-reviews</code> ·{" "}
-        <code className="rounded bg-gray-100 px-1">/api/my/written-reviews</code> ↔{" "}
-        <code className="rounded bg-gray-100 px-1">POST /api/admin/transaction-reviews</code>)
+        <code className="rounded bg-sam-surface-muted px-1">/mypage/trade/reviews</code>)와 동일하게{" "}
+        <code className="rounded bg-sam-surface-muted px-1">transaction_reviews</code> 테이블을 사용합니다. (
+        <code className="rounded bg-sam-surface-muted px-1">GET /api/my/received-reviews</code> ·{" "}
+        <code className="rounded bg-sam-surface-muted px-1">/api/my/written-reviews</code> ↔{" "}
+        <code className="rounded bg-sam-surface-muted px-1">POST /api/admin/transaction-reviews</code>)
       </p>
       {loadError && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
@@ -74,11 +74,11 @@ export function AdminReviewListPage() {
         onSearchChange={setSearchQuery}
       />
       {loading ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           불러오는 중…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           조건에 맞는 리뷰가 없습니다.
         </div>
       ) : (

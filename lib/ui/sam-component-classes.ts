@@ -1,0 +1,94 @@
+/**
+ * Samarket 제품 UI 시맨틱 클래스 문자열 — `app/samarket-components.css` 와 1:1.
+ * `className={cn(Sam.btn.primary, props.className)}` 형태로 조합해 재사용한다.
+ *
+ * 관리자 전용 화면은 `data-admin` 아래에서도 동일 토큰을 쓸 수 있으나,
+ * 레이아웃·테이블은 Admin 전용 컴포넌트를 우선한다.
+ */
+export const Sam = {
+  page: "sam-page",
+  text: {
+    pageTitle: "sam-text-page-title",
+    sectionTitle: "sam-text-section-title",
+    cardTitle: "sam-text-card-title",
+    bodySecondary: "sam-text-body-secondary",
+    helper: "sam-text-helper",
+  },
+  card: {
+    base: "sam-card",
+    elevated: "sam-card--elevated",
+    elevatedLegacy: "sam-card-elevated",
+    flat: "sam-card--flat",
+    muted: "sam-card--muted",
+  },
+  btn: {
+    base: "sam-btn",
+    primary: "sam-btn-primary",
+    secondary: "sam-btn-secondary",
+    ghost: "sam-btn-ghost",
+    danger: "sam-btn-danger",
+    primaryCombo: "sam-btn sam-btn--primary",
+    secondaryCombo: "sam-btn sam-btn--secondary",
+    ghostCombo: "sam-btn sam-btn--ghost",
+    dangerCombo: "sam-btn sam-btn--danger",
+    outlineCombo: "sam-btn sam-btn--outline",
+    pill: "sam-btn--pill",
+    sm: "sam-btn--sm",
+    block: "sam-btn--block",
+  },
+  input: {
+    base: "sam-input",
+    soft: "sam-input--soft",
+    softLegacy: "sam-input-surface-soft",
+    textarea: "sam-textarea",
+    select: "sam-select",
+  },
+  tabs: {
+    bar: "sam-tabs",
+    tab: "sam-tab",
+    tabActive: "sam-tab sam-tab--active",
+  },
+  chip: {
+    base: "sam-chip",
+    active: "sam-chip-active",
+    inactive: "sam-chip-inactive",
+    activeCombo: "sam-chip sam-chip--active",
+    inactiveCombo: "sam-chip sam-chip--inactive",
+    neutral: "sam-chip sam-chip--neutral",
+  },
+  listRow: {
+    base: "sam-list-row",
+    interactive: "sam-list-row sam-list-row--interactive",
+    selected: "sam-list-row sam-list-row--selected",
+  },
+  sheet: {
+    backdrop: "sam-sheet-backdrop",
+    panel: "sam-sheet-panel",
+    handle: "sam-sheet-handle",
+    header: "sam-sheet-header",
+    body: "sam-sheet-body",
+    footer: "sam-sheet-footer",
+  },
+  badge: {
+    base: "sam-badge",
+    neutral: "sam-badge sam-badge--neutral",
+    primary: "sam-badge sam-badge--primary",
+    success: "sam-badge sam-badge--success",
+    warning: "sam-badge sam-badge--warning",
+    danger: "sam-badge sam-badge--danger",
+    info: "sam-badge sam-badge--info",
+  },
+  bubble: {
+    base: "sam-bubble",
+    outgoing: "sam-bubble sam-bubble--outgoing",
+    incoming: "sam-bubble sam-bubble--incoming",
+    system: "sam-bubble sam-bubble--system",
+  },
+  settings: {
+    sectionTitle: "sam-settings-section-title",
+    group: "sam-settings-group",
+  },
+  divider: "sam-divider",
+} as const;
+
+export type SamComponentClass = (typeof Sam)[keyof typeof Sam];

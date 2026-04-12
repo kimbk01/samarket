@@ -6,7 +6,7 @@ export function JoinRequestMessagePreview({ text }: { text: string }) {
   const parsed = parseMeetingJoinRequestMessage(text);
   if (!parsed) {
     return (
-      <p className="mt-2 whitespace-pre-wrap rounded-ui-rect bg-amber-50/90 px-2.5 py-2 text-[12px] leading-relaxed text-gray-800">
+      <p className="mt-2 whitespace-pre-wrap rounded-ui-rect bg-amber-50/90 px-2.5 py-2 text-[12px] leading-relaxed text-sam-fg">
         {text || "내용 없음"}
       </p>
     );
@@ -22,7 +22,7 @@ export function JoinRequestMessagePreview({ text }: { text: string }) {
       {rows.map(({ k, v }) => (
         <div key={k}>
           <dt className="font-semibold text-amber-900/90">{k}</dt>
-          <dd className="mt-0.5 whitespace-pre-wrap text-gray-800">{v || "—"}</dd>
+          <dd className="mt-0.5 whitespace-pre-wrap text-sam-fg">{v || "—"}</dd>
         </div>
       ))}
     </dl>

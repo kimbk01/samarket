@@ -13,7 +13,7 @@ export default function AdminBoardGuidePage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="게시판·커뮤니티 사용 설명서" />
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         채팅·신고·거래완료 안내는{" "}
         <Link href="/admin/docs/chat" className="font-medium text-signature hover:underline">
           채팅 관리 사용 설명서

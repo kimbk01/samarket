@@ -67,17 +67,17 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 등록 상품">
         <ul className="space-y-2">
           {products.length === 0 ? (
-            <li className="text-[13px] text-gray-500">없음</li>
+            <li className="text-[13px] text-sam-muted">없음</li>
           ) : (
             products.map((p) => (
               <li key={p.id}>
                 <Link
                   href={`/admin/products/${p.id}`}
-                  className="block truncate text-[13px] text-gray-700 hover:text-signature"
+                  className="block truncate text-[13px] text-sam-fg hover:text-signature"
                 >
                   {p.title}
                 </Link>
-                <span className="text-[11px] text-gray-500">
+                <span className="text-[11px] text-sam-muted">
                   {PRODUCT_STATUS_LABELS[p.status] ?? p.status} · {formatDate(p.createdAt)}
                 </span>
               </li>
@@ -95,17 +95,17 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 가입 회원">
         <ul className="space-y-2">
           {users.length === 0 ? (
-            <li className="text-[13px] text-gray-500">없음</li>
+            <li className="text-[13px] text-sam-muted">없음</li>
           ) : (
             users.map((u) => (
               <li key={u.id}>
                 <Link
                   href={`/admin/users/${u.id}`}
-                  className="block truncate text-[13px] text-gray-700 hover:text-signature"
+                  className="block truncate text-[13px] text-sam-fg hover:text-signature"
                 >
                   {u.nickname}
                 </Link>
-                <span className="text-[11px] text-gray-500">
+                <span className="text-[11px] text-sam-muted">
                   {u.memberType} · {formatDate(u.joinedAt)}
                 </span>
               </li>
@@ -123,17 +123,17 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 신고">
         <ul className="space-y-2">
           {reports.length === 0 ? (
-            <li className="text-[13px] text-gray-500">없음</li>
+            <li className="text-[13px] text-sam-muted">없음</li>
           ) : (
             reports.map((r) => (
               <li key={r.id}>
                 <Link
                   href={`/admin/reports/${r.id}`}
-                  className="block truncate text-[13px] text-gray-700 hover:text-signature"
+                  className="block truncate text-[13px] text-sam-fg hover:text-signature"
                 >
                   [{r.targetType}] {r.reasonLabel}
                 </Link>
-                <span className="text-[11px] text-gray-500">
+                <span className="text-[11px] text-sam-muted">
                   {REPORT_STATUS_LABELS[r.status] ?? r.status} · {formatDate(r.createdAt)}
                 </span>
               </li>
@@ -151,17 +151,17 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 채팅방">
         <ul className="space-y-2">
           {chats.length === 0 ? (
-            <li className="text-[13px] text-gray-500">없음</li>
+            <li className="text-[13px] text-sam-muted">없음</li>
           ) : (
             chats.map((c) => (
               <li key={c.id}>
                 <Link
                   href={`/admin/chats/${c.id}`}
-                  className="block truncate text-[13px] text-gray-700 hover:text-signature"
+                  className="block truncate text-[13px] text-sam-fg hover:text-signature"
                 >
                   {c.productTitle}
                 </Link>
-                <span className="text-[11px] text-gray-500">
+                <span className="text-[11px] text-sam-muted">
                   {formatDate(c.lastMessageAt)}
                 </span>
               </li>
@@ -179,17 +179,17 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 리뷰">
         <ul className="space-y-2">
           {reviews.length === 0 ? (
-            <li className="text-[13px] text-gray-500">없음</li>
+            <li className="text-[13px] text-sam-muted">없음</li>
           ) : (
             reviews.map((r) => (
               <li key={r.id}>
                 <Link
                   href={`/admin/reviews/${r.id}`}
-                  className="block truncate text-[13px] text-gray-700 hover:text-signature"
+                  className="block truncate text-[13px] text-sam-fg hover:text-signature"
                 >
                   {r.reviewerNickname} → {r.targetNickname} ★{r.rating}
                 </Link>
-                <span className="text-[11px] text-gray-500">
+                <span className="text-[11px] text-sam-muted">
                   {formatDate(r.createdAt)}
                 </span>
               </li>

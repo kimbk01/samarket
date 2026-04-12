@@ -30,7 +30,7 @@ export function DeliveryRefundsClient() {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title="환불 요청" backHref="/admin/delivery-orders" />
-      {toast ? <p className="mb-2 text-sm text-gray-700">{toast}</p> : null}
+      {toast ? <p className="mb-2 text-sm text-sam-fg">{toast}</p> : null}
       <AdminCard title="대기 목록 (mock)">
         <RefundRequestTable
           rows={rows}

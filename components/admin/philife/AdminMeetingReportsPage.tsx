@@ -7,7 +7,7 @@ const STATUS_LABEL: Record<MeetingReportStatus, { label: string; className: stri
   pending: { label: "대기", className: "bg-amber-100 text-amber-800" },
   reviewing: { label: "검토중", className: "bg-sky-100 text-sky-800" },
   resolved: { label: "처리완료", className: "bg-emerald-100 text-emerald-800" },
-  rejected: { label: "반려", className: "bg-gray-100 text-gray-600" },
+  rejected: { label: "반려", className: "bg-sam-surface-muted text-sam-muted" },
 };
 
 const TARGET_LABEL: Record<string, string> = {
@@ -59,51 +59,51 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
   };
 
   return (
-    <div className={`rounded-ui-rect border bg-white p-4 ${localStatus === "pending" ? "border-amber-200" : "border-gray-100"}`}>
+    <div className={`rounded-ui-rect border bg-sam-surface p-4 ${localStatus === "pending" ? "border-amber-200" : "border-sam-border-soft"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge.className}`}>
               {statusBadge.label}
             </span>
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
+            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] text-sam-muted">
               {TARGET_LABEL[report.target_type] ?? report.target_type}
             </span>
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
+            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] text-sam-muted">
               {REASON_LABEL[report.reason_type] ?? report.reason_type}
             </span>
           </div>
-          <p className="mt-1.5 truncate text-[13px] font-medium text-gray-900">
+          <p className="mt-1.5 truncate text-[13px] font-medium text-sam-fg">
             {report.meeting_title
               ? `[${report.meeting_title}] `
               : ""}
             신고자: {report.reporter_name}
           </p>
-          <p className="text-[11px] text-gray-400">{formatDate(report.created_at)}</p>
+          <p className="text-[11px] text-sam-meta">{formatDate(report.created_at)}</p>
         </div>
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="shrink-0 rounded-ui-rect border border-gray-200 px-3 py-1.5 text-[12px] text-gray-600 hover:bg-gray-50"
+          className="shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] text-sam-muted hover:bg-sam-app"
         >
           {expanded ? "닫기" : "상세"}
         </button>
       </div>
 
       {expanded && (
-        <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-          <div className="text-[12px] text-gray-600">
+        <div className="mt-3 space-y-2 border-t border-sam-border-soft pt-3">
+          <div className="text-[12px] text-sam-muted">
             <span className="font-medium">대상 ID: </span>
             <span className="font-mono text-[11px]">{report.target_id}</span>
           </div>
           {report.reason_detail && (
-            <div className="rounded-ui-rect bg-gray-50 p-2.5 text-[12px] text-gray-700">
+            <div className="rounded-ui-rect bg-sam-app p-2.5 text-[12px] text-sam-fg">
               <p className="font-medium">신고 상세:</p>
               <p className="mt-1 whitespace-pre-wrap">{report.reason_detail}</p>
             </div>
           )}
           {report.action_result && (
-            <div className="text-[12px] text-gray-500">
+            <div className="text-[12px] text-sam-muted">
               <span className="font-medium">조치 내용: </span>
               {report.action_result}
             </div>
@@ -114,7 +114,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
             onChange={(e) => setNote(e.target.value)}
             rows={2}
             placeholder="조치 메모 (선택)"
-            className="w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-800 placeholder-gray-400 outline-none focus:border-sky-400"
+            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg placeholder-sam-meta outline-none focus:border-sky-400"
           />
 
           <div className="flex flex-wrap gap-2">
@@ -143,7 +143,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 type="button"
                 disabled={busy}
                 onClick={() => void handle("rejected")}
-                className="rounded-ui-rect bg-gray-100 px-3 py-1.5 text-[12px] font-semibold text-gray-600 disabled:opacity-50 hover:bg-gray-200"
+                className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 text-[12px] font-semibold text-sam-muted disabled:opacity-50 hover:bg-sam-border-soft"
               >
                 반려
               </button>
@@ -223,7 +223,7 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
             검토중 {reviewingCount}건
           </span>
         )}
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600">
+        <span className="rounded-full bg-sam-surface-muted px-3 py-1 text-sam-muted">
           전체 {rows.length}건
         </span>
       </div>
@@ -237,8 +237,8 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
             onClick={() => setFilter(t.id)}
             className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
               filter === t.id
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-sam-ink text-white"
+                : "bg-sam-surface-muted text-sam-muted hover:bg-sam-border-soft"
             }`}
           >
             {t.label}
@@ -248,8 +248,8 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
 
       {/* 신고 목록 */}
       {filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-200 py-12 text-center">
-          <p className="text-[14px] text-gray-400">
+        <div className="rounded-ui-rect border border-dashed border-sam-border py-12 text-center">
+          <p className="text-[14px] text-sam-meta">
             {filter === "all" ? "접수된 신고가 없습니다." : `'${FILTER_TABS.find((t) => t.id === filter)?.label}' 상태 신고 없음`}
           </p>
         </div>

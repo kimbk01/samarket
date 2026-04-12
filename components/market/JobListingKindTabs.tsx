@@ -45,8 +45,8 @@ export function JobListingKindTabs({
             scroll={false}
             className={`min-w-0 flex-1 rounded-full px-3 py-2 text-center text-[13px] font-semibold transition ${
               active
-                ? "bg-gray-900 text-white shadow-sm"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-sam-ink text-white shadow-sm"
+                : "bg-sam-surface-muted text-sam-muted hover:bg-sam-border-soft"
             }`}
           >
             {label}

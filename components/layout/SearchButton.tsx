@@ -6,7 +6,7 @@ export function SearchButton() {
   return (
     <Link
       href="/search"
-      className="flex flex-1 items-center gap-2 rounded-ui-rect bg-gray-100 px-3 py-2 text-left text-[14px] text-gray-500"
+      className="flex flex-1 items-center gap-2 rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-left text-[14px] text-sam-muted"
     >
       <SearchIcon />
       <span>검색</span>

@@ -102,20 +102,20 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
   }, [product.id, product.seller?.id, product.title]);
 
   return (
-    <div className="relative w-full min-w-0 bg-white pb-20">
+    <div className="relative w-full min-w-0 bg-sam-surface pb-20">
       <ProductDetailMainTier1Sync
         product={product}
         onReport={onReportProduct}
         hideFavorite={amISeller}
       />
       <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
-        <div className="min-w-0 bg-white md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
+        <div className="min-w-0 bg-sam-surface md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
           <ProductImageGallery images={images} title={product.title} />
         </div>
 
         <div className="min-w-0 md:col-span-7">
           {/* 상품 정보 */}
-          <section className="border-t border-gray-100 px-4 py-4 md:border-t-0">
+          <section className="border-t border-sam-border-soft px-4 py-4 md:border-t-0">
             {product.isBoosted && (
               <span className="mb-2 inline-block rounded bg-signature px-1.5 py-0.5 text-[11px] font-medium text-white">
                 끌올
@@ -124,23 +124,23 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
             <span
               className={`inline-block rounded border-2 border-current px-1.5 py-0.5 text-[11px] font-medium ${
                 isSold
-                  ? "bg-gray-100 text-gray-600"
+                  ? "bg-sam-surface-muted text-sam-muted"
                   : product.status === "reserved"
                     ? "bg-amber-50 text-amber-900"
                     : product.status === "hidden"
-                      ? "bg-gray-100 text-gray-500"
-                      : "bg-slate-100 text-gray-700"
+                      ? "bg-sam-surface-muted text-sam-muted"
+                      : "bg-sam-surface-muted text-sam-fg"
               }`}
             >
               {STATUS_LABEL[product.status]}
             </span>
-            <h1 className={`mt-2 text-[20px] font-bold leading-7 text-gray-900 ${isSold ? "opacity-80" : ""}`}>
+            <h1 className={`mt-2 text-[20px] font-bold leading-7 text-sam-fg ${isSold ? "opacity-80" : ""}`}>
               {product.title}
             </h1>
-            <p className="mt-1 text-[22px] font-bold text-gray-900">
+            <p className="mt-1 text-[22px] font-bold text-sam-fg">
               {formatPrice(product.price, currency)}
             </p>
-            <ul className="mt-3 space-y-1 text-[13px] text-gray-600">
+            <ul className="mt-3 space-y-1 text-[13px] text-sam-muted">
               {product.category && <li>카테고리 · {product.category}</li>}
               <li>지역 · {product.location}</li>
               <li>등록 · {formatTimeAgo(product.createdAt)}</li>
@@ -150,7 +150,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
 
           {/* 판매자 */}
           {product.seller && (
-            <section className="border-t border-gray-100 px-4 py-4">
+            <section className="border-t border-sam-border-soft px-4 py-4">
               <ProductSellerCard
                 seller={product.seller}
                 trustSummary={sellerTrustSummary ?? undefined}
@@ -174,8 +174,8 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
 
       {/* 상품 설명 — 전체 폭 */}
       {product.description && (
-        <section className="border-t border-gray-100 px-4 py-4">
-          <p className="text-[15px] leading-6 text-gray-900 whitespace-pre-wrap">
+        <section className="border-t border-sam-border-soft px-4 py-4">
+          <p className="text-[15px] leading-6 text-sam-fg whitespace-pre-wrap">
             {product.description}
           </p>
         </section>
@@ -190,14 +190,14 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
       {reportSheet && (
         <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/50">
           <div
-            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white`}
+            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface`}
           >
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <h2 className="text-[16px] font-semibold text-gray-900">신고</h2>
+            <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
+              <h2 className="text-[16px] font-semibold text-sam-fg">신고</h2>
               <button
                 type="button"
                 onClick={() => setReportSheet(null)}
-                className="text-[14px] text-gray-500"
+                className="text-[14px] text-sam-muted"
               >
                 닫기
               </button>

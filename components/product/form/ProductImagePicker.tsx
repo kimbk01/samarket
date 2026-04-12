@@ -41,11 +41,11 @@ export function ProductImagePicker({
   );
 
   return (
-    <section className="border-b border-gray-100 bg-white px-4 py-4">
-      <p className="mb-3 text-[14px] font-medium text-gray-800">사진</p>
+    <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+      <p className="mb-3 text-[14px] font-medium text-sam-fg">사진</p>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {value.map((item, index) => (
-          <div key={index} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+          <div key={index} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             <img src={item.url} alt="" className="h-full w-full object-cover" />
             <button
               type="button"
@@ -61,7 +61,7 @@ export function ProductImagePicker({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-ui-rect border-2 border-dashed border-gray-300 text-gray-400"
+            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-ui-rect border-2 border-dashed border-sam-border text-sam-meta"
           >
             +
           </button>

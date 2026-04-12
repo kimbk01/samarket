@@ -26,13 +26,13 @@ export function SecurityCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">점검 유형</span>
+        <span className="text-[13px] text-sam-muted">점검 유형</span>
         <select
           value={typeFilter}
           onChange={(e) =>
             setTypeFilter((e.target.value || "") as SecurityCheckType | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="rls">RLS</option>
@@ -41,13 +41,13 @@ export function SecurityCheckTable() {
           <option value="auth">인증</option>
           <option value="storage">스토리지</option>
         </select>
-        <span className="text-[13px] text-gray-600">상태</span>
+        <span className="text-[13px] text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as SecurityStatus | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="safe">안전</option>
@@ -57,7 +57,7 @@ export function SecurityCheckTable() {
       </div>
 
       {checks.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 조건의 점검 항목이 없습니다.
         </div>
       ) : (
@@ -65,14 +65,14 @@ export function SecurityCheckTable() {
           {checks.map((c) => (
             <tr
               key={c.id}
-              className={`border-b border-gray-100 ${
+              className={`border-b border-sam-border-soft ${
                 c.status === "critical" ? "bg-red-50/30" : ""
               }`}
             >
-              <td className="px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {getCheckTypeLabel(c.checkType)}
               </td>
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {c.target}
               </td>
               <td className="px-3 py-2.5">
@@ -88,10 +88,10 @@ export function SecurityCheckTable() {
                   {getSecurityStatusLabel(c.status)}
                 </span>
               </td>
-              <td className="max-w-[200px] px-3 py-2.5 text-[13px] text-gray-600 line-clamp-2">
+              <td className="max-w-[200px] px-3 py-2.5 text-[13px] text-sam-muted line-clamp-2">
                 {c.description}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(c.lastCheckedAt).toLocaleString()}
               </td>
               <td className="px-3 py-2.5">

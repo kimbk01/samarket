@@ -6,30 +6,30 @@ export interface ProfileReadonlyFieldsProps {
 
 export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
   return (
-    <div className="space-y-3 rounded-ui-rect bg-gray-50 p-3">
-      <p className="text-[12px] font-medium text-gray-500">읽기 전용</p>
+    <div className="space-y-3 rounded-ui-rect bg-sam-app p-3">
+      <p className="text-[12px] font-medium text-sam-muted">읽기 전용</p>
       <div className="grid gap-2 text-[14px]">
         <div className="flex justify-between">
-          <span className="text-gray-500">이메일</span>
-          <span className="text-gray-900">{profile.email ?? "-"}</span>
+          <span className="text-sam-muted">이메일</span>
+          <span className="text-sam-fg">{profile.email ?? "-"}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">실명 인증</span>
-          <span className="text-gray-900">{profile.realname_verified ? "완료" : "미인증"}</span>
+          <span className="text-sam-muted">실명 인증</span>
+          <span className="text-sam-fg">{profile.realname_verified ? "완료" : "미인증"}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">연락처 인증</span>
-          <span className="text-gray-900">
+          <span className="text-sam-muted">연락처 인증</span>
+          <span className="text-sam-fg">
             {profile.phone_verified ? "완료" : profile.phone_verification_status === "pending" ? "승인 대기" : "미인증"}
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">회원 등급</span>
-          <span className="text-gray-900">{profile.role}</span>
+          <span className="text-sam-muted">회원 등급</span>
+          <span className="text-sam-fg">{profile.role}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">포인트</span>
-          <span className="text-gray-900">{profile.points}</span>
+          <span className="text-sam-muted">포인트</span>
+          <span className="text-sam-fg">{profile.points}</span>
         </div>
       </div>
     </div>

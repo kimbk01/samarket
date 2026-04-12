@@ -18,7 +18,7 @@ interface SortTabsProps {
 export function SortTabs({ value, onChange }: SortTabsProps) {
   const { t, tt } = useI18n();
   return (
-    <div className="sticky top-24 z-10 flex flex-nowrap gap-1 overflow-x-auto border-b border-gray-100 bg-white px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="sticky top-24 z-10 flex flex-nowrap gap-1 overflow-x-auto border-b border-sam-border-soft bg-sam-surface px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       {SORT_OPTIONS.map((opt) => {
         const on = value === opt.key;
         return (

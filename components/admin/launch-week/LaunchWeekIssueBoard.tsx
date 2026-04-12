@@ -29,13 +29,13 @@ export function LaunchWeekIssueBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">Day</span>
+        <span className="text-[13px] text-sam-muted">Day</span>
         <select
           value={dayNumber}
           onChange={(e) =>
             setDayNumber((e.target.value || "") as LaunchWeekDayNumber | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           {([1, 2, 3, 4, 5, 6, 7] as const).map((d) => (
@@ -44,13 +44,13 @@ export function LaunchWeekIssueBoard() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-gray-600">상태</span>
+        <span className="text-[13px] text-sam-muted">상태</span>
         <select
           value={status}
           onChange={(e) =>
             setStatus((e.target.value || "") as LaunchWeekIssueStatus | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="open">오픈</option>
@@ -61,7 +61,7 @@ export function LaunchWeekIssueBoard() {
       </div>
 
       {issues.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           긴급 이슈가 없습니다.
         </div>
       ) : (
@@ -81,20 +81,20 @@ export function LaunchWeekIssueBoard() {
           {issues.map((i) => (
             <tr
               key={i.id}
-              className={`border-b border-gray-100 ${
+              className={`border-b border-sam-border-soft ${
                 i.severity === "critical" &&
                 !["resolved", "mitigated"].includes(i.status)
                   ? "bg-red-50/30"
                   : ""
               }`}
             >
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 Day {i.dayNumber}
               </td>
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {i.title}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getAreaLabel(i.category)}
               </td>
               <td className="px-3 py-2.5">
@@ -104,7 +104,7 @@ export function LaunchWeekIssueBoard() {
                       ? "bg-red-100 text-red-800"
                       : i.severity === "high"
                         ? "bg-amber-100 text-amber-800"
-                        : "bg-gray-100 text-gray-600"
+                        : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {getSeverityLabel(i.severity)}
@@ -123,15 +123,15 @@ export function LaunchWeekIssueBoard() {
                   {getIssueStatusLabel(i.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {i.ownerAdminNickname ?? "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(i.openedAt).toLocaleDateString()}
                 {i.resolvedAt &&
                   ` → ${new Date(i.resolvedAt).toLocaleDateString()}`}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {i.linkedType && i.linkedId ? (
                   i.linkedType === "qa_issue" ? (
                     <Link
@@ -147,7 +147,7 @@ export function LaunchWeekIssueBoard() {
                   "-"
                 )}
               </td>
-              <td className="max-w-[140px] truncate px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="max-w-[140px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
                 {i.note || "-"}
               </td>
             </tr>

@@ -147,15 +147,15 @@ function LoginPageContent() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
-      <div className="w-full max-w-sm rounded-ui-rect border border-gray-200 bg-white p-6 shadow-sm">
-        <h1 className="text-center text-lg font-semibold text-gray-900">로그인</h1>
-        <p className="mt-1 text-center text-[13px] text-gray-500">구글, 카카오, 애플 또는 이메일 계정</p>
+      <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
+        <h1 className="text-center text-lg font-semibold text-sam-fg">로그인</h1>
+        <p className="mt-1 text-center text-[13px] text-sam-muted">구글, 카카오, 애플 또는 이메일 계정</p>
         <div className="mt-5 space-y-2">
           <button
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("google")}
-            className="w-full rounded-ui-rect border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[14px] font-medium text-sam-fg disabled:opacity-50"
           >
             {oauthBusy === "google" ? "이동 중…" : "구글로 로그인"}
           </button>
@@ -163,7 +163,7 @@ function LoginPageContent() {
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("kakao")}
-            className="w-full rounded-ui-rect border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[14px] font-medium text-sam-fg disabled:opacity-50"
           >
             {oauthBusy === "kakao" ? "이동 중…" : "카카오로 로그인"}
           </button>
@@ -171,19 +171,19 @@ function LoginPageContent() {
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("apple")}
-            className="w-full rounded-ui-rect border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-900 disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[14px] font-medium text-sam-fg disabled:opacity-50"
           >
             {oauthBusy === "apple" ? "이동 중…" : "애플로 로그인"}
           </button>
         </div>
-        <div className="my-4 flex items-center gap-3 text-[12px] text-gray-400">
-          <div className="h-px flex-1 bg-gray-200" />
+        <div className="my-4 flex items-center gap-3 text-[12px] text-sam-meta">
+          <div className="h-px flex-1 bg-sam-border-soft" />
           <span>또는 이메일</span>
-          <div className="h-px flex-1 bg-gray-200" />
+          <div className="h-px flex-1 bg-sam-border-soft" />
         </div>
         <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4" noValidate>
           <div>
-            <label className="block text-[13px] font-medium text-gray-700">이메일 또는 아이디</label>
+            <label className="block text-[13px] font-medium text-sam-fg">이메일 또는 아이디</label>
             <input
               type="text"
               inputMode="email"
@@ -192,17 +192,17 @@ function LoginPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="이메일 주소 또는 로그인 아이디"
               required
-              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-gray-700">비밀번호</label>
+            <label className="block text-[13px] font-medium text-sam-fg">비밀번호</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="mt-1 w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
             />
           </div>
           {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
@@ -214,13 +214,13 @@ function LoginPageContent() {
             {loading ? "로그인 중…" : "로그인"}
           </button>
         </form>
-        <p className="mt-4 text-center text-[12px] text-gray-500">
+        <p className="mt-4 text-center text-[12px] text-sam-muted">
           계정이 없으면{" "}
           <Link href="/signup" className="font-medium text-signature underline">
             회원가입
           </Link>
         </p>
-        <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
+        <p className="mt-3 text-center text-[11px] leading-relaxed text-sam-meta">
           피드·매장·채팅 등 서비스는 로그인 후 이용할 수 있습니다.
         </p>
       </div>
@@ -235,7 +235,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-gray-500">
+        <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-sam-muted">
           불러오는 중…
         </div>
       }

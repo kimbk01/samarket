@@ -39,13 +39,13 @@ export function MyProductCard({
   const isHidden = product.status === "hidden";
   return (
     <div
-      className={`overflow-hidden rounded-ui-rect bg-white ${
+      className={`overflow-hidden rounded-ui-rect bg-sam-surface ${
         isSold || isHidden ? "opacity-70" : ""
       }`}
     >
       <div className="flex gap-3 p-3">
         <Link href={`/post/${product.id}`} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+          <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {product.thumbnail ? (
               <img
                 src={product.thumbnail}
@@ -53,7 +53,7 @@ export function MyProductCard({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="h-full w-full bg-gray-200" />
+              <div className="h-full w-full bg-sam-border-soft" />
             )}
             {product.isBoosted && (
               <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 text-[10px] font-medium text-white">

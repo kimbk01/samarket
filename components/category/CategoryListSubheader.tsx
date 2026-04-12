@@ -17,25 +17,25 @@ export function CategoryListSubheader({
   showTypeBadge?: boolean;
 }) {
   return (
-    <div className="min-w-0 overflow-x-hidden border-t border-gray-100 bg-white py-2.5">
+    <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface py-2.5">
       <div className={`flex min-h-[52px] min-w-0 items-center gap-3 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
       <AppBackButton backHref={backHref} />
       {category ? (
         <>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-sam-muted">
             <CategoryIcon iconKey={category.icon_key} />
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[16px] font-semibold leading-snug text-gray-900">{category.name}</h1>
+            <h1 className="truncate text-[16px] font-semibold leading-snug text-sam-fg">{category.name}</h1>
             {showTypeBadge && (
-              <span className="mt-0.5 inline-block text-[12px] text-gray-500">
+              <span className="mt-0.5 inline-block text-[12px] text-sam-muted">
                 {CATEGORY_TYPE_LABELS[category.type]}
               </span>
             )}
           </div>
         </>
       ) : (
-        <p className="text-[14px] text-gray-500">불러오는 중…</p>
+        <p className="text-[14px] text-sam-muted">불러오는 중…</p>
       )}
       </div>
     </div>

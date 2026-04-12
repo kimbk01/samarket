@@ -83,7 +83,7 @@ function IconBellOff() {
 }
 
 const iconBtnClass =
-  "inline-flex h-9 w-9 shrink-0 items-center justify-center border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900";
+  "inline-flex h-9 w-9 shrink-0 items-center justify-center border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app hover:text-sam-fg";
 
 export function AdminShellToolbar({
   sidebarExpanded,

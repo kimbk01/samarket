@@ -74,8 +74,8 @@ export function OrderSimulationPanel() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold text-gray-900">주문 시뮬레이션 패널</h1>
-          <p className="mt-1 text-xs text-gray-600">
+          <h1 className="text-lg font-bold text-sam-fg">주문 시뮬레이션 패널</h1>
+          <p className="mt-1 text-xs text-sam-muted">
             회원·오너·관리자가 같은 공유 주문 스토어를 수정합니다.{" "}
             <Link href="/admin/delivery-orders" className="text-signature underline">
               운영 대시보드
@@ -84,7 +84,7 @@ export function OrderSimulationPanel() {
         </div>
         <button
           type="button"
-          className="rounded-ui-rect border border-gray-300 px-3 py-1.5 text-xs text-gray-800"
+          className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg"
           onClick={() => {
             if (confirm("공유 주문 데이터를 초기화할까요?")) {
               resetSharedOrders();
@@ -98,10 +98,10 @@ export function OrderSimulationPanel() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs font-medium text-gray-700">
+        <label className="flex flex-col gap-1 text-xs font-medium text-sam-fg">
           주문 선택
           <select
-            className="min-w-[240px] rounded-ui-rect border border-gray-300 bg-white px-2 py-2 text-sm"
+            className="min-w-[240px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 text-sm"
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
           >
@@ -115,7 +115,7 @@ export function OrderSimulationPanel() {
         </label>
         <button
           type="button"
-          className="rounded-ui-rect bg-gray-900 px-3 py-2 text-xs font-bold text-white"
+          className="rounded-ui-rect bg-sam-ink px-3 py-2 text-xs font-bold text-white"
           onClick={() => {
             const r = sharedSimulateMemberPlaceOrder({ order_type: "delivery" });
             setResult("새 배달 주문", r);
@@ -138,13 +138,13 @@ export function OrderSimulationPanel() {
       </div>
 
       {lastMsg ? (
-        <p className="rounded-ui-rect bg-slate-900 px-3 py-2 font-mono text-xs text-white">{lastMsg}</p>
+        <p className="rounded-ui-rect bg-sam-ink px-3 py-2 font-mono text-xs text-white">{lastMsg}</p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-bold text-gray-900">회원 액션</h2>
-          <p className="mt-1 text-[11px] text-gray-500">선택 주문의 buyer 기준</p>
+        <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-sam-fg">회원 액션</h2>
+          <p className="mt-1 text-[11px] text-sam-muted">선택 주문의 buyer 기준</p>
           <div className="mt-3 flex flex-col gap-2">
             <button
               type="button"
@@ -173,9 +173,9 @@ export function OrderSimulationPanel() {
           </div>
         </section>
 
-        <section className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-bold text-gray-900">오너 액션</h2>
-          <p className="mt-1 text-[11px] text-gray-500">서울한식당 시뮬 매장만</p>
+        <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-sam-fg">오너 액션</h2>
+          <p className="mt-1 text-[11px] text-sam-muted">서울한식당 시뮬 매장만</p>
           <div className="mt-3 flex flex-col gap-2">
             <button
               type="button"
@@ -188,7 +188,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold text-gray-800 disabled:opacity-40"
+              className="rounded-ui-rect border border-sam-border py-2 text-xs font-semibold text-sam-fg disabled:opacity-40"
               onClick={() =>
                 selected && setResult("거절", sharedOwnerReject(selected.id, "시뮬: 매장 거절"))
               }
@@ -198,7 +198,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold text-gray-800 disabled:opacity-40"
+              className="rounded-ui-rect border border-sam-border py-2 text-xs font-semibold text-sam-fg disabled:opacity-40"
               onClick={() =>
                 selected && setResult("조리중", sharedOwnerStartPreparing(selected.id))
               }
@@ -208,7 +208,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold text-gray-800 disabled:opacity-40"
+              className="rounded-ui-rect border border-sam-border py-2 text-xs font-semibold text-sam-fg disabled:opacity-40"
               onClick={() =>
                 selected && setResult("픽업준비", sharedOwnerMarkPickupReady(selected.id))
               }
@@ -218,7 +218,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold text-gray-800 disabled:opacity-40"
+              className="rounded-ui-rect border border-sam-border py-2 text-xs font-semibold text-sam-fg disabled:opacity-40"
               onClick={() =>
                 selected && setResult("배송중", sharedOwnerStartDelivery(selected.id))
               }
@@ -228,7 +228,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold text-gray-800 disabled:opacity-40"
+              className="rounded-ui-rect border border-sam-border py-2 text-xs font-semibold text-sam-fg disabled:opacity-40"
               onClick={() =>
                 selected && setResult("배송지도착", sharedOwnerMarkArrived(selected.id))
               }
@@ -238,7 +238,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="rounded-ui-rect bg-gray-900 py-2 text-xs font-bold text-white disabled:opacity-40"
+              className="rounded-ui-rect bg-sam-ink py-2 text-xs font-bold text-white disabled:opacity-40"
               onClick={() => selected && setResult("주문완료", sharedOwnerComplete(selected.id))}
             >
               주문완료
@@ -257,13 +257,13 @@ export function OrderSimulationPanel() {
           </div>
         </section>
 
-        <section className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-bold text-gray-900">관리자 액션</h2>
+        <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-sam-fg">관리자 액션</h2>
           <div className="mt-3 space-y-2">
-            <label className="block text-[11px] font-medium text-gray-600">
+            <label className="block text-[11px] font-medium text-sam-muted">
               강제 다음 상태
               <select
-                className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-xs"
                 value={forceNext}
                 onChange={(e) => setForceNext(e.target.value as SharedOrderStatus)}
               >
@@ -275,7 +275,7 @@ export function OrderSimulationPanel() {
               </select>
             </label>
             <input
-              className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+              className="w-full rounded border border-sam-border px-2 py-1.5 text-xs"
               value={adminReason}
               onChange={(e) => setAdminReason(e.target.value)}
               placeholder="강제 변경 사유"
@@ -302,11 +302,11 @@ export function OrderSimulationPanel() {
             >
               강제 상태 변경
             </button>
-            <div className="border-t border-gray-100 pt-2" />
+            <div className="border-t border-sam-border-soft pt-2" />
             <button
               type="button"
               disabled={!selected}
-              className="w-full rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold disabled:opacity-40"
+              className="w-full rounded-ui-rect border border-sam-border py-2 text-xs font-semibold disabled:opacity-40"
               onClick={() => selected && setResult("취소 승인", sharedAdminApproveCancel(selected.id, adminMemo))}
             >
               취소 승인
@@ -314,7 +314,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="w-full rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold disabled:opacity-40"
+              className="w-full rounded-ui-rect border border-sam-border py-2 text-xs font-semibold disabled:opacity-40"
               onClick={() =>
                 selected && setResult("취소 거절", sharedAdminRejectCancel(selected.id, adminMemo))
               }
@@ -324,7 +324,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="w-full rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold disabled:opacity-40"
+              className="w-full rounded-ui-rect border border-sam-border py-2 text-xs font-semibold disabled:opacity-40"
               onClick={() =>
                 selected && setResult("환불 승인", sharedAdminApproveRefund(selected.id, adminMemo))
               }
@@ -334,7 +334,7 @@ export function OrderSimulationPanel() {
             <button
               type="button"
               disabled={!selected}
-              className="w-full rounded-ui-rect border border-gray-300 py-2 text-xs font-semibold disabled:opacity-40"
+              className="w-full rounded-ui-rect border border-sam-border py-2 text-xs font-semibold disabled:opacity-40"
               onClick={() =>
                 selected && setResult("환불 거절", sharedAdminRejectRefund(selected.id, adminMemo))
               }
@@ -342,7 +342,7 @@ export function OrderSimulationPanel() {
               환불 거절
             </button>
             <input
-              className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+              className="w-full rounded border border-sam-border px-2 py-1.5 text-xs"
               value={adminMemo}
               onChange={(e) => setAdminMemo(e.target.value)}
               placeholder="승인/거절 메모"
@@ -373,14 +373,14 @@ export function OrderSimulationPanel() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div>
-          <h3 className="mb-2 text-xs font-bold text-gray-800">선택 주문 미리보기 (JSON)</h3>
-          <pre className="max-h-[320px] overflow-auto rounded-ui-rect bg-slate-950 p-3 text-[10px] leading-relaxed text-emerald-100">
+          <h3 className="mb-2 text-xs font-bold text-sam-fg">선택 주문 미리보기 (JSON)</h3>
+          <pre className="max-h-[320px] overflow-auto rounded-ui-rect bg-sam-ink p-3 text-[10px] leading-relaxed text-emerald-100">
             {selected ? JSON.stringify(selected, null, 2) : "// 주문을 선택하세요"}
           </pre>
         </div>
         <div>
-          <h3 className="mb-2 text-xs font-bold text-gray-800">로그 (선택 주문)</h3>
-          <pre className="max-h-[320px] overflow-auto rounded-ui-rect bg-slate-950 p-3 text-[10px] leading-relaxed text-sky-100">
+          <h3 className="mb-2 text-xs font-bold text-sam-fg">로그 (선택 주문)</h3>
+          <pre className="max-h-[320px] overflow-auto rounded-ui-rect bg-sam-ink p-3 text-[10px] leading-relaxed text-sky-100">
             {selected
               ? JSON.stringify(selected.logs, null, 2)
               : "// 주문을 선택하세요"}
@@ -388,7 +388,7 @@ export function OrderSimulationPanel() {
         </div>
       </div>
 
-      <p className="text-[11px] text-gray-500">
+      <p className="text-[11px] text-sam-muted">
         검증:{" "}
         <Link className="underline" href="/my/store-orders">
           회원 주문

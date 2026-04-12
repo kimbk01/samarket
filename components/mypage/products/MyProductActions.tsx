@@ -77,16 +77,16 @@ export function MyProductActions({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted"
         aria-label="더보기"
       >
         <MoreIcon />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-ui-rect border border-gray-200 bg-white py-1">
+        <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface py-1">
           <Link
             href={`/products/${product.id}/edit`}
-            className="block px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+            className="block px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
             onClick={() => setOpen(false)}
           >
             수정
@@ -95,7 +95,7 @@ export function MyProductActions({
             <button
               type="button"
               onClick={handleBump}
-              className="w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+              className="w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
             >
               끌올
             </button>
@@ -104,13 +104,13 @@ export function MyProductActions({
             <button
               type="button"
               onClick={() => handleStatusChange("active")}
-              className="w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+              className="w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
             >
               다시 판매중으로
             </button>
           ) : (
             <>
-              <div className="px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+              <div className="px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-sam-meta">
                 거래 상태
               </div>
               {LISTING_MENU_ORDER.map((state) => {
@@ -124,10 +124,10 @@ export function MyProductActions({
                       onSellerListingStateChange(product.id, state);
                       setOpen(false);
                     }}
-                    className={`w-full px-4 py-2.5 text-left text-[14px] hover:bg-gray-50 ${
+                    className={`w-full px-4 py-2.5 text-left text-[14px] hover:bg-sam-app ${
                       isCurrent
                         ? "cursor-default bg-signature/5 font-semibold text-signature"
-                        : "text-gray-700"
+                        : "text-sam-fg"
                     } disabled:opacity-50`}
                   >
                     {SELLER_LISTING_LABEL[state]}
@@ -154,7 +154,7 @@ export function MyProductActions({
             <button
               type="button"
               onClick={() => handleStatusChange("hidden")}
-              className="w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+              className="w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
             >
               숨기기
             </button>

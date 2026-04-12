@@ -24,7 +24,7 @@ export function StoreDetailBackLink({
     <button
       type="button"
       onClick={() => runHistoryBackWithFallback(router, fallbackHref)}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-stone-900 hover:bg-stone-100/90 active:bg-stone-200/80"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80"
       aria-label={label}
     >
       {variant === "close" ? (

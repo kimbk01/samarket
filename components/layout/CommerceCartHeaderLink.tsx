@@ -16,7 +16,7 @@ export function CommerceCartHeaderLink() {
   return (
     <Link
       href={cartHref}
-      className="relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
+      className="relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted"
       aria-label={cartCount > 0 ? t("nav_cart_aria") : t("nav_store_list_aria")}
     >
       <StoreCommerceCartStrokeIcon className="h-5 w-5" />

@@ -99,13 +99,13 @@ export function AdminChatActionPanel({
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-gray-500">{t("admin_chat_action_note")}</label>
+        <label className="mb-1 block text-[12px] font-medium text-sam-muted">{t("admin_chat_action_note")}</label>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}
           placeholder={t("admin_chat_action_note_placeholder")}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[13px] text-gray-800 placeholder:text-gray-400"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[13px] text-sam-fg placeholder:text-sam-meta"
         />
       </div>
       <div className="flex flex-wrap gap-2">
@@ -113,7 +113,7 @@ export function AdminChatActionPanel({
           type="button"
           disabled={loading !== null}
           onClick={() => run("warn")}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
           {loading === "warn" ? t("admin_chat_processing") : t("admin_chat_warn_log")}
         </button>
@@ -141,7 +141,7 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("archive_room")}
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "archive_room" ? t("admin_chat_processing") : t("admin_chat_archive")}
           </button>
@@ -150,7 +150,7 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("unarchive_room")}
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "unarchive_room" ? t("admin_chat_processing") : t("admin_chat_unarchive")}
           </button>
@@ -169,14 +169,14 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("readonly_off")}
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "readonly_off" ? t("admin_chat_processing") : t("admin_chat_readonly_off")}
           </button>
         )}
       </div>
-      <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-        <span className="w-full text-[12px] font-medium text-gray-500">{t("admin_chat_bulk_actions")}</span>
+      <div className="flex flex-wrap gap-2 border-t border-sam-border-soft pt-3">
+        <span className="w-full text-[12px] font-medium text-sam-muted">{t("admin_chat_bulk_actions")}</span>
         <button
           type="button"
           disabled={loading !== null}
@@ -197,7 +197,7 @@ export function AdminChatActionPanel({
       <div className="flex flex-wrap gap-2">
         <a
           href={`/admin/reports?targetType=chat&targetId=${encodeURIComponent(room.id)}`}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
         >
           {t("admin_chat_go_reports")}
         </a>

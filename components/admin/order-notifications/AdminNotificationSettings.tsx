@@ -21,19 +21,19 @@ function Row({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
-      <span className="text-[15px] text-gray-900">{label}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-sam-border-soft px-4 py-3">
+      <span className="text-[15px] text-sam-fg">{label}</span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-          checked ? "bg-signature" : "bg-gray-200"
+          checked ? "bg-signature" : "bg-sam-border-soft"
         }`}
       >
         <span
-          className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
             checked ? "translate-x-6" : "translate-x-0.5"
           }`}
         />
@@ -73,10 +73,10 @@ export function AdminNotificationSettings() {
   }
 
   return (
-    <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-100 px-4 py-3">
-        <h2 className="text-sm font-bold text-gray-900">운영 알림 (시뮬)</h2>
-        <p className="mt-1 font-mono text-[12px] text-gray-500">{userId}</p>
+    <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
+      <div className="border-b border-sam-border-soft px-4 py-3">
+        <h2 className="text-sm font-bold text-sam-fg">운영 알림 (시뮬)</h2>
+        <p className="mt-1 font-mono text-[12px] text-sam-muted">{userId}</p>
       </div>
       <Row label="취소 요청 알림 받기" checked={p.allow_cancel} onChange={(x) => patch({ allow_cancel: x })} />
       <Row label="환불 요청 알림 받기" checked={p.allow_refund} onChange={(x) => patch({ allow_refund: x })} />
@@ -87,7 +87,7 @@ export function AdminNotificationSettings() {
         checked={p.allow_marketing}
         onChange={(x) => patch({ allow_marketing: x })}
       />
-      <p className="px-4 py-3 text-[11px] leading-snug text-gray-500">
+      <p className="px-4 py-3 text-[11px] leading-snug text-sam-muted">
         「이상 주문 감지」는 시뮬에서 강제 상태 변경 검토 알림 등에 사용합니다. 실서비스에서는 전용 플래그로 분리할 수
         있어요.
       </p>

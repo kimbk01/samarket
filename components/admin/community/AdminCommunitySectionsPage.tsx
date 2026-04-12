@@ -149,19 +149,19 @@ export function AdminCommunitySectionsPage({
     <div className="space-y-4">
       <AdminPageHeader title="피드 섹션 관리" backHref="/admin/boards" />
       <AdminCard title="동네 피드에 쓸 섹션 (필라이프·앱 연동)">
-        <p className="mb-3 text-[13px] text-gray-600">
+        <p className="mb-3 text-[13px] text-sam-muted">
           커뮤니티 동네 피드 칩·글쓰기 주제·모임 만들기 주제는 이 slug의{" "}
           <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
             피드 주제
           </a>
-          와 연동됩니다. 미설정 시 기본 <code className="rounded bg-gray-100 px-1">dongnae</code>입니다. 저장 위치:{" "}
-          <code className="rounded bg-gray-100 px-1">admin_settings.philife_neighborhood_section</code>
+          와 연동됩니다. 미설정 시 기본 <code className="rounded bg-sam-surface-muted px-1">dongnae</code>입니다. 저장 위치:{" "}
+          <code className="rounded bg-sam-surface-muted px-1">admin_settings.philife_neighborhood_section</code>
         </p>
         <form onSubmit={savePhilifeNeighborhoodSection} className="flex flex-wrap items-end gap-2 text-[13px]">
           <label className="flex flex-col gap-0.5">
-            <span className="text-gray-500">섹션 slug</span>
+            <span className="text-sam-muted">섹션 slug</span>
             <select
-              className="min-w-[200px] rounded border border-gray-200 px-2 py-1.5 font-mono text-[12px]"
+              className="min-w-[200px] rounded border border-sam-border px-2 py-1.5 font-mono text-[12px]"
               value={
                 sections.some(
                   (s) => s.is_active && normalizeSectionSlug(s.slug) === normalizeSectionSlug(philifeSectionSlug)
@@ -194,7 +194,7 @@ export function AdminCommunitySectionsPage({
           <button
             type="submit"
             disabled={busy || !philifeSectionSlug.trim()}
-            className="rounded bg-gray-900 px-3 py-1.5 text-white disabled:opacity-50"
+            className="rounded bg-sam-ink px-3 py-1.5 text-white disabled:opacity-50"
           >
             저장
           </button>
@@ -203,28 +203,28 @@ export function AdminCommunitySectionsPage({
       <AdminCard title="섹션 추가">
         <form onSubmit={onCreate} className="flex flex-wrap items-end gap-2 text-[13px]">
           <label className="flex flex-col gap-0.5">
-            <span className="text-gray-500">이름</span>
+            <span className="text-sam-muted">이름</span>
             <input
-              className="rounded border border-gray-200 px-2 py-1.5"
+              className="rounded border border-sam-border px-2 py-1.5"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="커뮤니티"
             />
           </label>
           <label className="flex flex-col gap-0.5">
-            <span className="text-gray-500">slug (비우면 이름 기준)</span>
+            <span className="text-sam-muted">slug (비우면 이름 기준)</span>
             <input
-              className="rounded border border-gray-200 px-2 py-1.5 font-mono text-[12px]"
+              className="rounded border border-sam-border px-2 py-1.5 font-mono text-[12px]"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               placeholder="dongnae"
             />
           </label>
           <label className="flex flex-col gap-0.5">
-            <span className="text-gray-500">정렬</span>
+            <span className="text-sam-muted">정렬</span>
             <input
               type="number"
-              className="w-20 rounded border border-gray-200 px-2 py-1.5"
+              className="w-20 rounded border border-sam-border px-2 py-1.5"
               value={sortOrder}
               onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
             />
@@ -236,7 +236,7 @@ export function AdminCommunitySectionsPage({
           <button
             type="submit"
             disabled={busy}
-            className="rounded bg-gray-900 px-3 py-1.5 text-white disabled:opacity-50"
+            className="rounded bg-sam-ink px-3 py-1.5 text-white disabled:opacity-50"
           >
             추가
           </button>
@@ -245,14 +245,14 @@ export function AdminCommunitySectionsPage({
       <AdminCard title="섹션 목록 (community_sections)">
         {sections.length === 0 ? (
           <p className="text-[13px] text-amber-800">
-            마이그레이션 <code className="rounded bg-gray-100 px-1">20260321120000_community_feed_daangn.sql</code>을
+            마이그레이션 <code className="rounded bg-sam-surface-muted px-1">20260321120000_community_feed_daangn.sql</code>을
             적용하세요.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
               <thead>
-                <tr className="border-b border-gray-200 text-gray-500">
+                <tr className="border-b border-sam-border text-sam-muted">
                   <th className="py-2 pr-2 font-medium">slug</th>
                   <th className="py-2 pr-2 font-medium">이름</th>
                   <th className="py-2 pr-2 font-medium">정렬</th>
@@ -263,7 +263,7 @@ export function AdminCommunitySectionsPage({
               <tbody>
                 {sections.map((s) =>
                   edit?.id === s.id ? (
-                    <tr key={s.id} className="border-b border-gray-100 bg-amber-50/40">
+                    <tr key={s.id} className="border-b border-sam-border-soft bg-amber-50/40">
                       <td className="py-2 pr-2">
                         <input
                           className="w-full rounded border px-1.5 py-1 font-mono text-[12px]"
@@ -302,15 +302,15 @@ export function AdminCommunitySectionsPage({
                         >
                           저장
                         </button>
-                        <button type="button" className="text-gray-500 hover:underline" onClick={() => setEdit(null)}>
+                        <button type="button" className="text-sam-muted hover:underline" onClick={() => setEdit(null)}>
                           취소
                         </button>
                       </td>
                     </tr>
                   ) : (
-                    <tr key={s.id} className="border-b border-gray-100">
+                    <tr key={s.id} className="border-b border-sam-border-soft">
                       <td className="py-2 pr-2 font-mono text-[12px]">{s.slug}</td>
-                      <td className="py-2 pr-2 text-gray-900">{s.name}</td>
+                      <td className="py-2 pr-2 text-sam-fg">{s.name}</td>
                       <td className="py-2 pr-2">{s.sort_order}</td>
                       <td className="py-2 pr-2">{s.is_active ? "Y" : "N"}</td>
                       <td className="py-2">

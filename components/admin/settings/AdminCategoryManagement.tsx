@@ -74,7 +74,7 @@ export function AdminCategoryManagement() {
 
   return (
     <div className="space-y-6">
-      <p className="text-[13px] text-gray-500">
+      <p className="text-[13px] text-sam-muted">
         서비스 상단 카테고리와 하위 카테고리의 노출/정렬을 관리합니다.
       </p>
 
@@ -97,18 +97,18 @@ export function AdminCategoryManagement() {
         />
       </AdminCard>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
+      <div className="flex flex-wrap items-center gap-2 border-t border-sam-border-soft pt-4">
         <button
           type="button"
           onClick={handleSave}
-          className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
         >
           저장
         </button>
         <button
           type="button"
           onClick={handleReset}
-          className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
         >
           초기화
         </button>

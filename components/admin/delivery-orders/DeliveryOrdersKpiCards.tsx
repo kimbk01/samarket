@@ -53,9 +53,9 @@ export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[
   }, [orders]);
 
   const card = (label: string, value: string | number) => (
-    <div className="rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-gray-900">{value}</p>
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
+      <p className="text-xs text-sam-muted">{label}</p>
+      <p className="mt-1 text-lg font-bold text-sam-fg">{value}</p>
     </div>
   );
 
@@ -71,11 +71,11 @@ export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[
         {card("정산 예정(합계)", formatMoneyPhp(data.schedAmt))}
         {card("정산 보류(합계)", formatMoneyPhp(data.heldAmt))}
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm">
-        <p className="text-xs font-semibold text-gray-700">매장별 주문 Top 5</p>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
+        <p className="text-xs font-semibold text-sam-fg">매장별 주문 Top 5</p>
         <ol className="mt-2 space-y-1 text-sm">
           {data.top5.length === 0 ? (
-            <li className="text-gray-500">표시할 주문이 없습니다.</li>
+            <li className="text-sam-muted">표시할 주문이 없습니다.</li>
           ) : (
             data.top5.map(([name, n], i) => (
               <li key={name}>

@@ -24,7 +24,7 @@ export function FeedFallbackStateCard() {
 
   if (states.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         상태가 없습니다.
       </div>
     );
@@ -50,11 +50,11 @@ export function FeedFallbackStateCard() {
                 ? "border-amber-200 bg-amber-50/50"
                 : mode === "fallback"
                   ? "border-emerald-200 bg-emerald-50/50"
-                  : "border-gray-200 bg-white"
+                  : "border-sam-border bg-sam-surface"
             }`}
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-sam-fg">
                 {SURFACE_LABELS[s.surface]}
               </span>
               <span
@@ -63,7 +63,7 @@ export function FeedFallbackStateCard() {
                     ? "bg-amber-100 text-amber-800"
                     : mode === "fallback"
                       ? "bg-emerald-100 text-emerald-800"
-                      : "bg-gray-100 text-gray-600"
+                      : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
                 {MODE_LABELS[mode]}
@@ -71,28 +71,28 @@ export function FeedFallbackStateCard() {
             </div>
             <dl className="space-y-1 text-[13px]">
               <div>
-                <dt className="text-gray-500">활성 버전</dt>
-                <dd className="text-gray-900">
+                <dt className="text-sam-muted">활성 버전</dt>
+                <dd className="text-sam-fg">
                   {activeVersion?.versionName ?? activeVersionId ?? "-"}
                 </dd>
               </div>
               {s.fallbackVersionId && (
                 <div>
-                  <dt className="text-gray-500">Fallback 버전</dt>
-                  <dd className="text-gray-900">
+                  <dt className="text-sam-muted">Fallback 버전</dt>
+                  <dd className="text-sam-fg">
                     {fallbackVersion?.versionName ?? s.fallbackVersionId}
                   </dd>
                 </div>
               )}
               {s.fallbackReason && (
                 <div>
-                  <dt className="text-gray-500">사유</dt>
-                  <dd className="text-gray-700">{s.fallbackReason}</dd>
+                  <dt className="text-sam-muted">사유</dt>
+                  <dd className="text-sam-fg">{s.fallbackReason}</dd>
                 </div>
               )}
               <div>
-                <dt className="text-gray-500">갱신</dt>
-                <dd className="text-gray-500">
+                <dt className="text-sam-muted">갱신</dt>
+                <dd className="text-sam-muted">
                   {new Date(s.updatedAt).toLocaleString("ko-KR")}
                 </dd>
               </div>

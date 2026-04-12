@@ -37,7 +37,7 @@ export function StoreOrderMessengerDeepLink({
       href={href}
       className={
         className ??
-        "inline-flex w-full items-center justify-center rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-sm font-semibold text-gray-900 shadow-sm"
+        "inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-sm font-semibold text-sam-fg shadow-sm"
       }
     >
       {label}

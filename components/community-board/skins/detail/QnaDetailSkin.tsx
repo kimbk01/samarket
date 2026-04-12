@@ -9,17 +9,17 @@ export function QnaDetailSkin({
   showReport = true,
 }: BoardDetailSkinProps) {
   return (
-    <article className="bg-white rounded-ui-rect border border-gray-200 overflow-hidden">
+    <article className="bg-sam-surface rounded-ui-rect border border-sam-border overflow-hidden">
       <div className="p-4 border-l-4 border-blue-500 bg-blue-50/50">
         <span className="text-xs font-semibold text-blue-700 uppercase">Question</span>
-        <h1 className="text-xl font-semibold text-gray-900 mt-1">{post.title}</h1>
-        <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+        <h1 className="text-xl font-semibold text-sam-fg mt-1">{post.title}</h1>
+        <div className="flex items-center gap-2 mt-2 text-sm text-sam-muted">
           {post.author?.name && <span>{post.author.name}</span>}
           <span>{new Date(post.created_at).toLocaleString("ko-KR")}</span>
         </div>
       </div>
       <div className="p-4">
-        <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+        <div className="prose prose-sm max-w-none text-sam-fg whitespace-pre-wrap">
           {post.content}
         </div>
         {post.images && post.images.length > 0 && (
@@ -33,13 +33,13 @@ export function QnaDetailSkin({
         )}
       </div>
       <footer className="px-4 py-3 border-t flex gap-2">
-        {showLike && <button type="button" className="text-sm text-gray-600">좋아요</button>}
+        {showLike && <button type="button" className="text-sm text-sam-muted">좋아요</button>}
         {showComments && (
-          <a href="#community-post-comments" className="text-sm text-gray-600 hover:text-gray-900">
+          <a href="#community-post-comments" className="text-sm text-sam-muted hover:text-sam-fg">
             댓글
           </a>
         )}
-        {showReport && <button type="button" className="text-sm text-gray-500 ml-auto">신고</button>}
+        {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">신고</button>}
       </footer>
     </article>
   );

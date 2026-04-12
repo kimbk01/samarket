@@ -42,13 +42,13 @@ export function OpsRoutineTemplateTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">카테고리</span>
+        <span className="text-[13px] text-sam-muted">카테고리</span>
         <select
           value={category}
           onChange={(e) =>
             setCategory((e.target.value || "") as OpsRoutineCategory | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           {categories.map((c) => (
             <option key={c.value || "all"} value={c.value}>
@@ -56,13 +56,13 @@ export function OpsRoutineTemplateTable() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-gray-600">주기</span>
+        <span className="text-[13px] text-sam-muted">주기</span>
         <select
           value={cadence}
           onChange={(e) =>
             setCadence((e.target.value || "") as OpsRoutineCadence | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="weekly">주간</option>
@@ -72,7 +72,7 @@ export function OpsRoutineTemplateTable() {
       </div>
 
       {templates.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 조건 템플릿이 없습니다.
         </div>
       ) : (
@@ -88,26 +88,26 @@ export function OpsRoutineTemplateTable() {
           ]}
         >
           {templates.map((t) => (
-            <tr key={t.id} className="border-b border-gray-100">
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+            <tr key={t.id} className="border-b border-sam-border-soft">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {t.title}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getCategoryLabel(t.category)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getCadenceLabel(t.cadence)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getPriorityLabel(t.defaultPriority)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {t.slaDays ?? "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {t.defaultOwnerRole || "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {t.isActive ? "Y" : "N"}
               </td>
             </tr>

@@ -78,14 +78,14 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
       </button>
       {open ? (
         <ul
-          className="absolute right-0 top-full z-[25] mt-1 min-w-[168px] rounded-ui-rect border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 top-full z-[25] mt-1 min-w-[168px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg"
           role="menu"
         >
           <li role="presentation">
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+              className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
               disabled={busy}
               onClick={(e) => {
                 e.preventDefault();
@@ -100,7 +100,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-4 py-2.5 text-left text-[14px] text-red-600 hover:bg-gray-50 disabled:opacity-50"
+              className="block w-full px-4 py-2.5 text-left text-[14px] text-red-600 hover:bg-sam-app disabled:opacity-50"
               disabled={busy}
               onClick={(e) => {
                 e.preventDefault();

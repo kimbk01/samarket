@@ -18,7 +18,7 @@ export function ExperimentMetricsCards() {
 
   if (experiments.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         실험이 없습니다.
       </div>
     );
@@ -27,11 +27,11 @@ export function ExperimentMetricsCards() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-gray-700">실험</label>
+        <label className="text-[14px] font-medium text-sam-fg">실험</label>
         <select
           value={effectiveId}
           onChange={(e) => setExperimentId(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {experiments.map((e) => (
             <option key={e.id} value={e.id}>
@@ -41,7 +41,7 @@ export function ExperimentMetricsCards() {
         </select>
       </div>
       {effectiveMetrics.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           해당 실험의 성과 데이터가 없습니다.
         </div>
       ) : (
@@ -51,12 +51,12 @@ export function ExperimentMetricsCards() {
             return (
               <div
                 key={m.id}
-                className="rounded-ui-rect border border-gray-200 bg-white p-4"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
               >
-                <p className="text-[14px] font-medium text-gray-900">
+                <p className="text-[14px] font-medium text-sam-fg">
                   {version?.versionName ?? m.versionId}
                 </p>
-                <dl className="mt-2 space-y-1 text-[13px] text-gray-700">
+                <dl className="mt-2 space-y-1 text-[13px] text-sam-fg">
                   <div className="flex justify-between">
                     <dt>배정 사용자</dt>
                     <dd>{m.assignedUsers}</dd>

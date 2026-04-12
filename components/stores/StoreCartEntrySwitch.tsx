@@ -59,7 +59,7 @@ export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
 
   if (state.kind === "load") {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-gray-500">불러오는 중…</div>
+      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-sam-muted">불러오는 중…</div>
     );
   }
   if (state.kind === "real") {

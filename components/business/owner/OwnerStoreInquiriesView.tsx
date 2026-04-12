@@ -146,11 +146,11 @@ export function OwnerStoreInquiriesView() {
   }
 
   if (state.kind === "loading") {
-    return <p className="text-sm text-gray-500">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
   }
   if (state.kind === "unauth") {
     return (
-      <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
         <p>로그인 후 고객 문의를 확인하고 바로 답변할 수 있습니다.</p>
         <Link href={loginHref} className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white">
           로그인하고 문의 보기
@@ -159,11 +159,11 @@ export function OwnerStoreInquiriesView() {
     );
   }
   if (state.kind === "config") {
-    return <p className="text-sm text-gray-600">서버 설정을 확인해 주세요.</p>;
+    return <p className="text-sm text-sam-muted">서버 설정을 확인해 주세요.</p>;
   }
   if (state.kind === "no_store") {
     return (
-      <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
         <p>등록된 매장이 없습니다.</p>
         <Link href="/my/business/apply" className="mt-2 inline-block text-signature">
           매장 신청
@@ -184,28 +184,28 @@ export function OwnerStoreInquiriesView() {
 
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
-      <p className="text-sm text-gray-600">{state.storeName}</p>
+      <p className="text-sm text-sam-muted">{state.storeName}</p>
       {state.rows.length === 0 ? (
-        <p className="rounded-ui-rect bg-white p-6 text-sm text-gray-500 shadow-sm">받은 문의가 없습니다.</p>
+        <p className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">받은 문의가 없습니다.</p>
       ) : (
         <ul className={OWNER_STORE_STACK_Y_CLASS}>
           {state.rows.map((r) => (
-            <li key={r.id} className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
-              <p className="text-xs text-gray-500">
+            <li key={r.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+              <p className="text-xs text-sam-muted">
                 {STATUS_LABEL[r.status] ?? r.status} ·{" "}
                 <span className="font-mono text-[11px]">{r.from_user_id}</span>
               </p>
-              <p className="mt-1 text-sm font-semibold text-gray-900">{r.subject}</p>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">{r.content}</p>
-              <p className="mt-1 text-[11px] text-gray-400">{formatDate(r.created_at)}</p>
+              <p className="mt-1 text-sm font-semibold text-sam-fg">{r.subject}</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
+              <p className="mt-1 text-[11px] text-sam-meta">{formatDate(r.created_at)}</p>
               {r.answer ? (
-                <div className="mt-2 rounded-ui-rect bg-gray-50 px-3 py-2 text-sm text-gray-800">
-                  <span className="text-xs text-gray-500">내 답변</span>
+                <div className="mt-2 rounded-ui-rect bg-sam-app px-3 py-2 text-sm text-sam-fg">
+                  <span className="text-xs text-sam-muted">내 답변</span>
                   <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                 </div>
               ) : null}
               {r.status === "open" || r.status === "answered" ? (
-                <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                <div className="mt-3 space-y-2 border-t border-sam-border-soft pt-3">
                   <textarea
                     value={draftById[r.id] ?? ""}
                     onChange={(e) =>
@@ -214,7 +214,7 @@ export function OwnerStoreInquiriesView() {
                     placeholder="답변을 입력하세요"
                     rows={3}
                     disabled={busyId !== null}
-                    className="w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
+                    className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
                   />
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -229,7 +229,7 @@ export function OwnerStoreInquiriesView() {
                       type="button"
                       disabled={busyId !== null}
                       onClick={() => void closeThread(r.id)}
-                      className="rounded-ui-rect border border-gray-200 px-4 py-2 text-sm text-gray-700"
+                      className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm text-sam-fg"
                     >
                       종료
                     </button>

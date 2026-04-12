@@ -131,8 +131,8 @@ export function AdminNotificationSoundPreview({
         >
           {playing ? (
             <span className="flex gap-0.5" aria-hidden>
-              <span className="h-4 w-1 rounded-sm bg-white" />
-              <span className="h-4 w-1 rounded-sm bg-white" />
+              <span className="h-4 w-1 rounded-sm bg-sam-surface" />
+              <span className="h-4 w-1 rounded-sm bg-sam-surface" />
             </span>
           ) : (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

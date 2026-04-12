@@ -37,7 +37,7 @@ export function LeaveContent() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[14px] text-gray-600">
+      <p className="text-[14px] text-sam-muted">
         탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.
       </p>
       {submittedAt ? (
@@ -57,7 +57,7 @@ export function LeaveContent() {
         <div className="flex gap-2">
           <Link
             href={MYPAGE_MAIN_HREF}
-            className="rounded-ui-rect border border-gray-300 px-4 py-2 text-[14px] font-medium text-gray-700"
+            className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] font-medium text-sam-fg"
           >
             취소
           </Link>
@@ -78,7 +78,7 @@ export function LeaveContent() {
               type="button"
               disabled={submitting}
               onClick={() => setStep(1)}
-              className="rounded border border-gray-300 px-3 py-1.5 text-[14px] text-gray-700"
+              className="rounded border border-sam-border px-3 py-1.5 text-[14px] text-sam-fg"
             >
               취소
             </button>

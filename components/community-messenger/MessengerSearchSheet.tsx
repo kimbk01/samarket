@@ -15,7 +15,11 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 
 function EmptyHint({ children }: { children: string }) {
-  return <p className="py-1 text-[11px] leading-snug text-ui-muted">{children}</p>;
+  return (
+    <p className="rounded-[var(--messenger-radius-sm)] bg-[color:var(--messenger-surface-muted)] py-2 px-2 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+      {children}
+    </p>
+  );
 }
 
 function MessengerSearchSection({
@@ -27,7 +31,9 @@ function MessengerSearchSection({
 }) {
   return (
     <section className="space-y-1">
-      <h3 className="text-[10px] font-semibold uppercase tracking-wide text-ui-muted">{title}</h3>
+      <h3 className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
+        {title}
+      </h3>
       {children}
     </section>
   );
@@ -94,12 +100,16 @@ function SearchActionsSheet({
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
 }) {
-  const row = "w-full rounded-ui-rect px-4 py-3 text-left text-[15px] text-ui-fg active:bg-ui-hover";
+  const row =
+    "w-full rounded-[var(--messenger-radius-md)] px-4 py-3 text-left text-[15px] text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-primary-soft)]";
 
   return (
     <div className="fixed inset-0 z-[44] flex flex-col justify-end bg-black/30" role="dialog" aria-modal="true">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onDismiss} />
-      <div className="rounded-t-[12px] border border-ui-border bg-ui-surface pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--ui-shadow-card)]">
+      <div
+        data-messenger-shell
+        className="rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--messenger-shadow-soft)]"
+      >
         {action.kind === "recent" ? (
           <nav className="flex flex-col p-1" aria-label="최근 검색 작업">
             <button
@@ -213,7 +223,11 @@ function SearchActionsSheet({
             </button>
           </nav>
         ) : null}
-        <button type="button" className="mt-1 w-full border-t border-ui-border py-2.5 text-[14px] text-ui-muted" onClick={onDismiss}>
+        <button
+          type="button"
+          className="mt-1 w-full border-t border-[color:var(--messenger-divider)] py-2.5 text-[14px] text-[color:var(--messenger-text-secondary)]"
+          onClick={onDismiss}
+        >
           취소
         </button>
       </div>
@@ -239,7 +253,8 @@ function RecentChip({
         if (consumeClickSuppression()) return;
         onApply();
       }}
-      className="rounded-ui-rect border border-ui-border bg-ui-page px-2.5 py-1.5 text-[12px] text-ui-fg active:bg-ui-hover"
+      className="rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 py-1.5 text-[12px] active:bg-[color:var(--messenger-primary-soft)]"
+      style={{ color: "var(--messenger-text)" }}
     >
       {term}
     </button>
@@ -272,22 +287,28 @@ function FriendSearchRow({
         onClose();
         onSelectFriend(friend);
       }}
-      className="flex w-full items-center justify-between gap-2 border-b border-ui-border px-2.5 py-2 text-left last:border-b-0 active:bg-ui-hover"
+      className="flex w-full items-center justify-between gap-2 border-b border-[color:var(--messenger-divider)] px-2.5 py-2 text-left last:border-b-0 active:bg-[color:var(--messenger-primary-soft)]"
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate text-[13px] font-medium text-ui-fg">{friend.label}</p>
-          <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] font-medium text-ui-muted">친구</span>
+          <p className="truncate text-[13px] font-medium text-[color:var(--messenger-text)]">{friend.label}</p>
+          <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[color:var(--messenger-primary)]">
+            친구
+          </span>
           {friend.isFavoriteFriend ? (
-            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">★</span>
+            <span className="rounded-full bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[9px] text-[color:var(--messenger-text-secondary)]">
+              ★
+            </span>
           ) : null}
           {friend.isHiddenFriend ? (
-            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">숨김</span>
+            <span className="rounded-full bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[9px] text-[color:var(--messenger-text-secondary)]">
+              숨김
+            </span>
           ) : null}
         </div>
-        <p className="truncate text-[11px] text-ui-muted">{friend.subtitle ?? ""}</p>
+        <p className="truncate text-[11px] text-[color:var(--messenger-text-secondary)]">{friend.subtitle ?? ""}</p>
       </div>
-      <span className="text-[10px] text-ui-muted">열기</span>
+      <span className="text-[10px] text-[color:var(--messenger-text-secondary)]">열기</span>
     </button>
   );
 }
@@ -318,19 +339,25 @@ function OpenGroupSearchRow({
         onClose();
         onSelectOpenGroup(group.id);
       }}
-      className="flex w-full items-center justify-between gap-2 border-b border-ui-border px-2.5 py-2 text-left last:border-b-0 active:bg-ui-hover"
+      className="flex w-full items-center justify-between gap-2 border-b border-[color:var(--messenger-divider)] px-2.5 py-2 text-left last:border-b-0 active:bg-[color:var(--messenger-primary-soft)]"
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate text-[13px] font-medium text-ui-fg">{group.title}</p>
-          <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">오픈</span>
+          <p className="truncate text-[13px] font-medium text-[color:var(--messenger-text)]">{group.title}</p>
+          <span className="rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
+            오픈
+          </span>
           {group.isJoined ? (
-            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">참여</span>
+            <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[9px] font-medium text-[color:var(--messenger-primary)]">
+              참여
+            </span>
           ) : null}
         </div>
-        <p className="truncate text-[11px] text-ui-muted">{group.summary || `${group.ownerLabel} · ${group.memberCount}명`}</p>
+        <p className="truncate text-[11px] text-[color:var(--messenger-text-secondary)]">
+          {group.summary || `${group.ownerLabel} · ${group.memberCount}명`}
+        </p>
       </div>
-      <span className="text-[10px] text-ui-muted">{group.isJoined ? "입장" : "보기"}</span>
+      <span className="text-[10px] font-medium text-[color:var(--messenger-primary)]">{group.isJoined ? "입장" : "보기"}</span>
     </button>
   );
 }
@@ -361,19 +388,19 @@ function MessageHitRow({
         onClose();
         onSelectMessageRoom(item.room.id);
       }}
-      className="flex w-full items-center justify-between gap-2 border-b border-ui-border px-2.5 py-2 text-left last:border-b-0 active:bg-ui-hover"
+      className="flex w-full items-center justify-between gap-2 border-b border-[color:var(--messenger-divider)] px-2.5 py-2 text-left last:border-b-0 active:bg-[color:var(--messenger-primary-soft)]"
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate text-[13px] font-medium text-ui-fg">{item.room.title}</p>
-          <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">
+          <p className="truncate text-[13px] font-medium text-[color:var(--messenger-text)]">{item.room.title}</p>
+          <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[9px] font-medium text-[color:var(--messenger-primary)]">
             {getRoomTypeBadgeLabel(item.room)}
           </span>
         </div>
-        <p className="truncate text-[11px] text-ui-muted">{item.preview}</p>
+        <p className="truncate text-[11px] text-[color:var(--messenger-text-secondary)]">{item.preview}</p>
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-[10px] text-ui-muted tabular-nums">{formatConversationTimestamp(item.lastEventAt)}</p>
+        <p className="text-[10px] tabular-nums text-[color:var(--messenger-text-secondary)]">{formatConversationTimestamp(item.lastEventAt)}</p>
       </div>
     </button>
   );
@@ -413,8 +440,13 @@ export function MessengerSearchSheet({
     <>
       <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
         <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
-        <div className="max-h-[min(82vh,640px)] overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--ui-shadow-card)]">
-          <p className="text-center text-[15px] font-semibold text-ui-fg">검색</p>
+        <div
+          data-messenger-shell
+          className="max-h-[min(82vh,640px)] overflow-y-auto rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--messenger-shadow-soft)]"
+        >
+          <p className="text-center text-[15px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+            검색
+          </p>
           <input
             value={keyword}
             onChange={(e) => onKeywordChange(e.target.value)}
@@ -425,7 +457,8 @@ export function MessengerSearchSheet({
               }
             }}
             placeholder="친구, 방, 메시지, 오픈채팅"
-            className="mt-2 min-h-[var(--ui-tap-min)] w-full rounded-ui-rect border border-ui-border bg-ui-page px-2.5 text-[14px] text-ui-fg outline-none placeholder:text-ui-muted"
+            className="mt-2 min-h-[var(--ui-tap-min)] w-full rounded-[var(--messenger-radius-md)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2.5 text-[14px] outline-none transition-[box-shadow,border-color] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
+            style={{ color: "var(--messenger-text)" }}
           />
           <div className="mt-2 space-y-2.5">
             {!queryActive ? (
@@ -449,7 +482,7 @@ export function MessengerSearchSheet({
               <>
                 <MessengerSearchSection title="친구">
                   {searchFriendMatches.length ? (
-                    <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
+                    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
                       {searchFriendMatches.map((friend) => (
                         <FriendSearchRow
                           key={`friend-search-${friend.id}`}
@@ -468,7 +501,7 @@ export function MessengerSearchSheet({
                 </MessengerSearchSection>
                 <MessengerSearchSection title="채팅방">
                   {searchRoomMatches.length ? (
-                    <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
+                    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
                       {searchRoomMatches.map((item) => (
                         <MessengerChatListItem
                           key={`search-room-${item.room.id}`}
@@ -490,7 +523,7 @@ export function MessengerSearchSheet({
                 </MessengerSearchSection>
                 <MessengerSearchSection title="오픈채팅">
                   {searchOpenChatMatches.length ? (
-                    <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
+                    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
                       {searchOpenChatMatches.map((group) => (
                         <OpenGroupSearchRow
                           key={`search-open-${group.id}`}
@@ -509,7 +542,7 @@ export function MessengerSearchSheet({
                 </MessengerSearchSection>
                 <MessengerSearchSection title="메시지">
                   {searchMessageMatches.length ? (
-                    <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
+                    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
                       {searchMessageMatches.map((item) => (
                         <MessageHitRow
                           key={`search-message-${item.room.id}`}
@@ -529,7 +562,12 @@ export function MessengerSearchSheet({
               </>
             )}
           </div>
-          <button type="button" className="mt-2 w-full py-2 text-[13px] text-ui-muted" onClick={onClose}>
+          <button
+            type="button"
+            className="mt-2 w-full py-2 text-[13px]"
+            style={{ color: "var(--messenger-text-secondary)" }}
+            onClick={onClose}
+          >
             닫기
           </button>
         </div>

@@ -50,13 +50,13 @@ export function ProductBacklogBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">카테고리</span>
+        <span className="text-[13px] text-sam-muted">카테고리</span>
         <select
           value={categoryFilter}
           onChange={(e) =>
             setCategoryFilter((e.target.value || "") as ProductFeedbackCategory | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="onboarding">온보딩</option>
@@ -70,13 +70,13 @@ export function ProductBacklogBoard() {
           <option value="performance">성능</option>
           <option value="bug">버그</option>
         </select>
-        <span className="text-[13px] text-gray-600">상태</span>
+        <span className="text-[13px] text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as ProductBacklogStatus | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체 칸반</option>
           <option value="inbox">인박스</option>
@@ -88,7 +88,7 @@ export function ProductBacklogBoard() {
       </div>
 
       {allItems.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           백로그 항목이 없습니다.
         </div>
       ) : (
@@ -96,11 +96,11 @@ export function ProductBacklogBoard() {
           {columnsToShow.map((status) => (
             <div
               key={status}
-              className="min-w-[200px] rounded-ui-rect border border-gray-200 bg-gray-50/50 p-3"
+              className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-app/50 p-3"
             >
-              <h3 className="mb-2 text-[13px] font-medium text-gray-700">
+              <h3 className="mb-2 text-[13px] font-medium text-sam-fg">
                 {getBacklogStatusLabel(status)}
-                <span className="ml-1 text-gray-500">
+                <span className="ml-1 text-sam-muted">
                   ({byStatus[status]?.length ?? 0})
                 </span>
               </h3>

@@ -10,7 +10,7 @@ interface PointLedgerListProps {
 export function PointLedgerList({ entries }: PointLedgerListProps) {
   if (entries.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
         포인트 거래내역이 없습니다.
       </div>
     );
@@ -21,26 +21,26 @@ export function PointLedgerList({ entries }: PointLedgerListProps) {
       {entries.map((e) => (
         <li
           key={e.id}
-          className="flex items-center justify-between border-b border-gray-100 py-3 text-[14px]"
+          className="flex items-center justify-between border-b border-sam-border-soft py-3 text-[14px]"
         >
           <div>
-            <p className="font-medium text-gray-900">
+            <p className="font-medium text-sam-fg">
               {POINT_LEDGER_ENTRY_LABELS[e.entryType]} {e.description}
             </p>
-            <p className="text-[12px] text-gray-500">
+            <p className="text-[12px] text-sam-muted">
               {new Date(e.createdAt).toLocaleString("ko-KR")}
             </p>
           </div>
           <div className="text-right">
             <p
               className={
-                e.amount > 0 ? "font-semibold text-emerald-600" : "font-semibold text-gray-700"
+                e.amount > 0 ? "font-semibold text-emerald-600" : "font-semibold text-sam-fg"
               }
             >
               {e.amount > 0 ? "+" : ""}
               {e.amount.toLocaleString()}P
             </p>
-            <p className="text-[12px] text-gray-500">
+            <p className="text-[12px] text-sam-muted">
               잔액 {e.balanceAfter.toLocaleString()}P
             </p>
           </div>

@@ -21,7 +21,7 @@ export function AdminReleaseNotesPage() {
   return (
     <>
       <AdminPageHeader title="릴리즈 노트" />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -30,7 +30,7 @@ export function AdminReleaseNotesPage() {
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {tab.label}

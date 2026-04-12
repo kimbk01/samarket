@@ -61,15 +61,15 @@ export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityW
   const backHref = getCategoryHref(category);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-sam-app pb-24">
       <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
       <form
         onSubmit={handleSubmit}
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
       >
         <ImageUploader value={images} onChange={setImages} label="사진 (선택)" />
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
-          <label className="mb-2 block text-[14px] font-medium text-gray-800">
+        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+          <label className="mb-2 block text-[14px] font-medium text-sam-fg">
             제목 <span className="text-red-500">*</span>
           </label>
           <input
@@ -78,13 +78,13 @@ export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityW
             onChange={(e) => setTitle(e.target.value)}
             placeholder="제목"
             maxLength={100}
-            className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
             aria-invalid={!!errors.title}
           />
           {errors.title && <p className="mt-1 text-[13px] text-red-500">{errors.title}</p>}
         </section>
-        <section className="border-b border-gray-100 bg-white px-4 py-4">
-          <label className="mb-2 block text-[14px] font-medium text-gray-800">
+        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+          <label className="mb-2 block text-[14px] font-medium text-sam-fg">
             내용 <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -92,7 +92,7 @@ export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityW
             onChange={(e) => setContent(e.target.value)}
             placeholder="내용을 입력해 주세요"
             rows={6}
-            className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
             aria-invalid={!!errors.content}
           />
           {errors.content && <p className="mt-1 text-[13px] text-red-500">{errors.content}</p>}

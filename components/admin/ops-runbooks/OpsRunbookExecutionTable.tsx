@@ -46,28 +46,28 @@ export function OpsRunbookExecutionTable({
 
   if (executions.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         실행 이력이 없습니다. 문서에서 런북을 시작해 주세요.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">문서</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">연결</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">시작</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">담당</th>
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">문서</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">유형</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">연결</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">시작</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">담당</th>
           </tr>
         </thead>
         <tbody>
           {executions.map((e) => (
-            <tr key={e.id} className="border-b border-gray-100 hover:bg-gray-50">
+            <tr key={e.id} className="border-b border-sam-border-soft hover:bg-sam-app">
               <td className="px-3 py-2.5">
                 <Link
                   href={`/admin/ops-runbooks/${e.id}`}
@@ -76,10 +76,10 @@ export function OpsRunbookExecutionTable({
                   {e.documentTitle}
                 </Link>
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {DOC_TYPE_LABELS[e.documentType]}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {LINKED_LABELS[e.linkedType]}
                 {e.linkedId && ` · ${e.linkedId}`}
               </td>
@@ -92,16 +92,16 @@ export function OpsRunbookExecutionTable({
                         ? "bg-amber-50 text-amber-800"
                         : e.executionStatus === "aborted"
                           ? "bg-red-50 text-red-800"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {STATUS_LABELS[e.executionStatus]}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-gray-600">
+              <td className="px-3 py-2.5 text-sam-muted">
                 {new Date(e.startedAt).toLocaleString("ko-KR")}
               </td>
-              <td className="px-3 py-2.5 text-gray-600">
+              <td className="px-3 py-2.5 text-sam-muted">
                 {e.startedByAdminNickname}
               </td>
             </tr>

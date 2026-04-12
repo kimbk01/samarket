@@ -146,12 +146,12 @@ export function StoreVerticalDiscoveryCard({
           }
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
             {store.isFeatured ?
-              <span className="rounded-ui-rect bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-[#1877F2] shadow-sm dark:bg-[#242526]/95 dark:text-[#4599FF]">
+              <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 text-[11px] font-semibold text-[#1877F2] shadow-sm dark:bg-[#242526]/95 dark:text-[#4599FF]">
                 추천
               </span>
             : null}
             {adHint ?
-              <span className="rounded-ui-rect bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-[#050505] shadow-sm dark:bg-[#242526]/95 dark:text-[#E4E6EB]">
+              <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 text-[11px] font-semibold text-[#050505] shadow-sm dark:bg-[#242526]/95 dark:text-[#E4E6EB]">
                 {adHint}
               </span>
             : null}

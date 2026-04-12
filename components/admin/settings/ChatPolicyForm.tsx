@@ -13,7 +13,7 @@ interface ChatPolicyFormProps {
 export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
   return (
     <div className="space-y-4">
-      <p className="text-[13px] text-gray-500">
+      <p className="text-[13px] text-sam-muted">
         채팅 정책 (6단계 연동 placeholder)
       </p>
       <div className="flex items-center gap-2">
@@ -22,9 +22,9 @@ export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
           id="chatEnabled"
           checked={values.chatEnabled}
           onChange={(e) => onChange("chatEnabled", e.target.checked)}
-          className="rounded border-gray-300"
+          className="rounded border-sam-border"
         />
-        <label htmlFor="chatEnabled" className="text-[14px] text-gray-700">
+        <label htmlFor="chatEnabled" className="text-[14px] text-sam-fg">
           채팅 사용
         </label>
       </div>
@@ -34,14 +34,14 @@ export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
           id="allowChatAfterSold"
           checked={values.allowChatAfterSold}
           onChange={(e) => onChange("allowChatAfterSold", e.target.checked)}
-          className="rounded border-gray-300"
+          className="rounded border-sam-border"
         />
-        <label htmlFor="allowChatAfterSold" className="text-[14px] text-gray-700">
+        <label htmlFor="allowChatAfterSold" className="text-[14px] text-sam-fg">
           판매 완료 후 채팅 허용
         </label>
       </div>
       <div>
-        <label className="block text-[13px] font-medium text-gray-700">
+        <label className="block text-[13px] font-medium text-sam-fg">
           최대 메시지 길이
         </label>
         <input
@@ -51,7 +51,7 @@ export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
           onChange={(e) =>
             onChange("maxMessageLength", Number(e.target.value) || 0)
           }
-          className="mt-1 w-full max-w-xs rounded border border-gray-200 px-3 py-2 text-[14px] text-gray-800"
+          className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
         />
       </div>
     </div>

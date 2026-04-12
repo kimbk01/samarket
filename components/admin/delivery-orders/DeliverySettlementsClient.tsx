@@ -37,7 +37,7 @@ export function DeliverySettlementsClient() {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title="정산 관리" backHref="/admin/delivery-orders" />
-      <p className="mb-3 text-sm text-gray-600">
+      <p className="mb-3 text-sm text-sam-muted">
         보류·해제·정산완료는 각 주문 상세의 운영 액션에서 처리합니다.
       </p>
       <SettlementFilterBar filters={filters} onChange={setFilters} />

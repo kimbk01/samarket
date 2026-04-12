@@ -30,8 +30,8 @@ export function OrderChatProgressStrip({
   const allDone = orderStatus === "completed";
 
   return (
-    <div className="border-b border-gray-100 bg-white px-2 py-2">
-      <p className="mb-1.5 text-center text-[10px] font-medium text-gray-400">주문 진행</p>
+    <div className="border-b border-sam-border-soft bg-sam-surface px-2 py-2">
+      <p className="mb-1.5 text-center text-[10px] font-medium text-sam-meta">주문 진행</p>
       <ol className="mx-auto flex max-w-md items-start justify-between gap-0.5">
         {labels.map((label, i) => {
           const done = !isTerminal && (allDone || i < cur);
@@ -41,19 +41,19 @@ export function OrderChatProgressStrip({
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
                   isTerminal
-                    ? "bg-gray-100 text-gray-300"
+                    ? "bg-sam-surface-muted text-sam-meta"
                     : on
-                      ? "bg-signature text-white ring-2 ring-gray-300"
+                      ? "bg-signature text-white ring-2 ring-sam-border"
                       : done
-                        ? "bg-signature/10 text-gray-800"
-                        : "bg-gray-100 text-gray-400"
+                        ? "bg-signature/10 text-sam-fg"
+                        : "bg-sam-surface-muted text-sam-meta"
                 }`}
               >
                 {isTerminal ? "—" : done ? "✓" : i + 1}
               </span>
               <span
                 className={`text-center text-[9px] font-medium leading-tight sm:text-[10px] ${
-                  isTerminal ? "text-gray-300" : on ? "text-gray-800" : done ? "text-gray-700" : "text-gray-400"
+                  isTerminal ? "text-sam-meta" : on ? "text-sam-fg" : done ? "text-sam-fg" : "text-sam-meta"
                 }`}
               >
                 {label}
@@ -63,7 +63,7 @@ export function OrderChatProgressStrip({
         })}
       </ol>
       {isTerminal ? (
-        <p className="mt-1 text-center text-[10px] text-gray-500">취소·환불 등 처리 단계입니다.</p>
+        <p className="mt-1 text-center text-[10px] text-sam-muted">취소·환불 등 처리 단계입니다.</p>
       ) : null}
     </div>
   );

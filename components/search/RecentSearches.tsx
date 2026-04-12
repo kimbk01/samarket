@@ -36,11 +36,11 @@ export function RecentSearches({ onSelectKeyword }: RecentSearchesProps) {
   return (
     <section className="px-4 py-3">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] font-medium text-gray-700">최근 검색어</p>
+        <p className="text-[13px] font-medium text-sam-fg">최근 검색어</p>
         <button
           type="button"
           onClick={handleClear}
-          className="text-[12px] text-gray-500"
+          className="text-[12px] text-sam-muted"
         >
           전체 삭제
         </button>
@@ -51,13 +51,13 @@ export function RecentSearches({ onSelectKeyword }: RecentSearchesProps) {
             <button
               type="button"
               onClick={() => onSelectKeyword(r.keyword)}
-              className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[13px] text-gray-800"
+              className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg"
             >
               <span>{r.keyword}</span>
               <button
                 type="button"
                 onClick={(e) => handleRemove(e, r.id)}
-                className="rounded-full p-0.5 text-gray-400 hover:text-gray-600"
+                className="rounded-full p-0.5 text-sam-meta hover:text-sam-muted"
                 aria-label="삭제"
               >
                 ×

@@ -12,10 +12,10 @@ const LABELS: Record<BannerStatus, string> = {
 };
 
 const CLASSES: Record<BannerStatus, string> = {
-  draft: "bg-gray-100 text-gray-700",
+  draft: "bg-sam-surface-muted text-sam-fg",
   active: "bg-emerald-50 text-emerald-800",
   paused: "bg-amber-100 text-amber-800",
-  expired: "bg-gray-200 text-gray-600",
+  expired: "bg-sam-border-soft text-sam-muted",
   hidden: "bg-red-50 text-red-700",
 };
 

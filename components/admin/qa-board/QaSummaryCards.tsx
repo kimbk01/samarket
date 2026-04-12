@@ -23,24 +23,24 @@ export function QaSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">Pass Rate</p>
-          <p className="text-[24px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">Pass Rate</p>
+          <p className="text-[24px] font-semibold text-sam-fg">
             {passRate}%
           </p>
-          <p className="mt-1 text-[13px] text-gray-600">
+          <p className="mt-1 text-[13px] text-sam-muted">
             {summary.passedCases} / {summary.totalCases}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">실패 / 차단</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">실패 / 차단</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {summary.failedCases} / {summary.blockedCases}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">Must-Pass</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">Must-Pass</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {summary.mustPassPassed} / {summary.mustPassTotal}
           </p>
           {summary.mustPassPassed < summary.mustPassTotal && (
@@ -56,7 +56,7 @@ export function QaSummaryCards() {
                 : "border-emerald-200 bg-emerald-50/30"
           }`}
         >
-          <p className="text-[12px] text-gray-500">Go-Live QA 판정</p>
+          <p className="text-[12px] text-sam-muted">Go-Live QA 판정</p>
           <p className={`text-[20px] font-semibold ${goClass}`}>
             {getGoLiveQaLabel(summary.goLiveQaDecision)}
           </p>
@@ -69,15 +69,15 @@ export function QaSummaryCards() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">파일럿 운영</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">파일럿 운영</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {summary.pilotDoneCount} / {summary.pilotTotalCount} 완료
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">연결</p>
-          <p className="text-[14px] text-gray-700">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">연결</p>
+          <p className="text-[14px] text-sam-fg">
             <Link href="/admin/launch-readiness" className="text-signature hover:underline">
               런칭 준비
             </Link>
@@ -94,7 +94,7 @@ export function QaSummaryCards() {
       </div>
 
       {summary.latestUpdatedAt && (
-        <p className="text-[12px] text-gray-500">
+        <p className="text-[12px] text-sam-muted">
           최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
         </p>
       )}

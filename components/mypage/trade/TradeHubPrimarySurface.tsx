@@ -5,7 +5,7 @@ import { TradeHubTopTabs } from "@/components/mypage/trade/TradeHubTopTabs";
  */
 export function TradeHubPrimarySurface() {
   const surfaceRing =
-    "overflow-x-hidden rounded-ui-rect border border-ig-border bg-white pb-0 pt-3 text-foreground shadow-[0_2px_16px_rgba(0,0,0,0.06)] md:pt-4";
+    "overflow-x-hidden rounded-ui-rect border border-ig-border bg-sam-surface pb-0 pt-3 text-foreground shadow-[0_2px_16px_rgba(0,0,0,0.06)] md:pt-4";
 
   return (
     <section className={`shrink-0 ${surfaceRing}`} data-trade-hub="primary">

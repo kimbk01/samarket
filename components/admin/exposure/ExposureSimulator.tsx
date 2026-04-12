@@ -37,13 +37,13 @@ export function ExposureSimulator({ onSimulated }: ExposureSimulatorProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-gray-700">
+        <label className="text-[14px] font-medium text-sam-fg">
           surface
         </label>
         <select
           value={surface}
           onChange={(e) => setSurface(e.target.value as ExposureSurface)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {SURFACE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>

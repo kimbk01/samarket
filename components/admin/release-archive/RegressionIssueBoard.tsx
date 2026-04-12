@@ -65,11 +65,11 @@ export function RegressionIssueBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">릴리즈</span>
+        <span className="text-[13px] text-sam-muted">릴리즈</span>
         <select
           value={releaseFilter}
           onChange={(e) => setReleaseFilter(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           {archives.map((a) => (
@@ -78,13 +78,13 @@ export function RegressionIssueBoard() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-gray-600">카테고리</span>
+        <span className="text-[13px] text-sam-muted">카테고리</span>
         <select
           value={categoryFilter}
           onChange={(e) =>
             setCategoryFilter((e.target.value || "") as RegressionCategory | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="auth">인증</option>
@@ -97,13 +97,13 @@ export function RegressionIssueBoard() {
           <option value="admin">관리자</option>
           <option value="ops">운영</option>
         </select>
-        <span className="text-[13px] text-gray-600">상태</span>
+        <span className="text-[13px] text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as RegressionIssueStatus | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체 칸반</option>
           <option value="detected">감지됨</option>
@@ -116,7 +116,7 @@ export function RegressionIssueBoard() {
       </div>
 
       {issues.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 조건의 회귀 이슈가 없습니다.
         </div>
       ) : (
@@ -124,11 +124,11 @@ export function RegressionIssueBoard() {
           {columnsToShow.map((status) => (
             <div
               key={status}
-              className="min-w-[200px] rounded-ui-rect border border-gray-200 bg-gray-50/50 p-3"
+              className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-app/50 p-3"
             >
-              <h3 className="mb-2 text-[13px] font-medium text-gray-700">
+              <h3 className="mb-2 text-[13px] font-medium text-sam-fg">
                 {getRegressionStatusLabel(status)}
-                <span className="ml-1 text-gray-500">
+                <span className="ml-1 text-sam-muted">
                   ({(byStatus[status] ?? []).length})
                 </span>
               </h3>

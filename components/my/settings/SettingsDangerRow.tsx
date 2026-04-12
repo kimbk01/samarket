@@ -13,8 +13,8 @@ export function SettingsDangerRow({ href, icon, label, danger = true }: Settings
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 ${
-        danger ? "text-red-600" : "text-gray-900"
+      className={`flex items-center gap-3 border-b border-sam-border-soft px-4 py-3 text-left last:border-b-0 ${
+        danger ? "text-red-600" : "text-sam-fg"
       }`}
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center text-current opacity-80">
@@ -28,7 +28,7 @@ export function SettingsDangerRow({ href, icon, label, danger = true }: Settings
 
 function ChevronRight() {
   return (
-    <svg className="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 shrink-0 text-sam-meta" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );

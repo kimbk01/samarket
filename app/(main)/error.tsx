@@ -15,10 +15,10 @@ export default function AppError({ error, reset }: ErrorProps) {
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-      <p className="text-[15px] font-medium text-gray-900">
+      <p className="text-[15px] font-medium text-sam-fg">
         문제가 발생했어요
       </p>
-      <p className="mt-2 text-[13px] text-gray-500">
+      <p className="mt-2 text-[13px] text-sam-muted">
         잠시 후 다시 시도해 주세요.
       </p>
       <div className="mt-8 flex flex-col gap-3">

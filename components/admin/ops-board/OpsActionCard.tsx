@@ -47,14 +47,14 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
   return (
     <div
       className={`rounded-ui-rect border p-4 ${
-        isOverdue ? "border-red-200 bg-red-50/50" : "border-gray-200 bg-white"
+        isOverdue ? "border-red-200 bg-red-50/50" : "border-sam-border bg-sam-surface"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="font-medium text-gray-900">{item.title}</h3>
-          <p className="mt-1 text-[13px] text-gray-600">{item.description}</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-gray-500">
+          <h3 className="font-medium text-sam-fg">{item.title}</h3>
+          <p className="mt-1 text-[13px] text-sam-muted">{item.description}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-sam-muted">
             <span>{SOURCE_LABELS[item.sourceType] ?? item.sourceType}</span>
             <span>{PRIORITY_LABELS[item.priority]}</span>
             {item.dueDate && (
@@ -74,7 +74,7 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
               ? "bg-emerald-50 text-emerald-800"
               : item.status === "in_progress"
                 ? "bg-amber-50 text-amber-800"
-                : "bg-gray-100 text-gray-600"
+                : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
           {STATUS_LABELS[item.status]}

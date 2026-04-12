@@ -11,7 +11,7 @@ export function CommunityMetaBar({
   commentCount: number;
 }) {
   return (
-    <div className="flex flex-wrap gap-3 text-[12px] text-gray-500">
+    <div className="flex flex-wrap gap-3 text-[12px] text-sam-muted">
       <span>조회 {viewCount}</span>
       <span>공감 {likeCount}</span>
       <span>댓글 {commentCount}</span>

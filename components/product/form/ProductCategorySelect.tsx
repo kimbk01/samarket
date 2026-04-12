@@ -23,14 +23,14 @@ export function ProductCategorySelect({
   }, []);
 
   return (
-    <section className="border-b border-gray-100 bg-white px-4 py-4">
-      <label className="mb-2 block text-[14px] font-medium text-gray-800">
+    <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+      <label className="mb-2 block text-[14px] font-medium text-sam-fg">
         카테고리 <span className="text-red-500">*</span>
       </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-ui-rect border border-gray-300 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+        className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
         aria-invalid={!!error}
       >
         <option value="">선택</option>

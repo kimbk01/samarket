@@ -30,10 +30,10 @@ export function OrderChatHeader({
 }) {
   return (
     <header
-      className={`${sticky ? "sticky top-0 z-10 " : ""}border-b border-gray-200 bg-white px-3 py-3 shadow-sm`}
+      className={`${sticky ? "sticky top-0 z-10 " : ""}border-b border-sam-border bg-sam-surface px-3 py-3 shadow-sm`}
     >
-      <p className="text-center font-mono text-xs text-gray-400">{orderNo}</p>
-      <p className="mt-0.5 text-center text-sm font-bold text-gray-900">{subtitle}</p>
+      <p className="text-center font-mono text-xs text-sam-meta">{orderNo}</p>
+      <p className="mt-0.5 text-center text-sm font-bold text-sam-fg">{subtitle}</p>
       <p className="mt-1 text-center text-xs text-signature">현재 주문 상태 · {STATUS_KO[orderStatus]}</p>
     </header>
   );

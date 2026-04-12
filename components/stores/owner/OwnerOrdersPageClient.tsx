@@ -50,13 +50,13 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   const filtered = useMemo(() => filterOwnerOrdersByTab(orders, tab), [orders, tab]);
 
   if (gate.kind === "loading" || gate.kind === "idle") {
-    return <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-600">불러오는 중…</div>;
+    return <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">불러오는 중…</div>;
   }
   if (gate.kind === "unauth") {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-700">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-fg">
         로그인이 필요합니다.{" "}
-        <Link className="font-bold text-gray-900 underline" href="/login">
+        <Link className="font-bold text-sam-fg underline" href="/login">
           로그인
         </Link>
       </div>
@@ -64,7 +64,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   }
   if (gate.kind === "not_owner") {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-700">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-fg">
         이 매장에 대한 오너 권한이 없습니다.
       </div>
     );
@@ -84,11 +84,11 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm text-gray-600">주문을 확인하고 상태를 변경할 수 있습니다.</div>
+        <div className="text-sm text-sam-muted">주문을 확인하고 상태를 변경할 수 있습니다.</div>
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-900 hover:bg-gray-50"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-xs font-bold text-sam-fg hover:bg-sam-app"
         >
           새로고침
         </button>
@@ -107,7 +107,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
             type="button"
             onClick={() => setTab(k)}
             className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 ring-inset ${
-              tab === k ? "bg-gray-900 text-white ring-gray-900" : "bg-white text-gray-800 ring-gray-200 hover:bg-gray-50"
+              tab === k ? "bg-sam-ink text-white ring-sam-border" : "bg-sam-surface text-sam-fg ring-sam-border hover:bg-sam-app"
             }`}
           >
             {label}
@@ -120,9 +120,9 @@ export function OwnerOrdersPageClient({ slug }: Props) {
       ) : null}
 
       {loading ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-600">주문 불러오는 중…</div>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">주문 불러오는 중…</div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-sm text-gray-600">표시할 주문이 없습니다.</div>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">표시할 주문이 없습니다.</div>
       ) : (
         <div className="space-y-3">
           {filtered.map((o) => (
@@ -137,8 +137,8 @@ export function OwnerOrdersPageClient({ slug }: Props) {
         </div>
       )}
 
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 text-xs text-gray-600">
-        <div className="font-bold text-gray-900">상태 안내</div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-xs text-sam-muted">
+        <div className="font-bold text-sam-fg">상태 안내</div>
         <div className="mt-2 flex flex-wrap gap-2">
           {(
             [

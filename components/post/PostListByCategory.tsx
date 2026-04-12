@@ -188,7 +188,7 @@ export function PostListByCategory({
 
   if (loading && posts.length === 0) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -237,14 +237,14 @@ export function PostListByCategory({
           type="button"
           onClick={loadMore}
           disabled={loading}
-          className="w-full py-3 text-[14px] text-gray-500 disabled:opacity-50"
+          className="w-full py-3 text-[14px] text-sam-muted disabled:opacity-50"
         >
           {loading ? "불러오는 중…" : "더보기"}
         </button>
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-gray-800 px-4 py-2 text-[14px] text-white shadow-lg">
+        <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg">
           {toast}
         </div>
       )}

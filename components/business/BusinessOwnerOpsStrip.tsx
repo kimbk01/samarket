@@ -34,34 +34,34 @@ export function BusinessOwnerOpsStrip({
 
   return (
     <section
-      className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm"
+      className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
       aria-label="매장 운영 상태"
     >
-      <h2 className="text-[13px] font-semibold text-gray-500">운영·심사 상태</h2>
-      <dl className="mt-3 space-y-2 text-[13px] text-gray-800">
+      <h2 className="text-[13px] font-semibold text-sam-muted">운영·심사 상태</h2>
+      <dl className="mt-3 space-y-2 text-[13px] text-sam-fg">
         <div className="flex justify-between gap-3">
-          <dt className="shrink-0 text-gray-500">매장 심사</dt>
+          <dt className="shrink-0 text-sam-muted">매장 심사</dt>
           <dd className="text-right font-medium">{APPROVAL_LABEL[approval] ?? approval}</dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="shrink-0 text-gray-500">공개 노출</dt>
+          <dt className="shrink-0 text-sam-muted">공개 노출</dt>
           <dd className="text-right font-medium">{visible ? "노출 중" : "비공개"}</dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="shrink-0 text-gray-500">판매(주문)</dt>
+          <dt className="shrink-0 text-sam-muted">판매(주문)</dt>
           <dd className="text-right font-medium">
             {canSell ? "승인됨 · 상품 공개 가능" : SALES_LABEL[sales] ?? sales}
           </dd>
         </div>
         {(profile.storeCategoryName || profile.storeTopicName) && (
-          <div className="flex justify-between gap-3 border-t border-gray-100 pt-2">
-            <dt className="shrink-0 text-gray-500">피드 분류</dt>
+          <div className="flex justify-between gap-3 border-t border-sam-border-soft pt-2">
+            <dt className="shrink-0 text-sam-muted">피드 분류</dt>
             <dd className="text-right">
               {[profile.storeCategoryName, profile.storeTopicName].filter(Boolean).join(" · ")}
             </dd>
           </div>
         )}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-gray-100 pt-2 text-[12px] text-gray-500">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-sam-border-soft pt-2 text-[12px] text-sam-muted">
           {row.delivery_available === true && <span>배달 가능</span>}
           {row.pickup_available !== false && <span>포장·픽업 가능</span>}
           {row.delivery_available !== true && row.pickup_available === false && (

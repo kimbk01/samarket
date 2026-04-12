@@ -49,7 +49,7 @@ export function GalleryForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {needCategory && (
         <div>
-          <label htmlFor="gallery-board-category" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="gallery-board-category" className="mb-1 block text-sm font-medium text-sam-fg">
             카테고리
           </label>
           <select
@@ -57,7 +57,7 @@ export function GalleryForm({
             value={boardCategoryId}
             onChange={(e) => setBoardCategoryId(e.target.value)}
             required
-            className="w-full rounded-ui-rect border border-gray-300 px-3 py-2 text-[14px]"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
             disabled={isSubmitting}
           >
             {boardCategories.map((c) => (
@@ -69,10 +69,10 @@ export function GalleryForm({
         </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">사진</label>
+        <label className="block text-sm font-medium text-sam-fg mb-1">사진</label>
         <div className="flex flex-wrap gap-2">
           {imageUrls.map((url, i) => (
-            <div key={i} className="relative w-20 h-20 rounded overflow-hidden bg-gray-100">
+            <div key={i} className="relative w-20 h-20 rounded overflow-hidden bg-sam-surface-muted">
               <img src={url} alt="" className="w-full h-full object-cover" />
               <button
                 type="button"
@@ -86,14 +86,14 @@ export function GalleryForm({
           <button
             type="button"
             onClick={addImage}
-            className="w-20 h-20 rounded border-2 border-dashed border-gray-300 text-gray-400 flex items-center justify-center text-2xl hover:border-gray-400"
+            className="w-20 h-20 rounded border-2 border-dashed border-sam-border text-sam-meta flex items-center justify-center text-2xl hover:border-sam-border"
           >
             +
           </button>
         </div>
       </div>
       <div>
-        <label htmlFor="gallery-title" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="gallery-title" className="block text-sm font-medium text-sam-fg mb-1">
           제목
         </label>
         <input
@@ -104,12 +104,12 @@ export function GalleryForm({
           required
           maxLength={200}
           placeholder="제목"
-          className="w-full px-3 py-2 border border-gray-300 rounded-ui-rect focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-blue-500"
           disabled={isSubmitting}
         />
       </div>
       <div>
-        <label htmlFor="gallery-content" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="gallery-content" className="block text-sm font-medium text-sam-fg mb-1">
           설명
         </label>
         <textarea
@@ -118,7 +118,7 @@ export function GalleryForm({
           onChange={(e) => setContent(e.target.value)}
           rows={4}
           placeholder="설명 (선택)"
-          className="w-full px-3 py-2 border border-gray-300 rounded-ui-rect focus:ring-2 focus:ring-blue-500 resize-y"
+          className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-blue-500 resize-y"
           disabled={isSubmitting}
         />
       </div>
@@ -130,7 +130,7 @@ export function GalleryForm({
         >
           {isSubmitting ? "등록 중…" : "등록"}
         </button>
-        <Link href={cancelHref} className="px-4 py-2 border border-gray-300 rounded-ui-rect text-gray-700 hover:bg-gray-50">
+        <Link href={cancelHref} className="px-4 py-2 border border-sam-border rounded-ui-rect text-sam-fg hover:bg-sam-app">
           취소
         </Link>
       </div>

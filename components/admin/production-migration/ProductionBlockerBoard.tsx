@@ -26,7 +26,7 @@ export function ProductionBlockerBoard() {
 
   if (!hasAny) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
         차단(blocker) 항목이 없습니다.
       </div>
     );
@@ -36,7 +36,7 @@ export function ProductionBlockerBoard() {
     <div className="space-y-6">
       {blockedTables.length > 0 && (
         <div>
-          <h3 className="mb-2 text-[14px] font-medium text-gray-800">
+          <h3 className="mb-2 text-[14px] font-medium text-sam-fg">
             테이블 차단
           </h3>
           <div className="space-y-3">
@@ -45,18 +45,18 @@ export function ProductionBlockerBoard() {
                 key={t.id}
                 className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
               >
-                <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-600">
+                <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
                   <span>{getDomainLabel(t.domain)}</span>
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                  <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
                     {getTableStatusLabel(t.status)}
                   </span>
                 </div>
-                <p className="mt-1 font-medium text-gray-900">{t.tableName}</p>
+                <p className="mt-1 font-medium text-sam-fg">{t.tableName}</p>
                 <p className="mt-2 text-[14px] text-red-800">
                   {t.blockerReason}
                 </p>
                 {t.note && (
-                  <p className="mt-1 text-[13px] text-gray-600">{t.note}</p>
+                  <p className="mt-1 text-[13px] text-sam-muted">{t.note}</p>
                 )}
               </div>
             ))}
@@ -66,7 +66,7 @@ export function ProductionBlockerBoard() {
 
       {blockedLaunch.length > 0 && (
         <div>
-          <h3 className="mb-2 text-[14px] font-medium text-gray-800">
+          <h3 className="mb-2 text-[14px] font-medium text-sam-fg">
             배포 체크리스트 차단
           </h3>
           <div className="space-y-3">
@@ -75,12 +75,12 @@ export function ProductionBlockerBoard() {
                 key={c.id}
                 className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
               >
-                <p className="font-medium text-gray-900">{c.title}</p>
+                <p className="font-medium text-sam-fg">{c.title}</p>
                 <p className="mt-2 text-[14px] text-red-800">
                   {c.blockerReason}
                 </p>
                 {c.linkedType === "action_item" && c.linkedId && (
-                  <p className="mt-1 text-[12px] text-gray-600">
+                  <p className="mt-1 text-[12px] text-sam-muted">
                     <Link
                       href="/admin/ops-board"
                       className="text-signature hover:underline"
@@ -97,7 +97,7 @@ export function ProductionBlockerBoard() {
 
       {infraWithBlocker.length > 0 && (
         <div>
-          <h3 className="mb-2 text-[14px] font-medium text-gray-800">
+          <h3 className="mb-2 text-[14px] font-medium text-sam-fg">
             인프라 차단
           </h3>
           <div className="space-y-3">
@@ -106,8 +106,8 @@ export function ProductionBlockerBoard() {
                 key={c.id}
                 className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
               >
-                <p className="font-medium text-gray-900">{c.targetName}</p>
-                <p className="mt-1 text-[13px] text-gray-600">
+                <p className="font-medium text-sam-fg">{c.targetName}</p>
+                <p className="mt-1 text-[13px] text-sam-muted">
                   {getInfraCategoryLabel(c.category)}
                 </p>
                 <p className="mt-2 text-[14px] text-red-800">

@@ -38,7 +38,7 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
 
   if (!nodeId || !node) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-center text-[14px] text-sam-muted">
         노드를 선택하면 상세가 표시됩니다.
       </div>
     );
@@ -52,24 +52,24 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
         : null;
 
   return (
-    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[15px] font-medium text-gray-900">{node.title}</h3>
+        <h3 className="text-[15px] font-medium text-sam-fg">{node.title}</h3>
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-sam-meta hover:text-sam-muted"
           >
             ×
           </button>
         )}
       </div>
-      <p className="mt-1 text-[12px] text-gray-500">
+      <p className="mt-1 text-[12px] text-sam-muted">
         {NODE_TYPE_LABELS[node.nodeType]} · {node.refId}
       </p>
       {node.category && (
-        <p className="mt-1 text-[13px] text-gray-600">카테고리: {node.category}</p>
+        <p className="mt-1 text-[13px] text-sam-muted">카테고리: {node.category}</p>
       )}
       {docHref && (
         <Link
@@ -79,11 +79,11 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
           상세 보기 →
         </Link>
       )}
-      <div className="mt-4 border-t border-gray-100 pt-3">
-        <p className="text-[12px] font-medium text-gray-700">
+      <div className="mt-4 border-t border-sam-border-soft pt-3">
+        <p className="text-[12px] font-medium text-sam-fg">
           나가는 관계 {outgoing.length} / 들어오는 관계 {incoming.length}
         </p>
-        <p className="mt-1 text-[12px] text-gray-500">
+        <p className="mt-1 text-[12px] text-sam-muted">
           연결 노드 {connected.length}개
         </p>
       </div>

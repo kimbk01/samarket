@@ -10,7 +10,7 @@ const LABELS: Record<ReviewStatus, string> = {
 
 const CLASSES: Record<ReviewStatus, string> = {
   visible: "bg-emerald-50 text-emerald-800",
-  hidden: "bg-gray-100 text-gray-700",
+  hidden: "bg-sam-surface-muted text-sam-fg",
   reported: "bg-amber-100 text-amber-800",
 };
 

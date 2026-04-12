@@ -30,14 +30,14 @@ export function StoreCommerceCartEntryFallback({
 
   return (
     <div className="min-h-[50vh] bg-[#F7F7F7] px-4 py-10">
-      <p className="text-center text-[15px] font-semibold text-gray-900">{title}</p>
-      <p className="mt-2 text-center text-sm text-gray-600">{sub}</p>
+      <p className="text-center text-[15px] font-semibold text-sam-fg">{title}</p>
+      <p className="mt-2 text-center text-sm text-sam-muted">{sub}</p>
       {hint === "network" && onRetry ? (
         <div className="mt-4 flex justify-center">
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-ui-rect border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium text-sam-fg"
           >
             다시 시도
           </button>

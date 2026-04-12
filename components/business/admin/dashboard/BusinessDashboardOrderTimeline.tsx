@@ -27,8 +27,8 @@ export function BusinessDashboardOrderTimeline({
   if (orders.length === 0) {
     return (
       <section className="space-y-2">
-        <h2 className="text-[15px] font-semibold text-gray-900">최근 주문</h2>
-        <p className="rounded-ui-rect border border-dashed border-gray-200 bg-white px-4 py-8 text-center text-[14px] text-gray-500">
+        <h2 className="text-[15px] font-semibold text-sam-fg">최근 주문</h2>
+        <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-8 text-center text-[14px] text-sam-muted">
           아직 주문이 없습니다.
         </p>
       </section>
@@ -38,7 +38,7 @@ export function BusinessDashboardOrderTimeline({
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between px-0.5">
-        <h2 className="text-[15px] font-semibold text-gray-900">최근 주문</h2>
+        <h2 className="text-[15px] font-semibold text-sam-fg">최근 주문</h2>
         <Link
           href={buildStoreOrdersHref({ storeId })}
           className="text-[13px] font-medium text-signature"
@@ -50,23 +50,23 @@ export function BusinessDashboardOrderTimeline({
         {orders.map((o) => (
           <li
             key={o.id}
-            className="rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-3"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-3"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[13px] font-semibold text-gray-900">{o.order_no}</span>
-                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700">
+                <span className="font-mono text-[13px] font-semibold text-sam-fg">{o.order_no}</span>
+                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
                   {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
                 </span>
               </div>
-              <p className="mt-1 text-[12px] text-gray-500">
+              <p className="mt-1 text-[12px] text-sam-muted">
                 고객 {o.buyer_user_id.slice(0, 8)}… · 결제 {o.payment_status} ·{" "}
                 {formatBuyerPaymentDisplay(o.buyer_payment_method, o.buyer_payment_method_detail)}
               </p>
-              <p className="text-[11px] text-gray-400">{new Date(o.created_at).toLocaleString("ko-KR")}</p>
+              <p className="text-[11px] text-sam-meta">{new Date(o.created_at).toLocaleString("ko-KR")}</p>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-0 sm:shrink-0">
-              <span className="text-[15px] font-bold text-gray-900">
+              <span className="text-[15px] font-bold text-sam-fg">
                 ₱{Math.round(Number(o.payment_amount) || 0).toLocaleString()}
               </span>
               <Link
@@ -74,7 +74,7 @@ export function BusinessDashboardOrderTimeline({
                   storeId,
                   orderId: o.id,
                 })}
-                className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-800"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-medium text-sam-fg"
               >
                 상세
               </Link>

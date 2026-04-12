@@ -155,7 +155,7 @@ export function OrderChatRoomClient({
 
   if (state.kind === "loading") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-gray-50 px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-sam-app px-4">
         <p className="text-sm text-muted">{t("member_order_chat_loading")}</p>
       </div>
     );
@@ -163,14 +163,14 @@ export function OrderChatRoomClient({
 
   if (state.kind === "error") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 px-4 text-center">
-        <p className="text-sm text-gray-700">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-sam-app px-4 text-center">
+        <p className="text-sm text-sam-fg">
           {t("member_order_chat_open_failed")} ({state.message})
         </p>
         <Link href={backHref} className="text-sm font-medium text-signature underline">
           {t("member_order_chat_return_to_detail")}
         </Link>
-        <Link href={orderChatsHref ?? "/my/store-orders"} className="text-sm text-gray-600 underline">
+        <Link href={orderChatsHref ?? "/my/store-orders"} className="text-sm text-sam-muted underline">
           {t("member_orders_chat_list")}
         </Link>
       </div>
@@ -183,7 +183,7 @@ export function OrderChatRoomClient({
 
   return (
     <div className={`flex min-h-screen flex-col ${state.role === "buyer" ? "bg-[#e8e6ef]" : "bg-[#e8edf3]"}`}>
-      <div className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
+      <div className="sticky top-0 z-20 border-b border-sam-border bg-sam-surface shadow-sm">
         <div className="flex items-center gap-2 px-2 py-2">
           <AppBackButton backHref={backHref} />
           <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold">주문 채팅</h1>
@@ -191,13 +191,13 @@ export function OrderChatRoomClient({
         </div>
         <ChatHubTopTabs active="order" orderChatsHref={orderChatsHref ?? "/my/store-orders"} />
         {state.role === "buyer" ? (
-          <p className="border-t border-gray-100 bg-gray-50 px-4 py-2 text-center text-[11px] leading-relaxed text-gray-600">
+          <p className="border-t border-sam-border-soft bg-sam-app px-4 py-2 text-center text-[11px] leading-relaxed text-sam-muted">
             {t("member_order_chat_notice")}
           </p>
         ) : null}
         <OrderChatProgressStrip orderStatus={state.orderStatus} orderFlow={flow} />
         {showMessengerDeepLink ? (
-          <div className="border-t border-gray-100 bg-white px-3 py-2">
+          <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2">
             <button
               type="button"
               disabled={messengerOpenBusy}
@@ -222,7 +222,7 @@ export function OrderChatRoomClient({
                   }
                 })();
               }}
-              className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[13px] font-medium text-gray-900 disabled:opacity-50"
+              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[13px] font-medium text-sam-fg disabled:opacity-50"
             >
               {messengerOpenBusy ? t("nav_messenger_order_bridge_busy") : t("nav_messenger_open_store_order")}
             </button>
@@ -238,7 +238,7 @@ export function OrderChatRoomClient({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <OrderChatMessageList messages={messages as any} perspective={perspective as any} />
       </div>
-      {toast ? <p className="bg-gray-900 px-3 py-2 text-center text-xs text-white">{toast}</p> : null}
+      {toast ? <p className="bg-sam-ink px-3 py-2 text-center text-xs text-white">{toast}</p> : null}
       {state.role === "buyer" ? (
         <div className="mt-auto">
           <MemberChatInput disabled={state.room.room_status === "blocked"} onSend={handleSend} />

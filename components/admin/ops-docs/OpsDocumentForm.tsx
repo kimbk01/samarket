@@ -135,33 +135,33 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-gray-700">제목</label>
+          <label className="mb-1 block text-[12px] font-medium text-sam-fg">제목</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={handleTitleBlur}
             required
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-gray-700">slug</label>
+          <label className="mb-1 block text-[12px] font-medium text-sam-fg">slug</label>
           <input
             type="text"
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
       </div>
       <div className="flex flex-wrap gap-4">
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-gray-700">유형</label>
+          <label className="mb-1 block text-[12px] font-medium text-sam-fg">유형</label>
           <select
             value={docType}
             onChange={(e) => setDocType(e.target.value as OpsDocType)}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             {DOC_TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -169,11 +169,11 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-gray-700">카테고리</label>
+          <label className="mb-1 block text-[12px] font-medium text-sam-fg">카테고리</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as OpsDocCategory)}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             {CATEGORY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -182,11 +182,11 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         </div>
         {!isEdit && (
           <div>
-            <label className="mb-1 block text-[12px] font-medium text-gray-700">상태</label>
+            <label className="mb-1 block text-[12px] font-medium text-sam-fg">상태</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as "draft" | "active")}
-              className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 text-[14px]"
             >
               <option value="draft">초안</option>
               <option value="active">활성</option>
@@ -194,16 +194,16 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
           </div>
         )}
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-gray-700">버전</label>
+          <label className="mb-1 block text-[12px] font-medium text-sam-fg">버전</label>
           <input
             type="text"
             value={versionLabel}
             onChange={(e) => setVersionLabel(e.target.value)}
-            className="w-20 rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-20 rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         <div className="flex items-end gap-2">
-          <label className="flex items-center gap-2 text-[14px] text-gray-700">
+          <label className="flex items-center gap-2 text-[14px] text-sam-fg">
             <input
               type="checkbox"
               checked={isPinned}
@@ -214,40 +214,40 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-gray-700">요약</label>
+        <label className="mb-1 block text-[12px] font-medium text-sam-fg">요약</label>
         <textarea
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           rows={2}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-gray-700">본문</label>
+        <label className="mb-1 block text-[12px] font-medium text-sam-fg">본문</label>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={8}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px] font-mono"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px] font-mono"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-gray-700">태그 (쉼표 구분)</label>
+        <label className="mb-1 block text-[12px] font-medium text-sam-fg">태그 (쉼표 구분)</label>
         <input
           type="text"
           value={tagsStr}
           onChange={(e) => setTagsStr(e.target.value)}
           placeholder="feed, fallback, recommendation"
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-gray-700">관리자 메모</label>
+        <label className="mb-1 block text-[12px] font-medium text-sam-fg">관리자 메모</label>
         <input
           type="text"
           value={adminMemo}
           onChange={(e) => setAdminMemo(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex gap-2">
@@ -260,7 +260,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         <button
           type="button"
           onClick={() => router.back()}
-          className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700"
+          className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg"
         >
           취소
         </button>

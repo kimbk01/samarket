@@ -105,7 +105,7 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
     <div className="space-y-4">
       <AdminPageHeader title="로그 상세" backHref="/admin/audit-logs" />
       {loading ? (
-        <div className="py-8 text-center text-[14px] text-gray-500">불러오는 중…</div>
+        <div className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>
       ) : null}
       {!loading && error ? (
         <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-5 text-[14px] text-red-700">
@@ -113,7 +113,7 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
         </div>
       ) : null}
       {!loading && !error && !log ? (
-        <div className="py-8 text-center text-[14px] text-gray-500">로그를 찾을 수 없습니다.</div>
+        <div className="py-8 text-center text-[14px] text-sam-muted">로그를 찾을 수 없습니다.</div>
       ) : null}
       {log ? (
         <>
@@ -121,37 +121,37 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
       <AdminCard title="기본 정보">
         <dl className="grid gap-2 text-[14px]">
           <div>
-            <dt className="text-gray-500">ID</dt>
-            <dd className="font-medium text-gray-900">{log.id}</dd>
+            <dt className="text-sam-muted">ID</dt>
+            <dd className="font-medium text-sam-fg">{log.id}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">유형</dt>
+            <dt className="text-sam-muted">유형</dt>
             <dd>{CATEGORY_LABELS[log.target_type] ?? log.target_type}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">액션</dt>
+            <dt className="text-sam-muted">액션</dt>
             <dd>{log.action}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">행위자</dt>
+            <dt className="text-sam-muted">행위자</dt>
             <dd>{log.actor_id ? `${log.actor_type} (${log.actor_id})` : log.actor_type}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">대상</dt>
+            <dt className="text-sam-muted">대상</dt>
             <dd>{log.target_id ?? "-"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">IP</dt>
-            <dd className="text-gray-700">{log.ip ?? "-"}</dd>
+            <dt className="text-sam-muted">IP</dt>
+            <dd className="text-sam-fg">{log.ip ?? "-"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">일시</dt>
+            <dt className="text-sam-muted">일시</dt>
             <dd>{new Date(log.created_at).toLocaleString("ko-KR")}</dd>
           </div>
           {log.user_agent ? (
             <div>
-              <dt className="text-gray-500">User-Agent</dt>
-              <dd className="break-all text-gray-700">{log.user_agent}</dd>
+              <dt className="text-sam-muted">User-Agent</dt>
+              <dd className="break-all text-sam-fg">{log.user_agent}</dd>
             </div>
           ) : null}
         </dl>

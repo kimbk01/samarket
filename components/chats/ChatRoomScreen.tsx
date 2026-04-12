@@ -388,13 +388,13 @@ export function ChatRoomScreen({
     embedded && embeddedFill
       ? "flex min-h-[180px] flex-1 flex-col items-center justify-center px-4 text-center"
       : embedded
-        ? "min-h-[240px] rounded-ui-rect border border-gray-100 bg-white"
+        ? "min-h-[240px] rounded-ui-rect border border-sam-border-soft bg-sam-surface"
         : "min-h-[50vh]";
 
   if (!roomId) {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
-        <p className="text-sm text-gray-600">{t("common_invalid_chat_room")}</p>
+        <p className="text-sm text-sam-muted">{t("common_invalid_chat_room")}</p>
         {onListNavigate ? (
           <button type="button" onClick={onListNavigate} className="mt-3 font-medium text-signature underline">
             {t("common_to_list")}
@@ -411,7 +411,7 @@ export function ChatRoomScreen({
   if (resolvedUserId === null) {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
-        <p className="text-sm text-gray-600">{t("common_login_required")}</p>
+        <p className="text-sm text-sam-muted">{t("common_login_required")}</p>
         <Link href="/login" className="mt-3 font-medium text-signature underline">
           {t("common_login")}
         </Link>
@@ -428,11 +428,11 @@ export function ChatRoomScreen({
     const igDmOuter = isStoreOrderChat || !room.generalChat;
     const outerClassReady =
       embedded && embeddedFill
-        ? `flex min-h-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-white" : "bg-[#e8e4df]"}`
+        ? `flex min-h-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-sam-surface" : "bg-[#e8e4df]"}`
         : tradeHubColumnLayout && !embedded
-          ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-white" : "bg-[#e8e4df]"}`
-          : `${igDmOuter ? "bg-white" : "bg-[#e8e4df]"} ${
-              embedded ? "overflow-hidden rounded-ui-rect border border-gray-100 shadow-sm" : viewportClass
+          ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-sam-surface" : "bg-[#e8e4df]"}`
+          : `${igDmOuter ? "bg-sam-surface" : "bg-[#e8e4df]"} ${
+              embedded ? "overflow-hidden rounded-ui-rect border border-sam-border-soft shadow-sm" : viewportClass
             }`;
 
     return (
@@ -485,7 +485,7 @@ export function ChatRoomScreen({
   if (err === "not_found") {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
-        <p className="text-sm text-gray-600">{t("common_chat_room_not_found")}</p>
+        <p className="text-sm text-sam-muted">{t("common_chat_room_not_found")}</p>
         {onListNavigate ? (
           <button type="button" onClick={onListNavigate} className="mt-3 font-medium text-signature underline">
             {t("common_to_list")}
@@ -509,11 +509,11 @@ export function ChatRoomScreen({
           {t("common_retry")}
         </button>
         {onListNavigate ? (
-          <button type="button" onClick={onListNavigate} className="mt-2 text-sm text-gray-600 underline">
+          <button type="button" onClick={onListNavigate} className="mt-2 text-sm text-sam-muted underline">
             {t("common_to_list")}
           </button>
         ) : (
-          <Link href={listHref} replace scroll={false} className="mt-2 text-sm text-gray-600 underline">
+          <Link href={listHref} replace scroll={false} className="mt-2 text-sm text-sam-muted underline">
             {t("common_to_list")}
           </Link>
         )}

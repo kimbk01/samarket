@@ -229,7 +229,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
   if (loading) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         {t("admin_chat_loading_room")}
       </div>
     );
@@ -237,7 +237,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
   if (!room) {
     return (
-      <div className="py-8 text-center text-[14px] text-gray-500">
+      <div className="py-8 text-center text-[14px] text-sam-muted">
         {t("admin_chat_room_not_found")}
       </div>
     );
@@ -257,7 +257,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
       <AdminCard title={t("admin_chat_room_info_card")}>
         <div className="flex gap-4">
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {room.productThumbnail ? (
               <img
                 src={room.productThumbnail}
@@ -267,10 +267,10 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             ) : null}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-gray-900">
+            <p className="text-[15px] font-semibold text-sam-fg">
               {room.productTitle}
             </p>
-            <p className="text-[13px] text-gray-500">ID: {room.id}</p>
+            <p className="text-[13px] text-sam-muted">ID: {room.id}</p>
             {room.roomType ? (
               <p className="text-[12px] text-signature">
                 {t("admin_chat_type_label")}: {room.roomType}
@@ -288,7 +288,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
               </p>
             ) : null}
             <AdminChatRoomStatusBadge status={room.roomStatus} className="mt-2" />
-            <p className="mt-2 text-[13px] text-gray-600">
+            <p className="mt-2 text-[13px] text-sam-muted">
               {t("admin_chat_message_report_count", {
                 messageCount: room.messageCount,
                 reportCount: room.reportCount,
@@ -301,7 +301,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
       <AdminCard title={t("admin_chat_participants")}>
         <dl className="grid gap-2 text-[14px]">
           <div>
-            <dt className="text-gray-500">
+            <dt className="text-sam-muted">
               {room.roomType === "item_trade" || !room.roomType ? t("admin_chat_seller") : t("admin_chat_participant_a")}
             </dt>
             <dd>
@@ -309,7 +309,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">
+            <dt className="text-sam-muted">
               {room.roomType === "item_trade" || !room.roomType ? t("admin_chat_buyer") : t("admin_chat_participant_b")}
             </dt>
             <dd>
@@ -325,7 +325,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
       <AdminCard title={t("admin_chat_admin_memo")}>
         {hasMemo && (
-          <p className="mb-2 text-[13px] text-gray-700">{hasMemo}</p>
+          <p className="mb-2 text-[13px] text-sam-fg">{hasMemo}</p>
         )}
         <div className="flex gap-2">
           <input
@@ -333,12 +333,12 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             placeholder={t("admin_chat_memo_placeholder")}
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
-            className="min-w-0 flex-1 rounded border border-gray-200 px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+            className="min-w-0 flex-1 rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
           />
           <button
             type="button"
             onClick={handleSaveMemo}
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
           >
             {t("admin_chat_save_memo")}
           </button>
@@ -351,13 +351,13 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
       <AdminCard title={t("admin_chat_related_reports")}>
         {roomReports.length === 0 ? (
-          <p className="text-[13px] text-gray-500">{t("admin_chat_no_reports")}</p>
+          <p className="text-[13px] text-sam-muted">{t("admin_chat_no_reports")}</p>
         ) : (
           <ul className="space-y-2">
             {roomReports.map((rp) => (
-              <li key={rp.id} className="flex items-center justify-between gap-2 border-b border-gray-100 py-2 text-[13px]">
-                <span className="min-w-0 flex-1 truncate text-gray-700">{rp.reason_code}</span>
-                <span className="shrink-0 text-gray-500">{rp.status}</span>
+              <li key={rp.id} className="flex items-center justify-between gap-2 border-b border-sam-border-soft py-2 text-[13px]">
+                <span className="min-w-0 flex-1 truncate text-sam-fg">{rp.reason_code}</span>
+                <span className="shrink-0 text-sam-muted">{rp.status}</span>
                 <Link
                   href={`/admin/reports/${rp.id}`}
                   className="shrink-0 font-medium text-signature hover:underline"
@@ -372,13 +372,13 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
       <AdminCard title={t("admin_chat_sanctions_history")}>
         {sanctions.length === 0 ? (
-          <p className="text-[13px] text-gray-500">{t("admin_chat_no_sanctions")}</p>
+          <p className="text-[13px] text-sam-muted">{t("admin_chat_no_sanctions")}</p>
         ) : (
           <ul className="space-y-2 text-[13px]">
             {sanctions.map((s) => (
-              <li key={s.id} className="flex justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">{s.sanction_type}</span>
-                <span className="text-gray-500">
+              <li key={s.id} className="flex justify-between border-b border-sam-border-soft py-2">
+                <span className="text-sam-fg">{s.sanction_type}</span>
+                <span className="text-sam-muted">
                   {new Date(s.created_at).toLocaleString("ko-KR")}
                 </span>
               </li>

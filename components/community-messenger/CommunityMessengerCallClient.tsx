@@ -53,7 +53,7 @@ import {
   takeDetachedCommunityCallCleanup,
 } from "@/lib/community-messenger/direct-call-minimize";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
-import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
+import { CallScreenShell, MESSENGER_CALL_GRADIENT_SURFACE } from "@/components/community-messenger/call-ui/CallScreenShell";
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
@@ -1041,7 +1041,7 @@ export function CommunityMessengerCallClient({
     return (
       <div className="flex min-h-full min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-[#0e0e12] px-6 text-center">
         <div
-          className="h-12 w-12 animate-spin rounded-full border-2 border-white/15 border-t-[#665CAC]"
+          className="h-12 w-12 animate-spin rounded-full border-2 border-sam-surface/15 border-t-[#665CAC]"
           aria-hidden
         />
         <div>
@@ -1083,7 +1083,7 @@ export function CommunityMessengerCallClient({
   return (
     <CallScreenShell
       variant="page"
-      surfaceClassName={videoCall ? "bg-black text-white" : "min-h-full bg-neutral-950 text-white"}
+      surfaceClassName={videoCall ? "bg-black text-white" : `min-h-full text-white ${MESSENGER_CALL_GRADIENT_SURFACE}`}
       className={`flex min-h-0 flex-1 flex-col ${videoCall ? "h-full min-h-0" : ""}`}
     >
       <div
@@ -1094,15 +1094,15 @@ export function CommunityMessengerCallClient({
         }
       >
         {!videoCall ? (
-          <header className="flex shrink-0 items-center justify-between border-b border-white/[0.06] py-3">
+          <header className="flex shrink-0 items-center justify-between border-b border-sam-surface/[0.06] py-3">
             <button
               type="button"
               onClick={() => navigateToChatDuringCall()}
-              className="rounded-full border border-white/18 bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-white/90 transition active:scale-[0.98]"
+              className="rounded-full border border-sam-surface/18 bg-sam-surface/[0.06] px-4 py-2 text-[13px] font-medium text-white/90 transition active:scale-[0.98]"
             >
               채팅으로
             </button>
-            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-white/85">
+            <span className="rounded-full border border-sam-surface/15 bg-sam-surface/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-white/85">
               음성 통화
             </span>
           </header>
@@ -1149,7 +1149,7 @@ export function CommunityMessengerCallClient({
           {session.callKind === "video" ? (
             <div
               ref={videoStageRef}
-              className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-none bg-neutral-950 shadow-none ring-0 sm:min-h-[min(64dvh,600px)] sm:rounded-ui-rect sm:shadow-md sm:ring-1 sm:ring-white/10"
+              className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-none bg-sam-ink shadow-none ring-0 sm:min-h-[min(64dvh,600px)] sm:rounded-ui-rect sm:shadow-md sm:ring-1 sm:ring-sam-surface/10"
             >
               {showCallerMediaGate ? (
                 <CallerMediaGateOverlay
@@ -1180,7 +1180,7 @@ export function CommunityMessengerCallClient({
                         window.alert("브라우저 설정에서 이 사이트의 마이크·카메라 권한을 허용해 주세요.");
                       }
                     }}
-                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.96]"
+                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-sam-surface/15 transition active:scale-[0.96]"
                     aria-label="통화 설정·권한"
                     title="카메라·마이크 권한"
                   >
@@ -1191,7 +1191,7 @@ export function CommunityMessengerCallClient({
                     onClick={() =>
                       window.alert("오디오 출력은 기기 설정에서 바꿀 수 있습니다.")
                     }
-                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.96]"
+                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md ring-1 ring-sam-surface/15 transition active:scale-[0.96]"
                     aria-label="스피커 안내"
                     title="출력 음량·스피커"
                   >
@@ -1200,7 +1200,7 @@ export function CommunityMessengerCallClient({
                   <button
                     type="button"
                     onClick={() => navigateToChatDuringCall()}
-                    className="pointer-events-auto rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-medium text-white/95 backdrop-blur-md ring-1 ring-white/15 transition active:scale-[0.97]"
+                    className="pointer-events-auto rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-medium text-white/95 backdrop-blur-md ring-1 ring-sam-surface/15 transition active:scale-[0.97]"
                   >
                     채팅으로
                   </button>
@@ -1211,7 +1211,7 @@ export function CommunityMessengerCallClient({
                 <button
                   type="button"
                   onClick={() => setLayoutSwapped((v) => !v)}
-                  className="pointer-events-auto absolute right-2 top-[3.25rem] z-[28] flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white/95 shadow-md backdrop-blur-md ring-1 ring-white/12 transition active:scale-95 sm:top-[3.5rem]"
+                  className="pointer-events-auto absolute right-2 top-[3.25rem] z-[28] flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white/95 shadow-md backdrop-blur-md ring-1 ring-sam-surface/12 transition active:scale-95 sm:top-[3.5rem]"
                   aria-label="큰 화면과 작은 화면 바꾸기"
                   title="화면 전환"
                 >
@@ -1225,7 +1225,7 @@ export function CommunityMessengerCallClient({
                   className="h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:min-w-0 [&_video]:!object-cover"
                 />
                 {showLargeVideoOverlay ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-neutral-900 px-4 text-center text-[13px] text-white/75">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-sam-ink px-4 text-center text-[13px] text-white/75">
                     {largeShowsRemote ? (
                       <>
                         <p>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기 중"}</p>
@@ -1254,7 +1254,7 @@ export function CommunityMessengerCallClient({
 
               <div
                 ref={pipWrapRef}
-                className={`absolute z-20 w-[20%] min-w-[76px] max-w-[124px] overflow-hidden rounded-ui-rect border border-white/20 bg-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] sm:w-[21%] sm:min-w-[84px] sm:max-w-[136px] sm:rounded-ui-rect ${
+                className={`absolute z-20 w-[20%] min-w-[76px] max-w-[124px] overflow-hidden rounded-ui-rect border border-sam-surface/20 bg-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] sm:w-[21%] sm:min-w-[84px] sm:max-w-[136px] sm:rounded-ui-rect ${
                   pipPixelPosition
                     ? "right-auto bottom-auto"
                     : joined
@@ -1275,7 +1275,7 @@ export function CommunityMessengerCallClient({
                   className="pointer-events-none h-full w-full bg-black [&_video]:pointer-events-none [&_video]:object-cover"
                 />
                 {showSmallVideoOverlay ? (
-                  <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0.5 bg-neutral-900 px-2 pb-6 text-center text-[11px] leading-snug text-white/72">
+                  <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0.5 bg-sam-ink px-2 pb-6 text-center text-[11px] leading-snug text-white/72">
                     {largeShowsRemote ? (
                       camOff ? (
                         <>
@@ -1309,7 +1309,7 @@ export function CommunityMessengerCallClient({
           ) : (
             <div className="relative z-0 flex flex-1 flex-col items-center justify-center py-4">
               <div
-                className={`relative flex aspect-square w-[min(68vw,264px)] max-w-[280px] shrink-0 items-center justify-center rounded-full bg-neutral-800 text-[clamp(48px,18vw,92px)] font-light text-white/95 ring-1 ring-white/10 ${
+                className={`relative flex aspect-square w-[min(68vw,264px)] max-w-[280px] shrink-0 items-center justify-center rounded-full bg-sam-surface-dark text-[clamp(48px,18vw,92px)] font-light text-white/95 ring-1 ring-sam-surface/10 ${
                   session.status === "ringing" && session.isMineInitiator ? "animate-pulse" : ""
                 }`}
                 aria-hidden
@@ -1324,18 +1324,18 @@ export function CommunityMessengerCallClient({
       <div
         className={
           videoCall
-            ? "w-full shrink-0 border-t border-white/[0.08] bg-black/85 px-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom,0px)+0.35rem))] pt-2 backdrop-blur-md"
-            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/10 bg-neutral-950/95 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))] pt-3 backdrop-blur-sm"
+            ? "w-full shrink-0 border-t border-sam-surface/[0.08] bg-black/85 px-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom,0px)+0.35rem))] pt-2 backdrop-blur-md"
+            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-sam-surface/10 bg-sam-ink/95 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))] pt-3 backdrop-blur-sm"
         }
       >
         {errorMessage ? (
-          <div className="mb-2 flex flex-col gap-2 rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-2 flex flex-col gap-2 rounded-2xl border border-sam-surface/10 bg-black/30 px-3 py-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
             <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-rose-100">{errorMessage}</p>
             <button
               type="button"
               onClick={() => handleRetryMediaAndJoin()}
               disabled={busy === "accept" || busy === "join"}
-              className="shrink-0 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-gray-900 disabled:opacity-40"
+              className="shrink-0 rounded-full bg-sam-surface px-4 py-2 text-[13px] font-semibold text-sam-fg disabled:opacity-40"
             >
               {busy === "join" || busy === "accept" ? "연결 중…" : "다시 시도"}
             </button>
@@ -1348,7 +1348,7 @@ export function CommunityMessengerCallClient({
               <button
                 type="button"
                 onClick={() => void toggleMicEnabled()}
-                className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-2 border-white/35 bg-white/[0.08] text-white shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition active:scale-95 ${
+                className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-2 border-sam-surface/35 bg-sam-surface/[0.08] text-white shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition active:scale-95 ${
                   micMuted ? "border-amber-300/50 bg-amber-500/15" : ""
                 }`}
                 aria-label={micMuted ? "음소거 해제" : "음소거"}
@@ -1367,7 +1367,7 @@ export function CommunityMessengerCallClient({
               <button
                 type="button"
                 onClick={() => void toggleCamEnabled()}
-                className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-2 border-white/35 bg-white/[0.08] text-white shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition active:scale-95 ${
+                className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-2 border-sam-surface/35 bg-sam-surface/[0.08] text-white shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition active:scale-95 ${
                   camOff ? "border-amber-300/50 bg-amber-500/15" : ""
                 }`}
                 aria-label={camOff ? "카메라 켜기" : "카메라 끄기"}
@@ -1422,7 +1422,7 @@ export function CommunityMessengerCallClient({
                     type="button"
                     onClick={() => void rejectIncoming()}
                     disabled={busy === "reject"}
-                    className="rounded-ui-rect border border-white/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
+                    className="rounded-ui-rect border border-sam-surface/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
                   >
                     거절
                   </button>
@@ -1437,7 +1437,7 @@ export function CommunityMessengerCallClient({
                       });
                     }}
                     disabled={busy === "accept" || busy === "join"}
-                    className="rounded-ui-rect bg-gray-900 px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
+                    className="rounded-ui-rect bg-sam-ink px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
                   >
                     {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
                   </button>
@@ -1606,7 +1606,7 @@ function CallKeypadOverlay({ onClose }: { onClose: () => void }) {
       <div
         role="dialog"
         aria-modal
-        className="w-full max-w-[340px] rounded-[22px] border border-white/12 bg-[#1c1f28] p-4 shadow-2xl"
+        className="w-full max-w-[340px] rounded-[22px] border border-sam-surface/12 bg-[#1c1f28] p-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -1614,7 +1614,7 @@ function CallKeypadOverlay({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full px-3 py-1.5 text-[13px] font-medium text-white/75 transition hover:bg-white/10"
+            className="rounded-full px-3 py-1.5 text-[13px] font-medium text-white/75 transition hover:bg-sam-surface/10"
           >
             닫기
           </button>
@@ -1626,7 +1626,7 @@ function CallKeypadOverlay({ onClose }: { onClose: () => void }) {
               key={k}
               type="button"
               onClick={() => playDtmfDigit(k)}
-              className="flex h-12 items-center justify-center rounded-full border border-white/18 bg-white/[0.06] text-[18px] font-semibold text-white transition active:scale-95 active:bg-white/12"
+              className="flex h-12 items-center justify-center rounded-full border border-sam-surface/18 bg-sam-surface/[0.06] text-[18px] font-semibold text-white transition active:scale-95 active:bg-sam-surface/12"
             >
               {k}
             </button>
@@ -1670,11 +1670,11 @@ function ViberOutlineCallButton({
       disabled={disabled}
       className={`flex h-[88px] w-full max-w-[108px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-full border-2 text-[10px] font-medium tracking-tight text-white/95 transition active:scale-[0.96] disabled:opacity-40 ${
         active
-          ? "border-white/45 bg-white/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
-          : "border-white/22 bg-white/[0.05]"
+          ? "border-sam-surface/45 bg-sam-surface/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+          : "border-sam-surface/22 bg-sam-surface/[0.05]"
       }`}
     >
-      <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/15 bg-black/30 text-white">
+      <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-sam-surface/15 bg-black/30 text-white">
         {icon}
       </span>
       <span className="max-w-[92px] truncate px-0.5 leading-tight">{label}</span>
@@ -1701,7 +1701,7 @@ function CallControlButton({
       onClick={onClick}
       disabled={disabled}
       className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-ui-rect border px-2 py-2 text-center text-[11px] disabled:opacity-40 ${
-        active ? "border-white/30 bg-white/15 text-white" : "border-white/10 bg-white/5 text-white/88"
+        active ? "border-sam-surface/30 bg-sam-surface/15 text-white" : "border-sam-surface/10 bg-sam-surface/5 text-white/88"
       }`}
     >
       {icon}
@@ -1728,7 +1728,7 @@ function CallerMediaGateOverlay({
 }) {
   return (
     <div className="pointer-events-auto absolute inset-0 z-[45] flex items-center justify-center bg-black/50 px-5 backdrop-blur-[2px]">
-      <div className="w-full max-w-[280px] rounded-[20px] border border-white/12 bg-[#1e232c]/95 px-5 py-5 text-center shadow-xl">
+      <div className="w-full max-w-[280px] rounded-[20px] border border-sam-surface/12 bg-[#1e232c]/95 px-5 py-5 text-center shadow-xl">
         <p className="text-[16px] font-semibold text-white">
           {callKind === "video" ? "영상 통화 연결" : "음성 통화 연결"}
         </p>
@@ -1736,7 +1736,7 @@ function CallerMediaGateOverlay({
           type="button"
           onClick={onConfirm}
           disabled={busy}
-          className="mt-4 w-full rounded-full bg-white py-3 text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+          className="mt-4 w-full rounded-full bg-sam-surface py-3 text-[15px] font-semibold text-sam-fg disabled:opacity-40"
         >
           {busy ? "연결 중…" : callKind === "video" ? "허용하고 연결" : "허용하고 연결"}
         </button>

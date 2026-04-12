@@ -12,12 +12,12 @@ function Step({
   return (
     <li className="flex gap-2.5 text-[13px] leading-snug">
       <span
-        className={`mt-0.5 shrink-0 font-semibold ${done ? "text-emerald-600" : "text-gray-300"}`}
+        className={`mt-0.5 shrink-0 font-semibold ${done ? "text-emerald-600" : "text-sam-meta"}`}
         aria-hidden
       >
         {done ? "✓" : "○"}
       </span>
-      <div className="min-w-0 text-gray-800">{children}</div>
+      <div className="min-w-0 text-sam-fg">{children}</div>
     </li>
   );
 }
@@ -37,7 +37,7 @@ export function BusinessOperationalChecklistPending({
     >
       <h2 className="text-[14px] font-semibold text-amber-950">오픈 준비 순서</h2>
       <p className="mt-1 text-[12px] text-amber-900/90">
-        <span className="font-medium text-gray-900">{shopName}</span> 심사가 진행 중입니다. 아래 순서를
+        <span className="font-medium text-sam-fg">{shopName}</span> 심사가 진행 중입니다. 아래 순서를
         참고하세요.
       </p>
       <ol className="mt-3 list-none space-y-2 pl-0">
@@ -68,9 +68,9 @@ export function BusinessOperationalChecklistPending({
 /** 보완 요청 — 우선순위 한 줄 */
 export function BusinessOperationalChecklistRevision({ storeId }: { storeId: string }) {
   return (
-    <section className="rounded-ui-rect border border-amber-300 bg-white p-4 shadow-sm">
-      <h2 className="text-[14px] font-semibold text-gray-900">우선 처리</h2>
-      <p className="mt-1 text-[13px] text-gray-600">
+    <section className="rounded-ui-rect border border-amber-300 bg-sam-surface p-4 shadow-sm">
+      <h2 className="text-[14px] font-semibold text-sam-fg">우선 처리</h2>
+      <p className="mt-1 text-[13px] text-sam-muted">
         관리자 보완 요청 사항을 반영한 뒤, 다시 제출·심사를 기다려 주세요.
       </p>
       <Link

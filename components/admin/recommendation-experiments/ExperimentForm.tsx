@@ -74,35 +74,35 @@ export function ExperimentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           실험명
         </label>
         <input
           type="text"
           value={experimentName}
           onChange={(e) => setExperimentName(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           설명
         </label>
         <input
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           상태
         </label>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as RecommendationExperiment["status"])}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {(Object.keys(EXPERIMENT_STATUS_LABELS) as RecommendationExperiment["status"][]).map(
             (s) => (
@@ -114,13 +114,13 @@ export function ExperimentForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           대상 surface
         </label>
         <select
           value={targetSurface}
           onChange={(e) => setTargetSurface(e.target.value as RecommendationSurface)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {SURFACES.map((s) => (
             <option key={s} value={s}>
@@ -130,13 +130,13 @@ export function ExperimentForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           대조군 버전
         </label>
         <select
           value={controlVersionId}
           onChange={(e) => setControlVersionId(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {versions.map((v) => (
             <option key={v.id} value={v.id}>
@@ -146,7 +146,7 @@ export function ExperimentForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           트래픽 할당
         </label>
         <select
@@ -154,7 +154,7 @@ export function ExperimentForm({
           onChange={(e) =>
             setTrafficAllocationType(e.target.value as TrafficAllocationType)
           }
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {TRAFFIC_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -165,7 +165,7 @@ export function ExperimentForm({
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-1 block text-[12px] text-gray-600">
+          <label className="mb-1 block text-[12px] text-sam-muted">
             대조군 %
           </label>
           <input
@@ -176,11 +176,11 @@ export function ExperimentForm({
             onChange={(e) =>
               setControlPercentage(Number(e.target.value) || 0)
             }
-            className="w-full rounded border border-gray-200 px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[12px] text-gray-600">
+          <label className="mb-1 block text-[12px] text-sam-muted">
             실험군 % (쉼표)
           </label>
           <input
@@ -195,19 +195,19 @@ export function ExperimentForm({
                   .filter(Boolean)
               )
             }
-            className="w-full rounded border border-gray-200 px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
           />
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           관리자 메모
         </label>
         <textarea
           value={adminMemo}
           onChange={(e) => setAdminMemo(e.target.value)}
           rows={2}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex gap-2">
@@ -221,7 +221,7 @@ export function ExperimentForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg"
           >
             취소
           </button>

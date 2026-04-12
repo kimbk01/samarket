@@ -11,7 +11,7 @@ export default async function OwnerProductsHubPage({
   if (!storeId) {
     return (
       <div className="min-h-screen bg-background px-4 py-8">
-        <p className="text-[14px] text-gray-700">
+        <p className="text-[14px] text-sam-fg">
           매장을 지정할 수 없습니다.{" "}
           <Link href="/my/business" className="font-medium text-signature underline">
             내 상점

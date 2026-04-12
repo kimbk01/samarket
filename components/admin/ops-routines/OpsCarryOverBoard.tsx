@@ -11,7 +11,7 @@ export function OpsCarryOverBoard() {
 
   if (carryOver.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
         다음 달로 이월(carry-over)된 항목이 없습니다.
       </div>
     );
@@ -19,7 +19,7 @@ export function OpsCarryOverBoard() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         carryOverToNextPeriod=true 인 항목. 다음 달 정기 업무로 반영할 수 있습니다.
       </p>
       <div className="space-y-3">
@@ -30,27 +30,27 @@ export function OpsCarryOverBoard() {
               key={e.id}
               className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-4"
             >
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-600">
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
                 <span>{getCadenceLabel(e.periodType as "weekly" | "monthly" | "quarterly")}</span>
-                <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
                   {getPriorityLabel(e.priority)}
                 </span>
                 <span>{e.periodKey}</span>
               </div>
-              <p className="mt-2 font-medium text-gray-900">
+              <p className="mt-2 font-medium text-sam-fg">
                 {t?.title ?? e.templateId}
               </p>
               {e.note && (
-                <p className="mt-2 text-[13px] text-gray-700">{e.note}</p>
+                <p className="mt-2 text-[13px] text-sam-fg">{e.note}</p>
               )}
               {(e.ownerAdminNickname || e.dueDate) && (
-                <p className="mt-2 text-[12px] text-gray-500">
+                <p className="mt-2 text-[12px] text-sam-muted">
                   담당 {e.ownerAdminNickname ?? "-"}
                   {e.dueDate && ` · 기한 ${e.dueDate}`}
                 </p>
               )}
               {e.linkedType && (
-                <p className="mt-1 text-[12px] text-gray-500">
+                <p className="mt-1 text-[12px] text-sam-muted">
                   연결: {e.linkedType}
                   {e.linkedType === "checklist" && (
                     <Link

@@ -65,9 +65,9 @@ export function OpsRunbookResultForm({
   return (
     <div className="space-y-4">
       {existingResults.length > 0 && (
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <h3 className="text-[14px] font-medium text-gray-900">기존 결과 기록</h3>
-          <ul className="mt-2 space-y-2 text-[13px] text-gray-700">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <h3 className="text-[14px] font-medium text-sam-fg">기존 결과 기록</h3>
+          <ul className="mt-2 space-y-2 text-[13px] text-sam-fg">
             {existingResults.map((r) => (
               <li key={r.id}>
                 {r.outcomeType} · {r.severityAfter} · {r.summary}
@@ -77,18 +77,18 @@ export function OpsRunbookResultForm({
           </ul>
         </div>
       )}
-      <form onSubmit={handleSubmit} className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <h3 className="mb-3 text-[14px] font-medium text-gray-900">대응 결과 기록</h3>
-        <p className="mb-3 text-[12px] text-gray-500">
+      <form onSubmit={handleSubmit} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className="mb-3 text-[14px] font-medium text-sam-fg">대응 결과 기록</h3>
+        <p className="mb-3 text-[12px] text-sam-muted">
           후속 조치 필요 시 체크하면 38단계 액션아이템이 생성됩니다.
         </p>
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-[12px] text-gray-700">결과 유형</label>
+            <label className="mb-1 block text-[12px] text-sam-fg">결과 유형</label>
             <select
               value={outcomeType}
               onChange={(e) => setOutcomeType(e.target.value as OpsRunbookOutcomeType)}
-              className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+              className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
             >
               {OUTCOME_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -96,11 +96,11 @@ export function OpsRunbookResultForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[12px] text-gray-700">조치 후 심각도</label>
+            <label className="mb-1 block text-[12px] text-sam-fg">조치 후 심각도</label>
             <select
               value={severityAfter}
               onChange={(e) => setSeverityAfter(e.target.value as OpsRunbookSeverityAfter)}
-              className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+              className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
             >
               {SEVERITY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -108,25 +108,25 @@ export function OpsRunbookResultForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[12px] text-gray-700">요약</label>
+            <label className="mb-1 block text-[12px] text-sam-fg">요약</label>
             <textarea
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               rows={3}
               required
-              className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+              className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[12px] text-gray-700">원인 (placeholder)</label>
+            <label className="mb-1 block text-[12px] text-sam-fg">원인 (placeholder)</label>
             <input
               type="text"
               value={rootCause}
               onChange={(e) => setRootCause(e.target.value)}
-              className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+              className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
             />
           </div>
-          <label className="flex items-center gap-2 text-[14px] text-gray-700">
+          <label className="flex items-center gap-2 text-[14px] text-sam-fg">
             <input
               type="checkbox"
               checked={followupNeeded}

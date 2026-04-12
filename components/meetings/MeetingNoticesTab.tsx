@@ -88,20 +88,20 @@ export function MeetingNoticesTab({
   return (
     <div className="space-y-3">
       {/* 공지 ↔ 피드 연동 상태 */}
-      <div className="rounded-ui-rect border border-gray-200 bg-white px-3.5 py-3 shadow-sm">
-        <p className="text-[12px] font-semibold text-gray-800">연동 상태</p>
-        <ul className="mt-2 space-y-1.5 text-[12px] text-gray-600">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3.5 py-3 shadow-sm">
+        <p className="text-[12px] font-semibold text-sam-fg">연동 상태</p>
+        <ul className="mt-2 space-y-1.5 text-[12px] text-sam-muted">
           <li className="flex justify-between gap-2">
             <span>모임 공지 (DB)</span>
-            <span className="shrink-0 font-medium text-gray-900">
+            <span className="shrink-0 font-medium text-sam-fg">
               {dbNoticeTotal}건 · 최근 {lastAtLabel}
             </span>
           </li>
           <li className="flex justify-between gap-2">
             <span>피드 공지형 글</span>
-            <span className="shrink-0 font-medium text-gray-900">{feedNoticeCount}건</span>
+            <span className="shrink-0 font-medium text-sam-fg">{feedNoticeCount}건</span>
           </li>
-          <li className="flex justify-between gap-2 border-t border-gray-100 pt-1.5">
+          <li className="flex justify-between gap-2 border-t border-sam-border-soft pt-1.5">
             <span>이 탭 통합 목록</span>
             <span className="shrink-0 font-semibold text-[#2d7a5e]">{unified.length}건</span>
           </li>
@@ -114,7 +114,7 @@ export function MeetingNoticesTab({
             </span>
           </li>
         </ul>
-        <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+        <p className="mt-2 text-[11px] leading-relaxed text-sam-meta">
           개설자 관리의 공지 등록과 피드의 &apos;공지&apos; 유형 글이 이 목록에 함께 표시됩니다.
         </p>
       </div>
@@ -152,11 +152,11 @@ export function MeetingNoticesTab({
       )}
 
       {unified.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-16 text-center">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-16 text-center">
           <p className="text-[28px]">📢</p>
-          <p className="mt-3 text-[14px] text-gray-400">아직 공지가 없어요.</p>
+          <p className="mt-3 text-[14px] text-sam-meta">아직 공지가 없어요.</p>
           {isHost && (
-            <p className="mt-1 text-[12px] text-gray-400">
+            <p className="mt-1 text-[12px] text-sam-meta">
               아래 개설자 관리의 공지 등록 또는 피드의 &apos;공지&apos; 유형 글이 여기에 표시됩니다.
             </p>
           )}
@@ -165,18 +165,18 @@ export function MeetingNoticesTab({
         unified.map((notice) => (
           <div
             key={notice.id}
-            className={`rounded-ui-rect border bg-white p-4 shadow-sm ${
-              notice.is_pinned ? "border-amber-200 bg-amber-50/30" : "border-gray-100"
+            className={`rounded-ui-rect border bg-sam-surface p-4 shadow-sm ${
+              notice.is_pinned ? "border-amber-200 bg-amber-50/30" : "border-sam-border-soft"
             }`}
           >
             <div className="flex items-start gap-2">
               {notice.is_pinned && <span className="mt-0.5 shrink-0 text-[16px]">📌</span>}
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-gray-900">{notice.title}</p>
-                <p className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-gray-800">
+                <p className="text-[14px] font-semibold text-sam-fg">{notice.title}</p>
+                <p className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-sam-fg">
                   {notice.body}
                 </p>
-                <p className="mt-2 text-[11px] text-gray-400">{formatDate(notice.created_at)}</p>
+                <p className="mt-2 text-[11px] text-sam-meta">{formatDate(notice.created_at)}</p>
               </div>
             </div>
           </div>

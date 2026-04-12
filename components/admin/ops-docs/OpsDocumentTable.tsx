@@ -48,28 +48,28 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
 
   if (documents.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         조건에 맞는 문서가 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">제목</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">카테고리</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">수정일</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">작성자</th>
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">제목</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">유형</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">카테고리</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">수정일</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">작성자</th>
           </tr>
         </thead>
         <tbody>
           {documents.map((d) => (
-            <tr key={d.id} className="border-b border-gray-100 hover:bg-gray-50">
+            <tr key={d.id} className="border-b border-sam-border-soft hover:bg-sam-app">
               <td className="px-3 py-2.5">
                 <Link
                   href={`/admin/ops-docs/${d.id}`}
@@ -79,10 +79,10 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
                   {d.title}
                 </Link>
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {DOC_TYPE_LABELS[d.docType]}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {CATEGORY_LABELS[d.category] ?? d.category}
               </td>
               <td className="px-3 py-2.5">
@@ -92,16 +92,16 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
                       ? "bg-emerald-50 text-emerald-800"
                       : d.status === "draft"
                         ? "bg-amber-50 text-amber-800"
-                        : "bg-gray-100 text-gray-600"
+                        : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {STATUS_LABELS[d.status]}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-gray-600">
+              <td className="px-3 py-2.5 text-sam-muted">
                 {new Date(d.updatedAt).toLocaleDateString("ko-KR")}
               </td>
-              <td className="px-3 py-2.5 text-gray-600">
+              <td className="px-3 py-2.5 text-sam-muted">
                 {d.createdByAdminNickname}
               </td>
             </tr>

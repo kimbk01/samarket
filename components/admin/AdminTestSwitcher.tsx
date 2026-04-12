@@ -53,8 +53,8 @@ export function AdminTestSwitcher() {
         <span className="text-amber-600">▼</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded border border-gray-200 bg-white py-1 shadow-lg">
-          <div className="border-b border-gray-100 px-2 py-1.5 text-[11px] text-gray-500">
+        <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded border border-sam-border bg-sam-surface py-1 shadow-lg">
+          <div className="border-b border-sam-border-soft px-2 py-1.5 text-[11px] text-sam-muted">
             수동 관리자로 로그인 전환 (새로고침)
           </div>
           <button
@@ -63,7 +63,7 @@ export function AdminTestSwitcher() {
               setAdminTestLoginAndReload(null);
               setOpen(false);
             }}
-            className="block w-full px-3 py-2 text-left text-[13px] text-gray-700 hover:bg-gray-50"
+            className="block w-full px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
           >
             env 기본 (NEXT_PUBLIC_ADMIN_ROLE)
           </button>
@@ -75,12 +75,12 @@ export function AdminTestSwitcher() {
                 setAdminTestLoginAndReload(s.loginId);
                 setOpen(false);
               }}
-              className={`block w-full px-3 py-2 text-left text-[13px] hover:bg-gray-50 ${
-                currentId === s.loginId ? "bg-amber-50 font-medium text-amber-900" : "text-gray-700"
+              className={`block w-full px-3 py-2 text-left text-[13px] hover:bg-sam-app ${
+                currentId === s.loginId ? "bg-amber-50 font-medium text-amber-900" : "text-sam-fg"
               }`}
             >
               <span className="font-medium">{s.loginId}</span>
-              <span className="ml-1.5 text-gray-500">({getRoleLabel(s.role)})</span>
+              <span className="ml-1.5 text-sam-muted">({getRoleLabel(s.role)})</span>
             </button>
           ))}
         </div>

@@ -18,10 +18,10 @@ export function ChatButton({
 }) {
   const mid = String(meetingId ?? "").trim();
   if (!mid) {
-    return <p className="text-[13px] text-gray-500">채팅방이 아직 연결되지 않았어요.</p>;
+    return <p className="text-[13px] text-sam-muted">채팅방이 아직 연결되지 않았어요.</p>;
   }
   if (disabled) {
-    return reason ? <p className="text-[13px] text-gray-600">{reason}</p> : null;
+    return reason ? <p className="text-[13px] text-sam-muted">{reason}</p> : null;
   }
   return (
     <Link

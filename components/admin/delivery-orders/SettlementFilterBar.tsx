@@ -26,11 +26,11 @@ export function SettlementFilterBar({
   onChange: (f: SettlementListFilters) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-3 text-sm">
+    <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-sam-border bg-sam-app/80 p-3 text-sm">
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-gray-600">정산상태</span>
+        <span className="text-xs font-medium text-sam-muted">정산상태</span>
         <select
-          className="rounded border border-gray-200 px-2 py-1.5 text-xs"
+          className="rounded border border-sam-border px-2 py-1.5 text-xs"
           value={filters.settlementStatus}
           onChange={(e) =>
             onChange({ ...filters, settlementStatus: e.target.value as SettlementListFilters["settlementStatus"] })
@@ -44,9 +44,9 @@ export function SettlementFilterBar({
         </select>
       </label>
       <label className="flex min-w-[160px] flex-col gap-1">
-        <span className="text-xs font-medium text-gray-600">매장 검색</span>
+        <span className="text-xs font-medium text-sam-muted">매장 검색</span>
         <input
-          className="rounded border border-gray-200 px-2 py-1.5 text-xs"
+          className="rounded border border-sam-border px-2 py-1.5 text-xs"
           placeholder="매장명"
           value={filters.storeQuery}
           onChange={(e) => onChange({ ...filters, storeQuery: e.target.value })}

@@ -19,33 +19,33 @@ interface AdminUserTableProps {
 
 export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: AdminUserTableProps) {
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table
         className={`w-full border-collapse text-[14px] ${showMemberUuid ? "min-w-[980px]" : "min-w-[720px]"}`}
       >
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">로그인 아이디</th>
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">로그인 아이디</th>
             {showMemberUuid ? (
-              <th className="min-w-[200px] px-3 py-2.5 text-left font-medium text-gray-700">회원 UUID</th>
+              <th className="min-w-[200px] px-3 py-2.5 text-left font-medium text-sam-fg">회원 UUID</th>
             ) : null}
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">닉네임</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">구분</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">전화 인증</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">지역</th>
-            <th className="px-3 py-2.5 text-right font-medium text-gray-700">포인트</th>
-            <th className="px-3 py-2.5 text-right font-medium text-gray-700">상품/판매</th>
-            <th className="px-3 py-2.5 text-right font-medium text-gray-700">신고</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-gray-700">작업</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">가입일</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">닉네임</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">구분</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">전화 인증</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">지역</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">포인트</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">상품/판매</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">신고</th>
+            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">작업</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">가입일</th>
           </tr>
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
+            <tr key={u.id} className="border-b border-sam-border-soft hover:bg-sam-app">
               <td className="px-3 py-2.5">
-                <span className="font-mono text-[13px] font-semibold text-gray-900">
+                <span className="font-mono text-[13px] font-semibold text-sam-fg">
                   {u.loginUsername ?? "—"}
                 </span>
                 {u.loginUsername ? (
@@ -70,7 +70,7 @@ export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: 
               </td>
               {showMemberUuid ? (
                 <td className="max-w-[240px] px-3 py-2.5 align-top">
-                  <p className="break-all font-mono text-[11px] leading-snug text-gray-700">{u.id}</p>
+                  <p className="break-all font-mono text-[11px] leading-snug text-sam-fg">{u.id}</p>
                   <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
                     <Link
                       href={`/admin/users/${u.id}`}
@@ -90,8 +90,8 @@ export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: 
                   </div>
                 </td>
               ) : null}
-              <td className="px-3 py-2.5 text-gray-800">{u.nickname}</td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">{u.nickname}</td>
+              <td className="px-3 py-2.5 text-sam-fg">
                 {MEMBER_TYPE_LABELS[u.memberType]}
               </td>
               <td className="px-3 py-2.5 text-[12px]">
@@ -109,7 +109,7 @@ export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: 
                 <AdminModerationStatusBadge status={u.moderationStatus} />
               </td>
               <td
-                className="max-w-[min(280px,32vw)] truncate px-3 py-2.5 text-gray-600"
+                className="max-w-[min(280px,32vw)] truncate px-3 py-2.5 text-sam-muted"
                 title={u.location ?? undefined}
               >
                 {u.location?.trim() ? u.location : "—"}
@@ -120,27 +120,27 @@ export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: 
                 </p>
                 <Link
                   href={`/admin/users/${u.id}?tab=points`}
-                  className="text-[11px] text-gray-400 hover:text-sky-600 hover:underline"
+                  className="text-[11px] text-sam-meta hover:text-sky-600 hover:underline"
                 >
                   내역
                 </Link>
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-right text-gray-600">
+              <td className="whitespace-nowrap px-3 py-2.5 text-right text-sam-muted">
                 {u.productCount} / {u.soldCount}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-right text-gray-600">
+              <td className="whitespace-nowrap px-3 py-2.5 text-right text-sam-muted">
                 {u.reportCount}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 align-top">
                 <button
                   type="button"
-                  className="rounded-ui-rect border border-gray-200 bg-white px-2.5 py-1 text-[12px] font-semibold text-signature shadow-sm hover:bg-gray-50"
+                  className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 text-[12px] font-semibold text-signature shadow-sm hover:bg-sam-app"
                   onClick={() => onEditMember(u)}
                 >
                   수정
                 </button>
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(u.joinedAt).toLocaleDateString("ko-KR")}
               </td>
             </tr>

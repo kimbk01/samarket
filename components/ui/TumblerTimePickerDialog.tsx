@@ -162,7 +162,7 @@ export function TumblerTimePickerDialog({
       }}
     >
       <div
-        className="max-h-[min(90dvh,520px)] w-full max-w-[340px] overflow-hidden rounded-ui-rect bg-white shadow-xl"
+        className="max-h-[min(90dvh,520px)] w-full max-w-[340px] overflow-hidden rounded-ui-rect bg-sam-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-sky-200/80 px-4 py-3">
@@ -178,7 +178,7 @@ export function TumblerTimePickerDialog({
             onChangeIndex={(i) => setH12(i + 1)}
             widthClass="w-11"
           />
-          <span className="mb-0.5 self-center px-0.5 text-[20px] font-semibold text-gray-800" aria-hidden>
+          <span className="mb-0.5 self-center px-0.5 text-[20px] font-semibold text-sam-fg" aria-hidden>
             :
           </span>
           <WheelColumn
@@ -195,11 +195,11 @@ export function TumblerTimePickerDialog({
           />
         </div>
 
-        <div className="border-t border-gray-200">
+        <div className="border-t border-sam-border">
           <button
             type="button"
             onClick={done}
-            className="w-full py-3.5 text-[16px] font-bold text-gray-900 active:bg-gray-50"
+            className="w-full py-3.5 text-[16px] font-bold text-sam-fg active:bg-sam-app"
           >
             완료
           </button>

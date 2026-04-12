@@ -31,7 +31,7 @@ export function AdminOpsLearningPage() {
   return (
     <>
       <AdminPageHeader title="운영 학습" />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -40,7 +40,7 @@ export function AdminOpsLearningPage() {
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {tab.label}
@@ -56,7 +56,7 @@ export function AdminOpsLearningPage() {
               <select
                 value={historyStatusFilter}
                 onChange={(e) => setHistoryStatusFilter(e.target.value as OpsLearningStatus | "")}
-                className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+                className="rounded border border-sam-border px-3 py-2 text-[14px]"
               >
                 <option value="">전체 상태</option>
                 <option value="detected">탐지</option>
@@ -80,7 +80,7 @@ export function AdminOpsLearningPage() {
                 <select
                   value={patternStatusFilter}
                   onChange={(e) => setPatternStatusFilter(e.target.value as OpsLearningStatus | "")}
-                  className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+                  className="rounded border border-sam-border px-3 py-2 text-[14px]"
                 >
                   <option value="">전체 상태</option>
                   <option value="detected">탐지</option>
@@ -127,7 +127,7 @@ export function AdminOpsLearningPage() {
             {selectedPatternId ? (
               <OpsPatternLogList patternId={selectedPatternId} />
             ) : (
-              <p className="text-[14px] text-gray-500">패턴을 선택하면 로그가 표시됩니다.</p>
+              <p className="text-[14px] text-sam-muted">패턴을 선택하면 로그가 표시됩니다.</p>
             )}
           </AdminCard>
         </div>

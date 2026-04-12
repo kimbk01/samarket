@@ -26,7 +26,7 @@ export function StoreHorizontalStoreTile({
       "bg-emerald-500"
     : store.status === "preparing" ?
       "bg-amber-400"
-    : "bg-gray-300";
+    : "bg-sam-surface-muted";
 
   return (
     <article className="w-[148px] shrink-0">
@@ -34,7 +34,7 @@ export function StoreHorizontalStoreTile({
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-ui-rect bg-ig-highlight ring-1 ring-black/[0.06]">
           {store.profileImageUrl ?
             <img src={store.profileImageUrl} alt="" className="h-full w-full object-cover" />
-          : <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-neutral-200 to-neutral-300 text-2xl text-white/90">
+          : <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-sam-border-soft to-sam-surface-muted text-2xl text-white/90">
               {coverEmoji ?
                 <span aria-hidden>{coverEmoji}</span>
               : store.nameKo.slice(0, 1)}
@@ -51,17 +51,17 @@ export function StoreHorizontalStoreTile({
           : null}
         </div>
         <div className="mt-2 px-0.5">
-          <p className="line-clamp-2 min-h-[2.25rem] text-[13px] font-semibold leading-tight text-neutral-900">
+          <p className="line-clamp-2 min-h-[2.25rem] text-[13px] font-semibold leading-tight text-sam-fg">
             {store.nameKo}
           </p>
-          <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
+          <div className="mt-1 flex items-center gap-1 text-[11px] text-sam-muted">
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${openDot}`} aria-hidden />
-            <span className="font-medium text-neutral-700">★{store.rating.toFixed(1)}</span>
+            <span className="font-medium text-sam-fg">★{store.rating.toFixed(1)}</span>
             {distLabel ?
-              <span className="text-neutral-400">· {distLabel}</span>
+              <span className="text-sam-meta">· {distLabel}</span>
             : null}
           </div>
-          <p className="mt-0.5 truncate text-[10px] text-neutral-400">{store.estPrepLabel}</p>
+          <p className="mt-0.5 truncate text-[10px] text-sam-meta">{store.estPrepLabel}</p>
         </div>
       </Link>
     </article>

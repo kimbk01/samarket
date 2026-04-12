@@ -51,17 +51,17 @@ export function AdminSanctionPanel({
     <div>
       {error && <p className="mb-2 text-[13px] text-red-600">{error}</p>}
       {targetLabel && (
-        <p className="mb-3 text-[14px] text-gray-600">
+        <p className="mb-3 text-[14px] text-sam-muted">
           대상: <strong>{targetLabel}</strong> ({targetUserId || "—"})
         </p>
       )}
       <div className="mb-3">
-        <label className="block text-[12px] font-medium text-gray-500">처리 메모 (선택)</label>
+        <label className="block text-[12px] font-medium text-sam-muted">처리 메모 (선택)</label>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="관리자 메모"
-          className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-[13px]"
+          className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[13px]"
           rows={2}
         />
       </div>
@@ -74,7 +74,7 @@ export function AdminSanctionPanel({
             onClick={() => handleAction(type)}
             className={`rounded border px-3 py-2 text-[13px] font-medium disabled:opacity-50 ${
               type === "reject"
-                ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                ? "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
                 : type === "account_ban"
                   ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
                   : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"

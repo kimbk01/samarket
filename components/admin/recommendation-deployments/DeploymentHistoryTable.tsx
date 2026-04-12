@@ -34,7 +34,7 @@ export function DeploymentHistoryTable() {
           <select
             value={surfaceFilter}
             onChange={(e) => setSurfaceFilter(e.target.value)}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="">전체 surface</option>
             <option value="home">홈</option>
@@ -42,7 +42,7 @@ export function DeploymentHistoryTable() {
             <option value="shop">상점</option>
           </select>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           배포 이력이 없습니다.
         </div>
       </div>
@@ -55,7 +55,7 @@ export function DeploymentHistoryTable() {
         <select
           value={surfaceFilter}
           onChange={(e) => setSurfaceFilter(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">전체 surface</option>
           <option value="home">홈</option>
@@ -63,26 +63,26 @@ export function DeploymentHistoryTable() {
           <option value="shop">상점</option>
         </select>
       </div>
-      <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[640px] border-collapse text-[14px]">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <tr className="border-b border-sam-border bg-sam-app">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 배포명
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 surface
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 배포 버전
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 상태
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 배포 시각
               </th>
-              <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 담당
               </th>
             </tr>
@@ -93,15 +93,15 @@ export function DeploymentHistoryTable() {
               return (
                 <tr
                   key={d.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="px-3 py-2.5 font-medium text-gray-900">
+                  <td className="px-3 py-2.5 font-medium text-sam-fg">
                     {d.deploymentName}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {SURFACE_LABELS[d.surface]}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {version?.versionName ?? d.deployedVersionId}
                   </td>
                   <td className="px-3 py-2.5">
@@ -111,16 +111,16 @@ export function DeploymentHistoryTable() {
                           ? "bg-emerald-50 text-emerald-800"
                           : d.deploymentStatus === "rolled_back"
                             ? "bg-amber-50 text-amber-800"
-                            : "bg-gray-200 text-gray-600"
+                            : "bg-sam-border-soft text-sam-muted"
                       }`}
                     >
                       {STATUS_LABELS[d.deploymentStatus]}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                     {new Date(d.deployedAt).toLocaleString("ko-KR")}
                   </td>
-                  <td className="px-3 py-2.5 text-[13px] text-gray-600">
+                  <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                     {d.createdByAdminNickname}
                   </td>
                 </tr>

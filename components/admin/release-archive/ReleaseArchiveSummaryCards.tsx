@@ -29,16 +29,16 @@ export function ReleaseArchiveSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">릴리즈 / 활성 / 안정 / 롤백</p>
-          <p className="text-[14px] text-gray-700">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">릴리즈 / 활성 / 안정 / 롤백</p>
+          <p className="text-[14px] text-sam-fg">
             {summary.totalReleases} / {summary.activeReleases} /{" "}
             {summary.stableReleases} / {summary.rolledBackReleases}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">회귀 이슈 / 미해결 / critical</p>
-          <p className="text-[14px] text-gray-700">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">회귀 이슈 / 미해결 / critical</p>
+          <p className="text-[14px] text-sam-fg">
             {summary.totalRegressionIssues} /{" "}
             <span className={summary.openRegressionIssues > 0 ? "font-medium text-amber-700" : ""}>
               {summary.openRegressionIssues}
@@ -49,31 +49,31 @@ export function ReleaseArchiveSummaryCards() {
             </span>
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">릴리즈당 평균 회귀 (placeholder)</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">릴리즈당 평균 회귀 (placeholder)</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {summary.averageRegressionPerRelease}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">최신 릴리즈일</p>
-          <p className="text-[14px] font-medium text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">최신 릴리즈일</p>
+          <p className="text-[14px] font-medium text-sam-fg">
             {summary.latestReleaseAt}
           </p>
         </div>
         {latestImpact && (
-          <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <p className="text-[12px] text-gray-500">릴리즈별 영향 범위 (최신)</p>
-            <p className="text-[14px] font-medium text-gray-900">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-[12px] text-sam-muted">릴리즈별 영향 범위 (최신)</p>
+            <p className="text-[14px] font-medium text-sam-fg">
               v{latestImpact.version}
             </p>
-            <p className="mt-1 text-[13px] text-gray-600">
+            <p className="mt-1 text-[13px] text-sam-muted">
               변경 {latestImpact.changeCount}건 · 회귀 {latestImpact.regressionCount}건
             </p>
           </div>
         )}
       </div>
-      <p className="text-[12px] text-gray-500">
+      <p className="text-[12px] text-sam-muted">
         <Link href="/admin/release-notes" className="text-signature hover:underline">
           릴리즈 노트
         </Link>

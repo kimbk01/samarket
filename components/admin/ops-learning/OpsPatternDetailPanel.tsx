@@ -29,7 +29,7 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
 
   if (!patternId || !connections) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-center text-[14px] text-sam-muted">
         패턴을 선택하면 상세가 표시됩니다.
       </div>
     );
@@ -41,18 +41,18 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="text-[15px] font-medium text-gray-900">{pattern.title}</h3>
-          <p className="mt-1 text-[12px] text-gray-500">{pattern.patternKey}</p>
+          <h3 className="text-[15px] font-medium text-sam-fg">{pattern.title}</h3>
+          <p className="mt-1 text-[12px] text-sam-muted">{pattern.patternKey}</p>
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button type="button" onClick={onClose} className="text-sam-meta hover:text-sam-muted">
             ×
           </button>
         )}
       </div>
-      <div className="rounded border border-gray-100 bg-gray-50 p-3 text-[13px]">
+      <div className="rounded border border-sam-border-soft bg-sam-app p-3 text-[13px]">
         <p>발생 {pattern.occurrenceCount}회 · {pattern.surface} · {pattern.incidentType}</p>
-        <p className="mt-1 text-gray-600">
+        <p className="mt-1 text-sam-muted">
           첫 발생 {new Date(pattern.firstOccurredAt).toLocaleDateString("ko-KR")} · 마지막 {new Date(pattern.lastOccurredAt).toLocaleDateString("ko-KR")}
         </p>
         <p className="mt-1">
@@ -60,7 +60,7 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
         </p>
       </div>
       <div>
-        <p className="text-[12px] font-medium text-gray-700">연결 문서</p>
+        <p className="text-[12px] font-medium text-sam-fg">연결 문서</p>
         <div className="mt-1 space-y-1">
           {linkedDocument && (
             <Link href={`/admin/ops-docs/${pattern.linkedDocumentId}`} className="block text-[13px] text-signature hover:underline">
@@ -73,7 +73,7 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
             </Link>
           )}
           {!linkedDocument && !linkedRunbookDocument && (
-            <span className="text-[13px] text-gray-500">연결된 문서 없음</span>
+            <span className="text-[13px] text-sam-muted">연결된 문서 없음</span>
           )}
         </div>
       </div>

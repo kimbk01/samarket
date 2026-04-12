@@ -37,7 +37,7 @@ export function OpsActionBoard() {
           onChange={(e) =>
             setStatusFilter(e.target.value === "" ? "" : (e.target.value as OpsActionStatus))
           }
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">전체 상태</option>
           <option value="open">미해결</option>
@@ -53,7 +53,7 @@ export function OpsActionBoard() {
         )}
       </div>
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           액션아이템이 없습니다.
         </div>
       ) : (

@@ -66,34 +66,34 @@ export function AdminStorePaymentEventsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 결제 이벤트" />
-      <p className="text-[13px] text-gray-600">
+      <p className="text-[13px] text-sam-muted">
         웹훅·관리자 스텁으로 기록된 결제 관련 이력입니다. 민감 정보는 payload에 포함될 수 있으니 접근을
         제한하세요.
       </p>
 
-      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-gray-200 bg-gray-50 p-3 text-[13px]">
+      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-[13px]">
         <label className="flex flex-col gap-0.5">
-          <span className="text-gray-600">order_id</span>
+          <span className="text-sam-muted">order_id</span>
           <input
-            className="min-w-[200px] rounded border border-gray-300 bg-white px-2 py-1 font-mono text-[12px]"
+            className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-2 py-1 font-mono text-[12px]"
             value={draft.orderId}
             onChange={(ev) => setDraft((d) => ({ ...d, orderId: ev.target.value }))}
             placeholder="UUID"
           />
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-gray-600">source 포함</span>
+          <span className="text-sam-muted">source 포함</span>
           <input
-            className="min-w-[120px] rounded border border-gray-300 bg-white px-2 py-1"
+            className="min-w-[120px] rounded border border-sam-border bg-sam-surface px-2 py-1"
             value={draft.source}
             onChange={(ev) => setDraft((d) => ({ ...d, source: ev.target.value }))}
             placeholder="webhook, admin…"
           />
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-gray-600">event_type 포함</span>
+          <span className="text-sam-muted">event_type 포함</span>
           <input
-            className="min-w-[140px] rounded border border-gray-300 bg-white px-2 py-1"
+            className="min-w-[140px] rounded border border-sam-border bg-sam-surface px-2 py-1"
             value={draft.eventType}
             onChange={(ev) => setDraft((d) => ({ ...d, eventType: ev.target.value }))}
             placeholder="confirm, paid…"
@@ -101,7 +101,7 @@ export function AdminStorePaymentEventsPage() {
         </label>
         <button
           type="button"
-          className="rounded bg-gray-900 px-3 py-1.5 text-white hover:bg-gray-800"
+          className="rounded bg-sam-ink px-3 py-1.5 text-white hover:bg-sam-surface-dark"
           onClick={() => setApplied({ ...draft })}
           disabled={loading}
         >
@@ -111,13 +111,13 @@ export function AdminStorePaymentEventsPage() {
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-500">기록이 없습니다.</p>
+        <p className="text-sm text-sam-muted">기록이 없습니다.</p>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white text-[12px]">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface text-[12px]">
           <table className="min-w-full text-left">
-            <thead className="border-b border-gray-200 bg-gray-50 text-gray-600">
+            <thead className="border-b border-sam-border bg-sam-app text-sam-muted">
               <tr>
                 <th className="px-2 py-2">시간</th>
                 <th className="px-2 py-2">source</th>
@@ -129,8 +129,8 @@ export function AdminStorePaymentEventsPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-gray-100 align-top">
-                  <td className="whitespace-nowrap px-2 py-2 text-gray-500">
+                <tr key={r.id} className="border-b border-sam-border-soft align-top">
+                  <td className="whitespace-nowrap px-2 py-2 text-sam-muted">
                     {new Date(r.created_at).toLocaleString("ko-KR")}
                   </td>
                   <td className="px-2 py-2">{r.source}</td>
@@ -154,14 +154,14 @@ export function AdminStorePaymentEventsPage() {
                   <td className="px-2 py-2">
                     <details className="text-left">
                       <summary className="cursor-pointer select-none text-blue-700 hover:underline">펼침</summary>
-                      <div className="mt-2 max-w-[min(100vw-2rem,42rem)] space-y-1 text-[11px] text-gray-600">
+                      <div className="mt-2 max-w-[min(100vw-2rem,42rem)] space-y-1 text-[11px] text-sam-muted">
                         {r.transmission_id ? (
                           <p>
-                            <span className="font-medium text-gray-700">transmission_id</span>{" "}
+                            <span className="font-medium text-sam-fg">transmission_id</span>{" "}
                             <span className="font-mono break-all">{r.transmission_id}</span>
                           </p>
                         ) : null}
-                        <pre className="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 font-mono text-[11px] leading-relaxed">
+                        <pre className="max-h-64 overflow-auto rounded border border-sam-border bg-sam-app p-2 font-mono text-[11px] leading-relaxed">
                           {JSON.stringify(r.payload ?? {}, null, 2)}
                         </pre>
                       </div>

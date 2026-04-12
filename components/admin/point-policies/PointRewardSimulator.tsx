@@ -27,13 +27,13 @@ export function PointRewardSimulator() {
     <div className="space-y-4">
       <form onSubmit={handleSimulate} className="space-y-3">
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             게시판
           </label>
           <select
             value={boardKey}
             onChange={(e) => setBoardKey(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             {BOARD_OPTIONS.map((b) => (
               <option key={b.key} value={b.key}>
@@ -43,7 +43,7 @@ export function PointRewardSimulator() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             행동
           </label>
           <select
@@ -51,14 +51,14 @@ export function PointRewardSimulator() {
             onChange={(e) =>
               setActionType(e.target.value as "write" | "comment")
             }
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="write">글쓰기</option>
             <option value="comment">댓글</option>
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             회원 유형
           </label>
           <select
@@ -66,14 +66,14 @@ export function PointRewardSimulator() {
             onChange={(e) =>
               setUserType(e.target.value as "free" | "premium")
             }
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="free">{USER_TYPE_LABELS.free}</option>
             <option value="premium">{USER_TYPE_LABELS.premium}</option>
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             현재 포인트 잔액
           </label>
           <input
@@ -83,7 +83,7 @@ export function PointRewardSimulator() {
             onChange={(e) =>
               setCurrentPointBalance(parseInt(e.target.value, 10) || 0)
             }
-            className="w-32 rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-32 rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         <button
@@ -95,17 +95,17 @@ export function PointRewardSimulator() {
       </form>
 
       {result && (
-        <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
-          <h3 className="text-[15px] font-medium text-gray-900">결과</h3>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
+          <h3 className="text-[15px] font-medium text-sam-fg">결과</h3>
           <dl className="mt-2 space-y-1 text-[14px]">
             <div className="flex justify-between">
-              <dt className="text-gray-600">지급 포인트</dt>
-              <dd className="font-semibold text-gray-900">
+              <dt className="text-sam-muted">지급 포인트</dt>
+              <dd className="font-semibold text-sam-fg">
                 +{result.rewardPoint}P
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-600">적용 배율</dt>
+              <dt className="text-sam-muted">적용 배율</dt>
               <dd>{result.appliedMultiplier}x</dd>
             </div>
             {result.capped && (

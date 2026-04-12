@@ -196,7 +196,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
       className={`min-w-0 flex-1 border-b-2 py-3 text-[14px] font-medium transition ${
         editorTab === t
           ? "border-signature text-signature"
-          : "border-transparent text-gray-500"
+          : "border-transparent text-sam-muted"
       }`}
     >
       {label}
@@ -206,9 +206,9 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   if (screen === "edit") {
     return (
       <div
-        className={`flex min-h-screen flex-col bg-gray-50 ${MENU_CATEGORY_EDIT_SCROLL_BOTTOM_CLASS}`}
+        className={`flex min-h-screen flex-col bg-sam-app ${MENU_CATEGORY_EDIT_SCROLL_BOTTOM_CLASS}`}
       >
-        <nav className="sticky top-0 z-10 flex border-b border-gray-200 bg-white px-2">
+        <nav className="sticky top-0 z-10 flex border-b border-sam-border bg-sam-surface px-2">
           {tabBtn("basic", "기본정보")}
           {tabBtn("language", "언어")}
         </nav>
@@ -217,62 +217,62 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           {error ? <p className="mb-3 text-[13px] text-red-600">{error}</p> : null}
 
           {editorTab === "basic" ? (
-            <div className="space-y-4 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-gray-800">이름</label>
+                <label className="mb-1 block text-[13px] font-medium text-sam-fg">이름</label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="카테고리 이름"
-                  className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+                  className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-gray-800">설명</label>
+                <label className="mb-1 block text-[13px] font-medium text-sam-fg">설명</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="고객에게 보일 수 있는 짧은 설명 (선택)"
                   rows={3}
-                  className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+                  className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-gray-800">정렬순서</label>
-                <p className="mb-1 text-[12px] text-gray-500">숫자가 작을수록 메뉴 탭에서 앞에 옵니다.</p>
+                <label className="mb-1 block text-[13px] font-medium text-sam-fg">정렬순서</label>
+                <p className="mb-1 text-[12px] text-sam-muted">숫자가 작을수록 메뉴 탭에서 앞에 옵니다.</p>
                 <input
                   inputMode="numeric"
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value)}
-                  className="w-full max-w-[140px] rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-gray-900"
+                  className="w-full max-w-[140px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
                 />
               </div>
-              <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                <span className="text-[14px] text-gray-800">숨김여부</span>
+              <div className="flex items-center justify-between border-t border-sam-border-soft pt-3">
+                <span className="text-[14px] text-sam-fg">숨김여부</span>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={isHidden}
                   onClick={() => setIsHidden((v) => !v)}
                   className={`relative h-8 w-14 rounded-full transition ${
-                    isHidden ? "bg-gray-400" : "bg-emerald-500"
+                    isHidden ? "bg-sam-primary-soft" : "bg-emerald-500"
                   }`}
                 >
                   <span
-                    className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition ${
+                    className={`absolute top-1 h-6 w-6 rounded-full bg-sam-surface shadow transition ${
                       isHidden ? "left-1" : "left-7"
                     }`}
                   />
                 </button>
               </div>
-              <p className="text-[12px] leading-relaxed text-gray-500">
+              <p className="text-[12px] leading-relaxed text-sam-muted">
                 숨김을 켜면 고객 매장 페이지에서 이 카테고리 탭과 속한 메뉴가 보이지 않습니다. 오너 화면에서는
                 계속 관리할 수 있습니다.
               </p>
             </div>
           ) : (
-            <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white p-6 text-center">
-              <p className="text-[14px] text-gray-600">
+            <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-6 text-center">
+              <p className="text-[14px] text-sam-muted">
                 다국어 카테고리 이름·설명은 추후 지원 예정입니다.
               </p>
             </div>
@@ -280,14 +280,14 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
         </div>
 
         <div
-          className={`fixed left-0 right-0 z-30 border-t border-gray-200 bg-white p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
+          className={`fixed left-0 right-0 z-30 border-t border-sam-border bg-sam-surface p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
         >
           <div className="flex gap-2">
             <button
               type="button"
               disabled={saving}
               onClick={() => backToList()}
-              className="min-h-[48px] flex-1 rounded-ui-rect border border-gray-300 bg-white py-3 text-[16px] font-semibold text-gray-800 disabled:opacity-45"
+              className="min-h-[48px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 text-[16px] font-semibold text-sam-fg disabled:opacity-45"
             >
               취소
             </button>
@@ -306,18 +306,18 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   }
 
   return (
-    <div className="max-w-full overflow-x-hidden bg-gray-50 pb-8">
-      <div className="flex flex-wrap gap-2 border-b border-gray-100 bg-white px-3 py-2">
+    <div className="max-w-full overflow-x-hidden bg-sam-app pb-8">
+      <div className="flex flex-wrap gap-2 border-b border-sam-border-soft bg-sam-surface px-3 py-2">
         <Link
           href={productsHubHref}
-          className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900"
+          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
         >
           상품 등록
         </Link>
-        <Link href={ordersHref} className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900">
+        <Link href={ordersHref} className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg">
           주문 관리
         </Link>
-        <Link href={inquiriesHref} className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900">
+        <Link href={inquiriesHref} className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg">
           문의
         </Link>
       </div>
@@ -326,7 +326,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           <button
             type="button"
             onClick={() => openNew()}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ig-border bg-white text-signature shadow-sm"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ig-border bg-sam-surface text-signature shadow-sm"
             aria-label="카테고리 추가"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -335,21 +335,21 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           </button>
           <Link
             href={productsHubHref}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-ui-rect border border-signature/40 bg-white px-3 py-2 text-[13px] font-semibold leading-tight text-signature shadow-sm transition hover:bg-signature/5 active:bg-signature/10"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-ui-rect border border-signature/40 bg-sam-surface px-3 py-2 text-[13px] font-semibold leading-tight text-signature shadow-sm transition hover:bg-signature/5 active:bg-signature/10"
           >
             상품 목록으로
           </Link>
         </div>
-        <p className="text-[13px] leading-relaxed text-gray-600">
+        <p className="text-[13px] leading-relaxed text-sam-muted">
           카테고리를 만든 뒤 상품 등록 화면에서 탭으로 나누어 등록하세요.
         </p>
 
         {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
 
         {loading ? (
-          <p className="text-[14px] text-gray-500">불러오는 중…</p>
+          <p className="text-[14px] text-sam-muted">불러오는 중…</p>
         ) : sections.length === 0 ? (
-          <div className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+          <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
             등록된 카테고리가 없습니다.
             <button
               type="button"
@@ -364,18 +364,18 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
             {sections.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center gap-2 rounded-ui-rect border border-gray-200 bg-white p-3 shadow-sm"
+                className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm"
               >
                 <button
                   type="button"
                   onClick={() => openEdit(s)}
                   className="min-w-0 flex-1 text-left"
                 >
-                  <p className="truncate text-[15px] font-semibold text-gray-900">{s.name}</p>
-                  <p className="text-[12px] text-gray-500">
+                  <p className="truncate text-[15px] font-semibold text-sam-fg">{s.name}</p>
+                  <p className="text-[12px] text-sam-muted">
                     정렬 {s.sort_order}
                     {s.is_hidden ? (
-                      <span className="ml-2 rounded bg-gray-200 px-1.5 py-0.5 text-gray-700">숨김</span>
+                      <span className="ml-2 rounded bg-sam-border-soft px-1.5 py-0.5 text-sam-fg">숨김</span>
                     ) : null}
                   </p>
                 </button>

@@ -17,7 +17,7 @@ import { buildMessengerContextInputFromOwnerOrder } from "@/lib/community-messen
 
 function fulfillmentLabel(t: OwnerOrder["order_type"]) {
   if (t === "delivery" || t === "shipping") {
-    return { cls: "bg-signature/5 text-gray-900", text: "배달" };
+    return { cls: "bg-signature/5 text-sam-fg", text: "배달" };
   }
   return { cls: "bg-teal-50 text-teal-900", text: "포장 픽업" };
 }
@@ -41,16 +41,16 @@ export function OwnerOrderDetail({
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-44">
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white px-3 py-3">
+      <header className="sticky top-0 z-20 border-b border-sam-border bg-sam-surface px-3 py-3">
         <div className="mx-auto flex max-w-lg items-center gap-2">
           <HistoryBackTextLink
             fallbackHref={listHref}
-            className="text-sm font-semibold text-gray-600"
+            className="text-sm font-semibold text-sam-muted"
             aria-label="목록으로"
           >
             ← 목록
           </HistoryBackTextLink>
-          <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold text-gray-900">
+          <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold text-sam-fg">
             {order.order_no}
           </h1>
           <OwnerOrderChatShortcut />
@@ -58,20 +58,20 @@ export function OwnerOrderDetail({
       </header>
 
       <div className="mx-auto max-w-lg space-y-3 px-3 py-4">
-        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <OwnerOrderStatusBadge status={order.order_status} />
             <span className={`rounded-ui-rect px-2 py-0.5 text-xs font-bold ${fl.cls}`}>{fl.text}</span>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-sam-muted">
             주문시각 {new Date(order.created_at).toLocaleString("ko-KR")}
           </p>
         </section>
 
         {order.community_messenger_room_id ? (
-          <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
-            <h2 className="text-sm font-bold text-gray-900">{t("nav_store_order_messenger_section_title")}</h2>
-            <p className="mt-1 text-[11px] leading-relaxed text-gray-500">{t("nav_store_order_messenger_section_hint")}</p>
+          <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
+            <h2 className="text-sm font-bold text-sam-fg">{t("nav_store_order_messenger_section_title")}</h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-sam-muted">{t("nav_store_order_messenger_section_hint")}</p>
             <div className="mt-3">
               <StoreOrderMessengerDeepLink
                 roomId={order.community_messenger_room_id}
@@ -96,7 +96,7 @@ export function OwnerOrderDetail({
         ) : null}
 
         {order.cancel_reason ? (
-          <section className="rounded-ui-rect border border-gray-200 bg-gray-100 p-4 text-sm text-gray-800">
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface-muted p-4 text-sm text-sam-fg">
             <p className="font-bold">거절·취소 사유</p>
             <p className="mt-1">{order.cancel_reason}</p>
           </section>
@@ -109,16 +109,16 @@ export function OwnerOrderDetail({
           </section>
         ) : null}
 
-        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
-          <h2 className="text-sm font-bold text-gray-900">기본 정보</h2>
+        <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
+          <h2 className="text-sm font-bold text-sam-fg">기본 정보</h2>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-2">
-              <dt className="text-gray-500">주문자</dt>
-              <dd className="font-medium text-gray-900">{order.buyer_name}</dd>
+              <dt className="text-sam-muted">주문자</dt>
+              <dd className="font-medium text-sam-fg">{order.buyer_name}</dd>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <dt className="text-gray-500">연락처</dt>
-              <dd className="flex flex-wrap items-center justify-end gap-2 font-mono text-gray-900">
+              <dt className="text-sam-muted">연락처</dt>
+              <dd className="flex flex-wrap items-center justify-end gap-2 font-mono text-sam-fg">
                 <span>{order.buyer_phone}</span>
                 {order.buyer_phone_tel_href ? (
                   <a
@@ -131,20 +131,20 @@ export function OwnerOrderDetail({
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-gray-500">결제 방법</dt>
-              <dd className="text-right font-medium text-gray-900">
+              <dt className="text-sam-muted">결제 방법</dt>
+              <dd className="text-right font-medium text-sam-fg">
                 {formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)}
               </dd>
             </div>
             {order.order_type === "delivery" ? (
               <div>
-                <dt className="text-gray-500">배달 주소</dt>
-                <dd className="mt-1 text-gray-900">{order.delivery_address ?? "—"}</dd>
+                <dt className="text-sam-muted">배달 주소</dt>
+                <dd className="mt-1 text-sam-fg">{order.delivery_address ?? "—"}</dd>
                 {order.delivery_courier_label?.trim() ? (
                   <div className="mt-3">
-                    <dt className="text-gray-500">배달 업체(안내)</dt>
-                    <dd className="mt-1 text-gray-900">{order.delivery_courier_label.trim()}</dd>
-                    <p className="mt-1 text-[11px] text-gray-500">
+                    <dt className="text-sam-muted">배달 업체(안내)</dt>
+                    <dd className="mt-1 text-sam-fg">{order.delivery_courier_label.trim()}</dd>
+                    <p className="mt-1 text-[11px] text-sam-muted">
                       안내 문구이며, 상품·배달비 합계와 별도로 청구되지 않습니다.
                     </p>
                   </div>
@@ -152,57 +152,57 @@ export function OwnerOrderDetail({
               </div>
             ) : order.order_type === "shipping" ? (
               <div>
-                <dt className="text-gray-500">배송</dt>
-                <dd className="mt-1 text-gray-900">배송지·운송장은 주문 데이터 연동 후 표시됩니다.</dd>
+                <dt className="text-sam-muted">배송</dt>
+                <dd className="mt-1 text-sam-fg">배송지·운송장은 주문 데이터 연동 후 표시됩니다.</dd>
               </div>
             ) : (
               <div>
-                <dt className="text-gray-500">픽업 안내</dt>
-                <dd className="mt-1 text-gray-900">{order.pickup_note ?? "—"}</dd>
+                <dt className="text-sam-muted">픽업 안내</dt>
+                <dd className="mt-1 text-sam-fg">{order.pickup_note ?? "—"}</dd>
               </div>
             )}
             <div>
-              <dt className="text-gray-500">고객 요청 사항</dt>
-              <dd className="mt-1 whitespace-pre-wrap text-gray-900">
+              <dt className="text-sam-muted">고객 요청 사항</dt>
+              <dd className="mt-1 whitespace-pre-wrap text-sam-fg">
                 {order.request_message?.trim() || "—"}
               </dd>
             </div>
           </dl>
         </section>
 
-        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
-          <h2 className="text-sm font-bold text-gray-900">주문 항목</h2>
+        <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
+          <h2 className="text-sm font-bold text-sam-fg">주문 항목</h2>
           <div className="mt-3">
             <OwnerOrderItems items={order.items} />
           </div>
         </section>
 
-        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
-          <h2 className="text-sm font-bold text-gray-900">금액</h2>
+        <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
+          <h2 className="text-sm font-bold text-sam-fg">금액</h2>
           <dl className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
-              <dt className="text-gray-500">상품금액</dt>
+              <dt className="text-sam-muted">상품금액</dt>
               <dd>{formatMoneyPhp(order.product_amount)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-500">옵션금액</dt>
+              <dt className="text-sam-muted">옵션금액</dt>
               <dd>{formatMoneyPhp(order.option_amount)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-500">
+              <dt className="text-sam-muted">
                 {order.order_type === "delivery" ? "배달비" : order.order_type === "shipping" ? "배송비" : "기타"}
               </dt>
               <dd>{formatMoneyPhp(order.delivery_fee)}</dd>
             </div>
-            <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold">
+            <div className="flex justify-between border-t border-sam-border-soft pt-2 text-base font-bold">
               <dt>주문 합계</dt>
               <dd>{formatMoneyPhp(order.total_amount)}</dd>
             </div>
           </dl>
         </section>
 
-        <section className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-gray-100">
-          <h2 className="text-sm font-bold text-gray-900">상태 변경 이력</h2>
+        <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
+          <h2 className="text-sm font-bold text-sam-fg">상태 변경 이력</h2>
           <div className="mt-4">
             <OwnerOrderTimeline logs={order.logs} />
           </div>
@@ -211,7 +211,7 @@ export function OwnerOrderDetail({
       </div>
 
       {!terminal ? (
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:hidden">
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:hidden">
           <div className="mx-auto max-w-lg">
             <OwnerOrderActionPanel
               storeId={storeId}
@@ -225,8 +225,8 @@ export function OwnerOrderDetail({
 
       {!terminal ? (
         <div className="mx-auto hidden max-w-lg px-3 pb-8 md:block">
-          <section className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <h2 className="text-sm font-bold text-gray-900">주문 처리</h2>
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <h2 className="text-sm font-bold text-sam-fg">주문 처리</h2>
             <div className="mt-3">
               <OwnerOrderActionPanel
               storeId={storeId}

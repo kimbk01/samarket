@@ -280,7 +280,7 @@ export function StoreOrderBuyerChatTop({
               aria-hidden={!drawerOpen}
             />
             <div
-              className={`fixed top-0 right-0 z-[70] flex h-[100dvh] w-[min(100vw,22rem)] flex-col bg-white shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+              className={`fixed top-0 right-0 z-[70] flex h-[100dvh] w-[min(100vw,22rem)] flex-col bg-sam-surface shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
                 drawerOpen ? "translate-x-0" : "translate-x-full"
               }`}
               role="dialog"
@@ -320,7 +320,7 @@ export function StoreOrderBuyerChatTop({
                     type="button"
                     disabled={!canCancel || cancelBusy}
                     onClick={onCancel}
-                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200/90 bg-white px-3.5 text-[14px] font-normal leading-[18px] tracking-[-0.01em] text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200/90 bg-sam-surface px-3.5 text-[14px] font-normal leading-[18px] tracking-[-0.01em] text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-red-300 text-[13px] font-normal leading-none">
                       ×
@@ -330,7 +330,7 @@ export function StoreOrderBuyerChatTop({
                   <Link
                     href={`/my/store-orders/${encodeURIComponent(orderId)}`}
                     onClick={() => setDrawerOpen(false)}
-                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-ig-border bg-white px-3.5 text-[14px] font-normal leading-[18px] tracking-[-0.01em] text-foreground"
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-ig-border bg-sam-surface px-3.5 text-[14px] font-normal leading-[18px] tracking-[-0.01em] text-foreground"
                   >
                     <DocIcon className="h-[18px] w-[18px] shrink-0 text-muted" />
                     <span className="flex items-center">주문상세</span>
@@ -346,7 +346,7 @@ export function StoreOrderBuyerChatTop({
 
   return (
     <>
-      <div className="flex min-h-[44px] items-center gap-2 border-b border-ig-border bg-white px-2 py-1.5">
+      <div className="flex min-h-[44px] items-center gap-2 border-b border-ig-border bg-sam-surface px-2 py-1.5">
         <AppBackButton preferHistoryBack backHref={backHref} />
         <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold leading-[21px] tracking-[-0.02em] text-foreground">
           {title}
@@ -355,7 +355,7 @@ export function StoreOrderBuyerChatTop({
           <button
             type="button"
             onClick={() => setDrawerOpen((v) => !v)}
-            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-neutral-800 hover:bg-black/[0.05] active:bg-black/[0.06] ${
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/[0.05] active:bg-black/[0.06] ${
               !matchAcked ? "ring-2 ring-amber-400/80 ring-offset-2 ring-offset-white" : ""
             }`}
             aria-expanded={drawerOpen}
@@ -363,7 +363,7 @@ export function StoreOrderBuyerChatTop({
           >
             <span className={`${!matchAcked ? "animate-pulse" : ""}`} aria-hidden>
               <svg
-                className="h-5 w-5 text-neutral-800"
+                className="h-5 w-5 text-sam-fg"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -376,13 +376,13 @@ export function StoreOrderBuyerChatTop({
           <button
             type="button"
             onClick={() => onBuyerChatSoundOnChange(!buyerChatSoundOn)}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-neutral-800 hover:bg-black/[0.05]"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/[0.05]"
             aria-label={buyerChatSoundOn ? "채팅 알림음 켜짐 — 탭하면 끔" : "채팅 알림음 꺼짐 — 탭하면 켬"}
             aria-pressed={buyerChatSoundOn}
           >
             {buyerChatSoundOn ? (
               <svg
-                className="h-[22px] w-[22px] text-neutral-800"
+                className="h-[22px] w-[22px] text-sam-fg"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -398,7 +398,7 @@ export function StoreOrderBuyerChatTop({
             ) : (
               <span className="relative inline-flex h-[22px] w-[22px] items-center justify-center" aria-hidden>
                 <svg
-                  className="h-[22px] w-[22px] text-neutral-600"
+                  className="h-[22px] w-[22px] text-sam-muted"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"

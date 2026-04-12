@@ -34,7 +34,7 @@ export function AdminOpsDocsPage() {
         <button
           type="button"
           onClick={() => setActiveTab(activeTab === "list" ? "summary" : "list")}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-700"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
         >
           {activeTab === "list" ? "요약 보기" : "목록 보기"}
         </button>

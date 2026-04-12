@@ -283,13 +283,13 @@ export function ChatMessageList({
             {/* 프로필: DM은 32px, 기본 34px */}
             <div className="flex shrink-0 flex-col justify-end">
               <div
-                className={`relative overflow-hidden rounded-full ${ig ? "h-8 w-8 bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]" : "h-[34px] w-[34px] bg-gray-300"}`}
+                className={`relative overflow-hidden rounded-full ${ig ? "h-8 w-8 bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]" : "h-[34px] w-[34px] bg-sam-surface-muted"}`}
               >
                 {partnerAvatar ? (
                   <img src={partnerAvatar} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <div
-                    className={`flex h-full w-full items-center justify-center ${ig ? "text-[13px] font-semibold text-foreground" : "text-[14px] font-medium text-gray-500"}`}
+                    className={`flex h-full w-full items-center justify-center ${ig ? "text-[13px] font-semibold text-foreground" : "text-[14px] font-medium text-sam-muted"}`}
                   >
                     {(partnerNickname || "?").charAt(0)}
                   </div>
@@ -332,7 +332,7 @@ export function ChatMessageList({
                       >
                         {hasReply && (
                           <div
-                            className={`mb-1 border-l-2 pl-2 ${ig ? "border-black/12 text-left text-[12px] font-normal leading-[1.35] text-muted" : "text-[12px] border-gray-300 text-[#999999]"}`}
+                            className={`mb-1 border-l-2 pl-2 ${ig ? "border-sam-fg/12 text-left text-[12px] font-normal leading-[1.35] text-muted" : "text-[12px] border-sam-border text-[#999999]"}`}
                           >
                             {msg.replyTo!.text.slice(0, 50)}
                             {msg.replyTo!.text.length > 50 ? "…" : ""}
@@ -382,8 +382,8 @@ export function ChatMessageList({
         ? `${IG_DM_BODY_TEXT} text-left text-white`
         : "text-[14px] font-normal leading-[20px] text-[#111111]";
       const mineReply = ig
-        ? "border-white/40 text-[12px] font-normal leading-[1.35] text-white/80"
-        : "border-gray-500/50 text-[12px] text-[#999999]";
+        ? "border-sam-surface/40 text-[12px] font-normal leading-[1.35] text-white/80"
+        : "border-sam-border/50 text-[12px] text-[#999999]";
       const bubblePadIgMine = IG_DM_BUBBLE_PAD;
       items.push(
         <li key={`mine-${msgs[0].id}`} className={`flex justify-end ${gapFromPrev}`}>

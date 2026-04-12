@@ -11,7 +11,7 @@ export function MemberChatInput({
 }) {
   const [text, setText] = useState("");
   return (
-    <div className="border-t border-ig-border bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div className="border-t border-ig-border bg-sam-surface p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <div className="flex gap-2">
         <button
           type="button"
@@ -21,7 +21,7 @@ export function MemberChatInput({
         >
           사진
         </button>
-        <div className="flex min-h-[44px] min-w-0 flex-1 items-stretch rounded-ui-rect border border-ig-border bg-white px-0.5">
+        <div className="flex min-h-[44px] min-w-0 flex-1 items-stretch rounded-ui-rect border border-ig-border bg-sam-surface px-0.5">
           <input
             className="min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent px-2.5 py-0 text-[15px] font-normal leading-[1.35] text-foreground placeholder:text-muted focus:outline-none focus:ring-0"
             placeholder="매장에 문의할 내용을 입력하세요"

@@ -72,7 +72,7 @@ export function PointPromotionOrderForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           대상 유형
         </label>
         <select
@@ -81,7 +81,7 @@ export function PointPromotionOrderForm({
             setTargetType(e.target.value as "product" | "shop");
             setTargetId("");
           }}
-          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
         >
           <option value="product">상품</option>
           <option value="shop">상점</option>
@@ -90,13 +90,13 @@ export function PointPromotionOrderForm({
 
       {targetType === "product" && (
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             상품 선택
           </label>
           <select
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
-            className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
           >
             <option value="">선택</option>
             {productOptions.map((p) => (
@@ -110,13 +110,13 @@ export function PointPromotionOrderForm({
 
       {targetType === "shop" && (
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             상점 선택
           </label>
           <select
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
-            className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
           >
             <option value="">선택</option>
             {shopOptions.map((s) => (
@@ -129,7 +129,7 @@ export function PointPromotionOrderForm({
       )}
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           노출 위치
         </label>
         <select
@@ -137,7 +137,7 @@ export function PointPromotionOrderForm({
           onChange={(e) =>
             setPlacement(e.target.value as PointPromotionPlacement)
           }
-          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
         >
           {PLACEMENTS.map((p) => (
             <option key={p} value={p}>
@@ -148,7 +148,7 @@ export function PointPromotionOrderForm({
       </div>
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           노출 기간
         </label>
         <select
@@ -156,7 +156,7 @@ export function PointPromotionOrderForm({
           onChange={(e) =>
             setDurationDays(Number(e.target.value))
           }
-          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
         >
           {DURATION_OPTIONS.map((d) => (
             <option key={d} value={d}>
@@ -166,12 +166,12 @@ export function PointPromotionOrderForm({
         </select>
       </div>
 
-      <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
-        <p className="text-[13px] text-gray-600">예상 차감 포인트</p>
-        <p className="mt-1 text-[18px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
+        <p className="text-[13px] text-sam-muted">예상 차감 포인트</p>
+        <p className="mt-1 text-[18px] font-semibold text-sam-fg">
           {cost.toLocaleString()}P
         </p>
-        <p className="mt-0.5 text-[13px] text-gray-500">
+        <p className="mt-0.5 text-[13px] text-sam-muted">
           보유 {balance.toLocaleString()}P
         </p>
         {insufficient && (

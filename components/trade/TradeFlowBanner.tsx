@@ -100,7 +100,7 @@ export function TradeFlowBanner({
   const productStatus = room.product?.status ?? "";
   const listingPill = publicListingBadge(displayListing, productStatus);
 
-  const pillClass = "inline-flex items-center rounded-ui-rect border border-gray-200 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-900";
+  const pillClass = "inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface/90 px-2 py-0.5 text-[10px] font-semibold text-sam-fg";
 
   const base = `/api/trade/product-chat/${encodeURIComponent(effectiveProductChatId)}`;
   const postNotSold = (productStatus ?? "").toLowerCase() !== "sold";
@@ -121,7 +121,7 @@ export function TradeFlowBanner({
 
   if (flow === "archived") {
     return (
-      <div className="border-b border-gray-200 bg-gray-100 px-3 py-2.5 text-[13px] text-gray-800">
+      <div className="border-b border-sam-border bg-sam-surface-muted px-3 py-2.5 text-[13px] text-sam-fg">
         같은 상품의 다른 거래가 완료되어 이 채팅은 종료된 방입니다.
         {mode === "readonly" ? " 읽기 전용이에요." : null}
       </div>
@@ -130,7 +130,7 @@ export function TradeFlowBanner({
 
   if (mode === "readonly") {
     return (
-      <div className="border-b border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px] text-gray-700">
+      <div className="border-b border-sam-border bg-sam-app px-3 py-2.5 text-[13px] text-sam-fg">
         이 채팅은 읽기 전용입니다. 추가 문의는 새 거래·고객센터를 이용해 주세요.
       </div>
     );
@@ -138,18 +138,18 @@ export function TradeFlowBanner({
 
   if (mode === "limited") {
     return (
-      <div className="border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px] text-slate-800">
+      <div className="border-b border-sam-border bg-sam-app px-3 py-2.5 text-[13px] text-sam-fg">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={pillClass}>상품 · {listingPill.label}</span>
         </div>
-        <p className="mt-1.5 text-[11px] text-slate-700">
+        <p className="mt-1.5 text-[11px] text-sam-fg">
           일정 기간이 지나면 일반 채팅이 제한될 수 있어요. 신고·차단은 메뉴(⋮)를 이용해 주세요.
         </p>
         {canOpenReviewSheet && onOpenReview ? (
           <button
             type="button"
             onClick={() => onOpenReview()}
-            className="mt-2 rounded-ui-rect border border-slate-300 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-800"
+            className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-medium text-sam-fg"
           >
             후기 보내기
           </button>
@@ -160,11 +160,11 @@ export function TradeFlowBanner({
 
   const actionBtnBase =
     "rounded-ui-rect border px-2 py-1 text-[10px] font-semibold transition disabled:opacity-50";
-  const actionBtnIdle = "border-gray-200 bg-white text-gray-900 hover:bg-signature/10";
+  const actionBtnIdle = "border-sam-border bg-sam-surface text-sam-fg hover:bg-signature/10";
   const actionBtnActive = "border-signature bg-signature text-white";
 
   return (
-    <div className="border-b border-gray-100 bg-signature/10 px-3 py-2.5">
+    <div className="border-b border-sam-border-soft bg-signature/10 px-3 py-2.5">
       {room.product ? (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={pillClass} title="상품(노출) 상태">
@@ -203,7 +203,7 @@ export function TradeFlowBanner({
                 className={`${actionBtnBase} ${
                   loading === `${base}/seller-complete`
                     ? "border-signature bg-signature text-white"
-                    : "border-gray-900 bg-signature text-white hover:bg-signature/90"
+                    : "border-sam-border bg-signature text-white hover:bg-signature/90"
                 } disabled:opacity-50`}
               >
                 {loading === `${base}/seller-complete` ? "처리 중…" : "거래완료"}
@@ -214,7 +214,7 @@ export function TradeFlowBanner({
       ) : null}
 
       {showSellerListingActions ? (
-        <p className="mt-1.5 text-[10px] leading-snug text-gray-800/90">
+        <p className="mt-1.5 text-[10px] leading-snug text-sam-fg/90">
           판매중·문의중·예약중은 서로 바꿀 수 있어요. 「거래완료」는 이 구매자와 거래를 마무리하며{" "}
           <span className="font-semibold">판매완료 후에는 되돌릴 수 없어요.</span>
         </p>
@@ -222,7 +222,7 @@ export function TradeFlowBanner({
 
       {flow === "seller_marked_done" && amBuyer && !actionsDismissed && (
         <div className="mt-2 space-y-1.5">
-          <p className="text-[12px] text-gray-900">
+          <p className="text-[12px] text-sam-fg">
             판매자가 거래완료 처리했어요. 거래가 끝났다면 <strong className="font-semibold">거래완료 확인</strong>으로
             넘어간 뒤 평가·후기를 남겨 주세요.
           </p>
@@ -239,7 +239,7 @@ export function TradeFlowBanner({
               type="button"
               disabled={!!loading}
               onClick={() => post(`${base}/buyer-issue`, {})}
-              className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-800 disabled:opacity-50"
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
             >
               문제있어요
             </button>
@@ -255,7 +255,7 @@ export function TradeFlowBanner({
       )}
 
       {flow === "seller_marked_done" && amBuyer && actionsDismissed && (
-        <p className="mt-2 text-[11px] text-gray-800">
+        <p className="mt-2 text-[11px] text-sam-fg">
           거래완료 확인·평가·후기는 새로고침하거나{" "}
           <span className="font-medium">내 정보 → 구매 내역</span>의 메뉴(⋮)에서 진행할 수 있어요.
         </p>
@@ -265,7 +265,7 @@ export function TradeFlowBanner({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {amBuyer ? (
             <>
-              <p className="text-[11px] text-gray-900">
+              <p className="text-[11px] text-sam-fg">
                 {room.buyerReviewSubmitted
                   ? "평가·후기 작성이 완료되었어요."
                   : "거래완료 확인이 끝났어요. 평가·후기를 남겨보세요. 구매 내역 메뉴(⋮)의 「후기 보내기」에서도 할 수 있어요."}
@@ -281,7 +281,7 @@ export function TradeFlowBanner({
               ) : null}
             </>
           ) : (
-            <p className="text-[11px] text-gray-900">
+            <p className="text-[11px] text-sam-fg">
               평가·후기는 구매자만 작성해요. 구매자가 남기면{" "}
               {room.buyerReviewSubmitted ? "거래 흐름이 모두 끝나요." : "이 단계가 마무리돼요."}
             </p>

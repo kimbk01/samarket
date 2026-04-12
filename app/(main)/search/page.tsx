@@ -6,7 +6,7 @@ import { SearchView } from "@/components/search/SearchView";
 function SearchFallback() {
   return (
     <div className="flex items-center justify-center py-12">
-      <p className="text-[14px] text-gray-500">검색</p>
+      <p className="text-[14px] text-sam-muted">검색</p>
     </div>
   );
 }

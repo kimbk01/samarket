@@ -38,7 +38,7 @@ export function AdminUserFilterBar({
         placeholder={searchPlaceholder}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="min-w-[180px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+        className="min-w-[180px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
       />
       <select
         value={filters.moderationStatus}
@@ -48,7 +48,7 @@ export function AdminUserFilterBar({
             moderationStatus: e.target.value as AdminUserFilters["moderationStatus"],
           })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {MODERATION_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -64,7 +64,7 @@ export function AdminUserFilterBar({
             memberType: e.target.value as AdminUser["memberType"] | "",
           })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {MEMBER_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -77,7 +77,7 @@ export function AdminUserFilterBar({
         placeholder={t("common_region")}
         value={filters.location}
         onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
-        className="min-w-[100px] rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800 placeholder:text-gray-400"
+        className="min-w-[100px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
       />
       <select
         value={filters.sortKey}
@@ -87,7 +87,7 @@ export function AdminUserFilterBar({
             sortKey: e.target.value as AdminUserSortKey,
           })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>

@@ -16,8 +16,8 @@ export default async function OwnerEditProductPage({
   if (!storeId || !pid) {
     return (
       <div className="min-h-screen bg-background px-4 py-8">
-        <p className="text-[14px] text-gray-700">
-          주소에 <code className="rounded bg-gray-100 px-1">storeId</code> 쿼리가 필요합니다.{" "}
+        <p className="text-[14px] text-sam-fg">
+          주소에 <code className="rounded bg-sam-surface-muted px-1">storeId</code> 쿼리가 필요합니다.{" "}
           <Link href="/my/business" className="font-medium text-signature underline">
             내 상점
           </Link>

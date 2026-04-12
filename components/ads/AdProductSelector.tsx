@@ -90,21 +90,21 @@ export function AdProductSelector({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-5 pb-10 pt-5 shadow-2xl">
+      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-10 pt-5 shadow-2xl">
         {/* 헤더 */}
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[17px] font-bold text-gray-900">광고 신청</h2>
+          <h2 className="text-[17px] font-bold text-sam-fg">광고 신청</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-[13px] text-gray-500 hover:text-gray-700"
+            className="text-[13px] text-sam-muted hover:text-sam-fg"
           >
             닫기
           </button>
         </div>
 
-        <p className="mb-3 truncate text-[13px] text-gray-600">
-          게시글: <span className="font-medium text-gray-900">{postTitle}</span>
+        <p className="mb-3 truncate text-[13px] text-sam-muted">
+          게시글: <span className="font-medium text-sam-fg">{postTitle}</span>
         </p>
 
         {/* 포인트 잔액 */}
@@ -115,9 +115,9 @@ export function AdProductSelector({
 
         {/* 상품 목록 */}
         {loading ? (
-          <p className="py-6 text-center text-[13px] text-gray-500">불러오는 중…</p>
+          <p className="py-6 text-center text-[13px] text-sam-muted">불러오는 중…</p>
         ) : products.length === 0 ? (
-          <p className="py-6 text-center text-[13px] text-gray-500">이 게시판에 등록된 광고 상품이 없습니다.</p>
+          <p className="py-6 text-center text-[13px] text-sam-muted">이 게시판에 등록된 광고 상품이 없습니다.</p>
         ) : (
           <div className="mb-4 space-y-2">
             {products.map((p) => {
@@ -131,21 +131,21 @@ export function AdProductSelector({
                   className={`w-full rounded-ui-rect border px-3 py-3 text-left transition-colors ${
                     isSelected
                       ? "border-emerald-400 bg-emerald-50"
-                      : "border-gray-200 bg-white hover:bg-gray-50"
+                      : "border-sam-border bg-sam-surface hover:bg-sam-app"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-[14px] font-semibold text-gray-900">{p.name}</p>
-                      <p className="mt-0.5 text-[12px] text-gray-500">
+                      <p className="text-[14px] font-semibold text-sam-fg">{p.name}</p>
+                      <p className="mt-0.5 text-[12px] text-sam-muted">
                         {AD_TYPE_LABELS[p.adType]} · {p.durationDays}일
                       </p>
                       {p.description ? (
-                        <p className="mt-0.5 text-[12px] text-gray-500">{p.description}</p>
+                        <p className="mt-0.5 text-[12px] text-sam-muted">{p.description}</p>
                       ) : null}
                     </div>
                     <div className="text-right">
-                      <p className="text-[15px] font-bold text-gray-900">{p.pointCost.toLocaleString()}P</p>
+                      <p className="text-[15px] font-bold text-sam-fg">{p.pointCost.toLocaleString()}P</p>
                       {lacking > 0 ? (
                         <p className="text-[11px] text-red-500">{lacking.toLocaleString()}P 부족</p>
                       ) : (
@@ -162,7 +162,7 @@ export function AdProductSelector({
         {/* 결제 방법 선택 (포인트 vs 입금) */}
         {selected !== null && (
           <div className="mb-4">
-            <p className="mb-2 text-[13px] font-semibold text-gray-700">결제 방식</p>
+            <p className="mb-2 text-[13px] font-semibold text-sam-fg">결제 방식</p>
             <div className="flex gap-2">
               {(["points", "bank_transfer"] as AdPaymentMethod[]).map((m) => (
                 <button
@@ -172,7 +172,7 @@ export function AdProductSelector({
                   className={`flex-1 rounded-ui-rect border py-2 text-[13px] font-medium ${
                     paymentMethod === m
                       ? "border-emerald-400 bg-emerald-50 text-emerald-800"
-                      : "border-gray-200 bg-white text-gray-700"
+                      : "border-sam-border bg-sam-surface text-sam-fg"
                   }`}
                 >
                   {m === "points" ? "포인트 사용" : "계좌 입금"}
@@ -198,14 +198,14 @@ export function AdProductSelector({
                   value={depositorName}
                   onChange={(e) => setDepositorName(e.target.value)}
                   placeholder="입금자명 (필수)"
-                  className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
+                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
                 />
                 <input
                   type="text"
                   value={memo}
                   onChange={(e) => setMemo(e.target.value)}
                   placeholder="메모 (선택)"
-                  className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
+                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
                 />
                 <div className="rounded-ui-rect bg-sky-50 px-3 py-2 text-[12px] text-sky-800">
                   <p className="font-semibold">입금 안내</p>

@@ -1282,7 +1282,7 @@ export function ChatDetailView({
   }, [room.id, isChatRoom, router, effectiveListHref]);
 
   const moreMenuPanel = menuOpen ? (
-    <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-ui-rect border border-gray-200 bg-white py-1 shadow-lg">
+    <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg">
       {!isStoreOrderBuyer && amISeller && postId && room.product && (room.product.status ?? "").toLowerCase() !== "sold" ? (
                   <>
                     <button
@@ -1291,7 +1291,7 @@ export function ChatDetailView({
                         setMenuOpen(false);
                         void persistListingState("inquiry");
                       }}
-                      className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                      className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                     >
                       판매중으로 변경
                     </button>
@@ -1301,7 +1301,7 @@ export function ChatDetailView({
                         setMenuOpen(false);
                         void persistListingState("negotiating");
                       }}
-                      className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                      className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                     >
                       문의중으로 변경
                     </button>
@@ -1311,7 +1311,7 @@ export function ChatDetailView({
                         setMenuOpen(false);
                         void persistListingState("reserved");
                       }}
-                      className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                      className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                     >
                       예약중으로 변경
                     </button>
@@ -1321,7 +1321,7 @@ export function ChatDetailView({
                         setMenuOpen(false);
                         void runSellerCompleteFromMenu();
                       }}
-                      className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                      className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                     >
                       거래완료 (되돌리기 불가)
                     </button>
@@ -1331,7 +1331,7 @@ export function ChatDetailView({
                   <Link
                     href={`/post/${postId}`}
                     onClick={() => setMenuOpen(false)}
-                    className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                    className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                   >
                     게시글 보기
                   </Link>
@@ -1342,7 +1342,7 @@ export function ChatDetailView({
                     setMenuOpen(false);
                     setRoomInfoSheetOpen(true);
                   }}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                 >
                   {t("common_chat_info")}
                 </button>
@@ -1353,7 +1353,7 @@ export function ChatDetailView({
                       setMenuOpen(false);
                       setReportSheetOpen(true);
                     }}
-                    className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                    className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                   >
                     {t("nav_messenger_report")}
                   </button>
@@ -1364,7 +1364,7 @@ export function ChatDetailView({
                     setMenuOpen(false);
                     setBlockSheetOpen(true);
                   }}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                 >
                   {t("common_block")}
                 </button>
@@ -1375,7 +1375,7 @@ export function ChatDetailView({
                     if (isChatRoom) handleLeave();
                     else router.push(effectiveListHref);
                   }}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                 >
                   {t("common_leave_chat_room")}
                 </button>
@@ -1398,7 +1398,7 @@ export function ChatDetailView({
                         /* ignore */
                       }
                     }}
-                    className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                    className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                   >
                     {t("common_hide")}
                   </button>
@@ -1410,7 +1410,7 @@ export function ChatDetailView({
                       setReviewSheetOpen(true);
                       setMenuOpen(false);
                     }}
-                    className="block w-full px-4 py-2.5 text-left text-[14px] text-gray-700 hover:bg-gray-50"
+                    className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
                   >
                     {t("nav_trade_review_send")}
                   </button>
@@ -1420,11 +1420,11 @@ export function ChatDetailView({
 
   const sellerComposerQuickBar =
     isStoreOrderSeller ? (
-      <div className="flex flex-wrap gap-2 border-b border-ig-border bg-white px-3 pb-2 pt-1">
+      <div className="flex flex-wrap gap-2 border-b border-ig-border bg-sam-surface px-3 pb-2 pt-1">
         <button
           type="button"
           onClick={() => setSellerDrawerOpenExclusive(true)}
-          className="rounded-full border border-ig-border bg-white px-3.5 py-1.5 text-[13px] font-medium leading-tight tracking-[-0.01em] text-foreground hover:bg-black/[0.04] active:bg-black/[0.06]"
+          className="rounded-full border border-ig-border bg-sam-surface px-3.5 py-1.5 text-[13px] font-medium leading-tight tracking-[-0.01em] text-foreground hover:bg-black/[0.04] active:bg-black/[0.06]"
         >
           주문 패널
         </button>
@@ -1467,10 +1467,10 @@ export function ChatDetailView({
 
   return (
     <div
-      className={`flex flex-col ${isStoreOrderChat ? "bg-white" : "bg-[#e8e4df]"} ${rootHeightClass}`}
+      className={`flex flex-col ${isStoreOrderChat ? "bg-sam-surface" : "bg-[#e8e4df]"} ${rootHeightClass}`}
     >
       {isStoreOrderBuyer ? (
-        <header className="shrink-0 border-b border-ig-border bg-white">
+        <header className="shrink-0 border-b border-ig-border bg-sam-surface">
           <StoreOrderBuyerChatTop
             backHref={effectiveListHref}
             title={
@@ -1524,18 +1524,18 @@ export function ChatDetailView({
                   ariaLabel="이전 화면"
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/90 ring-1 ring-black/5">
+                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-sam-surface/90 ring-1 ring-black/5">
                     {partnerDisplayAvatar ? (
                       <img src={partnerDisplayAvatar} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[14px] font-medium text-gray-600">
+                      <div className="flex h-full w-full items-center justify-center text-[14px] font-medium text-sam-muted">
                         {partnerDisplayNickname.charAt(0) || "?"}
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold text-gray-900">{partnerDisplayNickname}</p>
-                    <p className="truncate text-[12px] text-gray-700">
+                    <p className="truncate text-[15px] font-semibold text-sam-fg">{partnerDisplayNickname}</p>
+                    <p className="truncate text-[12px] text-sam-fg">
                       {isStoreOrderChat && !isStoreOrderBuyer
                         ? (room.roomSubtitle?.trim() ||
                             (amISeller ? "상대방 · 주문 고객" : "상대방 · 매장"))
@@ -1570,7 +1570,7 @@ export function ChatDetailView({
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-gray-800 hover:bg-black/10"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10"
                       aria-label="더보기"
                     >
                       <MoreIcon className="h-5 w-5" />
@@ -1582,7 +1582,7 @@ export function ChatDetailView({
             </TradePrimaryAppBarShell>
           </div>
           {!isStoreOrderChat ? (
-            <div className="shrink-0 border-b border-gray-200 bg-white shadow-sm">
+            <div className="shrink-0 border-b border-sam-border bg-sam-surface shadow-sm">
               {!isGeneralPurposeChat && (
                 <TradeFlowBanner
                   room={room}
@@ -1605,17 +1605,17 @@ export function ChatDetailView({
                 </div>
               ) : null}
               {room.product && (
-                <div className="border-t border-gray-100 bg-white px-3 py-2">
+                <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2">
                   <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
                 </div>
               )}
               {showMessengerTradeCta ? (
-                <div className="border-t border-gray-100 bg-white px-3 py-2">
+                <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2">
                   <button
                     type="button"
                     disabled={messengerTradeBusy}
                     onClick={() => void openProductTradeInMessenger()}
-                    className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 text-[13px] font-medium text-gray-900 disabled:opacity-50"
+                    className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[13px] font-medium text-sam-fg disabled:opacity-50"
                   >
                     {messengerTradeBusy ? t("nav_messenger_product_trade_bridge_busy") : t("nav_messenger_open_product_trade")}
                   </button>
@@ -1628,7 +1628,7 @@ export function ChatDetailView({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
-          className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-white py-2" : "bg-[#F7F7F7] py-1"}`}
+          className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-sam-surface py-2" : "bg-[#F7F7F7] py-1"}`}
         >
           <div className={CHAT_THREAD_COLUMN_INNER_CLASS}>
             {messagesLoading ? (
@@ -1649,20 +1649,20 @@ export function ChatDetailView({
       {partnerBlocked ? (
         isStoreOrderSeller ? (
           <div
-            className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
+            className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-sam-border"}`}
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
           >
             {sellerComposerQuickBar}
             <div className="px-4 py-3 text-center">
-              <p className="text-[13px] text-gray-500">
+              <p className="text-[13px] text-sam-muted">
                 {t("nav_trade_blocked_no_message")}
               </p>
             </div>
           </div>
         ) : (
-          <div className="shrink-0 border-t border-gray-200 bg-white safe-area-pb">
+          <div className="shrink-0 border-t border-sam-border bg-sam-surface safe-area-pb">
             <div className="px-4 py-3 text-center">
-              <p className="text-[13px] text-gray-500">
+              <p className="text-[13px] text-sam-muted">
                 {t("nav_trade_blocked_no_message")}
               </p>
             </div>
@@ -1671,12 +1671,12 @@ export function ChatDetailView({
       ) : !canWriteTradeMessage ? (
         isStoreOrderSeller ? (
           <div
-            className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-white safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
+            className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-sam-border"}`}
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
           >
             {sellerComposerQuickBar}
             <div className="px-4 py-3 text-center">
-              <p className="text-[13px] text-gray-500">
+              <p className="text-[13px] text-sam-muted">
                 {adminChatSuspended
                   ? ADMIN_CHAT_SUSPENDED_MESSAGE
                   : soldToOther
@@ -1690,9 +1690,9 @@ export function ChatDetailView({
             </div>
           </div>
         ) : (
-          <div className="shrink-0 border-t border-gray-200 bg-white safe-area-pb">
+          <div className="shrink-0 border-t border-sam-border bg-sam-surface safe-area-pb">
             <div className="px-4 py-3 text-center">
-              <p className="text-[13px] text-gray-500">
+              <p className="text-[13px] text-sam-muted">
                 {adminChatSuspended
                   ? ADMIN_CHAT_SUSPENDED_MESSAGE
                   : soldToOther
@@ -1708,7 +1708,7 @@ export function ChatDetailView({
         )
       ) : (
         <div
-          className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-white pt-3 safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-gray-200"}`}
+          className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface pt-3 safe-area-pb ${isStoreOrderChat ? "border-ig-border" : "border-sam-border"}`}
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
         >
           {chatComposerInner}
@@ -1739,21 +1739,21 @@ export function ChatDetailView({
       {roomInfoSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
           <div
-            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-lg sm:max-h-[90vh] sm:rounded-ui-rect`}
+            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-lg sm:max-h-[90vh] sm:rounded-ui-rect`}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
+            <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
               <div>
-                <h2 className="text-[16px] font-semibold text-gray-900">{t("common_chat_info")}</h2>
-                <p className="mt-1 text-[12px] text-gray-500">{t("nav_trade_chat_info_desc", { nickname: partnerDisplayNickname })}</p>
+                <h2 className="text-[16px] font-semibold text-sam-fg">{t("common_chat_info")}</h2>
+                <p className="mt-1 text-[12px] text-sam-muted">{t("nav_trade_chat_info_desc", { nickname: partnerDisplayNickname })}</p>
               </div>
-              <button type="button" onClick={() => setRoomInfoSheetOpen(false)} className="text-[14px] text-gray-500">
+              <button type="button" onClick={() => setRoomInfoSheetOpen(false)} className="text-[14px] text-sam-muted">
                 {t("common_close")}
               </button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              <section className="rounded-ui-rect border border-gray-200 px-4 py-4">
-                <p className="text-[15px] font-semibold text-gray-900">{partnerDisplayNickname}</p>
-                <p className="mt-1 text-[13px] text-gray-500">
+              <section className="rounded-ui-rect border border-sam-border px-4 py-4">
+                <p className="text-[15px] font-semibold text-sam-fg">{partnerDisplayNickname}</p>
+                <p className="mt-1 text-[13px] text-sam-muted">
                   {isStoreOrderChat && !isStoreOrderBuyer
                     ? room.roomSubtitle?.trim() || (amISeller ? t("nav_trade_partner_order_customer") : t("nav_trade_partner_store"))
                     : room.product
@@ -1769,8 +1769,8 @@ export function ChatDetailView({
                 ) : null}
               </section>
               {room.product ? (
-                <section className="rounded-ui-rect border border-gray-200 bg-[#F8FAF9] p-3">
-                  <p className="mb-3 text-[14px] font-semibold text-gray-900">{t("nav_trade_connected_product")}</p>
+                <section className="rounded-ui-rect border border-sam-border bg-[#F8FAF9] p-3">
+                  <p className="mb-3 text-[14px] font-semibold text-sam-fg">{t("nav_trade_connected_product")}</p>
                   <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
                 </section>
               ) : null}
@@ -1782,11 +1782,11 @@ export function ChatDetailView({
       {reportSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
           <div
-            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white`}
+            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface`}
           >
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <h2 className="text-[16px] font-semibold text-gray-900">{t("nav_messenger_report")}</h2>
-              <button type="button" onClick={() => setReportSheetOpen(false)} className="text-[14px] text-gray-500">
+            <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
+              <h2 className="text-[16px] font-semibold text-sam-fg">{t("nav_messenger_report")}</h2>
+              <button type="button" onClick={() => setReportSheetOpen(false)} className="text-[14px] text-sam-muted">
                 {t("common_close")}
               </button>
             </div>
@@ -1807,11 +1807,11 @@ export function ChatDetailView({
       {blockSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
           <div
-            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-white`}
+            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface`}
           >
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <h2 className="text-[16px] font-semibold text-gray-900">{t("common_block")}</h2>
-              <button type="button" onClick={() => setBlockSheetOpen(false)} className="text-[14px] text-gray-500">
+            <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
+              <h2 className="text-[16px] font-semibold text-sam-fg">{t("common_block")}</h2>
+              <button type="button" onClick={() => setBlockSheetOpen(false)} className="text-[14px] text-sam-muted">
                 {t("common_close")}
               </button>
             </div>
@@ -1832,7 +1832,7 @@ export function ChatDetailView({
       )}
 
       {messengerTradeToast ? (
-        <p className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[55] bg-gray-900 px-3 py-2 text-center text-xs text-white">
+        <p className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[55] bg-sam-ink px-3 py-2 text-center text-xs text-white">
           {messengerTradeToast}
         </p>
       ) : null}
@@ -1840,11 +1840,11 @@ export function ChatDetailView({
       {reviewSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
           <div
-            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-lg sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
+            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-lg sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
-              <h2 className="text-[16px] font-semibold text-gray-900">후기 작성</h2>
-              <button type="button" onClick={() => setReviewSheetOpen(false)} className="text-[14px] text-gray-500">
+            <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
+              <h2 className="text-[16px] font-semibold text-sam-fg">후기 작성</h2>
+              <button type="button" onClick={() => setReviewSheetOpen(false)} className="text-[14px] text-sam-muted">
                 닫기
               </button>
             </div>

@@ -49,22 +49,22 @@ export function WriteScreenTier1Sync({
     <>
       {confirmOpen ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-ui-rect bg-white p-4 shadow-lg">
-            <p className="text-[15px] text-gray-800">
+          <div className="w-full max-w-sm rounded-ui-rect bg-sam-surface p-4 shadow-lg">
+            <p className="text-[15px] text-sam-fg">
               글쓰기를 취소할까요? 입력한 내용이 저장되지 않습니다.
             </p>
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmOpen(false)}
-                className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[14px] font-medium text-gray-700"
+                className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-[14px] font-medium text-sam-fg"
               >
                 계속 쓰기
               </button>
               <button
                 type="button"
                 onClick={handleConfirmLeave}
-                className="flex-1 rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white"
+                className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 text-[14px] font-medium text-white"
               >
                 취소
               </button>

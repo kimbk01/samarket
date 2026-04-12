@@ -46,17 +46,17 @@ export function NotificationSimulationPanel() {
   const sel = orderId ? findSharedOrder(orderId) : undefined;
 
   return (
-    <section className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/80 p-4">
-      <h2 className="text-sm font-bold text-gray-900">Notification Simulation Panel</h2>
-      <p className="mt-1 text-[11px] text-gray-600">
+    <section className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/80 p-4">
+      <h2 className="text-sm font-bold text-sam-fg">Notification Simulation Panel</h2>
+      <p className="mt-1 text-[11px] text-sam-muted">
         주문 선택 후 테스트 알림을 넣거나, 전체 스토어를 비웁니다.
       </p>
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
-        <label className="flex flex-col text-[11px] font-medium text-gray-700">
+        <label className="flex flex-col text-[11px] font-medium text-sam-fg">
           주문
           <select
-            className="mt-0.5 min-w-[200px] rounded border border-gray-300 bg-white px-2 py-1.5 text-xs"
+            className="mt-0.5 min-w-[200px] rounded border border-sam-border bg-sam-surface px-2 py-1.5 text-xs"
             value={orderId}
             onChange={(e) => setOrderId(e.target.value)}
           >
@@ -68,10 +68,10 @@ export function NotificationSimulationPanel() {
             ))}
           </select>
         </label>
-        <label className="flex flex-col text-[11px] font-medium text-gray-700">
+        <label className="flex flex-col text-[11px] font-medium text-sam-fg">
           역할 (테스트 이벤트 관점)
           <select
-            className="mt-0.5 rounded border border-gray-300 bg-white px-2 py-1.5 text-xs"
+            className="mt-0.5 rounded border border-sam-border bg-sam-surface px-2 py-1.5 text-xs"
             value={role}
             onChange={(e) => setRole(e.target.value as typeof role)}
           >
@@ -82,7 +82,7 @@ export function NotificationSimulationPanel() {
         </label>
         <button
           type="button"
-          className="rounded-ui-rect bg-gray-900 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40"
+          className="rounded-ui-rect bg-sam-ink px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40"
           disabled={!sel}
           onClick={() => {
             if (!sel) return;
@@ -104,7 +104,7 @@ export function NotificationSimulationPanel() {
         </button>
         <button
           type="button"
-          className="rounded-ui-rect border border-red-300 bg-white px-3 py-2 text-[11px] text-red-800"
+          className="rounded-ui-rect border border-red-300 bg-sam-surface px-3 py-2 text-[11px] text-red-800"
           onClick={() => {
             if (!confirm("알림·설정·주문을 모두 초기화할까요?")) return;
             resetSharedNotifications();
@@ -118,18 +118,18 @@ export function NotificationSimulationPanel() {
         </button>
       </div>
 
-      {last ? <p className="mt-2 font-mono text-[11px] text-gray-800">{last}</p> : null}
+      {last ? <p className="mt-2 font-mono text-[11px] text-sam-fg">{last}</p> : null}
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div>
-          <h3 className="mb-1 text-[11px] font-bold text-gray-700">알림 미리보기 ({notifs.length})</h3>
-          <pre className="max-h-[200px] overflow-auto rounded-ui-rect bg-slate-900 p-2 text-[9px] text-emerald-100">
+          <h3 className="mb-1 text-[11px] font-bold text-sam-fg">알림 미리보기 ({notifs.length})</h3>
+          <pre className="max-h-[200px] overflow-auto rounded-ui-rect bg-sam-ink p-2 text-[9px] text-emerald-100">
             {JSON.stringify(notifs.slice(-12), null, 2)}
           </pre>
         </div>
         <div>
-          <h3 className="mb-1 text-[11px] font-bold text-gray-700">unread 힌트</h3>
-          <pre className="max-h-[200px] overflow-auto rounded-ui-rect bg-slate-900 p-2 text-[9px] text-sky-100">
+          <h3 className="mb-1 text-[11px] font-bold text-sam-fg">unread 힌트</h3>
+          <pre className="max-h-[200px] overflow-auto rounded-ui-rect bg-sam-ink p-2 text-[9px] text-sky-100">
             {JSON.stringify(
               notifs.filter((n) => !n.is_read).map((n) => ({ role: n.role, type: n.type, title: n.title })),
               null,

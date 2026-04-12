@@ -77,11 +77,11 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
       aria-modal
       aria-label="사진 선택"
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-white/10 px-2 py-2.5">
+      <header className="flex shrink-0 items-center gap-2 border-b border-sam-surface/10 px-2 py-2.5">
         <button
           type="button"
           data-kasama-round-full
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/90 hover:bg-white/10"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/90 hover:bg-sam-surface/10"
           aria-label="닫기"
           onClick={onClose}
         >
@@ -106,7 +106,7 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-0.5 py-1">
-        <div className="grid grid-cols-3 gap-px bg-white/15">
+        <div className="grid grid-cols-3 gap-px bg-sam-surface/15">
           {objectUrls.map((src, i) => {
             const on = selected.has(i);
             return (
@@ -121,7 +121,7 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
                   className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-sm ${
                     on
                       ? "border-signature bg-signature text-white"
-                      : "border-white/85 bg-white/35 backdrop-blur-[2px]"
+                      : "border-sam-surface/85 bg-sam-surface/35 backdrop-blur-[2px]"
                   }`}
                 >
                   {on ? (
@@ -136,10 +136,10 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
         </div>
       </div>
 
-      <footer className="shrink-0 border-t border-white/10 bg-black/90 px-3 py-2.5">
+      <footer className="shrink-0 border-t border-sam-surface/10 bg-black/90 px-3 py-2.5">
         <div className="flex items-center gap-2.5">
           <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FEE500] text-base font-bold text-black shadow-sm"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FEE500] text-base font-bold text-sam-fg shadow-sm"
             aria-hidden
           >
             ✓
@@ -151,8 +151,8 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
             </p>
           </div>
           <div className="flex shrink-0 gap-2 opacity-45" aria-hidden>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg">✨</span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg">⋯</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sam-surface/10 text-lg">✨</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sam-surface/10 text-lg">⋯</span>
           </div>
         </div>
       </footer>

@@ -112,19 +112,19 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
   return (
     <div className="space-y-4">
       <AdminPageHeader title={title} />
-      <p className="text-[14px] text-gray-600">{subtitle}</p>
+      <p className="text-[14px] text-sam-muted">{subtitle}</p>
       {menuType === "community" ? (
-        <p className="text-[13px] text-gray-500">
-          커뮤니티 <strong className="font-medium text-gray-700">게시판 목록</strong>(자유게시판 등)은{" "}
+        <p className="text-[13px] text-sam-muted">
+          커뮤니티 <strong className="font-medium text-sam-fg">게시판 목록</strong>(자유게시판 등)은{" "}
           <Link href="/admin/boards" className="font-medium text-signature hover:underline">
             게시판 관리
           </Link>
-          에서 만들고, 여기서는 글쓰기로 연결되는 <strong className="font-medium text-gray-700">메뉴·카테고리</strong>를 다룹니다.
+          에서 만들고, 여기서는 글쓰기로 연결되는 <strong className="font-medium text-sam-fg">메뉴·카테고리</strong>를 다룹니다.
         </p>
       ) : null}
 
       <div className="flex items-center justify-between">
-        <span className="text-[14px] text-gray-500">
+        <span className="text-[14px] text-sam-muted">
           {menuType === "trade" ? "거래 종류 항목" : "커뮤니티 메뉴 항목"}
         </span>
         <button
@@ -156,7 +156,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       )}
 
       {loading ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
           불러오는 중…
         </div>
       ) : (

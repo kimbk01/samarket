@@ -36,38 +36,38 @@ export function AdminPermissionToggles({
   return (
     <div className="space-y-4">
       {showRoleDefaultsButton && (
-        <div className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-2">
-          <span className="text-[13px] text-gray-600">역할에 맞춰 권한을 한 번에 적용</span>
+        <div className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+          <span className="text-[13px] text-sam-muted">역할에 맞춰 권한을 한 번에 적용</span>
           <button
             type="button"
             onClick={applyRoleDefaults}
-            className="rounded border border-gray-300 bg-white px-3 py-1.5 text-[13px] text-gray-700 hover:bg-gray-100"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg hover:bg-sam-surface-muted"
           >
             {currentRole === "master" ? "최고관리자 기본값 적용" : currentRole === "manager" ? "총괄 기본값 적용" : "운영자 기본값 적용"}
           </button>
         </div>
       )}
-      <p className="text-[13px] font-medium text-gray-700">
+      <p className="text-[13px] font-medium text-sam-fg">
         아이디별로 항목을 클릭해 권한 부여 여부를 선택하세요. (예: 글쓰기 권한 부여 O/X)
       </p>
       {ADMIN_PERMISSION_GROUPS.map((g) => (
-        <div key={g.groupLabel} className="rounded-ui-rect border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 bg-gray-50 px-3 py-2 text-[12px] font-medium text-gray-500">
+        <div key={g.groupLabel} className="rounded-ui-rect border border-sam-border bg-sam-surface">
+          <div className="border-b border-sam-border-soft bg-sam-app px-3 py-2 text-[12px] font-medium text-sam-muted">
             {g.groupLabel}
           </div>
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-sam-border-soft">
             {g.keys
               .filter((key) => key !== "create_admin" || canGrantCreateAdmin)
               .map((key) => (
                 <li key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                  <span className="text-[14px] text-gray-800">{getPermissionLabel(key)}</span>
+                  <span className="text-[14px] text-sam-fg">{getPermissionLabel(key)}</span>
                   <label className="flex shrink-0 items-center gap-2">
-                    <span className="text-[13px] text-gray-500">권한 부여</span>
+                    <span className="text-[13px] text-sam-muted">권한 부여</span>
                     <input
                       type="checkbox"
                       checked={permissions.includes(key)}
                       onChange={() => onToggle(key)}
-                      className="h-4 w-4 rounded border-gray-300 text-signature focus:ring-signature"
+                      className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature"
                     />
                   </label>
                 </li>

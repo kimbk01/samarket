@@ -90,22 +90,22 @@ export function MeetingReportModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* 바텀 시트 */}
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 pb-8 pt-4 shadow-xl">
+      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-4 shadow-xl">
         {/* 핸들 */}
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" />
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-sam-border-soft" />
 
         {done ? (
           /* 완료 화면 */
           <div className="py-6 text-center">
             <p className="text-[28px]">✅</p>
-            <p className="mt-3 text-[16px] font-semibold text-gray-900">신고가 접수되었습니다</p>
-            <p className="mt-1 text-[13px] text-gray-500">
+            <p className="mt-3 text-[16px] font-semibold text-sam-fg">신고가 접수되었습니다</p>
+            <p className="mt-1 text-[13px] text-sam-muted">
               검토 후 필요한 조치를 취하겠습니다.
             </p>
             <button
               type="button"
               onClick={onClose}
-              className="mt-5 w-full rounded-ui-rect bg-gray-900 py-3 text-[14px] font-semibold text-white"
+              className="mt-5 w-full rounded-ui-rect bg-sam-ink py-3 text-[14px] font-semibold text-white"
             >
               닫기
             </button>
@@ -113,10 +113,10 @@ export function MeetingReportModal({
         ) : (
           /* 신고 폼 */
           <>
-            <h2 className="text-[16px] font-semibold text-gray-900">
+            <h2 className="text-[16px] font-semibold text-sam-fg">
               {TARGET_LABEL[targetType]} 신고
             </h2>
-            <p className="mt-0.5 text-[12px] text-gray-500">
+            <p className="mt-0.5 text-[12px] text-sam-muted">
               신고 사유를 선택해 주세요.
             </p>
 
@@ -129,7 +129,7 @@ export function MeetingReportModal({
                   className={`rounded-ui-rect border py-2.5 text-[13px] font-medium transition-colors ${
                     reasonType === r.value
                       ? "border-red-400 bg-red-50 text-red-700"
-                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      : "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
                   }`}
                 >
                   {r.label}
@@ -143,7 +143,7 @@ export function MeetingReportModal({
               rows={3}
               maxLength={500}
               placeholder="상세 내용을 입력해 주세요. (선택)"
-              className="mt-3 w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
+              className="mt-3 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[13px] text-sam-fg placeholder-sam-meta outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
             />
 
             {err && <p className="mt-2 text-[12px] text-red-500">{err}</p>}
@@ -152,7 +152,7 @@ export function MeetingReportModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-ui-rect border border-gray-200 py-3 text-[14px] font-medium text-gray-600"
+                className="flex-1 rounded-ui-rect border border-sam-border py-3 text-[14px] font-medium text-sam-muted"
               >
                 취소
               </button>

@@ -13,7 +13,7 @@ export function ReviewList({ reviews, reviewerLabels }: ReviewListProps) {
   if (reviews.length === 0) {
     return (
       <div className="py-8 text-center">
-        <p className="text-[14px] text-gray-500">아직 받은 후기가 없어요</p>
+        <p className="text-[14px] text-sam-muted">아직 받은 후기가 없어요</p>
       </div>
     );
   }

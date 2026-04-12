@@ -84,19 +84,19 @@ export function MyStoreSettlementsPage() {
           <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         ) : null}
         {loading ? (
-          <p className="text-sm text-gray-500">불러오는 중…</p>
+          <p className="text-sm text-sam-muted">불러오는 중…</p>
         ) : rows.length === 0 ? (
-          <p className="rounded-ui-rect border border-gray-100 bg-white p-4 text-sm text-gray-500">
+          <p className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted">
             아직 정산 내역이 없습니다. 주문이 결제 완료되면 예정 건이 표시됩니다.
           </p>
         ) : displayRows.length === 0 ? (
-          <p className="rounded-ui-rect border border-gray-100 bg-white p-4 text-sm text-gray-500">
+          <p className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted">
             선택한 매장에 해당하는 정산 건이 없습니다. 운영 허브에서 다른 매장을 선택했는지 확인해 주세요.
           </p>
         ) : (
           <ul className="space-y-2">
             {storeIdFilter ? (
-              <li className="rounded-ui-rect border border-gray-100 bg-gray-50 px-3 py-2 text-[12px] text-gray-600">
+              <li className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 text-[12px] text-sam-muted">
                 이 매장 정산만 표시 중입니다.{" "}
                 <Link href="/my/business/settlements" className="font-medium text-signature underline">
                   전체 매장 보기
@@ -104,20 +104,20 @@ export function MyStoreSettlementsPage() {
               </li>
             ) : null}
             {displayRows.map((r) => (
-              <li key={r.id} className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
+              <li key={r.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
                 <div className="flex justify-between gap-2">
-                  <span className="text-sm font-medium text-gray-900">{r.store_name}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-sm font-medium text-sam-fg">{r.store_name}</span>
+                  <span className="text-xs text-sam-muted">
                     {STATUS_LABEL[r.settlement_status] ?? r.settlement_status}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-sam-muted">
                   주문 {r.order_no || r.order_id.slice(0, 8)} · 예정일 {r.settlement_due_date}
                 </p>
-                <p className="mt-2 text-lg font-semibold text-gray-900">
+                <p className="mt-2 text-lg font-semibold text-sam-fg">
                   {fmt(Number(r.settlement_amount) || 0)}
                 </p>
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[11px] text-sam-meta">
                   매출 {fmt(Number(r.gross_amount) || 0)} · 수수료 {fmt(Number(r.fee_amount) || 0)}
                 </p>
                 {r.hold_reason ? (

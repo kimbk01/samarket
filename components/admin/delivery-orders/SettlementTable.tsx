@@ -7,13 +7,13 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 
 export function SettlementTable({ rows }: { rows: AdminDeliveryOrder[] }) {
   if (rows.length === 0) {
-    return <p className="py-6 text-center text-sm text-gray-500">조건에 맞는 정산 행이 없습니다.</p>;
+    return <p className="py-6 text-center text-sm text-sam-muted">조건에 맞는 정산 행이 없습니다.</p>;
   }
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[1000px] border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-600">
+          <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
             <th className="px-2 py-2">주문번호</th>
             <th className="px-2 py-2">매장</th>
             <th className="px-2 py-2">주문금액</th>
@@ -30,18 +30,18 @@ export function SettlementTable({ rows }: { rows: AdminDeliveryOrder[] }) {
           {rows.map((o) => {
             const st = o.settlement;
             return (
-              <tr key={o.id} className="border-b border-gray-100 hover:bg-gray-50/80">
+              <tr key={o.id} className="border-b border-sam-border-soft hover:bg-sam-app/80">
                 <td className="px-2 py-2 font-mono text-[12px]">{o.orderNo}</td>
                 <td className="px-2 py-2 max-w-[160px] truncate">{o.storeName}</td>
                 <td className="px-2 py-2">{formatMoneyPhp(o.finalAmount)}</td>
                 <td className="px-2 py-2">{st ? formatMoneyPhp(st.feeAmount) : "—"}</td>
                 <td className="px-2 py-2 font-medium">{st ? formatMoneyPhp(st.settlementAmount) : "—"}</td>
-                <td className="px-2 py-2 text-gray-600">{st?.scheduledDate ?? "—"}</td>
+                <td className="px-2 py-2 text-sam-muted">{st?.scheduledDate ?? "—"}</td>
                 <td className="px-2 py-2">
                   <SettlementStatusBadge status={o.settlementStatus} />
                 </td>
                 <td className="px-2 py-2 text-center">{o.settlementStatus === "held" ? "Y" : "—"}</td>
-                <td className="px-2 py-2 max-w-[200px] truncate text-xs text-gray-600">
+                <td className="px-2 py-2 max-w-[200px] truncate text-xs text-sam-muted">
                   {st?.holdReason ?? "—"}
                 </td>
                 <td className="px-2 py-2">

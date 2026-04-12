@@ -131,9 +131,9 @@ export function PostSellerTradeStrip({
   const titleCls = variant === "compact" ? "text-[11px]" : "text-[12px]";
 
   return (
-    <div className={`border-b border-gray-200 bg-signature/5 ${pad}`}>
-      <p className={`${titleCls} font-medium text-gray-900`}>구매자 채팅 · 거래</p>
-      <p className="mt-0.5 text-[11px] text-gray-800">
+    <div className={`border-b border-sam-border bg-signature/5 ${pad}`}>
+      <p className={`${titleCls} font-medium text-sam-fg`}>구매자 채팅 · 거래</p>
+      <p className="mt-0.5 text-[11px] text-sam-fg">
         채팅방에서도 거래완료할 수 있어요. 아래에서 바로 처리할 수도 있어요.
       </p>
       {err ? <p className="mt-1 text-[11px] text-red-600">{err}</p> : null}
@@ -150,10 +150,10 @@ export function PostSellerTradeStrip({
             (!listingReserved || !reservedBuyerId || isReservedRow);
           return (
             <li key={r.chatId}>
-              <div className="flex flex-col gap-1.5 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <Link
                   href={tradeHubChatRoomHref(r.chatId, "product_chat")}
-                  className="min-w-0 flex-1 text-[13px] text-gray-900 active:bg-signature/5"
+                  className="min-w-0 flex-1 text-[13px] text-sam-fg active:bg-signature/5"
                 >
                   <span className="truncate font-medium">{r.buyerNickname}</span>
                   <span className="mt-0.5 block text-[11px] text-signature sm:mt-0 sm:inline sm:ml-2">
@@ -173,7 +173,7 @@ export function PostSellerTradeStrip({
                     {busyChatId === r.chatId ? "처리 중…" : "거래완료"}
                   </button>
                 ) : listingReserved && reservedBuyerId && r.buyerId && r.buyerId !== reservedBuyerId ? (
-                  <span className="shrink-0 text-[11px] text-gray-500">예약된 다른 분과 거래 중</span>
+                  <span className="shrink-0 text-[11px] text-sam-muted">예약된 다른 분과 거래 중</span>
                 ) : null}
               </div>
             </li>

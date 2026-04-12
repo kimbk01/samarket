@@ -39,7 +39,7 @@ export function AdminUserActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => runModeration("warn")}
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "warn" ? "처리 중..." : "경고"}
           </button>
@@ -49,7 +49,7 @@ export function AdminUserActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => runModeration("suspend")}
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "suspend" ? "처리 중..." : "일시정지"}
           </button>
@@ -75,7 +75,7 @@ export function AdminUserActionPanel({
           </button>
         )}
       </div>
-      <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+      <div className="flex flex-wrap gap-2 border-t border-sam-border-soft pt-3">
         {user.memberType !== "admin" && (
           <>
             {user.memberType === "premium" ? (
@@ -83,7 +83,7 @@ export function AdminUserActionPanel({
                 type="button"
                 disabled={loading !== null}
                 onClick={() => runPremium(false)}
-                className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
               >
                 {loading === "premium_off" ? "처리 중..." : "특별회원 해제"}
               </button>
@@ -92,14 +92,14 @@ export function AdminUserActionPanel({
                 type="button"
                 disabled={loading !== null}
                 onClick={() => runPremium(true)}
-                className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
               >
                 {loading === "premium_on" ? "처리 중..." : "특별회원 지정"}
               </button>
             )}
           </>
         )}
-        <span className="rounded border border-gray-100 bg-gray-50 px-3 py-2 text-[12px] text-gray-500">
+        <span className="rounded border border-sam-border-soft bg-sam-app px-3 py-2 text-[12px] text-sam-muted">
           관리자 지정 (placeholder)
         </span>
       </div>

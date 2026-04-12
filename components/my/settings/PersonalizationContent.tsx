@@ -31,19 +31,19 @@ export function PersonalizationContent() {
   };
 
   return (
-    <div className="flex items-center justify-between border-b border-gray-100 py-3">
-      <span className="text-[15px] text-gray-900">개인화 추천 사용</span>
+    <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
+      <span className="text-[15px] text-sam-fg">개인화 추천 사용</span>
       <button
         type="button"
         role="switch"
         aria-checked={enabled}
         onClick={toggle}
         className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-          enabled ? "bg-signature" : "bg-gray-200"
+          enabled ? "bg-signature" : "bg-sam-border-soft"
         }`}
       >
         <span
-          className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
             enabled ? "translate-x-6" : "translate-x-0.5"
           }`}
         />

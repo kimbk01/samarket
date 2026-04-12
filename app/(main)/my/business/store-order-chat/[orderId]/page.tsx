@@ -40,7 +40,7 @@ export default function OwnerStoreOrderChatBridgePage() {
 
   if (!orderId) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-gray-700">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-sam-fg">
         <p>주문 ID가 없습니다.</p>
         <Link href="/my/business" className="font-medium text-signature underline">
           매장 어드민
@@ -55,7 +55,7 @@ export default function OwnerStoreOrderChatBridgePage() {
         ? buildStoreOrdersHref({ storeId: ctx.store_id, orderId })
         : "/my/business";
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-gray-700">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-sam-fg">
         <p>채팅을 열 수 없습니다. ({err})</p>
         <Link href={orderBackHref} className="font-medium text-signature underline">
           {ctx?.store_id != null ? "주문 관리" : "매장 어드민"}
@@ -67,7 +67,7 @@ export default function OwnerStoreOrderChatBridgePage() {
   if (!ctx) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-background px-4">
-        <p className="text-sm text-gray-500">채팅을 불러오는 중…</p>
+        <p className="text-sm text-sam-muted">채팅을 불러오는 중…</p>
       </div>
     );
   }

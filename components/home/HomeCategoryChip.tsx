@@ -59,12 +59,12 @@ export function HomeCategoryChip({
   const textCls = `${APP_MARKET_MENU_TEXT_BASE} ${isActive ? APP_MARKET_MENU_TEXT_ACTIVE : APP_MARKET_MENU_TEXT_INACTIVE}`;
   const ordersTabCls = [
     "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px]",
-    isActive ? "font-semibold text-gray-900" : "font-medium text-gray-500 hover:text-gray-700",
+    isActive ? "font-semibold text-sam-fg" : "font-medium text-sam-muted hover:text-sam-fg",
   ].join(" ");
 
   const feedChipCls = [
     "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
-    isActive ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600",
+    isActive ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-muted",
   ].join(" ");
 
   return (

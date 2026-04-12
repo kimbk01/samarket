@@ -32,8 +32,8 @@ export function MyPageSidebar({
     resolveProfileLocationAddressLines(profile).join(" · ") || "지역 설정 필요";
 
   return (
-    <div className="flex flex-col bg-white">
-      <div className="border-b border-gray-200 px-3 py-3 sm:px-4">
+    <div className="flex flex-col bg-sam-surface">
+      <div className="border-b border-sam-border px-3 py-3 sm:px-4">
         <div className="min-w-0">
           <p className={`truncate ${MYPAGE_TYPO.title}`}>{displayName}</p>
           <p className={`mt-0.5 truncate ${MYPAGE_TYPO.meta}`}>{regionLine}</p>
@@ -49,7 +49,7 @@ export function MyPageSidebar({
         <button
           type="button"
           onClick={() => router.push(MYPAGE_PROFILE_EDIT_HREF)}
-          className={`mt-3 w-full rounded-ui-rect border border-gray-200 py-2 text-center font-medium text-gray-700 hover:bg-gray-50 ${MYPAGE_TYPO.navItem}`}
+          className={`mt-3 w-full rounded-ui-rect border border-sam-border py-2 text-center font-medium text-sam-fg hover:bg-sam-app ${MYPAGE_TYPO.navItem}`}
         >
           프로필 수정
         </button>
@@ -59,11 +59,11 @@ export function MyPageSidebar({
         {MYPAGE_NAV.map((tab) => (
           <div key={tab.id}>
             <p
-              className={`border-t border-gray-100 bg-gray-50 px-3 py-2 ${MYPAGE_TYPO.meta} font-semibold uppercase tracking-wide text-gray-500`}
+              className={`border-t border-sam-border-soft bg-sam-app px-3 py-2 ${MYPAGE_TYPO.meta} font-semibold uppercase tracking-wide text-sam-muted`}
             >
               {tab.label}
             </p>
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-sam-border-soft">
               {tab.sections.map((section) => {
                 const isActive =
                   tab.id === activeTab && section.id === activeSection;
@@ -75,12 +75,12 @@ export function MyPageSidebar({
                       className={`flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors sm:px-4 ${MYPAGE_TYPO.navItem} ${
                         isActive
                           ? "bg-blue-50 font-semibold text-blue-800"
-                          : "text-gray-800 hover:bg-gray-50"
+                          : "text-sam-fg hover:bg-sam-app"
                       }`}
                     >
                       <span className="min-w-0 flex-1">{section.label}</span>
                       <ChevronIcon
-                        className={isActive ? "text-blue-600" : "text-gray-400"}
+                        className={isActive ? "text-blue-600" : "text-sam-meta"}
                       />
                     </button>
                   </li>

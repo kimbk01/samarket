@@ -11,11 +11,11 @@ export function AdminTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[600px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
+          <tr className="border-b border-sam-border bg-sam-app">
             {headers.map((h) => (
               <th
                 key={h}
-                className="px-3 py-2.5 text-left font-medium text-gray-700"
+                className="px-3 py-2.5 text-left font-medium text-sam-fg"
               >
                 {h}
               </th>

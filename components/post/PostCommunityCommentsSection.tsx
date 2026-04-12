@@ -140,17 +140,17 @@ export function PostCommunityCommentsSection({
         className={
           opts.isChild
             ? "mt-2 ml-4 border-l-2 border-sky-100 pl-3"
-            : "rounded-ui-rect border border-gray-100 bg-gray-50/80 px-3 py-2.5"
+            : "rounded-ui-rect border border-sam-border-soft bg-sam-app/80 px-3 py-2.5"
         }
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium text-gray-900">
+            <p className="text-[13px] font-medium text-sam-fg">
               {label}
               {opts.isChild ? <span className="ml-1 text-[11px] font-normal text-sky-700">답글</span> : null}
             </p>
-            <p className="mt-1 whitespace-pre-wrap text-[14px] text-gray-800">{c.content}</p>
-            <p className="mt-1 text-[11px] text-gray-400">{formatTimeAgo(c.created_at)}</p>
+            <p className="mt-1 whitespace-pre-wrap text-[14px] text-sam-fg">{c.content}</p>
+            <p className="mt-1 text-[11px] text-sam-meta">{formatTimeAgo(c.created_at)}</p>
           </div>
           <div className="flex shrink-0 flex-col gap-1">
             {showReportBtn && (
@@ -158,7 +158,7 @@ export function PostCommunityCommentsSection({
                 type="button"
                 disabled={reportBusyId === c.id}
                 onClick={() => void onReportComment(c.id)}
-                className="rounded-ui-rect border border-red-100 bg-white px-2 py-1 text-[11px] font-medium text-red-700 disabled:opacity-50"
+                className="rounded-ui-rect border border-red-100 bg-sam-surface px-2 py-1 text-[11px] font-medium text-red-700 disabled:opacity-50"
               >
                 {reportBusyId === c.id ? "…" : "신고"}
               </button>
@@ -167,7 +167,7 @@ export function PostCommunityCommentsSection({
               <button
                 type="button"
                 onClick={() => setReplyParentId(c.id)}
-                className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[11px] font-medium text-sam-fg"
               >
                 답글
               </button>
@@ -179,12 +179,12 @@ export function PostCommunityCommentsSection({
   };
 
   return (
-    <div id="community-post-comments" className="mt-4 border-t border-gray-100 bg-white px-4 py-4">
-      <h3 className="text-[15px] font-semibold text-gray-900">댓글</h3>
+    <div id="community-post-comments" className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
+      <h3 className="text-[15px] font-semibold text-sam-fg">댓글</h3>
       {loading ? (
-        <p className="mt-3 text-[13px] text-gray-500">불러오는 중...</p>
+        <p className="mt-3 text-[13px] text-sam-muted">불러오는 중...</p>
       ) : roots.length === 0 ? (
-        <p className="mt-3 text-[13px] text-gray-500">첫 댓글을 남겨 보세요.</p>
+        <p className="mt-3 text-[13px] text-sam-muted">첫 댓글을 남겨 보세요.</p>
       ) : (
         <ul className="mt-3 space-y-3">
           {roots.map((root) => (
@@ -223,13 +223,13 @@ export function PostCommunityCommentsSection({
           }
           disabled={!currentUserId || submitting}
           rows={3}
-          className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] text-gray-900 placeholder:text-gray-400 disabled:bg-gray-50"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta disabled:bg-sam-app"
         />
         <button
           type="button"
           onClick={() => (currentUserId ? void onSubmitComment() : router.push(LOGIN_REDIRECT))}
           disabled={!!currentUserId && (submitting || !draft.trim())}
-          className="mt-2 w-full rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="mt-2 w-full rounded-ui-rect bg-sam-ink py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
         >
           {currentUserId
             ? submitting

@@ -286,7 +286,7 @@ export function StoreProductPublic({
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F7F7F7] px-4 py-8">
-        <p className="text-sm text-gray-500">{t("common_loading")}</p>
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       </div>
     );
   }
@@ -294,7 +294,7 @@ export function StoreProductPublic({
   if (notFound) {
     return (
       <div className="min-h-screen bg-[#F7F7F7] px-4 py-8">
-        <p className="text-sm text-gray-600">{t("common_product_not_found")}</p>
+        <p className="text-sm text-sam-muted">{t("common_product_not_found")}</p>
         <Link href={`/stores/${encodeURIComponent(storeSlug)}`} className="mt-4 inline-block text-sm text-signature">
           {t("common_back_to_store")}
         </Link>
@@ -591,23 +591,23 @@ export function StoreProductPublic({
   return (
     <div className="min-h-screen bg-[#F7F7F7] pb-28">
       <header className={`${STORE_DETAIL_SUBHEADER_STICKY} flex items-center justify-center px-4 py-2.5`}>
-        <h1 className="truncate text-center text-[15px] font-semibold text-gray-900">{product.title}</h1>
+        <h1 className="truncate text-center text-[15px] font-semibold text-sam-fg">{product.title}</h1>
       </header>
 
-      <nav className="border-b border-gray-100 bg-white px-4 py-2 text-[12px] text-gray-500" aria-label={t("common_location")}>
+      <nav className="border-b border-sam-border-soft bg-sam-surface px-4 py-2 text-[12px] text-sam-muted" aria-label={t("common_location")}>
         <Link href={`/stores/${encodeURIComponent(store.slug)}`} className="text-signature">
           {store.store_name}
         </Link>
         {menuGroup ? (
           <>
-            <span className="mx-1 text-gray-300">/</span>
-            <span className="text-gray-600">{menuGroup}</span>
+            <span className="mx-1 text-sam-meta">/</span>
+            <span className="text-sam-muted">{menuGroup}</span>
           </>
         ) : null}
       </nav>
 
-      <div className="bg-white">
-        <div className="relative aspect-square w-full bg-gray-100">
+      <div className="bg-sam-surface">
+        <div className="relative aspect-square w-full bg-sam-surface-muted">
           {galleryUrls[galleryIdx] ? (
              
             <img
@@ -616,16 +616,16 @@ export function StoreProductPublic({
               className="h-full w-full object-cover"
             />
           ) : profileUrl ? (
-            <div className="relative flex h-full w-full items-center justify-center bg-gradient-to-br from-stone-200 via-stone-100 to-stone-300">
+            <div className="relative flex h-full w-full items-center justify-center bg-gradient-to-br from-sam-border-soft via-sam-surface-muted to-sam-surface-muted">
               { }
               <img
                 src={profileUrl}
                 alt=""
-                className="max-h-[58%] max-w-[58%] rounded-ui-rect object-contain shadow-lg ring-4 ring-white/80"
+                className="max-h-[58%] max-w-[58%] rounded-ui-rect object-contain shadow-lg ring-4 ring-sam-surface/80"
               />
             </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-stone-300 to-stone-500 text-7xl text-white/95">
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-sam-surface-muted to-sam-muted text-7xl text-white/95">
               🍽️
             </div>
           )}
@@ -637,7 +637,7 @@ export function StoreProductPublic({
         </div>
         {galleryUrls.length > 1 ? (
           <HorizontalDragScroll
-            className="flex gap-2 overflow-x-auto border-b border-gray-100 px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            className="flex gap-2 overflow-x-auto border-b border-sam-border-soft px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             aria-label={t("common_image")}
           >
             {galleryUrls.map((u, i) => (
@@ -655,33 +655,33 @@ export function StoreProductPublic({
             ))}
           </HorizontalDragScroll>
         ) : null}
-        <div className="border-b border-gray-100 px-4 py-4">
-          <p className="text-lg font-semibold text-gray-900">{product.title}</p>
+        <div className="border-b border-sam-border-soft px-4 py-4">
+          <p className="text-lg font-semibold text-sam-fg">{product.title}</p>
           {product.summary && safeHtml ? (
-            <p className="mt-1 text-sm text-gray-600">{product.summary}</p>
+            <p className="mt-1 text-sm text-sam-muted">{product.summary}</p>
           ) : null}
-          <p className="mt-3 text-xl font-bold text-gray-900">{formatMoneyPhp(unitWithOptions)}</p>
+          <p className="mt-3 text-xl font-bold text-sam-fg">{formatMoneyPhp(unitWithOptions)}</p>
           {hasBaseDiscount ? (
-            <p className="mt-1 text-sm text-gray-400 line-through">{formatMoneyPhp(product.price)}</p>
+            <p className="mt-1 text-sm text-sam-meta line-through">{formatMoneyPhp(product.price)}</p>
           ) : null}
           {optionValidation.ok && optionValidation.unitDelta > 0 ? (
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-sam-muted">
               옵션 추가 {formatMoneyPhp(optionValidation.unitDelta)}
             </p>
           ) : null}
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-sam-muted">
             {trackInv ? `재고 ${product.stock_qty}개` : "재고 확인 없음 · 수량 제한 없음"}
           </p>
           {displayDiscountPct > 0 ? (
             <p className="mt-1 text-xs font-medium text-rose-600">{displayDiscountPct}% 할인 적용</p>
           ) : null}
           {badges.length > 0 ? (
-            <p className="mt-2 text-xs text-gray-500">{badges.join(" · ")}</p>
+            <p className="mt-2 text-xs text-sam-muted">{badges.join(" · ")}</p>
           ) : null}
           <p className="mt-3 text-center">
             <Link
               href={`/stores/${encodeURIComponent(store.slug)}/report?product=${encodeURIComponent(product.id)}`}
-              className="text-xs text-gray-400 underline decoration-gray-300 underline-offset-2"
+              className="text-xs text-sam-meta underline decoration-sam-meta underline-offset-2"
             >
               상품 신고
             </Link>
@@ -690,23 +690,23 @@ export function StoreProductPublic({
       </div>
 
       {safeHtml ? (
-        <div className="mt-2 border-t border-gray-100 bg-white px-4 py-4">
-          <h2 className="text-sm font-semibold text-gray-800">{t("common_detail_description")}</h2>
+        <div className="mt-2 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
+          <h2 className="text-sm font-semibold text-sam-fg">{t("common_detail_description")}</h2>
           <div
-            className="mt-2 max-w-none text-[14px] leading-relaxed text-gray-800 [&_img]:max-w-full [&_p]:my-2"
+            className="mt-2 max-w-none text-[14px] leading-relaxed text-sam-fg [&_img]:max-w-full [&_p]:my-2"
             dangerouslySetInnerHTML={{ __html: safeHtml }}
           />
         </div>
       ) : product.summary?.trim() ? (
-        <div className="mt-2 border-t border-gray-100 bg-white px-4 py-4">
-          <h2 className="text-sm font-semibold text-gray-800">{t("common_detail_description")}</h2>
-          <p className="mt-2 text-[14px] leading-relaxed text-gray-800">{product.summary.trim()}</p>
+        <div className="mt-2 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
+          <h2 className="text-sm font-semibold text-sam-fg">{t("common_detail_description")}</h2>
+          <p className="mt-2 text-[14px] leading-relaxed text-sam-fg">{product.summary.trim()}</p>
         </div>
       ) : null}
 
-      <div className="mx-4 mt-4 space-y-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="mx-4 mt-4 space-y-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         {commerce.breakConfigured ? (
-          <p className="text-[12px] font-medium text-gray-900">
+          <p className="text-[12px] font-medium text-sam-fg">
             Break time: {commerce.breakRangeLabel}
           </p>
         ) : null}
@@ -720,7 +720,7 @@ export function StoreProductPublic({
           </p>
         ) : null}
         <div>
-          <p className="text-sm font-medium text-gray-900">{store.store_name}</p>
+          <p className="text-sm font-medium text-sam-fg">{store.store_name}</p>
           <Link
             href={`/stores/${encodeURIComponent(store.slug)}`}
             className="mt-2 inline-block text-sm text-signature"
@@ -728,7 +728,7 @@ export function StoreProductPublic({
             {t("common_view_store")}
           </Link>
           {store.phone ? (
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-sam-muted">
               {(() => {
                 const href = telHrefFromLoosePhPhone(store.phone) ?? `tel:${String(store.phone).replace(/\s/g, "")}`;
                 const label =
@@ -746,9 +746,9 @@ export function StoreProductPublic({
         </div>
 
         {fulfillmentOptions.length === 0 ? (
-          <p className="text-sm text-gray-500">{t("common_preparing_order_blocked")}</p>
+          <p className="text-sm text-sam-muted">{t("common_preparing_order_blocked")}</p>
         ) : trackInv && product.stock_qty <= 0 ? (
-          <p className="text-sm text-gray-500">{t("common_sold_out_product")}</p>
+          <p className="text-sm text-sam-muted">{t("common_sold_out_product")}</p>
         ) : trackInv && product.stock_qty < minQ ? (
           <p className="text-sm text-amber-800">
             재고가 최소 주문 수량({minQ}개)보다 적어 주문할 수 없습니다.
@@ -764,8 +764,8 @@ export function StoreProductPublic({
                   disabled={orderBusy || orderBlocked}
                 />
                 {optionValidation.ok && optionValidation.snapshot.summary ? (
-                  <div className="mt-3 rounded-ui-rect bg-gray-50 px-3 py-2 text-[12px] text-gray-700">
-                    <p className="font-semibold text-gray-800">선택한 옵션</p>
+                  <div className="mt-3 rounded-ui-rect bg-sam-app px-3 py-2 text-[12px] text-sam-fg">
+                    <p className="font-semibold text-sam-fg">선택한 옵션</p>
                     <p className="mt-1 leading-relaxed">{optionValidation.snapshot.summary}</p>
                   </div>
                 ) : null}
@@ -776,7 +776,7 @@ export function StoreProductPublic({
             ) : null}
 
             <div>
-              <label htmlFor="store-product-line-memo" className="text-xs font-medium text-gray-600">
+              <label htmlFor="store-product-line-memo" className="text-xs font-medium text-sam-muted">
                 상품 요청 (선택 · 가격에 반영되지 않음)
               </label>
               <textarea
@@ -785,20 +785,20 @@ export function StoreProductPublic({
                 value={lineMemo}
                 disabled={orderBusy || orderBlocked}
                 onChange={(e) => setLineMemo(e.target.value)}
-                className="mt-2 w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
+                className="mt-2 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg placeholder:text-sam-meta"
                 placeholder="예) 국물 많이 주세요"
                 maxLength={300}
               />
             </div>
 
             <div>
-              <p className="text-xs font-medium text-gray-600">수량</p>
+              <p className="text-xs font-medium text-sam-muted">수량</p>
               <div className="mt-2 flex items-center gap-3">
                 <button
                   type="button"
                   disabled={qty <= minQ || orderBusy || orderBlocked}
                   onClick={() => setQty((q) => Math.max(minQ, q - 1))}
-                  className="h-9 w-9 rounded-ui-rect border border-gray-200 text-lg leading-none text-gray-700 disabled:opacity-40"
+                  className="h-9 w-9 rounded-ui-rect border border-sam-border text-lg leading-none text-sam-fg disabled:opacity-40"
                 >
                   −
                 </button>
@@ -807,19 +807,19 @@ export function StoreProductPublic({
                   type="button"
                   disabled={qty >= capQty || orderBusy || orderBlocked}
                   onClick={() => setQty((q) => Math.min(capQty, q + 1))}
-                  className="h-9 w-9 rounded-ui-rect border border-gray-200 text-lg leading-none text-gray-700 disabled:opacity-40"
+                  className="h-9 w-9 rounded-ui-rect border border-sam-border text-lg leading-none text-sam-fg disabled:opacity-40"
                 >
                   +
                 </button>
               </div>
-              <p className="mt-1 text-[11px] text-gray-400">
+              <p className="mt-1 text-[11px] text-sam-meta">
                 최소 {minQ}개 · 최대 {maxQ}개
                 {trackInv ? ` (재고 ${product.stock_qty}개)` : ""}
               </p>
             </div>
 
             <div>
-              <p className="text-xs font-medium text-gray-600">수령 방식</p>
+              <p className="text-xs font-medium text-sam-muted">수령 방식</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {fulfillmentOptions.map((o) => (
                   <button
@@ -830,7 +830,7 @@ export function StoreProductPublic({
                     className={`rounded-full px-3 py-1.5 text-[13px] ${
                       fulfillment === o.value
                         ? "bg-signature text-white"
-                        : "border border-gray-200 bg-white text-gray-700"
+                        : "border border-sam-border bg-sam-surface text-sam-fg"
                     }`}
                   >
                     {o.label}
@@ -840,10 +840,10 @@ export function StoreProductPublic({
             </div>
 
             <div>
-              <p className="text-xs font-medium text-gray-600">
+              <p className="text-xs font-medium text-sam-muted">
                 연락처{" "}
                 {fulfillment === "pickup" ? (
-                  <span className="font-normal text-gray-400">(선택)</span>
+                  <span className="font-normal text-sam-meta">(선택)</span>
                 ) : (
                   <span className="text-red-600">*</span>
                 )}
@@ -856,13 +856,13 @@ export function StoreProductPublic({
                 disabled={orderBusy || orderBlocked}
                 onChange={(e) => setBuyerPhone(parsePhMobileInput(e.target.value))}
                 placeholder={PH_LOCAL_09_PLACEHOLDER}
-                className="mt-2 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
+                className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg placeholder:text-sam-meta"
                 aria-label="주문 연락처"
               />
             </div>
 
             <div>
-              <label htmlFor="store-order-note" className="text-xs font-medium text-gray-600">
+              <label htmlFor="store-order-note" className="text-xs font-medium text-sam-muted">
                 요청 사항 (선택)
               </label>
               <textarea
@@ -871,20 +871,20 @@ export function StoreProductPublic({
                 value={buyerNote}
                 disabled={orderBusy || orderBlocked}
                 onChange={(e) => setBuyerNote(e.target.value)}
-                className="mt-2 w-full resize-none rounded-ui-rect border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400"
+                className="mt-2 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg placeholder:text-sam-meta"
                 placeholder="픽업 시간 등"
                 maxLength={500}
               />
             </div>
 
-            <div className="space-y-1.5 rounded-ui-rect bg-gray-50 px-3 py-2.5 text-sm text-gray-800">
+            <div className="space-y-1.5 rounded-ui-rect bg-sam-app px-3 py-2.5 text-sm text-sam-fg">
               <div className="flex justify-between">
-                <span className="text-gray-600">상품 금액</span>
+                <span className="text-sam-muted">상품 금액</span>
                 <span className="font-semibold">{formatMoneyPhp(lineSubtotalPhp)}</span>
               </div>
               {fulfillment === "local_delivery" ? (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">배달비</span>
+                  <span className="text-sam-muted">배달비</span>
                   <span className="font-semibold">{formatMoneyPhp(deliveryFeeLine)}</span>
                 </div>
               ) : null}
@@ -900,11 +900,11 @@ export function StoreProductPublic({
                 </p>
               ) : null}
               {fulfillment === "local_delivery" && storeExtras.deliveryCourierLabel?.trim() ? (
-                <p className="text-[11px] leading-snug text-gray-500">
+                <p className="text-[11px] leading-snug text-sam-muted">
                   배달 업체(안내): {storeExtras.deliveryCourierLabel.trim()} · 청구 금액에 포함되지 않음
                 </p>
               ) : null}
-              <div className="flex justify-between border-t border-gray-200 pt-1.5 text-[15px] font-bold text-gray-900">
+              <div className="flex justify-between border-t border-sam-border pt-1.5 text-[15px] font-bold text-sam-fg">
                 <span>주문 예정 금액</span>
                 <span>{formatMoneyPhp(orderGrandDisplayPhp)}</span>
               </div>
@@ -953,7 +953,7 @@ export function StoreProductPublic({
                   type="button"
                   disabled={orderBusy || !optionValidation.ok || orderBlocked}
                   onClick={() => addToCart()}
-                  className="flex-1 rounded-ui-rect border border-gray-300 bg-white py-3 text-[15px] font-semibold text-gray-900 disabled:opacity-50"
+                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 text-[15px] font-semibold text-sam-fg disabled:opacity-50"
                 >
                   장바구니 담기
                 </button>
@@ -971,7 +971,7 @@ export function StoreProductPublic({
                 {orderBusy ? t("common_processing") : t("common_order_now")}
               </button>
             </div>
-            <p className="text-center text-[11px] text-gray-400">
+            <p className="text-center text-[11px] text-sam-meta">
               주문 접수와 상태 확인은 주문 상세에서 이어지고, 매장과 조율이 필요할 때만 배달채팅을 이용하면
               됩니다. 금액 정산은 매장과 직접 하시면 됩니다.
             </p>

@@ -27,11 +27,11 @@ export function MyAccountContent() {
   }, [load]);
 
   if (loading) {
-    return <p className="py-4 text-center text-[14px] text-gray-500">{t("common_loading")}</p>;
+    return <p className="py-4 text-center text-[14px] text-sam-muted">{t("common_loading")}</p>;
   }
   if (!profile) {
     return (
-      <div className="space-y-3 py-4 text-center text-[14px] text-gray-500">
+      <div className="space-y-3 py-4 text-center text-[14px] text-sam-muted">
         <p>{t("common_login_required")}</p>
         <p>
           <Link href="/login" className="font-medium text-signature underline">
@@ -46,7 +46,7 @@ export function MyAccountContent() {
             </>
           ) : null}
         </p>
-        <Link href="/my" className="block text-gray-500">{t("common_back_to_mypage")}</Link>
+        <Link href="/my" className="block text-sam-muted">{t("common_back_to_mypage")}</Link>
       </div>
     );
   }
@@ -58,8 +58,8 @@ export function MyAccountContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-100">
+      <div className="flex items-center gap-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-sam-surface-muted">
           {profile.avatar_url ? (
             <Image
               src={profile.avatar_url}
@@ -69,47 +69,47 @@ export function MyAccountContent() {
               sizes="64px"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[26px] text-gray-400">👤</div>
+            <div className="flex h-full w-full items-center justify-center text-[26px] text-sam-meta">👤</div>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[17px] font-semibold text-gray-900">{displayNickname}</p>
-          <p className="mt-0.5 truncate text-[13px] text-gray-500">{t("account_nickname_note")}</p>
+          <p className="text-[17px] font-semibold text-sam-fg">{displayNickname}</p>
+          <p className="mt-0.5 truncate text-[13px] text-sam-muted">{t("account_nickname_note")}</p>
           <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block text-[14px] font-medium text-signature">
             {t("account_edit_profile")}
           </Link>
         </div>
       </div>
 
-      <div className="rounded-ui-rect bg-white p-4 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-gray-900">{t("account_info_title")}</h2>
+          <h2 className="text-[15px] font-semibold text-sam-fg">{t("account_info_title")}</h2>
           <Link href={MYPAGE_PROFILE_EDIT_HREF} className="text-[14px] font-medium text-signature">
             {t("account_edit")}
           </Link>
         </div>
         <dl className="space-y-3 text-[14px]">
           <div>
-            <dt className="text-gray-500">{t("account_nickname")}</dt>
-            <dd className="mt-0.5 text-gray-900">{displayNickname}</dd>
+            <dt className="text-sam-muted">{t("account_nickname")}</dt>
+            <dd className="mt-0.5 text-sam-fg">{displayNickname}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">{t("account_email")}</dt>
-            <dd className="mt-0.5 text-gray-900">{profile.email ?? "—"}</dd>
+            <dt className="text-sam-muted">{t("account_email")}</dt>
+            <dd className="mt-0.5 text-sam-fg">{profile.email ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">{t("account_phone")}</dt>
-            <dd className="mt-0.5 text-gray-900">{profile.phone ?? t("account_missing_phone")}</dd>
+            <dt className="text-sam-muted">{t("account_phone")}</dt>
+            <dd className="mt-0.5 text-sam-fg">{profile.phone ?? t("account_missing_phone")}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">{t("account_realname")}</dt>
-            <dd className="mt-0.5 text-gray-900">
+            <dt className="text-sam-muted">{t("account_realname")}</dt>
+            <dd className="mt-0.5 text-sam-fg">
               {profile.realname_verified ? t("account_verified") : t("account_unverified")}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">{t("account_phone_verification")}</dt>
-            <dd className="mt-0.5 text-gray-900">
+            <dt className="text-sam-muted">{t("account_phone_verification")}</dt>
+            <dd className="mt-0.5 text-sam-fg">
               {profile.phone_verified
                 ? t("account_verified")
                 : phoneVerificationStatus === "pending"
@@ -129,7 +129,7 @@ export function MyAccountContent() {
       </div>
       <Link
         href={buildMypageInfoHubHref()}
-        className="block rounded-ui-rect bg-white px-4 py-3 text-center text-[14px] font-medium text-gray-700 shadow-sm"
+        className="block rounded-ui-rect bg-sam-surface px-4 py-3 text-center text-[14px] font-medium text-sam-fg shadow-sm"
       >
         {t("account_to_settings")}
       </Link>

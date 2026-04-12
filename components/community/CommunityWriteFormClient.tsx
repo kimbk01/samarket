@@ -125,19 +125,19 @@ export function CommunityWriteFormClient({
   };
 
   return (
-    <div className="min-h-screen bg-white pb-10">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-gray-100 bg-white px-2 py-2">
+    <div className="min-h-screen bg-sam-surface pb-10">
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-sam-border-soft bg-sam-surface px-2 py-2">
         <AppBackButton backHref={philifeAppPaths.home} ariaLabel="닫기" />
-        <h1 className="text-[16px] font-semibold text-gray-900">커뮤니티 글쓰기</h1>
+        <h1 className="text-[16px] font-semibold text-sam-fg">커뮤니티 글쓰기</h1>
       </header>
 
       <form onSubmit={onSubmit} className="mx-auto max-w-lg space-y-4 px-4 py-4">
         <div>
-          <label className="text-[12px] font-medium text-gray-500">주제 (필수)</label>
+          <label className="text-[12px] font-medium text-sam-muted">주제 (필수)</label>
           <select
             value={topicSlug}
             onChange={(e) => setTopicSlug(e.target.value)}
-            className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[15px]"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px]"
           >
             {writableTopics.length === 0 ? <option value="">주제 없음 — DB 확인</option> : null}
             {writableTopics.map((t) => (
@@ -149,55 +149,55 @@ export function CommunityWriteFormClient({
         </div>
         {skinHint ? <p className="rounded-ui-rect bg-sky-50 px-3 py-2 text-[12px] leading-snug text-sky-900">{skinHint}</p> : null}
         <div>
-          <label className="text-[12px] font-medium text-gray-500">제목</label>
+          <label className="text-[12px] font-medium text-sam-muted">제목</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[15px]"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px]"
             placeholder="제목을 입력하세요"
             maxLength={200}
           />
         </div>
         <div>
-          <label className="text-[12px] font-medium text-gray-500">내용</label>
+          <label className="text-[12px] font-medium text-sam-muted">내용</label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={10}
-            className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[15px]"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px]"
             placeholder="이웃과 나누고 싶은 이야기를 적어주세요."
           />
         </div>
         {selectedTopic?.allow_meetup ? (
-          <div className="space-y-3 rounded-ui-rect border border-gray-100 bg-gray-50/80 px-3 py-3">
-            <p className="text-[12px] font-semibold text-gray-600">모임·장소 (선택)</p>
+          <div className="space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-app/80 px-3 py-3">
+            <p className="text-[12px] font-semibold text-sam-muted">모임·장소 (선택)</p>
             <div>
-              <label className="text-[11px] font-medium text-gray-500">장소명 · 상호</label>
+              <label className="text-[11px] font-medium text-sam-muted">장소명 · 상호</label>
               <input
                 value={meetupPlace}
                 onChange={(e) => setMeetupPlace(e.target.value)}
-                className="mt-1 w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px]"
                 placeholder="예: 조치원역 2번 출구, ○○식당"
                 maxLength={200}
               />
             </div>
             <div>
-              <label className="text-[11px] font-medium text-gray-500">일정 (선택)</label>
+              <label className="text-[11px] font-medium text-sam-muted">일정 (선택)</label>
               <input
                 type="datetime-local"
                 value={meetupDate}
                 onChange={(e) => setMeetupDate(e.target.value)}
-                className="mt-1 w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px]"
               />
             </div>
           </div>
         ) : null}
         <div>
-          <label className="text-[12px] font-medium text-gray-500">사진 (최대 10장)</label>
+          <label className="text-[12px] font-medium text-sam-muted">사진 (최대 10장)</label>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={onPickFiles} />
           <div className="mt-2 flex flex-wrap gap-2">
             {imageUrls.map((url, idx) => (
-              <div key={`${url}-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-ui-rect bg-gray-100">
+              <div key={`${url}-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                 <img src={url} alt="" className="h-full w-full object-cover" />
                 <button
                   type="button"
@@ -213,7 +213,7 @@ export function CommunityWriteFormClient({
                 type="button"
                 disabled={uploading || busy}
                 onClick={() => fileRef.current?.click()}
-                className="flex h-20 w-20 items-center justify-center rounded-ui-rect border border-dashed border-gray-300 text-[12px] text-gray-500"
+                className="flex h-20 w-20 items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-[12px] text-sam-muted"
               >
                 {uploading ? "…" : "+ 추가"}
               </button>
@@ -221,7 +221,7 @@ export function CommunityWriteFormClient({
           </div>
         </div>
         {selectedTopic?.allow_question ? (
-          <label className="flex items-center gap-2 text-[14px] text-gray-800">
+          <label className="flex items-center gap-2 text-[14px] text-sam-fg">
             <input type="checkbox" checked={isQuestion} onChange={(e) => setIsQuestion(e.target.checked)} />
             질문글로 올리기
           </label>
@@ -230,7 +230,7 @@ export function CommunityWriteFormClient({
         <button
           type="submit"
           disabled={busy || !title.trim() || !content.trim()}
-          className="w-full rounded-ui-rect bg-gray-900 py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
+          className="w-full rounded-ui-rect bg-sam-ink py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
         >
           {busy ? "등록 중…" : "등록하기"}
         </button>

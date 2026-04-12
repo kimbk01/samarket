@@ -66,10 +66,10 @@ export function CategoryListByType({
             <Link
               key={c.id}
               href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
-              className="flex flex-col items-center rounded-ui-rect bg-white p-3 shadow-sm"
+              className="flex flex-col items-center rounded-ui-rect bg-sam-surface p-3 shadow-sm"
             >
-              <span className="text-[13px] font-medium text-gray-900">{c.name}</span>
-              <span className="mt-0.5 text-[11px] text-gray-500">
+              <span className="text-[13px] font-medium text-sam-fg">{c.name}</span>
+              <span className="mt-0.5 text-[11px] text-sam-muted">
                 {CATEGORY_TYPE_LABELS[c.type]}
               </span>
             </Link>
@@ -85,7 +85,7 @@ export function CategoryListByType({
         if (list.length === 0) return null;
         return (
           <div key={type}>
-            <h3 className="mb-2 text-[12px] font-medium uppercase text-gray-500">
+            <h3 className="mb-2 text-[12px] font-medium uppercase text-sam-muted">
               {CATEGORY_TYPE_LABELS[type as keyof typeof CATEGORY_TYPE_LABELS]}
             </h3>
             <ul className="space-y-1">
@@ -93,7 +93,7 @@ export function CategoryListByType({
                 <li key={c.id}>
                   <Link
                     href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
-                    className="block rounded-ui-rect bg-white px-3 py-2 text-[14px] text-gray-900"
+                    className="block rounded-ui-rect bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
                   >
                     {c.name}
                   </Link>

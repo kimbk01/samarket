@@ -35,7 +35,7 @@ export function BusinessAdminOpenToggle({
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[12px] font-medium text-gray-600">영업</span>
+      <span className="text-[12px] font-medium text-sam-muted">영업</span>
       <button
         type="button"
         role="switch"
@@ -44,16 +44,16 @@ export function BusinessAdminOpenToggle({
         onClick={() => void toggle()}
         title={isOpen ? "일시중지(접수 제한)" : "영업 시작"}
         className={`relative h-8 w-[52px] shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
-          isOpen ? "bg-emerald-500" : "bg-gray-300"
+          isOpen ? "bg-emerald-500" : "bg-sam-surface-muted"
         }`}
       >
         <span
-          className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition ${
+          className={`absolute top-1 h-6 w-6 rounded-full bg-sam-surface shadow transition ${
             isOpen ? "left-7" : "left-1"
           }`}
         />
       </button>
-      <span className={`text-[12px] font-semibold ${isOpen ? "text-emerald-800" : "text-gray-500"}`}>
+      <span className={`text-[12px] font-semibold ${isOpen ? "text-emerald-800" : "text-sam-muted"}`}>
         {isOpen ? "영업중" : "일시중지"}
       </span>
     </div>

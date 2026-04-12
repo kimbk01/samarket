@@ -34,7 +34,7 @@ function TopicBadge({ label, color }: { label: string; color: string | null }) {
   const style = color ? { backgroundColor: `${color}18`, color } : undefined;
   return (
     <span
-      className="inline-flex max-w-full shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold text-neutral-700"
+      className="inline-flex max-w-full shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold text-sam-fg"
       style={style}
     >
       <span className="truncate">{label}</span>
@@ -88,9 +88,9 @@ function MetaLine({
   const meta = parts.join(" · ");
   const statStr = stats.length ? stats.join(" · ") : "";
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] leading-4 text-neutral-500">
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] leading-4 text-sam-muted">
       <span className="min-w-0">{meta}</span>
-      {statStr ? <span className="text-neutral-400">{statStr}</span> : null}
+      {statStr ? <span className="text-sam-meta">{statStr}</span> : null}
     </div>
   );
 }
@@ -115,14 +115,14 @@ function CardShell({
   };
 
   return (
-    <article className="overflow-hidden rounded-ui-rect border border-neutral-200 bg-white shadow-sm">
+    <article className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <Link
         href={href}
         prefetch={false}
         onMouseEnter={prefetchOnIntent}
         onTouchStart={prefetchOnIntent}
         onClick={prefetchOnIntent}
-        className="block px-4 py-3 transition-colors hover:bg-neutral-50/60 active:bg-neutral-100/80"
+        className="block px-4 py-3 transition-colors hover:bg-sam-app/60 active:bg-sam-surface-muted/80"
       >
         {children}
       </Link>
@@ -141,9 +141,9 @@ export function FeedListLayoutCarrotThumbRight({ vm }: { vm: FeedListCardViewMod
             <TopicBadge label={vm.topicLabel} color={vm.topicColor} />
             <Badges isQuestion={vm.isQuestion} isMeetup={vm.isMeetup} />
           </div>
-          <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-neutral-900">{vm.title}</h3>
+          <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-sam-fg">{vm.title}</h3>
           {vm.summary.trim() ? (
-            <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-neutral-600">{vm.summary}</p>
+            <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-sam-muted">{vm.summary}</p>
           ) : null}
           <MetaLine
             timeLabel={vm.timeLabel}
@@ -172,9 +172,9 @@ export function FeedListLayoutCarrotThumbLeft({ vm }: { vm: FeedListCardViewMode
             <TopicBadge label={vm.topicLabel} color={vm.topicColor} />
             <Badges isQuestion={vm.isQuestion} isMeetup={vm.isMeetup} />
           </div>
-          <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-neutral-900">{vm.title}</h3>
+          <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-sam-fg">{vm.title}</h3>
           {vm.summary.trim() ? (
-            <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-neutral-600">{vm.summary}</p>
+            <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-sam-muted">{vm.summary}</p>
           ) : null}
           <MetaLine
             timeLabel={vm.timeLabel}
@@ -199,9 +199,9 @@ export function FeedListLayoutTextOnly({ vm }: { vm: FeedListCardViewModel }) {
           <TopicBadge label={vm.topicLabel} color={vm.topicColor} />
           <Badges isQuestion={vm.isQuestion} isMeetup={vm.isMeetup} />
         </div>
-        <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-neutral-900">{vm.title}</h3>
+        <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-sam-fg">{vm.title}</h3>
         {vm.summary.trim() ? (
-          <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-neutral-600">{vm.summary}</p>
+          <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-sam-muted">{vm.summary}</p>
         ) : null}
         <MetaLine
           timeLabel={vm.timeLabel}
@@ -218,7 +218,7 @@ export function FeedListLayoutTextOnly({ vm }: { vm: FeedListCardViewModel }) {
 
 function PinPlaceLine({ text }: { text: string }) {
   return (
-    <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[14px] font-medium leading-5 text-neutral-800">
+    <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[14px] font-medium leading-5 text-sam-fg">
       <span className="shrink-0 text-base" aria-hidden>
         📍
       </span>
@@ -239,10 +239,10 @@ export function FeedListLayoutPlace({ vm, thumbColumn }: { vm: FeedListCardViewM
         <TopicBadge label={vm.topicLabel} color={vm.topicColor} />
         <Badges isQuestion={vm.isQuestion} isMeetup={vm.isMeetup} />
       </div>
-      <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-neutral-900">{vm.title}</h3>
+      <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-sam-fg">{vm.title}</h3>
       {showPin ? <PinPlaceLine text={place} /> : null}
       {vm.summary.trim() ? (
-        <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-neutral-600">{vm.summary}</p>
+        <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-sam-muted">{vm.summary}</p>
       ) : null}
       <MetaLine
         timeLabel={vm.timeLabel}
@@ -294,16 +294,16 @@ export function FeedListLayoutTags({ vm, thumbColumn }: { vm: FeedListCardViewMo
         <TopicBadge label={vm.topicLabel} color={vm.topicColor} />
         <Badges isQuestion={vm.isQuestion} isMeetup={vm.isMeetup} />
       </div>
-      <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-neutral-900">{vm.title}</h3>
+      <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-sam-fg">{vm.title}</h3>
       {vm.summary.trim() ? (
-        <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-neutral-600">{vm.summary}</p>
+        <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-sam-muted">{vm.summary}</p>
       ) : null}
       {showTags ? (
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           {tags.map((t) => (
             <span
               key={t}
-              className="max-w-full truncate rounded-full bg-neutral-100 px-2 py-0.5 text-[12px] font-medium text-neutral-700"
+              className="max-w-full truncate rounded-full bg-sam-surface-muted px-2 py-0.5 text-[12px] font-medium text-sam-fg"
             >
               {t.startsWith("#") ? t : `#${t}`}
             </span>

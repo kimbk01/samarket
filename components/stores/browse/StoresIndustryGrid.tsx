@@ -19,9 +19,9 @@ export function StoresIndustryGrid({
   );
 
   return (
-    <section className="rounded-ui-rect border border-gray-100 bg-white p-3 shadow-sm">
+    <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="min-w-0 shrink text-sm font-semibold text-gray-900">업종별 둘러보기</h2>
+        <h2 className="min-w-0 shrink text-sm font-semibold text-sam-fg">업종별 둘러보기</h2>
         {headerTrailing ? (
           <div className="shrink-0 pt-0.5">{headerTrailing}</div>
         ) : null}
@@ -35,12 +35,12 @@ export function StoresIndustryGrid({
             <li key={p.id}>
               <Link
                 href={href}
-                className="flex flex-col items-center justify-center gap-1 rounded-ui-rect border border-gray-100 bg-[#F7F7F7] px-2 py-4 text-center shadow-sm active:bg-gray-100"
+                className="flex flex-col items-center justify-center gap-1 rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] px-2 py-4 text-center shadow-sm active:bg-sam-surface-muted"
               >
                 <span className="text-2xl leading-none" aria-hidden>
                   {p.symbol}
                 </span>
-                <span className="text-[13px] font-semibold text-gray-900">{p.nameKo}</span>
+                <span className="text-[13px] font-semibold text-sam-fg">{p.nameKo}</span>
               </Link>
             </li>
           );

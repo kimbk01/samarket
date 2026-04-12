@@ -1,75 +1,213 @@
 /**
- * SAMarket UI 의도 — 단일 수정 지점.
- * 브랜드/테마 변경 시 이 파일의 `--ui-*` 만 조정하면 됩니다.
- * (레거시 `--background`, `--signature`, `--ig-border` 등은 아래에서 `var(--ui-*)` 로 연결됩니다.)
+ * Samarket 전역 디자인 토큰 — 단일 소스 (`--sam-*`).
+ * 레거시 호환: `--ui-*`·`--messenger-*`·`--background` 등은 아래에서 `var(--sam-*)` 로 연결됩니다.
+ * 색/간격 변경 시 이 파일만 조정하면 됩니다.
  */
 
 :root {
-  /* --- 시맨틱 (신규 코드는 이 이름을 기준으로) --- */
-  --ui-page-bg: #f0f2f5;
-  --ui-surface: #ffffff;
-  --ui-text-primary: #050505;
-  --ui-text-secondary: #65676b;
-  --ui-text-meta: #65676b;
-  --ui-primary: #1877f2;
-  --ui-border: #ced0d4;
-  --ui-hover-surface: #e4e6eb;
-  --ui-danger: #e41e3f;
-  --ui-success: #31a24c;
+  /* ----- Brand / Primary ----- */
+  --sam-primary: #7360f2;
+  --sam-primary-hover: #624bef;
+  --sam-primary-soft: #f1eeff;
+  --sam-primary-soft-2: #e9e3ff;
+  --sam-primary-border: #d9ccff;
 
-  /* 사각형 섹션·카드·시트(원형·pill 제외) — 모서리 4px 고정 */
-  --ui-radius-rect: 4px;
-  --ui-radius-sm: var(--ui-radius-rect);
-  --ui-radius-md: var(--ui-radius-rect);
-  --ui-radius-lg: var(--ui-radius-rect);
-  --ui-radius-xl: var(--ui-radius-rect);
-  /** 아바타·FAB·pill 입력 등 — `rounded-full` 전용, 사각형 토큰과 별도 */
-  --ui-radius-pill: 9999px;
-  --ui-tap-min: 44px;
-  --ui-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --ui-font-body-line: 1.375;
+  /* ----- Background ----- */
+  --sam-bg-app: #f7f8fa;
+  --sam-bg-surface: #ffffff;
+  --sam-bg-surface-muted: #f9fafb;
+  --sam-bg-chat: #eceff5;
+  --sam-bg-soft-purple: #f8f5ff;
+  /* 구 neutral-800/900 계열 다크 서피스 (리스트·바·모달 딤) */
+  --sam-bg-surface-dark: #1f2937;
+  --sam-bg-ink: #111827;
 
-  /* --- 레거시 브리지 (기존 컴포넌트·Tailwind color-signature 등 유지) --- */
-  --background: var(--ui-page-bg);
-  --foreground: var(--ui-text-primary);
-  --signature: var(--ui-primary);
-  --sub-bg: var(--ui-surface);
-  --text-muted: var(--ui-text-secondary);
-  --text-meta: var(--ui-text-meta);
-  --ig-border: var(--ui-border);
-  --ig-highlight: var(--ui-hover-surface);
+  /* ----- Text ----- */
+  --sam-text-primary: #1a1a1a;
+  --sam-text-secondary: #8a8f98;
+  --sam-text-muted: #a8adb5;
+  --sam-text-on-primary: #ffffff;
+
+  /* ----- Border / Divider ----- */
+  --sam-border-default: #e5e7eb;
+  --sam-border-soft: #eef0f3;
+
+  /* ----- State ----- */
+  --sam-success: #22c55e;
+  --sam-success-soft: #eaf9ef;
+  --sam-warning: #f59e0b;
+  --sam-warning-soft: #fff4e5;
+  --sam-danger: #ef4444;
+  --sam-danger-soft: #fdecec;
+  --sam-info: #3b82f6;
+  --sam-info-soft: #eaf4ff;
+
+  /* ----- Icon ----- */
+  --sam-icon-default: #5f6368;
+  --sam-icon-soft: #8a8f98;
+  --sam-icon-on-primary: #ffffff;
+
+  /* ----- Radius (사각형·카드·시트 — 원/pill 은 rounded-full) ----- */
+  --sam-radius-xs: 6px;
+  --sam-radius-sm: 8px;
+  --sam-radius-md: 12px;
+  --sam-radius-lg: 18px;
+  --sam-radius-xl: 24px;
+  --sam-radius-pill: 999px;
+
+  /* ----- Shadow ----- */
+  --sam-shadow-soft: 0 4px 16px rgba(115, 96, 242, 0.08);
+  --sam-shadow-card: 0 2px 10px rgba(17, 24, 39, 0.05);
+  --sam-shadow-none: none;
+
+  /* ----- Layout (모바일 기준; 컴포넌트에서 참조) ----- */
+  --sam-screen-padding-x: 16px;
+  --sam-section-gap: 16px;
+  --sam-item-gap: 8px;
+
+  /* ----- Typography scale (참조용; 클래스는 globals) ----- */
+  --sam-text-page-title-size: 20px;
+  --sam-text-page-title-weight: 700;
+  --sam-text-section-title-size: 16px;
+  --sam-text-section-title-weight: 700;
+  --sam-text-card-title-size: 15px;
+  --sam-text-card-title-weight: 600;
+  --sam-text-body-size: 14px;
+  --sam-text-body-weight: 500;
+  --sam-text-body-secondary-size: 13px;
+  --sam-text-body-secondary-weight: 400;
+  --sam-text-helper-size: 12px;
+  --sam-text-helper-weight: 400;
+
+  --sam-font-body-line: 1.45;
+  --sam-tap-min: 44px;
+
+  /* ----- 레거시 시맨틱 브리지 (`bg-ui-*` 등 기존 코드 호환) ----- */
+  --ui-page-bg: var(--sam-bg-app);
+  --ui-surface: var(--sam-bg-surface);
+  --ui-text-primary: var(--sam-text-primary);
+  --ui-text-secondary: var(--sam-text-secondary);
+  --ui-text-meta: var(--sam-text-muted);
+  --ui-primary: var(--sam-primary);
+  --ui-border: var(--sam-border-default);
+  --ui-hover-surface: var(--sam-primary-soft);
+  --ui-danger: var(--sam-danger);
+  --ui-success: var(--sam-success);
+
+  --ui-radius-rect: var(--sam-radius-sm);
+  --ui-radius-sm: var(--sam-radius-sm);
+  --ui-radius-md: var(--sam-radius-md);
+  --ui-radius-lg: var(--sam-radius-lg);
+  --ui-radius-xl: var(--sam-radius-xl);
+  --ui-radius-pill: var(--sam-radius-pill);
+  --ui-tap-min: var(--sam-tap-min);
+  --ui-shadow-card: var(--sam-shadow-card);
+  --ui-font-body-line: var(--sam-font-body-line);
+
+  /* 레거시 브리지 (Next·기존 컴포넌트) */
+  --background: var(--sam-bg-app);
+  --foreground: var(--sam-text-primary);
+  --signature: var(--sam-primary);
+  --sub-bg: var(--sam-bg-surface);
+  --text-muted: var(--sam-text-secondary);
+  --text-meta: var(--sam-text-muted);
+  --ig-border: var(--sam-border-default);
+  --ig-highlight: var(--sam-primary-soft);
 }
 
 /**
- * 커뮤니티 메신저 채팅방 전용 — 래퍼 `[data-cm-room]` 에서만 적용 (Viber 톤 라이트 고정).
+ * Messenger / 채팅방 — 동일 브랜드; 영역별 별칭만 유지 (기존 `var(--messenger-*)` 참조 호환).
+ */
+[data-messenger-shell],
+[data-cm-room] {
+  --messenger-primary: var(--sam-primary);
+  --messenger-primary-soft: var(--sam-primary-soft);
+  --messenger-primary-soft-2: var(--sam-primary-soft-2);
+  --messenger-bg: var(--sam-bg-app);
+  --messenger-chat-bg: var(--sam-bg-chat);
+  --messenger-surface: var(--sam-bg-surface);
+  --messenger-surface-muted: var(--sam-bg-surface-muted);
+  --messenger-text: var(--sam-text-primary);
+  --messenger-text-secondary: var(--sam-text-secondary);
+  --messenger-divider: var(--sam-border-default);
+  --messenger-icon: var(--sam-icon-default);
+  --messenger-success: var(--sam-success);
+  --messenger-danger: var(--sam-danger);
+  --messenger-radius-sm: var(--sam-radius-sm);
+  --messenger-radius-md: var(--sam-radius-md);
+  --messenger-radius-lg: var(--sam-radius-lg);
+  --messenger-shadow-soft: var(--sam-shadow-soft);
+  --messenger-badge-direct-bg: var(--sam-primary-soft);
+  --messenger-badge-group-bg: #eee8ff;
+  --messenger-badge-trade-bg: var(--sam-success-soft);
+  --messenger-badge-delivery-bg: var(--sam-warning-soft);
+  --messenger-badge-openchat-bg: var(--sam-info-soft);
+}
+
+/**
+ * 커뮤니티 메신저 채팅방 — `--cm-room-*` 는 messenger 토큰에 연결 (하위 호환).
  */
 [data-cm-room] {
-  --cm-room-primary: #7360f2;
-  --cm-room-primary-soft: #f1eeff;
-  --cm-room-page-bg: #f7f8fa;
-  --cm-room-chat-bg: #eceff5;
-  --cm-room-text: #1a1a1a;
-  --cm-room-text-muted: #8a8f98;
-  --cm-room-divider: #e5e7eb;
-  --cm-room-header-bg: #ffffff;
-  --cm-room-bubble-incoming: #ffffff;
-  --cm-room-bubble-outgoing: #7360f2;
-  --cm-room-radius-bubble: 18px;
+  --cm-room-primary: var(--messenger-primary);
+  --cm-room-primary-soft: var(--messenger-primary-soft);
+  --cm-room-page-bg: var(--messenger-bg);
+  --cm-room-chat-bg: var(--messenger-chat-bg);
+  --cm-room-text: var(--messenger-text);
+  --cm-room-text-muted: var(--messenger-text-secondary);
+  --cm-room-divider: var(--messenger-divider);
+  --cm-room-header-bg: var(--messenger-surface);
+  --cm-room-bubble-incoming: var(--messenger-surface);
+  --cm-room-bubble-outgoing: var(--messenger-primary);
+  --cm-room-radius-bubble: var(--messenger-radius-lg);
   --cm-room-radius-input: 20px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ui-page-bg: #18191a;
-    --ui-surface: #242526;
-    --ui-text-primary: #e4e6eb;
-    --ui-text-secondary: #b0b3b8;
-    --ui-text-meta: #b0b3b8;
-    --ui-primary: #2374e1;
-    --ui-border: #3e4042;
-    --ui-hover-surface: #3a3b3c;
-    --ui-danger: #ff6b6b;
-    --ui-success: #45bd62;
-    --ui-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24);
+    --sam-bg-app: #121318;
+    --sam-bg-surface: #1a1b20;
+    --sam-bg-surface-muted: #22232a;
+    --sam-bg-chat: #16171c;
+    --sam-bg-soft-purple: #1e1a2e;
+    --sam-bg-surface-dark: #252830;
+    --sam-bg-ink: #0c0d10;
+
+    --sam-text-primary: #eceef2;
+    --sam-text-secondary: #9ca3af;
+    --sam-text-muted: #8b9099;
+
+    --sam-primary: #8b7cf8;
+    --sam-primary-hover: #7c6af0;
+    --sam-primary-soft: color-mix(in srgb, var(--sam-primary) 22%, var(--sam-bg-surface));
+    --sam-primary-soft-2: color-mix(in srgb, var(--sam-primary) 28%, var(--sam-bg-surface));
+    --sam-primary-border: color-mix(in srgb, var(--sam-primary) 45%, #5b5568);
+
+    --sam-border-default: #2e3038;
+    --sam-border-soft: #262830;
+
+    --sam-success: #4ade80;
+    --sam-success-soft: color-mix(in srgb, var(--sam-success) 18%, var(--sam-bg-surface));
+    --sam-warning: #fbbf24;
+    --sam-warning-soft: color-mix(in srgb, var(--sam-warning) 20%, var(--sam-bg-surface));
+    --sam-danger: #f87171;
+    --sam-danger-soft: color-mix(in srgb, var(--sam-danger) 18%, var(--sam-bg-surface));
+    --sam-info: #60a5fa;
+    --sam-info-soft: color-mix(in srgb, var(--sam-info) 18%, var(--sam-bg-surface));
+
+    --sam-icon-default: #a1a7b3;
+    --sam-icon-soft: var(--sam-text-secondary);
+
+    --sam-shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.35);
+    --sam-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.28);
+
+    /* --ui-* 는 위에서 var(--sam-*) 이므로 다크에서 자동 반영 */
+  }
+
+  [data-messenger-shell],
+  [data-cm-room] {
+    --messenger-badge-group-bg: color-mix(in srgb, var(--sam-primary) 25%, var(--sam-bg-surface));
+    --messenger-badge-trade-bg: var(--sam-success-soft);
+    --messenger-badge-delivery-bg: var(--sam-warning-soft);
+    --messenger-badge-openchat-bg: var(--sam-info-soft);
   }
 }

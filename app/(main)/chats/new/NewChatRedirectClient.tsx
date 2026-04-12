@@ -33,7 +33,7 @@ export function NewChatRedirectClient({ productId }: { productId: string | null 
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <p className="text-center text-[14px] text-gray-500">{message}</p>
+      <p className="text-center text-[14px] text-sam-muted">{message}</p>
     </div>
   );
 }

@@ -56,7 +56,7 @@ function MeetingInfoCard({
   const hasCover = !!(meeting as { cover_image_url?: string }).cover_image_url;
 
   return (
-    <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
       <div
         className={`relative flex h-28 items-end px-5 pb-4 ${
           hasCover
@@ -75,7 +75,7 @@ function MeetingInfoCard({
             {meeting.title}
           </h1>
           <div className="mt-1 flex items-center gap-1.5">
-            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+            <span className="rounded-full bg-sam-surface/20 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
               {entryLabel}
             </span>
             {!isOpen && statusLabel && (
@@ -87,41 +87,41 @@ function MeetingInfoCard({
         </div>
       </div>
 
-      <div className="divide-x divide-gray-100 flex">
+      <div className="divide-x divide-sam-border-soft flex">
         <div className="flex flex-1 flex-col items-center py-3">
           <span className="text-[20px]">👥</span>
-          <span className="mt-1 text-[13px] font-bold text-gray-900">
+          <span className="mt-1 text-[13px] font-bold text-sam-fg">
             {joinedCount}
-            <span className="font-normal text-gray-400">/{maxMembers}</span>
+            <span className="font-normal text-sam-meta">/{maxMembers}</span>
           </span>
-          <span className="text-[10px] text-gray-400">참여</span>
+          <span className="text-[10px] text-sam-meta">참여</span>
         </div>
         {meeting.tenure_type !== "long" &&
           meeting.meeting_date &&
           !Number.isNaN(Date.parse(meeting.meeting_date)) && (
             <div className="flex flex-1 flex-col items-center py-3 px-1">
               <span className="text-[20px]">📅</span>
-              <span className="mt-1 text-center text-[13px] font-bold leading-tight text-gray-900">
+              <span className="mt-1 text-center text-[13px] font-bold leading-tight text-sam-fg">
                 {new Date(meeting.meeting_date).toLocaleDateString("ko-KR", {
                   month: "short",
                   day: "numeric",
                 })}
               </span>
-              <span className="mt-0.5 text-center text-[11px] font-semibold tabular-nums text-gray-700">
+              <span className="mt-0.5 text-center text-[11px] font-semibold tabular-nums text-sam-fg">
                 {new Date(meeting.meeting_date).toLocaleTimeString("ko-KR", {
                   hour: "2-digit",
                   minute: "2-digit",
                   hour12: false,
                 })}
               </span>
-              <span className="text-[10px] text-gray-400">일정</span>
+              <span className="text-[10px] text-sam-meta">일정</span>
             </div>
           )}
         {pendingCount > 0 && (
           <div className="flex flex-1 flex-col items-center py-3">
             <span className="text-[20px]">⏳</span>
             <span className="mt-1 text-[13px] font-bold text-amber-600">{pendingCount}</span>
-            <span className="text-[10px] text-gray-400">대기</span>
+            <span className="text-[10px] text-sam-meta">대기</span>
           </div>
         )}
       </div>
@@ -172,7 +172,7 @@ export default async function PhilifeMeetingPage({ params, searchParams }: Props
               openChatAnyApproval={openChatAnyApproval}
             />
             {!isPending && !isRestricted ? (
-              <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
                 <MeetingJoinButton
                   meetingId={meeting.id}
                   chatRoomId={meeting.chat_room_id}

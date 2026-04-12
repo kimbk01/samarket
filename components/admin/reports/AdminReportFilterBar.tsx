@@ -26,7 +26,7 @@ export function AdminReportFilterBar({ filters, onChange }: AdminReportFilterBar
         onChange={(e) =>
           onChange({ ...filters, targetType: e.target.value as ReportTargetType | "" })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {TARGET_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -39,7 +39,7 @@ export function AdminReportFilterBar({ filters, onChange }: AdminReportFilterBar
         onChange={(e) =>
           onChange({ ...filters, status: e.target.value as ReportStatus | "" })
         }
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {REPORT_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -50,7 +50,7 @@ export function AdminReportFilterBar({ filters, onChange }: AdminReportFilterBar
       <select
         value={filters.reasonCode}
         onChange={(e) => onChange({ ...filters, reasonCode: e.target.value })}
-        className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-800"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {REASON_CODE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>

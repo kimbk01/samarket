@@ -13,14 +13,14 @@ export function OwnerChatInput({
 }) {
   const [text, setText] = useState("");
   return (
-    <div className="border-t border-gray-200 bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div className="border-t border-sam-border bg-sam-surface p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <div className="mb-2 flex flex-wrap gap-1">
         {QUICK.map((q) => (
           <button
             key={q}
             type="button"
             disabled={disabled}
-            className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-800"
+            className="rounded-full bg-sam-surface-muted px-2 py-1 text-[11px] text-sam-fg"
             onClick={() => onSend(q)}
           >
             {q}
@@ -31,12 +31,12 @@ export function OwnerChatInput({
         <button
           type="button"
           disabled
-          className="shrink-0 rounded-ui-rect border border-dashed border-gray-300 px-2 text-[11px] text-gray-400"
+          className="shrink-0 rounded-ui-rect border border-dashed border-sam-border px-2 text-[11px] text-sam-meta"
         >
           사진
         </button>
         <input
-          className="min-w-0 flex-1 rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
           placeholder="고객에게 답장"
           value={text}
           disabled={disabled}
@@ -54,7 +54,7 @@ export function OwnerChatInput({
         <button
           type="button"
           disabled={disabled || !text.trim()}
-          className="shrink-0 rounded-ui-rect bg-gray-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+          className="shrink-0 rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
           onClick={() => {
             if (text.trim()) {
               onSend(text.trim());

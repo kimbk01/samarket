@@ -41,18 +41,18 @@ export function CacheSettingsContent() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[14px] text-gray-600">
+      <p className="text-[14px] text-sam-muted">
         임시 캐시를 삭제하여 저장 공간을 확보합니다.
       </p>
       <button
         type="button"
         onClick={clear}
-        className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+        className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
       >
         캐시 삭제
       </button>
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-ui-rect bg-gray-900 px-4 py-2 text-[14px] text-white shadow-lg">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-ui-rect bg-sam-ink px-4 py-2 text-[14px] text-white shadow-lg">
           삭제되었습니다.
         </div>
       )}

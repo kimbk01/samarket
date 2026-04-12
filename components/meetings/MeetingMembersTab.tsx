@@ -44,7 +44,7 @@ const ROLE_LABEL: Record<string, string> = {
 const ROLE_COLOR: Record<string, string> = {
   host: "bg-emerald-500 text-white",
   co_host: "bg-emerald-100 text-emerald-800",
-  member: "bg-gray-100 text-gray-600",
+  member: "bg-sam-surface-muted text-sam-muted",
 };
 
 function formatJoinedAt(iso: string | null | undefined): string {
@@ -65,13 +65,13 @@ function AvatarBubble({
   return (
     <div className="flex flex-col items-center gap-1">
       <div
-        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[14px] font-bold ring-2 ring-white ${
-          isHost ? "bg-emerald-500 text-white" : "bg-gray-100 text-gray-600"
+        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[14px] font-bold ring-2 ring-sam-surface ${
+          isHost ? "bg-emerald-500 text-white" : "bg-sam-surface-muted text-sam-muted"
         }`}
       >
         {(name || "?").charAt(0)}
         {isMe && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[8px] font-bold text-white ring-1 ring-white">
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[8px] font-bold text-white ring-1 ring-sam-surface">
             나
           </span>
         )}
@@ -147,7 +147,7 @@ function MemberItem({
         {/* 아바타 */}
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${
-            member.role === "host" ? "bg-emerald-500 text-white" : "bg-gray-100 text-gray-600"
+            member.role === "host" ? "bg-emerald-500 text-white" : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
           {(member.name || "?").charAt(0)}
@@ -156,7 +156,7 @@ function MemberItem({
         {/* 이름 + 날짜 */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-[14px] font-medium text-gray-900">
+            <span className="truncate text-[14px] font-medium text-sam-fg">
               {member.name || "알 수 없음"}
             </span>
             {isMe && (
@@ -170,7 +170,7 @@ function MemberItem({
               </span>
             ) : null}
             {member.joinedAt ? (
-              <span className="text-[11px] text-gray-400">{formatJoinedAt(member.joinedAt)}</span>
+              <span className="text-[11px] text-sam-meta">{formatJoinedAt(member.joinedAt)}</span>
             ) : null}
           </div>
         </div>
@@ -180,7 +180,7 @@ function MemberItem({
           <button
             type="button"
             onClick={() => setShowActions((v) => !v)}
-            className="shrink-0 rounded-full p-1.5 text-gray-400 hover:bg-gray-100"
+            className="shrink-0 rounded-full p-1.5 text-sam-meta hover:bg-sam-surface-muted"
           >
             <svg width="16" height="4" viewBox="0 0 16 4" fill="currentColor">
               <circle cx="2" cy="2" r="1.5" />
@@ -198,7 +198,7 @@ function MemberItem({
             <button
               type="button"
               onClick={() => { setShowActions(false); onReport?.(member.userId); }}
-              className="rounded-ui-rect bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-gray-700"
+              className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg"
             >
               🚨 신고
             </button>
@@ -226,7 +226,7 @@ function MemberItem({
           <button
             type="button"
             onClick={() => setShowActions(false)}
-            className="rounded-ui-rect border border-gray-200 px-3 py-1.5 text-[12px] text-gray-400"
+            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] text-sam-meta"
           >
             닫기
           </button>
@@ -269,17 +269,17 @@ function PendingMemberRow({
   };
 
   return (
-    <li className="rounded-ui-rect border border-amber-100 bg-white px-3 py-3 shadow-sm">
+    <li className="rounded-ui-rect border border-amber-100 bg-sam-surface px-3 py-3 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[13px] font-bold text-amber-900">
           {(member.name || "?").charAt(0)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-medium text-gray-900">
+          <p className="truncate text-[14px] font-medium text-sam-fg">
             {member.name || "알 수 없음"}
           </p>
           {member.joinedAt && (
-            <p className="text-[11px] text-gray-500">{formatJoinedAt(member.joinedAt)?.replace("참여", "신청")}</p>
+            <p className="text-[11px] text-sam-muted">{formatJoinedAt(member.joinedAt)?.replace("참여", "신청")}</p>
           )}
           {member.requestMessage ? (
             <div className="mt-2">
@@ -382,16 +382,16 @@ export function MeetingMembersTab({
       )}
 
       {/* ── 정원 현황 + 아바타 미리보기 ────────────────── */}
-      <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-4 shadow-sm">
+      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="text-[14px] font-semibold text-gray-900">참여 멤버</span>
-          <span className="text-[13px] text-gray-500">
-            {totalJoined}<span className="text-gray-300">/{maxMembers}</span>명
+          <span className="text-[14px] font-semibold text-sam-fg">참여 멤버</span>
+          <span className="text-[13px] text-sam-muted">
+            {totalJoined}<span className="text-sam-meta">/{maxMembers}</span>명
           </span>
         </div>
 
         {/* 정원 게이지 */}
-        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-sam-surface-muted">
           <div
             className={`h-full rounded-full transition-all ${
               capacityPct >= 90 ? "bg-red-400" : "bg-emerald-400"
@@ -413,7 +413,7 @@ export function MeetingMembersTab({
             ))}
             {sorted.length > 12 && (
               <div className="flex flex-col items-center gap-1">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-[11px] font-semibold text-gray-500">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sam-surface-muted text-[11px] font-semibold text-sam-muted">
                   +{sorted.length - 12}
                 </div>
               </div>
@@ -460,12 +460,12 @@ export function MeetingMembersTab({
       {/* ── 멤버 목록 (⋮「참여자 관리」앵커) ───────────────── */}
       <div
         id="meeting-members-joined"
-        className="scroll-mt-4 rounded-ui-rect border border-gray-100 bg-white px-4 shadow-sm"
+        className="scroll-mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 shadow-sm"
       >
         {sorted.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-gray-400">아직 참여자가 없습니다.</p>
+          <p className="py-8 text-center text-[13px] text-sam-meta">아직 참여자가 없습니다.</p>
         ) : (
-          <ul className="divide-y divide-gray-50">
+          <ul className="divide-y divide-sam-border-soft">
             {sorted.map((m) => (
               <MemberItem
                 key={m.userId}

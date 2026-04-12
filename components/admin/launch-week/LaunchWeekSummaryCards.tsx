@@ -29,27 +29,27 @@ export function LaunchWeekSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">현재 Day</p>
-          <p className="text-[24px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">현재 Day</p>
+          <p className="text-[24px] font-semibold text-sam-fg">
             Day {summary.currentDay}
           </p>
         </div>
         <div className={`rounded-ui-rect border p-4 ${stabilityBg}`}>
-          <p className="text-[12px] text-gray-500">초기 안정화 상태</p>
+          <p className="text-[12px] text-sam-muted">초기 안정화 상태</p>
           <p className={`text-[20px] font-semibold ${stabilityClass}`}>
             {getStabilityLabel(summary.currentStabilityStatus)}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">오픈 이슈 / Critical</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">오픈 이슈 / Critical</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {summary.openIssueCount} / {summary.criticalIssueCount}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">체크리스트</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">체크리스트</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {summary.totalChecklistDone} / {summary.totalChecklistCount}
           </p>
           {summary.blockedChecklistCount > 0 && (
@@ -61,15 +61,15 @@ export function LaunchWeekSummaryCards() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">오늘 Fallback / Kill Switch</p>
-          <p className="text-[14px] text-gray-700">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">오늘 Fallback / Kill Switch</p>
+          <p className="text-[14px] text-sam-fg">
             {summary.fallbackToday} / {summary.killSwitchToday}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">연결</p>
-          <p className="text-[14px] text-gray-700">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">연결</p>
+          <p className="text-[14px] text-sam-fg">
             <Link href="/admin/recommendation-monitoring" className="text-signature hover:underline">
               추천 모니터링
             </Link>
@@ -89,12 +89,12 @@ export function LaunchWeekSummaryCards() {
         </div>
       </div>
 
-      <p className="text-[12px] text-gray-500">
+      <p className="text-[12px] text-sam-muted">
         첫 주 go/no-go after launch 판단은 요약·체크리스트 완료 후 placeholder로 기록 가능.
       </p>
 
       {summary.latestUpdatedAt && (
-        <p className="text-[12px] text-gray-500">
+        <p className="text-[12px] text-sam-muted">
           최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
         </p>
       )}

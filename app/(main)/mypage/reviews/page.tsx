@@ -13,16 +13,16 @@ export default function MypageReviewsHubPage() {
         hideCtaStrip
       />
       <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-4 py-6`}>
-        <p className="text-[14px] leading-relaxed text-gray-600">
-          <strong className="text-gray-900">내가 남긴 거래 후기</strong>는 아래에서 확인할 수 있어요. 새 후기는{" "}
+        <p className="text-[14px] leading-relaxed text-sam-muted">
+          <strong className="text-sam-fg">내가 남긴 거래 후기</strong>는 아래에서 확인할 수 있어요. 새 후기는{" "}
           <Link href="/mypage/purchases" className="font-medium text-signature underline">
             구매내역
           </Link>
-          에서 <strong className="text-gray-900">거래완료 확인</strong> 후 평가·후기를 작성할 수 있어요.
+          에서 <strong className="text-sam-fg">거래완료 확인</strong> 후 평가·후기를 작성할 수 있어요.
         </p>
         <MyWrittenReviewsView />
-        <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-          <p className="mb-2 text-[13px] font-medium text-gray-800">바로가기</p>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+          <p className="mb-2 text-[13px] font-medium text-sam-fg">바로가기</p>
           <ul className="space-y-2">
             <li>
               <Link

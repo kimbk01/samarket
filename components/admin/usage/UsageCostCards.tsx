@@ -19,41 +19,41 @@ export function UsageCostCards() {
       )}
       {latest ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <p className="text-[12px] text-gray-500">DB 사용량</p>
-            <p className="text-[20px] font-semibold text-gray-900">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-[12px] text-sam-muted">DB 사용량</p>
+            <p className="text-[20px] font-semibold text-sam-fg">
               {latest.dbUsage} GB
             </p>
           </div>
-          <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <p className="text-[12px] text-gray-500">Storage</p>
-            <p className="text-[20px] font-semibold text-gray-900">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-[12px] text-sam-muted">Storage</p>
+            <p className="text-[20px] font-semibold text-sam-fg">
               {latest.storageUsage} GB
             </p>
           </div>
-          <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <p className="text-[12px] text-gray-500">Bandwidth</p>
-            <p className="text-[20px] font-semibold text-gray-900">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-[12px] text-sam-muted">Bandwidth</p>
+            <p className="text-[20px] font-semibold text-sam-fg">
               {latest.bandwidth} GB
             </p>
           </div>
-          <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <p className="text-[12px] text-gray-500">API 요청 수</p>
-            <p className="text-[20px] font-semibold text-gray-900">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-[12px] text-sam-muted">API 요청 수</p>
+            <p className="text-[20px] font-semibold text-sam-fg">
               {(latest.apiRequests / 1000).toFixed(0)}K
             </p>
           </div>
-          <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <p className="text-[12px] text-gray-500">월간 비용 추정</p>
-            <p className="text-[20px] font-semibold text-gray-900">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-[12px] text-sam-muted">월간 비용 추정</p>
+            <p className="text-[20px] font-semibold text-sam-fg">
               ${latest.estimatedCost}
             </p>
           </div>
         </div>
       ) : (
-        <p className="text-[14px] text-gray-500">사용량 데이터 없음</p>
+        <p className="text-[14px] text-sam-muted">사용량 데이터 없음</p>
       )}
-      <p className="text-[12px] text-gray-500">
+      <p className="text-[12px] text-sam-muted">
         사용량 그래프는 placeholder. Supabase 대시보드와 연동 가능.
       </p>
     </div>

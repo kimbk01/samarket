@@ -48,9 +48,9 @@ export function DeploymentPreparationPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
-        <p className="text-[14px] font-medium text-gray-900">배포 시뮬레이션</p>
-        <p className="mt-1 text-[13px] text-gray-600">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
+        <p className="text-[14px] font-medium text-sam-fg">배포 시뮬레이션</p>
+        <p className="mt-1 text-[13px] text-sam-muted">
           선택한 버전이 해당 surface의 live 버전으로 설정됩니다. 현재 live:{" "}
           {active?.liveVersionId ?? "-"}
         </p>
@@ -71,14 +71,14 @@ export function DeploymentPreparationPanel() {
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-gray-700">surface</label>
+        <label className="text-[14px] font-medium text-sam-fg">surface</label>
         <select
           value={surface}
           onChange={(e) => {
             setSurface(e.target.value as RecommendationSurface);
             setVersionId("");
           }}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {SURFACES.map((s) => (
             <option key={s} value={s}>
@@ -86,11 +86,11 @@ export function DeploymentPreparationPanel() {
             </option>
           ))}
         </select>
-        <label className="text-[14px] font-medium text-gray-700">버전</label>
+        <label className="text-[14px] font-medium text-sam-fg">버전</label>
         <select
           value={versionId}
           onChange={(e) => setVersionId(e.target.value)}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">선택</option>
           {versions.map((v) => (
@@ -108,7 +108,7 @@ export function DeploymentPreparationPanel() {
           배포 실행
         </button>
       </div>
-      <p className="text-[12px] text-gray-500">
+      <p className="text-[12px] text-sam-muted">
         배포 예약은 placeholder입니다. 실행 시 즉시 live 반영됩니다.
       </p>
     </div>

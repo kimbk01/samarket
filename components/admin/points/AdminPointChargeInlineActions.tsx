@@ -39,7 +39,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
 
   if (requests.length === 0) {
     return (
-      <p className="py-10 text-center text-[13px] text-gray-400">충전 신청 내역이 없습니다.</p>
+      <p className="py-10 text-center text-[13px] text-sam-meta">충전 신청 내역이 없습니다.</p>
     );
   }
 
@@ -50,9 +50,9 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
       ) : null}
       <table className="w-full min-w-[820px] border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-[12px]">
+          <tr className="border-b border-sam-border bg-sam-app text-[12px]">
             {["신청자", "플랜/포인트", "결제방식", "입금자명", "상태", "신청일", "메모", "액션"].map((h) => (
-              <th key={h} className="px-3 py-2.5 text-left font-semibold text-gray-600">
+              <th key={h} className="px-3 py-2.5 text-left font-semibold text-sam-muted">
                 {h}
               </th>
             ))}
@@ -69,7 +69,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
             return (
               <tr
                 key={r.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 ${
+                className={`border-b border-sam-border-soft hover:bg-sam-app ${
                   r.requestStatus === "waiting_confirm" ? "bg-amber-50/30" : ""
                 }`}
               >
@@ -80,23 +80,23 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                   >
                     {r.userNickname}
                   </Link>
-                  <p className="text-[10px] text-gray-400 font-mono">{r.userId}</p>
+                  <p className="text-[10px] text-sam-meta font-mono">{r.userId}</p>
                 </td>
                 <td className="px-3 py-2.5">
-                  <p className="font-medium text-gray-900">{r.planName}</p>
+                  <p className="font-medium text-sam-fg">{r.planName}</p>
                   <p className="text-[12px] text-sky-700 font-bold">+{r.pointAmount.toLocaleString()}P</p>
-                  <p className="text-[11px] text-gray-500">₱{r.paymentAmount.toLocaleString()}</p>
+                  <p className="text-[11px] text-sam-muted">₱{r.paymentAmount.toLocaleString()}</p>
                 </td>
-                <td className="px-3 py-2.5 text-gray-600">
+                <td className="px-3 py-2.5 text-sam-muted">
                   {POINT_PAYMENT_METHOD_LABELS[r.paymentMethod]}
                 </td>
-                <td className="px-3 py-2.5 text-gray-700">
-                  {r.depositorName || <span className="text-gray-400">-</span>}
+                <td className="px-3 py-2.5 text-sam-fg">
+                  {r.depositorName || <span className="text-sam-meta">-</span>}
                 </td>
                 <td className="px-3 py-2.5">
                   <PointChargeBadge status={r.requestStatus} />
                 </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">
+                <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
                   {new Date(r.requestedAt).toLocaleString("ko-KR")}
                 </td>
                 <td className="px-3 py-2.5">
@@ -107,7 +107,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                       setMemoInputs((prev) => ({ ...prev, [r.id]: e.target.value }))
                     }
                     placeholder="관리자 메모"
-                    className="w-28 rounded border border-gray-200 px-2 py-1 text-[11px] outline-none focus:border-sky-300"
+                    className="w-28 rounded border border-sam-border px-2 py-1 text-[11px] outline-none focus:border-sky-300"
                   />
                 </td>
                 <td className="px-3 py-2.5">
@@ -134,14 +134,14 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                           type="button"
                           disabled={busy}
                           onClick={() => void doAction(r.id, "hold", memo)}
-                          className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-600 disabled:opacity-50"
+                          className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted disabled:opacity-50"
                         >
                           보류
                         </button>
                       )}
                     </div>
                   ) : (
-                    <span className="text-[11px] text-gray-400">처리완료</span>
+                    <span className="text-[11px] text-sam-meta">처리완료</span>
                   )}
                 </td>
               </tr>

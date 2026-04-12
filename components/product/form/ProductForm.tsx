@@ -111,8 +111,8 @@ export function ProductForm({
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-lg pb-24">
       <ProductImagePicker value={images} onChange={setImages} />
-      <section className="border-b border-gray-100 bg-white px-4 py-4">
-        <label className="mb-2 block text-[14px] font-medium text-gray-800">
+      <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+        <label className="mb-2 block text-[14px] font-medium text-sam-fg">
           제목 <span className="text-red-500">*</span>
         </label>
         <input
@@ -121,15 +121,15 @@ export function ProductForm({
           onChange={(e) => setTitle(e.target.value)}
           placeholder="상품 제목"
           maxLength={100}
-          className="w-full rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
           aria-invalid={!!errors.title}
         />
         {errors.title && (
           <p className="mt-1 text-[13px] text-red-500">{errors.title}</p>
         )}
       </section>
-      <section className="border-b border-gray-100 bg-white px-4 py-4">
-        <label className="mb-2 block text-[14px] font-medium text-gray-800">
+      <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+        <label className="mb-2 block text-[14px] font-medium text-sam-fg">
           설명 <span className="text-red-500">*</span>
         </label>
         <textarea
@@ -137,7 +137,7 @@ export function ProductForm({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="상품 설명"
           rows={5}
-          className="w-full resize-none rounded-ui-rect border border-gray-300 px-3 py-2.5 text-[15px] text-gray-900"
+          className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
           aria-invalid={!!errors.description}
         />
         {errors.description && (
@@ -167,12 +167,12 @@ export function ProductForm({
         error={errors.region}
       />
       <ProductConditionSelect value={condition} onChange={setCondition} />
-      <div className="fixed bottom-0 left-0 right-0 flex gap-2 border-t border-gray-100 bg-white px-4 py-3 max-w-lg mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 flex gap-2 border-t border-sam-border-soft bg-sam-surface px-4 py-3 max-w-lg mx-auto">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-ui-rect border border-gray-300 px-4 py-2.5 text-[15px] text-gray-600"
+            className="rounded-ui-rect border border-sam-border px-4 py-2.5 text-[15px] text-sam-muted"
           >
             취소
           </button>

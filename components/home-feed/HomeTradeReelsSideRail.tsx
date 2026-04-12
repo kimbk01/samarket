@@ -19,10 +19,10 @@ const ROW_STAGGER_MS = 52;
 const CLOSE_EXTRA_MS = 96;
 
 const RAIL_LABEL_CLASS =
-  "max-w-[9rem] truncate rounded-ui-rect bg-white px-3 py-1.5 text-center text-[calc(11px+1pt)] font-semibold leading-tight text-neutral-800 shadow-md ring-1 ring-black/[0.06]";
+  "max-w-[9rem] truncate rounded-ui-rect bg-sam-surface px-3 py-1.5 text-center text-[calc(11px+1pt)] font-semibold leading-tight text-sam-fg shadow-md ring-1 ring-black/[0.06]";
 
 const FAB_BASE =
-  "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white shadow-[0_4px_14px_rgba(0,0,0,0.22)] ring-2 ring-white/35 [&_svg]:h-5 [&_svg]:w-5 active:opacity-90";
+  "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white shadow-[0_4px_14px_rgba(0,0,0,0.22)] ring-2 ring-sam-surface/35 [&_svg]:h-5 [&_svg]:w-5 active:opacity-90";
 
 /**
  * 홈 거래 플로팅 CTA — 피드에서 빠른 거래·쓰기 진입용.
@@ -39,7 +39,7 @@ const TRADE_HUB_RAIL_LINKS: readonly {
     key: "hub",
     label: "거래 허브",
     href: "/mypage/trade/purchases",
-    fabClass: `${FAB_BASE} bg-slate-700`,
+    fabClass: `${FAB_BASE} bg-sam-fg/10`,
     Icon: HubGridIcon,
   },
   {
@@ -244,7 +244,7 @@ export function HomeTradeReelsSideRail() {
                     aria-haspopup="true"
                     aria-controls="home-quick-rail-menu"
                     className={`pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-[0_6px_20px_rgba(0,0,0,0.22)] ring-2 transition active:opacity-90 ${
-                      railOpen ? "bg-slate-700 ring-white/35" : "bg-signature ring-white/25"
+                      railOpen ? "bg-sam-fg/10 ring-sam-surface/35" : "bg-signature ring-sam-surface/25"
                     }`}
                     aria-label={railOpen ? "메뉴 닫기" : "메뉴 열기"}
                   >

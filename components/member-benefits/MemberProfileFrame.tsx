@@ -12,7 +12,7 @@ interface MemberProfileFrameProps {
 }
 
 const FRAME_CLASS: Record<string, string> = {
-  dark: "border-gray-300",
+  dark: "border-sam-border",
   gold: "border-amber-400 border-2",
   admin_special: "border-indigo-400 border-2",
 };
@@ -40,7 +40,7 @@ export function MemberProfileFrame({
               ? "bg-amber-100 text-amber-800"
               : config.memberType === "admin"
                 ? "bg-indigo-100 text-indigo-800"
-                : "bg-gray-100 text-gray-700"
+                : "bg-sam-surface-muted text-sam-fg"
           }`}
         >
           {config.badgeLabel}

@@ -41,7 +41,7 @@ export function AdminRecommendationReportDetailPage({
     return (
       <>
         <AdminPageHeader title="보고서 없음" />
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           해당 보고서를 찾을 수 없습니다.
           <Link href="/admin/recommendation-reports" className="ml-2 text-signature hover:underline">
             목록으로
@@ -61,12 +61,12 @@ export function AdminRecommendationReportDetailPage({
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className="rounded border border-gray-200 bg-gray-100 px-3 py-2 text-[14px] text-gray-600"
+          className="rounded border border-sam-border bg-sam-surface-muted px-3 py-2 text-[14px] text-sam-muted"
         >
           다운로드 (CSV/PDF placeholder)
         </button>
       </div>
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -75,7 +75,7 @@ export function AdminRecommendationReportDetailPage({
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {tab.label}

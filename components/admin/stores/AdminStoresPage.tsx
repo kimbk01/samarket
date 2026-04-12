@@ -56,7 +56,7 @@ function previewText(text: string | null | undefined, max = 56): string {
 function ActionGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">{title}</p>
+      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-sam-muted">{title}</p>
       <div className="flex flex-col gap-1.5">{children}</div>
     </div>
   );
@@ -66,9 +66,9 @@ const ctaBase =
   "inline-flex w-full min-h-[2.25rem] shrink-0 items-center justify-center rounded-ui-rect px-3 py-2 text-center text-[12px] font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/40 focus-visible:ring-offset-1";
 
 const ctaPrimary = `${ctaBase} bg-signature text-white shadow-sm hover:bg-signature/90 active:bg-signature/95`;
-const ctaSecondary = `${ctaBase} border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 active:bg-gray-100`;
+const ctaSecondary = `${ctaBase} border border-sam-border bg-sam-surface text-sam-fg shadow-sm hover:bg-sam-app active:bg-sam-surface-muted`;
 const ctaWarning = `${ctaBase} border border-amber-200 bg-amber-50 text-amber-950 hover:bg-amber-100/80 active:bg-amber-100`;
-const ctaDanger = `${ctaBase} border border-red-200 bg-white text-red-800 hover:bg-red-50 active:bg-red-100/80`;
+const ctaDanger = `${ctaBase} border border-red-200 bg-sam-surface text-red-800 hover:bg-red-50 active:bg-red-100/80`;
 const ctaDangerSolid = `${ctaBase} border border-red-300 bg-red-600 text-white hover:bg-red-700 active:bg-red-800`;
 const ctaAccent = `${ctaBase} border border-signature/35 bg-signature/10 text-signature hover:bg-signature/15 active:bg-signature/20`;
 const ctaSales = `${ctaBase} border border-blue-200 bg-blue-600 text-white shadow-sm hover:bg-blue-700 active:bg-blue-800`;
@@ -156,9 +156,9 @@ export function AdminStoresPage() {
         />
       ) : null}
       <AdminPageHeader title="매장 심사 (커머스)" />
-      <p className="text-[13px] text-gray-600">
-        DB <code className="rounded bg-gray-100 px-1">stores</code> ·{" "}
-        <code className="rounded bg-gray-100 px-1">store_sales_permissions</code> 연동. 매장 승인 후
+      <p className="text-[13px] text-sam-muted">
+        DB <code className="rounded bg-sam-surface-muted px-1">stores</code> ·{" "}
+        <code className="rounded bg-sam-surface-muted px-1">store_sales_permissions</code> 연동. 매장 승인 후
         판매 권한을 별도로 승인할 수 있습니다.
       </p>
 
@@ -170,8 +170,8 @@ export function AdminStoresPage() {
             onClick={() => setFilter(f.value)}
             className={`rounded-full px-3 py-1.5 text-[13px] font-medium ${
               filter === f.value
-                ? "bg-gray-900 text-white"
-                : "border border-gray-200 bg-white text-gray-700"
+                ? "bg-sam-ink text-white"
+                : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
             {f.label}
@@ -186,15 +186,15 @@ export function AdminStoresPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-[14px] text-gray-500">불러오는 중…</p>
+        <p className="text-[14px] text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           매장이 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="min-w-[1420px] w-full border-collapse text-left text-[13px]">
-            <thead className="border-b border-gray-200 bg-gray-50 text-[12px] text-gray-600">
+            <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
                 <th className="min-w-[180px] px-3 py-2 font-medium">매장</th>
                 <th className="min-w-[100px] max-w-[140px] px-3 py-2 font-medium">신청자</th>
@@ -231,9 +231,9 @@ export function AdminStoresPage() {
                   r.kakao_id
                 );
                 return (
-                  <tr key={r.id} className="border-b border-gray-100">
+                  <tr key={r.id} className="border-b border-sam-border-soft">
                     <td className="px-3 py-2 align-top">
-                      <div className="font-medium text-gray-900">{r.store_name}</div>
+                      <div className="font-medium text-sam-fg">{r.store_name}</div>
                       <a
                         href={`/stores/${encodeURIComponent(r.slug)}`}
                         target="_blank"
@@ -256,13 +256,13 @@ export function AdminStoresPage() {
                         <div className="mt-1 text-[11px] text-red-700">반려: {r.rejected_reason}</div>
                       ) : null}
                     </td>
-                    <td className="max-w-[140px] px-3 py-2 align-top text-[12px] text-gray-800">
+                    <td className="max-w-[140px] px-3 py-2 align-top text-[12px] text-sam-fg">
                       {r.applicant_nickname?.trim() || (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-sam-meta">—</span>
                       )}
                     </td>
                     <td className="max-w-[200px] px-3 py-2 align-top">
-                      <p className="break-all font-mono text-[12px] leading-snug text-gray-900">
+                      <p className="break-all font-mono text-[12px] leading-snug text-sam-fg">
                         {r.slug}
                       </p>
                       <button
@@ -274,50 +274,50 @@ export function AdminStoresPage() {
                       >
                         등록 ID 복사
                       </button>
-                      <p className="mt-1 text-[10px] leading-snug text-gray-400">
+                      <p className="mt-1 text-[10px] leading-snug text-sam-meta">
                         신청 시 정한 URL용 식별자(slug). 매장 전용 로그인 ID는 추후 정리 예정.
                       </p>
                     </td>
-                    <td className="max-w-[160px] px-3 py-2 align-top text-[12px] leading-snug text-gray-800">
+                    <td className="max-w-[160px] px-3 py-2 align-top text-[12px] leading-snug text-sam-fg">
                       <div>
-                        <span className="text-gray-500">전화</span>{" "}
+                        <span className="text-sam-muted">전화</span>{" "}
                         {r.phone?.trim() ? (
-                          <span className="text-gray-900">{r.phone.trim()}</span>
+                          <span className="text-sam-fg">{r.phone.trim()}</span>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-sam-meta">—</span>
                         )}
                       </div>
                       <div className="mt-1">
-                        <span className="text-gray-500">카카오</span>{" "}
+                        <span className="text-sam-muted">카카오</span>{" "}
                         {kakaoForList?.trim() ? (
-                          <span className="text-gray-900">{kakaoForList.trim()}</span>
+                          <span className="text-sam-fg">{kakaoForList.trim()}</span>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-sam-meta">—</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2 align-top text-[12px] leading-snug text-gray-800 break-words">
+                    <td className="px-3 py-2 align-top text-[12px] leading-snug text-sam-fg break-words">
                       {adminDbTaxonomyLine(r)}
                     </td>
-                    <td className="px-2 py-2 align-middle text-center text-[12px] text-gray-800">
+                    <td className="px-2 py-2 align-middle text-center text-[12px] text-sam-fg">
                       {r.owner_can_edit_store_identity ? (
                         <span className="font-medium text-green-800">허용</span>
                       ) : (
-                        <span className="text-gray-500">—</span>
+                        <span className="text-sam-muted">—</span>
                       )}
                     </td>
-                    <td className="max-w-[240px] px-3 py-2 align-top text-[12px] leading-snug text-gray-800">
+                    <td className="max-w-[240px] px-3 py-2 align-top text-[12px] leading-snug text-sam-fg">
                       {addressLine}
                     </td>
-                    <td className="max-w-[180px] px-3 py-2 align-top text-[12px] text-gray-600">
+                    <td className="max-w-[180px] px-3 py-2 align-top text-[12px] text-sam-muted">
                       {previewText(introForList)}
                     </td>
-                    <td className="px-3 py-2 align-top text-gray-800">
+                    <td className="px-3 py-2 align-top text-sam-fg">
                       {ADMIN_STORE_APPROVAL_LABEL[r.approval_status] ?? r.approval_status}
                     </td>
                     <td className="px-3 py-2 align-top">{r.is_visible ? "Y" : "N"}</td>
-                    <td className="px-3 py-2 align-top text-[12px] text-gray-700">{salesLabel}</td>
-                    <td className="px-3 py-2 align-top font-mono text-[11px] text-gray-500">
+                    <td className="px-3 py-2 align-top text-[12px] text-sam-fg">{salesLabel}</td>
+                    <td className="px-3 py-2 align-top font-mono text-[11px] text-sam-muted">
                       {r.owner_user_id.slice(0, 8)}…
                     </td>
                     <td className="px-3 py-2 align-top">

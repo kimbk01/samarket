@@ -30,12 +30,12 @@ export function OwnerOrderTabs({
             onClick={() => onChange(key)}
             className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
               on
-                ? "bg-gray-900 text-white shadow-sm"
-                : "bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
+                ? "bg-sam-ink text-white shadow-sm"
+                : "bg-sam-surface text-sam-fg ring-1 ring-sam-border hover:bg-sam-app"
             }`}
           >
             {label}
-            <span className={`ml-1 tabular-nums ${on ? "text-white/80" : "text-gray-400"}`}>
+            <span className={`ml-1 tabular-nums ${on ? "text-white/80" : "text-sam-meta"}`}>
               {counts[key]}
             </span>
           </button>

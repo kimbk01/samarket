@@ -12,9 +12,9 @@ export default function NewProductPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-sam-border-soft bg-sam-surface px-4 py-3">
         <AppBackButton />
-        <h1 className="text-[16px] font-semibold text-gray-900">상품 등록</h1>
+        <h1 className="text-[16px] font-semibold text-sam-fg">상품 등록</h1>
         <span className="w-10" />
       </header>
       <ProductForm

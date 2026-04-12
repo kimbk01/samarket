@@ -40,7 +40,7 @@ export function StoreCategoryExploreSection({
 
   return (
     <section id="store-industry-explore" className="scroll-mt-4">
-      <div className={`overflow-hidden rounded-ui-rect border border-[#E4E6EB] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-white/[0.08]`}>
+      <div className={`overflow-hidden rounded-ui-rect border border-[#E4E6EB] bg-sam-surface shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-sam-surface/[0.08]`}>
         <div className={`flex items-start justify-between gap-2 border-b border-[#E4E6EB] px-3 py-3 dark:border-[#3E4042]`}>
           <div className="min-w-0">
             <h2 className={FB.name}>업종 선택</h2>

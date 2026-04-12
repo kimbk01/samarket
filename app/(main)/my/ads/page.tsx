@@ -66,23 +66,23 @@ export default function MyAdsPage() {
           </p>
         ) : null}
 
-        <div className="mb-4 space-y-2 rounded-ui-rect border border-stone-200 bg-white p-3 text-[12px] text-stone-600">
-          <p className="font-semibold text-stone-800">무엇이 여기에 보이나요?</p>
+        <div className="mb-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-[12px] text-sam-muted">
+          <p className="font-semibold text-sam-fg">무엇이 여기에 보이나요?</p>
           <ul className="list-inside list-disc space-y-1 text-[11px] leading-relaxed">
             <li>
-              <strong className="text-stone-700">커뮤니티·동네 피드 게시글 광고</strong> — 글 단위로 신청한 내역(
-              <code className="rounded bg-stone-100 px-1">post_ads</code>)이 표시됩니다. 신청은 글 작성·수정 흐름의
+              <strong className="text-sam-fg">커뮤니티·동네 피드 게시글 광고</strong> — 글 단위로 신청한 내역(
+              <code className="rounded bg-sam-surface-muted px-1">post_ads</code>)이 표시됩니다. 신청은 글 작성·수정 흐름의
               광고 신청과 연결됩니다.
             </li>
             <li>
-              <strong className="text-stone-700">어드민</strong>{" "}
+              <strong className="text-sam-fg">어드민</strong>{" "}
               <Link href="/admin/post-ads" className="text-signature underline">
                 광고 신청 관리
               </Link>
               에서 같은 건을 승인·반려합니다(DB 연결 시).
             </li>
             <li>
-              <strong className="text-stone-700">홈·검색 배너(베타)</strong>는 별도 샘플 폼(
+              <strong className="text-sam-fg">홈·검색 배너(베타)</strong>는 별도 샘플 폼(
               <Link href="/my/ads/apply" className="text-signature underline">
                 /my/ads/apply
               </Link>
@@ -94,20 +94,20 @@ export default function MyAdsPage() {
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Link
             href="/philife"
-            className="rounded-ui-rect border border-stone-300 bg-white px-4 py-2 text-center text-[14px] font-medium text-stone-800"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-center text-[14px] font-medium text-sam-fg"
           >
             커뮤니티에서 글 쓰기
           </Link>
           <Link
             href="/my/ads/apply"
-            className="rounded-ui-rect bg-stone-100 px-4 py-2 text-center text-[14px] font-medium text-stone-700"
+            className="rounded-ui-rect bg-sam-surface-muted px-4 py-2 text-center text-[14px] font-medium text-sam-fg"
           >
             홈 노출 신청(베타)
           </Link>
         </div>
 
         {loading ? (
-          <p className="py-10 text-center text-[14px] text-stone-500">불러오는 중…</p>
+          <p className="py-10 text-center text-[14px] text-sam-muted">불러오는 중…</p>
         ) : (
           <MyPostAdList ads={ads} metaSource={meta?.source} onRefresh={() => void load()} />
         )}

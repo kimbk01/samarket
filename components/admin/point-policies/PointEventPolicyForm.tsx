@@ -59,14 +59,14 @@ export function PointEventPolicyForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           제목
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           placeholder="이벤트명"
         />
       </div>
@@ -76,39 +76,39 @@ export function PointEventPolicyForm({
           id="evActive"
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
-          className="rounded border-gray-300"
+          className="rounded border-sam-border"
         />
-        <label htmlFor="evActive" className="text-[14px] text-gray-700">
+        <label htmlFor="evActive" className="text-[14px] text-sam-fg">
           활성
         </label>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             시작일시
           </label>
           <input
             type="datetime-local"
             value={startAt}
             onChange={(e) => setStartAt(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             종료일시
           </label>
           <input
             type="datetime-local"
             value={endAt}
             onChange={(e) => setEndAt(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             글쓰기 배율
           </label>
           <input
@@ -119,11 +119,11 @@ export function PointEventPolicyForm({
             onChange={(e) =>
               setWriteMultiplier(parseFloat(e.target.value) || 1)
             }
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
             댓글 배율
           </label>
           <input
@@ -134,12 +134,12 @@ export function PointEventPolicyForm({
             onChange={(e) =>
               setCommentMultiplier(parseFloat(e.target.value) || 1)
             }
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           대상 게시판
         </label>
         <div className="flex flex-wrap gap-2">
@@ -149,7 +149,7 @@ export function PointEventPolicyForm({
                 type="checkbox"
                 checked={targetBoards.includes(b.key)}
                 onChange={() => toggleBoard(b.key)}
-                className="rounded border-gray-300"
+                className="rounded border-sam-border"
               />
               {b.name}
             </label>
@@ -157,14 +157,14 @@ export function PointEventPolicyForm({
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           비고
         </label>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex gap-2">
@@ -178,7 +178,7 @@ export function PointEventPolicyForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg"
           >
             취소
           </button>

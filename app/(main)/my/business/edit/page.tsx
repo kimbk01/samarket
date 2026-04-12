@@ -15,7 +15,7 @@ export default function BusinessEditRoute() {
 
   if (!profile) {
     return (
-      <div className="px-4 py-8 text-center text-[14px] text-gray-500">
+      <div className="px-4 py-8 text-center text-[14px] text-sam-muted">
         상점 정보가 없습니다.
         <Link href="/my/business" className="ml-1 text-signature">
           내 상점으로

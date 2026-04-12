@@ -11,9 +11,9 @@ export function MeetingChatEntryButton({
   disabled?: boolean;
 }) {
   const mid = String(meetingId ?? "").trim();
-  if (!mid) return <p className="text-[13px] text-gray-500">모임 정보가 아직 없습니다.</p>;
+  if (!mid) return <p className="text-[13px] text-sam-muted">모임 정보가 아직 없습니다.</p>;
   if (disabled) {
-    return <p className="text-[13px] text-gray-500">종료된 모임은 입장할 수 없습니다.</p>;
+    return <p className="text-[13px] text-sam-muted">종료된 모임은 입장할 수 없습니다.</p>;
   }
   return (
     <Link

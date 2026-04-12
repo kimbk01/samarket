@@ -11,16 +11,16 @@ interface PointPromotionOrderListProps {
 }
 
 const STATUS_CLASS: Record<PointPromotionOrder["orderStatus"], string> = {
-  pending: "bg-gray-100 text-gray-700",
+  pending: "bg-sam-surface-muted text-sam-fg",
   active: "bg-signature/10 text-signature",
-  expired: "bg-gray-200 text-gray-600",
-  cancelled: "bg-gray-200 text-gray-500",
+  expired: "bg-sam-border-soft text-sam-muted",
+  cancelled: "bg-sam-border-soft text-sam-muted",
 };
 
 export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps) {
   if (orders.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
         포인트로 신청한 노출 내역이 없습니다.
       </div>
     );
@@ -31,13 +31,13 @@ export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps
       {orders.map((o) => (
         <li
           key={o.id}
-          className="rounded-ui-rect border border-gray-200 bg-white p-4"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         >
-          <p className="font-medium text-gray-900">{o.targetTitle}</p>
-          <p className="mt-0.5 text-[13px] text-gray-600">
+          <p className="font-medium text-sam-fg">{o.targetTitle}</p>
+          <p className="mt-0.5 text-[13px] text-sam-muted">
             {POINT_PROMOTION_PLACEMENT_LABELS[o.placement]} · {o.durationDays}일
           </p>
-          <p className="mt-0.5 text-[13px] text-gray-500">
+          <p className="mt-0.5 text-[13px] text-sam-muted">
             {o.pointCost.toLocaleString()}P 사용
           </p>
           <span
@@ -45,7 +45,7 @@ export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps
           >
             {POINT_PROMOTION_ORDER_STATUS_LABELS[o.orderStatus]}
           </span>
-          <p className="mt-1 text-[12px] text-gray-400">
+          <p className="mt-1 text-[12px] text-sam-meta">
             {new Date(o.createdAt).toLocaleDateString("ko-KR")}
           </p>
         </li>

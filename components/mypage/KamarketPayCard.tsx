@@ -5,7 +5,7 @@ import Link from "next/link";
 export function KamarketPayCard() {
   return (
     <Link href="/mypage/kamarket-pay" className="block">
-      <div className="rounded-ui-rect border border-ig-border bg-white p-4">
+      <div className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
         <div className="flex items-center gap-2">
           <span className="rounded bg-signature px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
             pay

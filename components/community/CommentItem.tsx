@@ -18,11 +18,11 @@ export function CommentItem({
       : "";
 
   return (
-    <div className={depth > 0 ? "ml-4 border-l border-gray-100 pl-3" : ""}>
-      <p className="text-[12px] font-medium text-gray-600">{node.author_name}</p>
-      <p className="mt-1 text-[14px] text-gray-800">{node.content}</p>
+    <div className={depth > 0 ? "ml-4 border-l border-sam-border-soft pl-3" : ""}>
+      <p className="text-[12px] font-medium text-sam-muted">{node.author_name}</p>
+      <p className="mt-1 text-[14px] text-sam-fg">{node.content}</p>
       <div className="mt-1 flex flex-wrap items-center gap-2">
-        <p className="text-[11px] text-gray-400">{time}</p>
+        <p className="text-[11px] text-sam-meta">{time}</p>
         {onReply ? (
           <button type="button" className="text-[11px] font-medium text-sky-700 underline" onClick={() => onReply(node.id)}>
             답글

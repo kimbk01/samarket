@@ -34,65 +34,65 @@ export function AdminChatTable({
   }, [someVisibleSelected, allVisibleSelected]);
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[760px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="w-10 px-2 py-2.5 text-center font-medium text-gray-700">
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="w-10 px-2 py-2.5 text-center font-medium text-sam-fg">
               <input
                 ref={selectAllRef}
                 type="checkbox"
                 checked={allVisibleSelected}
                 onChange={(e) => onToggleAllVisible(e.target.checked)}
-                className="rounded border-gray-300"
+                className="rounded border-sam-border"
                 title={t("admin_chat_select_all_visible")}
                 aria-label={t("admin_chat_select_all_visible")}
               />
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_room_id")}</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_product_title")}</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_seller")}</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_buyer")}</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_last_message")}</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_last_time")}</th>
-            <th className="px-3 py-2.5 text-center font-medium text-gray-700">{t("admin_chat_unread")}</th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">{t("admin_chat_room_status")}</th>
-            <th className="px-3 py-2.5 text-center font-medium text-gray-700">{t("admin_chat_report")}</th>
-            <th className="px-3 py-2.5 text-center font-medium text-gray-700">{t("admin_chat_block")}</th>
-            <th className="px-3 py-2.5 text-right font-medium text-gray-700">{t("admin_chat_detail_link")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_room_id")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_product_title")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_seller")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_buyer")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_last_message")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_last_time")}</th>
+            <th className="px-3 py-2.5 text-center font-medium text-sam-fg">{t("admin_chat_unread")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_room_status")}</th>
+            <th className="px-3 py-2.5 text-center font-medium text-sam-fg">{t("admin_chat_report")}</th>
+            <th className="px-3 py-2.5 text-center font-medium text-sam-fg">{t("admin_chat_block")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_chat_detail_link")}</th>
           </tr>
         </thead>
         <tbody>
           {rooms.map((r) => (
-            <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+            <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-app">
               <td className="px-2 py-2.5 text-center">
                 <input
                   type="checkbox"
                   checked={selectedIds.has(r.id)}
                   onChange={(e) => onToggleRow(r.id, e.target.checked)}
-                  className="rounded border-gray-300"
+                  className="rounded border-sam-border"
                   aria-label={t("admin_chat_select_row", { id: r.id.slice(0, 8) })}
                 />
               </td>
-              <td className="max-w-[100px] truncate px-3 py-2.5 font-mono text-[12px] text-gray-600">
+              <td className="max-w-[100px] truncate px-3 py-2.5 font-mono text-[12px] text-sam-muted">
                 {r.id.slice(0, 8)}…
               </td>
-              <td className="max-w-[140px] truncate px-3 py-2.5 text-gray-800">
+              <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-fg">
                 {r.productTitle}
               </td>
-              <td className="max-w-[80px] truncate px-3 py-2.5 text-gray-700" title={r.sellerId}>
+              <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg" title={r.sellerId}>
                 {r.sellerNickname}
               </td>
-              <td className="max-w-[80px] truncate px-3 py-2.5 text-gray-700" title={r.buyerId}>
+              <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg" title={r.buyerId}>
                 {r.buyerNickname}
               </td>
-              <td className="max-w-[160px] truncate px-3 py-2.5 text-gray-600">
+              <td className="max-w-[160px] truncate px-3 py-2.5 text-sam-muted">
                 {r.lastMessage || "-"}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(r.lastMessageAt).toLocaleString("ko-KR")}
               </td>
-              <td className="px-3 py-2.5 text-center text-[13px] text-gray-600">
+              <td className="px-3 py-2.5 text-center text-[13px] text-sam-muted">
                 {(r.unreadSeller ?? 0) + (r.unreadBuyer ?? 0) > 0
                   ? `판${r.unreadSeller ?? 0}/구${r.unreadBuyer ?? 0}`
                   : "-"}
@@ -104,14 +104,14 @@ export function AdminChatTable({
                 {r.reportCount > 0 ? (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">Y</span>
                 ) : (
-                  <span className="text-gray-400">N</span>
+                  <span className="text-sam-meta">N</span>
                 )}
               </td>
               <td className="px-3 py-2.5 text-center text-[13px]">
                 {r.roomStatus === "blocked" ? (
                   <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">Y</span>
                 ) : (
-                  <span className="text-gray-400">N</span>
+                  <span className="text-sam-meta">N</span>
                 )}
               </td>
               <td className="px-3 py-2.5 text-right">

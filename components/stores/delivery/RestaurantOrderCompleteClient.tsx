@@ -77,7 +77,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
 
   if (orderId && isLikelyUuid(orderId)) {
     if (real.kind === "loading" || real.kind === "idle") {
-      return <p className="p-6 text-center text-sm text-gray-500">불러오는 중…</p>;
+      return <p className="p-6 text-center text-sm text-sam-muted">불러오는 중…</p>;
     }
     if (real.kind === "ok") {
       const o = real.order;
@@ -86,22 +86,22 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
         o.order_status === "completed" && canSubmitReview && !hasReview;
       return (
         <div className="min-h-screen bg-[#f3f4f6] px-4 py-8 pb-16">
-          <div className="mx-auto max-w-md rounded-ui-rect border border-emerald-100 bg-white p-6 shadow-sm">
+          <div className="mx-auto max-w-md rounded-ui-rect border border-emerald-100 bg-sam-surface p-6 shadow-sm">
             <p className="text-center text-sm font-semibold text-emerald-700">
               {o.order_status === "completed" ? "주문이 완료되었습니다" : "주문이 접수되었습니다"}
             </p>
-            <h1 className="mt-2 text-center text-xl font-bold text-gray-900">감사합니다</h1>
+            <h1 className="mt-2 text-center text-xl font-bold text-sam-fg">감사합니다</h1>
             <dl className="mt-6 space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-gray-500">주문번호</dt>
+                <dt className="text-sam-muted">주문번호</dt>
                 <dd className="font-mono font-semibold">{o.order_no}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-gray-500">업체</dt>
+                <dt className="text-sam-muted">업체</dt>
                 <dd className="font-medium">{o.store_name}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-gray-500">주문 금액</dt>
+                <dt className="text-sam-muted">주문 금액</dt>
                 <dd className="font-bold">{formatMoneyPhp(o.payment_amount)}</dd>
               </div>
             </dl>
@@ -114,7 +114,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
               </Link>
             ) : null}
             {!showReviewCta && o.order_status !== "completed" ? (
-              <p className="mt-4 rounded-ui-rect bg-gray-50 px-3 py-2 text-center text-[11px] leading-relaxed text-gray-600">
+              <p className="mt-4 rounded-ui-rect bg-sam-app px-3 py-2 text-center text-[11px] leading-relaxed text-sam-muted">
                 진행 상황은 주문 상세에서 확인하고, 매장과 조율이 필요할 때만 채팅을 이용할 수 있어요. 주문이
                 모두 완료되면 리뷰를 작성할 수 있습니다.
               </p>
@@ -133,13 +133,13 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
             </Link>
             <Link
               href={`/stores/${encodeURIComponent(storeSlug)}/order/${encodeURIComponent(o.id)}`}
-              className="mt-2 block w-full py-2 text-center text-sm text-gray-600 underline"
+              className="mt-2 block w-full py-2 text-center text-sm text-sam-muted underline"
             >
               매장에서 보기
             </Link>
             <Link
               href={`/stores/${encodeURIComponent(storeSlug)}`}
-              className="mt-2 block w-full py-2 text-center text-sm text-gray-500"
+              className="mt-2 block w-full py-2 text-center text-sm text-sam-muted"
             >
               매장으로 돌아가기
             </Link>
@@ -152,9 +152,9 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
   const maybeReal = orderId.length > 0 && isLikelyUuid(orderId);
   return (
     <div className="px-4 py-12 text-center">
-      <p className="text-sm text-gray-600">주문 정보를 불러오지 못했거나 주문 번호가 없습니다.</p>
+      <p className="text-sm text-sam-muted">주문 정보를 불러오지 못했거나 주문 번호가 없습니다.</p>
       {maybeReal ? (
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-sam-muted">
           실제 배달 주문이면 아래에서 진행 상태를 확인할 수 있습니다.
         </p>
       ) : null}

@@ -49,7 +49,7 @@ function slugFromPath(pathname: string): string | null {
 
 /** 참고 UI: 흰 라벨 박스 (왼쪽) */
 const LABEL_BOX_CLASS =
-  "max-w-[11rem] truncate rounded-ui-rect border border-neutral-300 bg-white px-3 py-2 text-center text-[13px] font-semibold leading-tight text-neutral-900 shadow-sm";
+  "max-w-[11rem] truncate rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-center text-[13px] font-semibold leading-tight text-sam-fg shadow-sm";
 
 const SLIDE_MS = 320;
 const SLIDE_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";
@@ -270,12 +270,12 @@ export function HomeTradeHubFloatingBar() {
             onClick={closeHubSheet}
           />
           <div
-            className={`relative z-[1] flex max-h-[min(88dvh,900px)] w-full flex-col rounded-t-[length:var(--ui-radius-rect)] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform ease-out ${hubSheetEntered ? "translate-y-0" : "translate-y-full"}`}
+            className={`relative z-[1] flex max-h-[min(88dvh,900px)] w-full flex-col rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform ease-out ${hubSheetEntered ? "translate-y-0" : "translate-y-full"}`}
             style={{ transitionDuration: `${SHEET_MS}ms`, transitionTimingFunction: SHEET_EASE }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 flex-col border-b border-neutral-200 pt-2 pb-1">
-              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-neutral-300" aria-hidden />
+            <div className="flex shrink-0 flex-col border-b border-sam-border pt-2 pb-1">
+              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-sam-surface-muted" aria-hidden />
               {hubSheet === "chat" && tradeChatRoomId ? (
                 <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex justify-end pb-2 pt-0`}>
                   <HubSheetCloseButton
@@ -287,7 +287,7 @@ export function HomeTradeHubFloatingBar() {
                 <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex items-center justify-between pb-3 pt-0`}>
                   <h2
                     id={hubSheet === "purchases" ? "home-trade-history-sheet-title" : "home-trade-chat-sheet-title"}
-                    className="text-[17px] font-semibold text-gray-900"
+                    className="text-[17px] font-semibold text-sam-fg"
                   >
                     {hubSheet === "purchases" ? t("nav_trade_history_title") : tt(TRADE_CHAT_SURFACE.hubTabLabel)}
                   </h2>

@@ -71,10 +71,10 @@ export function MyStoreInquiriesView() {
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
   if (state.kind === "loading") {
-    return <p className="text-sm text-gray-500">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
   }
   if (state.kind === "unauth") {
-    return <p className="text-sm text-gray-600">로그인 후 문의 내역을 확인할 수 있습니다.</p>;
+    return <p className="text-sm text-sam-muted">로그인 후 문의 내역을 확인할 수 있습니다.</p>;
   }
   if (state.kind === "error") {
     return (
@@ -89,7 +89,7 @@ export function MyStoreInquiriesView() {
 
   if (state.rows.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface p-6 text-center text-sm text-sam-muted shadow-sm">
         <p>보낸 문의가 없습니다.</p>
         <Link href="/stores" className="mt-3 inline-block text-signature">
           매장 둘러보기
@@ -101,19 +101,19 @@ export function MyStoreInquiriesView() {
   return (
     <ul className="space-y-3">
       {state.rows.map((r) => (
-        <li key={r.id} className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-[15px] font-semibold text-gray-900">{r.store_name || "매장"}</p>
-          <p className="mt-1 text-sm font-medium text-gray-800">{r.subject}</p>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600">{r.content}</p>
-          <p className="mt-2 text-xs text-gray-500">
+        <li key={r.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+          <p className="text-[15px] font-semibold text-sam-fg">{r.store_name || "매장"}</p>
+          <p className="mt-1 text-sm font-medium text-sam-fg">{r.subject}</p>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-sam-muted">{r.content}</p>
+          <p className="mt-2 text-xs text-sam-muted">
             {STATUS_LABEL[r.status] ?? r.status} · {formatDate(r.created_at)}
           </p>
           {r.answer ? (
-            <div className="mt-3 rounded-ui-rect bg-gray-50 px-3 py-2">
-              <p className="text-xs font-medium text-gray-500">매장 답변</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">{r.answer}</p>
+            <div className="mt-3 rounded-ui-rect bg-sam-app px-3 py-2">
+              <p className="text-xs font-medium text-sam-muted">매장 답변</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.answer}</p>
               {r.answered_at ? (
-                <p className="mt-1 text-[11px] text-gray-400">{formatDate(r.answered_at)}</p>
+                <p className="mt-1 text-[11px] text-sam-meta">{formatDate(r.answered_at)}</p>
               ) : null}
             </div>
           ) : null}

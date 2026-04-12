@@ -45,8 +45,8 @@ export function DeliveryOrdersProgressPanel({
       onClick={onClick}
       className={`flex min-w-0 flex-1 flex-col items-center rounded-ui-rect border px-2 py-2 text-center transition-colors sm:flex-row sm:justify-center sm:gap-2 sm:py-2.5 ${
         active
-          ? "border-signature bg-signature/5 text-gray-900 ring-1 ring-signature/30"
-          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+          ? "border-signature bg-signature/5 text-sam-fg ring-1 ring-signature/30"
+          : "border-sam-border bg-sam-surface text-sam-fg hover:border-sam-border"
       }`}
     >
       <span className="text-[11px] font-semibold sm:text-xs">{label}</span>
@@ -61,10 +61,10 @@ export function DeliveryOrdersProgressPanel({
     filters.orderStatus === s && !filters.pipelineBucket;
 
   return (
-    <div className="rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">배달·포장 진행 현황</h2>
-        <p className="text-[11px] text-gray-500">불러온 실주문 기준 · 칩을 누르면 아래 목록 필터가 맞춰집니다</p>
+        <h2 className="text-sm font-semibold text-sam-fg">배달·포장 진행 현황</h2>
+        <p className="text-[11px] text-sam-muted">불러온 실주문 기준 · 칩을 누르면 아래 목록 필터가 맞춰집니다</p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {chip(

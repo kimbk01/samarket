@@ -42,25 +42,25 @@ export function AdminPointExpireRunPanel({
   };
 
   return (
-    <div className="space-y-4 rounded-ui-rect border border-gray-200 bg-white p-4">
-      <h3 className="text-[15px] font-medium text-gray-900">
+    <div className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <h3 className="text-[15px] font-medium text-sam-fg">
         만료 시뮬레이션 / 실행
       </h3>
       <form onSubmit={handleSimulate} className="flex flex-wrap items-end gap-2">
         <div>
-          <label className="mb-0.5 block text-[12px] text-gray-600">
+          <label className="mb-0.5 block text-[12px] text-sam-muted">
             기준일
           </label>
           <input
             type="date"
             value={asOfDate}
             onChange={(e) => setAsOfDate(e.target.value)}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           />
         </div>
         <button
           type="submit"
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
         >
           시뮬레이션
         </button>

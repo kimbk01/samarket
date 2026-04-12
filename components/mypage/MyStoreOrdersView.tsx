@@ -223,7 +223,7 @@ function MyStoreOrderCard({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-ui-rect bg-white shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08] ${
+      className={`relative overflow-hidden rounded-ui-rect bg-sam-surface shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08] ${
         activeTab ? "before:absolute before:bottom-0 before:left-0 before:top-0 before:w-[3px] before:bg-signature" : ""
       }`}
     >
@@ -265,7 +265,7 @@ function MyStoreOrderCard({
                 {isMemberOrderStatus(o.order_status) ? (
                   <MemberOrderStatusBadge status={o.order_status} />
                 ) : (
-                  <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-[#F0F2F5] px-2 py-0.5 text-[11px] font-bold text-gray-800 dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
+                  <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-[#F0F2F5] px-2 py-0.5 text-[11px] font-bold text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
                     {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
                   </span>
                 )}
@@ -281,7 +281,7 @@ function MyStoreOrderCard({
                   </span>
                   {orderChatUnread > 0 ? (
                     <span
-                      className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F02849] px-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#242526]"
+                      className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F02849] px-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-sam-surface dark:ring-[#242526]"
                       aria-label={`주문 채팅 읽지 않은 메시지 ${orderChatUnread > 99 ? "99+" : orderChatUnread}건`}
                     >
                       {orderChatUnread > 99 ? "99+" : orderChatUnread}
@@ -588,7 +588,7 @@ export function MyStoreOrdersView({
 
         {state.kind === "loading" ? (
           <div
-            className={`mb-3 rounded-ui-rect bg-white px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
+            className={`mb-3 rounded-ui-rect bg-sam-surface px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]`}
           >
             불러오는 중…
           </div>
@@ -596,7 +596,7 @@ export function MyStoreOrdersView({
 
         {state.kind === "unauth" ? (
           <div
-            className={`rounded-ui-rect border ${FB_DIVIDER} bg-white px-4 py-4 text-center text-[15px] text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
+            className={`rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 text-center text-[15px] text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
           >
             <p>로그인 후 매장 주문 내역과 주문 채팅을 확인할 수 있습니다.</p>
             <Link
@@ -610,7 +610,7 @@ export function MyStoreOrdersView({
 
         {state.kind === "error" ? (
           <div
-            className={`space-y-2 rounded-ui-rect border ${FB_DIVIDER} bg-white px-4 py-4 dark:bg-[#242526]`}
+            className={`space-y-2 rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 dark:bg-[#242526]`}
           >
             {state.message === "supabase_unconfigured" ? (
               <p className={`text-[15px] text-amber-800 dark:text-amber-200`}>
@@ -633,8 +633,8 @@ export function MyStoreOrdersView({
             <div
               className={
                 embedded
-                  ? `sticky top-0 z-10 mb-3 -mx-3 rounded-ui-rect border ${FB_DIVIDER} bg-white shadow-sm dark:bg-[#242526] sm:-mx-4 lg:mx-0`
-                  : `sticky top-12 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-white/92 backdrop-blur-md dark:bg-[#242526]/95`
+                  ? `sticky top-0 z-10 mb-3 -mx-3 rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface shadow-sm dark:bg-[#242526] sm:-mx-4 lg:mx-0`
+                  : `sticky top-12 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-sam-surface/92 backdrop-blur-md dark:bg-[#242526]/95`
               }
             >
               <div className={embedded ? "px-0" : APP_MAIN_GUTTER_X_CLASS}>
@@ -644,7 +644,7 @@ export function MyStoreOrdersView({
 
             {allSorted.length === 0 ? (
               <div
-                className={`rounded-ui-rect bg-white px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-white/[0.08]`}
+                className={`rounded-ui-rect bg-sam-surface px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]`}
               >
                 <p className={FB_BODY}>아직 매장 주문이 없습니다.</p>
                 <Link

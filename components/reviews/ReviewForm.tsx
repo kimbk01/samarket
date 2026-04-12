@@ -53,11 +53,11 @@ export function ReviewForm({
 
   return (
     <form onSubmit={handleSubmit} className="p-4">
-      <p className="text-[14px] text-gray-600">
+      <p className="text-[14px] text-sam-muted">
         <strong>{revieweeLabel}</strong>님에 대한 거래 후기를 남겨주세요. (1회만 가능)
       </p>
       <div className="mt-4">
-        <p className="mb-2 text-[13px] font-medium text-gray-700">평가</p>
+        <p className="mb-2 text-[13px] font-medium text-sam-fg">평가</p>
         <div className="flex gap-2">
           {PUBLIC_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex cursor-pointer items-center gap-1.5">
@@ -67,9 +67,9 @@ export function ReviewForm({
                 value={opt.value}
                 checked={publicType === opt.value}
                 onChange={() => setPublicType(opt.value)}
-                className="rounded border-gray-300"
+                className="rounded border-sam-border"
               />
-              <span className="text-[13px] text-gray-700">{opt.label}</span>
+              <span className="text-[13px] text-sam-fg">{opt.label}</span>
             </label>
           ))}
         </div>
@@ -80,9 +80,9 @@ export function ReviewForm({
             type="checkbox"
             checked={anonymousNegative}
             onChange={(e) => setAnonymousNegative(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-sam-border"
           />
-          <span className="text-[12px] text-gray-600">부정/비매너 평가는 상대방에게 익명으로 표시</span>
+          <span className="text-[12px] text-sam-muted">부정/비매너 평가는 상대방에게 익명으로 표시</span>
         </label>
       )}
       {error && <p className="mt-2 text-[13px] text-red-600">{error}</p>}
@@ -90,7 +90,7 @@ export function ReviewForm({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[14px] text-gray-700"
+          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-[14px] text-sam-fg"
         >
           취소
         </button>

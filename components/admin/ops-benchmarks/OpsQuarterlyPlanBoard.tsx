@@ -61,13 +61,13 @@ export function OpsQuarterlyPlanBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">도메인</span>
+        <span className="text-[13px] text-sam-muted">도메인</span>
         <select
           value={domainFilter}
           onChange={(e) =>
             setDomainFilter((e.target.value || "") as OpsBenchmarkDomain | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           {DOMAIN_OPTIONS.map((opt) => (
             <option key={opt.value || "all"} value={opt.value}>
@@ -75,11 +75,11 @@ export function OpsQuarterlyPlanBoard() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-gray-500">{year}년</span>
+        <span className="text-[13px] text-sam-muted">{year}년</span>
       </div>
 
       {plans.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           분기별 개선 계획이 없습니다.
         </div>
       ) : (
@@ -88,9 +88,9 @@ export function OpsQuarterlyPlanBoard() {
             {STATUS_COLUMNS.map((status) => (
               <div
                 key={status}
-                className="w-[180px] shrink-0 rounded-ui-rect border border-gray-200 bg-gray-50/50 p-3"
+                className="w-[180px] shrink-0 rounded-ui-rect border border-sam-border bg-sam-app/50 p-3"
               >
-                <h3 className="mb-2 text-[13px] font-medium text-gray-700">
+                <h3 className="mb-2 text-[13px] font-medium text-sam-fg">
                   {STATUS_LABELS[status]} ({byStatus[status].length})
                 </h3>
                 <div className="space-y-2">

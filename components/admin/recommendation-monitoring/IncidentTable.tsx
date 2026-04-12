@@ -70,7 +70,7 @@ export function IncidentTable() {
               e.target.value === "" ? "" : (e.target.value as IncidentStatus)
             )
           }
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">전체 상태</option>
           <option value="open">미해결</option>
@@ -84,7 +84,7 @@ export function IncidentTable() {
               e.target.value === "" ? "" : (e.target.value as RecommendationSurface)
             )
           }
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="">전체 surface</option>
           <option value="home">홈</option>
@@ -93,30 +93,30 @@ export function IncidentTable() {
         </select>
       </div>
       {incidents.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           운영 이슈가 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse text-[14px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+              <tr className="border-b border-sam-border bg-sam-app">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   제목
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   surface
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   유형 / 심각도
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   상태
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   발생
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   조치
                 </th>
               </tr>
@@ -125,15 +125,15 @@ export function IncidentTable() {
               {incidents.map((i) => (
                 <tr
                   key={i.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="px-3 py-2.5 font-medium text-gray-900">
+                  <td className="px-3 py-2.5 font-medium text-sam-fg">
                     {i.title}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {SURFACE_LABELS[i.surface]}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-700">
+                  <td className="px-3 py-2.5 text-sam-fg">
                     {TYPE_LABELS[i.incidentType] ?? i.incidentType} /{" "}
                     {SEVERITY_LABELS[i.severity]}
                   </td>
@@ -144,13 +144,13 @@ export function IncidentTable() {
                           ? "bg-emerald-50 text-emerald-800"
                           : i.status === "acknowledged"
                             ? "bg-amber-50 text-amber-800"
-                            : "bg-gray-100 text-gray-700"
+                            : "bg-sam-surface-muted text-sam-fg"
                       }`}
                     >
                       {STATUS_LABELS[i.status]}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                     {new Date(i.startedAt).toLocaleString("ko-KR")}
                   </td>
                   <td className="px-3 py-2.5">

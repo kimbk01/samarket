@@ -18,7 +18,7 @@ interface AdminBusinessLogListProps {
 export function AdminBusinessLogList({ logs }: AdminBusinessLogListProps) {
   if (logs.length === 0) {
     return (
-      <p className="text-[13px] text-gray-500">변경 이력이 없습니다.</p>
+      <p className="text-[13px] text-sam-muted">변경 이력이 없습니다.</p>
     );
   }
   return (
@@ -26,14 +26,14 @@ export function AdminBusinessLogList({ logs }: AdminBusinessLogListProps) {
       {logs.map((log) => (
         <li
           key={log.id}
-          className="flex flex-wrap items-baseline gap-2 border-b border-gray-100 pb-2 text-[13px] last:border-0"
+          className="flex flex-wrap items-baseline gap-2 border-b border-sam-border-soft pb-2 text-[13px] last:border-0"
         >
-          <span className="font-medium text-gray-700">
+          <span className="font-medium text-sam-fg">
             {ACTION_LABELS[log.actionType]}
           </span>
-          <span className="text-gray-500">{log.adminNickname}</span>
-          <span className="text-gray-500">{log.note}</span>
-          <span className="ml-auto text-gray-400">
+          <span className="text-sam-muted">{log.adminNickname}</span>
+          <span className="text-sam-muted">{log.note}</span>
+          <span className="ml-auto text-sam-meta">
             {new Date(log.createdAt).toLocaleString("ko-KR")}
           </span>
         </li>

@@ -329,16 +329,16 @@ export function CommunityDetail({
   const commentsLocked = Boolean(meeting && !viewerJoinedMeeting);
 
   const meetingToolbarBtn =
-    "flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-gray-200 bg-white px-1 py-2 text-center text-[11px] font-medium leading-tight text-gray-800 sm:text-[12px] disabled:opacity-50";
+    "flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-1 py-2 text-center text-[11px] font-medium leading-tight text-sam-fg sm:text-[12px] disabled:opacity-50";
   const meetingToolbarWrap =
-    "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-ui-rect [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[11px] [&>button]:font-medium [&>button]:leading-tight [&>button]:text-gray-800 sm:[&>button]:text-[12px]";
+    "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-ui-rect [&>button]:border [&>button]:border-sam-border [&>button]:bg-sam-surface [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[11px] [&>button]:font-medium [&>button]:leading-tight [&>button]:text-sam-fg sm:[&>button]:text-[12px]";
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-24">
       <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-        <div className="overflow-hidden rounded-ui-rect border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
           {post.images.length > 0 ? (
-            <div className="grid grid-cols-1 gap-px bg-gray-100 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-px bg-sam-surface-muted sm:grid-cols-2">
               {post.images.map((url, i) =>
                 url ? (
                   <a
@@ -346,7 +346,7 @@ export function CommunityDetail({
                     href={url}
                     target="_blank"
                     rel="noreferrer"
-                    className={`block overflow-hidden bg-gray-100 ${i === 0 ? "sm:col-span-2" : ""}`}
+                    className={`block overflow-hidden bg-sam-surface-muted ${i === 0 ? "sm:col-span-2" : ""}`}
                   >
                     <img
                       src={url}
@@ -367,15 +367,15 @@ export function CommunityDetail({
                 {meeting ? "모임" : post.category_label}
               </span>
             </div>
-            <h1 className="mt-3 text-xl font-bold text-gray-900">{post.title}</h1>
-            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-gray-500">
+            <h1 className="mt-3 text-xl font-bold text-sam-fg">{post.title}</h1>
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-sam-muted">
               <span>{post.author_name}</span>
               {post.location_label ? <span>{post.location_label}</span> : null}
               <span>{time}</span>
               <span>조회 {viewCount}</span>
               <span>댓글 {flatCommentCount(comments)}</span>
             </div>
-            <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-gray-800">
+            <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-sam-fg">
               {meeting ? stripMeetupPostMetaFromContent(post.content) : post.content}
             </div>
 
@@ -392,7 +392,7 @@ export function CommunityDetail({
           </div>
 
           {meeting ? (
-            <div className="grid grid-cols-3 gap-2 border-t border-gray-100 px-4 py-4 sm:grid-cols-6">
+            <div className="grid grid-cols-3 gap-2 border-t border-sam-border-soft px-4 py-4 sm:grid-cols-6">
               <button type="button" disabled={busy} onClick={() => void onLike()} className={meetingToolbarBtn}>
                 공감 {likeCount}
               </button>
@@ -436,17 +436,17 @@ export function CommunityDetail({
               ) : (
                 <div className="min-h-[44px]" aria-hidden />
               )}
-              <Link href={philifeAppPaths.home} className={`${meetingToolbarBtn} text-gray-700`}>
+              <Link href={philifeAppPaths.home} className={`${meetingToolbarBtn} text-sam-fg`}>
                 목록
               </Link>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2 border-t border-gray-100 px-4 py-4">
+            <div className="flex flex-wrap gap-2 border-t border-sam-border-soft px-4 py-4">
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void onLike()}
-                className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-800"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg"
               >
                 공감 {likeCount}
               </button>
@@ -464,7 +464,7 @@ export function CommunityDetail({
                   신고
                 </button>
               ) : null}
-              <Link href={philifeAppPaths.home} className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[13px] text-gray-600">
+              <Link href={philifeAppPaths.home} className="rounded-ui-rect border border-sam-border px-4 py-2 text-[13px] text-sam-muted">
                 목록
               </Link>
               {me?.id && me.id === post.author_id ? (
@@ -472,7 +472,7 @@ export function CommunityDetail({
                   type="button"
                   disabled={busy}
                   onClick={() => void onDeletePost()}
-                  className="rounded-ui-rect border border-gray-300 bg-gray-100 px-4 py-2 text-[13px] font-medium text-gray-800"
+                  className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-2 text-[13px] font-medium text-sam-fg"
                 >
                   삭제
                 </button>
@@ -480,12 +480,12 @@ export function CommunityDetail({
             </div>
           )}
           {meeting && me?.id && me.id === post.author_id ? (
-            <div className="border-t border-gray-100 px-4 pb-4">
+            <div className="border-t border-sam-border-soft px-4 pb-4">
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void onDeletePost()}
-                className="rounded-ui-rect border border-gray-300 bg-gray-100 px-4 py-2 text-[13px] font-medium text-gray-800"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-2 text-[13px] font-medium text-sam-fg"
               >
                 삭제
               </button>
@@ -495,8 +495,8 @@ export function CommunityDetail({
 
           {/* 내 글일 때: 광고 신청 버튼 */}
           {me?.id && me.id === post.author_id && (
-            <div className="border-t border-gray-100 px-4 py-4">
-              <p className="mb-2 text-[12px] font-semibold text-gray-500">내 게시글 광고</p>
+            <div className="border-t border-sam-border-soft px-4 py-4">
+              <p className="mb-2 text-[12px] font-semibold text-sam-muted">내 게시글 광고</p>
               <AdApplyButton
                 postId={post.id}
                 postTitle={post.title}
@@ -508,20 +508,20 @@ export function CommunityDetail({
 
         {reportOpen ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog">
-            <div className="w-full max-w-md rounded-ui-rect bg-white p-4 shadow-xl">
-              <p className="text-[15px] font-semibold text-gray-900">게시글 신고</p>
+            <div className="w-full max-w-md rounded-ui-rect bg-sam-surface p-4 shadow-xl">
+              <p className="text-[15px] font-semibold text-sam-fg">게시글 신고</p>
               <textarea
                 value={reportText}
                 onChange={(e) => setReportText(e.target.value)}
                 rows={4}
-                className="mt-3 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
+                className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
               />
               {reportErr ? <p className="mt-1 text-[12px] text-red-600">{reportErr}</p> : null}
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setReportOpen(false)}
-                  className="flex-1 rounded-ui-rect border border-gray-200 py-2.5 text-[14px]"
+                  className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-[14px]"
                 >
                   취소
                 </button>
@@ -529,7 +529,7 @@ export function CommunityDetail({
                   type="button"
                   disabled={busy || !reportText.trim()}
                   onClick={() => void onReport()}
-                  className="flex-1 rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
+                  className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
                 >
                   접수
                 </button>
@@ -538,11 +538,11 @@ export function CommunityDetail({
           </div>
         ) : null}
 
-        <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm" id="comments">
-          <h2 className="text-[15px] font-semibold text-gray-900">댓글</h2>
+        <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm" id="comments">
+          <h2 className="text-[15px] font-semibold text-sam-fg">댓글</h2>
           {commentsLocked ? (
-            <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-ui-rect bg-gray-100 px-4 py-4 text-[13px] text-gray-500">
-              <CommentLockIcon className="h-5 w-5 shrink-0 text-gray-400" />
+            <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-ui-rect bg-sam-surface-muted px-4 py-4 text-[13px] text-sam-muted">
+              <CommentLockIcon className="h-5 w-5 shrink-0 text-sam-meta" />
               <span>
                 {!me?.id
                   ? "로그인 후 모임에 참여하면 댓글을 작성할 수 있어요."
@@ -552,7 +552,7 @@ export function CommunityDetail({
           ) : (
             <>
               {parentId ? (
-                <p className="mt-1 text-[12px] text-gray-500">
+                <p className="mt-1 text-[12px] text-sam-muted">
                   대댓글 작성 중 ·{" "}
                   <button type="button" className="text-sky-700 underline" onClick={() => setParentId(null)}>
                     취소
@@ -561,7 +561,7 @@ export function CommunityDetail({
               ) : null}
               <div className="max-h-[420px] overflow-y-auto pr-1">
                 {commentsLoading ? (
-                  <div className="py-6 text-center text-[13px] text-gray-400">댓글 불러오는 중…</div>
+                  <div className="py-6 text-center text-[13px] text-sam-meta">댓글 불러오는 중…</div>
                 ) : (
                   <CommentList
                     roots={comments}
@@ -571,24 +571,24 @@ export function CommunityDetail({
                 )}
               </div>
 
-              <form onSubmit={onSubmitComment} className="mt-4 border-t border-gray-100 pt-4">
+              <form onSubmit={onSubmitComment} className="mt-4 border-t border-sam-border-soft pt-4">
                 <textarea
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder={me?.id ? "댓글을 입력하세요" : "로그인 후 댓글을 작성할 수 있어요"}
                   disabled={!me?.id || busy}
                   rows={3}
-                  className="w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px] outline-none"
+                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px] outline-none"
                 />
                 {me?.id ? (
-                  <p className="mt-1 text-[11px] text-gray-500">
+                  <p className="mt-1 text-[11px] text-sam-muted">
                     특정 댓글에 답장하려면 아래 댓글의「답글」을 누르세요.
                   </p>
                 ) : null}
                 <button
                   type="submit"
                   disabled={!me?.id || busy || !commentText.trim()}
-                  className="mt-2 w-full rounded-ui-rect bg-gray-900 py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
+                  className="mt-2 w-full rounded-ui-rect bg-sam-ink py-2.5 text-[14px] font-medium text-white disabled:opacity-40"
                 >
                   등록
                 </button>

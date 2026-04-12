@@ -14,13 +14,13 @@ interface MyAdApplicationListProps {
 }
 
 const STATUS_CLASS: Record<AdApplication["applicationStatus"], string> = {
-  pending: "bg-gray-100 text-gray-700",
+  pending: "bg-sam-surface-muted text-sam-fg",
   waiting_payment: "bg-amber-100 text-amber-800",
   approved: "bg-emerald-50 text-emerald-800",
   rejected: "bg-red-50 text-red-700",
   active: "bg-signature/10 text-signature",
-  expired: "bg-gray-200 text-gray-600",
-  cancelled: "bg-gray-200 text-gray-500",
+  expired: "bg-sam-border-soft text-sam-muted",
+  cancelled: "bg-sam-border-soft text-sam-muted",
 };
 
 export function MyAdApplicationList({
@@ -34,7 +34,7 @@ export function MyAdApplicationList({
 
   if (applications.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
         광고 신청 내역이 없습니다.
       </div>
     );
@@ -45,10 +45,10 @@ export function MyAdApplicationList({
       {applications.map((a) => (
         <li
           key={a.id}
-          className="rounded-ui-rect border border-gray-200 bg-white p-4"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         >
-          <p className="font-medium text-gray-900">{a.targetTitle}</p>
-          <p className="mt-0.5 text-[13px] text-gray-600">
+          <p className="font-medium text-sam-fg">{a.targetTitle}</p>
+          <p className="mt-0.5 text-[13px] text-sam-muted">
             {a.planName} · ₩{a.totalPrice.toLocaleString()}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -57,11 +57,11 @@ export function MyAdApplicationList({
             >
               {AD_APPLICATION_STATUS_LABELS[a.applicationStatus]}
             </span>
-            <span className="text-[12px] text-gray-500">
+            <span className="text-[12px] text-sam-muted">
               결제: {AD_PAYMENT_STATUS_LABELS[a.paymentStatus]}
             </span>
           </div>
-          <p className="mt-1 text-[12px] text-gray-400">
+          <p className="mt-1 text-[12px] text-sam-meta">
             신청일 {new Date(a.createdAt).toLocaleDateString("ko-KR")}
           </p>
           {["pending", "waiting_payment"].includes(a.applicationStatus) && (

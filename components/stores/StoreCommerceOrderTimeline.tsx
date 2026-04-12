@@ -65,10 +65,10 @@ function connectorKindBuyerDetail(states: BuyerDetailStepState[], i: number): "f
 }
 
 function connectorClass(kind: "filled" | "empty" | "muted", terminal: boolean): string {
-  if (terminal) return "bg-gray-200";
+  if (terminal) return "bg-sam-border-soft";
   if (kind === "filled") return "bg-signature";
-  if (kind === "muted") return "bg-gray-200/55";
-  return "bg-gray-200";
+  if (kind === "muted") return "bg-sam-border-soft/55";
+  return "bg-sam-border-soft";
 }
 
 export function StoreCommerceOrderTimeline({
@@ -108,15 +108,15 @@ export function StoreCommerceOrderTimeline({
               "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] transition-colors";
             let circleCls = circleBase;
             if (terminal) {
-              circleCls += " border-gray-200 bg-gray-50 text-gray-300";
+              circleCls += " border-sam-border bg-sam-app text-sam-meta";
             } else if (isNaRow) {
-              circleCls += " border-dashed border-gray-200 bg-gray-50 text-gray-400";
+              circleCls += " border-dashed border-sam-border bg-sam-app text-sam-meta";
             } else if (done) {
               circleCls += " border-signature bg-signature text-white";
             } else if (on) {
-              circleCls += " border-signature bg-white text-signature store-order-stepper-current-circle";
+              circleCls += " border-signature bg-sam-surface text-signature store-order-stepper-current-circle";
             } else {
-              circleCls += " border-gray-200 bg-white text-gray-400";
+              circleCls += " border-sam-border bg-sam-surface text-sam-meta";
             }
 
             return (
@@ -135,11 +135,11 @@ export function StoreCommerceOrderTimeline({
                     className={`mt-1.5 block max-w-full text-center text-[10px] font-medium leading-tight break-keep sm:text-[11px] ${
                       terminal || isNaRow
                         ? isNaRow && !terminal
-                          ? "text-gray-400"
-                          : "text-gray-300"
+                          ? "text-sam-meta"
+                          : "text-sam-meta"
                         : done || on
                           ? "text-signature"
-                          : "text-gray-400"
+                          : "text-sam-meta"
                     }`}
                   >
                     {label}
@@ -191,20 +191,20 @@ export function StoreCommerceOrderTimeline({
             "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] transition-colors";
           let circleCls = circleBase;
           if (terminal) {
-            circleCls += " border-gray-200 bg-gray-50 text-gray-300";
+            circleCls += " border-sam-border bg-sam-app text-sam-meta";
           } else if (stepDone) {
             circleCls += " border-signature bg-signature text-white";
           } else if (on) {
-            circleCls += " border-signature bg-white text-signature store-order-stepper-current-circle";
+            circleCls += " border-signature bg-sam-surface text-signature store-order-stepper-current-circle";
           } else {
-            circleCls += " border-gray-200 bg-white text-gray-400";
+            circleCls += " border-sam-border bg-sam-surface text-sam-meta";
           }
 
           return (
             <Fragment key={label}>
               {i > 0 ? (
                 <div
-                  className={`mx-0.5 mt-[13px] h-0.5 min-w-2 flex-1 self-start ${connectorBeforeFilled ? "bg-signature" : "bg-gray-200"}`}
+                  className={`mx-0.5 mt-[13px] h-0.5 min-w-2 flex-1 self-start ${connectorBeforeFilled ? "bg-signature" : "bg-sam-border-soft"}`}
                   aria-hidden
                 />
               ) : null}
@@ -212,7 +212,7 @@ export function StoreCommerceOrderTimeline({
                 <span className={circleCls}>{terminal ? "—" : stepDone ? "✓" : i + 1}</span>
                 <span
                   className={`mt-1.5 block max-w-full text-center text-[10px] font-medium leading-tight break-keep sm:text-[11px] ${
-                    terminal ? "text-gray-300" : stepDone || on ? "text-signature" : "text-gray-400"
+                    terminal ? "text-sam-meta" : stepDone || on ? "text-signature" : "text-sam-meta"
                   }`}
                 >
                   {label}

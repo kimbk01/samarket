@@ -1,10 +1,12 @@
 /* 토큰 → Tailwind 순서 고정 (변수는 design-tokens.css 에만 정의) */
 @import "./design-tokens.css";
 @import "../node_modules/tailwindcss";
+@import "./samarket-components.css";
 
 /*
  * Tailwind 유틸과 레거시 토큰 연결.
- * 신규 화면·문서: `bg-ui-page`, `text-ui-fg`, `border-ui-border` 등 시맨틱 클래스 권장.
+ * 제품 UI 시맨틱 컴포넌트: `samarket-components.css` (`sam-btn`, `sam-card`, …).
+ * 신규 화면·문서: `bg-sam-app`, `text-ui-fg`, `border-ui-border` 등 시맨틱 클래스 권장.
  */
 @theme inline {
   --color-background: var(--background);
@@ -25,11 +27,51 @@
   --color-ui-danger: var(--ui-danger);
   --color-ui-success: var(--ui-success);
 
+  /* 전역 Samarket 토큰 — 신규 화면은 `bg-sam-app`, `text-sam-primary` 등 권장 */
+  --color-sam-primary: var(--sam-primary);
+  --color-sam-primary-hover: var(--sam-primary-hover);
+  --color-sam-primary-soft: var(--sam-primary-soft);
+  --color-sam-primary-soft-2: var(--sam-primary-soft-2);
+  --color-sam-primary-border: var(--sam-primary-border);
+  --color-sam-app: var(--sam-bg-app);
+  --color-sam-surface: var(--sam-bg-surface);
+  --color-sam-surface-muted: var(--sam-bg-surface-muted);
+  --color-sam-chat: var(--sam-bg-chat);
+  --color-sam-soft-purple: var(--sam-bg-soft-purple);
+  --color-sam-surface-dark: var(--sam-bg-surface-dark);
+  --color-sam-ink: var(--sam-bg-ink);
+  --color-sam-fg: var(--sam-text-primary);
+  --color-sam-muted: var(--sam-text-secondary);
+  --color-sam-meta: var(--sam-text-muted);
+  --color-sam-on-primary: var(--sam-text-on-primary);
+  --color-sam-border: var(--sam-border-default);
+  --color-sam-border-soft: var(--sam-border-soft);
+  --color-sam-success: var(--sam-success);
+  --color-sam-success-soft: var(--sam-success-soft);
+  --color-sam-warning: var(--sam-warning);
+  --color-sam-warning-soft: var(--sam-warning-soft);
+  --color-sam-danger: var(--sam-danger);
+  --color-sam-danger-soft: var(--sam-danger-soft);
+  --color-sam-info: var(--sam-info);
+  --color-sam-info-soft: var(--sam-info-soft);
+  --color-sam-icon: var(--sam-icon-default);
+  --color-sam-icon-soft: var(--sam-icon-soft);
+
   --radius-ui-rect: var(--ui-radius-rect);
   --radius-ui-sm: var(--ui-radius-sm);
   --radius-ui-md: var(--ui-radius-md);
   --radius-ui-lg: var(--ui-radius-lg);
   --radius-ui-xl: var(--ui-radius-xl);
+
+  --radius-sam-xs: var(--sam-radius-xs);
+  --radius-sam-sm: var(--sam-radius-sm);
+  --radius-sam-md: var(--sam-radius-md);
+  --radius-sam-lg: var(--sam-radius-lg);
+  --radius-sam-xl: var(--sam-radius-xl);
+  --radius-sam-pill: var(--sam-radius-pill);
+
+  --shadow-sam-soft: var(--sam-shadow-soft);
+  --shadow-sam-card: var(--sam-shadow-card);
 
   /* iOS/macOS·Windows·Android 순 + 한글 + 이모지 */
   --font-sans:
@@ -48,11 +90,14 @@ html {
 
 body {
   min-width: 0;
-  background: var(--ui-page-bg);
-  color: var(--ui-text-primary);
+  background: var(--sam-bg-app);
+  color: var(--sam-text-primary);
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, var(--font-noto-sans-kr),
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+  font-size: var(--sam-text-body-size);
+  font-weight: var(--sam-text-body-weight);
+  line-height: var(--sam-font-body-line);
 }
 
 /* 텍스트 입력·플레이스홀더 세로 균형 */
@@ -78,37 +123,37 @@ body {
  * 정적 문서·공지·약관 등 마크다운/HTML 본문 — 토큰만 사용해 테마와 동기화.
  */
 .ui-doc-root {
-  color: var(--ui-text-primary);
+  color: var(--sam-text-primary);
   font-size: 15px;
-  line-height: var(--ui-font-body-line);
+  line-height: var(--sam-font-body-line);
 }
 .ui-doc-root h1,
 .ui-doc-root h2,
 .ui-doc-root h3 {
-  color: var(--ui-text-primary);
+  color: var(--sam-text-primary);
   font-weight: 600;
 }
 .ui-doc-root p,
 .ui-doc-root li {
-  color: var(--ui-text-primary);
+  color: var(--sam-text-primary);
 }
 .ui-doc-root a {
-  color: var(--ui-primary);
+  color: var(--sam-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .ui-doc-root a:hover {
-  color: color-mix(in srgb, var(--ui-primary) 85%, var(--ui-text-primary));
+  color: var(--sam-primary-hover);
 }
 .ui-doc-muted {
-  color: var(--ui-text-secondary);
+  color: var(--sam-text-secondary);
   font-size: 14px;
 }
 .ui-doc-surface {
-  background: var(--ui-surface);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-rect);
-  box-shadow: var(--ui-shadow-card);
+  background: var(--sam-bg-surface);
+  border: 1px solid var(--sam-border-soft);
+  border-radius: var(--sam-radius-md);
+  box-shadow: var(--sam-shadow-card);
 }
 
 /* 매장 주문 진행 단계 */

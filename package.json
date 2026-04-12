@@ -10,6 +10,7 @@
     "dev:webpack": "next dev --webpack",
     "clean": "node scripts/clean-next.cjs",
     "verify:routes": "node scripts/verify-app-routes.cjs",
+    "tokens:apply-visual": "node scripts/apply-samarket-visual-tokens.mjs",
     "dev:fresh": "npm run clean && npm run dev",
     "dev:3002": "node scripts/next-dev.cjs -p 3002",
     "dev:3002:webpack": "node scripts/next-dev.cjs --webpack -p 3002",
@@ -39,7 +40,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

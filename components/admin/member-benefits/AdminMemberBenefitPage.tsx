@@ -53,12 +53,12 @@ export function AdminMemberBenefitPage() {
           {summaries.map((s) => (
             <div
               key={s.memberType}
-              className="rounded border border-gray-200 bg-gray-50 px-3 py-2"
+              className="rounded border border-sam-border bg-sam-app px-3 py-2"
             >
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-sam-fg">
                 {MEMBER_TYPE_LABELS[s.memberType]}
               </span>
-              <span className="ml-2 text-gray-600">
+              <span className="ml-2 text-sam-muted">
                 활성 정책 {s.activePolicyCount}건 · 로그 {s.totalAppliedLogs}건
               </span>
             </div>
@@ -71,13 +71,13 @@ export function AdminMemberBenefitPage() {
           <button
             type="button"
             onClick={() => setShowForm(true)}
-            className="rounded border border-gray-200 bg-white px-3 py-1.5 text-[13px] text-gray-700 hover:bg-gray-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg hover:bg-sam-app"
           >
             정책 추가
           </button>
         </div>
         {showForm && (
-          <div className="mb-4 rounded border border-gray-200 bg-gray-50 p-4">
+          <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
             <AdminMemberBenefitForm
               onSubmit={handleSave}
               onCancel={() => setShowForm(false)}

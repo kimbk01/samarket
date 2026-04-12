@@ -68,9 +68,9 @@ export default function MyBusinessBasicInfoPage() {
     <div className="max-w-full overflow-x-hidden">
       <div className="mx-auto min-w-0 max-w-4xl overflow-x-hidden py-1">
         {phase.kind === "loading" ? (
-          <p className="text-[14px] text-gray-500">불러오는 중…</p>
+          <p className="text-[14px] text-sam-muted">불러오는 중…</p>
         ) : phase.kind === "need_store_id" ? (
-          <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-gray-600`}>
+          <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-sam-muted`}>
             <p>매장을 지정할 수 없습니다.</p>
             <Link href="/my/business" className="font-medium text-signature underline">
               내 매장으로
@@ -79,9 +79,9 @@ export default function MyBusinessBasicInfoPage() {
         ) : phase.kind === "unauth" ? (
           <p className="text-[14px] text-amber-900">로그인이 필요합니다.</p>
         ) : phase.kind === "config" ? (
-          <p className="text-[14px] text-gray-600">Supabase 매장 설정을 확인해 주세요.</p>
+          <p className="text-[14px] text-sam-muted">Supabase 매장 설정을 확인해 주세요.</p>
         ) : phase.kind === "not_found" ? (
-          <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-gray-600`}>
+          <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-sam-muted`}>
             <p>해당 매장을 찾을 수 없거나 내 매장이 아닙니다.</p>
             <Link href="/my/business" className="font-medium text-signature underline">
               내 매장으로

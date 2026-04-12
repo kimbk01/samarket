@@ -25,8 +25,8 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
   if (!order) return null;
 
   return (
-    <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-gray-50 p-4 text-sm">
-      <p className="font-bold text-gray-900">관리자 개입</p>
+    <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-app p-4 text-sm">
+      <p className="font-bold text-sam-fg">관리자 개입</p>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -41,7 +41,7 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
         </button>
         <button
           type="button"
-          className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-xs"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs"
           onClick={() => {
             setOrderChatRoomStatus(orderId, "active");
             setMsg("채팅방을 활성으로 되돌렸어요.");
@@ -61,7 +61,7 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
         </button>
         <button
           type="button"
-          className="rounded-ui-rect border border-red-300 bg-white px-3 py-1.5 text-xs text-red-800"
+          className="rounded-ui-rect border border-red-300 bg-sam-surface px-3 py-1.5 text-xs text-red-800"
           onClick={() => {
             setOrderChatMessagingBlocked(order, false);
             setMsg("채팅 차단을 해제했어요.");
@@ -71,17 +71,17 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
         </button>
       </div>
       <div>
-        <label className="text-xs font-medium text-gray-600">관리자 메시지</label>
+        <label className="text-xs font-medium text-sam-muted">관리자 메시지</label>
         <div className="mt-1 flex gap-2">
           <input
-            className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-xs"
+            className="min-w-0 flex-1 rounded border border-sam-border px-2 py-1.5 text-xs"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="분쟁 확인중입니다"
           />
           <button
             type="button"
-            className="rounded-ui-rect bg-gray-900 px-3 py-1.5 text-xs font-bold text-white"
+            className="rounded-ui-rect bg-sam-ink px-3 py-1.5 text-xs font-bold text-white"
             onClick={() => {
               const r = sendOrderChatFromAdmin(order, text, false);
               setMsg(r.ok ? "전송했어요" : r.error);
@@ -93,17 +93,17 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
         </div>
       </div>
       <div>
-        <label className="text-xs font-medium text-gray-600">시스템 메모 삽입 (admin_note)</label>
+        <label className="text-xs font-medium text-sam-muted">시스템 메모 삽입 (admin_note)</label>
         <div className="mt-1 flex gap-2">
           <input
-            className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-xs"
+            className="min-w-0 flex-1 rounded border border-sam-border px-2 py-1.5 text-xs"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="관리자 확인 후 처리 예정입니다"
           />
           <button
             type="button"
-            className="rounded-ui-rect border border-gray-400 bg-white px-3 py-1.5 text-xs font-semibold"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs font-semibold"
             onClick={() => {
               const r = sendOrderChatFromAdmin(order, note, true);
               setMsg(r.ok ? "메모 삽입" : r.error);
@@ -114,7 +114,7 @@ export function AdminChatActionPanel({ orderId }: { orderId: string }) {
           </button>
         </div>
       </div>
-      {msg ? <p className="text-xs text-gray-600">{msg}</p> : null}
+      {msg ? <p className="text-xs text-sam-muted">{msg}</p> : null}
     </div>
   );
 }

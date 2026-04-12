@@ -61,7 +61,7 @@ export function OpsRunbookStepWorkflow({
 
   if (steps.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
         실행 단계가 없습니다.
       </div>
     );
@@ -86,16 +86,16 @@ export function OpsRunbookStepWorkflow({
             className={`rounded-ui-rect border p-4 ${
               s.status === "blocked"
                 ? "border-red-200 bg-red-50/50"
-                : "border-gray-200 bg-white"
+                : "border-sam-border bg-sam-surface"
             }`}
           >
             <div className="flex flex-wrap items-start gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-medium text-gray-700">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-[14px] font-medium text-sam-fg">
                 {s.stepOrder}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-gray-900">{s.title}</span>
+                  <span className="font-medium text-sam-fg">{s.title}</span>
                   <span
                     className={`rounded px-2 py-0.5 text-[12px] ${
                       s.status === "done"
@@ -104,22 +104,22 @@ export function OpsRunbookStepWorkflow({
                           ? "bg-amber-50 text-amber-800"
                           : s.status === "blocked"
                             ? "bg-red-100 text-red-800"
-                            : "bg-gray-100 text-gray-600"
+                            : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >
                     {STATUS_LABELS[s.status]}
                   </span>
                 </div>
-                <p className="mt-1 text-[13px] text-gray-600">{s.description}</p>
+                <p className="mt-1 text-[13px] text-sam-muted">{s.description}</p>
                 {(s.assignedAdminNickname || s.startedAt || s.completedAt) && (
-                  <p className="mt-2 text-[12px] text-gray-500">
+                  <p className="mt-2 text-[12px] text-sam-muted">
                     {s.assignedAdminNickname && `담당 ${s.assignedAdminNickname}`}
                     {s.startedAt && ` · 시작 ${new Date(s.startedAt).toLocaleString("ko-KR")}`}
                     {s.completedAt && ` · 완료 ${new Date(s.completedAt).toLocaleString("ko-KR")}`}
                   </p>
                 )}
                 {s.note && (
-                  <p className="mt-1 text-[13px] text-gray-700">메모: {s.note}</p>
+                  <p className="mt-1 text-[13px] text-sam-fg">메모: {s.note}</p>
                 )}
                 {s.linkedType && (
                   <p className="mt-2 text-[12px]">
@@ -159,7 +159,7 @@ export function OpsRunbookStepWorkflow({
                       <button
                         type="button"
                         onClick={() => handleStatus(s.id, "skipped")}
-                        className="rounded border border-gray-200 bg-gray-100 px-2 py-1 text-[12px] text-gray-600"
+                        className="rounded border border-sam-border bg-sam-surface-muted px-2 py-1 text-[12px] text-sam-muted"
                       >
                         스킵
                       </button>

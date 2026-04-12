@@ -17,7 +17,7 @@ export function RecommendationBriefingBoardCard({
 
   if (!board) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
         브리핑 보드가 없습니다.
       </div>
     );
@@ -25,11 +25,11 @@ export function RecommendationBriefingBoardCard({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <h3 className="mb-2 text-[14px] font-medium text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className="mb-2 text-[14px] font-medium text-sam-fg">
           오늘 핵심 하이라이트
         </h3>
-        <ul className="list-inside list-disc space-y-1 text-[13px] text-gray-700">
+        <ul className="list-inside list-disc space-y-1 text-[13px] text-sam-fg">
           {board.topHighlights.map((h, i) => (
             <li key={i}>{h}</li>
           ))}
@@ -46,34 +46,34 @@ export function RecommendationBriefingBoardCard({
         </ul>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <h3 className="mb-2 text-[14px] font-medium text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <h3 className="mb-2 text-[14px] font-medium text-sam-fg">
             주목 섹션 (상승)
           </h3>
-          <p className="text-[13px] text-gray-700">
+          <p className="text-[13px] text-sam-fg">
             {board.topWinningSections.join(", ") || "-"}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <h3 className="mb-2 text-[14px] font-medium text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <h3 className="mb-2 text-[14px] font-medium text-sam-fg">
             주목 섹션 (하락)
           </h3>
-          <p className="text-[13px] text-gray-700">
+          <p className="text-[13px] text-sam-fg">
             {board.topDroppedSections.join(", ") || "-"}
           </p>
         </div>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4">
-        <h3 className="mb-2 text-[14px] font-medium text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
+        <h3 className="mb-2 text-[14px] font-medium text-sam-fg">
           배포 / 롤백 / 자동화 요약
         </h3>
-        <p className="mb-2 text-[13px] text-gray-700">
+        <p className="mb-2 text-[13px] text-sam-fg">
           {board.deploymentSummary}
         </p>
-        <p className="mb-2 text-[13px] text-gray-700">
+        <p className="mb-2 text-[13px] text-sam-fg">
           {board.rollbackSummary}
         </p>
-        <p className="text-[13px] text-gray-700">
+        <p className="text-[13px] text-sam-fg">
           {board.automationSummary}
         </p>
       </div>

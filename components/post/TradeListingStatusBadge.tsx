@@ -40,7 +40,7 @@ export function TradeListingStatusBadge({
     if (st === "sold") return null;
     return (
       <span
-        className={`${APP_FEED_LIST_ROW1_LAYOUT} ${textSize} border border-gray-200 bg-white text-gray-600 ${className}`.trim()}
+        className={`${APP_FEED_LIST_ROW1_LAYOUT} ${textSize} border border-sam-border bg-sam-surface text-sam-muted ${className}`.trim()}
       >
         {STATUS_LABEL[post.status ?? ""] ?? post.status ?? ""}
       </span>

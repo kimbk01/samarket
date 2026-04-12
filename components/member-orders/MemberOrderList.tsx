@@ -14,7 +14,7 @@ export function MemberOrderList({
 }) {
   if (orders.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-gray-200 bg-gray-50 py-16 text-center text-sm text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app py-16 text-center text-sm text-sam-muted">
         주문 내역이 없어요.
       </div>
     );

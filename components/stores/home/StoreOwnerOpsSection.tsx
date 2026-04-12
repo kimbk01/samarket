@@ -118,7 +118,7 @@ export function StoreOwnerOpsSection({
                 e.preventDefault();
               }
             }}
-            className="flex w-[104px] shrink-0 flex-col items-center justify-center rounded-ui-rect border border-violet-100 bg-white px-2 py-3 text-center shadow-sm"
+            className="flex w-[104px] shrink-0 flex-col items-center justify-center rounded-ui-rect border border-violet-100 bg-sam-surface px-2 py-3 text-center shadow-sm"
           >
             <span className="line-clamp-2 text-[11px] font-bold leading-tight text-violet-950">{item.label}</span>
             {typeof item.badge === "number" && item.badge > 0 ?
@@ -141,7 +141,7 @@ export function StoreOwnerOpsSection({
         {ownerStore.slug ?
           <Link
             href={`/stores/${encodeURIComponent(ownerStore.slug)}`}
-            className="shrink-0 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[11px] font-semibold text-neutral-800"
+            className="shrink-0 rounded-full border border-sam-border bg-sam-surface px-4 py-2 text-[11px] font-semibold text-sam-fg"
           >
             내 매장
           </Link>

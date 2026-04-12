@@ -40,17 +40,17 @@ export function ReportPeriodSelector({
   const range = getDateRange(period);
 
   return (
-    <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-      <h3 className="mb-3 text-[14px] font-medium text-gray-900">
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <h3 className="mb-3 text-[14px] font-medium text-sam-fg">
         새 보고서 생성
       </h3>
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-[12px] text-gray-500">기간</label>
+          <label className="mb-1 block text-[12px] text-sam-muted">기간</label>
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value as ReportPeriod)}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             {(Object.keys(PERIOD_LABELS) as ReportPeriod[]).map((p) => (
               <option key={p} value={p}>
@@ -60,11 +60,11 @@ export function ReportPeriodSelector({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[12px] text-gray-500">surface</label>
+          <label className="mb-1 block text-[12px] text-sam-muted">surface</label>
           <select
             value={surface}
             onChange={(e) => setSurface(e.target.value as ReportSurface)}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="all">전체</option>
             <option value="home">홈</option>
@@ -73,18 +73,18 @@ export function ReportPeriodSelector({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[12px] text-gray-500">유형</label>
+          <label className="mb-1 block text-[12px] text-sam-muted">유형</label>
           <select
             value={reportType}
             onChange={(e) => setReportType(e.target.value as ReportType)}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="daily">일간</option>
             <option value="weekly">주간</option>
             <option value="custom">맞춤</option>
           </select>
         </div>
-        <div className="text-[13px] text-gray-500">
+        <div className="text-[13px] text-sam-muted">
           {range.dateFrom} ~ {range.dateTo}
         </div>
         <button
@@ -96,7 +96,7 @@ export function ReportPeriodSelector({
           {generating ? "생성 중…" : "보고서 생성"}
         </button>
       </div>
-      <p className="mt-2 text-[12px] text-gray-500">
+      <p className="mt-2 text-[12px] text-sam-muted">
         맞춤 기간(custom) 선택은 placeholder입니다.
       </p>
     </div>

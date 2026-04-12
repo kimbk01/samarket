@@ -43,13 +43,13 @@ export function QaSuiteTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">영역</span>
+        <span className="text-[13px] text-sam-muted">영역</span>
         <select
           value={domain}
           onChange={(e) =>
             setDomain((e.target.value || "") as QaTestDomain | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           {domains.map((d) => (
             <option key={d.value || "all"} value={d.value}>
@@ -60,7 +60,7 @@ export function QaSuiteTable() {
       </div>
 
       {suites.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 영역 스위트가 없습니다.
         </div>
       ) : (
@@ -70,14 +70,14 @@ export function QaSuiteTable() {
           {suites.map((s) => {
             const stat = casesBySuite[s.id];
             return (
-              <tr key={s.id} className="border-b border-gray-100">
-                <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <tr key={s.id} className="border-b border-sam-border-soft">
+                <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                   {getDomainLabel(s.domain)}
                 </td>
-                <td className="px-3 py-2.5 font-medium text-gray-900">
+                <td className="px-3 py-2.5 font-medium text-sam-fg">
                   {s.title}
                 </td>
-                <td className="max-w-[240px] truncate px-3 py-2.5 text-[13px] text-gray-500">
+                <td className="max-w-[240px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
                   {s.description}
                 </td>
                 <td className="px-3 py-2.5">
@@ -86,10 +86,10 @@ export function QaSuiteTable() {
                       필수
                     </span>
                   ) : (
-                    <span className="text-[13px] text-gray-500">-</span>
+                    <span className="text-[13px] text-sam-muted">-</span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-gray-700">
+                <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                   {stat ? `${stat.passed} / ${stat.total}` : "-"}
                 </td>
               </tr>

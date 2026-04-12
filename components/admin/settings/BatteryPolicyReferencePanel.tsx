@@ -39,14 +39,14 @@ export function BatteryPolicyReferencePanel() {
   const deltas = TRUST_POLICY_CHEATSHEET.eventDeltas;
 
   return (
-    <div className="mt-8 space-y-6 rounded-ui-rect border border-gray-200 bg-gray-50/80 p-5">
+    <div className="mt-8 space-y-6 rounded-ui-rect border border-sam-border bg-sam-app/80 p-5">
       <div>
-        <h3 className="text-[15px] font-semibold text-gray-900">신뢰 점수·배터리(6단) 기준</h3>
-        <p className="mt-1 text-[12px] text-gray-500">
-          원본은 <strong className="text-gray-800">profiles.trust_score</strong>(0~100, 기본 50)이며, 화면의{" "}
-          <strong className="text-gray-800">% 숫자</strong>와 <strong className="text-gray-800">6단계 배터리</strong>는
+        <h3 className="text-[15px] font-semibold text-sam-fg">신뢰 점수·배터리(6단) 기준</h3>
+        <p className="mt-1 text-[12px] text-sam-muted">
+          원본은 <strong className="text-sam-fg">profiles.trust_score</strong>(0~100, 기본 50)이며, 화면의{" "}
+          <strong className="text-sam-fg">% 숫자</strong>와 <strong className="text-sam-fg">6단계 배터리</strong>는
           아래 규칙으로만 결정됩니다. 당근 매너온도(°C)는 참고용입니다. 구현:{" "}
-          <code className="rounded bg-white px-1 text-[11px]">web/lib/trust/trust-score-core.ts</code> (
+          <code className="rounded bg-sam-surface px-1 text-[11px]">web/lib/trust/trust-score-core.ts</code> (
           <code className="text-[11px]">trustScoreToUiPercent</code>, <code className="text-[11px]">trustScoreToBatteryLevel</code>
           ).
         </p>
@@ -54,12 +54,12 @@ export function BatteryPolicyReferencePanel() {
 
       <section className="rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-emerald-900">0) 배터리 %(UI 표기) 산출</h4>
-        <ul className="mt-2 space-y-1.5 text-[13px] text-gray-800">
+        <ul className="mt-2 space-y-1.5 text-[13px] text-sam-fg">
           <li>
             <strong>표시 %</strong> = 내부 신뢰 점수 <code className="text-[12px]">s</code>에 대해 소수 둘째 자리까지
             반올림 후 0~100으로 자른 값을, 다시 <strong>정수 %로 반올림</strong>한 것과 동일합니다. (코드:{" "}
-            <code className="rounded bg-white px-1 text-[12px]">clampTrustScore</code> →{" "}
-            <code className="rounded bg-white px-1 text-[12px]">trustScoreToUiPercent</code>)
+            <code className="rounded bg-sam-surface px-1 text-[12px]">clampTrustScore</code> →{" "}
+            <code className="rounded bg-sam-surface px-1 text-[12px]">trustScoreToUiPercent</code>)
           </li>
           <li>
             <strong>6칸 채움·단계</strong>는 표시 %가 아니라 같은 내부 점수 <code className="text-[12px]">s</code>를
@@ -72,13 +72,13 @@ export function BatteryPolicyReferencePanel() {
         </ul>
       </section>
 
-      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-gray-900">1) 당근 매너 온도 (참고)</h4>
-        <p className="mt-2 text-[13px] leading-relaxed text-gray-700">{DAANGN_MANNER_TEMP_REFERENCE.citationNote}</p>
-        <ul className="mt-2 list-inside list-disc text-[12px] text-gray-600">
+      <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
+        <h4 className="text-[13px] font-semibold text-sam-fg">1) 당근 매너 온도 (참고)</h4>
+        <p className="mt-2 text-[13px] leading-relaxed text-sam-fg">{DAANGN_MANNER_TEMP_REFERENCE.citationNote}</p>
+        <ul className="mt-2 list-inside list-disc text-[12px] text-sam-muted">
           <li>
             중립으로 자주 인용되는 예:{" "}
-            <strong className="text-gray-800">{DAANGN_MANNER_TEMP_REFERENCE.neutralExampleC}°C</strong>
+            <strong className="text-sam-fg">{DAANGN_MANNER_TEMP_REFERENCE.neutralExampleC}°C</strong>
           </li>
           <li>
             체감 범위 예: 약 {DAANGN_MANNER_TEMP_REFERENCE.typicalRangeC.min}°C ~{" "}
@@ -87,14 +87,14 @@ export function BatteryPolicyReferencePanel() {
         </ul>
       </section>
 
-      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-amber-900">2) 레거시 °C → 점수 (manner_temperature)</h4>
-        <p className="mt-2 text-[13px] text-gray-700">
+        <p className="mt-2 text-[13px] text-sam-fg">
           <code className="text-[12px]">trust_score</code>가 없고{" "}
           <code className="text-[12px]">manner_temperature</code>만 있을 때만 아래 식으로 0~100 점으로 환산합니다.{" "}
           <code className="text-[12px]">manner_score</code> 단독은 같은 점수로 간주(추가 °C 환산 없음)합니다.
         </p>
-        <ul className="mt-2 space-y-1.5 text-[13px] text-gray-700">
+        <ul className="mt-2 space-y-1.5 text-[13px] text-sam-fg">
           <li>
             소수이고 0 초과 ~ {KASAMA_LEGACY_TEMP_INPUT_MAX} 이하 →{" "}
             <code className="rounded bg-amber-50 px-1.5 py-0.5 text-[12px]">
@@ -105,18 +105,18 @@ export function BatteryPolicyReferencePanel() {
         </ul>
       </section>
 
-      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
+      <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
         <h4 className="text-[13px] font-semibold text-sky-900">3) 배터리 단계 — 점수 구간 고정 매핑</h4>
-        <p className="mt-2 text-[13px] text-gray-700">
+        <p className="mt-2 text-[13px] text-sam-fg">
           내부 점수 s(0~100)를 <strong>6등분 ceil이 아니라</strong> 아래 고정 구간으로 단계를 정합니다. 단계 k는 채워지는 칸
           수와 같습니다.
         </p>
-        <p className="mt-2 font-mono text-[12px] text-gray-800">{KASAMA_PERCENT_TO_TIER_FORMULA}</p>
+        <p className="mt-2 font-mono text-[12px] text-sam-fg">{KASAMA_PERCENT_TO_TIER_FORMULA}</p>
 
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[320px] border-collapse text-left text-[12px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+              <tr className="border-b border-sam-border bg-sam-app text-sam-muted">
                 <th className="py-2 pr-3 font-medium">단계</th>
                 <th className="py-2 pr-3 font-medium">채움 칸</th>
                 <th className="py-2 font-medium">점수 구간</th>
@@ -124,25 +124,25 @@ export function BatteryPolicyReferencePanel() {
             </thead>
             <tbody>
               {tierRows.map((row) => (
-                <tr key={row.tier} className="border-b border-gray-100">
+                <tr key={row.tier} className="border-b border-sam-border-soft">
                   <td className="py-2 pr-3 tabular-nums">{row.tier}</td>
                   <td className="py-2 pr-3 tabular-nums">{row.segmentsFilled}</td>
-                  <td className="py-2 text-gray-700">{row.percentRangeLabelKo}</td>
+                  <td className="py-2 text-sam-fg">{row.percentRangeLabelKo}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        <p className="mt-3 text-[11px] text-gray-500">
+        <p className="mt-3 text-[11px] text-sam-muted">
           예: 점수 <strong>50</strong> → <strong>3단계(3칸)</strong> · 점수 <strong>75</strong> →{" "}
           <strong>5단계(5칸)</strong>
         </p>
       </section>
 
-      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-gray-900">4) 이벤트·가중·일일 상한 (서버 반영)</h4>
-        <ul className="mt-2 list-inside list-disc text-[12px] text-gray-700">
+      <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
+        <h4 className="text-[13px] font-semibold text-sam-fg">4) 이벤트·가중·일일 상한 (서버 반영)</h4>
+        <ul className="mt-2 list-inside list-disc text-[12px] text-sam-fg">
           <li>
             가산 이벤트는 최근 30일이면 <strong>×{TRUST_POLICY_CHEATSHEET.recentPositiveMultiplier}</strong>, 감산은 배율
             없음
@@ -152,12 +152,12 @@ export function BatteryPolicyReferencePanel() {
             관리자 조정·감산은 별도)
           </li>
         </ul>
-        <div className="mt-3 overflow-x-auto rounded border border-gray-100 bg-gray-50/80 p-2 text-[11px] text-gray-800">
+        <div className="mt-3 overflow-x-auto rounded border border-sam-border-soft bg-sam-app/80 p-2 text-[11px] text-sam-fg">
           <table className="w-full min-w-[280px] border-collapse text-left">
             <tbody>
               {(Object.entries(deltas) as [keyof typeof deltas, number][]).map(([k, v]) => (
-                <tr key={k} className="border-b border-gray-100 last:border-0">
-                  <td className="py-1 pr-2 font-mono text-gray-600">{k}</td>
+                <tr key={k} className="border-b border-sam-border-soft last:border-0">
+                  <td className="py-1 pr-2 font-mono text-sam-muted">{k}</td>
                   <td className="py-1 tabular-nums">{v > 0 ? `+${v}` : v}</td>
                 </tr>
               ))}
@@ -166,42 +166,42 @@ export function BatteryPolicyReferencePanel() {
         </div>
       </section>
 
-      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-gray-900">5) 산출 흐름 도식</h4>
-        <div className="mt-3 rounded-ui-rect bg-gray-50 p-3">
+      <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
+        <h4 className="text-[13px] font-semibold text-sam-fg">5) 산출 흐름 도식</h4>
+        <div className="mt-3 rounded-ui-rect bg-sam-app p-3">
           <BatteryPolicyFlowDiagram />
         </div>
       </section>
 
-      <section className="rounded-ui-rect border border-white bg-white p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-gray-900">6) 단계별 아이콘 예시 (1~6칸)</h4>
+      <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
+        <h4 className="text-[13px] font-semibold text-sam-fg">6) 단계별 아이콘 예시 (1~6칸)</h4>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
           {([1, 2, 3, 4, 5, 6] as const).map((t) => {
             const p = TIER_SAMPLE_SCORES[t];
             return (
               <div key={t} className="flex flex-col items-center gap-1">
                 <MannerBatteryIcon tier={t as MannerBatteryTier} percent={p} size="sm" />
-                <span className="text-[10px] text-gray-500">{t}단계</span>
+                <span className="text-[10px] text-sam-muted">{t}단계</span>
               </div>
             );
           })}
         </div>
       </section>
 
-      <section className="rounded-ui-rect border border-dashed border-gray-200 bg-signature/5 p-4">
-        <h4 className="text-[13px] font-semibold text-gray-900">미리보기</h4>
+      <section className="rounded-ui-rect border border-dashed border-sam-border bg-signature/5 p-4">
+        <h4 className="text-[13px] font-semibold text-sam-fg">미리보기</h4>
         <div className="mt-2 flex flex-wrap items-end gap-3">
-          <label className="block text-[12px] text-gray-600">
+          <label className="block text-[12px] text-sam-muted">
             입력값
             <input
               type="text"
               value={rawInput}
               onChange={(e) => setRawInput(e.target.value)}
-              className="ml-2 mt-1 w-28 rounded border border-gray-300 px-2 py-1.5 text-[13px]"
+              className="ml-2 mt-1 w-28 rounded border border-sam-border px-2 py-1.5 text-[13px]"
               placeholder="50"
             />
           </label>
-          <fieldset className="flex flex-wrap gap-3 text-[12px] text-gray-700">
+          <fieldset className="flex flex-wrap gap-3 text-[12px] text-sam-fg">
             <label className="flex cursor-pointer items-center gap-1.5">
               <input
                 type="radio"
@@ -223,7 +223,7 @@ export function BatteryPolicyReferencePanel() {
           </fieldset>
           {preview ? (
             <div className="flex items-center gap-3">
-              <div className="text-[13px] text-gray-700">
+              <div className="text-[13px] text-sam-fg">
                 → <strong className="tabular-nums">{preview.percent}%</strong> · <strong>{preview.tier}단계</strong>
               </div>
               <MannerBatteryIcon tier={preview.tier} percent={preview.percent} size="md" />
@@ -234,7 +234,7 @@ export function BatteryPolicyReferencePanel() {
         </div>
       </section>
 
-      <p className="text-[11px] text-gray-400">배터리 시각 단계 수: {BATTERY_SEGMENT_COUNT}</p>
+      <p className="text-[11px] text-sam-meta">배터리 시각 단계 수: {BATTERY_SEGMENT_COUNT}</p>
     </div>
   );
 }

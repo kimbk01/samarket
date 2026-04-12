@@ -117,7 +117,7 @@ export function MyPageHomeDashboard({
       {showBanner && bannerSlot ? <div className={`shrink-0 ${APP_MAIN_GUTTER_X_CLASS} pt-4`}>{bannerSlot}</div> : null}
 
       <section className={`${APP_MAIN_GUTTER_X_CLASS} pt-4`}>
-        <div className="flex items-start gap-3 rounded-ui-rect border border-gray-200 bg-white p-4">
+        <div className="flex items-start gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <Link
             href={MYPAGE_PROFILE_EDIT_HREF}
             className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-ig-highlight"
@@ -132,14 +132,14 @@ export function MyPageHomeDashboard({
             )}
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="text-[18px] font-bold leading-tight text-gray-900">{displayName}</p>
-            <p className="mt-1 text-[12px] text-gray-500">{regionLine}</p>
+            <p className="text-[18px] font-bold leading-tight text-sam-fg">{displayName}</p>
+            <p className="mt-1 text-[12px] text-sam-muted">{regionLine}</p>
             <div className="mt-2">
               <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
             </div>
             <Link
               href={MYPAGE_PROFILE_EDIT_HREF}
-              className="mt-3 inline-flex h-9 items-center justify-center rounded-ui-rect border border-gray-200 px-3 text-[14px] font-medium text-gray-800 hover:bg-gray-50"
+              className="mt-3 inline-flex h-9 items-center justify-center rounded-ui-rect border border-sam-border px-3 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
             >
               프로필 수정
             </Link>
@@ -148,29 +148,29 @@ export function MyPageHomeDashboard({
       </section>
 
       <section className={`${APP_MAIN_GUTTER_X_CLASS} mt-5`}>
-        <h2 className="mb-2 text-[14px] font-semibold text-gray-500">상태 요약</h2>
-        <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white">
+        <h2 className="mb-2 text-[14px] font-semibold text-sam-muted">상태 요약</h2>
+        <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
           {statRows.map((row) => (
             <Link
               key={row.label}
               href={row.href}
-              className="flex min-h-[48px] items-center justify-between border-b border-gray-100 px-4 py-3 text-[14px] last:border-b-0 active:bg-gray-50"
+              className="flex min-h-[48px] items-center justify-between border-b border-sam-border-soft px-4 py-3 text-[14px] last:border-b-0 active:bg-sam-app"
             >
-              <span className="font-medium text-gray-800">{row.label}</span>
-              <span className="tabular-nums text-gray-600">{row.value}</span>
+              <span className="font-medium text-sam-fg">{row.label}</span>
+              <span className="tabular-nums text-sam-muted">{row.value}</span>
             </Link>
           ))}
         </div>
       </section>
 
       <section className={`${APP_MAIN_GUTTER_X_CLASS} mt-6 pb-6`}>
-        <h2 className="mb-2 text-[14px] font-semibold text-gray-500">메뉴</h2>
-        <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white">
+        <h2 className="mb-2 text-[14px] font-semibold text-sam-muted">메뉴</h2>
+        <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
           {MYPAGE_MOBILE_NAV.map((sec) => (
             <MyPageMobileMenuRow key={sec.id} href={buildMypageSectionHref(sec.id)} title={sec.label} />
           ))}
         </div>
-        <div className="mt-3 overflow-hidden rounded-ui-rect border border-gray-200 bg-white">
+        <div className="mt-3 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
           <MyPageMobileMenuRow
             href={buildMypageItemHref("settings", "logout")}
             title="로그아웃"

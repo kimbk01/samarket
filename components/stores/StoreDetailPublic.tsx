@@ -320,7 +320,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
   if (loading) {
     return (
       <div className={STORE_DETAIL_PAGE}>
-        <p className="py-12 text-center text-sm text-stone-500">불러오는 중…</p>
+        <p className="py-12 text-center text-sm text-sam-muted">불러오는 중…</p>
       </div>
     );
   }
@@ -329,7 +329,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
     return (
       <div className={STORE_DETAIL_PAGE}>
         <div className="px-4 py-12 text-center">
-          <p className="text-sm text-stone-600">
+          <p className="text-sm text-sam-muted">
             {dbOff
               ? "Supabase가 연결되지 않았거나 매장 테이블이 없습니다. SQL 마이그레이션을 적용해 주세요."
               : "매장을 찾을 수 없습니다."}
@@ -387,14 +387,14 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
       <div id="store-menu-panel" className="bg-[#f3f4f6] pb-4">
         <div
           ref={menuStickyMeasureRef}
-          className={`sticky z-[33] border-b border-stone-200/90 bg-[#f3f4f6]/95 px-3 py-2 backdrop-blur-md ${STORE_DETAIL_MENU_STICKY_TOP_CLASS}`}
+          className={`sticky z-[33] border-b border-sam-border/90 bg-[#f3f4f6]/95 px-3 py-2 backdrop-blur-md ${STORE_DETAIL_MENU_STICKY_TOP_CLASS}`}
         >
-          <div className="mb-2 grid grid-cols-2 gap-2 rounded-ui-rect bg-white p-1">
+          <div className="mb-2 grid grid-cols-2 gap-2 rounded-ui-rect bg-sam-surface p-1">
             <button
               type="button"
               onClick={() => setActiveTab("menu")}
               className={`rounded-ui-rect px-3 py-2 text-[14px] font-semibold ${
-                activeTab === "menu" ? "bg-signature text-white" : "text-stone-700"
+                activeTab === "menu" ? "bg-signature text-white" : "text-sam-fg"
               }`}
             >
               메뉴
@@ -403,7 +403,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
               type="button"
               onClick={() => setActiveTab("review")}
               className={`rounded-ui-rect px-3 py-2 text-[14px] font-semibold ${
-                activeTab === "review" ? "bg-signature text-white" : "text-stone-700"
+                activeTab === "review" ? "bg-signature text-white" : "text-sam-fg"
               }`}
             >
               리뷰
@@ -421,7 +421,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
                 placeholder="메뉴 검색"
                 value={menuQuery}
                 onChange={(e) => setMenuQuery(e.target.value)}
-                className="mb-2 w-full rounded-full border border-stone-200 bg-white px-4 py-2.5 text-[14px] text-stone-900 shadow-sm outline-none ring-signature/20 placeholder:text-stone-400 focus:ring-2"
+                className="mb-2 w-full rounded-full border border-sam-border bg-sam-surface px-4 py-2.5 text-[14px] text-sam-fg shadow-sm outline-none ring-signature/20 placeholder:text-sam-meta focus:ring-2"
               />
               <StoreMenuCategoryChips
                 sections={menuSectionsFiltered.map((s) => ({ label: s.heading }))}
@@ -456,7 +456,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
       <div className={`${STORE_DETAIL_GUTTER} mt-6 text-center`}>
         <Link
           href={`/stores/${encodeURIComponent(store.slug)}/report`}
-          className="text-[12px] font-normal text-stone-400 underline decoration-stone-300 underline-offset-2"
+          className="text-[12px] font-normal text-sam-meta underline decoration-sam-meta underline-offset-2"
         >
           매장 신고
         </Link>
@@ -488,7 +488,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
 
       {toastMsg ? (
         <div
-          className="pointer-events-none fixed left-1/2 z-[32] max-w-[min(92vw,20rem)] -translate-x-1/2 rounded-ui-rect bg-stone-900/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg"
+          className="pointer-events-none fixed left-1/2 z-[32] max-w-[min(92vw,20rem)] -translate-x-1/2 rounded-ui-rect bg-sam-ink/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg"
           style={{ bottom: "max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px))" }}
           role="status"
         >

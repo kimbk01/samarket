@@ -19,7 +19,7 @@ export function DeliveryOrdersByBuyerClient({ buyerUserId }: { buyerUserId: stri
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title={`회원 주문 이력 · ${label}`} backHref="/admin/delivery-orders" />
-      <p className="mb-2 text-xs text-gray-500">
+      <p className="mb-2 text-xs text-sam-muted">
         buyerUserId: <span className="font-mono">{buyerUserId}</span>
       </p>
       <AdminCard title="주문 목록">

@@ -1,6 +1,6 @@
 "use client";
 
-const iconClass = "h-5 w-5 text-gray-500";
+const iconClass = "h-5 w-5 text-sam-muted";
 
 export const SettingsIcons = {
   account: (

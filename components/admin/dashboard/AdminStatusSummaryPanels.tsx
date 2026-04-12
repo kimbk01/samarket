@@ -30,8 +30,8 @@ function StatusRow({
 }) {
   return (
     <div className="flex justify-between text-[13px]">
-      <span className="text-gray-600">{label}</span>
-      <span className="font-medium text-gray-900">{count}</span>
+      <span className="text-sam-muted">{label}</span>
+      <span className="font-medium text-sam-fg">{count}</span>
     </div>
   );
 }

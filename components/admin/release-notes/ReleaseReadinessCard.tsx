@@ -28,7 +28,7 @@ export function ReleaseReadinessCard() {
           : "border-red-200 bg-red-50/50"
       }`}
     >
-      <p className="text-[12px] text-gray-500">릴리즈 준비 상태</p>
+      <p className="text-[12px] text-sam-muted">릴리즈 준비 상태</p>
       <p
         className={`text-[20px] font-semibold ${
           readiness.ready ? "text-emerald-700" : "text-red-700"
@@ -36,7 +36,7 @@ export function ReleaseReadinessCard() {
       >
         {readiness.ready ? "준비됨" : "critical 블로킹 있음"}
       </p>
-      <p className="mt-1 text-[13px] text-gray-600">
+      <p className="mt-1 text-[13px] text-sam-muted">
         critical 블로킹 {readiness.criticalBlockedCount}건
         {readiness.criticalTodoCount > 0 &&
           ` · critical 미완료 ${readiness.criticalTodoCount}건`}

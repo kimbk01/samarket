@@ -55,33 +55,33 @@ export function FeedEmergencyPolicyTable() {
 
   if (policies.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         정책이 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[720px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               surface
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               킬스위치
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               Fallback
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               Fallback 모드
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               긴급 공지
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               자동 비활성(placeholder)
             </th>
           </tr>
@@ -92,9 +92,9 @@ export function FeedEmergencyPolicyTable() {
             return (
               <tr
                 key={p.id}
-                className="border-b border-gray-100 hover:bg-gray-50"
+                className="border-b border-sam-border-soft hover:bg-sam-app"
               >
-                <td className="px-3 py-2.5 font-medium text-gray-900">
+                <td className="px-3 py-2.5 font-medium text-sam-fg">
                   {SURFACE_LABELS[p.surface]}
                 </td>
                 <td className="px-3 py-2.5">
@@ -105,7 +105,7 @@ export function FeedEmergencyPolicyTable() {
                       className={`rounded border px-2 py-1 text-[13px] ${
                         p.killSwitchEnabled
                           ? "border-amber-300 bg-amber-50 text-amber-800"
-                          : "border-gray-200 bg-gray-50 text-gray-600"
+                          : "border-sam-border bg-sam-app text-sam-muted"
                       }`}
                     >
                       {p.killSwitchEnabled ? "ON (해제)" : "OFF (활성화)"}
@@ -125,20 +125,20 @@ export function FeedEmergencyPolicyTable() {
                       className={`rounded border px-2 py-1 text-[13px] ${
                         mode === "fallback"
                           ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                          : "border-gray-200 bg-gray-50 text-gray-600"
+                          : "border-sam-border bg-sam-app text-sam-muted"
                       }`}
                     >
                       {mode === "fallback" ? "Fallback 중 (해제)" : "Fallback 활성화"}
                     </button>
                   </div>
                 </td>
-                <td className="px-3 py-2.5 text-gray-700">
+                <td className="px-3 py-2.5 text-sam-fg">
                   <select
                     value={p.fallbackMode}
                     onChange={(e) =>
                       handlePolicyChange(p.id, p.surface, "fallbackMode", e.target.value)
                     }
-                    className="rounded border border-gray-200 px-2 py-1 text-[13px]"
+                    className="rounded border border-sam-border px-2 py-1 text-[13px]"
                   >
                     {(Object.keys(FALLBACK_MODE_LABELS) as FeedFallbackMode[]).map(
                       (m) => (
@@ -162,7 +162,7 @@ export function FeedEmergencyPolicyTable() {
                           e.target.checked
                         )
                       }
-                      className="rounded border-gray-300"
+                      className="rounded border-sam-border"
                     />
                     <span className="text-[13px]">공지 표시</span>
                   </label>
@@ -179,11 +179,11 @@ export function FeedEmergencyPolicyTable() {
                         )
                       }
                       placeholder="공지 문구"
-                      className="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-[12px]"
+                      className="mt-1 w-full rounded border border-sam-border px-2 py-1 text-[12px]"
                     />
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-gray-500">
+                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                   <label className="flex items-center gap-1">
                     <input
                       type="checkbox"
@@ -196,7 +196,7 @@ export function FeedEmergencyPolicyTable() {
                           e.target.checked
                         )
                       }
-                      className="rounded border-gray-300"
+                      className="rounded border-sam-border"
                     />
                     placeholder
                   </label>

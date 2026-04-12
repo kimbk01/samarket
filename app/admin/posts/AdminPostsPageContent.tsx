@@ -283,14 +283,14 @@ export function AdminPostsPageContent() {
     <div className="space-y-4">
       <AdminPageHeader title="게시글 목록" />
 
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+      <div className="flex flex-wrap gap-2 border-b border-sam-border pb-2">
         <button
           type="button"
           onClick={() => setTab("community")}
           className={`rounded-ui-rect px-3 py-2 text-[14px] font-medium ${
             tab === "community"
               ? "bg-signature text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
           }`}
         >
           동네·커뮤니티
@@ -301,7 +301,7 @@ export function AdminPostsPageContent() {
           className={`rounded-ui-rect px-3 py-2 text-[14px] font-medium ${
             tab === "trade"
               ? "bg-signature text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
           }`}
         >
           거래 글 (posts)
@@ -315,8 +315,8 @@ export function AdminPostsPageContent() {
       ) : null}
 
       {tab === "community" ? (
-        <p className="text-[13px] text-gray-600">
-          <code className="rounded bg-gray-100 px-1">community_posts</code> — 앱의{" "}
+        <p className="text-[13px] text-sam-muted">
+          <code className="rounded bg-sam-surface-muted px-1">community_posts</code> — 앱의{" "}
           <Link href="/philife" className="text-signature hover:underline">
             /philife
           </Link>{" "}
@@ -328,14 +328,14 @@ export function AdminPostsPageContent() {
           <strong>선택 후 DB 삭제</strong>는 행을 영구 제거합니다.
         </p>
       ) : (
-        <p className="text-[13px] text-gray-600">
-          중고거래 등 <code className="rounded bg-gray-100 px-1">posts</code> 테이블입니다.
+        <p className="text-[13px] text-sam-muted">
+          중고거래 등 <code className="rounded bg-sam-surface-muted px-1">posts</code> 테이블입니다.
         </p>
       )}
 
       {tab === "community" && !loading && communityRows.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-2">
-          <span className="text-[13px] text-gray-700">
+        <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+          <span className="text-[13px] text-sam-fg">
             선택 <strong>{selectedCommunity.size}</strong>개
           </span>
           <button
@@ -350,8 +350,8 @@ export function AdminPostsPageContent() {
       ) : null}
 
       {tab === "trade" && !loading && posts.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-gray-200 bg-gray-50 px-3 py-2">
-          <span className="text-[13px] text-gray-700">
+        <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+          <span className="text-[13px] text-sam-fg">
             선택 <strong>{selectedTrade.size}</strong>개
           </span>
           <button
@@ -366,44 +366,44 @@ export function AdminPostsPageContent() {
       ) : null}
 
       {loading ? (
-        <div className="py-12 text-center text-[14px] text-gray-500">불러오는 중…</div>
+        <div className="py-12 text-center text-[14px] text-sam-muted">불러오는 중…</div>
       ) : tab === "trade" ? (
         posts.length === 0 ? (
-          <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
             게시글이 없습니다.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+          <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
             <table className="w-full text-left text-[14px]">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="w-10 px-2 py-2 text-center font-medium text-gray-700">
+                <tr className="border-b border-sam-border bg-sam-app">
+                  <th className="w-10 px-2 py-2 text-center font-medium text-sam-fg">
                     <input
                       ref={tradeSelectAllRef}
                       type="checkbox"
                       checked={allTradeSelected}
                       onChange={(e) => toggleAllTrade(e.target.checked)}
-                      className="rounded border-gray-300"
+                      className="rounded border-sam-border"
                       title="현재 목록 전체 선택"
                       aria-label="거래 글 전체 선택"
                     />
                   </th>
-                  <th className="p-3 font-medium text-gray-700">제목</th>
-                  <th className="p-3 font-medium text-gray-700">타입</th>
-                  <th className="p-3 font-medium text-gray-700">상태</th>
-                  <th className="p-3 font-medium text-gray-700">등록일</th>
-                  <th className="p-3 font-medium text-gray-700">관리</th>
+                  <th className="p-3 font-medium text-sam-fg">제목</th>
+                  <th className="p-3 font-medium text-sam-fg">타입</th>
+                  <th className="p-3 font-medium text-sam-fg">상태</th>
+                  <th className="p-3 font-medium text-sam-fg">등록일</th>
+                  <th className="p-3 font-medium text-sam-fg">관리</th>
                 </tr>
               </thead>
               <tbody>
                 {posts.map((p) => (
-                  <tr key={p.id} className="border-b border-gray-100">
+                  <tr key={p.id} className="border-b border-sam-border-soft">
                     <td className="px-2 py-2 text-center">
                       <input
                         type="checkbox"
                         checked={selectedTrade.has(p.id)}
                         onChange={(e) => toggleTradeRow(p.id, e.target.checked)}
-                        className="rounded border-gray-300"
+                        className="rounded border-sam-border"
                         aria-label={`선택 ${p.title.slice(0, 20)}`}
                       />
                     </td>
@@ -412,14 +412,14 @@ export function AdminPostsPageContent() {
                         {p.title}
                       </Link>
                     </td>
-                    <td className="p-3 text-gray-600">{p.type}</td>
+                    <td className="p-3 text-sam-muted">{p.type}</td>
                     <td className="p-3">
                       <select
                         value={p.status}
                         onChange={(e) =>
                           handleStatusChange(p.id, e.target.value as PostWithMeta["status"])
                         }
-                        className="rounded border border-gray-300 px-2 py-1 text-[13px]"
+                        className="rounded border border-sam-border px-2 py-1 text-[13px]"
                       >
                         {STATUS_OPTIONS.map((o) => (
                           <option key={o.value} value={o.value}>
@@ -428,7 +428,7 @@ export function AdminPostsPageContent() {
                         ))}
                       </select>
                     </td>
-                    <td className="p-3 text-gray-500">{formatTimeAgo(p.created_at)}</td>
+                    <td className="p-3 text-sam-muted">{formatTimeAgo(p.created_at)}</td>
                     <td className="p-3">
                       <button
                         type="button"
@@ -452,32 +452,32 @@ export function AdminPostsPageContent() {
             </div>
           ) : null}
           {communityRows.length === 0 && !communityErr ? (
-            <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
               동네·커뮤니티 글이 없습니다.
             </div>
           ) : communityRows.length > 0 ? (
-            <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+            <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
               <table className="w-full min-w-[760px] text-left text-[14px]">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="w-10 px-2 py-2 text-center font-medium text-gray-700">
+                  <tr className="border-b border-sam-border bg-sam-app">
+                    <th className="w-10 px-2 py-2 text-center font-medium text-sam-fg">
                       <input
                         ref={communitySelectAllRef}
                         type="checkbox"
                         checked={allCommunitySelected}
                         onChange={(e) => toggleAllCommunity(e.target.checked)}
-                        className="rounded border-gray-300"
+                        className="rounded border-sam-border"
                         title="현재 목록 전체 선택"
                         aria-label="동네 글 전체 선택"
                       />
                     </th>
-                    <th className="p-3 font-medium text-gray-700">제목</th>
-                    <th className="p-3 font-medium text-gray-700">주제</th>
-                    <th className="p-3 font-medium text-gray-700">동네</th>
-                    <th className="p-3 font-medium text-gray-700">상태</th>
-                    <th className="p-3 font-medium text-gray-700">신고</th>
-                    <th className="p-3 font-medium text-gray-700">등록</th>
-                    <th className="p-3 font-medium text-gray-700">관리</th>
+                    <th className="p-3 font-medium text-sam-fg">제목</th>
+                    <th className="p-3 font-medium text-sam-fg">주제</th>
+                    <th className="p-3 font-medium text-sam-fg">동네</th>
+                    <th className="p-3 font-medium text-sam-fg">상태</th>
+                    <th className="p-3 font-medium text-sam-fg">신고</th>
+                    <th className="p-3 font-medium text-sam-fg">등록</th>
+                    <th className="p-3 font-medium text-sam-fg">관리</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -485,14 +485,14 @@ export function AdminPostsPageContent() {
                     const id = String(r.id ?? "");
                     const busy = communityBusyId === id;
                     return (
-                      <tr key={id} className="border-b border-gray-100">
+                      <tr key={id} className="border-b border-sam-border-soft">
                         <td className="px-2 py-2 text-center">
                           <input
                             type="checkbox"
                             checked={selectedCommunity.has(id)}
                             onChange={(e) => toggleCommunityRow(id, e.target.checked)}
                             disabled={bulkBusy}
-                            className="rounded border-gray-300"
+                            className="rounded border-sam-border"
                             aria-label={`선택 ${String(r.title ?? "").slice(0, 24)}`}
                           />
                         </td>
@@ -509,9 +509,9 @@ export function AdminPostsPageContent() {
                             </span>
                           ) : null}
                         </td>
-                        <td className="p-3 text-gray-600">{String(r.category ?? "—")}</td>
+                        <td className="p-3 text-sam-muted">{String(r.category ?? "—")}</td>
                         <td
-                          className="max-w-[140px] truncate p-3 text-gray-600"
+                          className="max-w-[140px] truncate p-3 text-sam-muted"
                           title={String(r.region_label ?? "")}
                         >
                           {String(r.region_label ?? "—")}
@@ -521,7 +521,7 @@ export function AdminPostsPageContent() {
                             value={String(r.status ?? "active")}
                             disabled={busy || bulkBusy}
                             onChange={(e) => void patchCommunityPost(id, e.target.value)}
-                            className="max-w-[7rem] rounded border border-gray-300 px-2 py-1 text-[13px]"
+                            className="max-w-[7rem] rounded border border-sam-border px-2 py-1 text-[13px]"
                           >
                             {COMMUNITY_STATUS_OPTIONS.map((o) => (
                               <option key={o.value} value={o.value}>
@@ -537,7 +537,7 @@ export function AdminPostsPageContent() {
                             "—"
                           )}
                         </td>
-                        <td className="whitespace-nowrap p-3 text-gray-500">
+                        <td className="whitespace-nowrap p-3 text-sam-muted">
                           {r.created_at ? formatTimeAgo(r.created_at) : "—"}
                         </td>
                         <td className="p-3">

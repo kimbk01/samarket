@@ -50,18 +50,18 @@ export function OpsKnowledgeRecommendationPanel({
 
   if (rec.items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-3">
-        <h3 className="text-[13px] font-medium text-gray-700">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+        <h3 className="text-[13px] font-medium text-sam-fg">
           {title ?? `${SOURCE_LABELS[sourceType]} 관련 문서`}
         </h3>
-        <p className="mt-2 text-[12px] text-gray-500">추천 문서가 없습니다.</p>
+        <p className="mt-2 text-[12px] text-sam-muted">추천 문서가 없습니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-ui-rect border border-gray-200 bg-white p-3">
-      <h3 className="text-[13px] font-medium text-gray-700">
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+      <h3 className="text-[13px] font-medium text-sam-fg">
         {title ?? `${SOURCE_LABELS[sourceType]} 관련 문서`}
       </h3>
       <ul className={`mt-2 space-y-1 ${compact ? "" : "space-y-2"}`}>
@@ -75,7 +75,7 @@ export function OpsKnowledgeRecommendationPanel({
               {item.title}
             </Link>
             {!compact && (
-              <p className="mt-0.5 text-[11px] text-gray-500">
+              <p className="mt-0.5 text-[11px] text-sam-muted">
                 {item.reasonLabel} · {(item.score * 100).toFixed(0)}%
               </p>
             )}

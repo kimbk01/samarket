@@ -20,7 +20,7 @@ export function AdminAppLanguagesPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-[18px] font-semibold text-gray-900">언어 목록</h1>
+        <h1 className="text-[18px] font-semibold text-sam-fg">언어 목록</h1>
         <Link
           href="/admin/app/languages/create"
           className="rounded-ui-rect bg-signature px-3 py-2 text-[14px] font-medium text-white"
@@ -29,18 +29,18 @@ export function AdminAppLanguagesPage() {
         </Link>
       </div>
       {loading ? (
-        <p className="text-gray-500">불러오는 중…</p>
+        <p className="text-sam-muted">불러오는 중…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-ui-rect bg-white p-4 text-[14px] text-gray-500">
+        <p className="rounded-ui-rect bg-sam-surface p-4 text-[14px] text-sam-muted">
           언어가 없습니다. Supabase app_supported_languages 연동 후 목록이 표시됩니다.
         </p>
       ) : (
         <ul className="space-y-2">
           {items.map((l) => (
-            <li key={l.code} className="flex items-center justify-between rounded-ui-rect bg-white p-3">
+            <li key={l.code} className="flex items-center justify-between rounded-ui-rect bg-sam-surface p-3">
               <div>
                 <span className="font-medium">{l.name}</span>
-                <span className="ml-2 text-[13px] text-gray-500">
+                <span className="ml-2 text-[13px] text-sam-muted">
                   {l.code} · {l.is_active ? "노출" : "숨김"} · 순서 {l.sort_order}
                 </span>
               </div>

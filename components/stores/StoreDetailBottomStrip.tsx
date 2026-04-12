@@ -54,16 +54,16 @@ export function StoreDetailBottomStrip({
 
   return (
     <div
-      className={`fixed left-0 right-0 z-30 border-t border-stone-200 bg-white/95 shadow-[0_-6px_24px_rgba(0,0,0,0.1)] backdrop-blur-md ${BOTTOM_NAV_STACK_ABOVE_CLASS} ${
+      className={`fixed left-0 right-0 z-30 border-t border-sam-border bg-sam-surface/95 shadow-[0_-6px_24px_rgba(0,0,0,0.1)] backdrop-blur-md ${BOTTOM_NAV_STACK_ABOVE_CLASS} ${
         hasCart ? "px-3 pt-2 pb-[max(10px,env(safe-area-inset-bottom))]" : "px-3 py-1.5 pb-[max(8px,env(safe-area-inset-bottom))]"
       }`}
     >
       <div className={`mx-auto flex max-w-lg flex-col ${hasCart ? "gap-1.5" : "gap-0.5"}`}>
         {hasCart ? (
           <>
-            <div className="flex items-center justify-between gap-2 text-[11px] text-stone-600">
-              <span className="min-w-0 truncate font-medium text-stone-700">{statusText}</span>
-              <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-700">
+            <div className="flex items-center justify-between gap-2 text-[11px] text-sam-muted">
+              <span className="min-w-0 truncate font-medium text-sam-fg">{statusText}</span>
+              <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] font-semibold text-sam-fg">
                 {modeLabel}
               </span>
             </div>
@@ -74,9 +74,9 @@ export function StoreDetailBottomStrip({
             ) : null}
           </>
         ) : (
-          <div className="flex items-center justify-between gap-2 text-[10px] text-stone-500">
+          <div className="flex items-center justify-between gap-2 text-[10px] text-sam-muted">
             <span className="min-w-0 truncate">{statusText}</span>
-            <span className="shrink-0 rounded-full bg-stone-100/90 px-1.5 py-0.5 text-[9px] font-semibold text-stone-600">
+            <span className="shrink-0 rounded-full bg-sam-surface-muted/90 px-1.5 py-0.5 text-[9px] font-semibold text-sam-muted">
               {modeLabel}
             </span>
           </div>
@@ -86,19 +86,19 @@ export function StoreDetailBottomStrip({
             <p
               className={
                 hasCart
-                  ? "text-[13px] font-semibold text-stone-800"
-                  : "text-[12px] font-medium text-stone-500"
+                  ? "text-[13px] font-semibold text-sam-fg"
+                  : "text-[12px] font-medium text-sam-muted"
               }
             >
               <span className="tabular-nums">{cartQtyTotal}</span>개 ·{" "}
               <span
-                className={`tabular-nums font-bold text-stone-900 ${hasCart ? "text-[15px]" : "text-[13px]"}`}
+                className={`tabular-nums font-bold text-sam-fg ${hasCart ? "text-[15px]" : "text-[13px]"}`}
               >
                 {formatMoneyPhp(cartTotalPhp)}
               </span>
             </p>
             {hasCart ? null : (
-              <p className="mt-0.5 text-[10px] text-stone-400">메뉴에서 담기</p>
+              <p className="mt-0.5 text-[10px] text-sam-meta">메뉴에서 담기</p>
             )}
           </div>
           <Link
@@ -106,7 +106,7 @@ export function StoreDetailBottomStrip({
             className={
               hasCart
                 ? "flex shrink-0 items-center gap-2 rounded-ui-rect bg-signature px-5 py-3 text-[15px] font-bold text-white shadow-md ring-2 ring-signature/25 active:bg-signature/90"
-                : "flex shrink-0 items-center gap-1.5 rounded-ui-rect border border-stone-200 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-600 active:bg-stone-100"
+                : "flex shrink-0 items-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[12px] font-semibold text-sam-muted active:bg-sam-surface-muted"
             }
             aria-label={hasCart ? "주문 확인으로 이동" : "장바구니로 이동"}
           >

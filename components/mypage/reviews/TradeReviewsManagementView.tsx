@@ -79,43 +79,43 @@ function ReceivedReviewCard({ it, currency }: { it: MyReceivedReviewItem; curren
       : "/mypage/purchases";
 
   return (
-    <li className="overflow-hidden rounded-ui-rect border border-gray-100 bg-white shadow-sm">
+    <li className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
       <div className="flex gap-2 p-3">
         <Link href={detailHref} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {it.thumbnail ? (
               <img src={it.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full items-center justify-center text-[11px] text-gray-400">이미지</div>
+              <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-2 text-[14px] font-medium text-gray-900">{it.title || "상품"}</p>
-            <p className="mt-0.5 text-[15px] font-bold text-gray-900">{formatPrice(it.price, currency)}</p>
-            <p className="mt-0.5 truncate text-[12px] text-gray-600">
+            <p className="line-clamp-2 text-[14px] font-medium text-sam-fg">{it.title || "상품"}</p>
+            <p className="mt-0.5 text-[15px] font-bold text-sam-fg">{formatPrice(it.price, currency)}</p>
+            <p className="mt-0.5 truncate text-[12px] text-sam-muted">
               {counterpartyLabel} {it.reviewerNickname}
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-800">
+              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
                 {PUBLIC_LABELS[it.publicReviewType] ?? it.publicReviewType}
               </span>
               {it.isAnonymousNegative ? (
-                <span className="rounded-ui-rect bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">익명 표시</span>
+                <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[10px] text-sam-muted">익명 표시</span>
               ) : null}
             </div>
             {tags ? (
-              <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-gray-600">{tags}</p>
+              <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-sam-muted">{tags}</p>
             ) : null}
             {it.comment ? (
-              <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-[12px] text-gray-700">{it.comment}</p>
+              <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-[12px] text-sam-fg">{it.comment}</p>
             ) : null}
-            <p className="mt-1.5 text-[11px] text-gray-400">
+            <p className="mt-1.5 text-[11px] text-sam-meta">
               받은 날짜 {new Date(it.createdAt).toLocaleString("ko-KR")}
             </p>
           </div>
         </Link>
       </div>
-      <div className="flex gap-2 border-t border-gray-50 px-3 py-2">
+      <div className="flex gap-2 border-t border-sam-border-soft px-3 py-2">
         {it.roomId ? (
           <Link
             href={`${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(it.roomId)}`}
@@ -237,16 +237,16 @@ export function TradeReviewsManagementView({
   if (!mounted) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-        <p className="mt-3 text-[14px] text-gray-500">불러오는 중…</p>
+        <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
+        <p className="mt-3 text-[14px] text-sam-muted">불러오는 중…</p>
       </div>
     );
   }
 
   if (!viewerId) {
     return (
-      <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-8 text-center">
-        <p className="text-[14px] text-gray-600">로그인하면 거래 후기를 모아 볼 수 있어요.</p>
+      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-8 text-center">
+        <p className="text-[14px] text-sam-muted">로그인하면 거래 후기를 모아 볼 수 있어요.</p>
         <a href="/mypage/account" className="mt-4 inline-block text-[14px] font-medium text-signature">
           로그인
         </a>
@@ -255,7 +255,7 @@ export function TradeReviewsManagementView({
   }
 
   if (loading) {
-    return <p className="py-10 text-center text-[14px] text-gray-500">불러오는 중…</p>;
+    return <p className="py-10 text-center text-[14px] text-sam-muted">불러오는 중…</p>;
   }
 
   return (
@@ -264,7 +264,7 @@ export function TradeReviewsManagementView({
 
       {tab === "received" ? (
         received.length === 0 ? (
-          <p className="py-10 text-center text-[14px] text-gray-500">아직 받은 거래 후기가 없어요.</p>
+          <p className="py-10 text-center text-[14px] text-sam-muted">아직 받은 거래 후기가 없어요.</p>
         ) : (
           <ul className="space-y-2">
             {received.map((it) => (
@@ -278,13 +278,13 @@ export function TradeReviewsManagementView({
 
       {tab === "pending" ? (
         pendingPurchases.length === 0 && pendingSales.length === 0 ? (
-          <p className="py-10 text-center text-[14px] text-gray-500">후기를 남기거나 받을 차례인 거래가 없어요.</p>
+          <p className="py-10 text-center text-[14px] text-sam-muted">후기를 남기거나 받을 차례인 거래가 없어요.</p>
         ) : (
           <div className="space-y-6">
             {pendingPurchases.length > 0 ? (
               <div>
-                <h4 className="text-[14px] font-semibold text-gray-900">구매 거래 — 후기 작성</h4>
-                <p className="mt-0.5 text-[12px] text-gray-500">거래 완료 확인 후 판매자에게 후기를 남길 수 있어요.</p>
+                <h4 className="text-[14px] font-semibold text-sam-fg">구매 거래 — 후기 작성</h4>
+                <p className="mt-0.5 text-[12px] text-sam-muted">거래 완료 확인 후 판매자에게 후기를 남길 수 있어요.</p>
                 <ul className="mt-3 space-y-2">
                   {pendingPurchases.map((row) => (
                     <PurchaseHistoryCard
@@ -299,9 +299,9 @@ export function TradeReviewsManagementView({
               </div>
             ) : null}
             {pendingSales.length > 0 ? (
-              <div className={pendingPurchases.length > 0 ? "border-t border-gray-100 pt-6" : ""}>
-                <h4 className="text-[14px] font-semibold text-gray-900">판매 거래 — 구매자 후기 대기</h4>
-                <p className="mt-0.5 text-[12px] text-gray-500">구매자가 후기를 남기면 여기에서 상태를 확인할 수 있어요.</p>
+              <div className={pendingPurchases.length > 0 ? "border-t border-sam-border-soft pt-6" : ""}>
+                <h4 className="text-[14px] font-semibold text-sam-fg">판매 거래 — 구매자 후기 대기</h4>
+                <p className="mt-0.5 text-[12px] text-sam-muted">구매자가 후기를 남기면 여기에서 상태를 확인할 수 있어요.</p>
                 <ul className="mt-3 space-y-2">
                   {pendingSales.map((row) => (
                     <SalesHistoryCard
@@ -320,9 +320,9 @@ export function TradeReviewsManagementView({
       ) : null}
 
       {tab === "hidden_review" ? (
-        <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-8 text-center">
-          <p className="text-[14px] text-gray-600">현재 사용자 화면에 표시할 숨김 후기 내역이 없습니다.</p>
-          <p className="mt-2 text-[12px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-8 text-center">
+          <p className="text-[14px] text-sam-muted">현재 사용자 화면에 표시할 숨김 후기 내역이 없습니다.</p>
+          <p className="mt-2 text-[12px] text-sam-muted">
             후기 노출 제어가 발생한 경우 이 영역에서 상태를 함께 확인할 수 있도록 유지됩니다.
           </p>
         </div>

@@ -183,7 +183,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] text-amber-950">
             {loadErr}
             <p className="mt-2 text-[12px] text-amber-900/90">
-              Supabase에 <code className="rounded bg-white/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
+              Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
               확인해 주세요.
             </p>
           </div>
@@ -191,11 +191,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
         <div>
           {list.length === 0 && !loadErr ? (
-            <p className="rounded-ui-rect border border-dashed border-gray-200 bg-white py-8 text-center text-[13px] text-gray-500">
+            <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center text-[13px] text-sam-muted">
               {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
             </p>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-sam-border-soft">
               {list.map((row) => (
                 <AddressRowCard
                   key={row.id}
@@ -213,7 +213,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <button
           type="button"
           onClick={openCreate}
-          className="w-full rounded-ui-rect border border-gray-900 bg-white py-3.5 text-[14px] font-semibold text-gray-900"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-3.5 text-[14px] font-semibold text-sam-fg"
         >
           {tt("+ 주소 추가")}
         </button>

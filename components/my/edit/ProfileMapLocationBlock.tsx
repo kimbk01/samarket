@@ -91,7 +91,7 @@ export function ProfileMapLocationBlock({ addresses, listError }: Props) {
       <button
         type="button"
         onClick={() => router.push("/mypage/addresses")}
-        className="w-full rounded-ui-rect border border-gray-900 bg-ui-surface py-3.5 text-[14px] font-semibold text-ui-fg"
+        className="w-full rounded-ui-rect border border-sam-border bg-ui-surface py-3.5 text-[14px] font-semibold text-ui-fg"
       >
         주소 관리
       </button>

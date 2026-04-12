@@ -14,7 +14,7 @@ export function MemberBenefitList({
 }: MemberBenefitListProps) {
   if (policies.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-white p-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
         {emptyMessage}
       </div>
     );

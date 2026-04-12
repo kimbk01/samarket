@@ -31,13 +31,13 @@ export function QaTestCaseTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">상태</span>
+        <span className="text-[13px] text-sam-muted">상태</span>
         <select
           value={status}
           onChange={(e) =>
             setStatus((e.target.value || "") as QaTestCaseStatus | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="not_started">미실행</option>
@@ -46,13 +46,13 @@ export function QaTestCaseTable() {
           <option value="failed">실패</option>
           <option value="blocked">차단</option>
         </select>
-        <span className="text-[13px] text-gray-600">환경</span>
+        <span className="text-[13px] text-sam-muted">환경</span>
         <select
           value={environment}
           onChange={(e) =>
             setEnvironment((e.target.value || "") as QaTestEnvironment | "")
           }
-          className="rounded border border-gray-200 px-3 py-1.5 text-[13px] text-gray-700"
+          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
         >
           <option value="">전체</option>
           <option value="local">Local</option>
@@ -62,7 +62,7 @@ export function QaTestCaseTable() {
       </div>
 
       {cases.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           테스트 케이스가 없습니다.
         </div>
       ) : (
@@ -82,7 +82,7 @@ export function QaTestCaseTable() {
           {cases.map((c) => (
             <tr
               key={c.id}
-              className={`border-b border-gray-100 ${
+              className={`border-b border-sam-border-soft ${
                 c.isMustPass && (c.status === "failed" || c.status === "blocked")
                   ? "bg-red-50/30"
                   : c.status === "failed" || c.status === "blocked"
@@ -90,7 +90,7 @@ export function QaTestCaseTable() {
                     : ""
               }`}
             >
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {c.title}
               </td>
               <td className="px-3 py-2.5">
@@ -102,13 +102,13 @@ export function QaTestCaseTable() {
                         ? "bg-red-100 text-red-800"
                         : c.status === "blocked"
                           ? "bg-amber-100 text-amber-800"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {getCaseStatusLabel(c.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getPriorityLabel(c.priority)}
               </td>
               <td className="px-3 py-2.5">
@@ -120,21 +120,21 @@ export function QaTestCaseTable() {
                   "-"
                 )}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {c.ownerAdminNickname ?? "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {c.executedAt
                   ? new Date(c.executedAt).toLocaleString()
                   : "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getEnvLabel(c.environment)}
               </td>
-              <td className="max-w-[160px] px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="max-w-[160px] px-3 py-2.5 text-[13px] text-sam-muted">
                 {c.failureNote || c.blockerReason || "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {c.linkedType && c.linkedId ? (
                   c.linkedType === "readiness_item" ? (
                     <Link

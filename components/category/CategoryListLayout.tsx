@@ -137,7 +137,7 @@ export function CategoryListLayout({
 
   if (status === "loading") {
     return (
-      <div className="min-h-[200px] flex items-center justify-center text-[14px] text-gray-500">
+      <div className="min-h-[200px] flex items-center justify-center text-[14px] text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -147,7 +147,7 @@ export function CategoryListLayout({
     if (status === "not_found") {
       return (
         <div className={`${APP_MAIN_GUTTER_X_CLASS} py-8 text-center`}>
-          <p className="text-[15px] font-medium text-gray-700">카테고리를 찾을 수 없습니다.</p>
+          <p className="text-[15px] font-medium text-sam-fg">카테고리를 찾을 수 없습니다.</p>
           <div className="mt-4 flex justify-center">
             <AppBackButton />
           </div>
@@ -163,7 +163,7 @@ export function CategoryListLayout({
   const tradeInnerY = expectedType === "trade" ? "pt-0 pb-4" : "py-4";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-sam-app">
       <div className={`${APP_MAIN_GUTTER_X_CLASS} ${tradeInnerY}`}>
         {children(category, {
           tradeBootstrapChildren: expectedType === "trade" ? tradeBootstrapChildren : undefined,

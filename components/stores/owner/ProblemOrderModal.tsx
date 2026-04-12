@@ -17,17 +17,17 @@ export function ProblemOrderModal({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 sm:items-center">
-      <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] bg-white p-4 shadow-xl sm:rounded-ui-rect">
-        <h2 className="text-base font-bold text-gray-900">문제 주문 처리</h2>
-        <p className="mt-2 text-xs text-gray-600">
+      <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface p-4 shadow-xl sm:rounded-ui-rect">
+        <h2 className="text-base font-bold text-sam-fg">문제 주문 처리</h2>
+        <p className="mt-2 text-xs text-sam-muted">
           관리자 검토용 메모가 저장됩니다. (샘플: 주문 상태가 환불 요청으로 바뀝니다.)
         </p>
-        <label className="mt-3 block text-xs font-medium text-gray-600">관리자 전달 메모 (필수)</label>
+        <label className="mt-3 block text-xs font-medium text-sam-muted">관리자 전달 메모 (필수)</label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
-          className="mt-1 w-full rounded-ui-rect border border-gray-200 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
           placeholder="예: 라이더 연락 두절, 고객 분쟁 등"
         />
         <div className="mt-4 flex justify-end gap-2">
@@ -37,7 +37,7 @@ export function ProblemOrderModal({
               setText("");
               onClose();
             }}
-            className="rounded-ui-rect border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700"
+            className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg"
           >
             취소
           </button>
@@ -49,7 +49,7 @@ export function ProblemOrderModal({
               setText("");
               onClose();
             }}
-            className="rounded-ui-rect bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-semibold text-white"
           >
             접수
           </button>

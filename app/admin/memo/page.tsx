@@ -14,29 +14,29 @@ function MemoList({
   sectionLabel: string;
 }) {
   return (
-    <section className="rounded-ui-rect border border-gray-200 bg-white p-5">
-      <h2 className="mb-3 text-[15px] font-medium text-gray-800">
+    <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-5">
+      <h2 className="mb-3 text-[15px] font-medium text-sam-fg">
         {sectionLabel}
       </h2>
       {items.length === 0 ? (
-        <p className="text-[14px] text-gray-500">등록된 항목이 없습니다.</p>
+        <p className="text-[14px] text-sam-muted">등록된 항목이 없습니다.</p>
       ) : (
         <ul className="space-y-3">
           {items.map((item) => (
             <li
               key={item.id}
               className={`flex items-start gap-3 text-[14px] ${
-                item.applied ? "text-gray-500" : "text-gray-800"
+                item.applied ? "text-sam-muted" : "text-sam-fg"
               }`}
             >
               <span
-                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-gray-300 bg-white"
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-sam-border bg-sam-surface"
                 aria-hidden
               >
                 {item.applied ? (
                   <span className="text-signature">✓</span>
                 ) : (
-                  <span className="text-gray-300">□</span>
+                  <span className="text-sam-meta">□</span>
                 )}
               </span>
               <span className={item.applied ? "line-through" : ""}>
@@ -59,8 +59,8 @@ export default function AdminMemoPage() {
   return (
     <div className="space-y-8 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">실서비스 메모</h1>
-        <p className="mt-1 text-[13px] text-gray-500">
+        <h1 className="text-xl font-semibold text-sam-fg">실서비스 메모</h1>
+        <p className="mt-1 text-[13px] text-sam-muted">
           테스트 기간 수동 적용 항목·실서비스 전 처리 목록. 적용 시 대화에서
           &quot;N번 적용해줘&quot; 요청하면 코드 반영 후 체크 표시해 드립니다.
         </p>

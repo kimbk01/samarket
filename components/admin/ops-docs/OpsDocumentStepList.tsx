@@ -33,7 +33,7 @@ export function OpsDocumentStepList({ documentId }: OpsDocumentStepListProps) {
 
   if (steps.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
         등록된 단계가 없습니다.
       </div>
     );
@@ -44,28 +44,28 @@ export function OpsDocumentStepList({ documentId }: OpsDocumentStepListProps) {
       {steps.map((s, idx) => (
         <li
           key={s.id}
-          className="flex gap-3 rounded-ui-rect border border-gray-200 bg-white p-4"
+          className="flex gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-medium text-gray-700">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-[14px] font-medium text-sam-fg">
             {s.stepOrder}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">{s.title}</span>
+              <span className="font-medium text-sam-fg">{s.title}</span>
               {s.isRequired && (
                 <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800">
                   필수
                 </span>
               )}
               {s.estimatedMinutes != null && (
-                <span className="text-[12px] text-gray-500">
+                <span className="text-[12px] text-sam-muted">
                   약 {s.estimatedMinutes}분
                 </span>
               )}
             </div>
-            <p className="mt-1 text-[13px] text-gray-600">{s.description}</p>
+            <p className="mt-1 text-[13px] text-sam-muted">{s.description}</p>
             {s.linkedType && (
-              <p className="mt-2 text-[12px] text-gray-500">
+              <p className="mt-2 text-[12px] text-sam-muted">
                 연결: {LINKED_TYPE_LABELS[s.linkedType]}
                 {s.linkedId && (
                   <>

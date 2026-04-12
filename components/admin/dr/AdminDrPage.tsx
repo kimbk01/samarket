@@ -15,7 +15,7 @@ export function AdminDrPage() {
         >
           리허설 실행 (mock)
         </button>
-        <span className="text-[12px] text-gray-500">
+        <span className="text-[12px] text-sam-muted">
           시나리오 선택 후 상세에서 단계별 실행
         </span>
       </div>

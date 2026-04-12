@@ -45,7 +45,7 @@ export function AdminOrderChatPageClient({ orderId }: { orderId: string }) {
     return (
       <div className="p-6">
         <AdminPageHeader title="주문 채팅" backHref="/admin/order-chats" />
-        <p className="text-sm text-gray-600">주문을 찾을 수 없습니다.</p>
+        <p className="text-sm text-sam-muted">주문을 찾을 수 없습니다.</p>
       </div>
     );
   }
@@ -59,12 +59,12 @@ export function AdminOrderChatPageClient({ orderId }: { orderId: string }) {
         <Link href={`/admin/delivery-orders/${orderId}`} className="text-signature underline">
           주문 상세로
         </Link>
-        <Link href="/admin/order-chats" className="text-gray-600 underline">
+        <Link href="/admin/order-chats" className="text-sam-muted underline">
           채팅 목록
         </Link>
       </div>
       <ChatHubTopTabs active="order" orderChatsHref="/admin/order-chats" />
-      <div className="mx-auto max-w-lg overflow-hidden rounded-ui-rect border border-gray-200 bg-[#eceef2] shadow-sm">
+      <div className="mx-auto max-w-lg overflow-hidden rounded-ui-rect border border-sam-border bg-[#eceef2] shadow-sm">
         <OrderChatProgressStrip orderStatus={order.order_status} orderFlow={flow} />
         <OrderChatHeader
           sticky={false}
@@ -75,18 +75,18 @@ export function AdminOrderChatPageClient({ orderId }: { orderId: string }) {
         <div className="max-h-[50vh] overflow-y-auto">
           <OrderChatMessageList messages={messages} perspective="admin" />
         </div>
-        <div className="border-t border-gray-200 bg-white p-3">
-          <p className="text-xs font-medium text-gray-600">관리자 빠른 입력</p>
+        <div className="border-t border-sam-border bg-sam-surface p-3">
+          <p className="text-xs font-medium text-sam-muted">관리자 빠른 입력</p>
           <div className="mt-2 flex gap-2">
             <input
-              className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm"
+              className="min-w-0 flex-1 rounded border border-sam-border px-2 py-1.5 text-sm"
               value={adminLine}
               onChange={(e) => setAdminLine(e.target.value)}
               placeholder="분쟁 확인중입니다"
             />
             <button
               type="button"
-              className="rounded-ui-rect bg-gray-900 px-3 py-1.5 text-xs font-bold text-white"
+              className="rounded-ui-rect bg-sam-ink px-3 py-1.5 text-xs font-bold text-white"
               onClick={() => {
                 if (!adminLine.trim()) return;
                 sendOrderChatFromAdmin(order, adminLine.trim(), false);

@@ -53,21 +53,21 @@ export function MemberOrderStepper({ order }: { order: MemberOrder }) {
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
                   done
                     ? current
-                      ? "bg-gray-900 text-white ring-2 ring-gray-900 ring-offset-2"
-                      : "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-400"
+                      ? "bg-sam-ink text-white ring-2 ring-sam-border ring-offset-2"
+                      : "bg-sam-ink text-white"
+                    : "bg-sam-surface-muted text-sam-meta"
                 }`}
               >
                 {i + 1}
               </div>
-              <span className="hidden text-center text-[9px] font-medium text-gray-600 sm:block">
+              <span className="hidden text-center text-[9px] font-medium text-sam-muted sm:block">
                 {MEMBER_STATUS_USER_MESSAGE[key as keyof typeof MEMBER_STATUS_USER_MESSAGE]}
               </span>
             </div>
           );
         })}
       </div>
-      <p className="text-center text-sm font-semibold text-gray-900">
+      <p className="text-center text-sm font-semibold text-sam-fg">
         {MEMBER_STATUS_USER_MESSAGE[order.order_status]}
       </p>
     </div>

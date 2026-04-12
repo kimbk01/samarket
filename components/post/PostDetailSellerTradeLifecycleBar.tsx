@@ -23,7 +23,7 @@ import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
 import { SELLER_LISTING_LABEL, type SellerListingState } from "@/lib/products/seller-listing-state";
 
 const BTN =
-  "rounded-ui-rect border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50";
+  "rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[12px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50";
 const BTN_PRIMARY = "rounded-ui-rect bg-signature px-2.5 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50";
 const BTN_DANGER = "rounded-ui-rect border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] font-medium text-red-700 hover:bg-red-100 disabled:opacity-50";
 
@@ -223,7 +223,7 @@ export function PostDetailSellerTradeLifecycleBar({
   };
 
   if (lifecycle === "hidden") {
-    return <p className="text-center text-[11px] text-gray-500">숨김 처리된 글입니다.</p>;
+    return <p className="text-center text-[11px] text-sam-muted">숨김 처리된 글입니다.</p>;
   }
 
   const row = (children: ReactNode) => (

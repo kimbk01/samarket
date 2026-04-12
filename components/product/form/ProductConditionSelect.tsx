@@ -13,8 +13,8 @@ export function ProductConditionSelect({
   onChange,
 }: ProductConditionSelectProps) {
   return (
-    <section className="border-b border-gray-100 bg-white px-4 py-4">
-      <p className="mb-2 text-[14px] font-medium text-gray-800">상품 상태</p>
+    <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+      <p className="mb-2 text-[14px] font-medium text-sam-fg">상품 상태</p>
       <div className="flex flex-wrap gap-2">
         {CONDITIONS.map((c) => (
           <button
@@ -24,7 +24,7 @@ export function ProductConditionSelect({
             className={`rounded-ui-rect border px-3 py-2 text-[14px] ${
               value === c.value
                 ? "border-signature bg-signature/10 text-signature"
-                : "border-gray-300 text-gray-600"
+                : "border-sam-border text-sam-muted"
             }`}
           >
             {c.label}

@@ -16,7 +16,7 @@ export function StoreReportPageClient({
   if (!safeSlug) {
     return (
       <div className="min-h-screen bg-[#F7F7F7] p-4">
-        <p className="text-sm text-gray-600">잘못된 주소입니다.</p>
+        <p className="text-sm text-sam-muted">잘못된 주소입니다.</p>
       </div>
     );
   }
@@ -24,11 +24,11 @@ export function StoreReportPageClient({
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
       <header className={`${STORE_DETAIL_SUBHEADER_STICKY} flex items-center justify-center px-4 py-2.5`}>
-        <h1 className="truncate text-center text-[16px] font-semibold text-gray-900">
+        <h1 className="truncate text-center text-[16px] font-semibold text-sam-fg">
           {mode === "product" ? "상품 신고" : "매장 신고"}
         </h1>
       </header>
-      <div className="mx-4 mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="mx-4 mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <StoreReportForm storeSlug={safeSlug} mode={mode} productId={productId} />
       </div>
     </div>

@@ -57,14 +57,14 @@ export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormPr
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-5 pb-10 pt-5 shadow-2xl">
+      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-10 pt-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[17px] font-bold text-gray-900">포인트 충전 신청</h2>
-          <button type="button" onClick={onClose} className="text-[13px] text-gray-500">닫기</button>
+          <h2 className="text-[17px] font-bold text-sam-fg">포인트 충전 신청</h2>
+          <button type="button" onClick={onClose} className="text-[13px] text-sam-muted">닫기</button>
         </div>
 
         {/* 플랜 선택 */}
-        <p className="mb-2 text-[13px] font-semibold text-gray-700">충전 플랜 선택</p>
+        <p className="mb-2 text-[13px] font-semibold text-sam-fg">충전 플랜 선택</p>
         <div className="mb-4 space-y-2">
           {plans.map((plan) => {
             const total = plan.pointAmount + (plan.bonusPointAmount ?? 0);
@@ -75,19 +75,19 @@ export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormPr
                 type="button"
                 onClick={() => setSelectedPlanId(plan.id)}
                 className={`w-full rounded-ui-rect border px-4 py-3 text-left transition-colors ${
-                  isSelected ? "border-sky-400 bg-sky-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                  isSelected ? "border-sky-400 bg-sky-50" : "border-sam-border bg-sam-surface hover:bg-sam-app"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[14px] font-semibold text-gray-900">{plan.name}</p>
+                    <p className="text-[14px] font-semibold text-sam-fg">{plan.name}</p>
                     {plan.description ? (
-                      <p className="mt-0.5 text-[12px] text-gray-500">{plan.description}</p>
+                      <p className="mt-0.5 text-[12px] text-sam-muted">{plan.description}</p>
                     ) : null}
                   </div>
                   <div className="text-right">
                     <p className="text-[15px] font-bold text-sky-700">{total.toLocaleString()}P</p>
-                    <p className="text-[12px] text-gray-500">₱{plan.paymentAmount.toLocaleString()}</p>
+                    <p className="text-[12px] text-sam-muted">₱{plan.paymentAmount.toLocaleString()}</p>
                     {(plan.bonusPointAmount ?? 0) > 0 && (
                       <p className="text-[11px] text-emerald-600">+{plan.bonusPointAmount}P 보너스</p>
                     )}
@@ -99,7 +99,7 @@ export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormPr
         </div>
 
         {/* 결제 방식 */}
-        <p className="mb-2 text-[13px] font-semibold text-gray-700">결제 방식</p>
+        <p className="mb-2 text-[13px] font-semibold text-sam-fg">결제 방식</p>
         <div className="mb-4 flex gap-2">
           {(["manual_confirm", "bank_transfer"] as PointPaymentMethod[]).map((m) => (
             <button
@@ -109,7 +109,7 @@ export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormPr
               className={`flex-1 rounded-ui-rect border py-2.5 text-[13px] font-medium transition-colors ${
                 paymentMethod === m
                   ? "border-sky-400 bg-sky-50 text-sky-800"
-                  : "border-gray-200 bg-white text-gray-700"
+                  : "border-sam-border bg-sam-surface text-sam-fg"
               }`}
             >
               {METHOD_LABELS[m] ?? m}
@@ -130,21 +130,21 @@ export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormPr
               value={depositorName}
               onChange={(e) => setDepositorName(e.target.value)}
               placeholder="입금자명 (필수)"
-              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
             />
             <input
               type="text"
               value={userMemo}
               onChange={(e) => setUserMemo(e.target.value)}
               placeholder="메모 (선택)"
-              className="w-full rounded-ui-rect border border-gray-200 px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] outline-none focus:border-sky-300"
             />
           </div>
         )}
 
         {selectedPlan && (
-          <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-gray-50 px-3 py-2.5 text-[13px]">
-            <span className="text-gray-700">충전 포인트</span>
+          <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sam-app px-3 py-2.5 text-[13px]">
+            <span className="text-sam-fg">충전 포인트</span>
             <span className="text-[16px] font-bold text-sky-700">{totalPoint.toLocaleString()}P</span>
           </div>
         )}

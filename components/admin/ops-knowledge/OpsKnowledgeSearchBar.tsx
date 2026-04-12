@@ -41,7 +41,7 @@ export function OpsKnowledgeSearchBar({
   onSearch,
 }: OpsKnowledgeSearchBarProps) {
   return (
-    <div className="space-y-3 rounded-ui-rect border border-gray-200 bg-white p-4">
+    <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex flex-wrap gap-2">
         <input
           type="search"
@@ -49,7 +49,7 @@ export function OpsKnowledgeSearchBar({
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onSearch()}
           placeholder="제목·요약·태그 검색 (자동완성 placeholder)"
-          className="min-w-[240px] flex-1 rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="min-w-[240px] flex-1 rounded border border-sam-border px-3 py-2 text-[14px]"
         />
         <button
           type="button"
@@ -65,7 +65,7 @@ export function OpsKnowledgeSearchBar({
           onChange={(e) =>
             onFiltersChange({ ...filters, docType: (e.target.value || undefined) as OpsKnowledgeDocType | undefined })
           }
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {DOC_TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -76,7 +76,7 @@ export function OpsKnowledgeSearchBar({
           onChange={(e) =>
             onFiltersChange({ ...filters, category: (e.target.value || undefined) as OpsKnowledgeCategory | undefined })
           }
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {CATEGORY_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>

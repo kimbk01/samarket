@@ -48,33 +48,33 @@ export function AlertRuleTable() {
 
   if (rules.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         알림 규칙이 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               surface
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               지표
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               조건
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               심각도
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               채널
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               사용
             </th>
           </tr>
@@ -83,15 +83,15 @@ export function AlertRuleTable() {
           {rules.map((r) => (
             <tr
               key={r.id}
-              className="border-b border-gray-100 hover:bg-gray-50"
+              className="border-b border-sam-border-soft hover:bg-sam-app"
             >
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {SURFACE_LABELS[r.surface]}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {METRIC_LABELS[r.metricKey]}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {COMPARATOR_LABELS[r.comparator]} {r.thresholdValue}
               </td>
               <td className="px-3 py-2.5">
@@ -105,7 +105,7 @@ export function AlertRuleTable() {
                   {SEVERITY_LABELS[r.severity]}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {CHANNEL_LABELS[r.channel]}
               </td>
               <td className="px-3 py-2.5">
@@ -115,7 +115,7 @@ export function AlertRuleTable() {
                   className={`rounded border px-2 py-1 text-[13px] ${
                     r.isActive
                       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-gray-200 bg-gray-100 text-gray-600"
+                      : "border-sam-border bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {r.isActive ? "ON" : "OFF"}

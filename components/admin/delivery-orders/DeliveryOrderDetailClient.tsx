@@ -47,7 +47,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
     return (
       <div className="p-6">
         <AdminPageHeader title="주문 상세" backHref="/admin/delivery-orders" />
-        <p className="text-sm text-gray-600">주문을 찾을 수 없습니다.</p>
+        <p className="text-sm text-sam-muted">주문을 찾을 수 없습니다.</p>
       </div>
     );
   }
@@ -92,7 +92,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         >
           채팅 열람
         </Link>
-        <span className="text-gray-500"> · 주문방 대화·시스템 메시지 (시뮬)</span>
+        <span className="text-sam-muted"> · 주문방 대화·시스템 메시지 (시뮬)</span>
       </p>
 
       <AdminCard title="기본 정보">
@@ -110,27 +110,27 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
       <AdminCard title="상태 정보">
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-gray-500">결제상태</dt>
+            <dt className="text-sam-muted">결제상태</dt>
             <dd>
               <PaymentStatusBadge status={order.paymentStatus} />
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">주문상태</dt>
+            <dt className="text-sam-muted">주문상태</dt>
             <dd>
               <OrderStatusBadge status={order.orderStatus} />
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">취소 상태</dt>
+            <dt className="text-sam-muted">취소 상태</dt>
             <dd>{cancelState}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">환불 상태</dt>
+            <dt className="text-sam-muted">환불 상태</dt>
             <dd>{refundState}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">정산상태</dt>
+            <dt className="text-sam-muted">정산상태</dt>
             <dd>
               <SettlementStatusBadge status={order.settlementStatus} />
             </dd>
@@ -141,18 +141,18 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
       {(order.cancelRequest || order.refundRequest) && (
         <AdminCard title="취소·환불 요청">
           {order.cancelRequest ? (
-            <div className="mb-3 rounded border border-gray-100 p-2 text-sm">
+            <div className="mb-3 rounded border border-sam-border-soft p-2 text-sm">
               <p className="font-semibold">취소 요청 ({order.cancelRequest.status})</p>
-              <p className="text-xs text-gray-500">{order.cancelRequest.requestedAt}</p>
+              <p className="text-xs text-sam-muted">{order.cancelRequest.requestedAt}</p>
               <p className="mt-1">{order.cancelRequest.reason}</p>
             </div>
           ) : null}
           {order.refundRequest ? (
-            <div className="rounded border border-gray-100 p-2 text-sm">
+            <div className="rounded border border-sam-border-soft p-2 text-sm">
               <p className="font-semibold">
                 환불 요청 ({order.refundRequest.status}) · {order.refundRequest.requestedBy}
               </p>
-              <p className="text-xs text-gray-500">{order.refundRequest.requestedAt}</p>
+              <p className="text-xs text-sam-muted">{order.refundRequest.requestedAt}</p>
               <p className="mt-1">{order.refundRequest.reason}</p>
             </div>
           ) : null}
@@ -170,11 +170,11 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         <AdminCard title="정산">
           <dl className="text-sm">
             <div className="flex justify-between">
-              <dt className="text-gray-500">총매출</dt>
+              <dt className="text-sam-muted">총매출</dt>
               <dd>{formatMoneyPhp(order.settlement.grossAmount)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-500">수수료</dt>
+              <dt className="text-sam-muted">수수료</dt>
               <dd>{formatMoneyPhp(order.settlement.feeAmount)}</dd>
             </div>
             <div className="flex justify-between font-semibold">
@@ -182,7 +182,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
               <dd>{formatMoneyPhp(order.settlement.settlementAmount)}</dd>
             </div>
             {order.settlement.scheduledDate ? (
-              <p className="mt-1 text-xs text-gray-500">예정일: {order.settlement.scheduledDate}</p>
+              <p className="mt-1 text-xs text-sam-muted">예정일: {order.settlement.scheduledDate}</p>
             ) : null}
             {order.settlement.holdReason ? (
               <p className="mt-2 rounded bg-orange-50 px-2 py-1 text-xs text-orange-900">
@@ -200,16 +200,16 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
           ) : null}
           {order.disputeMemo ? (
             <p className="mt-2 text-sm">
-              <span className="text-gray-500">분쟁 메모: </span>
+              <span className="text-sam-muted">분쟁 메모: </span>
               {order.disputeMemo}
             </p>
           ) : null}
           {orderReports.length > 0 ? (
             <ul className="mt-2 space-y-2 text-sm">
               {orderReports.map((r) => (
-                <li key={r.id} className="rounded border border-gray-100 p-2">
+                <li key={r.id} className="rounded border border-sam-border-soft p-2">
                   <span className="font-mono text-xs">{r.id}</span> · {r.reportType} · {r.status}
-                  <p className="text-xs text-gray-600">{r.content}</p>
+                  <p className="text-xs text-sam-muted">{r.content}</p>
                 </li>
               ))}
             </ul>
@@ -240,7 +240,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         <AdminOrderTimeline logs={logs} />
       </AdminCard>
 
-      <p className="text-center text-xs text-gray-400">
+      <p className="text-center text-xs text-sam-meta">
         프론트 mock · 실DB 시 order_status_logs / store_settlements 와 동기화
       </p>
       <div className="text-center text-sm">

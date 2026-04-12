@@ -26,12 +26,12 @@ import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 
 /** 주문 카드 본문 — 매장 관리 폼과 동일 계열(14px 라벨/본문) */
-const OC_LBL = "text-[14px] font-medium leading-snug text-gray-600";
+const OC_LBL = "text-[14px] font-medium leading-snug text-sam-muted";
 const OC_TX =
-  "text-[14px] font-normal leading-normal text-gray-900 [overflow-wrap:anywhere] [word-break:break-word]";
+  "text-[14px] font-normal leading-normal text-sam-fg [overflow-wrap:anywhere] [word-break:break-word]";
 const OC_TX_MUTED =
-  "text-[14px] font-normal leading-normal text-gray-500 [overflow-wrap:anywhere] [word-break:break-word]";
-const OC_TX_SM = "text-[13px] font-normal leading-snug text-gray-500 [overflow-wrap:anywhere]";
+  "text-[14px] font-normal leading-normal text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
+const OC_TX_SM = "text-[13px] font-normal leading-snug text-sam-muted [overflow-wrap:anywhere]";
 type ItemRow = {
   id: string;
   product_id: string;
@@ -115,7 +115,7 @@ const FULFILL_LABEL: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
 
 const CHAT_LINK_CLASS =
-  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-ui-rect border border-signature/35 bg-white px-3 py-3 text-center text-[14px] font-semibold leading-snug text-gray-900 shadow-sm transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
+  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-ui-rect border border-signature/35 bg-sam-surface px-3 py-3 text-center text-[14px] font-semibold leading-snug text-sam-fg shadow-sm transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
 
 function OwnerOrderCard({
   storeId,
@@ -144,8 +144,8 @@ function OwnerOrderCard({
           ? "border-amber-300 bg-amber-50/40"
           : order.fulfillment_type === "local_delivery" && order.order_status === "pending"
             ? "border-rose-200 bg-rose-50/30"
-            : "border-gray-100 bg-white"
-      } ${isHighlight ? "ring-2 ring-signature ring-offset-2 ring-offset-gray-50" : ""}`}
+            : "border-sam-border-soft bg-sam-surface"
+      } ${isHighlight ? "ring-2 ring-signature ring-offset-2 ring-offset-sam-surface-muted" : ""}`}
     >
       <div className="flex min-w-0 flex-nowrap items-start justify-between gap-2">
         <span className={`min-w-0 flex-1 break-all font-semibold ${OC_TX}`}>{order.order_no}</span>
@@ -156,7 +156,7 @@ function OwnerOrderCard({
 
       <div
         data-owner-order-gray
-        className="mt-3 w-full min-w-0 rounded-ui-rect border border-gray-100 bg-gray-50/90 px-3 py-3.5 sm:px-4 sm:py-4"
+        className="mt-3 w-full min-w-0 rounded-ui-rect border border-sam-border-soft bg-sam-app/90 px-3 py-3.5 sm:px-4 sm:py-4"
       >
         <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 sm:gap-x-4">
           <div className="min-w-0 overflow-hidden">
@@ -174,7 +174,7 @@ function OwnerOrderCard({
         </div>
       </div>
 
-      <p className={`mt-3 text-[18px] font-bold leading-tight text-gray-900`}>
+      <p className={`mt-3 text-[18px] font-bold leading-tight text-sam-fg`}>
         {formatMoneyPhp(order.payment_amount)}
       </p>
       <p className={`mt-1.5 ${OC_TX_SM}`}>
@@ -197,14 +197,14 @@ function OwnerOrderCard({
       order.auto_complete_at ? (
         <p className={`mt-2 ${OC_TX_SM}`}>
           자동 완료 예정:{" "}
-          <span className="font-medium text-gray-700">
+          <span className="font-medium text-sam-fg">
             {new Date(order.auto_complete_at).toLocaleString("ko-KR")}
           </span>
         </p>
       ) : null}
       {(order.fulfillment_type === "local_delivery" || order.fulfillment_type === "shipping") &&
       (order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim()) ? (
-        <div className="mt-2 w-full min-w-0 rounded-ui-rect border border-stone-200 bg-stone-50 px-3 py-2.5">
+        <div className="mt-2 w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5">
           <p className={OC_LBL}>배송지</p>
           <p className={`mt-1 whitespace-pre-wrap break-words ${OC_TX}`}>
             {[order.delivery_address_summary?.trim(), order.delivery_address_detail?.trim()]
@@ -219,7 +219,7 @@ function OwnerOrderCard({
           <p className={`mt-1 whitespace-pre-wrap ${OC_TX}`}>{order.buyer_note.trim()}</p>
         </div>
       ) : null}
-      <ul className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
+      <ul className="mt-3 space-y-1.5 border-t border-sam-border-soft pt-3">
         {order.items.map((it) => {
           const opt = orderLineOptionsSummary(it.options_snapshot_json);
           return (
@@ -237,7 +237,7 @@ function OwnerOrderCard({
       </ul>
 
       {noticeFooter ? (
-        <div className="mt-3 border-t border-gray-100 pt-3">{noticeFooter}</div>
+        <div className="mt-3 border-t border-sam-border-soft pt-3">{noticeFooter}</div>
       ) : null}
 
       {ownerOrderHasTransitionButtons({
@@ -245,7 +245,7 @@ function OwnerOrderCard({
         order_status: order.order_status,
         fulfillment_type: order.fulfillment_type,
       }) ? (
-        <div className="mt-3 border-t border-gray-100 pt-3">
+        <div className="mt-3 border-t border-sam-border-soft pt-3">
           <OwnerStoreOrderDeliveryActionsAside
             storeId={storeId}
             order={{
@@ -484,10 +484,10 @@ export function OwnerStoreOrdersView() {
 
   let body: ReactNode;
   if (state.kind === "loading") {
-    body = <p className="text-sm text-gray-500">불러오는 중…</p>;
+    body = <p className="text-sm text-sam-muted">불러오는 중…</p>;
   } else if (state.kind === "unauth") {
     body = (
-      <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
         <p>로그인 후 매장 주문을 확인하고 바로 고객과 연결할 수 있습니다.</p>
         <Link href={loginHref} className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white">
           로그인하고 주문 보기
@@ -495,10 +495,10 @@ export function OwnerStoreOrdersView() {
       </div>
     );
   } else if (state.kind === "config") {
-    body = <p className="text-sm text-gray-600">서버 설정을 확인해 주세요.</p>;
+    body = <p className="text-sm text-sam-muted">서버 설정을 확인해 주세요.</p>;
   } else if (state.kind === "no_store") {
     body = (
-      <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-600 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
         <p>등록된 매장이 없습니다.</p>
         <Link href="/my/business/apply" className="mt-2 inline-block text-signature">
           매장 신청
@@ -522,7 +522,7 @@ export function OwnerStoreOrdersView() {
     body = (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-gray-600">{state.storeName}</p>
+          <p className="text-sm text-sam-muted">{state.storeName}</p>
           <div className="flex flex-wrap items-center gap-2">
             {state.pendingDeliveryCount > 0 ? (
               <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-950">
@@ -561,8 +561,8 @@ export function OwnerStoreOrdersView() {
         </div>
       ) : null}
       {state.orders.length === 0 ? (
-        <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-500 shadow-sm">
-          <p className="text-gray-800">아직 주문이 없습니다.</p>
+        <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
+          <p className="text-sam-fg">아직 주문이 없습니다.</p>
           <p className="mt-1">매장 정보와 메뉴를 점검한 뒤 공유하면 첫 주문을 더 빨리 받을 수 있습니다.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
@@ -573,7 +573,7 @@ export function OwnerStoreOrdersView() {
             </Link>
             <Link
               href={`/my/business/profile?storeId=${encodeURIComponent(state.storeId)}`}
-              className="inline-flex rounded-ui-rect border border-gray-200 bg-white px-4 py-2 font-medium text-gray-800"
+              className="inline-flex rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 font-medium text-sam-fg"
             >
               매장 정보 점검
             </Link>

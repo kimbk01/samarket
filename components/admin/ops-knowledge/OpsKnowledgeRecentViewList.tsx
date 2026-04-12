@@ -20,7 +20,7 @@ export function OpsKnowledgeRecentViewList() {
 
   if (views.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
         최근 열람 문서가 없습니다.
       </div>
     );
@@ -31,14 +31,14 @@ export function OpsKnowledgeRecentViewList() {
       {views.map((v) => {
         const doc = getOpsDocumentById(v.documentId);
         return (
-          <li key={v.id} className="flex items-center justify-between gap-2 rounded border border-gray-100 bg-white px-3 py-2">
+          <li key={v.id} className="flex items-center justify-between gap-2 rounded border border-sam-border-soft bg-sam-surface px-3 py-2">
             <Link
               href={`/admin/ops-docs/${v.documentId}`}
               className="min-w-0 flex-1 text-[14px] text-signature hover:underline"
             >
               {doc?.title ?? v.documentId}
             </Link>
-            <span className="shrink-0 text-[12px] text-gray-500">
+            <span className="shrink-0 text-[12px] text-sam-muted">
               {SOURCE_LABELS[v.sourceType]} · {new Date(v.viewedAt).toLocaleString("ko-KR")}
             </span>
           </li>

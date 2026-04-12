@@ -47,8 +47,8 @@ export function AdminSidebarItem({
   const activeClass =
     "bg-signature/25 font-bold text-signature shadow-sm ring-1 ring-inset ring-signature/15";
   const inactiveClass = pending
-    ? "font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-500"
-    : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900";
+    ? "font-medium text-sam-meta hover:bg-sam-app hover:text-sam-muted"
+    : "font-medium text-sam-fg hover:bg-sam-surface-muted hover:text-sam-fg";
 
   const leafIsActive =
     pathsScope && pathsScope.length > 0 && item.path
@@ -61,14 +61,14 @@ export function AdminSidebarItem({
     isActive || childActive
       ? "font-bold text-signature"
       : pending
-        ? "font-medium text-gray-400"
-        : "font-medium text-gray-700"
+        ? "font-medium text-sam-meta"
+        : "font-medium text-sam-fg"
   }`;
 
   const groupRowClass =
     isActive || childActive
       ? "bg-signature/22 shadow-sm ring-1 ring-inset ring-signature/12"
-      : "hover:bg-gray-100";
+      : "hover:bg-sam-surface-muted";
 
   const toggleOpen = () => setOpen((o) => !o);
 
@@ -99,7 +99,7 @@ export function AdminSidebarItem({
           <button
             type="button"
             onClick={toggleOpen}
-            className="shrink-0 rounded p-1 text-[14px] font-semibold text-gray-500 hover:bg-gray-200"
+            className="shrink-0 rounded p-1 text-[14px] font-semibold text-sam-muted hover:bg-sam-border-soft"
             aria-expanded={open}
             aria-label={open ? t("common_close_submenu") : t("common_open_submenu")}
           >
@@ -107,7 +107,7 @@ export function AdminSidebarItem({
           </button>
         </div>
         {open && (
-          <div className="mt-0.5 ml-3 border-l border-gray-200 pl-1">
+          <div className="mt-0.5 ml-3 border-l border-sam-border pl-1">
             {item.children!.map((child) => (
               <AdminSidebarItem
                 key={child.key}

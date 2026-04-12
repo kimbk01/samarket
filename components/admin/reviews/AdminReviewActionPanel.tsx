@@ -33,7 +33,7 @@ export function AdminReviewActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("hide_review")}
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "hide_review" ? "처리 중..." : "리뷰 숨김"}
           </button>
@@ -50,7 +50,7 @@ export function AdminReviewActionPanel({
         )}
         <a
           href={`/admin/reports?targetType=user&targetId=${review.targetUserId}`}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
         >
           리뷰 신고검토 이동 (placeholder)
         </a>
@@ -58,7 +58,7 @@ export function AdminReviewActionPanel({
           type="button"
           disabled={loading !== null}
           onClick={() => run("recalculate_trust")}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
           {loading === "recalculate_trust" ? "처리 중..." : "신뢰도 재계산 (placeholder)"}
         </button>

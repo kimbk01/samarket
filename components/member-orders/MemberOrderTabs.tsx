@@ -36,7 +36,7 @@ export function MemberOrderTabs({
               className={`min-w-0 flex-1 border-b-2 py-2.5 text-center text-[13px] font-semibold transition sm:py-3 sm:text-sm ${
                 on
                   ? "border-signature text-signature"
-                  : "border-transparent text-[#65676B] hover:bg-[#F0F2F5]/80 dark:hover:bg-white/5"
+                  : "border-transparent text-[#65676B] hover:bg-[#F0F2F5]/80 dark:hover:bg-sam-surface/5"
               }`}
             >
               <span className="block truncate px-0.5">
@@ -65,12 +65,12 @@ export function MemberOrderTabs({
             onClick={() => onChange(key)}
             className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
               on
-                ? "bg-gray-900 text-white shadow-sm"
-                : "bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
+                ? "bg-sam-ink text-white shadow-sm"
+                : "bg-sam-surface text-sam-fg ring-1 ring-sam-border hover:bg-sam-app"
             }`}
           >
             {t(labelKey)}
-            <span className={`ml-1 tabular-nums ${on ? "text-white/80" : "text-gray-400"}`}>
+            <span className={`ml-1 tabular-nums ${on ? "text-white/80" : "text-sam-meta"}`}>
               {counts[key]}
             </span>
           </button>

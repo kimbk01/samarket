@@ -378,7 +378,7 @@ export function OwnerStoreBasicInfoForm({
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect border border-gray-300 bg-white px-3 py-3 text-[15px] font-medium text-gray-800 shadow-sm"
+          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[15px] font-medium text-sam-fg shadow-sm"
         >
           취소
         </button>
@@ -406,15 +406,15 @@ export function OwnerStoreBasicInfoForm({
         className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]`}
       >
         <div>
-          <label className="mb-2 block text-[14px] font-medium text-gray-700">대표 이미지 (로고)</label>
+          <label className="mb-2 block text-[14px] font-medium text-sam-fg">대표 이미지 (로고)</label>
           <div>
             <div className="relative inline-block shrink-0">
-              <div className="h-20 w-20 overflow-hidden rounded-ui-rect border border-gray-200 bg-gray-50">
+              <div className="h-20 w-20 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
                 {values.profileImageUrl ? (
                    
                   <img src={values.profileImageUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-[11px] text-gray-400">없음</div>
+                  <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">없음</div>
                 )}
               </div>
               <input
@@ -452,14 +452,14 @@ export function OwnerStoreBasicInfoForm({
               </button>
             </div>
           </div>
-          {uploading ? <p className="mt-1 text-[12px] text-gray-500">업로드 중…</p> : null}
+          {uploading ? <p className="mt-1 text-[12px] text-sam-muted">업로드 중…</p> : null}
         </div>
 
         <div>
-          <p className="mb-1 text-[14px] font-medium text-gray-700">매장 이름</p>
+          <p className="mb-1 text-[14px] font-medium text-sam-fg">매장 이름</p>
           {identityEditable ? (
             <>
-              <p className="mb-2 text-[12px] leading-relaxed text-gray-500">
+              <p className="mb-2 text-[12px] leading-relaxed text-sam-muted">
                 관리자가 매장명·업종 수정을 허용한 상태입니다. 공개 매장 창에도 저장 후 동일하게 반영됩니다.
               </p>
               <input
@@ -472,10 +472,10 @@ export function OwnerStoreBasicInfoForm({
             </>
           ) : (
             <>
-              <p className="mb-1 text-[12px] leading-relaxed text-gray-500">
+              <p className="mb-1 text-[12px] leading-relaxed text-sam-muted">
                 DB·매장 창·관리자 심사와 동일한 이름입니다. 변경이 필요하면 운영·관리자에게 문의해 주세요.
               </p>
-              <p className="text-[16px] font-semibold text-gray-900">
+              <p className="text-[16px] font-semibold text-sam-fg">
                 {(row.store_name ?? "").trim() || "—"}
               </p>
             </>
@@ -483,7 +483,7 @@ export function OwnerStoreBasicInfoForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-gray-700">매장 소개</label>
+          <label className="mb-1 block text-[14px] font-medium text-sam-fg">매장 소개</label>
           <textarea
             value={values.description}
             onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
@@ -495,7 +495,7 @@ export function OwnerStoreBasicInfoForm({
 
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
           <div className="min-w-0">
-            <label className="mb-1 block text-[14px] font-medium text-gray-700">전화번호</label>
+            <label className="mb-1 block text-[14px] font-medium text-sam-fg">전화번호</label>
             <input
               type="tel"
               inputMode="tel"
@@ -508,7 +508,7 @@ export function OwnerStoreBasicInfoForm({
           </div>
 
           <div className="min-w-0">
-            <label className="mb-1 block text-[14px] font-medium text-gray-700">카카오톡 ID (선택)</label>
+            <label className="mb-1 block text-[14px] font-medium text-sam-fg">카카오톡 ID (선택)</label>
             <input
               type="text"
               value={values.kakaoId}
@@ -519,7 +519,7 @@ export function OwnerStoreBasicInfoForm({
           </div>
 
           <div className="min-w-0">
-            <label className="mb-1 block text-[14px] font-medium text-gray-700">GCash no. (선택)</label>
+            <label className="mb-1 block text-[14px] font-medium text-sam-fg">GCash no. (선택)</label>
             <input
               type="tel"
               inputMode="tel"
@@ -533,7 +533,7 @@ export function OwnerStoreBasicInfoForm({
           </div>
 
           <div className="min-w-0">
-            <label className="mb-1 block text-[14px] font-medium text-gray-700">GCash name (선택)</label>
+            <label className="mb-1 block text-[14px] font-medium text-sam-fg">GCash name (선택)</label>
             <input
               type="text"
               autoComplete="name"
@@ -566,18 +566,18 @@ export function OwnerStoreBasicInfoForm({
         />
 
         <div className="space-y-2">
-          <h3 className="text-[14px] font-semibold text-gray-900">업종 · 세부 주제</h3>
+          <h3 className="text-[14px] font-semibold text-sam-fg">업종 · 세부 주제</h3>
           {identityEditable ? (
-            <p className="text-[12px] leading-relaxed text-gray-500">
+            <p className="text-[12px] leading-relaxed text-sam-muted">
               관리자 허용 상태입니다. 저장 시 DB·공개 매장 창에 반영됩니다.
             </p>
           ) : null}
           {taxonomyLoading ? (
-            <p className="text-[13px] text-gray-500">분류 목록 불러오는 중…</p>
+            <p className="text-[13px] text-sam-muted">분류 목록 불러오는 중…</p>
           ) : identityEditable && useDbTaxonomy ? (
             <div className={`mt-2 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
               <div className="min-w-0">
-                <label className="mb-1 block text-[13px] font-medium text-gray-700">1차 업종</label>
+                <label className="mb-1 block text-[13px] font-medium text-sam-fg">1차 업종</label>
                 <select
                   value={storeCategoryId}
                   onChange={(e) => {
@@ -596,7 +596,7 @@ export function OwnerStoreBasicInfoForm({
                 </select>
               </div>
               <div className="min-w-0">
-                <label className="mb-1 block text-[13px] font-medium text-gray-700">세부 주제</label>
+                <label className="mb-1 block text-[13px] font-medium text-sam-fg">세부 주제</label>
                 <select
                   value={storeTopicId}
                   onChange={(e) => setStoreTopicId(e.target.value)}
@@ -628,7 +628,7 @@ export function OwnerStoreBasicInfoForm({
                   <>DB 분류를 쓸 수 없을 때는 아래 표시명(<code className="rounded bg-amber-100 px-1">business_type</code>)만 저장됩니다.</>
                 )}
               </p>
-              <label className="mb-1 block text-[13px] font-medium text-gray-700">업종 (표시명)</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">업종 (표시명)</label>
               <select
                 value={values.category}
                 onChange={(e) => setValues((v) => ({ ...v, category: e.target.value }))}
@@ -648,12 +648,12 @@ export function OwnerStoreBasicInfoForm({
           ) : useDbTaxonomy ? (
             <div className="mt-2 space-y-3">
               <div>
-                <p className="mb-0.5 text-[12px] font-medium text-gray-600">1차 업종 (DB)</p>
-                <p className="text-[15px] text-gray-900">{storeEmbedName(row.store_categories) || "—"}</p>
+                <p className="mb-0.5 text-[12px] font-medium text-sam-muted">1차 업종 (DB)</p>
+                <p className="text-[15px] text-sam-fg">{storeEmbedName(row.store_categories) || "—"}</p>
               </div>
               <div>
-                <p className="mb-0.5 text-[12px] font-medium text-gray-600">세부 주제 (DB)</p>
-                <p className="text-[15px] text-gray-900">{storeEmbedName(row.store_topics) || "—"}</p>
+                <p className="mb-0.5 text-[12px] font-medium text-sam-muted">세부 주제 (DB)</p>
+                <p className="text-[15px] text-sam-fg">{storeEmbedName(row.store_topics) || "—"}</p>
               </div>
             </div>
           ) : (
@@ -673,8 +673,8 @@ export function OwnerStoreBasicInfoForm({
                   <>DB 분류를 불러오지 못했습니다. 아래는 DB의 업종 표기 필드입니다.</>
                 )}
               </p>
-              <p className="mb-0.5 text-[12px] font-medium text-gray-600">업종 표기 (business_type)</p>
-              <p className="text-[15px] text-gray-900">{(row.business_type || "—").trim() || "—"}</p>
+              <p className="mb-0.5 text-[12px] font-medium text-sam-muted">업종 표기 (business_type)</p>
+              <p className="text-[15px] text-sam-fg">{(row.business_type || "—").trim() || "—"}</p>
             </div>
           )}
         </div>
@@ -682,7 +682,7 @@ export function OwnerStoreBasicInfoForm({
 
       {dockAboveBottomNav ? (
         <div
-          className={`pointer-events-auto fixed inset-x-0 z-30 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS} ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} box-border w-full min-w-0 max-w-full bg-white`}
+          className={`pointer-events-auto fixed inset-x-0 z-30 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS} ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} box-border w-full min-w-0 max-w-full bg-sam-surface`}
         >
           {actionBarInner}
         </div>

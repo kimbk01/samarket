@@ -54,8 +54,8 @@ function mergeNeighborhoodFeedById(
 }
 
 const PHILIFE_TOPIC_TAB_CLASS = {
-  on: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-semibold text-gray-900",
-  off: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-medium text-gray-500 hover:text-gray-700",
+  on: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-semibold text-sam-fg",
+  off: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-medium text-sam-muted hover:text-sam-fg",
 } as const;
 
 export function CommunityFeed() {
@@ -323,7 +323,7 @@ export function CommunityFeed() {
         hideCtaStrip
         stickyBelow={
           <>
-            <div className="min-w-0 overflow-x-hidden border-t border-black/[0.08] bg-gray-100">
+            <div className="min-w-0 overflow-x-hidden border-t border-sam-fg/[0.08] bg-sam-surface-muted">
               <div className={APP_MAIN_HEADER_INNER_CLASS}>
                 <HorizontalDragScroll
                   className={TRADE_PRIMARY_TABS_OUTER_SCROLL_CLASS}
@@ -355,14 +355,14 @@ export function CommunityFeed() {
                     type="checkbox"
                     checked={neighborOnly}
                     onChange={(e) => setNeighborOnly(e.target.checked)}
-                    className="rounded border-gray-300"
+                    className="rounded border-sam-border"
                   />
                   관심이웃 글만 보기
                 </label>
                 <p className="text-[11px] leading-snug text-[var(--text-muted)]">
                   글 목록은{" "}
-                  <span className="font-medium text-gray-600">상단에 표시된 내 동네</span> 기준이에요. 광역·시만 같아도{" "}
-                  <span className="font-medium text-gray-600">프로필 상세 주소</span>가 다르면 다른 동네로 잡혀 피드가
+                  <span className="font-medium text-sam-muted">상단에 표시된 내 동네</span> 기준이에요. 광역·시만 같아도{" "}
+                  <span className="font-medium text-sam-muted">프로필 상세 주소</span>가 다르면 다른 동네로 잡혀 피드가
                   달라질 수 있어요. 테스트 시{" "}
                   <Link href="/regions" className="font-medium text-signature underline-offset-2 hover:underline">
                     지역·상세 주소
@@ -393,7 +393,7 @@ export function CommunityFeed() {
         {loading && posts.length === 0 ? (
           <CommunityFeedSkeleton />
         ) : posts.length === 0 ? (
-          <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-gray-500`}>
+          <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             이 동네에 아직 글이 없어요.
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <Link
@@ -414,9 +414,9 @@ export function CommunityFeed() {
               ))}
             </div>
             <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
-            {loadingMore ? <p className="py-4 text-center text-[13px] text-gray-400">더 불러오는 중…</p> : null}
+            {loadingMore ? <p className="py-4 text-center text-[13px] text-sam-meta">더 불러오는 중…</p> : null}
             {!hasMore && posts.length > 0 ? (
-              <p className="pb-8 pt-2 text-center text-[12px] text-gray-300">모든 글을 불러왔어요</p>
+              <p className="pb-8 pt-2 text-center text-[12px] text-sam-meta">모든 글을 불러왔어요</p>
             ) : null}
           </>
         )}

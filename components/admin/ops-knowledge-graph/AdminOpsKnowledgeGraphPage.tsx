@@ -33,7 +33,7 @@ export function AdminOpsKnowledgeGraphPage() {
   return (
     <>
       <AdminPageHeader title="운영 지식 그래프" />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -42,7 +42,7 @@ export function AdminOpsKnowledgeGraphPage() {
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {tab.label}
@@ -93,7 +93,7 @@ export function AdminOpsKnowledgeGraphPage() {
                 <select
                   value={nodeTypeFilter}
                   onChange={(e) => setNodeTypeFilter(e.target.value as OpsKnowledgeGraphNodeType | "")}
-                  className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+                  className="rounded border border-sam-border px-3 py-2 text-[14px]"
                 >
                   <option value="">전체 유형</option>
                   <option value="document">문서</option>
@@ -114,7 +114,7 @@ export function AdminOpsKnowledgeGraphPage() {
                 <select
                   value={edgeTypeFilter}
                   onChange={(e) => setEdgeTypeFilter(e.target.value as OpsKnowledgeGraphEdgeType | "")}
-                  className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+                  className="rounded border border-sam-border px-3 py-2 text-[14px]"
                 >
                   <option value="">전체 관계</option>
                   <option value="executed_by">실행함</option>

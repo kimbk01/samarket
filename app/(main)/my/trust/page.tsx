@@ -42,8 +42,8 @@ export default function MyTrustPage() {
         section="account"
       />
       <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-6 text-center shadow-sm">
-          <p className="text-[13px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-center shadow-sm">
+          <p className="text-[13px] text-sam-muted">
             {getAppSettings().speedDisplayLabel ?? "배터리"} (프로필 기준)
           </p>
           {mannerPercent != null && mannerTier != null ? (
@@ -60,10 +60,10 @@ export default function MyTrustPage() {
               </p>
             </>
           ) : (
-            <p className="mt-2 text-[36px] font-bold text-gray-400">—</p>
+            <p className="mt-2 text-[36px] font-bold text-sam-meta">—</p>
           )}
-          <p className="mt-4 text-[13px] leading-relaxed text-gray-600">
-            거래 후기·매너 평가는 보통 <strong className="text-gray-800">7~10일 후</strong>에 배터리에
+          <p className="mt-4 text-[13px] leading-relaxed text-sam-muted">
+            거래 후기·매너 평가는 보통 <strong className="text-sam-fg">7~10일 후</strong>에 배터리에
             반영되는 경우가 많아요. 분쟁 처리 중에는 일시 보류될 수 있습니다.
           </p>
         </div>

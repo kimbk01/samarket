@@ -106,12 +106,12 @@ export function StoreCommerceOrderDetailClient({
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
   if (state.kind === "loading") {
-    return <p className="px-4 py-8 text-center text-sm text-gray-500">불러오는 중…</p>;
+    return <p className="px-4 py-8 text-center text-sm text-sam-muted">불러오는 중…</p>;
   }
   if (state.kind === "error") {
     return (
       <div className="px-4 py-12 text-center">
-        <p className="text-sm text-gray-600">{state.message}</p>
+        <p className="text-sm text-sam-muted">{state.message}</p>
         <Link href={`/stores/${encodeURIComponent(storeSlug)}`} className="mt-4 inline-block text-sm text-signature">
           매장으로
         </Link>
@@ -135,16 +135,16 @@ export function StoreCommerceOrderDetailClient({
           ← 매장
         </HistoryBackTextLink>
       </div>
-      <h1 className="text-lg font-bold text-gray-900">주문 상세</h1>
-      <p className="mt-1 font-mono text-sm text-gray-600">{order.order_no}</p>
-      <p className="mt-1 text-xs text-gray-500">
+      <h1 className="text-lg font-bold text-sam-fg">주문 상세</h1>
+      <p className="mt-1 font-mono text-sm text-sam-muted">{order.order_no}</p>
+      <p className="mt-1 text-xs text-sam-muted">
         상태: {ORDER_LABEL[order.order_status] ?? order.order_status} ·{" "}
         {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type}
       </p>
 
-      <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-gray-900">진행 상태</h2>
-        <p className="mt-1 text-xs text-gray-500">
+      <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+        <h2 className="text-sm font-bold text-sam-fg">진행 상태</h2>
+        <p className="mt-1 text-xs text-sam-muted">
           주문확인부터 주문완료까지 6단계로 보여 드립니다. 포장 픽업은 배송 단계가 생략 표시됩니다. 매장에서
           상태를 바꾸면 갱신되고 채팅에도 안내가 올라갑니다.
         </p>
@@ -157,14 +157,14 @@ export function StoreCommerceOrderDetailClient({
         </div>
       </section>
 
-      <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-gray-900">매장 문의 채팅</h2>
-        <p className="mt-1 text-xs leading-relaxed text-gray-500">
+      <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+        <h2 className="text-sm font-bold text-sam-fg">매장 문의 채팅</h2>
+        <p className="mt-1 text-xs leading-relaxed text-sam-muted">
           주문 상태는 위 진행 상태에서 확인하고, 요청 사항이나 조율이 필요할 때만 채팅을 이용해 주세요.
         </p>
         {orderChatDisabled ? (
           <span
-            className="mt-3 block w-full cursor-not-allowed rounded-ui-rect border border-gray-200 bg-gray-100 py-3 text-center text-sm font-semibold text-gray-400"
+            className="mt-3 block w-full cursor-not-allowed rounded-ui-rect border border-sam-border bg-sam-surface-muted py-3 text-center text-sm font-semibold text-sam-meta"
             aria-disabled
           >
             매장 문의 열기
@@ -195,22 +195,22 @@ export function StoreCommerceOrderDetailClient({
         ) : null}
       </section>
 
-      <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-gray-900">주문 정보</h2>
+      <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+        <h2 className="text-sm font-bold text-sam-fg">주문 정보</h2>
         <dl className="mt-2 space-y-1 text-sm">
           <div className="flex justify-between">
-            <dt className="text-gray-500">업체</dt>
+            <dt className="text-sam-muted">업체</dt>
             <dd>{order.store_name}</dd>
           </div>
           {order.buyer_note ? (
             <div>
-              <dt className="text-gray-500">요청</dt>
-              <dd className="text-gray-800">{order.buyer_note}</dd>
+              <dt className="text-sam-muted">요청</dt>
+              <dd className="text-sam-fg">{order.buyer_note}</dd>
             </div>
           ) : null}
           {order.buyer_phone ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <dt className="text-gray-500">연락처</dt>
+              <dt className="text-sam-muted">연락처</dt>
               <dd>
                 {(() => {
                   const d = parsePhMobileInput(order.buyer_phone ?? "");
@@ -221,7 +221,7 @@ export function StoreCommerceOrderDetailClient({
                       {label}
                     </a>
                   ) : (
-                    <span className="text-gray-800">{label}</span>
+                    <span className="text-sam-fg">{label}</span>
                   );
                 })()}
               </dd>
@@ -230,11 +230,11 @@ export function StoreCommerceOrderDetailClient({
         </dl>
       </section>
 
-      <section className="mt-4 rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-gray-900">메뉴</h2>
+      <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+        <h2 className="text-sm font-bold text-sam-fg">메뉴</h2>
         <ul className="mt-2 space-y-2 text-sm">
           {items.map((it) => (
-            <li key={it.id} className="border-b border-gray-50 pb-2 last:border-0">
+            <li key={it.id} className="border-b border-sam-border-soft pb-2 last:border-0">
               <div className="flex justify-between font-medium">
                 <span>
                   {it.product_title_snapshot} ×{it.qty}
@@ -244,13 +244,13 @@ export function StoreCommerceOrderDetailClient({
             </li>
           ))}
         </ul>
-        <div className="mt-3 space-y-1 border-t border-gray-100 pt-3 text-sm">
+        <div className="mt-3 space-y-1 border-t border-sam-border-soft pt-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-600">상품</span>
+            <span className="text-sam-muted">상품</span>
             <span>{formatMoneyPhp(sub)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">배달비</span>
+            <span className="text-sam-muted">배달비</span>
             <span>{formatMoneyPhp(df)}</span>
           </div>
           <div className="flex justify-between font-bold">

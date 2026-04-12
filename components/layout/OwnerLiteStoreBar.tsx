@@ -33,16 +33,16 @@ export function OwnerLiteStoreBar() {
   const secondaryBadge = secondary.badge;
 
   return (
-    <TradePrimaryAppBarShell className="border-t border-white/40">
+    <TradePrimaryAppBarShell className="border-t border-sam-surface/40">
       {hubBlockedModal}
       <div
         className={`flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
       >
         <div className="min-w-0 flex-1 shrink">
-          <p className="truncate text-[13px] font-semibold text-gray-900">
+          <p className="truncate text-[13px] font-semibold text-sam-fg">
             {ownerStore.store_name || t("nav_store_name_fallback")}
           </p>
-          <p className="truncate text-[11px] text-gray-700">
+          <p className="truncate text-[11px] text-sam-fg">
             {formatStoreApprovalStatusKo(ownerStore.approval_status)}
             {!isStorePubliclyListed(ownerStore) ? t("nav_store_hidden_hint") : ""}
           </p>
@@ -74,7 +74,7 @@ export function OwnerLiteStoreBar() {
             onClick={(e) => {
               if (openBlockedModalIfNeeded()) e.preventDefault();
             }}
-            className="inline-flex min-h-[36px] items-center rounded-full border border-white/80 bg-white/60 px-3 text-[12px] font-medium text-gray-700"
+            className="inline-flex min-h-[36px] items-center rounded-full border border-sam-surface/80 bg-sam-surface/60 px-3 text-[12px] font-medium text-sam-fg"
           >
             전체
           </Link>
@@ -103,15 +103,15 @@ function ShortcutLink({
       onClick={onClick}
       className={`inline-flex min-h-[36px] items-center rounded-full px-3 text-[12px] font-semibold ${
         strong
-          ? "bg-gray-900 text-white shadow-sm"
-          : "border border-white/80 bg-white/80 text-gray-800"
+          ? "bg-sam-ink text-white shadow-sm"
+          : "border border-sam-surface/80 bg-sam-surface/80 text-sam-fg"
       }`}
     >
       <span>{label}</span>
       {badge && badge > 0 ? (
         <span
           className={`ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-            strong ? "bg-white/20 text-white" : "bg-red-600 text-white"
+            strong ? "bg-sam-surface/20 text-white" : "bg-red-600 text-white"
           }`}
         >
           {badge > 99 ? "99+" : badge}

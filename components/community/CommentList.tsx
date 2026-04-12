@@ -22,11 +22,11 @@ export function CommentList({
   }, [scrollToBottomSignal]);
 
   if (roots.length === 0) {
-    return <p className="py-6 text-center text-[14px] text-gray-500">첫 댓글을 남겨 보세요.</p>;
+    return <p className="py-6 text-center text-[14px] text-sam-muted">첫 댓글을 남겨 보세요.</p>;
   }
 
   return (
-    <ul className="list-none divide-y divide-gray-100 pl-0">
+    <ul className="list-none divide-y divide-sam-border-soft pl-0">
       {roots.map((n) => (
         <li key={n.id} className="py-3">
           <CommentItem node={n} onReply={onReply} />

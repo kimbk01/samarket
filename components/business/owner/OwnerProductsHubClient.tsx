@@ -184,28 +184,28 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
   const inquiriesHref = `/my/business/inquiries?storeId=${encodeURIComponent(storeId)}`;
 
   return (
-    <div className="max-w-full overflow-x-hidden bg-gray-50 pb-8">
-      <div className="flex flex-wrap gap-2 border-b border-gray-100 bg-white px-3 py-2">
+    <div className="max-w-full overflow-x-hidden bg-sam-app pb-8">
+      <div className="flex flex-wrap gap-2 border-b border-sam-border-soft bg-sam-surface px-3 py-2">
         <Link
           href={ordersHref}
-          className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900"
+          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
         >
           주문 관리
         </Link>
         <Link
           href={inquiriesHref}
-          className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900"
+          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
         >
           문의
         </Link>
         <Link
           href={`/my/business?storeId=${encodeURIComponent(storeId)}`}
-          className="rounded-full border border-gray-200 bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-gray-900"
+          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
         >
           운영 대시보드
         </Link>
       </div>
-      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white shadow-sm">
+      <div className="sticky top-0 z-10 border-b border-sam-border-soft bg-sam-surface shadow-sm">
         <HorizontalDragScroll
           className="flex items-center gap-2 overflow-x-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="상품 카테고리 탭"
@@ -224,7 +224,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
             type="button"
             onClick={() => setTab("all")}
             className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-medium ${
-              tab === "all" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
+              tab === "all" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
             }`}
           >
             전체
@@ -235,7 +235,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
               type="button"
               onClick={() => setTab(s.id)}
               className={`max-w-[200px] shrink-0 truncate rounded-full px-3 py-1.5 text-[13px] font-medium ${
-                tab === s.id ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
+                tab === s.id ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
               }`}
             >
               {s.name}
@@ -246,9 +246,9 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
       </div>
 
       <div className={`px-3 pt-3 ${OWNER_STORE_STACK_Y_CLASS}`}>
-        <div className="flex items-center gap-2 rounded-ui-rect border border-gray-200 bg-white px-3 py-2 shadow-sm">
+        <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 shadow-sm">
           <svg
-            className="h-5 w-5 shrink-0 text-gray-400"
+            className="h-5 w-5 shrink-0 text-sam-meta"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -264,16 +264,16 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="상품 검색"
-            className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-gray-900 outline-none placeholder:text-gray-400"
+            className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-sam-fg outline-none placeholder:text-sam-meta"
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 shadow-sm">
           <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-semibold text-gray-900">
+            <p className="text-[12px] font-semibold text-sam-fg">
               {tab === "all" ? "새 상품 등록" : `「${sections.find((s) => s.id === tab)?.name ?? "카테고리"}」에 추가`}
             </p>
-            <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+            <p className="mt-0.5 text-[11px] leading-snug text-sam-muted">
               {tab === "all"
                 ? sections.length > 0
                   ? "등록 화면 맨 위에서 카테고리를 선택한 뒤 입력·저장하면 해당 탭에 표시됩니다."
@@ -289,9 +289,9 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           </Link>
         </div>
 
-        <p className="text-[12px] leading-relaxed text-gray-600">
-          상단 탭 줄의 <span className="font-semibold text-gray-800">+</span>는{" "}
-          <strong className="font-medium text-gray-800">카테고리 추가</strong>입니다. 카테고리가 없으면{" "}
+        <p className="text-[12px] leading-relaxed text-sam-muted">
+          상단 탭 줄의 <span className="font-semibold text-sam-fg">+</span>는{" "}
+          <strong className="font-medium text-sam-fg">카테고리 추가</strong>입니다. 카테고리가 없으면{" "}
           <Link href={categoriesHref} className="font-medium text-signature underline">
             카테고리 관리
           </Link>
@@ -306,10 +306,10 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
         {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
 
         {loading ? (
-          <p className="text-[14px] text-gray-500">불러오는 중…</p>
+          <p className="text-[14px] text-sam-muted">불러오는 중…</p>
         ) : filtered.length === 0 ? (
           <div
-            className={`rounded-ui-rect border border-dashed border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500`}
+            className={`rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center text-[14px] text-sam-muted`}
           >
             {products.length === 0 ? (
               <>
@@ -334,14 +334,14 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
               return (
                 <li
                   key={p.id}
-                  className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white shadow-sm"
+                  className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
                 >
-                  <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-2">
-                    <p className="min-w-0 flex-1 truncate text-[15px] font-semibold text-gray-900">
+                  <div className="flex items-start justify-between gap-2 border-b border-sam-border-soft px-3 py-2">
+                    <p className="min-w-0 flex-1 truncate text-[15px] font-semibold text-sam-fg">
                       {p.title}
                     </p>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-[11px] text-gray-500">노출</span>
+                      <span className="text-[11px] text-sam-muted">노출</span>
                       <button
                         type="button"
                         role="switch"
@@ -349,11 +349,11 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                         disabled={busy}
                         onClick={() => onToggleListed(p, !listed)}
                         className={`relative h-7 w-12 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
-                          listed ? "bg-emerald-500" : "bg-gray-200"
+                          listed ? "bg-emerald-500" : "bg-sam-border-soft"
                         }`}
                       >
                         <span
-                          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                          className={`absolute top-1 h-5 w-5 rounded-full bg-sam-surface shadow transition ${
                             listed ? "left-6" : "left-1"
                           }`}
                         />
@@ -361,7 +361,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                     </div>
                   </div>
                   <div className="flex gap-3 p-3">
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-gray-100">
+                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                       {p.thumbnail_url ? (
                         <img
                           src={p.thumbnail_url}
@@ -369,18 +369,18 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                        <div className="flex h-full w-full items-center justify-center text-[10px] text-sam-meta">
                           이미지 없음
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[18px] font-semibold text-gray-900">
+                      <p className="text-[18px] font-semibold text-sam-fg">
                         {displayPrice(p).toLocaleString()}
-                        <span className="ml-1 text-[13px] font-normal text-gray-500">{priceUnit}</span>
+                        <span className="ml-1 text-[13px] font-normal text-sam-muted">{priceUnit}</span>
                       </p>
                       {p.product_status !== "active" ? (
-                        <p className="mt-0.5 text-[11px] text-gray-500">
+                        <p className="mt-0.5 text-[11px] text-sam-muted">
                           상태:{" "}
                           {p.product_status === "draft"
                             ? "초안"
@@ -393,10 +393,10 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                       ) : null}
                     </div>
                   </div>
-                  <div className="flex justify-end gap-2 border-t border-gray-100 px-3 py-2">
+                  <div className="flex justify-end gap-2 border-t border-sam-border-soft px-3 py-2">
                     <Link
                       href={editHref}
-                      className="inline-flex items-center gap-1 rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-signature"
+                      className="inline-flex items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] font-medium text-signature"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path

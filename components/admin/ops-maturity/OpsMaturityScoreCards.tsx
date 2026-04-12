@@ -37,7 +37,7 @@ export function OpsMaturityScoreCards() {
 
   if (!latest) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-8 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
         성숙도 점수 데이터가 없습니다.
       </div>
     );
@@ -51,12 +51,12 @@ export function OpsMaturityScoreCards() {
         <select
           value={scope}
           onChange={(e) => setScope(e.target.value as "weekly" | "monthly")}
-          className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="weekly">주간</option>
           <option value="monthly">월간</option>
         </select>
-        <label className="flex items-center gap-2 text-[14px] text-gray-700">
+        <label className="flex items-center gap-2 text-[14px] text-sam-fg">
           목표 점수
           <input
             type="number"
@@ -64,14 +64,14 @@ export function OpsMaturityScoreCards() {
             max={100}
             value={targetScore}
             onChange={(e) => setTargetScore(Number(e.target.value))}
-            className="w-16 rounded border border-gray-200 px-2 py-1 text-[14px]"
+            className="w-16 rounded border border-sam-border px-2 py-1 text-[14px]"
           />
         </label>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">종합 점수</p>
-          <p className="text-[24px] font-semibold text-gray-900">{latest.overallScore}</p>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">종합 점수</p>
+          <p className="text-[24px] font-semibold text-sam-fg">{latest.overallScore}</p>
           {comparison && (
             <p className={`text-[13px] ${comparison.delta >= 0 ? "text-emerald-600" : "text-red-600"}`}>
               전 기간 대비 {comparison.delta >= 0 ? "+" : ""}{comparison.delta}
@@ -82,9 +82,9 @@ export function OpsMaturityScoreCards() {
           )}
         </div>
         {domainKeys.map((key) => (
-          <div key={key} className="rounded-ui-rect border border-gray-200 bg-white p-4">
-            <p className="text-[12px] text-gray-500">{DOMAIN_LABELS[key] ?? key}</p>
-            <p className="text-[20px] font-semibold text-gray-900">
+          <div key={key} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-[12px] text-sam-muted">{DOMAIN_LABELS[key] ?? key}</p>
+            <p className="text-[20px] font-semibold text-sam-fg">
               {latest[key]}
             </p>
           </div>

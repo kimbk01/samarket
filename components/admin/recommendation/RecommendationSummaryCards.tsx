@@ -29,35 +29,35 @@ export function RecommendationSummaryCards({
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <p className="text-[12px] text-gray-500">총 노출</p>
-        <p className="text-[20px] font-semibold text-gray-900">{totalImpressions}</p>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <p className="text-[12px] text-sam-muted">총 노출</p>
+        <p className="text-[20px] font-semibold text-sam-fg">{totalImpressions}</p>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <p className="text-[12px] text-gray-500">총 클릭</p>
-        <p className="text-[20px] font-semibold text-gray-900">{totalClicks}</p>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <p className="text-[12px] text-sam-muted">총 클릭</p>
+        <p className="text-[20px] font-semibold text-sam-fg">{totalClicks}</p>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <p className="text-[12px] text-gray-500">CTR</p>
-        <p className="text-[20px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <p className="text-[12px] text-sam-muted">CTR</p>
+        <p className="text-[20px] font-semibold text-sam-fg">
           {(overallCtr * 100).toFixed(2)}%
         </p>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <p className="text-[12px] text-gray-500">전환률</p>
-        <p className="text-[20px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <p className="text-[12px] text-sam-muted">전환률</p>
+        <p className="text-[20px] font-semibold text-sam-fg">
           {(overallCvr * 100).toFixed(2)}%
         </p>
       </div>
       {[...bySurface.entries()].map(([surface, list]) => (
         <div
           key={surface}
-          className="rounded-ui-rect border border-gray-200 bg-gray-50 p-4 sm:col-span-2"
+          className="rounded-ui-rect border border-sam-border bg-sam-app p-4 sm:col-span-2"
         >
-          <p className="text-[14px] font-medium text-gray-900">
+          <p className="text-[14px] font-medium text-sam-fg">
             {surfaceLabels[surface] ?? surface} · 섹션별 성과
           </p>
-          <ul className="mt-2 space-y-1 text-[13px] text-gray-700">
+          <ul className="mt-2 space-y-1 text-[13px] text-sam-fg">
             {list.slice(0, 5).map((s) => (
               <li key={s.id}>
                 {s.sectionKey}: 노출 {s.impressionCount} / 클릭 {s.clickCount} (CTR {(s.ctr * 100).toFixed(1)}%) · 대표 사유: {s.topReason}

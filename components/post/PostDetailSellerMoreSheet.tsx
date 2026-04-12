@@ -38,13 +38,13 @@ export function PostDetailSellerMoreSheet({
     <div className="fixed inset-0 z-[45] flex items-end justify-center">
       <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="닫기" />
       <div
-        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white px-4 pb-8 pt-2 shadow-xl transition-transform duration-300 ease-out ${
+        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl transition-transform duration-300 ease-out ${
           slideIn ? "translate-y-0" : "translate-y-full"
         }`}
       >
-        <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-gray-300" aria-hidden />
-        <h2 className="mb-3 px-1 text-[16px] font-semibold text-gray-900">내 물품</h2>
-        <div className="rounded-ui-rect border border-gray-100 bg-gray-50 p-2">
+        <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
+        <h2 className="mb-3 px-1 text-[16px] font-semibold text-sam-fg">내 물품</h2>
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-2">
           <button
             type="button"
             disabled={busy}
@@ -59,7 +59,7 @@ export function PostDetailSellerMoreSheet({
           <button
             type="button"
             onClick={onClose}
-            className="mt-2 w-full rounded-ui-rect border border-gray-200 bg-white py-2.5 text-[14px] font-medium text-gray-700 hover:bg-gray-50"
+            className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
           >
             닫기
           </button>

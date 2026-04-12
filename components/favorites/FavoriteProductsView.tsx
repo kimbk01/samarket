@@ -80,8 +80,8 @@ export function FavoriteProductsView({
   if (!mounted) {
     return (
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-12"}`}>
-        <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-        <p className="mt-3 text-[14px] text-gray-500">불러오는 중...</p>
+        <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
+        <p className="mt-3 text-[14px] text-sam-muted">불러오는 중...</p>
       </div>
     );
   }
@@ -89,8 +89,8 @@ export function FavoriteProductsView({
   if (loading || sessionAuthenticated === null) {
     return (
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-12"}`}>
-        <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-        <p className="mt-3 text-[14px] text-gray-500">불러오는 중...</p>
+        <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
+        <p className="mt-3 text-[14px] text-sam-muted">불러오는 중...</p>
       </div>
     );
   }
@@ -98,8 +98,8 @@ export function FavoriteProductsView({
   if (!sessionAuthenticated) {
     return (
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-16"}`}>
-        <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-        <p className="mt-3 text-[14px] text-gray-500">로그인 화면으로 이동합니다...</p>
+        <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
+        <p className="mt-3 text-[14px] text-sam-muted">로그인 화면으로 이동합니다...</p>
       </div>
     );
   }
@@ -107,8 +107,8 @@ export function FavoriteProductsView({
   if (posts.length === 0) {
     return (
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-16"}`}>
-        <p className="text-[14px] text-gray-600">찜한 상품이 없어요</p>
-        <p className="mt-1 text-[12px] text-gray-400">
+        <p className="text-[14px] text-sam-muted">찜한 상품이 없어요</p>
+        <p className="mt-1 text-[12px] text-sam-meta">
           홈이나 상품 상세에서 하트를 눌러 관심 상품을 담아 보세요.
         </p>
         {!embedded ? (
@@ -131,7 +131,7 @@ export function FavoriteProductsView({
     <div className={embedded ? "space-y-2" : "mx-auto max-w-lg space-y-2 px-4 py-3 pb-24"}>
       <TradeManagementTabBar tabs={FAVORITE_MANAGE_TABS} active={tab} counts={counts} onChange={setTab} />
       {filtered.length === 0 ? (
-        <p className="py-8 text-center text-[14px] text-gray-500">{emptyTabMsg[tab]}</p>
+        <p className="py-8 text-center text-[14px] text-sam-muted">{emptyTabMsg[tab]}</p>
       ) : (
         filtered.map((post) => (
           <FavoritePostCard

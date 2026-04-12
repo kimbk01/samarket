@@ -30,10 +30,10 @@ export function AdminKpiCards({ stats }: AdminKpiCardsProps) {
         return (
           <div
             key={key}
-            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
           >
-            <p className="text-[12px] text-gray-500">{label}</p>
-            <p className="mt-1 text-[18px] font-semibold text-gray-900">
+            <p className="text-[12px] text-sam-muted">{label}</p>
+            <p className="mt-1 text-[18px] font-semibold text-sam-fg">
               {display}
             </p>
           </div>

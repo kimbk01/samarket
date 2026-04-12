@@ -3,12 +3,12 @@ import type { ReactNode } from "react";
 type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "muted";
 
 const TONE_CLASS: Record<Tone, string> = {
-  neutral: "bg-gray-100 text-gray-800",
+  neutral: "bg-sam-surface-muted text-sam-fg",
   success: "bg-emerald-100 text-emerald-900",
   warning: "bg-amber-100 text-amber-950",
   danger: "bg-red-100 text-red-800",
   info: "bg-sky-100 text-sky-950",
-  muted: "bg-gray-200 text-gray-700",
+  muted: "bg-sam-border-soft text-sam-fg",
 };
 
 export function BusinessStatusBadge({

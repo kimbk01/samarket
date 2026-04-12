@@ -9,15 +9,15 @@ export function BasicListSkin({
   baseHref,
 }: BoardListSkinProps) {
   return (
-    <ul className="divide-y divide-gray-200 bg-white rounded-ui-rect overflow-hidden">
+    <ul className="divide-y divide-sam-border bg-sam-surface rounded-ui-rect overflow-hidden">
       {posts.length === 0 ? (
-        <li className="px-4 py-8 text-center text-gray-500">아직 글이 없어요.</li>
+        <li className="px-4 py-8 text-center text-sam-muted">아직 글이 없어요.</li>
       ) : (
         posts.map((post) => (
           <li key={post.id}>
             <Link
               href={`${baseHref}/${post.id}`}
-              className="block px-4 py-3 hover:bg-gray-50 transition-colors"
+              className="block px-4 py-3 hover:bg-sam-app transition-colors"
             >
               <div className="flex flex-wrap items-center gap-2">
                 {post.community_topic?.name ? (
@@ -25,10 +25,10 @@ export function BasicListSkin({
                     {post.community_topic.name}
                   </span>
                 ) : null}
-                <h3 className="min-w-0 flex-1 truncate font-medium text-gray-900">{post.title}</h3>
+                <h3 className="min-w-0 flex-1 truncate font-medium text-sam-fg">{post.title}</h3>
               </div>
-              <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">{post.content}</p>
-              <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+              <p className="text-sm text-sam-muted mt-0.5 line-clamp-1">{post.content}</p>
+              <div className="flex items-center gap-2 mt-2 text-xs text-sam-meta">
                 {post.author?.name && <span>{post.author.name}</span>}
                 <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
                 {post.view_count > 0 && <span>조회 {post.view_count}</span>}

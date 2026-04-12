@@ -28,21 +28,21 @@ export function SettingsToggleRow({
     <Link
       href={href}
       onClick={handleClick}
-      className="flex items-center gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0"
+      className="flex items-center gap-3 border-b border-sam-border-soft px-4 py-3 text-left last:border-b-0"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center text-gray-500">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center text-sam-muted">
         {icon}
       </span>
-      <span className="min-w-0 flex-1 text-[15px] text-gray-900">{label}</span>
+      <span className="min-w-0 flex-1 text-[15px] text-sam-fg">{label}</span>
       <span
         role="switch"
         aria-checked={checked}
         className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-          checked ? "bg-signature" : "bg-gray-200"
+          checked ? "bg-signature" : "bg-sam-border-soft"
         }`}
       >
         <span
-          className={`inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
             checked ? "translate-x-6" : "translate-x-0.5"
           }`}
         />

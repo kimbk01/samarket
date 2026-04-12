@@ -18,14 +18,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div data-admin className="flex min-h-screen w-full min-w-0 max-w-full overflow-x-hidden bg-gray-100">
+    <div data-admin className="flex min-h-screen w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface-muted">
       {sidebarExpanded && <AdminSidebar />}
       <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-w-0 max-w-full shrink-0 items-center gap-3 overflow-x-hidden border-b border-gray-200 bg-white px-3 py-2 md:px-4">
-          <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold text-gray-900">
+        <header className="sticky top-0 z-20 flex min-w-0 max-w-full shrink-0 items-center gap-3 overflow-x-hidden border-b border-sam-border bg-sam-surface px-3 py-2 md:px-4">
+          <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold text-sam-fg">
             {t("admin_brand")}
           </h1>
-          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 border-l border-gray-200 pl-3 sm:gap-2 sm:pl-4">
+          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 border-l border-sam-border pl-3 sm:gap-2 sm:pl-4">
             <AdminShellToolbar
               sidebarExpanded={sidebarExpanded}
               onSidebarExpandedChange={setSidebarExpanded}
@@ -34,7 +34,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <AdminTestSwitcher />
             <Link
               href="/home"
-              className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] font-medium text-sam-fg hover:bg-sam-app hover:border-sam-border"
             >
               {t("common_homepage")}
             </Link>

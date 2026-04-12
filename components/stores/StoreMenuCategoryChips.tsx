@@ -25,7 +25,7 @@ export function StoreMenuCategoryChips({
 
   return (
     <div
-      className={`${plainBackground ? "px-0 py-0" : "bg-transparent px-4 py-2.5"} ${omitTopBorder || plainBackground ? "" : "border-t border-gray-200/80"}`}
+      className={`${plainBackground ? "px-0 py-0" : "bg-transparent px-4 py-2.5"} ${omitTopBorder || plainBackground ? "" : "border-t border-sam-border/80"}`}
     >
       <HorizontalDragScroll
         className="-mx-1 flex gap-2 overflow-x-auto pb-0.5 pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -43,8 +43,8 @@ export function StoreMenuCategoryChips({
               onClick={() => onSelect(i)}
               className={`shrink-0 rounded-full border px-3.5 py-2 text-[13px] font-semibold transition-colors ${
                 on
-                  ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
+                  ? "border-sam-border bg-sam-ink text-white"
+                  : "border-sam-border bg-sam-surface text-sam-muted shadow-sm active:bg-sam-app"
               }`}
             >
               {s.label}

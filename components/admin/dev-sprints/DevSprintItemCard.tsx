@@ -18,11 +18,11 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
   return (
     <div
       className={`rounded-ui-rect border p-4 ${
-        isBlocked ? "border-red-200 bg-red-50/50" : "border-gray-200 bg-white"
+        isBlocked ? "border-red-200 bg-red-50/50" : "border-sam-border bg-sam-surface"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-500">
-        <span className="rounded bg-gray-100 px-1.5 py-0.5">
+      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-sam-muted">
+        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
           {getSprintItemPriorityLabel(item.priority)}
         </span>
         <span>{getSprintItemOwnerTypeLabel(item.ownerType)}</span>
@@ -30,9 +30,9 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
           <span>{item.estimatePoint}pt</span>
         )}
       </div>
-      <p className="mt-2 font-medium text-gray-900">{item.title}</p>
+      <p className="mt-2 font-medium text-sam-fg">{item.title}</p>
       {item.description && (
-        <p className="mt-1 line-clamp-2 text-[13px] text-gray-600">
+        <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">
           {item.description}
         </p>
       )}
@@ -45,12 +45,12 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
                 ? "bg-emerald-50 text-emerald-700"
                 : item.status === "in_progress" || item.status === "review"
                   ? "bg-blue-50 text-blue-700"
-                  : "bg-gray-100 text-gray-600"
+                  : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
           {getSprintItemStatusLabel(item.status)}
         </span>
-        {item.ownerName && <span className="text-gray-500">{item.ownerName}</span>}
+        {item.ownerName && <span className="text-sam-muted">{item.ownerName}</span>}
       </div>
       {item.blockerReason && (
         <p className="mt-2 text-[12px] font-medium text-red-700">

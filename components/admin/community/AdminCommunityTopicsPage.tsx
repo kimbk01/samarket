@@ -247,14 +247,14 @@ export function AdminCommunityTopicsPage({
     <div className="space-y-4">
       <AdminPageHeader title="피드 주제 관리" backHref="/admin/philife/sections" description={headerDescription} />
 
-      <div className="flex flex-wrap gap-2 rounded-ui-rect border border-gray-200 bg-white p-1.5 shadow-sm">
+      <div className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-1.5 shadow-sm">
         <button
           type="button"
           onClick={() => setMenuTab("general")}
           className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-ui-rect px-4 py-2 text-[14px] font-semibold transition-colors sm:flex-none sm:px-8 ${
             menuTab === "general"
-              ? "bg-gray-900 text-white shadow-sm"
-              : "bg-transparent text-gray-600 hover:bg-gray-50"
+              ? "bg-sam-ink text-white shadow-sm"
+              : "bg-transparent text-sam-muted hover:bg-sam-app"
           }`}
         >
           <span>일반 게시판</span>
@@ -266,7 +266,7 @@ export function AdminCommunityTopicsPage({
           className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-ui-rect px-4 py-2 text-[14px] font-semibold transition-colors sm:flex-none sm:px-8 ${
             menuTab === "meetup"
               ? "bg-emerald-600 text-white shadow-sm"
-              : "bg-transparent text-gray-600 hover:bg-gray-50"
+              : "bg-transparent text-sam-muted hover:bg-sam-app"
           }`}
         >
           <span>모임</span>
@@ -287,9 +287,9 @@ export function AdminCommunityTopicsPage({
         <form onSubmit={onCreate} className="flex flex-col gap-3 text-[13px]">
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-0.5">
-              <span className="text-gray-500">섹션</span>
+              <span className="text-sam-muted">섹션</span>
               <select
-                className="rounded border border-gray-200 px-2 py-1.5"
+                className="rounded border border-sam-border px-2 py-1.5"
                 value={sectionId}
                 onChange={(e) => setSectionId(e.target.value)}
               >
@@ -301,26 +301,26 @@ export function AdminCommunityTopicsPage({
               </select>
             </label>
             <label className="flex flex-col gap-0.5">
-              <span className="text-gray-500">이름</span>
+              <span className="text-sam-muted">이름</span>
               <input
-                className="rounded border border-gray-200 px-2 py-1.5"
+                className="rounded border border-sam-border px-2 py-1.5"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
             </label>
             <label className="flex flex-col gap-0.5">
-              <span className="text-gray-500">slug</span>
+              <span className="text-sam-muted">slug</span>
               <input
-                className="rounded border border-gray-200 px-2 py-1.5 font-mono text-[12px]"
+                className="rounded border border-sam-border px-2 py-1.5 font-mono text-[12px]"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
               />
             </label>
             <label className="flex flex-col gap-0.5">
-              <span className="text-gray-500">정렬</span>
+              <span className="text-sam-muted">정렬</span>
               <input
                 type="number"
-                className="w-20 rounded border border-gray-200 px-2 py-1.5"
+                className="w-20 rounded border border-sam-border px-2 py-1.5"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
               />
@@ -342,28 +342,28 @@ export function AdminCommunityTopicsPage({
               질문
             </label>
             <div className="flex flex-col justify-end pb-1.5">
-              <span className="text-[11px] font-medium text-gray-600">
+              <span className="text-[11px] font-medium text-sam-muted">
                 분류: {menuTab === "meetup" ? "모임 피드" : "일반 게시판"}
               </span>
-              <span className="max-w-[220px] text-[10px] leading-tight text-gray-400">
+              <span className="max-w-[220px] text-[10px] leading-tight text-sam-meta">
                 {menuTab === "meetup"
                   ? "동네 섹션 + 모임 API와 같은 목록만 여기에 표시됩니다."
                   : "동네 섹션 일반 주제만 여기에 표시됩니다."}
               </span>
             </div>
             <label className="flex flex-col gap-0.5">
-              <span className="text-gray-500">색(hex 등)</span>
+              <span className="text-sam-muted">색(hex 등)</span>
               <input
-                className="w-28 rounded border border-gray-200 px-2 py-1.5"
+                className="w-28 rounded border border-sam-border px-2 py-1.5"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
                 placeholder="#..."
               />
             </label>
             <label className="flex min-w-[200px] flex-col gap-0.5">
-              <span className="text-gray-500">피드 목록 스킨</span>
+              <span className="text-sam-muted">피드 목록 스킨</span>
               <select
-                className="rounded border border-gray-200 px-2 py-1.5 text-[12px]"
+                className="rounded border border-sam-border px-2 py-1.5 text-[12px]"
                 value={feedListSkin}
                 onChange={(e) => setFeedListSkin(e.target.value as CommunityFeedListSkin)}
               >
@@ -377,13 +377,13 @@ export function AdminCommunityTopicsPage({
             <button
               type="submit"
               disabled={busy || sections.length === 0}
-              className="rounded bg-gray-900 px-3 py-1.5 text-white disabled:opacity-50"
+              className="rounded bg-sam-ink px-3 py-1.5 text-white disabled:opacity-50"
             >
               추가
             </button>
           </div>
-          <p className="text-[12px] text-gray-500">
-            정렬칩(<code className="rounded bg-gray-100 px-1">is_feed_sort</code>)은 추천·인기 등 필터 전용입니다. 목록 스킨은 주제별
+          <p className="text-[12px] text-sam-muted">
+            정렬칩(<code className="rounded bg-sam-surface-muted px-1">is_feed_sort</code>)은 추천·인기 등 필터 전용입니다. 목록 스킨은 주제별
             피드 카드 레이아웃(당근형 썸네일·텍스트·장소·태그)을 바꿉니다.
           </p>
         </form>
@@ -398,10 +398,10 @@ export function AdminCommunityTopicsPage({
         {topics.length === 0 ? (
           <div className="space-y-2 text-[13px] text-amber-900">
             <p className="font-medium">주제 행이 없습니다.</p>
-            <ul className="list-disc space-y-1.5 pl-5 text-gray-700">
+            <ul className="list-disc space-y-1.5 pl-5 text-sam-fg">
               <li>
                 Supabase 대시보드 → SQL Editor에서{" "}
-                <code className="rounded bg-gray-100 px-1 font-mono text-[12px]">20260321120000_community_feed_daangn.sql</code>{" "}
+                <code className="rounded bg-sam-surface-muted px-1 font-mono text-[12px]">20260321120000_community_feed_daangn.sql</code>{" "}
                 전체를 실행해 <code className="font-mono text-[12px]">community_sections</code>,{" "}
                 <code className="font-mono text-[12px]">community_topics</code>, 시드 데이터가 생겼는지 확인하세요.
               </li>
@@ -411,7 +411,7 @@ export function AdminCommunityTopicsPage({
               </li>
               <li>
                 목록 카드 스킨 컬럼은{" "}
-                <code className="rounded bg-gray-100 px-1 font-mono text-[12px]">
+                <code className="rounded bg-sam-surface-muted px-1 font-mono text-[12px]">
                   20260321180000_community_topics_feed_list_skin.sql
                 </code>
                 입니다. 아직 없어도 목록 조회는 기본 스킨으로 동작하도록 서버에서 폴백합니다.
@@ -419,7 +419,7 @@ export function AdminCommunityTopicsPage({
             </ul>
           </div>
         ) : filteredTopics.length === 0 ? (
-          <p className="text-[13px] text-gray-600">
+          <p className="text-[13px] text-sam-muted">
             {menuTab === "meetup"
               ? `동네 피드 섹션(${philifeNeighborhoodSectionSlug})에 모임 피드 주제가 없습니다. 위에서 해당 섹션을 고르고 추가하거나, 일반 전용이 아닌 slug로 allow_meetup을 켠 주제를 넣어 주세요.`
               : `동네 피드 섹션(${philifeNeighborhoodSectionSlug})에 일반 게시판 주제가 없습니다. 위 폼에서 추가하세요.`}
@@ -428,7 +428,7 @@ export function AdminCommunityTopicsPage({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1000px] border-collapse text-left text-[13px]">
               <thead>
-                <tr className="border-b border-gray-200 text-gray-500">
+                <tr className="border-b border-sam-border text-sam-muted">
                   <th className="py-2 pr-2 font-medium">섹션</th>
                   <th className="py-2 pr-2 font-medium">slug</th>
                   <th className="py-2 pr-2 font-medium">이름</th>
@@ -444,7 +444,7 @@ export function AdminCommunityTopicsPage({
               <tbody>
                 {filteredTopics.map((t) =>
                   edit?.id === t.id ? (
-                    <tr key={t.id} className="border-b border-gray-100 bg-amber-50/40 align-top">
+                    <tr key={t.id} className="border-b border-sam-border-soft bg-amber-50/40 align-top">
                       <td className="py-2 pr-2">
                         <select
                           className="max-w-[140px] rounded border px-1 py-1 text-[12px]"
@@ -517,7 +517,7 @@ export function AdminCommunityTopicsPage({
                         />
                       </td>
                       <td className="py-2 pr-2">
-                        <label className="flex cursor-pointer items-center gap-1 text-[11px] text-gray-700">
+                        <label className="flex cursor-pointer items-center gap-1 text-[11px] text-sam-fg">
                           <input
                             type="checkbox"
                             title="모임 피드로 전환"
@@ -536,21 +536,21 @@ export function AdminCommunityTopicsPage({
                         >
                           저장
                         </button>
-                        <button type="button" className="text-gray-500 hover:underline" onClick={() => setEdit(null)}>
+                        <button type="button" className="text-sam-muted hover:underline" onClick={() => setEdit(null)}>
                           취소
                         </button>
                       </td>
                     </tr>
                   ) : (
-                    <tr key={t.id} className="border-b border-gray-100">
-                      <td className="py-2 pr-2 text-gray-900">
+                    <tr key={t.id} className="border-b border-sam-border-soft">
+                      <td className="py-2 pr-2 text-sam-fg">
                         {t.section_name ?? "—"}{" "}
-                        <span className="font-mono text-[11px] text-gray-400">({t.section_slug})</span>
+                        <span className="font-mono text-[11px] text-sam-meta">({t.section_slug})</span>
                       </td>
                       <td className="py-2 pr-2 font-mono text-[12px]">{t.slug}</td>
-                      <td className="py-2 pr-2 text-gray-900">{t.name}</td>
+                      <td className="py-2 pr-2 text-sam-fg">{t.name}</td>
                       <td
-                        className="max-w-[200px] truncate py-2 pr-2 text-[11px] text-gray-600"
+                        className="max-w-[200px] truncate py-2 pr-2 text-[11px] text-sam-muted"
                         title={COMMUNITY_FEED_LIST_SKIN_LABELS[t.feed_list_skin]}
                       >
                         {COMMUNITY_FEED_LIST_SKIN_LABELS[t.feed_list_skin]}
@@ -559,7 +559,7 @@ export function AdminCommunityTopicsPage({
                       <td className="py-2 pr-2">{t.is_visible ? "Y" : "N"}</td>
                       <td className="py-2 pr-2">{t.is_feed_sort ? "Y" : "N"}</td>
                       <td className="py-2 pr-2">{t.is_active ? "Y" : "N"}</td>
-                      <td className="py-2 pr-2 text-[11px] text-gray-600">
+                      <td className="py-2 pr-2 text-[11px] text-sam-muted">
                         {t.allow_meetup ? "모임" : "일반"}
                       </td>
                       <td className="py-2">

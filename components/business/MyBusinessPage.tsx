@@ -214,7 +214,7 @@ export function MyBusinessPage({
   }, [orderCountsStoreId]);
 
   if (state.kind === "loading") {
-    return <p className="text-[14px] text-gray-500">불러오는 중…</p>;
+    return <p className="text-[14px] text-sam-muted">불러오는 중…</p>;
   }
 
   if (state.kind === "unauth") {
@@ -223,7 +223,7 @@ export function MyBusinessPage({
         <p>로그인 후 매장 신청과 주문 운영을 바로 시작할 수 있습니다.</p>
         <Link
           href="/login"
-          className="inline-flex w-fit rounded-ui-rect border border-amber-200 bg-white px-4 py-2 text-[14px] font-medium text-amber-900"
+          className="inline-flex w-fit rounded-ui-rect border border-amber-200 bg-sam-surface px-4 py-2 text-[14px] font-medium text-amber-900"
         >
           로그인하고 매장 시작하기
         </Link>
@@ -233,7 +233,7 @@ export function MyBusinessPage({
 
   if (state.kind === "config") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-gray-600`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-sam-muted`}>
         <p>지금은 매장 데이터를 불러오지 못하고 있습니다. 잠시 후 다시 시도해 주세요.</p>
         <MockBusinessFallback />
       </div>
@@ -247,7 +247,7 @@ export function MyBusinessPage({
         <button
           type="button"
           onClick={() => void loadRemote()}
-          className="rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] text-gray-700"
+          className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] text-sam-fg"
         >
           다시 시도
         </button>
@@ -271,13 +271,13 @@ export function MyBusinessPage({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Link
             href="/mypage/business/apply"
-            className="rounded-ui-rect border border-signature/30 bg-signature/5 px-4 py-4 text-[15px] font-semibold text-gray-900 shadow-sm"
+            className="rounded-ui-rect border border-signature/30 bg-signature/5 px-4 py-4 text-[15px] font-semibold text-sam-fg shadow-sm"
           >
             매장 신청하기
           </Link>
           <Link
             href="/mypage/store-orders"
-            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-4 text-[15px] font-semibold text-gray-800 shadow-sm"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-[15px] font-semibold text-sam-fg shadow-sm"
           >
             내 주문 보기
           </Link>
@@ -295,10 +295,10 @@ export function MyBusinessPage({
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <BusinessOperationalChecklistRevision storeId={row.id} />
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4">
-          <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
+          <h2 className="text-[16px] font-semibold text-sam-fg">{profile.shopName}</h2>
           <p className="mt-2 text-[14px] text-amber-900">관리자 보완 요청 상태입니다.</p>
           {profile.adminMemo ? (
-            <p className="mt-2 whitespace-pre-wrap text-[13px] text-gray-800">{profile.adminMemo}</p>
+            <p className="mt-2 whitespace-pre-wrap text-[13px] text-sam-fg">{profile.adminMemo}</p>
           ) : null}
           <Link
             href={`/my/business/profile?${managementQuery}`}
@@ -322,15 +322,15 @@ export function MyBusinessPage({
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <BusinessOperationalChecklistPending storeId={row.id} shopName={profile.shopName} />
-        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4 shadow-sm`}>
-          <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
-          <p className="text-[14px] text-gray-600">심사 중입니다. 승인 후 매장이 공개됩니다.</p>
+        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
+          <h2 className="text-[16px] font-semibold text-sam-fg">{profile.shopName}</h2>
+          <p className="text-[14px] text-sam-muted">심사 중입니다. 승인 후 매장이 공개됩니다.</p>
           <span className="mt-2 inline-block rounded bg-amber-100 px-2 py-1 text-[13px] text-amber-800">
             {BUSINESS_STATUS_LABELS.pending}
           </span>
           <Link
             href={`/my/business/profile?${managementQuery}`}
-            className="mt-3 inline-block rounded-ui-rect border border-gray-200 px-4 py-2 text-[14px] font-medium text-gray-800"
+            className="mt-3 inline-block rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] font-medium text-sam-fg"
           >
             매장 프로필·이미지 입력
           </Link>
@@ -341,11 +341,11 @@ export function MyBusinessPage({
 
   if (profile.status === "rejected") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4 shadow-sm`}>
-        <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
-        <p className="text-[14px] text-gray-600">신청이 반려되었습니다.</p>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
+        <h2 className="text-[16px] font-semibold text-sam-fg">{profile.shopName}</h2>
+        <p className="text-[14px] text-sam-muted">신청이 반려되었습니다.</p>
         {profile.adminMemo ? (
-          <p className="text-[13px] text-gray-700">사유: {profile.adminMemo}</p>
+          <p className="text-[13px] text-sam-fg">사유: {profile.adminMemo}</p>
         ) : null}
         <span className="inline-block rounded bg-red-50 px-2 py-1 text-[13px] text-red-700">
           {BUSINESS_STATUS_LABELS.rejected}
@@ -356,10 +356,10 @@ export function MyBusinessPage({
 
   if (profile.status === "paused") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4 shadow-sm`}>
-        <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
-        <p className="text-[14px] text-gray-600">운영이 정지된 매장입니다.</p>
-        <span className="inline-block rounded bg-gray-200 px-2 py-1 text-[13px] text-gray-700">
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
+        <h2 className="text-[16px] font-semibold text-sam-fg">{profile.shopName}</h2>
+        <p className="text-[14px] text-sam-muted">운영이 정지된 매장입니다.</p>
+        <span className="inline-block rounded bg-sam-border-soft px-2 py-1 text-[13px] text-sam-fg">
           {BUSINESS_STATUS_LABELS.paused}
         </span>
       </div>
@@ -382,8 +382,8 @@ function MockBusinessFallback() {
   const profile = getBusinessProfileByOwnerUserId(CURRENT_USER_ID);
   if (!profile) return null;
   return (
-    <div className="border-t border-gray-200 pt-4">
-      <p className="mb-2 text-[12px] font-medium text-gray-500">로컬 목업 미리보기</p>
+    <div className="border-t border-sam-border pt-4">
+      <p className="mb-2 text-[12px] font-medium text-sam-muted">로컬 목업 미리보기</p>
       <MockBusinessBody profile={profile} />
     </div>
   );
@@ -392,9 +392,9 @@ function MockBusinessFallback() {
 function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
   if (profile.status === "pending") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4`}>
-        <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
-        <p className="text-[14px] text-gray-600">심사 중입니다. 승인 후 상점이 공개됩니다.</p>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
+        <h2 className="text-[16px] font-semibold text-sam-fg">{profile.shopName}</h2>
+        <p className="text-[14px] text-sam-muted">심사 중입니다. 승인 후 상점이 공개됩니다.</p>
         <span className="inline-block rounded bg-amber-100 px-2 py-1 text-[13px] text-amber-800">
           {BUSINESS_STATUS_LABELS.pending}
         </span>
@@ -403,9 +403,9 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
   }
   if (profile.status === "rejected") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4`}>
-        <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
-        <p className="text-[14px] text-gray-600">신청이 반려되었습니다.</p>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
+        <h2 className="text-[16px] font-semibold text-sam-fg">{profile.shopName}</h2>
+        <p className="text-[14px] text-sam-muted">신청이 반려되었습니다.</p>
         <span className="inline-block rounded bg-red-50 px-2 py-1 text-[13px] text-red-700">
           {BUSINESS_STATUS_LABELS.rejected}
         </span>
@@ -414,10 +414,10 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
   }
   if (profile.status === "paused") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-white p-4`}>
-        <h2 className="text-[16px] font-semibold text-gray-900">{profile.shopName}</h2>
-        <p className="text-[14px] text-gray-600">일시중지된 상점입니다.</p>
-        <span className="inline-block rounded bg-gray-200 px-2 py-1 text-[13px] text-gray-700">
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
+        <h2 className="text-[16px] font-semibold text-sam-fg">{profile.shopName}</h2>
+        <p className="text-[14px] text-sam-muted">일시중지된 상점입니다.</p>
+        <span className="inline-block rounded bg-sam-border-soft px-2 py-1 text-[13px] text-sam-fg">
           {BUSINESS_STATUS_LABELS.paused}
         </span>
       </div>
@@ -430,13 +430,13 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
       <div className="flex justify-end">
         <Link
           href="/my/business/edit"
-          className="rounded-ui-rect border border-gray-200 bg-white px-4 py-2 text-[14px] font-medium text-gray-700"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg"
         >
           상점 정보 수정
         </Link>
       </div>
       <div>
-        <h2 className="mb-3 text-[15px] font-semibold text-gray-900">내 상점 상품</h2>
+        <h2 className="mb-3 text-[15px] font-semibold text-sam-fg">내 상점 상품</h2>
         <BusinessProductList
           products={products}
           shopSlug={profile.slug}

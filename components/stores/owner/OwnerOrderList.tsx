@@ -16,7 +16,7 @@ export function OwnerOrderList({
 }) {
   if (orders.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-gray-200 bg-gray-50/80 py-16 text-center text-sm text-gray-500">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/80 py-16 text-center text-sm text-sam-muted">
         이 탭에 표시할 주문이 없습니다.
       </div>
     );

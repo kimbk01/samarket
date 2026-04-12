@@ -19,13 +19,13 @@ export function SavedRegionCard({
   canRemove,
 }: SavedRegionCardProps) {
   return (
-    <div className="flex items-center justify-between rounded-ui-rect border border-gray-100 bg-white p-4">
+    <div className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
       <div>
-        <p className="text-[15px] font-medium text-gray-900">{region.label}</p>
+        <p className="text-[15px] font-medium text-sam-fg">{region.label}</p>
         <div className="mt-1 flex items-center gap-2">
           {region.isPrimary && <PrimaryRegionBadge />}
           {isCurrent && (
-            <span className="text-[12px] text-gray-500">현재 보는 동네</span>
+            <span className="text-[12px] text-sam-muted">현재 보는 동네</span>
           )}
         </div>
       </div>
@@ -49,7 +49,7 @@ export function SavedRegionCard({
               e.stopPropagation();
               onRemove(region.id);
             }}
-            className="text-[13px] text-gray-500"
+            className="text-[13px] text-sam-muted"
           >
             삭제
           </button>

@@ -7,10 +7,10 @@ import {
 } from "@/lib/products/seller-listing-state";
 
 const TONE_CLASS: Record<"default" | "signature" | "amber" | "muted", string> = {
-  default: "border-2 border-current bg-slate-100 text-gray-700",
+  default: "border-2 border-current bg-sam-surface-muted text-sam-fg",
   signature: "border-2 border-current bg-signature/10 text-signature",
   amber: "border-2 border-current bg-amber-50 text-amber-900",
-  muted: "border-2 border-current bg-gray-100 text-gray-600",
+  muted: "border-2 border-current bg-sam-surface-muted text-sam-muted",
 };
 
 interface ItemStatusBadgeProps {

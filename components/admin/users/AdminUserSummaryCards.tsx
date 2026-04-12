@@ -23,9 +23,9 @@ export function AdminUserSummaryCards({ summary }: AdminUserSummaryCardsProps) {
     <AdminCard title="활동 요약">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {items.map(({ label, value }) => (
-          <div key={label} className="rounded border border-gray-100 bg-gray-50 p-3">
-            <p className="text-[12px] text-gray-500">{label}</p>
-            <p className="mt-0.5 text-[15px] font-medium text-gray-900">{value}</p>
+          <div key={label} className="rounded border border-sam-border-soft bg-sam-app p-3">
+            <p className="text-[12px] text-sam-muted">{label}</p>
+            <p className="mt-0.5 text-[15px] font-medium text-sam-fg">{value}</p>
           </div>
         ))}
       </div>

@@ -16,33 +16,33 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
 
   return (
     <div className="space-y-4">
-      <div className="rounded-ui-rect bg-white p-4">
+      <div className="rounded-ui-rect bg-sam-surface p-4">
         <div className="flex items-start gap-3">
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-200">
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-sam-border-soft">
             {profile.logoUrl ? (
                
               <img src={profile.logoUrl} alt="" className="h-full w-full object-cover" />
             ) : null}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-[18px] font-semibold text-gray-900">
+            <h1 className="text-[18px] font-semibold text-sam-fg">
               {profile.shopName}
             </h1>
             {legacyLine ? (
-              <p className="mt-0.5 text-[13px] text-gray-500">{legacyLine}</p>
+              <p className="mt-0.5 text-[13px] text-sam-muted">{legacyLine}</p>
             ) : street || detail ? (
               <>
                 {street ? (
-                  <p className="mt-0.5 text-[13px] text-gray-500">{street}</p>
+                  <p className="mt-0.5 text-[13px] text-sam-muted">{street}</p>
                 ) : null}
                 {detail ? (
-                  <p className="mt-0.5 text-[13px] text-gray-500">{detail}</p>
+                  <p className="mt-0.5 text-[13px] text-sam-muted">{detail}</p>
                 ) : null}
               </>
             ) : null}
             {isOwner && (
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="inline-block rounded bg-gray-100 px-2 py-0.5 text-[12px] text-gray-600">
+                <span className="inline-block rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] text-sam-muted">
                   {BUSINESS_STATUS_LABELS[profile.status]}
                 </span>
                 {profile.approvalStatusRaw === "approved" && (
@@ -57,7 +57,7 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
               </div>
             )}
             {isOwner && (profile.storeCategoryName || profile.storeTopicName) && (
-              <p className="mt-1.5 text-[12px] text-gray-500">
+              <p className="mt-1.5 text-[12px] text-sam-muted">
                 노출 분류:{" "}
                 {[profile.storeCategoryName, profile.storeTopicName].filter(Boolean).join(" · ")}
               </p>
@@ -65,11 +65,11 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
           </div>
         </div>
         {profile.description && (
-          <p className="mt-3 text-[14px] text-gray-700 whitespace-pre-wrap">
+          <p className="mt-3 text-[14px] text-sam-fg whitespace-pre-wrap">
             {profile.description}
           </p>
         )}
-        <div className="mt-3 flex flex-wrap gap-4 text-[13px] text-gray-500">
+        <div className="mt-3 flex flex-wrap gap-4 text-[13px] text-sam-muted">
           <span>상품 {profile.productCount}개</span>
           <span>팔로워 {profile.followerCount}</span>
           {profile.reviewCount > 0 && (
@@ -79,7 +79,7 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
           )}
         </div>
         {(profile.phone || profile.kakaoId) && (
-          <div className="mt-3 border-t border-gray-100 pt-3 text-[13px] text-gray-600">
+          <div className="mt-3 border-t border-sam-border-soft pt-3 text-[13px] text-sam-muted">
             {profile.phone && <p>연락처: {profile.phone}</p>}
             {profile.kakaoId && (
               <p>카카오톡 ID: {profile.kakaoId} (placeholder)</p>
@@ -89,9 +89,9 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
       </div>
       {/* 상점 후기 요약 placeholder */}
       {profile.reviewCount > 0 && (
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <h2 className="text-[15px] font-medium text-gray-900">후기 요약</h2>
-          <p className="mt-1 text-[13px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <h2 className="text-[15px] font-medium text-sam-fg">후기 요약</h2>
+          <p className="mt-1 text-[13px] text-sam-muted">
             후기 {profile.reviewCount}개 · 평균 ★ {profile.averageRating.toFixed(1)}
             (상세 후기 목록 연결 예정)
           </p>

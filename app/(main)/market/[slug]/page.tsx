@@ -14,7 +14,7 @@ function MarketCategoryPageInner() {
     <CategoryListLayout slugOrId={slugOrId} expectedType="trade" backHref="/home">
       {(category, extra) => (
         <Suspense
-          fallback={<div className="py-8 text-center text-[14px] text-gray-500">불러오는 중…</div>}
+          fallback={<div className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>}
         >
           <MarketCategoryFeed
             category={category}
@@ -31,7 +31,7 @@ export default function MarketCategoryPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[200px] flex items-center justify-center text-[14px] text-gray-500">
+        <div className="min-h-[200px] flex items-center justify-center text-[14px] text-sam-muted">
           불러오는 중…
         </div>
       }

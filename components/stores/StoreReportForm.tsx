@@ -88,15 +88,15 @@ export function StoreReportForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-sam-muted">
         {mode === "store"
           ? "이 매장에 대한 신고입니다."
           : "선택한 상품에 대한 신고입니다."}
       </p>
       <label className="block">
-        <span className="text-xs font-medium text-gray-700">사유</span>
+        <span className="text-xs font-medium text-sam-fg">사유</span>
         <select
-          className="mt-1 w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         >
@@ -108,9 +108,9 @@ export function StoreReportForm({
         </select>
       </label>
       <label className="block">
-        <span className="text-xs font-medium text-gray-700">상세 내용 (최대 2000자)</span>
+        <span className="text-xs font-medium text-sam-fg">상세 내용 (최대 2000자)</span>
         <textarea
-          className="mt-1 min-h-[120px] w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-sm"
+          className="mt-1 min-h-[120px] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           maxLength={2000}
@@ -121,7 +121,7 @@ export function StoreReportForm({
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-ui-rect bg-gray-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        className="w-full rounded-ui-rect bg-sam-ink py-3 text-sm font-semibold text-white disabled:opacity-50"
       >
         {busy ? "전송 중…" : "신고 접수"}
       </button>

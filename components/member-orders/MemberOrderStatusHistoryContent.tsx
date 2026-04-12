@@ -29,7 +29,7 @@ export function MemberOrderStatusHistoryContent() {
 
   if (rows.length === 0) {
     return (
-      <p className="rounded-ui-rect bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-100">
+      <p className="rounded-ui-rect bg-sam-surface p-4 text-sm text-sam-muted ring-1 ring-sam-border-soft">
         {t("member_order_status_history_empty")}
       </p>
     );
@@ -40,19 +40,19 @@ export function MemberOrderStatusHistoryContent() {
       {rows.map((r) => (
         <li
           key={r.id}
-          className="rounded-ui-rect border border-gray-100 bg-white px-3 py-3 shadow-sm ring-1 ring-gray-50"
+          className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3 shadow-sm ring-1 ring-sam-border-soft"
         >
-          <div className="flex flex-wrap justify-between gap-1 text-[11px] text-gray-400">
+          <div className="flex flex-wrap justify-between gap-1 text-[11px] text-sam-meta">
             <span className="font-mono">{r.status}</span>
             <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
           </div>
-          <p className="mt-1 text-[14px] font-semibold text-gray-900">
+          <p className="mt-1 text-[14px] font-semibold text-sam-fg">
             {r.store_name}
-            <span className="ml-1.5 font-mono text-[12px] font-normal text-gray-500">
+            <span className="ml-1.5 font-mono text-[12px] font-normal text-sam-muted">
               {r.order_no}
             </span>
           </p>
-          <p className="mt-0.5 text-[13px] text-gray-700">{tt(r.message)}</p>
+          <p className="mt-0.5 text-[13px] text-sam-fg">{tt(r.message)}</p>
           <div className="mt-2">
             <Link
               href="/my/store-orders"

@@ -21,11 +21,11 @@ export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
             ? "border-emerald-200 bg-emerald-50/30"
             : isInProgress
               ? "border-amber-200 bg-amber-50/30"
-              : "border-gray-200 bg-white"
+              : "border-sam-border bg-sam-surface"
       }`}
     >
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-gray-900">
+        <h3 className="font-medium text-sam-fg">
           {getAreaLabel(entry.area)}
         </h3>
         <span
@@ -34,23 +34,23 @@ export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
               ? "bg-emerald-100 text-emerald-800"
               : isBlocked
                 ? "bg-red-100 text-red-800"
-                : "bg-gray-100 text-gray-600"
+                : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
           {getStatusLabel(entry.status)}
         </span>
       </div>
-      <p className="mt-2 text-[24px] font-semibold text-gray-900">
+      <p className="mt-2 text-[24px] font-semibold text-sam-fg">
         {entry.score}%
       </p>
-      <p className="mt-1 text-[13px] text-gray-600">
+      <p className="mt-1 text-[13px] text-sam-muted">
         완료 {entry.readyItems} / {entry.totalItems}
         {entry.blockedItems > 0 && (
           <span className="ml-1 text-red-600">· 차단 {entry.blockedItems}</span>
         )}
       </p>
       {entry.ownerAdminNickname && (
-        <p className="mt-2 text-[12px] text-gray-500">
+        <p className="mt-2 text-[12px] text-sam-muted">
           담당 {entry.ownerAdminNickname}
         </p>
       )}

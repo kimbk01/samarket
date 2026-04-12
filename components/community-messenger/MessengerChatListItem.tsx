@@ -94,9 +94,15 @@ export function MessengerChatListItem({
       )}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">
-          <p className="min-w-0 truncate text-[13px] font-semibold leading-tight text-ui-fg">{room.title}</p>
-          {titleSuffix ? <span className="shrink-0 text-[11px] text-ui-muted">{titleSuffix}</span> : null}
-          <span className={`shrink-0 rounded-ui-rect border px-1 py-px text-[9px] font-medium leading-none ${getRoomTypeBadgeClassName(badgeLabel)}`}>
+          <p className="min-w-0 truncate text-[13px] font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
+            {room.title}
+          </p>
+          {titleSuffix ? (
+            <span className="shrink-0 text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+              {titleSuffix}
+            </span>
+          ) : null}
+          <span className={`shrink-0 rounded-full px-1.5 py-px text-[9px] font-semibold leading-none ${getRoomTypeBadgeClassName(badgeLabel)}`}>
             {badgeLabel}
           </span>
           {commerceMeta?.stepLabel ? (
@@ -105,34 +111,50 @@ export function MessengerChatListItem({
             </span>
           ) : null}
         </div>
-        {commerceSubline ? <p className="mt-0.5 truncate text-[11px] text-ui-muted">{commerceSubline}</p> : null}
+        {commerceSubline ? (
+          <p className="mt-0.5 truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+            {commerceSubline}
+          </p>
+        ) : null}
         <div className="mt-0.5 flex items-center gap-1">
           {secondaryHint ? (
-            <span className="shrink-0 rounded-sm border border-ui-border px-1 py-px text-[10px] font-medium text-ui-muted">
+            <span
+              className="shrink-0 rounded-sm border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium"
+              style={{ color: "var(--messenger-text-secondary)" }}
+            >
               {secondaryHint}
             </span>
           ) : null}
-          {isFavorite ? <span className="shrink-0 text-[10px] text-ui-muted">★</span> : null}
-          <p className={`min-w-0 truncate text-[11px] ${room.unreadCount > 0 ? "font-medium text-ui-fg" : "text-ui-muted"}`}>
+          {isFavorite ? (
+            <span className="shrink-0 text-[10px]" style={{ color: "var(--messenger-primary)" }}>
+              ★
+            </span>
+          ) : null}
+          <p
+            className={`min-w-0 truncate text-[11px] ${room.unreadCount > 0 ? "font-medium" : ""}`}
+            style={{ color: room.unreadCount > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
+          >
             {item.preview}
           </p>
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-0.5 pl-0.5">
-        <span className="text-[10px] tabular-nums text-ui-muted">{formatConversationTimestamp(item.lastEventAt)}</span>
+        <span className="text-[10px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+          {formatConversationTimestamp(item.lastEventAt)}
+        </span>
         <div className="flex items-center gap-0.5">
           {room.isPinned ? (
-            <span className="text-ui-muted" aria-label="고정됨">
+            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label="고정됨">
               <PinIcon />
             </span>
           ) : null}
           {room.isMuted ? (
-            <span className="text-ui-muted" aria-label="알림 끔">
+            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label="알림 끔">
               <MuteIcon />
             </span>
           ) : null}
           {room.unreadCount > 0 ? (
-            <span className="min-w-[16px] rounded-ui-rect bg-ui-fg px-1 py-px text-center text-[9px] font-semibold leading-none text-ui-surface">
+            <span className="min-w-[16px] rounded-full bg-[color:var(--messenger-primary)] px-1 py-px text-center text-[9px] font-semibold leading-none text-white">
               {room.unreadCount > 999 ? "999+" : room.unreadCount}
             </span>
           ) : null}
@@ -162,7 +184,7 @@ export function MessengerChatListItem({
             navigateToCommunityRoom(room.id);
           }
         }}
-        className="block cursor-default px-2 py-2 touch-manipulation active:bg-ui-hover"
+        className="block cursor-default px-2 py-2 touch-manipulation active:bg-[color:var(--messenger-primary-soft)]"
       >
         {rowContent}
       </div>
@@ -178,7 +200,7 @@ export function MessengerChatListItem({
           prefetchOnceRef.current = true;
           void prefetchCommunityMessengerRoomSnapshot(room.id);
         }}
-        className="block px-2 py-2 active:bg-ui-hover"
+        className="block px-2 py-2 active:bg-[color:var(--messenger-primary-soft)]"
       >
         {rowContent}
       </Link>
@@ -201,7 +223,7 @@ export function MessengerChatListItem({
           navigateToCommunityRoom(room.id);
         }
       }}
-      className="block w-full cursor-default bg-ui-surface px-2.5 py-1.5 transition active:bg-ui-hover touch-pan-y"
+      className="block w-full cursor-default bg-[color:var(--messenger-surface)] px-2.5 py-1.5 transition active:bg-[color:var(--messenger-primary-soft)] touch-pan-y"
     >
       {rowContent}
     </div>
@@ -261,12 +283,12 @@ function AvatarCircle({
 }
 
 function getRoomTypeBadgeClassName(label: string): string {
-  if (label === "친구") return "border-ui-border bg-ui-page text-ui-muted";
-  if (label === "그룹") return "border-ui-border bg-ui-hover text-ui-fg";
-  if (label === "오픈") return "border-ui-border bg-ui-page text-ui-muted";
-  if (label === "거래") return "border-ui-border bg-ui-page text-ui-muted";
-  if (label === "배달") return "border-ui-border bg-ui-page text-ui-muted";
-  return "border-ui-border bg-ui-page text-ui-muted";
+  if (label === "친구") return "border-transparent bg-[color:var(--messenger-badge-direct-bg)] text-[color:var(--messenger-primary)]";
+  if (label === "그룹") return "border-transparent bg-[color:var(--messenger-badge-group-bg)] text-violet-900";
+  if (label === "오픈") return "border-transparent bg-[color:var(--messenger-badge-openchat-bg)] text-sky-800";
+  if (label === "거래") return "border-transparent bg-[color:var(--messenger-badge-trade-bg)] text-emerald-900";
+  if (label === "배달") return "border-transparent bg-[color:var(--messenger-badge-delivery-bg)] text-amber-900";
+  return "border-transparent bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]";
 }
 
 function PinIcon() {

@@ -15,7 +15,7 @@ export function RecentViewedList() {
   if (records.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-[14px] text-gray-500">최근 본 상품이 없어요</p>
+        <p className="text-[14px] text-sam-muted">최근 본 상품이 없어요</p>
       </div>
     );
   }

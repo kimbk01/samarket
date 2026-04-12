@@ -107,7 +107,7 @@ export function PostFavoriteButton({
 
   if (!listMode && !standaloneLoaded) {
     return (
-      <span className={`inline-flex ${iconClassName} shrink-0 text-gray-300`} aria-hidden>
+      <span className={`inline-flex ${iconClassName} shrink-0 text-sam-meta`} aria-hidden>
         <HeartOutlineIcon className={iconClassName} />
       </span>
     );
@@ -117,7 +117,7 @@ export function PostFavoriteButton({
     <button
       type="button"
       onClick={handleClick}
-      className="flex shrink-0 flex-col items-center justify-center text-gray-500"
+      className="flex shrink-0 flex-col items-center justify-center text-sam-muted"
       aria-label={displayFavorited ? "관심 해제" : "관심"}
     >
       {displayFavorited ? (

@@ -219,7 +219,7 @@ export function HomeFeedViewExperimental() {
     return (
       <div className="space-y-3">
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-[14px] text-gray-500">등록된 상품이 없어요</p>
+          <p className="text-[14px] text-sam-muted">등록된 상품이 없어요</p>
         </div>
       </div>
     );

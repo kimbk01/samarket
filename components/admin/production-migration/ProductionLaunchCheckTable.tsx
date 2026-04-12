@@ -28,7 +28,7 @@ export function ProductionLaunchCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-gray-600">단계</span>
+        <span className="text-[13px] text-sam-muted">단계</span>
         {(["before_cutover", "cutover", "after_cutover"] as const).map((p) => (
           <button
             key={p}
@@ -37,7 +37,7 @@ export function ProductionLaunchCheckTable() {
             className={`rounded border px-3 py-1.5 text-[13px] ${
               phase === p
                 ? "border-signature bg-signature/10 text-signature"
-                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
             }`}
           >
             {getPhaseLabel(p)}
@@ -45,12 +45,12 @@ export function ProductionLaunchCheckTable() {
         ))}
       </div>
 
-      <p className="text-[12px] text-gray-500">
+      <p className="text-[12px] text-sam-muted">
         SQL 적용·view/rpc/trigger 필요 항목은 비고에 placeholder로 정리됩니다.
       </p>
 
       {checks.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-gray-300 bg-gray-50/50 py-12 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
           해당 단계 체크 항목이 없습니다.
         </div>
       ) : (
@@ -69,20 +69,20 @@ export function ProductionLaunchCheckTable() {
           {checks.map((c) => (
             <tr
               key={c.id}
-              className={`border-b border-gray-100 ${
+              className={`border-b border-sam-border-soft ${
                 c.status === "blocked" ? "bg-red-50/30" : ""
               }`}
             >
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getPhaseLabel(c.phase)}
               </td>
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {c.title}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getAreaLabel(c.area)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {getPriorityLabel(c.priority)}
               </td>
               <td className="px-3 py-2.5">
@@ -98,13 +98,13 @@ export function ProductionLaunchCheckTable() {
                   {getLaunchStatusLabel(c.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-700">
+              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
                 {c.ownerAdminNickname ?? "-"}
               </td>
-              <td className="max-w-[160px] px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="max-w-[160px] px-3 py-2.5 text-[13px] text-sam-muted">
                 {c.blockerReason || c.note || "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {c.linkedType && c.linkedId ? (
                   c.linkedType === "action_item" ? (
                     <Link

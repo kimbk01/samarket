@@ -40,21 +40,21 @@ export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
           ? "border-red-200 bg-red-50/50"
           : item.status === "completed"
             ? "border-emerald-200 bg-emerald-50/30"
-            : "border-gray-200 bg-white"
+            : "border-sam-border bg-sam-surface"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
         <span>{DOMAIN_LABELS[item.domain]}</span>
-        <span className="rounded bg-gray-100 px-1.5 py-0.5">{PRIORITY_LABELS[item.priority]}</span>
-        <span className="rounded bg-gray-100 px-1.5 py-0.5">{STATUS_LABELS[item.status]}</span>
+        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">{PRIORITY_LABELS[item.priority]}</span>
+        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">{STATUS_LABELS[item.status]}</span>
       </div>
-      <h3 className="mt-2 font-medium text-gray-900">{item.title}</h3>
-      <p className="mt-1 line-clamp-2 text-[13px] text-gray-600">{item.description}</p>
+      <h3 className="mt-2 font-medium text-sam-fg">{item.title}</h3>
+      <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">{item.description}</p>
       {item.milestone && (
-        <p className="mt-2 text-[12px] text-gray-500">마일스톤: {item.milestone}</p>
+        <p className="mt-2 text-[12px] text-sam-muted">마일스톤: {item.milestone}</p>
       )}
       {item.sourceId && (
-        <p className="mt-1 text-[12px] text-gray-500">
+        <p className="mt-1 text-[12px] text-sam-muted">
           출처: {item.sourceType} ·{" "}
           {item.sourceType === "learning_pattern" && (
             <Link href="/admin/ops-learning" className="text-signature hover:underline">
@@ -70,7 +70,7 @@ export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
         </p>
       )}
       {(item.ownerAdminNickname || item.dueDate) && (
-        <p className="mt-2 text-[12px] text-gray-500">
+        <p className="mt-2 text-[12px] text-sam-muted">
           {item.ownerAdminNickname && `담당 ${item.ownerAdminNickname}`}
           {item.dueDate && ` · 기한 ${item.dueDate}`}
         </p>

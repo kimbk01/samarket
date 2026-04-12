@@ -21,8 +21,8 @@ export function AdminSidebarGroup({
 
   return (
     <div className="mb-4">
-      <div className="mb-2 rounded-ui-rect bg-gray-100 px-3 py-2.5">
-        <p className="text-[16px] font-extrabold tracking-tight text-gray-800">
+      <div className="mb-2 rounded-ui-rect bg-sam-surface-muted px-3 py-2.5">
+        <p className="text-[16px] font-extrabold tracking-tight text-sam-fg">
           {displayTitle}
         </p>
       </div>

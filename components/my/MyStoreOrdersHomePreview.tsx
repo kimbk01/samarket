@@ -109,7 +109,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
 
   if (state.kind === "idle" || state.kind === "loading") {
     return (
-      <section className="rounded-ui-rect border border-ig-border bg-white p-4" aria-busy="true">
+      <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4" aria-busy="true">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
         </div>
@@ -124,7 +124,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
 
   if (state.kind === "unavailable") {
     return (
-      <section className="rounded-ui-rect border border-ig-border bg-white p-4">
+      <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
         <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
         <p className="mt-2 text-[13px] text-muted">주문 정보를 불러올 수 없습니다. (서버 설정)</p>
       </section>
@@ -133,7 +133,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
 
   if (state.kind === "error") {
     return (
-      <section className="rounded-ui-rect border border-ig-border bg-white p-4">
+      <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
           <button
@@ -149,7 +149,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
   }
 
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-white p-4">
+    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
         <Link href="/my/store-orders" className="shrink-0 text-[13px] font-medium text-signature">
@@ -172,7 +172,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
           {state.orders.map((o) => (
             <li
               key={o.id}
-              className="rounded-ui-rect border border-ig-border bg-white p-4"
+              className="rounded-ui-rect border border-ig-border bg-sam-surface p-4"
             >
               <Link
                 href={`/my/store-orders/${encodeURIComponent(o.id)}`}

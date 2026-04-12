@@ -84,17 +84,17 @@ export function AdminPostAdManagePage() {
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "전체", value: counts.total, color: "text-gray-900" },
+          { label: "전체", value: counts.total, color: "text-sam-fg" },
           { label: "노출중", value: counts.active, color: "text-emerald-700" },
           { label: "승인대기", value: counts.pending, color: "text-blue-700" },
           { label: "반려", value: counts.rejected, color: "text-red-600" },
         ].map(({ label, value, color }) => (
           <div
             key={label}
-            className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-center shadow-sm"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-center shadow-sm"
           >
             <p className={`text-[24px] font-bold ${color}`}>{value}</p>
-            <p className="text-[11px] text-gray-500">{label}</p>
+            <p className="text-[11px] text-sam-muted">{label}</p>
           </div>
         ))}
       </div>
@@ -118,8 +118,8 @@ export function AdminPostAdManagePage() {
             onClick={() => setStatusFilter(opt.value)}
             className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
               statusFilter === opt.value
-                ? "bg-gray-900 text-white"
-                : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                ? "bg-sam-ink text-white"
+                : "border border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
             }`}
           >
             {opt.label}
@@ -128,7 +128,7 @@ export function AdminPostAdManagePage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="ml-auto rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 hover:bg-gray-50"
+          className="ml-auto rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-muted hover:bg-sam-app"
         >
           새로고침
         </button>
@@ -139,22 +139,22 @@ export function AdminPostAdManagePage() {
       ) : null}
 
       {/* 목록 */}
-      <div className="rounded-ui-rect border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-4 py-3">
-          <h2 className="text-[14px] font-semibold text-gray-900">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
+        <div className="border-b border-sam-border-soft px-4 py-3">
+          <h2 className="text-[14px] font-semibold text-sam-fg">
             광고 신청 목록{" "}
-            <span className="text-[13px] font-normal text-gray-400">({filtered.length}건)</span>
+            <span className="text-[13px] font-normal text-sam-meta">({filtered.length}건)</span>
           </h2>
         </div>
 
         {loading ? (
-          <p className="py-12 text-center text-[13px] text-gray-400">불러오는 중…</p>
+          <p className="py-12 text-center text-[13px] text-sam-meta">불러오는 중…</p>
         ) : filtered.length === 0 ? (
-          <p className="py-12 text-center text-[13px] text-gray-400">
+          <p className="py-12 text-center text-[13px] text-sam-meta">
             {statusFilter ? "해당 상태의 광고 신청이 없습니다." : "광고 신청 내역이 없습니다."}
           </p>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-sam-border-soft">
             {filtered.map((row) => {
               const busy = busyId === row.id;
               const note = noteInputs[row.id] ?? row.adminNote ?? "";
@@ -175,12 +175,12 @@ export function AdminPostAdManagePage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <AdStatusBadge status={row.applyStatus} />
-                        <span className="truncate text-[14px] font-semibold text-gray-900">
+                        <span className="truncate text-[14px] font-semibold text-sam-fg">
                           {row.postTitle}
                         </span>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-gray-500">
-                        <span>광고주: <strong className="text-gray-700">{row.userNickname}</strong></span>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-sam-muted">
+                        <span>광고주: <strong className="text-sam-fg">{row.userNickname}</strong></span>
                         <span>게시판: {row.boardKey}</span>
                         <span>{AD_TYPE_LABELS[row.adType]}</span>
                         <span className="font-semibold text-sky-700">{row.pointCost.toLocaleString()}P</span>
@@ -190,11 +190,11 @@ export function AdminPostAdManagePage() {
                             {new Date(row.endAt).toLocaleDateString("ko-KR")}
                           </span>
                         ) : null}
-                        <span className="text-gray-400">
+                        <span className="text-sam-meta">
                           신청: {new Date(row.createdAt).toLocaleString("ko-KR")}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[12px] text-gray-500">
+                      <p className="mt-0.5 text-[12px] text-sam-muted">
                         상품: {row.adProductName}
                       </p>
                     </div>
@@ -209,7 +209,7 @@ export function AdminPostAdManagePage() {
                         setNoteInputs((prev) => ({ ...prev, [row.id]: e.target.value }))
                       }
                       placeholder="관리자 메모 (선택)"
-                      className="w-48 rounded-ui-rect border border-gray-200 px-2.5 py-1.5 text-[12px] outline-none focus:border-sky-300"
+                      className="w-48 rounded-ui-rect border border-sam-border px-2.5 py-1.5 text-[12px] outline-none focus:border-sky-300"
                     />
 
                     {canApprove && (
@@ -237,7 +237,7 @@ export function AdminPostAdManagePage() {
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(row.id, "expire", note)}
-                        className="rounded-ui-rect border border-gray-300 bg-white px-3 py-1.5 text-[12px] text-gray-700 disabled:opacity-50"
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-fg disabled:opacity-50"
                       >
                         강제 종료
                       </button>
@@ -247,7 +247,7 @@ export function AdminPostAdManagePage() {
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(row.id, "cancel", note)}
-                        className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-500 disabled:opacity-50"
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-muted disabled:opacity-50"
                       >
                         취소
                       </button>
@@ -256,7 +256,7 @@ export function AdminPostAdManagePage() {
                     {/* 광고주 포인트 내역 바로가기 */}
                     <Link
                       href={`/admin/users/${row.userId}?tab=points`}
-                      className="ml-auto rounded-ui-rect border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-500 hover:text-sky-700"
+                      className="ml-auto rounded-ui-rect border border-sam-border px-2.5 py-1.5 text-[11px] text-sam-muted hover:text-sky-700"
                     >
                       광고주 포인트 조회
                     </Link>

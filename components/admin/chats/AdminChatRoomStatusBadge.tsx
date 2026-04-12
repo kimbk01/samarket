@@ -14,7 +14,7 @@ const CLASSES: Record<RoomStatus, string> = {
   active: "bg-emerald-50 text-emerald-800",
   blocked: "bg-red-50 text-red-700",
   reported: "bg-amber-100 text-amber-800",
-  archived: "bg-gray-100 text-gray-700",
+  archived: "bg-sam-surface-muted text-sam-fg",
 };
 
 interface AdminChatRoomStatusBadgeProps {

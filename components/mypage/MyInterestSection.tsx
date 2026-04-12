@@ -15,7 +15,7 @@ interface MyInterestSectionProps {
 
 export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-white p-4">
+    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
       <h2 className="mb-3 text-[13px] font-semibold text-muted">나의 관심</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
@@ -32,7 +32,7 @@ export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
                 {item.countKey === "favorites" &&
                   favoriteCount != null &&
                   favoriteCount > 0 && (
-                    <span className="ml-2 text-[12px] font-normal text-gray-500">
+                    <span className="ml-2 text-[12px] font-normal text-sam-muted">
                       {favoriteCount}개
                     </span>
                   )}

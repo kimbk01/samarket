@@ -52,6 +52,7 @@ import {
 } from "@/lib/community-messenger/preferences";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 import { CommunityMessengerMessageActionSheet } from "@/components/community-messenger/room/CommunityMessengerMessageActionSheet";
+import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 
 /** 이전 말풍선과의 시간 간격이 이 값을 넘으면 프로필·꼬리 말풍선 다시 표시 (Viber 스타일, 기본 5분) */
 const CM_CLUSTER_GAP_MS = 5 * 60 * 1000;
@@ -2292,11 +2293,12 @@ export function CommunityMessengerRoomClient({
 
   return (
     <div
+      data-messenger-shell
       data-cm-room
       className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
     >
-      <header className="sticky top-0 z-10 shrink-0 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-2 py-1.5">
-        <div className="flex items-center gap-1.5">
+      <header className="sticky top-0 z-10 shrink-0 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 shadow-none">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() =>
@@ -2327,7 +2329,7 @@ export function CommunityMessengerRoomClient({
             </p>
             <p className="truncate text-[11px] text-[color:var(--cm-room-text-muted)]">{roomHeaderStatus}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-0">
+          <div className="flex shrink-0 items-center gap-0.5">
             {!isGroupRoom && communityMessengerRoomIsGloballyUsable(snapshot.room) ? (
               <>
                 <button
@@ -2350,17 +2352,6 @@ export function CommunityMessengerRoomClient({
                 </button>
               </>
             ) : null}
-            <button
-              type="button"
-              onClick={() => {
-                setRoomSearchQuery("");
-                setActiveSheet("search");
-              }}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
-              aria-label="대화 내 검색"
-            >
-              <SearchIcon className="h-5 w-5" />
-            </button>
             <button
               type="button"
               onClick={() => setActiveSheet("menu")}
@@ -2399,7 +2390,7 @@ export function CommunityMessengerRoomClient({
           setCallStubSheet(null);
         }}
       >
-        <main className="space-y-2 px-2.5 py-3 pb-4 sm:px-3">
+        <main className="space-y-2.5 px-3 py-3 pb-3 sm:px-3.5">
           {!communityMessengerRoomIsGloballyUsable(snapshot.room) ? (
             <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 text-[12px] leading-snug text-[color:var(--cm-room-text)]">
               {snapshot.room.roomStatus === "blocked"
@@ -2415,7 +2406,7 @@ export function CommunityMessengerRoomClient({
               {managedDirectCallError ?? call.errorMessage}
             </div>
           ) : null}
-          <p className="px-0.5 text-center text-[11px] leading-snug text-[color:var(--cm-room-text-muted)]">
+          <p className="mx-auto max-w-[min(100%,22rem)] rounded-full bg-[color:var(--cm-room-primary-soft)] px-3 py-1 text-center text-[10px] leading-snug text-[color:var(--cm-room-text-muted)]">
             {roomTypeLabel}
             {roomJoinLabel ? ` · ${roomJoinLabel}` : ""}
             {roomIdentityLabel ? ` · ${roomIdentityLabel}` : ""}
@@ -2555,7 +2546,7 @@ export function CommunityMessengerRoomClient({
                       };
 
               const systemBubbleClass =
-                "rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)]/95 px-4 py-2 text-[12px] leading-5 text-[color:var(--cm-room-text-muted)] shadow-sm";
+                "rounded-[14px] border border-[color:var(--cm-room-divider)]/90 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-1.5 text-center text-[11px] leading-snug text-[color:var(--cm-room-text-muted)] shadow-[0_1px_3px_rgba(115,96,242,0.08)]";
 
               const viberInnerBody: ReactNode = (() => {
                 const mineLight = item.isMine;
@@ -2604,7 +2595,7 @@ export function CommunityMessengerRoomClient({
                       <div className="flex items-start gap-3">
                         <div
                           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${
-                            item.isMine ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"
+                            item.isMine ? "bg-sam-surface/20 text-white" : "bg-sam-surface-muted text-sam-fg"
                           }`}
                         >
                           <FileIcon className="h-5 w-5" />
@@ -2622,7 +2613,7 @@ export function CommunityMessengerRoomClient({
                       </div>
                       <div className="mt-3">
                         {item.pending ? (
-                          <span className={`text-[12px] ${item.isMine ? "text-gray-500" : "text-gray-500"}`}>
+                          <span className={`text-[12px] ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>
                             업로드 중…
                           </span>
                         ) : item.content.trim() ? (
@@ -2637,8 +2628,8 @@ export function CommunityMessengerRoomClient({
                             }
                             className={`inline-flex rounded-[10px] border px-3 py-2 text-[12px] font-semibold ${
                               item.isMine
-                                ? "border-white/40 bg-white/15 text-white"
-                                : "border-[color:var(--cm-room-divider)] bg-white text-[color:var(--cm-room-text)]"
+                                ? "border-sam-surface/40 bg-sam-surface/15 text-white"
+                                : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
                             }`}
                           >
                             {roomPreferences.mediaAutoSaveEnabled ? "파일 저장" : "파일 열기"}
@@ -2669,7 +2660,7 @@ export function CommunityMessengerRoomClient({
                     >
                       <span
                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                          item.isMine ? "bg-white/20 text-white" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
+                          item.isMine ? "bg-sam-surface/20 text-white" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
                         }`}
                         aria-hidden
                       >
@@ -2726,8 +2717,8 @@ export function CommunityMessengerRoomClient({
                               rel="noopener noreferrer"
                               className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 text-[11px] ${
                                 mineLight
-                                  ? "border-white/35 bg-white/15 text-white"
-                                  : "border-[color:var(--cm-room-divider)] bg-white text-[color:var(--cm-room-text-muted)]"
+                                  ? "border-sam-surface/35 bg-sam-surface/15 text-white"
+                                  : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text-muted)]"
                               }`}
                             >
                               {url.replace(/^https?:\/\//i, "")}
@@ -2767,10 +2758,10 @@ export function CommunityMessengerRoomClient({
                               <img
                                 src={peerAvatar.avatarUrl}
                                 alt=""
-                                className="h-9 w-9 rounded-full border border-black/10 object-cover shadow-sm"
+                                className="h-9 w-9 rounded-full border border-sam-fg/10 object-cover shadow-sm"
                               />
                             ) : (
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-black/10 bg-white text-center text-[14px] font-semibold leading-none text-gray-600 shadow-sm">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center text-[14px] font-semibold leading-none text-sam-muted shadow-sm">
                                 {peerAvatar?.initials?.slice(0, 1) ?? "?"}
                               </div>
                             )
@@ -2842,10 +2833,10 @@ export function CommunityMessengerRoomClient({
                               <img
                                 src={myAvatar.avatarUrl}
                                 alt=""
-                                className="h-9 w-9 rounded-full border border-black/10 object-cover shadow-sm"
+                                className="h-9 w-9 rounded-full border border-sam-fg/10 object-cover shadow-sm"
                               />
                             ) : (
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-black/10 bg-white text-center text-[14px] font-semibold leading-none text-gray-600 shadow-sm">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center text-[14px] font-semibold leading-none text-sam-muted shadow-sm">
                                 {myAvatar?.initials?.slice(0, 1) ?? "나"}
                               </div>
                             )
@@ -3020,7 +3011,7 @@ export function CommunityMessengerRoomClient({
           <button
             type="button"
             onClick={() => setReplyToMessage(null)}
-            className="shrink-0 rounded-full px-2 py-1 text-[12px] font-medium text-[color:var(--cm-room-text-muted)] active:bg-white/80"
+            className="shrink-0 rounded-full px-2 py-1 text-[12px] font-medium text-[color:var(--cm-room-text-muted)] active:bg-sam-surface/80"
           >
             취소
           </button>
@@ -3028,10 +3019,10 @@ export function CommunityMessengerRoomClient({
       ) : null}
 
       <footer
-        className={`sticky bottom-0 z-[5] shrink-0 border-t border-[color:var(--cm-room-divider)] px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] transition-[background-color] duration-300 ${
+        className={`sticky bottom-0 z-[5] shrink-0 border-t border-[color:var(--cm-room-divider)] px-3 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2.5 transition-[background-color,box-shadow] duration-300 ${
           voiceRecording
             ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white shadow-[0_-6px_18px_rgba(42,171,238,0.08)]"
-            : "bg-[color:var(--cm-room-header-bg)]"
+            : "bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_28px_rgba(17,24,39,0.07)]"
         }`}
       >
         <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_auto] items-center gap-2">
@@ -3053,6 +3044,12 @@ export function CommunityMessengerRoomClient({
                 ref={composerTextareaRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
+                onFocus={() => {
+                  useMessengerRoomUiStore.getState().setComposerFocused(true);
+                }}
+                onBlur={() => {
+                  useMessengerRoomUiStore.getState().setComposerFocused(false);
+                }}
                 rows={1}
                 disabled={roomUnavailable || busy === "delete-message" || busy === "send-image" || busy === "send-file"}
                 placeholder={
@@ -3067,19 +3064,19 @@ export function CommunityMessengerRoomClient({
                 className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-3 text-[14px] leading-normal text-[color:var(--cm-room-text)] outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50"
               />
             ) : voiceHandsFree ? (
-              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-gray-300 bg-gray-50 px-3 py-2 shadow-inner ring-1 ring-gray-200">
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-900 sm:text-[14px]">
+              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sam-border bg-sam-app px-3 py-2 shadow-inner ring-1 ring-sam-border">
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-sam-fg sm:text-[14px]">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
                 </span>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
-                  <span className="shrink-0 text-center text-[12px] font-medium text-gray-700">잠금 녹음 중</span>
+                  <span className="shrink-0 text-center text-[12px] font-medium text-sam-fg">잠금 녹음 중</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => void finalizeVoiceRecording(false)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm ring-1 ring-gray-200"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-sm ring-1 ring-sam-border"
                   aria-label="녹음 삭제"
                 >
                   <TrashVoiceIcon className="h-5 w-5" />
@@ -3087,22 +3084,22 @@ export function CommunityMessengerRoomClient({
                 <button
                   type="button"
                   onClick={() => void finalizeVoiceRecording(true)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white shadow-md"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sam-ink text-white shadow-md"
                   aria-label="음성 전송"
                 >
                   <SendVoiceArrowIcon className="h-5 w-5 text-white" />
                 </button>
               </div>
             ) : (
-              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-gray-300 bg-gray-50 px-3 py-2 shadow-inner ring-1 ring-gray-200">
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-gray-800 sm:text-[14px]">
+              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sam-border bg-sam-app px-3 py-2 shadow-inner ring-1 ring-sam-border">
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-sam-fg sm:text-[14px]">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(voiceRecordElapsedMs)}
                 </span>
                 <VoiceRecordingLiveWaveform peaks={voiceLivePreviewBars} />
                 <span
                   className={`min-w-0 shrink-0 text-center text-[13px] ${
-                    voiceCancelHint ? "font-semibold text-red-600" : "text-gray-600"
+                    voiceCancelHint ? "font-semibold text-red-600" : "text-sam-muted"
                   }`}
                 >
                   ‹ 밀어서 취소
@@ -3116,7 +3113,7 @@ export function CommunityMessengerRoomClient({
               {voiceRecording && !voiceHandsFree ? (
                 <div
                   className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-ui-rect px-2.5 py-2 shadow-md ${
-                    voiceLockHint ? "bg-gray-900 text-white" : "bg-gray-700/88 text-white/75"
+                    voiceLockHint ? "bg-sam-ink text-white" : "bg-sam-fg/10/88 text-white/75"
                   }`}
                 >
                   <span className="text-base leading-none">⌃</span>
@@ -3143,8 +3140,8 @@ export function CommunityMessengerRoomClient({
                 }
                 className={`touch-none flex h-10 w-10 shrink-0 origin-center select-none items-center justify-center rounded-full shadow-md transition-transform duration-200 active:scale-95 disabled:opacity-35 ${
                   voiceRecording && !voiceHandsFree
-                    ? "scale-110 bg-gray-900 text-white ring-4 ring-gray-300 shadow-lg"
-                    : "bg-gray-200 text-gray-800 ring-2 ring-gray-300"
+                    ? "scale-110 bg-sam-ink text-white ring-4 ring-sam-border shadow-lg"
+                    : "bg-sam-border-soft text-sam-fg ring-2 ring-sam-border"
                 }`}
                 aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
                 title={
@@ -3261,31 +3258,31 @@ export function CommunityMessengerRoomClient({
 
             {activeSheet === "menu" ? (
               <>
-                <p className="text-[13px] font-medium text-gray-700">채팅방 서랍</p>
-                <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{snapshot.room.title}</h2>
+                <p className="text-[13px] font-medium text-sam-fg">채팅방 서랍</p>
+                <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">{snapshot.room.title}</h2>
                 <div className="mt-4 space-y-4">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-ui-rect border border-gray-200 bg-gray-50 px-4 py-3">
-                      <p className="text-[11px] font-medium text-gray-500">참여자</p>
-                      <p className="mt-1 text-[18px] font-semibold text-gray-900">{snapshot.room.memberCount}</p>
-                      <p className="mt-1 text-[12px] text-gray-500">{myRoleLabel}</p>
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
+                      <p className="text-[11px] font-medium text-sam-muted">참여자</p>
+                      <p className="mt-1 text-[18px] font-semibold text-sam-fg">{snapshot.room.memberCount}</p>
+                      <p className="mt-1 text-[12px] text-sam-muted">{myRoleLabel}</p>
                     </div>
-                    <div className="rounded-ui-rect border border-gray-200 bg-gray-50 px-4 py-3">
-                      <p className="text-[11px] font-medium text-gray-500">공유 항목</p>
-                      <p className="mt-1 text-[18px] font-semibold text-gray-900">
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
+                      <p className="text-[11px] font-medium text-sam-muted">공유 항목</p>
+                      <p className="mt-1 text-[18px] font-semibold text-sam-fg">
                         {photoMessageCount + voiceMessageCount + fileMessageCount + linkMessageCount}
                       </p>
-                      <p className="mt-1 text-[12px] text-gray-500">
+                      <p className="mt-1 text-[12px] text-sam-muted">
                         사진 {photoMessageCount} · 음성 {voiceMessageCount} · 파일 {fileMessageCount} · 링크 {linkMessageCount}
                       </p>
                     </div>
                   </div>
 
                   {isGroupRoom ? (
-                    <div className="rounded-ui-rect border border-gray-200 bg-gray-50 px-4 py-3">
-                      <p className="text-[11px] font-medium text-gray-500">그룹 통화 상태</p>
-                      <p className="mt-1 text-[16px] font-semibold text-gray-900">{groupCallStatusLabel}</p>
-                      <p className="mt-1 text-[12px] text-gray-500">
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
+                      <p className="text-[11px] font-medium text-sam-muted">그룹 통화 상태</p>
+                      <p className="mt-1 text-[16px] font-semibold text-sam-fg">{groupCallStatusLabel}</p>
+                      <p className="mt-1 text-[12px] text-sam-muted">
                         {activeGroupCall
                           ? `${activeGroupCall.callKind === "video" ? "영상" : "음성"} · ${activeGroupCall.participants.length}명 참여`
                           : canStartGroupCall
@@ -3299,19 +3296,19 @@ export function CommunityMessengerRoomClient({
                     <button
                       type="button"
                       onClick={() => openInfoSheet("notice")}
-                      className="flex w-full items-start justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left"
+                      className="flex w-full items-start justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-left"
                     >
                       <div className="min-w-0">
-                        <p className="text-[12px] font-semibold text-gray-700">공지</p>
-                        <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-gray-800">{roomNotice}</p>
+                        <p className="text-[12px] font-semibold text-sam-fg">공지</p>
+                        <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-sam-fg">{roomNotice}</p>
                       </div>
-                      <span className="pl-3 text-[18px] text-gray-300">›</span>
+                      <span className="pl-3 text-[18px] text-sam-meta">›</span>
                     </button>
                   ) : null}
 
                   {managementEventMessages.length ? (
-                    <div className="rounded-ui-rect border border-gray-200 p-4">
-                      <p className="text-[14px] font-semibold text-gray-900">운영 이력</p>
+                    <div className="rounded-ui-rect border border-sam-border p-4">
+                      <p className="text-[14px] font-semibold text-sam-fg">운영 이력</p>
                       <div className="mt-3 space-y-2">
                         {managementEventMessages.map((event) => {
                           const summary = describeManagementEvent(event.content);
@@ -3320,13 +3317,13 @@ export function CommunityMessengerRoomClient({
                               key={event.id}
                               type="button"
                               onClick={() => scrollToRoomMessage(event.id)}
-                              className="flex w-full items-start justify-between gap-3 rounded-ui-rect bg-gray-50 px-3 py-3 text-left"
+                              className="flex w-full items-start justify-between gap-3 rounded-ui-rect bg-sam-app px-3 py-3 text-left"
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="text-[12px] font-semibold text-gray-900">{summary.title}</p>
-                                <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-gray-600">{summary.detail}</p>
+                                <p className="text-[12px] font-semibold text-sam-fg">{summary.title}</p>
+                                <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-sam-muted">{summary.detail}</p>
                               </div>
-                              <span className="shrink-0 text-[11px] text-gray-400">{formatTime(event.createdAt)}</span>
+                              <span className="shrink-0 text-[11px] text-sam-meta">{formatTime(event.createdAt)}</span>
                             </button>
                           );
                         })}
@@ -3335,108 +3332,108 @@ export function CommunityMessengerRoomClient({
                   ) : null}
 
                   <div className="space-y-2">
-                    <p className="px-1 text-[12px] font-semibold text-gray-500">대화방</p>
+                    <p className="px-1 text-[12px] font-semibold text-sam-muted">대화방</p>
                     <button
                       type="button"
                       onClick={() => setActiveSheet("members")}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">{isGroupRoom ? "참여자 및 초대" : "대화상대 정보"}</p>
-                        <p className="mt-1 text-[12px] text-gray-500">
+                        <p className="text-[15px] font-semibold text-sam-fg">{isGroupRoom ? "참여자 및 초대" : "대화상대 정보"}</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">
                           {isGroupRoom
                             ? `${snapshot.room.memberCount}명 · ${canInviteMembers ? "초대 가능" : "초대 제한"}`
                             : "프로필 · 통화"}
                         </p>
                       </div>
-                      <span className="text-[18px] text-gray-300">›</span>
+                      <span className="text-[18px] text-sam-meta">›</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => openInfoSheet()}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">채팅방 정보</p>
-                        <p className="mt-1 text-[12px] text-gray-500">
+                        <p className="text-[15px] font-semibold text-sam-fg">채팅방 정보</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">
                           {roomNotice ? "공지 있음" : "공지 없음"}
                           {snapshot.room.ownerLabel ? ` · 방장 ${snapshot.room.ownerLabel}` : ""}
                         </p>
                       </div>
-                      <span className="text-[18px] text-gray-300">›</span>
+                      <span className="text-[18px] text-sam-meta">›</span>
                     </button>
                   </div>
 
                   <div className="space-y-2">
-                    <p className="px-1 text-[12px] font-semibold text-gray-500">콘텐츠</p>
+                    <p className="px-1 text-[12px] font-semibold text-sam-muted">콘텐츠</p>
                     <button
                       type="button"
                       onClick={() => {
                         setRoomSearchQuery("");
                         setActiveSheet("search");
                       }}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">대화 내 검색</p>
-                        <p className="mt-1 text-[12px] text-gray-500">메시지 · 보낸 사람 · 통화 기록</p>
+                        <p className="text-[15px] font-semibold text-sam-fg">대화 내 검색</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">메시지 · 보낸 사람 · 통화 기록</p>
                       </div>
-                      <span className="text-[18px] text-gray-300">›</span>
+                      <span className="text-[18px] text-sam-meta">›</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveSheet("media")}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">사진·음성</p>
-                        <p className="mt-1 text-[12px] text-gray-500">사진 {photoMessageCount}개 · 음성 {voiceMessageCount}개</p>
+                        <p className="text-[15px] font-semibold text-sam-fg">사진·음성</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">사진 {photoMessageCount}개 · 음성 {voiceMessageCount}개</p>
                       </div>
-                      <span className="text-[18px] text-gray-300">›</span>
+                      <span className="text-[18px] text-sam-meta">›</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveSheet("files")}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">파일</p>
-                        <p className="mt-1 text-[12px] text-gray-500">파일 {fileMessageCount}개</p>
+                        <p className="text-[15px] font-semibold text-sam-fg">파일</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">파일 {fileMessageCount}개</p>
                       </div>
-                      <span className="text-[18px] text-gray-300">›</span>
+                      <span className="text-[18px] text-sam-meta">›</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveSheet("links")}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">링크</p>
-                        <p className="mt-1 text-[12px] text-gray-500">링크 {linkMessageCount}개</p>
+                        <p className="text-[15px] font-semibold text-sam-fg">링크</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">링크 {linkMessageCount}개</p>
                       </div>
-                      <span className="text-[18px] text-gray-300">›</span>
+                      <span className="text-[18px] text-sam-meta">›</span>
                     </button>
                   </div>
 
                   <div className="space-y-2">
-                    <p className="px-1 text-[12px] font-semibold text-gray-500">설정</p>
+                    <p className="px-1 text-[12px] font-semibold text-sam-muted">설정</p>
                     <button
                       type="button"
                       onClick={() => void toggleRoomMute()}
                       disabled={busy === "room-mute"}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left disabled:opacity-40"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">
+                        <p className="text-[15px] font-semibold text-sam-fg">
                           {snapshot.room.isMuted ? "이 채팅방 알림 켜기" : "이 채팅방 알림 끄기"}
                         </p>
-                        <p className="mt-1 text-[12px] text-gray-500">
+                        <p className="mt-1 text-[12px] text-sam-muted">
                           {snapshot.room.isMuted ? "개별 알림 꺼짐" : "개별 알림 켜짐"}
                         </p>
                       </div>
                       <span
                         className={`rounded-ui-rect px-2 py-1 text-[11px] font-semibold ${
-                          snapshot.room.isMuted ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
+                          snapshot.room.isMuted ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-muted"
                         }`}
                       >
                         {busy === "room-mute" ? "저장 중" : snapshot.room.isMuted ? "꺼짐" : "켜짐"}
@@ -3446,19 +3443,19 @@ export function CommunityMessengerRoomClient({
                       type="button"
                       onClick={() => void toggleRoomArchive()}
                       disabled={busy === "room-archive" || !communityMessengerRoomIsGloballyUsable(snapshot.room)}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left disabled:opacity-40"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">
+                        <p className="text-[15px] font-semibold text-sam-fg">
                           {!snapshot.room.isArchivedByViewer ? "이 채팅방 보관" : "이 채팅방 보관 해제"}
                         </p>
-                        <p className="mt-1 text-[12px] text-gray-500">
+                        <p className="mt-1 text-[12px] text-sam-muted">
                           {!snapshot.room.isArchivedByViewer ? "현재 채팅 목록" : "현재 보관함"}
                         </p>
                       </div>
                       <span
                         className={`rounded-ui-rect px-2 py-1 text-[11px] font-semibold ${
-                          !snapshot.room.isArchivedByViewer ? "bg-gray-100 text-gray-600" : "bg-gray-900 text-white"
+                          !snapshot.room.isArchivedByViewer ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-ink text-white"
                         }`}
                       >
                         {busy === "room-archive" ? "저장 중" : !snapshot.room.isArchivedByViewer ? "활성" : "보관됨"}
@@ -3468,7 +3465,7 @@ export function CommunityMessengerRoomClient({
 
                   {!isGroupRoom ? (
                     <div className="space-y-2">
-                      <p className="px-1 text-[12px] font-semibold text-gray-500">통화</p>
+                      <p className="px-1 text-[12px] font-semibold text-sam-muted">통화</p>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -3477,7 +3474,7 @@ export function CommunityMessengerRoomClient({
                             void startManagedDirectCall("voice");
                           }}
                           disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
-                          className="rounded-ui-rect border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+                          className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[15px] font-semibold text-sam-fg disabled:opacity-40"
                         >
                           음성 통화
                         </button>
@@ -3488,7 +3485,7 @@ export function CommunityMessengerRoomClient({
                             void startManagedDirectCall("video");
                           }}
                           disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
-                          className="rounded-ui-rect border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+                          className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[15px] font-semibold text-sam-fg disabled:opacity-40"
                         >
                           {t("nav_video_call_label")}
                         </button>
@@ -3496,13 +3493,13 @@ export function CommunityMessengerRoomClient({
                     </div>
                   ) : isGroupRoom ? (
                     <div className="space-y-2">
-                      <p className="px-1 text-[12px] font-semibold text-gray-500">통화</p>
+                      <p className="px-1 text-[12px] font-semibold text-sam-muted">통화</p>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => void startGroupCall("voice")}
                           disabled={!canStartGroupCall || call.busy === "call-start" || call.busy === "device-prepare"}
-                          className="rounded-ui-rect border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+                          className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[15px] font-semibold text-sam-fg disabled:opacity-40"
                         >
                           그룹 음성 통화
                         </button>
@@ -3510,19 +3507,19 @@ export function CommunityMessengerRoomClient({
                           type="button"
                           onClick={() => void startGroupCall("video")}
                           disabled={!canStartGroupCall || call.busy === "call-start" || call.busy === "device-prepare"}
-                          className="rounded-ui-rect border border-gray-200 px-4 py-4 text-left text-[15px] font-semibold text-gray-900 disabled:opacity-40"
+                          className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[15px] font-semibold text-sam-fg disabled:opacity-40"
                         >
                           그룹 영상 통화
                         </button>
                       </div>
                       {!canStartGroupCall ? (
-                        <p className="px-1 text-[12px] text-gray-500">시작 권한 없음</p>
+                        <p className="px-1 text-[12px] text-sam-muted">시작 권한 없음</p>
                       ) : null}
                     </div>
                   ) : null}
 
                   <div className="space-y-2">
-                    <p className="px-1 text-[12px] font-semibold text-gray-500">기타</p>
+                    <p className="px-1 text-[12px] font-semibold text-sam-muted">기타</p>
                     {isGroupRoom ? (
                       <button
                         type="button"
@@ -3534,7 +3531,7 @@ export function CommunityMessengerRoomClient({
                           void leaveRoom();
                         }}
                         disabled={busy === "leave-room"}
-                        className="w-full rounded-ui-rect border border-red-200 bg-white px-4 py-4 text-left text-[15px] font-semibold text-red-700 disabled:opacity-40"
+                        className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left text-[15px] font-semibold text-red-700 disabled:opacity-40"
                       >
                         {busy === "leave-room"
                           ? t("nav_messenger_leaving")
@@ -3549,7 +3546,7 @@ export function CommunityMessengerRoomClient({
                         dismissRoomSheet();
                         void reportTarget({ reportType: "room" });
                       }}
-                      className="w-full rounded-ui-rect border border-red-200 bg-white px-4 py-4 text-left text-[15px] font-semibold text-red-700"
+                      className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left text-[15px] font-semibold text-red-700"
                     >
                       {t("nav_messenger_report")}
                     </button>
@@ -3562,13 +3559,13 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-gray-700">{t("nav_messenger_participants")}</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{t("nav_messenger_participating_members")}</h2>
+                    <p className="text-[13px] font-medium text-sam-fg">{t("nav_messenger_participants")}</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">{t("nav_messenger_participating_members")}</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg"
                   >
                     {t("tier1_back")}
                   </button>
@@ -3576,29 +3573,29 @@ export function CommunityMessengerRoomClient({
                 <div className="mt-4 grid gap-2">
                   {isGroupRoom ? (
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                        <p className="text-[11px] font-medium text-gray-500">참여자</p>
-                        <p className="mt-1 text-[16px] font-semibold text-gray-900">{snapshot.room.memberCount}명</p>
-                        <p className="mt-1 text-[12px] text-gray-500">{roomTypeLabel}</p>
+                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                        <p className="text-[11px] font-medium text-sam-muted">참여자</p>
+                        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{snapshot.room.memberCount}명</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">{roomTypeLabel}</p>
                       </div>
-                      <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                        <p className="text-[11px] font-medium text-gray-500">운영진</p>
-                        <p className="mt-1 text-[16px] font-semibold text-gray-900">방장 1 · 관리자 {groupAdminCount}</p>
-                        <p className="mt-1 text-[12px] text-gray-500">현재 그룹 운영 가능 인원</p>
+                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                        <p className="text-[11px] font-medium text-sam-muted">운영진</p>
+                        <p className="mt-1 text-[16px] font-semibold text-sam-fg">방장 1 · 관리자 {groupAdminCount}</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">현재 그룹 운영 가능 인원</p>
                       </div>
-                      <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                        <p className="text-[11px] font-medium text-gray-500">초대 상태</p>
-                        <p className="mt-1 text-[16px] font-semibold text-gray-900">{canInviteMembers ? "가능" : "제한"}</p>
-                        <p className="mt-1 text-[12px] text-gray-500">
+                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                        <p className="text-[11px] font-medium text-sam-muted">초대 상태</p>
+                        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{canInviteMembers ? "가능" : "제한"}</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">
                           닉네임 프로필 {aliasProfileCount}명
                         </p>
                       </div>
                     </div>
                   ) : null}
                   {isOwner && isPrivateGroupRoom ? (
-                    <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                      <p className="text-[13px] font-semibold text-gray-900">운영 안내</p>
-                      <p className="mt-1 text-[12px] leading-5 text-gray-600">
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                      <p className="text-[13px] font-semibold text-sam-fg">운영 안내</p>
+                      <p className="mt-1 text-[12px] leading-5 text-sam-muted">
                         멤버를 선택하면 방장 위임, 관리자 지정, 내보내기를 같은 메뉴에서 바로 처리할 수 있습니다.
                       </p>
                     </div>
@@ -3611,65 +3608,65 @@ export function CommunityMessengerRoomClient({
                         if (messengerUserIdsEqual(member.id, snapshot.viewerUserId)) return;
                         setMemberActionTarget(member);
                       }}
-                      className="w-full rounded-ui-rect border border-gray-200 bg-white px-4 py-3 text-left"
+                      className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-left"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-[14px] font-semibold text-gray-900">{member.label}</p>
+                            <p className="text-[14px] font-semibold text-sam-fg">{member.label}</p>
                             {snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, snapshot.room.ownerUserId) ? (
-                              <span className="rounded-ui-rect border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
+                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 text-[10px] font-semibold text-sam-fg">
                                 방장
                               </span>
                             ) : null}
                             {member.memberRole === "admin" ? (
-                              <span className="rounded-ui-rect border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold text-gray-700">관리자</span>
+                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 text-[10px] font-semibold text-sam-fg">관리자</span>
                             ) : null}
                             {messengerUserIdsEqual(member.id, snapshot.viewerUserId) ? (
-                              <span className="rounded-ui-rect bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">나</span>
+                              <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 text-[10px] font-semibold text-sam-fg">나</span>
                             ) : null}
                             {member.identityMode === "alias" ? (
-                              <span className="rounded-ui-rect border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold text-gray-700">닉네임</span>
+                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 text-[10px] font-semibold text-sam-fg">닉네임</span>
                             ) : null}
                           </div>
-                          <p className="mt-1 text-[12px] text-gray-500">
+                          <p className="mt-1 text-[12px] text-sam-muted">
                             {member.subtitle ?? (member.identityMode === "alias" ? t("nav_messenger_member_alias_joined") : t("nav_messenger_member_joined"))}
                           </p>
                           {!messengerUserIdsEqual(member.id, snapshot.viewerUserId) ? (
-                            <p className="mt-2 text-[11px] text-gray-400">
+                            <p className="mt-2 text-[11px] text-sam-meta">
                               {isPrivateGroupRoom ? "탭해서 대화, 역할, 내보내기" : "탭해서 대화와 프로필 액션"}
                             </p>
                           ) : null}
                         </div>
                         {!messengerUserIdsEqual(member.id, snapshot.viewerUserId) ? (
-                          <span className="pt-1 text-[18px] leading-none text-gray-300">›</span>
+                          <span className="pt-1 text-[18px] leading-none text-sam-meta">›</span>
                         ) : null}
                       </div>
                     </button>
                   ))}
                 </div>
                 {isPrivateGroupRoom ? (
-                  <div className="mt-4 rounded-ui-rect bg-gray-50 p-4">
+                  <div className="mt-4 rounded-ui-rect bg-sam-app p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[14px] font-semibold text-gray-900">{t("nav_messenger_invite_members")}</p>
-                        <p className="mt-1 text-[12px] text-gray-500">
+                        <p className="text-[14px] font-semibold text-sam-fg">{t("nav_messenger_invite_members")}</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">
                           {canInviteMembers ? t("nav_messenger_invite_members_desc") : "이 방은 현재 멤버 초대가 제한되어 있습니다."}
                         </p>
                       </div>
-                      <span className="rounded-ui-rect bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
+                      <span className="rounded-ui-rect bg-sam-surface px-2 py-1 text-[11px] font-semibold text-sam-muted">
                         {myRoleLabel}
                       </span>
                     </div>
                     {canInviteMembers && inviteCandidates.length ? (
                       <>
                         <div className="mt-3 flex items-center justify-between gap-3">
-                          <p className="text-[12px] text-gray-500">초대 후보 {filteredInviteCandidates.length}명 · 선택 {inviteIds.length}명</p>
+                          <p className="text-[12px] text-sam-muted">초대 후보 {filteredInviteCandidates.length}명 · 선택 {inviteIds.length}명</p>
                           {inviteIds.length ? (
                             <button
                               type="button"
                               onClick={() => setInviteIds([])}
-                              className="rounded-ui-rect border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-600"
+                              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 text-[11px] font-medium text-sam-muted"
                             >
                               선택 해제
                             </button>
@@ -3679,7 +3676,7 @@ export function CommunityMessengerRoomClient({
                           value={inviteSearchQuery}
                           onChange={(e) => setInviteSearchQuery(e.target.value)}
                           placeholder="친구 검색"
-                          className="mt-3 h-10 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[13px] outline-none focus:border-gray-400"
+                          className="mt-3 h-10 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[13px] outline-none focus:border-sam-border"
                         />
                         {selectedInviteCandidates.length ? (
                           <div className="mt-3 flex flex-wrap gap-2">
@@ -3688,7 +3685,7 @@ export function CommunityMessengerRoomClient({
                                 key={`invite-selected-${friend.id}`}
                                 type="button"
                                 onClick={() => setInviteIds((prev) => prev.filter((id) => id !== friend.id))}
-                                className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-700"
+                                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-medium text-sam-fg"
                               >
                                 {friend.label} 닫기
                               </button>
@@ -3702,11 +3699,11 @@ export function CommunityMessengerRoomClient({
                         filteredInviteCandidates.map((friend) => (
                           <label
                             key={friend.id}
-                            className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-3 py-3"
+                            className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3"
                           >
                             <div>
-                              <p className="text-[13px] font-semibold text-gray-900">{friend.label}</p>
-                              <p className="text-[12px] text-gray-500">{friend.subtitle ?? t("nav_messenger_friend")}</p>
+                              <p className="text-[13px] font-semibold text-sam-fg">{friend.label}</p>
+                              <p className="text-[12px] text-sam-muted">{friend.subtitle ?? t("nav_messenger_friend")}</p>
                             </div>
                             <input
                               type="checkbox"
@@ -3716,23 +3713,23 @@ export function CommunityMessengerRoomClient({
                                   e.target.checked ? [...prev, friend.id] : prev.filter((id) => id !== friend.id)
                                 );
                               }}
-                              className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
+                              className="h-4 w-4 rounded border-sam-border text-sam-fg focus:ring-sam-border"
                             />
                           </label>
                         ))
                       ) : canInviteMembers && inviteCandidates.length ? (
-                        <p className="text-[12px] text-gray-500">검색 결과가 없습니다.</p>
+                        <p className="text-[12px] text-sam-muted">검색 결과가 없습니다.</p>
                       ) : canInviteMembers ? (
-                        <p className="text-[12px] text-gray-500">{t("nav_messenger_no_invitable_friends")}</p>
+                        <p className="text-[12px] text-sam-muted">{t("nav_messenger_no_invitable_friends")}</p>
                       ) : (
-                        <p className="text-[12px] text-gray-500">친구 초대는 방장이 허용한 방에서만 사용할 수 있습니다.</p>
+                        <p className="text-[12px] text-sam-muted">친구 초대는 방장이 허용한 방에서만 사용할 수 있습니다.</p>
                       )}
                     </div>
                     <button
                       type="button"
                       onClick={() => void inviteMembers()}
                       disabled={!canInviteMembers || inviteIds.length === 0 || busy === "invite"}
-                      className="mt-3 rounded-ui-rect bg-gray-900 px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                      className="mt-3 rounded-ui-rect bg-sam-ink px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
                     >
                       {t("nav_messenger_invite_selected_friends")}
                     </button>
@@ -3745,13 +3742,13 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-gray-700">{t("nav_messenger_room_info")}</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{t("nav_messenger_room_details")}</h2>
+                    <p className="text-[13px] font-medium text-sam-fg">{t("nav_messenger_room_info")}</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">{t("nav_messenger_room_details")}</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg"
                   >
                     {t("tier1_back")}
                   </button>
@@ -3759,29 +3756,29 @@ export function CommunityMessengerRoomClient({
 
                 <div className="mt-4 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                      <p className="text-[11px] font-medium text-gray-500">참여자</p>
-                      <p className="mt-1 text-[16px] font-semibold text-gray-900">{snapshot.room.memberCount}명</p>
-                      <p className="mt-1 text-[12px] text-gray-500">{roomTypeLabel}</p>
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                      <p className="text-[11px] font-medium text-sam-muted">참여자</p>
+                      <p className="mt-1 text-[16px] font-semibold text-sam-fg">{snapshot.room.memberCount}명</p>
+                      <p className="mt-1 text-[12px] text-sam-muted">{roomTypeLabel}</p>
                     </div>
-                    <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                      <p className="text-[11px] font-medium text-gray-500">내 상태</p>
-                      <p className="mt-1 text-[16px] font-semibold text-gray-900">{myRoleLabel}</p>
-                      <p className="mt-1 text-[12px] text-gray-500">{roomIdentityLabel || "기본 프로필"}</p>
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                      <p className="text-[11px] font-medium text-sam-muted">내 상태</p>
+                      <p className="mt-1 text-[16px] font-semibold text-sam-fg">{myRoleLabel}</p>
+                      <p className="mt-1 text-[12px] text-sam-muted">{roomIdentityLabel || "기본 프로필"}</p>
                     </div>
-                    <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                      <p className="text-[11px] font-medium text-gray-500">참여 방식</p>
-                      <p className="mt-1 text-[16px] font-semibold text-gray-900">{roomJoinLabel || "기본 입장"}</p>
-                      <p className="mt-1 text-[12px] text-gray-500">
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                      <p className="text-[11px] font-medium text-sam-muted">참여 방식</p>
+                      <p className="mt-1 text-[16px] font-semibold text-sam-fg">{roomJoinLabel || "기본 입장"}</p>
+                      <p className="mt-1 text-[12px] text-sam-muted">
                         {isOpenGroupRoom ? (snapshot.room.isDiscoverable ? "검색 노출" : "비공개") : "초대 기반"}
                       </p>
                     </div>
-                    <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                      <p className="text-[11px] font-medium text-gray-500">공유 항목</p>
-                      <p className="mt-1 text-[16px] font-semibold text-gray-900">
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                      <p className="text-[11px] font-medium text-sam-muted">공유 항목</p>
+                      <p className="mt-1 text-[16px] font-semibold text-sam-fg">
                         {photoMessageCount + voiceMessageCount + fileMessageCount + linkMessageCount}개
                       </p>
-                      <p className="mt-1 text-[12px] text-gray-500">
+                      <p className="mt-1 text-[12px] text-sam-muted">
                         사진 {photoMessageCount} · 파일 {fileMessageCount}
                       </p>
                     </div>
@@ -3791,18 +3788,18 @@ export function CommunityMessengerRoomClient({
                     <button
                       type="button"
                       onClick={() => setActiveSheet("members")}
-                      className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                     >
-                      <p className="text-[11px] text-gray-500">참여자</p>
-                      <p className="mt-1 text-[13px] font-semibold text-gray-900">{isGroupRoom ? "멤버 관리" : "상대 정보"}</p>
+                      <p className="text-[11px] text-sam-muted">참여자</p>
+                      <p className="mt-1 text-[13px] font-semibold text-sam-fg">{isGroupRoom ? "멤버 관리" : "상대 정보"}</p>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveSheet("media")}
-                      className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                     >
-                      <p className="text-[11px] text-gray-500">미디어</p>
-                      <p className="mt-1 text-[13px] font-semibold text-gray-900">사진·음성</p>
+                      <p className="text-[11px] text-sam-muted">미디어</p>
+                      <p className="mt-1 text-[13px] font-semibold text-sam-fg">사진·음성</p>
                     </button>
                     <button
                       type="button"
@@ -3810,197 +3807,197 @@ export function CommunityMessengerRoomClient({
                         setRoomSearchQuery("");
                         setActiveSheet("search");
                       }}
-                      className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                     >
-                      <p className="text-[11px] text-gray-500">검색</p>
-                      <p className="mt-1 text-[13px] font-semibold text-gray-900">대화 내 검색</p>
+                      <p className="text-[11px] text-sam-muted">검색</p>
+                      <p className="mt-1 text-[13px] font-semibold text-sam-fg">대화 내 검색</p>
                     </button>
                   </div>
 
-                  <div className="rounded-ui-rect border border-gray-200 p-4">
-                    <p className="text-[14px] font-semibold text-gray-900">기본 정보</p>
-                    <p className="mt-3 text-[14px] font-semibold text-gray-900">{snapshot.room.title}</p>
-                    <p className="mt-2 text-[13px] leading-5 text-gray-600">
+                  <div className="rounded-ui-rect border border-sam-border p-4">
+                    <p className="text-[14px] font-semibold text-sam-fg">기본 정보</p>
+                    <p className="mt-3 text-[14px] font-semibold text-sam-fg">{snapshot.room.title}</p>
+                    <p className="mt-2 text-[13px] leading-5 text-sam-muted">
                       {snapshot.room.summary?.trim() || roomSubtitle || t("nav_messenger_room_no_intro")}
                     </p>
-                    <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-[13px] text-gray-700">
+                    <div className="mt-4 space-y-2 border-t border-sam-border-soft pt-4 text-[13px] text-sam-fg">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-gray-500">채팅방 종류</span>
-                        <span className="font-medium text-gray-900">{roomTypeLabel}</span>
+                        <span className="text-sam-muted">채팅방 종류</span>
+                        <span className="font-medium text-sam-fg">{roomTypeLabel}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-gray-500">참여자</span>
-                        <span className="font-medium text-gray-900">{snapshot.room.memberCount}명</span>
+                        <span className="text-sam-muted">참여자</span>
+                        <span className="font-medium text-sam-fg">{snapshot.room.memberCount}명</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-gray-500">방장</span>
-                        <span className="font-medium text-gray-900">{snapshot.room.ownerLabel || "-"}</span>
+                        <span className="text-sam-muted">방장</span>
+                        <span className="font-medium text-sam-fg">{snapshot.room.ownerLabel || "-"}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-gray-500">내 역할</span>
-                        <span className="font-medium text-gray-900">{myRoleLabel}</span>
+                        <span className="text-sam-muted">내 역할</span>
+                        <span className="font-medium text-sam-fg">{myRoleLabel}</span>
                       </div>
                       {snapshot.room.memberLimit ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-500">최대 인원</span>
-                          <span className="font-medium text-gray-900">{snapshot.room.memberLimit}명</span>
+                          <span className="text-sam-muted">최대 인원</span>
+                          <span className="font-medium text-sam-fg">{snapshot.room.memberLimit}명</span>
                         </div>
                       ) : null}
                       {roomJoinLabel ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-500">참여 방식</span>
-                          <span className="font-medium text-gray-900">{roomJoinLabel}</span>
+                          <span className="text-sam-muted">참여 방식</span>
+                          <span className="font-medium text-sam-fg">{roomJoinLabel}</span>
                         </div>
                       ) : null}
                       {roomIdentityLabel ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-500">표시 이름</span>
-                          <span className="font-medium text-gray-900">{roomIdentityLabel}</span>
+                          <span className="text-sam-muted">표시 이름</span>
+                          <span className="font-medium text-sam-fg">{roomIdentityLabel}</span>
                         </div>
                       ) : null}
                       {isOpenGroupRoom ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-500">검색 노출</span>
-                          <span className="font-medium text-gray-900">{snapshot.room.isDiscoverable ? "허용" : "비공개"}</span>
+                          <span className="text-sam-muted">검색 노출</span>
+                          <span className="font-medium text-sam-fg">{snapshot.room.isDiscoverable ? "허용" : "비공개"}</span>
                         </div>
                       ) : null}
                       {isOpenGroupRoom ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-500">비밀번호</span>
-                          <span className="font-medium text-gray-900">{snapshot.room.requiresPassword ? "사용" : "없음"}</span>
+                          <span className="text-sam-muted">비밀번호</span>
+                          <span className="font-medium text-sam-fg">{snapshot.room.requiresPassword ? "사용" : "없음"}</span>
                         </div>
                       ) : null}
                       {isPrivateGroupRoom ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-500">멤버 초대</span>
-                          <span className="font-medium text-gray-900">{snapshot.room.allowMemberInvite ? "허용" : "제한"}</span>
+                          <span className="text-sam-muted">멤버 초대</span>
+                          <span className="font-medium text-sam-fg">{snapshot.room.allowMemberInvite ? "허용" : "제한"}</span>
                         </div>
                       ) : null}
                     </div>
                   </div>
 
                   {isGroupRoom ? (
-                    <div className="rounded-ui-rect border border-gray-200 p-4">
-                      <p className="text-[14px] font-semibold text-gray-900">통화 상태</p>
-                      <div className="mt-3 space-y-2 text-[13px] text-gray-700">
+                    <div className="rounded-ui-rect border border-sam-border p-4">
+                      <p className="text-[14px] font-semibold text-sam-fg">통화 상태</p>
+                      <div className="mt-3 space-y-2 text-[13px] text-sam-fg">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-500">현재 상태</span>
-                          <span className="font-medium text-gray-900">{groupCallStatusLabel}</span>
+                          <span className="text-sam-muted">현재 상태</span>
+                          <span className="font-medium text-sam-fg">{groupCallStatusLabel}</span>
                         </div>
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-500">시작 권한</span>
-                          <span className="font-medium text-gray-900">{canStartGroupCall ? "가능" : "제한"}</span>
+                          <span className="text-sam-muted">시작 권한</span>
+                          <span className="font-medium text-sam-fg">{canStartGroupCall ? "가능" : "제한"}</span>
                         </div>
                         {activeGroupCall ? (
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-gray-500">현재 참여자</span>
-                            <span className="font-medium text-gray-900">{activeGroupCall.participants.length}명</span>
+                            <span className="text-sam-muted">현재 참여자</span>
+                            <span className="font-medium text-sam-fg">{activeGroupCall.participants.length}명</span>
                           </div>
                         ) : null}
                       </div>
                     </div>
                   ) : null}
 
-                  <div className="rounded-ui-rect border border-gray-200 p-4">
-                    <p className="text-[14px] font-semibold text-gray-900">공유된 항목</p>
+                  <div className="rounded-ui-rect border border-sam-border p-4">
+                    <p className="text-[14px] font-semibold text-sam-fg">공유된 항목</p>
                     <div className="mt-3 grid grid-cols-4 gap-2">
                       <button
                         type="button"
                         onClick={() => setActiveSheet("media")}
-                        className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                       >
-                        <p className="text-[11px] text-gray-500">사진</p>
-                        <p className="mt-1 text-[16px] font-semibold text-gray-900">{photoMessageCount}</p>
+                        <p className="text-[11px] text-sam-muted">사진</p>
+                        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{photoMessageCount}</p>
                       </button>
                       <button
                         type="button"
                         onClick={() => setActiveSheet("media")}
-                        className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                       >
-                        <p className="text-[11px] text-gray-500">음성</p>
-                        <p className="mt-1 text-[16px] font-semibold text-gray-900">{voiceMessageCount}</p>
+                        <p className="text-[11px] text-sam-muted">음성</p>
+                        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{voiceMessageCount}</p>
                       </button>
                       <button
                         type="button"
                         onClick={() => setActiveSheet("files")}
-                        className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                       >
-                        <p className="text-[11px] text-gray-500">파일</p>
-                        <p className="mt-1 text-[16px] font-semibold text-gray-900">{fileMessageCount}</p>
+                        <p className="text-[11px] text-sam-muted">파일</p>
+                        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{fileMessageCount}</p>
                       </button>
                       <button
                         type="button"
                         onClick={() => setActiveSheet("links")}
-                        className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                       >
-                        <p className="text-[11px] text-gray-500">링크</p>
-                        <p className="mt-1 text-[16px] font-semibold text-gray-900">{linkMessageCount}</p>
+                        <p className="text-[11px] text-sam-muted">링크</p>
+                        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{linkMessageCount}</p>
                       </button>
                     </div>
                   </div>
 
                   {isPrivateGroupRoom ? (
-                    <div className="rounded-ui-rect border border-gray-200 p-4">
+                    <div className="rounded-ui-rect border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[14px] font-semibold text-gray-900">운영</p>
-                          <p className="mt-1 text-[12px] text-gray-500">
+                          <p className="text-[14px] font-semibold text-sam-fg">운영</p>
+                          <p className="mt-1 text-[12px] text-sam-muted">
                             방장 {snapshot.room.ownerLabel ? `· ${snapshot.room.ownerLabel}` : ""} · 관리자 {groupAdminCount}명
                           </p>
                         </div>
-                        <span className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-700">{myRoleLabel}</span>
+                        <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[11px] font-semibold text-sam-fg">{myRoleLabel}</span>
                       </div>
                       <div className="mt-3 grid grid-cols-3 gap-2">
-                        <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-                          <p className="text-[11px] text-gray-500">공지</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">{privateGroupNoticeStatusLabel}</p>
-                          <p className="mt-1 text-[11px] text-gray-400">상단 고정 상태</p>
+                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <p className="text-[11px] text-sam-muted">공지</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">{privateGroupNoticeStatusLabel}</p>
+                          <p className="mt-1 text-[11px] text-sam-meta">상단 고정 상태</p>
                         </div>
-                        <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-                          <p className="text-[11px] text-gray-500">허용 권한</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">{allowedPrivateGroupPermissionCount}/6</p>
-                          <p className="mt-1 text-[11px] text-gray-400">운영 설정 반영</p>
+                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <p className="text-[11px] text-sam-muted">허용 권한</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">{allowedPrivateGroupPermissionCount}/6</p>
+                          <p className="mt-1 text-[11px] text-sam-meta">운영 설정 반영</p>
                         </div>
-                        <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-                          <p className="text-[11px] text-gray-500">운영 이력</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">{managementEventMessages.length}건</p>
-                          <p className="mt-1 text-[11px] text-gray-400">역할 변경 기록</p>
+                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <p className="text-[11px] text-sam-muted">운영 이력</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">{managementEventMessages.length}건</p>
+                          <p className="mt-1 text-[11px] text-sam-meta">역할 변경 기록</p>
                         </div>
                       </div>
                       <div className="mt-3 grid grid-cols-3 gap-2">
                         <button
                           type="button"
                           onClick={() => openInfoSheet("notice")}
-                          className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                         >
-                          <p className="text-[11px] text-gray-500">운영</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">공지</p>
-                          <p className="mt-1 text-[11px] text-gray-400">등록 및 수정</p>
+                          <p className="text-[11px] text-sam-muted">운영</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">공지</p>
+                          <p className="mt-1 text-[11px] text-sam-meta">등록 및 수정</p>
                         </button>
                         <button
                           type="button"
                           onClick={() => openInfoSheet("permissions")}
-                          className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                         >
-                          <p className="text-[11px] text-gray-500">운영</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">권한</p>
-                          <p className="mt-1 text-[11px] text-gray-400">허용 범위 조정</p>
+                          <p className="text-[11px] text-sam-muted">운영</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">권한</p>
+                          <p className="mt-1 text-[11px] text-sam-meta">허용 범위 조정</p>
                         </button>
                         <button
                           type="button"
                           onClick={() => openInfoSheet("history")}
-                          className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                         >
-                          <p className="text-[11px] text-gray-500">운영</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">이력</p>
-                          <p className="mt-1 text-[11px] text-gray-400">시스템 기록 보기</p>
+                          <p className="text-[11px] text-sam-muted">운영</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">이력</p>
+                          <p className="mt-1 text-[11px] text-sam-meta">시스템 기록 보기</p>
                         </button>
                       </div>
                       <div className="mt-3 grid gap-2">
                         <button
                           type="button"
                           onClick={() => setActiveSheet("members")}
-                          className="rounded-ui-rect border border-gray-200 px-4 py-3 text-left text-[13px] font-semibold text-gray-900"
+                          className="rounded-ui-rect border border-sam-border px-4 py-3 text-left text-[13px] font-semibold text-sam-fg"
                         >
                           {isOwner ? "멤버 · 위임" : "멤버 · 초대"}
                         </button>
@@ -4014,7 +4011,7 @@ export function CommunityMessengerRoomClient({
                             void leaveRoom();
                           }}
                           disabled={busy === "leave-room"}
-                          className="rounded-ui-rect border border-red-200 bg-white px-4 py-3 text-left text-[13px] font-semibold text-red-700 disabled:opacity-40"
+                          className="rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left text-[13px] font-semibold text-red-700 disabled:opacity-40"
                         >
                           {busy === "leave-room"
                             ? t("nav_messenger_leaving")
@@ -4027,28 +4024,28 @@ export function CommunityMessengerRoomClient({
                   ) : null}
 
                   {isPrivateGroupRoom ? (
-                    <div ref={groupNoticeSectionRef} className="rounded-ui-rect border border-gray-200 p-4">
+                    <div ref={groupNoticeSectionRef} className="rounded-ui-rect border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[14px] font-semibold text-gray-900">그룹 공지</p>
-                          <p className="mt-1 text-[12px] text-gray-500">
+                          <p className="text-[14px] font-semibold text-sam-fg">그룹 공지</p>
+                          <p className="mt-1 text-[12px] text-sam-muted">
                             {privateGroupNotice ? "상단과 서랍에 노출 중" : "등록된 공지 없음"}
                           </p>
                         </div>
                         {snapshot.room.noticeUpdatedAt ? (
-                          <span className="rounded-ui-rect bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-700">
+                          <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-1 text-[11px] font-semibold text-sam-fg">
                             {formatTime(snapshot.room.noticeUpdatedAt)}
                           </span>
                         ) : null}
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-                          <p className="text-[11px] text-gray-500">상태</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">{privateGroupNoticeStatusLabel}</p>
+                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <p className="text-[11px] text-sam-muted">상태</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">{privateGroupNoticeStatusLabel}</p>
                         </div>
-                        <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-                          <p className="text-[11px] text-gray-500">노출</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">{privateGroupNotice ? "상단 표시" : "미설정"}</p>
+                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <p className="text-[11px] text-sam-muted">노출</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">{privateGroupNotice ? "상단 표시" : "미설정"}</p>
                         </div>
                       </div>
                       {canEditGroupNotice ? (
@@ -4058,23 +4055,23 @@ export function CommunityMessengerRoomClient({
                             onChange={(e) => setPrivateGroupNoticeDraft(e.target.value)}
                             rows={4}
                             placeholder="그룹 공지를 입력하세요"
-                            className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-gray-400"
+                            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[14px] outline-none focus:border-sam-border"
                           />
                           <button
                             type="button"
                             onClick={() => void savePrivateGroupNotice()}
                             disabled={busy === "group-notice"}
-                            className="rounded-ui-rect bg-gray-900 px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                            className="rounded-ui-rect bg-sam-ink px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
                           >
                             {busy === "group-notice" ? "저장 중" : "공지 저장"}
                           </button>
                         </div>
                       ) : privateGroupNotice ? (
-                        <div className="mt-3 rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-                          <p className="whitespace-pre-wrap text-[13px] leading-5 text-gray-800">{privateGroupNotice}</p>
+                        <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <p className="whitespace-pre-wrap text-[13px] leading-5 text-sam-fg">{privateGroupNotice}</p>
                         </div>
                       ) : (
-                        <div className="mt-3 rounded-ui-rect border border-dashed border-gray-200 bg-white px-3 py-4 text-[12px] text-gray-500">
+                        <div className="mt-3 rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-4 text-[12px] text-sam-muted">
                           아직 등록된 그룹 공지가 없습니다.
                         </div>
                       )}
@@ -4082,58 +4079,58 @@ export function CommunityMessengerRoomClient({
                   ) : null}
 
                   {isPrivateGroupRoom ? (
-                    <div ref={groupPermissionsSectionRef} className="rounded-ui-rect border border-gray-200 p-4">
+                    <div ref={groupPermissionsSectionRef} className="rounded-ui-rect border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[14px] font-semibold text-gray-900">권한 설정</p>
-                          <p className="mt-1 text-[12px] text-gray-500">허용 {allowedPrivateGroupPermissionCount}개 · 제한 {6 - allowedPrivateGroupPermissionCount}개</p>
+                          <p className="text-[14px] font-semibold text-sam-fg">권한 설정</p>
+                          <p className="mt-1 text-[12px] text-sam-muted">허용 {allowedPrivateGroupPermissionCount}개 · 제한 {6 - allowedPrivateGroupPermissionCount}개</p>
                         </div>
-                        <span className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-700">{myRoleLabel}</span>
+                        <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[11px] font-semibold text-sam-fg">{myRoleLabel}</span>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-                          <p className="text-[11px] text-gray-500">허용</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">{allowedPrivateGroupPermissionCount}개</p>
+                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <p className="text-[11px] text-sam-muted">허용</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">{allowedPrivateGroupPermissionCount}개</p>
                         </div>
-                        <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-                          <p className="text-[11px] text-gray-500">제한</p>
-                          <p className="mt-1 text-[13px] font-semibold text-gray-900">{6 - allowedPrivateGroupPermissionCount}개</p>
+                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <p className="text-[11px] text-sam-muted">제한</p>
+                          <p className="mt-1 text-[13px] font-semibold text-sam-fg">{6 - allowedPrivateGroupPermissionCount}개</p>
                         </div>
                       </div>
-                      <div className="mt-3 rounded-ui-rect border border-gray-200 bg-white p-3">
-                        <p className="text-[12px] font-semibold text-gray-700">권한 요약</p>
-                        <div className="mt-2 space-y-1.5 text-[12px] text-gray-600">
+                      <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+                        <p className="text-[12px] font-semibold text-sam-fg">권한 요약</p>
+                        <div className="mt-2 space-y-1.5 text-[12px] text-sam-muted">
                           {privateGroupPermissionRows.map((row) => (
                             <div key={row.label} className="flex items-center justify-between gap-3">
                               <span>{row.label}</span>
-                              <span className="font-medium text-gray-900">{row.value}</span>
+                              <span className="font-medium text-sam-fg">{row.value}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                       <div className="mt-3 grid gap-2">
-                        <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-3 py-3">
-                          <span className="text-[13px] font-medium text-gray-900">일반 멤버 초대 허용</span>
+                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                          <span className="text-[13px] font-medium text-sam-fg">일반 멤버 초대 허용</span>
                           <input type="checkbox" checked={groupAllowMemberInvite} onChange={(e) => setGroupAllowMemberInvite(e.target.checked)} disabled={!canManageGroupPermissions} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-3 py-3">
-                          <span className="text-[13px] font-medium text-gray-900">관리자 초대 허용</span>
+                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                          <span className="text-[13px] font-medium text-sam-fg">관리자 초대 허용</span>
                           <input type="checkbox" checked={groupAllowAdminInvite} onChange={(e) => setGroupAllowAdminInvite(e.target.checked)} disabled={!canManageGroupPermissions} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-3 py-3">
-                          <span className="text-[13px] font-medium text-gray-900">관리자 내보내기 허용</span>
+                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                          <span className="text-[13px] font-medium text-sam-fg">관리자 내보내기 허용</span>
                           <input type="checkbox" checked={groupAllowAdminKick} onChange={(e) => setGroupAllowAdminKick(e.target.checked)} disabled={!canManageGroupPermissions} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-3 py-3">
-                          <span className="text-[13px] font-medium text-gray-900">관리자 공지 수정 허용</span>
+                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                          <span className="text-[13px] font-medium text-sam-fg">관리자 공지 수정 허용</span>
                           <input type="checkbox" checked={groupAllowAdminEditNotice} onChange={(e) => setGroupAllowAdminEditNotice(e.target.checked)} disabled={!canManageGroupPermissions} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-3 py-3">
-                          <span className="text-[13px] font-medium text-gray-900">일반 멤버 파일 업로드 허용</span>
+                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                          <span className="text-[13px] font-medium text-sam-fg">일반 멤버 파일 업로드 허용</span>
                           <input type="checkbox" checked={groupAllowMemberUpload} onChange={(e) => setGroupAllowMemberUpload(e.target.checked)} disabled={!canManageGroupPermissions} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-3 py-3">
-                          <span className="text-[13px] font-medium text-gray-900">일반 멤버 통화 시작 허용</span>
+                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                          <span className="text-[13px] font-medium text-sam-fg">일반 멤버 통화 시작 허용</span>
                           <input type="checkbox" checked={groupAllowMemberCall} onChange={(e) => setGroupAllowMemberCall(e.target.checked)} disabled={!canManageGroupPermissions} />
                         </label>
                       </div>
@@ -4142,7 +4139,7 @@ export function CommunityMessengerRoomClient({
                           type="button"
                           onClick={() => void savePrivateGroupPermissions()}
                           disabled={busy === "group-permissions"}
-                          className="mt-3 rounded-ui-rect bg-gray-900 px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
+                          className="mt-3 rounded-ui-rect bg-sam-ink px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-40"
                         >
                           {busy === "group-permissions" ? "저장 중" : "권한 저장"}
                         </button>
@@ -4151,13 +4148,13 @@ export function CommunityMessengerRoomClient({
                   ) : null}
 
                   {managementEventMessages.length ? (
-                    <div ref={groupHistorySectionRef} className="rounded-ui-rect border border-gray-200 p-4">
+                    <div ref={groupHistorySectionRef} className="rounded-ui-rect border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[14px] font-semibold text-gray-900">운영 이력</p>
-                          <p className="mt-1 text-[12px] text-gray-500">방장 위임, 관리자 지정, 공지 수정 기록을 확인합니다.</p>
+                          <p className="text-[14px] font-semibold text-sam-fg">운영 이력</p>
+                          <p className="mt-1 text-[12px] text-sam-muted">방장 위임, 관리자 지정, 공지 수정 기록을 확인합니다.</p>
                         </div>
-                        <span className="rounded-ui-rect border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-700">
+                        <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[11px] font-semibold text-sam-fg">
                           {managementEventMessages.length}건
                         </span>
                       </div>
@@ -4169,13 +4166,13 @@ export function CommunityMessengerRoomClient({
                               key={`info:${event.id}`}
                               type="button"
                               onClick={() => scrollToRoomMessage(event.id)}
-                              className="flex w-full items-start justify-between gap-3 rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-left"
+                              className="flex w-full items-start justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="text-[12px] font-semibold text-gray-900">{summary.title}</p>
-                                <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-gray-600">{summary.detail}</p>
+                                <p className="text-[12px] font-semibold text-sam-fg">{summary.title}</p>
+                                <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-sam-muted">{summary.detail}</p>
                               </div>
-                              <span className="shrink-0 text-[11px] text-gray-400">{formatTime(event.createdAt)}</span>
+                              <span className="shrink-0 text-[11px] text-sam-meta">{formatTime(event.createdAt)}</span>
                             </button>
                           );
                         })}
@@ -4184,15 +4181,15 @@ export function CommunityMessengerRoomClient({
                   ) : null}
 
                   {isOpenGroupRoom ? (
-                    <div className="rounded-ui-rect bg-gray-50 p-4">
+                    <div className="rounded-ui-rect bg-sam-app p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[14px] font-semibold text-gray-900">{t("nav_messenger_open_group_settings")}</p>
-                          <p className="mt-1 text-[12px] text-gray-500">
+                          <p className="text-[14px] font-semibold text-sam-fg">{t("nav_messenger_open_group_settings")}</p>
+                          <p className="mt-1 text-[12px] text-sam-muted">
                             {isOwner ? t("nav_messenger_open_group_owner_desc") : t("nav_messenger_open_group_view_desc")}
                           </p>
                         </div>
-                        <span className="rounded-ui-rect bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
+                        <span className="rounded-ui-rect bg-sam-surface px-2 py-1 text-[11px] font-semibold text-sam-muted">
                           {isOwner ? t("nav_messenger_owner_label") : t("nav_messenger_my_role_label", { role: snapshot.myRole })}
                         </span>
                       </div>
@@ -4203,21 +4200,21 @@ export function CommunityMessengerRoomClient({
                             value={openGroupTitle}
                             onChange={(e) => setOpenGroupTitle(e.target.value)}
                             placeholder={t("nav_messenger_room_title_placeholder")}
-                            className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-gray-400"
+                            className="h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[14px] outline-none focus:border-sam-border"
                           />
                           <textarea
                             value={openGroupSummary}
                             onChange={(e) => setOpenGroupSummary(e.target.value)}
                             rows={3}
                             placeholder={t("nav_messenger_room_intro_placeholder")}
-                            className="w-full rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[14px] outline-none focus:border-gray-400"
+                            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[14px] outline-none focus:border-sam-border"
                           />
                           <div className="grid gap-3 md:grid-cols-2">
-                            <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-gray-200 bg-white p-2">
+                            <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-2">
                               <button
                                 type="button"
                                 onClick={() => setOpenGroupJoinPolicy("password")}
-                                className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
+                                className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-sam-surface-muted text-sam-fg"}`}
                               >
                                 {t("nav_messenger_password_short")}
                               </button>
@@ -4227,7 +4224,7 @@ export function CommunityMessengerRoomClient({
                                   setOpenGroupJoinPolicy("free");
                                   setOpenGroupPassword("");
                                 }}
-                                className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-gray-100 text-gray-700"}`}
+                                className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-sam-surface-muted text-sam-fg"}`}
                               >
                                 {t("nav_messenger_join_free")}
                               </button>
@@ -4236,7 +4233,7 @@ export function CommunityMessengerRoomClient({
                               value={openGroupMemberLimit}
                               onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
                               placeholder={t("nav_messenger_member_limit_placeholder")}
-                              className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-gray-400"
+                              className="h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[14px] outline-none focus:border-sam-border"
                             />
                           </div>
                           {openGroupJoinPolicy === "password" ? (
@@ -4244,35 +4241,35 @@ export function CommunityMessengerRoomClient({
                               value={openGroupPassword}
                               onChange={(e) => setOpenGroupPassword(e.target.value)}
                               placeholder={t("nav_messenger_new_password_placeholder")}
-                              className="h-11 w-full rounded-ui-rect border border-gray-200 bg-white px-3 text-[14px] outline-none focus:border-gray-400"
+                              className="h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[14px] outline-none focus:border-sam-border"
                             />
                           ) : null}
-                          <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-gray-200 bg-white p-2">
+                          <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-2">
                             <button
                               type="button"
                               onClick={() => setOpenGroupIdentityPolicy("real_name")}
-                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
+                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"}`}
                             >
                               {t("nav_messenger_identity_real")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
-                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
+                              className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"}`}
                             >
                               {t("nav_messenger_identity_alias")}
                             </button>
                           </div>
-                          <label className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
+                          <label className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
                             <div>
-                              <p className="text-[13px] font-semibold text-gray-900">{t("nav_messenger_discoverable_label")}</p>
-                              <p className="mt-1 text-[12px] text-gray-500">{t("nav_messenger_discoverable_desc")}</p>
+                              <p className="text-[13px] font-semibold text-sam-fg">{t("nav_messenger_discoverable_label")}</p>
+                              <p className="mt-1 text-[12px] text-sam-muted">{t("nav_messenger_discoverable_desc")}</p>
                             </div>
                             <input
                               type="checkbox"
                               checked={openGroupDiscoverable}
                               onChange={(e) => setOpenGroupDiscoverable(e.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
+                              className="h-4 w-4 rounded border-sam-border text-sam-fg focus:ring-sam-border"
                             />
                           </label>
                           <button
@@ -4290,7 +4287,7 @@ export function CommunityMessengerRoomClient({
                             type="button"
                             onClick={() => void leaveRoom()}
                             disabled={busy === "leave-room"}
-                            className="rounded-ui-rect border border-red-200 bg-white px-4 py-3 text-[13px] font-semibold text-red-700 disabled:opacity-40"
+                            className="rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-[13px] font-semibold text-red-700 disabled:opacity-40"
                           >
                             {busy === "leave-room" ? t("nav_messenger_leaving") : t("nav_messenger_leave_group_room")}
                           </button>
@@ -4306,13 +4303,13 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-gray-700">이 방에서 검색</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">대화 내 검색</h2>
+                    <p className="text-[13px] font-medium text-sam-fg">이 방에서 검색</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">대화 내 검색</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg"
                   >
                     {t("tier1_back")}
                   </button>
@@ -4321,7 +4318,7 @@ export function CommunityMessengerRoomClient({
                   value={roomSearchQuery}
                   onChange={(e) => setRoomSearchQuery(e.target.value)}
                   placeholder="키워드 (보낸 사람·내용)"
-                  className="mt-4 h-11 w-full rounded-ui-rect border border-gray-200 px-3 text-[14px] outline-none focus:border-gray-400"
+                  className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
                   autoFocus
                 />
                 <div className="mt-3 max-h-[50vh] space-y-2 overflow-y-auto">
@@ -4331,14 +4328,14 @@ export function CommunityMessengerRoomClient({
                         key={m.id}
                         type="button"
                         onClick={() => scrollToRoomMessage(m.id)}
-                        className="w-full rounded-ui-rect border border-gray-100 bg-gray-50 px-3 py-3 text-left"
+                        className="w-full rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-3 text-left"
                       >
-                        <p className="text-[12px] font-medium text-gray-500">{tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
-                        <p className="mt-1 line-clamp-2 text-[14px] text-gray-900">{communityMessengerMessageSearchText(m)}</p>
+                        <p className="text-[12px] font-medium text-sam-muted">{tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
+                        <p className="mt-1 line-clamp-2 text-[14px] text-sam-fg">{communityMessengerMessageSearchText(m)}</p>
                       </button>
                     ))
                   ) : (
-                    <p className="py-6 text-center text-[13px] text-gray-500">검색 결과가 없습니다.</p>
+                    <p className="py-6 text-center text-[13px] text-sam-muted">검색 결과가 없습니다.</p>
                   )}
                 </div>
               </>
@@ -4348,27 +4345,27 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-gray-700">이 방 미디어</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">사진·음성</h2>
+                    <p className="text-[13px] font-medium text-sam-fg">이 방 미디어</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">사진·음성</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg"
                   >
                     {t("tier1_back")}
                   </button>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                    <p className="text-[11px] font-medium text-gray-500">사진</p>
-                    <p className="mt-1 text-[16px] font-semibold text-gray-900">{photoMessageCount}</p>
-                    <p className="mt-1 text-[12px] text-gray-500">이미지와 사진 링크</p>
+                  <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                    <p className="text-[11px] font-medium text-sam-muted">사진</p>
+                    <p className="mt-1 text-[16px] font-semibold text-sam-fg">{photoMessageCount}</p>
+                    <p className="mt-1 text-[12px] text-sam-muted">이미지와 사진 링크</p>
                   </div>
-                  <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                    <p className="text-[11px] font-medium text-gray-500">음성</p>
-                    <p className="mt-1 text-[16px] font-semibold text-gray-900">{voiceMessageCount}</p>
-                    <p className="mt-1 text-[12px] text-gray-500">보이스 메시지 기록</p>
+                  <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                    <p className="text-[11px] font-medium text-sam-muted">음성</p>
+                    <p className="mt-1 text-[16px] font-semibold text-sam-fg">{voiceMessageCount}</p>
+                    <p className="mt-1 text-[12px] text-sam-muted">보이스 메시지 기록</p>
                   </div>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
@@ -4378,9 +4375,9 @@ export function CommunityMessengerRoomClient({
                         key={m.id}
                         type="button"
                         onClick={() => scrollToRoomMessage(m.id)}
-                        className="flex w-full gap-3 rounded-ui-rect border border-gray-200 bg-white p-3 text-left"
+                        className="flex w-full gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left"
                       >
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-ui-rect bg-gray-200 text-[11px] font-semibold text-gray-600">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-ui-rect bg-sam-border-soft text-[11px] font-semibold text-sam-muted">
                           {m.messageType === "voice" ? (
                             "음성"
                           ) : m.messageType === "image" || looksLikeDirectImageUrl(m.content) ? (
@@ -4391,8 +4388,8 @@ export function CommunityMessengerRoomClient({
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[12px] text-gray-500">{formatTime(m.createdAt)}</p>
-                          <p className="mt-0.5 truncate text-[14px] text-gray-900">
+                          <p className="text-[12px] text-sam-muted">{formatTime(m.createdAt)}</p>
+                          <p className="mt-0.5 truncate text-[14px] text-sam-fg">
                             {m.messageType === "voice"
                               ? `음성${m.voiceDurationSeconds ? ` · ${m.voiceDurationSeconds}초` : ""}`
                               : "사진"}
@@ -4401,7 +4398,7 @@ export function CommunityMessengerRoomClient({
                       </button>
                     ))
                   ) : (
-                    <p className="py-8 text-center text-[13px] text-gray-500">미디어 없음</p>
+                    <p className="py-8 text-center text-[13px] text-sam-muted">미디어 없음</p>
                   )}
                 </div>
               </>
@@ -4411,47 +4408,47 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-gray-700">이 방 파일</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">파일 모아보기</h2>
+                    <p className="text-[13px] font-medium text-sam-fg">이 방 파일</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">파일 모아보기</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg"
                   >
                     {t("tier1_back")}
                   </button>
                 </div>
-                <div className="mt-4 rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                  <p className="text-[11px] font-medium text-gray-500">첨부 파일</p>
-                  <p className="mt-1 text-[16px] font-semibold text-gray-900">{fileMessageCount}개</p>
-                  <p className="mt-1 text-[12px] text-gray-500">문서, 압축 파일, 일반 첨부를 한곳에서 확인합니다.</p>
+                <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                  <p className="text-[11px] font-medium text-sam-muted">첨부 파일</p>
+                  <p className="mt-1 text-[16px] font-semibold text-sam-fg">{fileMessageCount}개</p>
+                  <p className="mt-1 text-[12px] text-sam-muted">문서, 압축 파일, 일반 첨부를 한곳에서 확인합니다.</p>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
                   {fileMessages.length ? (
                     fileMessages.map((m) => (
-                      <div key={m.id} className="rounded-ui-rect border border-gray-200 bg-white p-3">
+                      <div key={m.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                         <button type="button" onClick={() => scrollToRoomMessage(m.id)} className="w-full text-left">
-                          <p className="text-[12px] text-gray-500">{tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
-                          <p className="mt-1 truncate text-[14px] font-semibold text-gray-900">{m.fileName?.trim() || "첨부 파일"}</p>
-                          <p className="mt-1 text-[12px] text-gray-500">{formatFileMeta(m.fileMimeType, m.fileSizeBytes)}</p>
+                          <p className="text-[12px] text-sam-muted">{tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
+                          <p className="mt-1 truncate text-[14px] font-semibold text-sam-fg">{m.fileName?.trim() || "첨부 파일"}</p>
+                          <p className="mt-1 text-[12px] text-sam-muted">{formatFileMeta(m.fileMimeType, m.fileSizeBytes)}</p>
                         </button>
                         {!m.pending && m.content.trim() ? (
                           <a
                             href={m.content.trim()}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-3 inline-flex rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[12px] font-semibold text-gray-900"
+                            className="mt-3 inline-flex rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg"
                           >
                             파일 열기
                           </a>
                         ) : (
-                          <p className="mt-3 text-[12px] text-gray-500">업로드 중…</p>
+                          <p className="mt-3 text-[12px] text-sam-muted">업로드 중…</p>
                         )}
                       </div>
                     ))
                   ) : (
-                    <p className="py-8 text-center text-[13px] text-gray-500">파일 없음</p>
+                    <p className="py-8 text-center text-[13px] text-sam-muted">파일 없음</p>
                   )}
                 </div>
               </>
@@ -4461,31 +4458,31 @@ export function CommunityMessengerRoomClient({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-gray-700">이 방 링크</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-gray-900">링크 모아보기</h2>
+                    <p className="text-[13px] font-medium text-sam-fg">이 방 링크</p>
+                    <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">링크 모아보기</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] text-gray-700"
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg"
                   >
                     {t("tier1_back")}
                   </button>
                 </div>
-                <div className="mt-4 rounded-ui-rect border border-gray-200 bg-white px-4 py-3">
-                  <p className="text-[11px] font-medium text-gray-500">공유 링크</p>
-                  <p className="mt-1 text-[16px] font-semibold text-gray-900">{linkMessageCount}개</p>
-                  <p className="mt-1 text-[12px] text-gray-500">메시지에 포함된 URL을 모아 다시 열 수 있습니다.</p>
+                <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                  <p className="text-[11px] font-medium text-sam-muted">공유 링크</p>
+                  <p className="mt-1 text-[16px] font-semibold text-sam-fg">{linkMessageCount}개</p>
+                  <p className="mt-1 text-[12px] text-sam-muted">메시지에 포함된 URL을 모아 다시 열 수 있습니다.</p>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
                   {linkThreadMessages.length ? (
                     linkThreadMessages.map((m) => {
                       const urls = extractHttpUrls(m.content);
                       return (
-                        <div key={m.id} className="rounded-ui-rect border border-gray-200 bg-white p-3">
+                        <div key={m.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                           <button type="button" onClick={() => scrollToRoomMessage(m.id)} className="w-full text-left">
-                            <p className="text-[12px] text-gray-500">{tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
-                            <p className="mt-1 line-clamp-2 text-[13px] text-gray-800">{m.content}</p>
+                            <p className="text-[12px] text-sam-muted">{tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
+                            <p className="mt-1 line-clamp-2 text-[13px] text-sam-fg">{m.content}</p>
                           </button>
                           <div className="mt-2 flex flex-col gap-1.5">
                             {urls.map((url) => (
@@ -4494,7 +4491,7 @@ export function CommunityMessengerRoomClient({
                                 href={url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="truncate text-[13px] font-medium text-gray-900 underline decoration-gray-300"
+                                className="truncate text-[13px] font-medium text-sam-fg underline decoration-sam-meta"
                               >
                                 {url}
                               </a>
@@ -4504,7 +4501,7 @@ export function CommunityMessengerRoomClient({
                       );
                     })
                   ) : (
-                    <p className="py-8 text-center text-[13px] text-gray-500">링크 없음</p>
+                    <p className="py-8 text-center text-[13px] text-sam-muted">링크 없음</p>
                   )}
                 </div>
               </>
@@ -4516,12 +4513,12 @@ export function CommunityMessengerRoomClient({
       {memberActionTarget ? (
         <div className="fixed inset-0 z-[25] flex items-end justify-center bg-black/30 px-4 pb-6" onClick={() => setMemberActionTarget(null)}>
           <div
-            className="w-full max-w-[520px] overflow-hidden rounded-ui-rect border border-gray-200 bg-white p-5 shadow-[0_10px_30px_rgba(17,24,39,0.08)]"
+            className="w-full max-w-[520px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface p-5 shadow-[0_10px_30px_rgba(17,24,39,0.08)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="text-[13px] font-medium text-gray-700">멤버 액션</p>
-            <h2 className="mt-1 text-[20px] font-semibold text-gray-900">{memberActionTarget.label}</h2>
-            <p className="mt-1 text-[12px] text-gray-500">
+            <p className="text-[13px] font-medium text-sam-fg">멤버 액션</p>
+            <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">{memberActionTarget.label}</h2>
+            <p className="mt-1 text-[12px] text-sam-muted">
               {memberActionTarget.memberRole === "admin"
                 ? "관리자"
                 : snapshot?.room.ownerUserId && messengerUserIdsEqual(memberActionTarget.id, snapshot.room.ownerUserId)
@@ -4531,40 +4528,40 @@ export function CommunityMessengerRoomClient({
             </p>
             {isPrivateGroupRoom ? (
               <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2">
-                  <p className="text-[11px] text-gray-500">역할 변경</p>
-                  <p className="mt-1 text-[12px] font-semibold text-gray-900">{canManageMemberRoles ? "가능" : "제한"}</p>
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+                  <p className="text-[11px] text-sam-muted">역할 변경</p>
+                  <p className="mt-1 text-[12px] font-semibold text-sam-fg">{canManageMemberRoles ? "가능" : "제한"}</p>
                 </div>
-                <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2">
-                  <p className="text-[11px] text-gray-500">내보내기</p>
-                  <p className="mt-1 text-[12px] font-semibold text-gray-900">{canKickGroupMembers ? "가능" : "제한"}</p>
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+                  <p className="text-[11px] text-sam-muted">내보내기</p>
+                  <p className="mt-1 text-[12px] font-semibold text-sam-fg">{canKickGroupMembers ? "가능" : "제한"}</p>
                 </div>
-                <div className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2">
-                  <p className="text-[11px] text-gray-500">방장 위임</p>
-                  <p className="mt-1 text-[12px] font-semibold text-gray-900">{isOwner ? "가능" : "불가"}</p>
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+                  <p className="text-[11px] text-sam-muted">방장 위임</p>
+                  <p className="mt-1 text-[12px] font-semibold text-sam-fg">{isOwner ? "가능" : "불가"}</p>
                 </div>
               </div>
             ) : null}
             <div className="mt-4 grid gap-2">
-              <div className="border-b border-gray-100 pb-1 text-[11px] font-semibold text-gray-400">대화</div>
+              <div className="border-b border-sam-border-soft pb-1 text-[11px] font-semibold text-sam-meta">대화</div>
               <button
                 type="button"
                 onClick={() => void startDirectChatWithMember(memberActionTarget.id)}
                 disabled={busy === `member-chat:${memberActionTarget.id}`}
-                className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left disabled:opacity-40"
+                className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
               >
                 <div>
-                  <p className="text-[15px] font-semibold text-gray-900">1:1 대화 시작</p>
-                  <p className="mt-1 text-[12px] text-gray-500">이 멤버와 별도 대화방을 엽니다.</p>
+                  <p className="text-[15px] font-semibold text-sam-fg">1:1 대화 시작</p>
+                  <p className="mt-1 text-[12px] text-sam-muted">이 멤버와 별도 대화방을 엽니다.</p>
                 </div>
-                <span className="text-[18px] text-gray-300">›</span>
+                <span className="text-[18px] text-sam-meta">›</span>
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => void startDirectCallWithMember(memberActionTarget.id, "voice")}
                   disabled={busy === `member-call:voice:${memberActionTarget.id}`}
-                  className="rounded-ui-rect border border-gray-200 px-4 py-4 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-40"
+                  className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[14px] font-semibold text-sam-fg disabled:opacity-40"
                 >
                   음성 통화
                 </button>
@@ -4572,7 +4569,7 @@ export function CommunityMessengerRoomClient({
                   type="button"
                   onClick={() => void startDirectCallWithMember(memberActionTarget.id, "video")}
                   disabled={busy === `member-call:video:${memberActionTarget.id}`}
-                  className="rounded-ui-rect border border-gray-200 px-4 py-4 text-left text-[14px] font-semibold text-gray-900 disabled:opacity-40"
+                  className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[14px] font-semibold text-sam-fg disabled:opacity-40"
                 >
                   영상 통화
                 </button>
@@ -4584,7 +4581,7 @@ export function CommunityMessengerRoomClient({
                   snapshot?.room.ownerUserId &&
                   !messengerUserIdsEqual(memberActionTarget.id, snapshot.room.ownerUserId) &&
                   !(snapshot.myRole !== "owner" && memberActionTarget.memberRole === "admin"))) ? (
-                <div className="border-b border-gray-100 pb-1 pt-2 text-[11px] font-semibold text-gray-400">운영</div>
+                <div className="border-b border-sam-border-soft pb-1 pt-2 text-[11px] font-semibold text-sam-meta">운영</div>
               ) : null}
               {canManageMemberRoles &&
               snapshot?.room.ownerUserId &&
@@ -4595,13 +4592,13 @@ export function CommunityMessengerRoomClient({
                       type="button"
                       onClick={() => void transferGroupOwner(memberActionTarget.id, memberActionTarget.label)}
                       disabled={busy === `group-owner:${memberActionTarget.id}`}
-                      className="flex items-center justify-between rounded-ui-rect border border-gray-200 bg-white px-4 py-4 text-left disabled:opacity-40"
+                      className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
                     >
                       <div>
-                        <p className="text-[15px] font-semibold text-gray-900">방장 위임</p>
-                        <p className="mt-1 text-[12px] text-gray-500">이 멤버를 새 방장으로 변경합니다.</p>
+                        <p className="text-[15px] font-semibold text-sam-fg">방장 위임</p>
+                        <p className="mt-1 text-[12px] text-sam-muted">이 멤버를 새 방장으로 변경합니다.</p>
                       </div>
-                      <span className="text-[18px] text-gray-300">›</span>
+                      <span className="text-[18px] text-sam-meta">›</span>
                     </button>
                   ) : null}
                 </>
@@ -4613,15 +4610,15 @@ export function CommunityMessengerRoomClient({
                   type="button"
                   onClick={() => void updateGroupMemberRole(memberActionTarget.id, memberActionTarget.memberRole === "admin" ? "member" : "admin")}
                   disabled={busy === `group-role:${memberActionTarget.id}`}
-                  className="flex items-center justify-between rounded-ui-rect border border-gray-200 px-4 py-4 text-left disabled:opacity-40"
+                  className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
                 >
                   <div>
-                    <p className="text-[15px] font-semibold text-gray-900">
+                    <p className="text-[15px] font-semibold text-sam-fg">
                       {memberActionTarget.memberRole === "admin" ? "관리자 해제" : "관리자 지정"}
                     </p>
-                    <p className="mt-1 text-[12px] text-gray-500">운영진 권한을 조정합니다.</p>
+                    <p className="mt-1 text-[12px] text-sam-muted">운영진 권한을 조정합니다.</p>
                   </div>
-                  <span className="text-[18px] text-gray-300">›</span>
+                  <span className="text-[18px] text-sam-meta">›</span>
                 </button>
               ) : null}
               {canKickGroupMembers &&
@@ -4632,7 +4629,7 @@ export function CommunityMessengerRoomClient({
                   type="button"
                   onClick={() => void removeGroupMember(memberActionTarget.id, memberActionTarget.label)}
                   disabled={busy === `group-remove:${memberActionTarget.id}`}
-                  className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-white px-4 py-4 text-left disabled:opacity-40"
+                  className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
                 >
                   <div>
                     <p className="text-[15px] font-semibold text-red-700">그룹에서 내보내기</p>
@@ -4641,7 +4638,7 @@ export function CommunityMessengerRoomClient({
                   <span className="text-[18px] text-red-300">›</span>
                 </button>
               ) : null}
-              <div className="border-b border-gray-100 pb-1 pt-2 text-[11px] font-semibold text-gray-400">보호</div>
+              <div className="border-b border-sam-border-soft pb-1 pt-2 text-[11px] font-semibold text-sam-meta">보호</div>
               <button
                 type="button"
                 onClick={() =>
@@ -4650,7 +4647,7 @@ export function CommunityMessengerRoomClient({
                     reportedUserId: memberActionTarget.id,
                   })
                 }
-                className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-white px-4 py-4 text-left"
+                className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left"
               >
                 <div>
                   <p className="text-[15px] font-semibold text-red-700">사용자 신고</p>
@@ -4681,14 +4678,14 @@ export function CommunityMessengerRoomClient({
 
       {!isGroupRoom && snapshot && returnToCallSessionId ? (
         <div
-          className={`fixed left-3 right-3 z-40 flex items-center gap-3 rounded-ui-rect border border-gray-200 bg-white px-3 py-2.5 ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
+          className={`fixed left-3 right-3 z-40 flex items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
         >
-          <span className="rounded-ui-rect border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-semibold text-gray-600">
+          <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-[11px] font-semibold text-sam-muted">
             진행 중
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-gray-900">통화 진행 중</p>
-            <p className="truncate text-[12px] text-gray-500">채팅 중 복귀 가능</p>
+            <p className="text-[13px] font-semibold text-sam-fg">통화 진행 중</p>
+            <p className="truncate text-[12px] text-sam-muted">채팅 중 복귀 가능</p>
           </div>
           <button
             type="button"
@@ -4701,7 +4698,7 @@ export function CommunityMessengerRoomClient({
               }
               router.push(`/community-messenger/calls/${encodeURIComponent(returnToCallSessionId)}`);
             }}
-            className="shrink-0 rounded-ui-rect border border-gray-200 bg-gray-900 px-3 py-2 text-[12px] font-semibold text-white"
+            className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-ink px-3 py-2 text-[12px] font-semibold text-white"
           >
             통화 화면
           </button>
@@ -4741,7 +4738,7 @@ function VoiceRecordingLiveWaveform({ peaks, className }: { peaks: number[]; cla
         return (
           <div
             key={i}
-            className="w-[2px] max-w-[2px] shrink-0 rounded-full bg-gray-500/55"
+            className="w-[2px] max-w-[2px] shrink-0 rounded-full bg-sam-muted/55"
             style={{ height: `${h}px` }}
           />
         );
@@ -4845,12 +4842,10 @@ function ViberChatBubble({
   showTail: boolean;
   children: ReactNode;
 }) {
-  const fill = isMine ? "var(--cm-room-bubble-outgoing)" : "var(--cm-room-bubble-incoming)";
   return (
     <div
-      className="relative inline-block w-max max-w-full overflow-visible shadow-[0_1px_3px_rgba(115,96,242,0.12)]"
+      className={`sam-bubble ${isMine ? "sam-bubble--outgoing" : "sam-bubble--incoming"}`}
       style={{
-        backgroundColor: fill,
         borderRadius: "var(--cm-room-radius-bubble)",
       }}
     >
@@ -5008,15 +5003,6 @@ function BackIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SearchIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="M20 20l-4.2-4.2" strokeLinecap="round" />
     </svg>
   );
 }

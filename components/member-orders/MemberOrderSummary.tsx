@@ -9,20 +9,20 @@ export function MemberOrderSummary({ order }: { order: MemberOrder }) {
   return (
     <dl className="space-y-2 text-sm">
       <div className="flex justify-between">
-        <dt className="text-gray-500">{t("member_order_product_amount")}</dt>
+        <dt className="text-sam-muted">{t("member_order_product_amount")}</dt>
         <dd>{formatMoneyPhp(order.product_amount)}</dd>
       </div>
       <div className="flex justify-between">
-        <dt className="text-gray-500">{t("member_order_option_amount")}</dt>
+        <dt className="text-sam-muted">{t("member_order_option_amount")}</dt>
         <dd>{formatMoneyPhp(order.option_amount)}</dd>
       </div>
       <div className="flex justify-between">
-        <dt className="text-gray-500">
+        <dt className="text-sam-muted">
           {order.order_type === "delivery" ? t("member_order_delivery_fee") : t("member_order_pickup_misc_fee")}
         </dt>
         <dd>{formatMoneyPhp(order.delivery_fee)}</dd>
       </div>
-      <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-gray-900">
+      <div className="flex justify-between border-t border-sam-border-soft pt-2 text-base font-bold text-sam-fg">
         <dt>{t("member_order_total_paid_amount")}</dt>
         <dd>{formatMoneyPhp(order.total_amount)}</dd>
       </div>

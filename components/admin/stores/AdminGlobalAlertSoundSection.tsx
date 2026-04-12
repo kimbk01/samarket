@@ -194,11 +194,11 @@ export function AdminGlobalAlertSoundSection({
   }, [loadSound]);
 
   return (
-    <section className="mt-6 rounded-ui-rect border border-gray-200 bg-white p-4 shadow-sm">
-      <h2 className="text-[15px] font-semibold text-gray-900">{title}</h2>
-      <div className="mt-1 text-[12px] text-gray-500">{description}</div>
-      <p className="mt-1 text-[11px] text-gray-400">
-        <code className="rounded bg-gray-100 px-1">{codeKey}</code>
+    <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+      <h2 className="text-[15px] font-semibold text-sam-fg">{title}</h2>
+      <div className="mt-1 text-[12px] text-sam-muted">{description}</div>
+      <p className="mt-1 text-[11px] text-sam-meta">
+        <code className="rounded bg-sam-surface-muted px-1">{codeKey}</code>
       </p>
       {soundLegacyUrl ? (
         <p className="mt-2 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
@@ -208,13 +208,13 @@ export function AdminGlobalAlertSoundSection({
       {soundError ? <p className="mt-2 text-[13px] text-red-700">{soundError}</p> : null}
       {soundMsg ? <p className="mt-2 text-[13px] text-green-800">{soundMsg}</p> : null}
       {soundLoading ? (
-        <p className="mt-3 text-[13px] text-gray-500">알림음 설정 불러오는 중…</p>
+        <p className="mt-3 text-[13px] text-sam-muted">알림음 설정 불러오는 중…</p>
       ) : (
         <div className="mt-3 space-y-3">
-          <label className="block text-[12px] font-medium text-gray-700">
+          <label className="block text-[12px] font-medium text-sam-fg">
             알림 종류
             <select
-              className="mt-1.5 block w-full max-w-md cursor-pointer rounded-ui-rect border border-gray-200 bg-white px-3 py-3 text-[16px] text-gray-900 shadow-sm focus:border-signature focus:outline-none focus:ring-1 focus:ring-signature disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1.5 block w-full max-w-md cursor-pointer rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[16px] text-sam-fg shadow-sm focus:border-signature focus:outline-none focus:ring-1 focus:ring-signature disabled:cursor-not-allowed disabled:opacity-60"
               value={soundSelect}
               disabled={soundSaving}
               onChange={(e) => {
@@ -236,27 +236,27 @@ export function AdminGlobalAlertSoundSection({
             </select>
           </label>
           <div className="flex flex-wrap items-end justify-between gap-2">
-            <p className="min-w-0 flex-1 break-all text-[11px] text-gray-500">
-              <span className={soundFromDb ? "font-medium text-signature" : "text-gray-400"}>
+            <p className="min-w-0 flex-1 break-all text-[11px] text-sam-muted">
+              <span className={soundFromDb ? "font-medium text-signature" : "text-sam-meta"}>
                 {soundFromDb ? "DB에 저장됨" : "기본 비프 (DB 없음)"}
               </span>
               {soundLegacyUrl ? (
                 <>
                   {" "}
                   · 업로드·직접 URL{" "}
-                  <code className="rounded bg-gray-50 px-0.5">{soundLegacyUrl}</code>
+                  <code className="rounded bg-sam-app px-0.5">{soundLegacyUrl}</code>
                 </>
               ) : soundFromDb && soundSelect === "notif" ? (
                 <>
                   {" "}
                   · 프리셋 MP3{" "}
-                  <code className="rounded bg-gray-50 px-0.5">{STORE_DELIVERY_NOTIFICATION_MP3_PATH}</code>
+                  <code className="rounded bg-sam-app px-0.5">{STORE_DELIVERY_NOTIFICATION_MP3_PATH}</code>
                 </>
               ) : !soundFromDb ? (
                 <>
                   {" "}
                   · 안내용 프리셋 경로{" "}
-                  <code className="rounded bg-gray-50 px-0.5">{STORE_DELIVERY_NOTIFICATION_MP3_PATH}</code>
+                  <code className="rounded bg-sam-app px-0.5">{STORE_DELIVERY_NOTIFICATION_MP3_PATH}</code>
                 </>
               ) : null}
             </p>
@@ -265,7 +265,7 @@ export function AdminGlobalAlertSoundSection({
                 type="button"
                 disabled={soundSaving}
                 onClick={() => void deleteGlobalSound()}
-                className="shrink-0 rounded-ui-rect border border-red-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-red-800 disabled:opacity-50"
+                className="shrink-0 rounded-ui-rect border border-red-200 bg-sam-surface px-2.5 py-1.5 text-[12px] font-medium text-red-800 disabled:opacity-50"
               >
                 DB·Storage 제거
               </button>
@@ -283,7 +283,7 @@ export function AdminGlobalAlertSoundSection({
               type="button"
               disabled={soundSaving}
               onClick={() => adminSoundFileRef.current?.click()}
-              className="rounded-ui-rect border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:opacity-50"
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
             >
               {soundSaving ? "처리 중…" : "내 PC에서 찾기 (업로드)"}
             </button>
@@ -319,7 +319,7 @@ export function AdminGlobalAlertSoundSection({
                   }
                 }
               }}
-              className="rounded-ui-rect border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-800 disabled:opacity-50"
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
             >
               미리듣기
             </button>

@@ -43,8 +43,8 @@ export function OpsRelatedDocumentPanel({ title = "관련 문서", compact = fal
 
   if (compact) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-3">
-        <h3 className="text-[13px] font-medium text-gray-700">{title}</h3>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+        <h3 className="text-[13px] font-medium text-sam-fg">{title}</h3>
         <div className="mt-2 space-y-1">
           {rankings.slice(0, 3).map((r) => renderDocLink(r.documentId))}
         </div>
@@ -54,24 +54,24 @@ export function OpsRelatedDocumentPanel({ title = "관련 문서", compact = fal
 
   return (
     <div className="space-y-4">
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <h3 className="text-[14px] font-medium text-gray-900">Top 랭킹 문서</h3>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className="text-[14px] font-medium text-sam-fg">Top 랭킹 문서</h3>
         <ul className="mt-2 space-y-1">
           {rankings.slice(0, 5).map((r) => (
             <li key={r.id}>{renderDocLink(r.documentId)}</li>
           ))}
         </ul>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <h3 className="text-[14px] font-medium text-gray-900">연결 많은 문서</h3>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className="text-[14px] font-medium text-sam-fg">연결 많은 문서</h3>
         <ul className="mt-2 space-y-1">
           {topLinkedIds.map((id) => (
             <li key={id}>{renderDocLink(id)}</li>
           ))}
         </ul>
       </div>
-      <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-        <h3 className="text-[14px] font-medium text-gray-900">해결에 많이 사용된 문서</h3>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className="text-[14px] font-medium text-sam-fg">해결에 많이 사용된 문서</h3>
         <ul className="mt-2 space-y-1">
           {topResolvedDocIds.map((id) => (
             <li key={id}>{renderDocLink(id)}</li>

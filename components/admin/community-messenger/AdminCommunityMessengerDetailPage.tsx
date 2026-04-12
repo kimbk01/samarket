@@ -295,11 +295,11 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
   }, [auditPeriodFilter, auditQuery, detail?.callAudits]);
 
   if (loading) {
-    return <div className="py-10 text-center text-[14px] text-gray-500">불러오는 중...</div>;
+    return <div className="py-10 text-center text-[14px] text-sam-muted">불러오는 중...</div>;
   }
 
   if (!detail) {
-    return <div className="py-10 text-center text-[14px] text-gray-500">메신저 방을 찾을 수 없습니다.</div>;
+    return <div className="py-10 text-center text-[14px] text-sam-muted">메신저 방을 찾을 수 없습니다.</div>;
   }
 
   const room = detail.room;
@@ -344,7 +344,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           <select
             value={forceEndReasonCode}
             onChange={(e) => setForceEndReasonCode(e.target.value as CommunityMessengerCallForceEndReasonCode | "")}
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="">강제 종료 사유 코드를 선택하세요</option>
             {COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS.map((reason) => (
@@ -358,7 +358,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             placeholder="운영 메모를 남기세요. 강제 종료 시에는 선택한 사유 코드에 대한 상세 설명을 적어 주세요."
-            className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           />
           <p className="text-[12px] text-amber-700">통화 강제 종료에는 사유 코드 선택과 운영 메모 입력이 모두 필수입니다.</p>
           <div className="flex flex-wrap gap-2">
@@ -385,15 +385,15 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         <AdminCard title="참여자">
           <div className="space-y-2">
             {detail.participants.map((participant) => (
-              <div key={participant.id} className="rounded border border-gray-100 px-3 py-3">
+              <div key={participant.id} className="rounded border border-sam-border-soft px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[14px] font-medium text-gray-900">{participant.label}</p>
-                    <p className="mt-1 text-[12px] text-gray-500">
+                    <p className="text-[14px] font-medium text-sam-fg">{participant.label}</p>
+                    <p className="mt-1 text-[12px] text-sam-muted">
                       {participant.role} · unread {participant.unreadCount}
                     </p>
                   </div>
-                  <div className="text-right text-[12px] text-gray-400">
+                  <div className="text-right text-[12px] text-sam-meta">
                     <div>참여 {participant.joinedAt ? formatDateTime(participant.joinedAt) : "-"}</div>
                     <div className="mt-1">읽음 {participant.lastReadAt ? formatDateTime(participant.lastReadAt) : "-"}</div>
                   </div>
@@ -412,7 +412,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                   e.target.value as "missed" | "rejected" | "cancelled" | "ended" | "incoming" | "dialing" | ""
                 )
               }
-              className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 text-[14px]"
             >
               <option value="">모든 기록 상태</option>
               <option value="missed">missed</option>
@@ -425,7 +425,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             <select
               value={callKindFilter}
               onChange={(e) => setCallKindFilter(e.target.value as "voice" | "video" | "")}
-              className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 text-[14px]"
             >
               <option value="">모든 통화 종류</option>
               <option value="voice">voice</option>
@@ -434,17 +434,17 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           </div>
           <div className="space-y-2">
             {filteredCalls.length === 0 ? (
-              <div className="py-8 text-center text-[14px] text-gray-500">통화 기록이 없습니다.</div>
+              <div className="py-8 text-center text-[14px] text-sam-muted">통화 기록이 없습니다.</div>
             ) : (
               filteredCalls.map((call) => (
-                <div key={call.id} className="rounded border border-gray-100 px-3 py-3">
-                  <p className="text-[14px] font-medium text-gray-900">
+                <div key={call.id} className="rounded border border-sam-border-soft px-3 py-3">
+                  <p className="text-[14px] font-medium text-sam-fg">
                     {call.callerLabel} {"->"} {call.peerLabel}
                   </p>
-                  <p className="mt-1 text-[12px] text-gray-500">
+                  <p className="mt-1 text-[12px] text-sam-muted">
                     {call.callKind} · {call.status} · {call.durationSeconds}초
                   </p>
-                  <p className="mt-1 text-[12px] text-gray-400">{formatDateTime(call.startedAt)}</p>
+                  <p className="mt-1 text-[12px] text-sam-meta">{formatDateTime(call.startedAt)}</p>
                 </div>
               ))
             )}
@@ -457,7 +457,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           <select
             value={activeCallStatusFilter}
             onChange={(e) => setActiveCallStatusFilter(e.target.value as "ringing" | "active" | "")}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="">모든 활성 상태</option>
             <option value="ringing">ringing</option>
@@ -466,7 +466,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           <select
             value={callKindFilter}
             onChange={(e) => setCallKindFilter(e.target.value as "voice" | "video" | "")}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="">모든 통화 종류</option>
             <option value="voice">voice</option>
@@ -475,22 +475,22 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         </div>
         <div className="space-y-2">
           {filteredActiveCalls.length === 0 ? (
-            <div className="py-8 text-center text-[14px] text-gray-500">현재 진행 중인 통화 세션이 없습니다.</div>
+            <div className="py-8 text-center text-[14px] text-sam-muted">현재 진행 중인 통화 세션이 없습니다.</div>
           ) : (
             filteredActiveCalls.map((call) => (
-              <div key={call.id} className="rounded border border-gray-100 px-3 py-3">
+              <div key={call.id} className="rounded border border-sam-border-soft px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[14px] font-medium text-gray-900">
+                    <p className="text-[14px] font-medium text-sam-fg">
                       {call.sessionMode === "group" ? "그룹 통화" : "1:1 통화"} · {call.callKind}
                     </p>
-                    <p className="mt-1 text-[12px] text-gray-500">
+                    <p className="mt-1 text-[12px] text-sam-muted">
                       상태 {call.status} · 시작자 {call.initiatorLabel} · 시작 {formatDateTime(call.startedAt)}
                     </p>
-                    <p className="mt-1 text-[12px] text-gray-700">
+                    <p className="mt-1 text-[12px] text-sam-fg">
                       참여 {call.joinedCount}명 · 대기 {call.invitedCount}명 · 전체 {call.participantCount}명
                     </p>
-                    <p className="mt-1 text-[12px] text-gray-500">
+                    <p className="mt-1 text-[12px] text-sam-muted">
                       {call.participants.map((participant) => `${participant.label}(${participant.status})`).join(", ")}
                     </p>
                   </div>
@@ -515,44 +515,44 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             value={auditQuery}
             onChange={(e) => setAuditQuery(e.target.value)}
             placeholder="관리자, 세션 ID, 메모 검색"
-            className="min-w-[220px] rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="min-w-[220px] rounded border border-sam-border px-3 py-2 text-[14px]"
           />
           <select
             value={auditPeriodFilter}
             onChange={(e) => setAuditPeriodFilter(e.target.value as "24h" | "7d" | "30d" | "")}
-            className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 text-[14px]"
           >
             <option value="">전체 기간</option>
             <option value="24h">최근 24시간</option>
             <option value="7d">최근 7일</option>
             <option value="30d">최근 30일</option>
           </select>
-          <div className="flex items-center text-[12px] text-gray-500">결과 {filteredCallAudits.length}건</div>
+          <div className="flex items-center text-[12px] text-sam-muted">결과 {filteredCallAudits.length}건</div>
         </div>
         <div className="space-y-2">
           {filteredCallAudits.length === 0 ? (
-            <div className="py-8 text-center text-[14px] text-gray-500">이 방의 강제 종료 감사 로그가 없습니다.</div>
+            <div className="py-8 text-center text-[14px] text-sam-muted">이 방의 강제 종료 감사 로그가 없습니다.</div>
           ) : (
             filteredCallAudits.map((log) => (
-              <div key={log.id} className="rounded border border-gray-100 px-3 py-3">
+              <div key={log.id} className="rounded border border-sam-border-soft px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[14px] font-medium text-gray-900">
+                    <p className="text-[14px] font-medium text-sam-fg">
                       관리자 {log.actorLabel}
                       <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-[11px] text-red-700">강제 종료</span>
                     </p>
-                    <p className="mt-1 font-mono text-[12px] text-gray-500">{log.sessionId}</p>
+                    <p className="mt-1 font-mono text-[12px] text-sam-muted">{log.sessionId}</p>
                     {log.reasonCode ? (
                       <p className="mt-1 text-[12px] text-sky-700">
                         사유 코드: {log.reasonLabel} ({log.reasonCode})
                       </p>
                     ) : null}
-                    <p className="mt-1 text-[12px] text-gray-700">
+                    <p className="mt-1 text-[12px] text-sam-fg">
                       상태 {log.beforeStatus} {"->"} {log.afterStatus}
                     </p>
                     {log.note ? <p className="mt-1 text-[12px] text-amber-700">메모: {log.note}</p> : null}
                   </div>
-                  <div className="text-[12px] text-gray-400">{formatDateTime(log.createdAt)}</div>
+                  <div className="text-[12px] text-sam-meta">{formatDateTime(log.createdAt)}</div>
                 </div>
               </div>
             ))
@@ -563,12 +563,12 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
       <AdminCard title="메시지 타임라인">
         <div className="space-y-2">
           {detail.messages.map((message) => (
-            <div key={message.id} className="rounded border border-gray-100 px-3 py-3">
+            <div key={message.id} className="rounded border border-sam-border-soft px-3 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium text-gray-900">
+                  <p className="text-[13px] font-medium text-sam-fg">
                     {message.senderLabel}
-                    <span className="ml-2 text-[12px] font-normal text-gray-400">{message.messageType}</span>
+                    <span className="ml-2 text-[12px] font-normal text-sam-meta">{message.messageType}</span>
                     {message.isHiddenByAdmin ? (
                       <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-[11px] text-red-700">숨김</span>
                     ) : null}
@@ -578,7 +578,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       </span>
                     ) : null}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap text-[14px] text-gray-700">
+                  <p className="mt-1 whitespace-pre-wrap text-[14px] text-sam-fg">
                     {message.content || "(빈 메시지)"}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -603,7 +603,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     )}
                   </div>
                 </div>
-                <div className="shrink-0 text-[12px] text-gray-400">{formatDateTime(message.createdAt)}</div>
+                <div className="shrink-0 text-[12px] text-sam-meta">{formatDateTime(message.createdAt)}</div>
               </div>
             </div>
           ))}
@@ -613,19 +613,19 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
       <AdminCard title="방 신고 내역">
         <div className="space-y-2">
           {detail.reports.length === 0 ? (
-            <div className="py-8 text-center text-[14px] text-gray-500">이 방에 접수된 신고가 없습니다.</div>
+            <div className="py-8 text-center text-[14px] text-sam-muted">이 방에 접수된 신고가 없습니다.</div>
           ) : (
             detail.reports.map((report) => (
-              <div key={report.id} className="rounded border border-gray-100 px-3 py-3">
+              <div key={report.id} className="rounded border border-sam-border-soft px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[14px] font-medium text-gray-900">
+                    <p className="text-[14px] font-medium text-sam-fg">
                       {report.reportType} · {report.reporterLabel}
                     </p>
-                    <p className="mt-1 text-[12px] text-gray-500">
+                    <p className="mt-1 text-[12px] text-sam-muted">
                       상태 {report.status} · {formatDateTime(report.createdAt)}
                     </p>
-                    <p className="mt-1 text-[12px] text-gray-700">
+                    <p className="mt-1 text-[12px] text-sam-fg">
                       {report.reasonType}{report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
                     </p>
                     {report.adminNote ? (
@@ -637,7 +637,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       type="button"
                       disabled={busy === `report:${report.id}:reviewing`}
                       onClick={() => void runReportAction(report.id, "reviewing")}
-                      className="rounded border border-gray-200 px-2.5 py-1 text-[12px] text-gray-700"
+                      className="rounded border border-sam-border px-2.5 py-1 text-[12px] text-sam-fg"
                     >
                       검토중
                     </button>
@@ -653,7 +653,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       type="button"
                       disabled={busy === `report:${report.id}:rejected`}
                       onClick={() => void runReportAction(report.id, "rejected")}
-                      className="rounded border border-gray-200 bg-white px-2.5 py-1 text-[12px] text-gray-700"
+                      className="rounded border border-sam-border bg-sam-surface px-2.5 py-1 text-[12px] text-sam-fg"
                     >
                       기각
                     </button>
@@ -717,8 +717,8 @@ function Info({
 }) {
   return (
     <div className={full ? "md:col-span-2" : ""}>
-      <div className="text-[12px] text-gray-500">{label}</div>
-      <div className={`mt-1 text-[14px] text-gray-900 ${mono ? "font-mono" : ""}`}>{value}</div>
+      <div className="text-[12px] text-sam-muted">{label}</div>
+      <div className={`mt-1 text-[14px] text-sam-fg ${mono ? "font-mono" : ""}`}>{value}</div>
     </div>
   );
 }
@@ -739,7 +739,7 @@ function ActionButton({
       type="button"
       disabled={busy !== null}
       onClick={() => void onRun(action)}
-      className="rounded border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 disabled:opacity-50"
+      className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg disabled:opacity-50"
     >
       {busy === action ? "처리 중..." : label}
     </button>
@@ -773,38 +773,38 @@ function ForceEndConfirmModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-white p-4 shadow-xl sm:rounded-ui-rect"
+        className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface p-4 shadow-xl sm:rounded-ui-rect"
       >
-        <h2 className="text-base font-bold text-gray-900">통화 강제 종료 확인</h2>
+        <h2 className="text-base font-bold text-sam-fg">통화 강제 종료 확인</h2>
         <p className="mt-2 rounded-ui-rect bg-red-50 px-3 py-2 text-xs text-red-800 ring-1 ring-red-200">
           이 작업은 즉시 통화를 종료시키며 감사 로그에 기록됩니다. 실행 전에 대상과 사유를 다시 확인하세요.
         </p>
-        <div className="mt-4 space-y-2 rounded-ui-rect border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+        <div className="mt-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-sm text-sam-fg">
           <div>
-            <span className="text-gray-500">대상 통화</span>
-            <div className="mt-1 font-medium text-gray-900">
+            <span className="text-sam-muted">대상 통화</span>
+            <div className="mt-1 font-medium text-sam-fg">
               {call.sessionMode === "group" ? "그룹 통화" : "1:1 통화"} · {call.callKind}
             </div>
           </div>
           <div>
-            <span className="text-gray-500">시작자</span>
+            <span className="text-sam-muted">시작자</span>
             <div className="mt-1">{call.initiatorLabel}</div>
           </div>
           <div>
-            <span className="text-gray-500">참여 인원</span>
+            <span className="text-sam-muted">참여 인원</span>
             <div className="mt-1">
               참여 {call.joinedCount}명 · 대기 {call.invitedCount}명 · 전체 {call.participantCount}명
             </div>
           </div>
           <div>
-            <span className="text-gray-500">사유 코드</span>
+            <span className="text-sam-muted">사유 코드</span>
             <div className="mt-1 text-sky-700">
               {reasonLabel}
               {reasonCode ? ` (${reasonCode})` : ""}
             </div>
           </div>
           <div>
-            <span className="text-gray-500">상세 메모</span>
+            <span className="text-sam-muted">상세 메모</span>
             <div className="mt-1 whitespace-pre-wrap">{note.trim()}</div>
           </div>
         </div>
@@ -813,7 +813,7 @@ function ForceEndConfirmModal({
             type="button"
             disabled={busy}
             onClick={onClose}
-            className="rounded-ui-rect border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+            className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg disabled:opacity-50"
           >
             취소
           </button>

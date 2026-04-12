@@ -49,18 +49,18 @@ interface OpsDocumentFilterBarProps {
 
 export function OpsDocumentFilterBar({ state, onChange }: OpsDocumentFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-gray-200 bg-white p-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
       <input
         type="search"
         placeholder="제목·요약·태그 검색"
         value={state.search}
         onChange={(e) => onChange({ ...state, search: e.target.value })}
-        className="min-w-[160px] rounded border border-gray-200 px-3 py-2 text-[14px]"
+        className="min-w-[160px] rounded border border-sam-border px-3 py-2 text-[14px]"
       />
       <select
         value={state.docType}
         onChange={(e) => onChange({ ...state, docType: e.target.value as OpsDocType | "" })}
-        className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+        className="rounded border border-sam-border px-3 py-2 text-[14px]"
       >
         {DOC_TYPE_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -69,7 +69,7 @@ export function OpsDocumentFilterBar({ state, onChange }: OpsDocumentFilterBarPr
       <select
         value={state.status}
         onChange={(e) => onChange({ ...state, status: e.target.value as OpsDocStatus | "" })}
-        className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+        className="rounded border border-sam-border px-3 py-2 text-[14px]"
       >
         {STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -78,7 +78,7 @@ export function OpsDocumentFilterBar({ state, onChange }: OpsDocumentFilterBarPr
       <select
         value={state.category}
         onChange={(e) => onChange({ ...state, category: e.target.value })}
-        className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+        className="rounded border border-sam-border px-3 py-2 text-[14px]"
       >
         {CATEGORY_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -87,7 +87,7 @@ export function OpsDocumentFilterBar({ state, onChange }: OpsDocumentFilterBarPr
       <select
         value={state.sort}
         onChange={(e) => onChange({ ...state, sort: e.target.value as "updated" | "title" | "status" })}
-        className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+        className="rounded border border-sam-border px-3 py-2 text-[14px]"
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>

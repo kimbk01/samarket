@@ -43,12 +43,12 @@ export function ProductActionBar({
       <span
         className={`shrink-0 rounded px-2 py-1 text-[11px] font-medium ${
           product.status === "sold"
-            ? "bg-gray-200 text-gray-600"
+            ? "bg-sam-border-soft text-sam-muted"
             : product.status === "reserved"
               ? "bg-amber-100 text-amber-800"
               : product.status === "hidden"
-                ? "bg-gray-200 text-gray-500"
-                : "bg-gray-100 text-gray-700"
+                ? "bg-sam-border-soft text-sam-muted"
+                : "bg-sam-surface-muted text-sam-fg"
         }`}
       >
         {STATUS_LABEL[product.status]}

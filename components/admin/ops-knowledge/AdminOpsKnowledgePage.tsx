@@ -54,7 +54,7 @@ export function AdminOpsKnowledgePage() {
   return (
     <>
       <AdminPageHeader title="운영 지식베이스" />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -63,7 +63,7 @@ export function AdminOpsKnowledgePage() {
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {tab.label}
@@ -96,7 +96,7 @@ export function AdminOpsKnowledgePage() {
                   onView={handleViewDocument}
                 />
               ) : (
-                <p className="text-[14px] text-gray-500">문서를 선택하면 미리보기가 표시됩니다.</p>
+                <p className="text-[14px] text-sam-muted">문서를 선택하면 미리보기가 표시됩니다.</p>
               )}
             </AdminCard>
           </div>
@@ -107,11 +107,11 @@ export function AdminOpsKnowledgePage() {
         <div className="space-y-4">
           <AdminCard title="상황별 관련 문서 추천">
             <div className="mb-4 flex flex-wrap gap-2">
-              <label className="text-[14px] text-gray-700">출처 유형</label>
+              <label className="text-[14px] text-sam-fg">출처 유형</label>
               <select
                 value={recommendSourceType}
                 onChange={(e) => setRecommendSourceType(e.target.value as typeof recommendSourceType)}
-                className="rounded border border-gray-200 px-3 py-2 text-[14px]"
+                className="rounded border border-sam-border px-3 py-2 text-[14px]"
               >
                 <option value="incident">이슈/인시던트</option>
                 <option value="deployment">배포</option>
@@ -124,7 +124,7 @@ export function AdminOpsKnowledgePage() {
                 value={recommendSourceId}
                 onChange={(e) => setRecommendSourceId(e.target.value)}
                 placeholder="연결 ID (선택)"
-                className="w-28 rounded border border-gray-200 px-3 py-2 text-[14px]"
+                className="w-28 rounded border border-sam-border px-3 py-2 text-[14px]"
               />
             </div>
             <OpsKnowledgeRecommendationPanel

@@ -20,7 +20,7 @@ import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 
 const BTN_SECONDARY =
-  "inline-flex min-h-[40px] flex-1 items-center justify-center rounded-ui-rect border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100";
+  "inline-flex min-h-[40px] flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[13px] font-medium text-sam-fg hover:bg-sam-app active:bg-sam-surface-muted";
 const BTN_PRIMARY =
   "inline-flex min-h-[40px] flex-1 items-center justify-center rounded-ui-rect bg-signature px-3 text-[13px] font-medium text-white hover:opacity-95 disabled:opacity-45";
 

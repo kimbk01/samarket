@@ -70,7 +70,7 @@ export function AdminMemberBenefitForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           회원 구분
         </label>
         <select
@@ -78,7 +78,7 @@ export function AdminMemberBenefitForm({
           onChange={(e) =>
             setMemberType(e.target.value as "normal" | "premium" | "admin")
           }
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           {MEMBER_TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -88,25 +88,25 @@ export function AdminMemberBenefitForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           제목
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           설명
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -115,14 +115,14 @@ export function AdminMemberBenefitForm({
           id="benefitActive"
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
-          className="rounded border-gray-300"
+          className="rounded border-sam-border"
         />
-        <label htmlFor="benefitActive" className="text-[14px] text-gray-700">
+        <label htmlFor="benefitActive" className="text-[14px] text-sam-fg">
           활성
         </label>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           프로필 액자
         </label>
         <select
@@ -130,7 +130,7 @@ export function AdminMemberBenefitForm({
           onChange={(e) =>
             setProfileFrameType(e.target.value as "dark" | "gold" | "admin_special")
           }
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         >
           <option value="dark">dark (기본)</option>
           <option value="gold">gold</option>
@@ -138,20 +138,20 @@ export function AdminMemberBenefitForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           배지 라벨
         </label>
         <input
           type="text"
           value={badgeLabel}
           onChange={(e) => setBadgeLabel(e.target.value)}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
           placeholder="특별회원, 관리자 등"
         />
       </div>
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="mb-0.5 block text-[12px] text-gray-600">
+          <label className="mb-0.5 block text-[12px] text-sam-muted">
             홈 우선
           </label>
           <input
@@ -161,11 +161,11 @@ export function AdminMemberBenefitForm({
             onChange={(e) =>
               setHomePriorityBoost(parseInt(e.target.value, 10) || 0)
             }
-            className="w-full rounded border border-gray-200 px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
           />
         </div>
         <div>
-          <label className="mb-0.5 block text-[12px] text-gray-600">
+          <label className="mb-0.5 block text-[12px] text-sam-muted">
             검색 우선
           </label>
           <input
@@ -175,11 +175,11 @@ export function AdminMemberBenefitForm({
             onChange={(e) =>
               setSearchPriorityBoost(parseInt(e.target.value, 10) || 0)
             }
-            className="w-full rounded border border-gray-200 px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
           />
         </div>
         <div>
-          <label className="mb-0.5 block text-[12px] text-gray-600">
+          <label className="mb-0.5 block text-[12px] text-sam-muted">
             상점 featured
           </label>
           <input
@@ -189,13 +189,13 @@ export function AdminMemberBenefitForm({
             onChange={(e) =>
               setShopFeaturedPriorityBoost(parseInt(e.target.value, 10) || 0)
             }
-            className="w-full rounded border border-gray-200 px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
           />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-0.5 block text-[12px] text-gray-600">
+          <label className="mb-0.5 block text-[12px] text-sam-muted">
             포인트 보너스 비율 (0~1)
           </label>
           <input
@@ -207,11 +207,11 @@ export function AdminMemberBenefitForm({
             onChange={(e) =>
               setPointRewardBonusRate(parseFloat(e.target.value) || 0)
             }
-            className="w-full rounded border border-gray-200 px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
           />
         </div>
         <div>
-          <label className="mb-0.5 block text-[12px] text-gray-600">
+          <label className="mb-0.5 block text-[12px] text-sam-muted">
             광고 할인율 (0~1)
           </label>
           <input
@@ -223,7 +223,7 @@ export function AdminMemberBenefitForm({
             onChange={(e) =>
               setAdDiscountRate(parseFloat(e.target.value) || 0)
             }
-            className="w-full rounded border border-gray-200 px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
           />
         </div>
       </div>
@@ -233,7 +233,7 @@ export function AdminMemberBenefitForm({
             type="checkbox"
             checked={canOpenBusinessProfile}
             onChange={(e) => setCanOpenBusinessProfile(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-sam-border"
           />
           상점 개설 가능
         </label>
@@ -242,20 +242,20 @@ export function AdminMemberBenefitForm({
             type="checkbox"
             checked={canAccessPremiumPromotion}
             onChange={(e) => setCanAccessPremiumPromotion(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-sam-border"
           />
           프리미엄 노출 신청 가능
         </label>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-gray-700">
+        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
           관리자 메모
         </label>
         <textarea
           value={adminMemo}
           onChange={(e) => setAdminMemo(e.target.value)}
           rows={2}
-          className="w-full rounded border border-gray-200 px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
         />
       </div>
       <div className="flex gap-2">
@@ -269,7 +269,7 @@ export function AdminMemberBenefitForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border border-gray-200 bg-white px-4 py-2 text-[14px] text-gray-700"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg"
           >
             취소
           </button>

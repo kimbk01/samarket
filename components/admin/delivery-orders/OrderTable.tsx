@@ -54,14 +54,14 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
   }, [someVisibleSelected, allVisibleSelected]);
 
   if (rows.length === 0) {
-    return <p className="py-8 text-center text-sm text-gray-500">조건에 맞는 주문이 없습니다.</p>;
+    return <p className="py-8 text-center text-sm text-sam-muted">조건에 맞는 주문이 없습니다.</p>;
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[1240px] border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-600">
+          <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
             {selection ? (
               <th className="w-10 px-2 py-2 text-center">
                 <input
@@ -69,7 +69,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={(e) => selection.onToggleAllVisible(e.target.checked)}
-                  className="rounded border-gray-300"
+                  className="rounded border-sam-border"
                   title="현재 목록 전체 선택"
                   aria-label="현재 목록 전체 선택"
                 />
@@ -98,62 +98,62 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                 ? `/admin/store-orders?order_id=${encodeURIComponent(o.id)}`
                 : `/admin/delivery-orders/${encodeURIComponent(o.id)}`;
             return (
-              <tr key={`${src}-${o.id}`} className="border-b border-gray-100 align-top hover:bg-gray-50/80">
+              <tr key={`${src}-${o.id}`} className="border-b border-sam-border-soft align-top hover:bg-sam-app/80">
                 {selection ? (
                   <td className="px-2 py-2 text-center">
                     <input
                       type="checkbox"
                       checked={selection.selectedIds.has(o.id)}
                       onChange={(e) => selection.onToggleRow(o.id, e.target.checked)}
-                      className="rounded border-gray-300"
+                      className="rounded border-sam-border"
                       aria-label={`주문 ${o.orderNo} 선택`}
                     />
                   </td>
                 ) : null}
                 <td className="px-2 py-2 font-mono text-[12px] whitespace-nowrap">{o.orderNo}</td>
-                <td className="px-2 py-2 whitespace-nowrap text-gray-600">
+                <td className="px-2 py-2 whitespace-nowrap text-sam-muted">
                   {formatKstDatetimeLong(o.createdAt)}
                 </td>
-                <td className="px-2 py-2 text-gray-800">
+                <td className="px-2 py-2 text-sam-fg">
                   <div className="font-medium">{o.buyerName || "—"}</div>
-                  <div className="text-[12px] text-gray-600" title={o.buyerPhone}>
+                  <div className="text-[12px] text-sam-muted" title={o.buyerPhone}>
                     {o.buyerPhone?.trim() ? o.buyerPhone : "전화 없음"}
                   </div>
-                  <div className="font-mono text-[11px] text-gray-500" title={o.buyerUserId}>
+                  <div className="font-mono text-[11px] text-sam-muted" title={o.buyerUserId}>
                     회원 {shortId(o.buyerUserId, 12)}
                   </div>
                 </td>
-                <td className="px-2 py-2 text-gray-800">
+                <td className="px-2 py-2 text-sam-fg">
                   <div className="max-w-[200px] truncate font-medium" title={o.storeName}>
                     {o.storeName}
                   </div>
-                  <div className="text-[12px] text-gray-600">
+                  <div className="text-[12px] text-sam-muted">
                     {o.storeSlug ? (
                       <span title={o.storeSlug}>/{o.storeSlug}</span>
                     ) : (
-                      <span className="text-gray-400">슬러그 없음</span>
+                      <span className="text-sam-meta">슬러그 없음</span>
                     )}
                   </div>
-                  <div className="text-[11px] text-gray-500">
+                  <div className="text-[11px] text-sam-muted">
                     사장님 {o.storeOwnerName || "—"}{" "}
-                    <span className="font-mono text-gray-400" title={o.storeOwnerUserId}>
+                    <span className="font-mono text-sam-meta" title={o.storeOwnerUserId}>
                       · {shortId(o.storeOwnerUserId)}
                     </span>
                   </div>
-                  <div className="font-mono text-[11px] text-gray-400" title={o.storeId}>
+                  <div className="font-mono text-[11px] text-sam-meta" title={o.storeId}>
                     매장 {shortId(o.storeId, 12)}
                   </div>
                 </td>
-                <td className="px-2 py-2 text-gray-800">
+                <td className="px-2 py-2 text-sam-fg">
                   <div className="text-[12px] leading-snug" title={itemsLineSummary(o)}>
                     {itemsLineSummary(o)}
                   </div>
-                  <div className="mt-1 text-[11px] leading-snug text-gray-600" title={fulfillmentSummary(o)}>
+                  <div className="mt-1 text-[11px] leading-snug text-sam-muted" title={fulfillmentSummary(o)}>
                     {fulfillmentSummary(o)}
                   </div>
                   {o.requestNote?.trim() ? (
                     <div
-                      className="mt-1 rounded bg-signature/5 px-1.5 py-0.5 text-[11px] text-gray-900"
+                      className="mt-1 rounded bg-signature/5 px-1.5 py-0.5 text-[11px] text-sam-fg"
                       title={o.requestNote}
                     >
                       요청: {o.requestNote.length > 80 ? `${o.requestNote.slice(0, 80)}…` : o.requestNote}

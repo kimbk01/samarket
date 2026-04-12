@@ -184,7 +184,7 @@ export function LocationSelector({
 
   const inner = (
     <>
-      <p className="mb-2 text-[14px] font-medium text-gray-800">
+      <p className="mb-2 text-[14px] font-medium text-sam-fg">
         {label}
         {showRequired ? (
           <>
@@ -234,7 +234,7 @@ export function LocationSelector({
       {showZipLookup ? (
         <div className="mt-3">
           <p className={OWNER_STORE_FORM_LEAD_CLASS}>ZIP 코드 (PhilPost 4자리)</p>
-          <p className="mb-2 text-[12px] leading-snug text-gray-500">
+          <p className="mb-2 text-[12px] leading-snug text-sam-muted">
             숫자 4자리를 입력하면 지역·동네가 자동으로 맞춰집니다. 3자리만 입력한 뒤에는 「적용」으로
             앞에 0을 붙여 확정할 수 있습니다.
           </p>
@@ -286,6 +286,6 @@ export function LocationSelector({
   }
 
   return (
-    <section className="border-b border-gray-100 bg-white px-4 py-4">{inner}</section>
+    <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">{inner}</section>
   );
 }

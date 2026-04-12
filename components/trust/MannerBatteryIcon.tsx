@@ -35,14 +35,14 @@ export function MannerBatteryIcon({ tier, percent, size = "md", className }: Man
       aria-hidden
     >
       <title>{`배터리 ${percent}%`}</title>
-      <rect x={6} y={0} width={6} height={3} rx={1} className="fill-gray-700" />
+      <rect x={6} y={0} width={6} height={3} rx={1} className="fill-sam-fg/10" />
       <rect
         x={1}
         y={4}
         width={16}
         height={35}
         rx={3}
-        className="fill-gray-50 stroke-gray-600"
+        className="fill-sam-app stroke-sam-muted"
         strokeWidth={1.1}
       />
       {Array.from({ length: SEGMENTS }, (_, j) => {

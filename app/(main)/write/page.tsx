@@ -48,17 +48,17 @@ export default function WritePage() {
               <h2 className="mb-2 text-[13px] font-semibold text-[#666666]">
                 {CATEGORY_TYPE_LABELS[type]}
               </h2>
-              <ul className="space-y-1 rounded-ui-rect bg-white shadow-sm">
+              <ul className="space-y-1 rounded-ui-rect bg-sam-surface shadow-sm">
                 {list.map((c) => (
                   <li key={c.id}>
                     <button
                       type="button"
                       onClick={() => handleSelect(c)}
                       disabled={!c.settings?.can_write}
-                      className="flex min-h-[44px] w-full items-center justify-between px-4 py-3 text-left text-[16px] text-gray-900 disabled:opacity-50"
+                      className="flex min-h-[44px] w-full items-center justify-between px-4 py-3 text-left text-[16px] text-sam-fg disabled:opacity-50"
                     >
                       <span>{c.name}</span>
-                      <span className="text-gray-400">›</span>
+                      <span className="text-sam-meta">›</span>
                     </button>
                   </li>
                 ))}

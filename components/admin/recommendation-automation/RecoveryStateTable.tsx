@@ -20,30 +20,30 @@ export function RecoveryStateTable() {
 
   if (states.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         복귀 상태가 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[480px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               surface
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               현재 모드
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               복귀 가능
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               사유
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               확인 시각
             </th>
           </tr>
@@ -52,9 +52,9 @@ export function RecoveryStateTable() {
           {states.map((s) => (
             <tr
               key={s.id}
-              className="border-b border-gray-100 hover:bg-gray-50"
+              className="border-b border-sam-border-soft hover:bg-sam-app"
             >
-              <td className="px-3 py-2.5 font-medium text-gray-900">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {SURFACE_LABELS[s.surface]}
               </td>
               <td className="px-3 py-2.5">
@@ -74,13 +74,13 @@ export function RecoveryStateTable() {
                 {s.recoveryEligible ? (
                   <span className="text-[13px] text-emerald-600">가능</span>
                 ) : (
-                  <span className="text-[13px] text-gray-500">-</span>
+                  <span className="text-[13px] text-sam-muted">-</span>
                 )}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-gray-600">
+              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
                 {s.recoveryReason || "-"}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(s.checkedAt).toLocaleString("ko-KR", { hour12: false })}
               </td>
             </tr>

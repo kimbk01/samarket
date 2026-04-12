@@ -17,26 +17,26 @@ export function OperationStatusCards() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">가동률</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">가동률</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {status.uptime}%
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">활성 사용자</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">활성 사용자</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {status.activeUsers}
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">에러율</p>
-          <p className="text-[20px] font-semibold text-gray-900">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">에러율</p>
+          <p className="text-[20px] font-semibold text-sam-fg">
             {status.errorRate}%
           </p>
         </div>
-        <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
-          <p className="text-[12px] text-gray-500">운영 준비 상태</p>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="text-[12px] text-sam-muted">운영 준비 상태</p>
           <p
             className={`text-[14px] font-semibold ${
               readiness ? "text-emerald-600" : "text-amber-600"
@@ -56,7 +56,7 @@ export function OperationStatusCards() {
           </p>
         </div>
       )}
-      <p className="text-[12px] text-gray-500">
+      <p className="text-[12px] text-sam-muted">
         최종 갱신: {new Date(status.lastUpdatedAt).toLocaleString()}
       </p>
     </div>

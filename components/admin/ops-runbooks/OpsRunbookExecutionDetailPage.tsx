@@ -47,7 +47,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
     return (
       <>
         <AdminPageHeader title="실행 없음" backHref="/admin/ops-runbooks" />
-        <p className="text-[14px] text-gray-500">해당 실행을 찾을 수 없습니다.</p>
+        <p className="text-[14px] text-sam-muted">해당 실행을 찾을 수 없습니다.</p>
       </>
     );
   }
@@ -77,7 +77,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href={`/admin/ops-docs/${exec.documentId}`}
-          className="rounded border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-700 hover:bg-gray-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
         >
           문서 보기
         </Link>
@@ -100,7 +100,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
           </>
         )}
       </div>
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -109,7 +109,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
             className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
             {tab.label}
@@ -121,10 +121,10 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
           <AdminCard>
             <div className="space-y-4">
             <div className="flex flex-wrap gap-2 text-[13px]">
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-gray-700">
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
                 {exec.documentType}
               </span>
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-gray-700">
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
                 {LINKED_LABELS[exec.linkedType]}
                 {exec.linkedId && ` · ${exec.linkedId}`}
               </span>
@@ -134,19 +134,19 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
                     ? "bg-emerald-50 text-emerald-800"
                     : exec.executionStatus === "in_progress"
                       ? "bg-amber-50 text-amber-800"
-                      : "bg-gray-100 text-gray-600"
+                      : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
                 {STATUS_LABELS[exec.executionStatus]}
               </span>
             </div>
-            <p className="text-[14px] text-gray-700">{exec.summary}</p>
+            <p className="text-[14px] text-sam-fg">{exec.summary}</p>
             {exec.resultNote && (
-              <div className="rounded border border-gray-100 bg-gray-50 p-3 text-[13px] text-gray-700">
+              <div className="rounded border border-sam-border-soft bg-sam-app p-3 text-[13px] text-sam-fg">
                 결과 메모: {exec.resultNote}
               </div>
             )}
-            <div className="border-t border-gray-100 pt-3 text-[13px] text-gray-500">
+            <div className="border-t border-sam-border-soft pt-3 text-[13px] text-sam-muted">
               시작 {new Date(exec.startedAt).toLocaleString("ko-KR")} ·{" "}
               {exec.completedAt
                 ? `완료 ${new Date(exec.completedAt).toLocaleString("ko-KR")}`

@@ -37,7 +37,7 @@ export function AppStickyHeader() {
   return (
     <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-[var(--sub-bg)]">
       {categorySticky ? (
-          <div className="border-b border-gray-200 bg-white">
+          <div className="border-b border-sam-border bg-sam-surface">
             <RegionBar embedded />
             <CategoryListSubheader
               backHref={categorySticky.backHref}

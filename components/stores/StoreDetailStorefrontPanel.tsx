@@ -22,9 +22,9 @@ type CommerceHint = {
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="border-b border-stone-100 py-2.5 last:border-b-0">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{label}</p>
-      <div className="mt-1 text-[13px] font-medium leading-snug text-stone-800">{children}</div>
+    <div className="border-b border-sam-border-soft py-2.5 last:border-b-0">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-sam-muted">{label}</p>
+      <div className="mt-1 text-[13px] font-medium leading-snug text-sam-fg">{children}</div>
     </div>
   );
 }
@@ -97,7 +97,7 @@ export function StoreDetailStorefrontPanel({
 
   return (
     <section
-      className="w-full border-b border-stone-200 bg-white px-3 py-2 shadow-sm"
+      className="w-full border-b border-sam-border bg-sam-surface px-3 py-2 shadow-sm"
       aria-label="주문 요약"
     >
       {ownerManagementHref ? (
@@ -116,25 +116,25 @@ export function StoreDetailStorefrontPanel({
         role="group"
         aria-label="최소주문·배달·준비·결제 요약"
       >
-        <p className="flex w-max min-w-full items-center gap-x-2 whitespace-nowrap py-1 text-[11px] font-medium text-stone-700">
-          <span className="text-stone-900">{minLine}</span>
-          <span className="text-stone-300" aria-hidden>
+        <p className="flex w-max min-w-full items-center gap-x-2 whitespace-nowrap py-1 text-[11px] font-medium text-sam-fg">
+          <span className="text-sam-fg">{minLine}</span>
+          <span className="text-sam-meta" aria-hidden>
             |
           </span>
           <span>{feeLine}</span>
-          <span className="text-stone-300" aria-hidden>
+          <span className="text-sam-meta" aria-hidden>
             |
           </span>
           <span>{prepLine}</span>
-          <span className="text-stone-300" aria-hidden>
+          <span className="text-sam-meta" aria-hidden>
             |
           </span>
-          <span className="max-w-[38vw] truncate text-stone-600" title={deliveryMeta.paymentMethodsLine}>
+          <span className="max-w-[38vw] truncate text-sam-muted" title={deliveryMeta.paymentMethodsLine}>
             {payShort}
           </span>
           {commerce?.breakConfigured ? (
             <>
-              <span className="text-stone-300" aria-hidden>
+              <span className="text-sam-meta" aria-hidden>
                 |
               </span>
               <span className="text-amber-800">Break {commerce.breakRangeLabel}</span>
@@ -143,11 +143,11 @@ export function StoreDetailStorefrontPanel({
         </p>
       </div>
 
-      <details className="group mt-2 rounded-ui-rect border border-stone-200 bg-stone-50/90">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[13px] font-semibold text-stone-800 [&::-webkit-details-marker]:hidden">
+      <details className="group mt-2 rounded-ui-rect border border-sam-border bg-sam-app/90">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[13px] font-semibold text-sam-fg [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             매장 안내
-            <span className="ml-1.5 text-[11px] font-normal text-stone-500 group-open:hidden">
+            <span className="ml-1.5 text-[11px] font-normal text-sam-muted group-open:hidden">
               · 영업·결제·공지
             </span>
           </span>
@@ -160,13 +160,13 @@ export function StoreDetailStorefrontPanel({
             >
               가게 정보
             </Link>
-            <span className="text-[11px] font-normal text-stone-400 group-open:hidden">▼</span>
-            <span className="hidden text-[11px] font-normal text-stone-400 group-open:inline">▲</span>
+            <span className="text-[11px] font-normal text-sam-meta group-open:hidden">▼</span>
+            <span className="hidden text-[11px] font-normal text-sam-meta group-open:inline">▲</span>
           </span>
         </summary>
-        <div className="border-t border-stone-200 bg-white px-3 pb-3 pt-1">
-          <p className="mb-2 text-[11px] leading-relaxed text-stone-500">
-            매장에 등록된 영업·결제·공지입니다. 주소·지도는 우측 <strong className="text-stone-600">가게 정보</strong>
+        <div className="border-t border-sam-border bg-sam-surface px-3 pb-3 pt-1">
+          <p className="mb-2 text-[11px] leading-relaxed text-sam-muted">
+            매장에 등록된 영업·결제·공지입니다. 주소·지도는 우측 <strong className="text-sam-muted">가게 정보</strong>
             또는 상단 ⋯ 메뉴에서 열 수 있어요.
           </p>
 
@@ -190,15 +190,15 @@ export function StoreDetailStorefrontPanel({
             />
           </div>
           {deliveryAvailable && courier ? (
-            <p className="mt-2 text-[12px] text-stone-600">
-              <span className="font-semibold text-stone-700">배달 담당</span> · {courier}
+            <p className="mt-2 text-[12px] text-sam-muted">
+              <span className="font-semibold text-sam-fg">배달 담당</span> · {courier}
             </p>
           ) : null}
 
           <StorePublicNoticesList lines={deliveryMeta.publicNotices} className="mt-3" />
           {deliveryMeta.deliveryNotice.trim() ? (
-            <p className="mt-3 rounded-ui-rect border border-stone-100 bg-stone-50 px-2.5 py-2 text-[11px] leading-relaxed whitespace-pre-wrap text-stone-600">
-              <span className="font-semibold text-stone-800">배달 안내</span>
+            <p className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-2.5 py-2 text-[11px] leading-relaxed whitespace-pre-wrap text-sam-muted">
+              <span className="font-semibold text-sam-fg">배달 안내</span>
               <br />
               {deliveryMeta.deliveryNotice}
             </p>

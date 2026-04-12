@@ -32,7 +32,7 @@ export function MemberOrderChatList() {
 
   return (
     <div className="space-y-2">
-      <div className="rounded-ui-rect border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm ring-1 ring-gray-50">
+      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-3 text-sm text-sam-muted shadow-sm ring-1 ring-sam-border-soft">
         주문 상태 확인과 취소·환불 요청은{" "}
         <Link href={BASE} className="font-medium text-signature underline">
           주문 내역
@@ -40,7 +40,7 @@ export function MemberOrderChatList() {
         에서 하고, 매장과의 대화만 여기서 이어가세요.
       </div>
       {rows.length === 0 ? (
-        <div className="rounded-ui-rect bg-white p-6 text-sm text-gray-500 ring-1 ring-gray-100">
+        <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted ring-1 ring-sam-border-soft">
           <p>주문 채팅이 없어요.</p>
           <Link href={BASE} className="mt-3 inline-block font-medium text-signature underline">
             주문 내역 보기
@@ -58,12 +58,12 @@ export function MemberOrderChatList() {
               : `/my/store-orders/${encodeURIComponent(r.order_id)}`;
             return (
               <li key={r.id}>
-                <div className="rounded-ui-rect border border-gray-100 bg-white p-4 shadow-sm ring-1 ring-gray-50">
+                <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
                   <Link href={chatHref} className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-bold text-gray-900">{r.store_name}</p>
-                      <p className="font-mono text-xs text-gray-400">{r.order_no}</p>
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{r.last_message}</p>
+                      <p className="font-bold text-sam-fg">{r.store_name}</p>
+                      <p className="font-mono text-xs text-sam-meta">{r.order_no}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-sam-muted">{r.last_message}</p>
                       {order ? (
                         <p className="mt-1 text-[11px] text-signature">상태 · {order.order_status}</p>
                       ) : null}
@@ -71,7 +71,7 @@ export function MemberOrderChatList() {
                     <UnreadBadge count={r.unread_count_member} />
                   </Link>
                   <div className="mt-3 flex flex-wrap gap-3 text-xs">
-                    <Link href={detailHref} className="font-medium text-gray-700 underline">
+                    <Link href={detailHref} className="font-medium text-sam-fg underline">
                       주문 상세
                     </Link>
                     <Link href={chatHref} className="font-medium text-signature underline">

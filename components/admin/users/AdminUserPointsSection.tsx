@@ -77,7 +77,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
   if (loading) {
     return (
       <AdminCard title="포인트">
-        <p className="text-[13px] text-gray-400">불러오는 중…</p>
+        <p className="text-[13px] text-sam-meta">불러오는 중…</p>
       </AdminCard>
     );
   }
@@ -104,14 +104,14 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       {err ? <p className="mb-2 text-[12px] text-red-600">{err}</p> : null}
 
       {/* 탭 */}
-      <div className="mb-3 flex gap-1 rounded-ui-rect bg-gray-100 p-1">
+      <div className="mb-3 flex gap-1 rounded-ui-rect bg-sam-surface-muted p-1">
         {(["charges", "ledger"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={`flex-1 rounded-ui-rect py-1.5 text-[12px] font-semibold transition-colors ${
-              tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              tab === t ? "bg-sam-surface text-sam-fg shadow-sm" : "text-sam-muted"
             }`}
           >
             {t === "charges" ? `충전 신청 (${charges.length})` : `원장 (${ledger.length})`}
@@ -123,7 +123,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       {tab === "charges" && (
         <div>
           {charges.length === 0 ? (
-            <p className="py-4 text-center text-[12px] text-gray-400">충전 신청 내역이 없습니다.</p>
+            <p className="py-4 text-center text-[12px] text-sam-meta">충전 신청 내역이 없습니다.</p>
           ) : (
             <div className="space-y-2">
               {charges.map((c) => {
@@ -137,19 +137,19 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                     className={`rounded-ui-rect border px-3 py-3 ${
                       c.requestStatus === "waiting_confirm"
                         ? "border-amber-200 bg-amber-50"
-                        : "border-gray-100 bg-gray-50"
+                        : "border-sam-border-soft bg-sam-app"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-[13px] font-semibold text-gray-900">{c.planName}</p>
+                        <p className="text-[13px] font-semibold text-sam-fg">{c.planName}</p>
                         <p className="text-[12px] text-sky-700 font-bold">+{c.pointAmount.toLocaleString()}P</p>
-                        <p className="text-[11px] text-gray-500">
+                        <p className="text-[11px] text-sam-muted">
                           ₱{c.paymentAmount.toLocaleString()} ·{" "}
                           {c.paymentMethod === "manual_confirm" ? "계좌입금" : "이체"}
                           {c.depositorName ? ` · ${c.depositorName}` : ""}
                         </p>
-                        <p className="text-[10px] text-gray-400">
+                        <p className="text-[10px] text-sam-meta">
                           {new Date(c.requestedAt).toLocaleString("ko-KR")}
                         </p>
                         {c.adminMemo && (
@@ -181,7 +181,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                                 type="button"
                                 disabled={busy === c.id}
                                 onClick={() => void doAction(c.id, "hold")}
-                                className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-600 disabled:opacity-50"
+                                className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted disabled:opacity-50"
                               >
                                 보류
                               </button>
@@ -202,9 +202,9 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       {tab === "ledger" && (
         <div>
           {ledger.length === 0 ? (
-            <p className="py-4 text-center text-[12px] text-gray-400">원장 내역이 없습니다.</p>
+            <p className="py-4 text-center text-[12px] text-sam-meta">원장 내역이 없습니다.</p>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-sam-border-soft">
               {ledger.map((l) => (
                 <div key={l.id} className="flex items-center justify-between py-2">
                   <div className="min-w-0">
@@ -216,9 +216,9 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                       >
                         {LEDGER_TYPE_LABELS[l.entryType] ?? l.entryType}
                       </span>
-                      <p className="truncate text-[12px] text-gray-800">{l.description}</p>
+                      <p className="truncate text-[12px] text-sam-fg">{l.description}</p>
                     </div>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-[10px] text-sam-meta">
                       {new Date(l.createdAt).toLocaleString("ko-KR")}
                     </p>
                   </div>
@@ -226,7 +226,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                     <p className={`text-[13px] font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                       {l.amount >= 0 ? "+" : ""}{l.amount.toLocaleString()}P
                     </p>
-                    <p className="text-[10px] text-gray-400">{l.balanceAfter.toLocaleString()}P</p>
+                    <p className="text-[10px] text-sam-meta">{l.balanceAfter.toLocaleString()}P</p>
                   </div>
                 </div>
               ))}

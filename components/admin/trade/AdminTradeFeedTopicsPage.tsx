@@ -36,12 +36,12 @@ export function AdminTradeFeedTopicsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="거래 피드 주제" backHref="/admin/menus/trade" />
-      <p className="text-[14px] text-gray-600">
+      <p className="text-[14px] text-sam-muted">
         커뮤니티의{" "}
         <Link href="/admin/philife/topics" className="font-medium text-signature hover:underline">
           피드 주제
         </Link>
-        와 같이, <strong className="font-medium text-gray-800">홈·마켓 2행 칩·글쓰기 주제</strong>를 메뉴별로
+        와 같이, <strong className="font-medium text-sam-fg">홈·마켓 2행 칩·글쓰기 주제</strong>를 메뉴별로
         관리합니다. 상위 메뉴(거래·중고차 등)는{" "}
         <Link href="/admin/menus/trade" className="font-medium text-signature hover:underline">
           메뉴 (거래)
@@ -57,11 +57,11 @@ export function AdminTradeFeedTopicsPage() {
       )}
 
       {loading ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center text-[14px] text-sam-muted">
           불러오는 중…
         </div>
       ) : parents.length === 0 ? (
-        <div className="rounded-ui-rect border border-gray-200 bg-white py-10 text-center text-[14px] text-gray-500">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center text-[14px] text-sam-muted">
           거래 메뉴가 없습니다.{" "}
           <Link href="/admin/menus/trade" className="text-signature hover:underline">
             메뉴 (거래)
@@ -70,11 +70,11 @@ export function AdminTradeFeedTopicsPage() {
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-gray-200 bg-white p-4">
+          <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <label className="flex flex-col gap-1 text-[13px]">
-              <span className="font-medium text-gray-700">상위 메뉴 (1행 칩)</span>
+              <span className="font-medium text-sam-fg">상위 메뉴 (1행 칩)</span>
               <select
-                className="min-w-[240px] rounded-ui-rect border border-gray-200 px-3 py-2 text-[14px]"
+                className="min-w-[240px] rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
                 value={selectedId}
                 onChange={(e) => setSelectedId(e.target.value)}
               >
@@ -88,7 +88,7 @@ export function AdminTradeFeedTopicsPage() {
           </div>
 
           {selected ? (
-            <div className="rounded-ui-rect border border-gray-200 bg-white p-4">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <TradeSubtopicsPanel
                 parent={selected}
                 allCategories={list}

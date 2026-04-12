@@ -3,7 +3,7 @@ import { AdminRecommendationAnalyticsPage } from "@/components/admin/recommendat
 
 export default function RecommendationAnalyticsPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-gray-500">불러오는 중…</div>}>
+    <Suspense fallback={<div className="p-4 text-sam-muted">불러오는 중…</div>}>
       <AdminRecommendationAnalyticsPage />
     </Suspense>
   );

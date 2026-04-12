@@ -22,12 +22,12 @@ export function DisputeActionPanel({ report }: { report: OrderReport | null }) {
 
   return (
     <div className="rounded-ui-rect border border-amber-200 bg-amber-50/40 p-3 text-sm">
-      <p className="font-semibold text-gray-900">분쟁 조치</p>
-      {toast ? <p className="mt-2 text-xs text-gray-800">{toast}</p> : null}
+      <p className="font-semibold text-sam-fg">분쟁 조치</p>
+      {toast ? <p className="mt-2 text-xs text-sam-fg">{toast}</p> : null}
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded bg-white px-2 py-1 text-xs ring-1 ring-gray-200"
+          className="rounded bg-sam-surface px-2 py-1 text-xs ring-1 ring-sam-border"
           onClick={() => {
             updateReportStatus(report.id, { status: "reviewing", adminResult: "검토중으로 변경 (mock)" });
             show("상태: 검토중");
@@ -37,7 +37,7 @@ export function DisputeActionPanel({ report }: { report: OrderReport | null }) {
         </button>
         <button
           type="button"
-          className="rounded bg-white px-2 py-1 text-xs ring-1 ring-gray-200"
+          className="rounded bg-sam-surface px-2 py-1 text-xs ring-1 ring-sam-border"
           onClick={() => {
             updateReportStatus(report.id, { status: "resolved", adminResult: report.adminResult ?? "처리완료 (mock)" });
             show("처리완료");
@@ -47,7 +47,7 @@ export function DisputeActionPanel({ report }: { report: OrderReport | null }) {
         </button>
         <button
           type="button"
-          className="rounded bg-white px-2 py-1 text-xs ring-1 ring-gray-200"
+          className="rounded bg-sam-surface px-2 py-1 text-xs ring-1 ring-sam-border"
           onClick={() => {
             updateReportStatus(report.id, { status: "rejected", adminResult: "신고 반려 (mock)" });
             show("반려 처리");
@@ -57,20 +57,20 @@ export function DisputeActionPanel({ report }: { report: OrderReport | null }) {
         </button>
         <Link
           href={`/admin/delivery-orders/${encodeURIComponent(report.orderId)}`}
-          className="rounded bg-white px-2 py-1 text-xs text-gray-800 ring-1 ring-gray-300"
+          className="rounded bg-sam-surface px-2 py-1 text-xs text-sam-fg ring-1 ring-sam-border"
         >
           환불 검토(주문)
         </Link>
         <button
           type="button"
-          className="rounded bg-white px-2 py-1 text-xs text-orange-800 ring-1 ring-orange-200"
+          className="rounded bg-sam-surface px-2 py-1 text-xs text-orange-800 ring-1 ring-orange-200"
           onClick={() => setModal("hold")}
         >
           매장 정산 보류
         </button>
         <button
           type="button"
-          className="rounded bg-white px-2 py-1 text-xs ring-1 ring-gray-200"
+          className="rounded bg-sam-surface px-2 py-1 text-xs ring-1 ring-sam-border"
           onClick={() => setModal("memo")}
         >
           조치 메모

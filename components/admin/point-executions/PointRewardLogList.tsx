@@ -11,36 +11,36 @@ interface PointRewardLogListProps {
 export function PointRewardLogList({ logs }: PointRewardLogListProps) {
   if (logs.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-gray-200 bg-white py-12 text-center text-[14px] text-gray-500">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
         지급/회수 로그가 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+          <tr className="border-b border-sam-border bg-sam-app">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               유형
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               게시판
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               대상
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               사용자
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               포인트
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               잔액
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               일시
             </th>
           </tr>
@@ -49,7 +49,7 @@ export function PointRewardLogList({ logs }: PointRewardLogListProps) {
           {logs.map((l) => (
             <tr
               key={l.id}
-              className="border-b border-gray-100 hover:bg-gray-50"
+              className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="px-3 py-2.5">
                 <span
@@ -62,13 +62,13 @@ export function PointRewardLogList({ logs }: PointRewardLogListProps) {
                   {POINT_REWARD_LOG_ACTION_LABELS[l.actionType]}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {getBoardName(l.boardKey)}
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2.5 text-gray-600">
+              <td className="max-w-[120px] truncate px-3 py-2.5 text-sam-muted">
                 {l.targetType} {l.targetId}
               </td>
-              <td className="px-3 py-2.5 text-gray-700">{l.userId}</td>
+              <td className="px-3 py-2.5 text-sam-fg">{l.userId}</td>
               <td
                 className={`px-3 py-2.5 font-medium ${
                   l.pointAmount >= 0 ? "text-emerald-600" : "text-amber-700"
@@ -77,10 +77,10 @@ export function PointRewardLogList({ logs }: PointRewardLogListProps) {
                 {l.pointAmount >= 0 ? "+" : ""}
                 {l.pointAmount}P
               </td>
-              <td className="px-3 py-2.5 text-gray-700">
+              <td className="px-3 py-2.5 text-sam-fg">
                 {l.balanceAfter}P
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
                 {new Date(l.createdAt).toLocaleString("ko-KR")}
               </td>
             </tr>
