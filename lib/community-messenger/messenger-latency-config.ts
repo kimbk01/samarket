@@ -79,6 +79,14 @@ export const MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS = readPublicEnvMs(
   5000
 );
 
+/** 거절된 요청을 같은 방향(동일 요청자→수신자)으로 다시 보내기 전 최소 대기. 0이면 비활성(로컬/튜닝). */
+export const MESSENGER_FRIEND_REJECT_COOLDOWN_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_FRIEND_REJECT_COOLDOWN_MS",
+  86_400_000,
+  0,
+  7 * 24 * 60 * 60 * 1000
+);
+
 /**
  * 백업 폴링(Realtime 장애 시). production 도 메가앱 수준 지연은 피함.
  */

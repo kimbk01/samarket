@@ -15,6 +15,10 @@ import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { STORE_DETAIL_GUTTER } from "@/lib/stores/store-detail-ui";
+import {
+  fetchStoreProductPublicDeduped,
+  fetchStoreReviewsPublicDeduped,
+} from "@/lib/stores/store-delivery-api-client";
 
 type PublicStore = {
   id: string;
@@ -118,27 +122,25 @@ export function StoreProductAddSheet({
       setNotFound(false);
       setSheetErr(null);
       try {
-        const res = await fetch(`/api/stores/products/${encodeURIComponent(productId)}`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
+        const { json } = await fetchStoreProductPublicDeduped(productId);
         if (cancelled) return;
-        if (!json?.ok || !json.product || !json.store) {
+        const pj = json as { ok?: boolean; product?: PublicProduct; store?: PublicStore };
+        if (!pj?.ok || !pj.product || !pj.store) {
           setNotFound(true);
           setProduct(null);
           setStore(null);
           return;
         }
-        const apiSlug = String(json.store.slug ?? "");
+        const apiSlug = String(pj.store.slug ?? "");
         if (!storeSlugsMatch(pageStoreSlug, apiSlug)) {
           setNotFound(true);
           setProduct(null);
           setStore(null);
           return;
         }
-        setProduct(json.product as PublicProduct);
-        setStore(json.store as PublicStore);
-        const p = json.product as PublicProduct;
+        setProduct(pj.product);
+        setStore(pj.store);
+        const p = pj.product;
         const minQ = Math.max(1, Number(p.min_order_qty) || 1);
         setQty(minQ);
         setModifierWire({ pick: {}, qty: {} });
@@ -190,13 +192,11 @@ export function StoreProductAddSheet({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/stores/${encodeURIComponent(store.slug)}/reviews`, {
-          cache: "no-store",
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!json?.ok || !Array.isArray(json.reviews)) return;
+        const { json } = await fetchStoreReviewsPublicDeduped(store.slug);
+        const rj = json as { ok?: boolean; reviews?: unknown[] };
+        if (!rj?.ok || !Array.isArray(rj.reviews)) return;
         const pid = product.id;
-        const rows = json.reviews as { content?: unknown; created_at?: unknown; rating?: unknown; product_id?: unknown }[];
+        const rows = rj.reviews as { content?: unknown; created_at?: unknown; rating?: unknown; product_id?: unknown }[];
         const forProduct = rows.filter((r) => r.product_id === pid);
         const pool = forProduct.length >= 2 ? forProduct : rows;
         const top: ReviewSnippet[] = [];

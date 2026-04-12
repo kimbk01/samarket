@@ -10,6 +10,7 @@ import {
   type CommunityFeedListSkin,
 } from "@/lib/community-feed/topic-feed-skin";
 import { NEIGHBORHOOD_CATEGORY_LABELS } from "@/lib/neighborhood/categories";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export type PhilifeNeighborhoodFeedChip = {
   slug: string;
@@ -24,6 +25,7 @@ export type PhilifeNeighborhoodWriteTopicOption = {
 /** 프로세스 내 짧은 TTL — 피드·주제 API가 매 요청마다 동일 주제를 중복 조회하지 않도록 */
 let philifeSectionTopicsCache: { topics: CommunityTopicDTO[]; expiresAt: number } | null = null;
 const PHILIFE_SECTION_TOPICS_TTL_MS = 45_000;
+const PHILIFE_TOPICS_FLIGHT_KEY = "philife:default-section-topics";
 
 /** 섹션 기준 피드 주제 행 (서버 프로세스 메모리 캐시, TTL 약 45초) */
 export async function loadPhilifeDefaultSectionTopics(): Promise<CommunityTopicDTO[]> {
@@ -31,10 +33,19 @@ export async function loadPhilifeDefaultSectionTopics(): Promise<CommunityTopicD
   if (philifeSectionTopicsCache && philifeSectionTopicsCache.expiresAt > now) {
     return philifeSectionTopicsCache.topics;
   }
-  const slug = await getPhilifeNeighborhoodSectionSlugServer();
-  const topics = await listTopicsForSectionSlug(slug);
-  philifeSectionTopicsCache = { topics, expiresAt: now + PHILIFE_SECTION_TOPICS_TTL_MS };
-  return topics;
+  return runSingleFlight(PHILIFE_TOPICS_FLIGHT_KEY, async () => {
+    const hit = philifeSectionTopicsCache;
+    if (hit && hit.expiresAt > Date.now()) {
+      return hit.topics;
+    }
+    const slug = await getPhilifeNeighborhoodSectionSlugServer();
+    const topics = await listTopicsForSectionSlug(slug);
+    philifeSectionTopicsCache = {
+      topics,
+      expiresAt: Date.now() + PHILIFE_SECTION_TOPICS_TTL_MS,
+    };
+    return topics;
+  });
 }
 
 /** 이미 로드한 `topics`로 category 쿼리 허용 여부 판별 — 추가 DB 라운드트립 없음 */

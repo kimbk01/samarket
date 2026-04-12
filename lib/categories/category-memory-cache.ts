@@ -2,6 +2,8 @@
  * 브라우저 세션 동안 카테고리 조회 반복을 줄이기 위한 짧은 TTL 메모리 캐시.
  * (거래 탭 전환·마켓 재진입 시 Supabase 왕복 감소)
  */
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
 const DEFAULT_TTL_MS = 45_000;
 
 type Entry<T> = { at: number; value: T };
@@ -35,7 +37,11 @@ export async function cachedCategoryFetch<T>(
 ): Promise<T> {
   const hit = readCategoryCache<T>(key, ttlMs);
   if (hit != null) return hit;
-  const value = await fetcher();
-  writeCategoryCache(key, value);
-  return value;
+  return runSingleFlight(`category-cache:${key}`, async () => {
+    const again = readCategoryCache<T>(key, ttlMs);
+    if (again != null) return again;
+    const value = await fetcher();
+    writeCategoryCache(key, value);
+    return value;
+  });
 }

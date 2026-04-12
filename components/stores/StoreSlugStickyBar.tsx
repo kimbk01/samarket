@@ -22,6 +22,10 @@ import {
   STORE_FULFILLMENT_PREF_CHANGED_EVENT,
   type StoreFulfillmentPrefChangedDetail,
 } from "@/lib/stores/store-fulfillment-pref";
+import {
+  fetchStoreFavoriteMutation,
+  fetchStorePublicBySlugDeduped,
+} from "@/lib/stores/store-delivery-api-client";
 
 type StoreHead = {
   id: string;
@@ -108,19 +112,23 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
       }
       if (!silent) setLoading(true);
       try {
-        const res = await fetch(`/api/stores/${encodeURIComponent(decoded)}`, { cache: "no-store" });
-        const json = await res.json();
-        if (!json?.ok || !json.store) {
+        const { json } = await fetchStorePublicBySlugDeduped(decoded);
+        const j = json as {
+          ok?: boolean;
+          store?: StoreHead;
+          meta?: { viewer_favorited?: boolean; favorite_count?: unknown; recent_order_count?: unknown };
+        };
+        if (!j?.ok || !j.store) {
           if (!silent) {
             setStore(null);
             setFavoriteCount(0);
             setRecentOrderCount(0);
           }
         } else {
-          setStore(json.store as StoreHead);
-          setViewerFavorited(!!json.meta?.viewer_favorited);
-          setFavoriteCount(Number(json.meta?.favorite_count) || 0);
-          setRecentOrderCount(Number(json.meta?.recent_order_count) || 0);
+          setStore(j.store);
+          setViewerFavorited(!!j.meta?.viewer_favorited);
+          setFavoriteCount(Number(j.meta?.favorite_count) || 0);
+          setRecentOrderCount(Number(j.meta?.recent_order_count) || 0);
         }
       } catch {
         if (!silent) setStore(null);
@@ -163,12 +171,8 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
     );
     try {
       const method = prevFavorited ? "DELETE" : "POST";
-      const res = await fetch(`/api/stores/${encodeURIComponent(decoded)}/favorite`, {
-        method,
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (res.status === 401) {
+      const { status, json } = await fetchStoreFavoriteMutation(decoded, method);
+      if (status === 401) {
         setViewerFavorited(prevFavorited);
         setFavoriteCount(prevFavoriteCount);
         window.dispatchEvent(
@@ -179,7 +183,8 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
         window.alert("로그인이 필요합니다.");
         return;
       }
-      if (!json?.ok) {
+      const favJ = json as { ok?: boolean; favorited?: boolean; favorite_count?: unknown };
+      if (!favJ?.ok) {
         setViewerFavorited(prevFavorited);
         setFavoriteCount(prevFavoriteCount);
         window.dispatchEvent(
@@ -189,8 +194,8 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
         );
         return;
       }
-      const favorited = !!json.favorited;
-      const favorite_count = Number(json.favorite_count) || 0;
+      const favorited = !!favJ.favorited;
+      const favorite_count = Number(favJ.favorite_count) || 0;
       setViewerFavorited(favorited);
       setFavoriteCount(favorite_count);
       window.dispatchEvent(

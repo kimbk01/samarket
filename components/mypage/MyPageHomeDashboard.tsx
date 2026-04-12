@@ -17,6 +17,7 @@ import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import type { ProfileRow } from "@/lib/profile/types";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
 
 function formatCount(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
@@ -53,11 +54,14 @@ export function MyPageHomeDashboard({
     let cancelled = false;
     void (async () => {
       try {
-        const [ordersRes, postsRes] = await Promise.all([
-          fetch("/api/me/store-orders?limit=200", { credentials: "include", cache: "no-store" }),
+        const [ordersWrapped, postsRes] = await Promise.all([
+          fetchMeStoreOrdersListDeduped("?limit=200"),
           fetch("/api/me/community-posts?limit=50", { credentials: "include", cache: "no-store" }),
         ]);
-        const oj = ordersRes.ok ? ((await ordersRes.json()) as { ok?: boolean; orders?: unknown[] }) : null;
+        const oj =
+          ordersWrapped.status >= 200 && ordersWrapped.status < 300
+            ? (ordersWrapped.json as { ok?: boolean; orders?: unknown[] })
+            : null;
         const pj = postsRes.ok ? ((await postsRes.json()) as { ok?: boolean; posts?: unknown[] }) : null;
         if (cancelled) return;
         setOrderCount(Array.isArray(oj?.orders) ? oj.orders.length : 0);

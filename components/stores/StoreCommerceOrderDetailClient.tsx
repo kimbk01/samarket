@@ -15,6 +15,7 @@ import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-crite
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
+import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type ItemRow = {
   id: string;
@@ -71,29 +72,26 @@ export function StoreCommerceOrderDetailClient({
     const silent = opts?.silent === true;
     if (!silent) setState({ kind: "loading" });
     try {
-      const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (res.status === 401) {
+      const { status, json } = await fetchMeStoreOrderDetailDeduped(orderId);
+      if (status === 401) {
         if (!silent) setState({ kind: "error", message: "로그인이 필요합니다." });
         return;
       }
-      if (res.status === 404) {
+      if (status === 404) {
         if (!silent) setState({ kind: "error", message: "주문을 찾을 수 없습니다." });
         return;
       }
-      const json = await res.json();
-      if (!json?.ok || !json.order) {
+      const j = json as { ok?: boolean; order?: OrderDetail; items?: ItemRow[] };
+      if (!j?.ok || !j.order) {
         if (!silent) setState({ kind: "error", message: "주문을 불러올 수 없습니다." });
         return;
       }
-      const ord = json.order as OrderDetail;
+      const ord = j.order as OrderDetail;
       if (ord.store_slug && ord.store_slug !== storeSlug) {
         if (!silent) setState({ kind: "error", message: "이 매장의 주문이 아닙니다." });
         return;
       }
-      setState({ kind: "ok", order: ord, items: json.items ?? [] });
+      setState({ kind: "ok", order: ord, items: j.items ?? [] });
     } catch {
       if (!silent) setState({ kind: "error", message: "네트워크 오류가 발생했습니다." });
     }

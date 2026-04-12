@@ -28,6 +28,7 @@ import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
+import { fetchMeStoreOrderDetailDeduped, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 
 type ItemRow = {
   id: string;
@@ -141,34 +142,38 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     }
     if (!silent) setState({ kind: "loading" });
     try {
-      const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (res.status === 401) {
+      const { status, json } = await fetchMeStoreOrderDetailDeduped(orderId);
+      const data = json as {
+        ok?: boolean;
+        error?: string;
+        order?: OrderDetail;
+        items?: ItemRow[];
+        review?: unknown;
+        can_submit_review?: boolean;
+      };
+      if (status === 401) {
         if (!silent) setState({ kind: "unauth" });
         return;
       }
-      if (res.status === 404) {
+      if (status === 404) {
         if (!silent) setState({ kind: "not_found" });
         return;
       }
-      const json = await res.json();
-      if (!json?.ok) {
+      if (!data?.ok) {
         if (!silent) {
           setState({
             kind: "error",
-            message: typeof json?.error === "string" ? json.error : "load_failed",
+            message: typeof data?.error === "string" ? data.error : "load_failed",
           });
         }
         return;
       }
       setState({
         kind: "ok",
-        order: json.order as OrderDetail,
-        items: (json.items ?? []) as ItemRow[],
-        review: (json.review ?? null) as { id: string } | null,
-        can_submit_review: !!json.can_submit_review,
+        order: data.order as OrderDetail,
+        items: (data.items ?? []) as ItemRow[],
+        review: (data.review ?? null) as { id: string } | null,
+        can_submit_review: !!data.can_submit_review,
       });
     } catch {
       if (!silent) setState({ kind: "error", message: "network_error" });
@@ -196,18 +201,13 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     setRefundErr(null);
     setRefundBusy(true);
     try {
-      const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          request_refund: true,
-          refund_reason: refundReason.trim() || undefined,
-        }),
+      const { json } = await patchMeStoreOrder(orderId, {
+        request_refund: true,
+        refund_reason: refundReason.trim() || undefined,
       });
-      const json = await res.json();
-      if (!json?.ok) {
-        const code = typeof json?.error === "string" ? json.error : "refund_request_failed";
+      const j = json as { ok?: boolean; error?: string };
+      if (!j?.ok) {
+        const code = typeof j.error === "string" ? j.error : "refund_request_failed";
         setRefundErr(
           code === "cannot_request_refund"
             ? "이 단계에서는 환불 요청을 할 수 없습니다. (완료된 주문은 고객센터로 문의해 주세요.)"
@@ -229,15 +229,10 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     setCancelErr(null);
     setCancelBusy(true);
     try {
-      const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cancel: true }),
-      });
-      const json = await res.json();
-      if (!json?.ok) {
-        const code = typeof json?.error === "string" ? json.error : "cancel_failed";
+      const { json } = await patchMeStoreOrder(orderId, { cancel: true });
+      const j = json as { ok?: boolean; error?: string };
+      if (!j?.ok) {
+        const code = typeof j.error === "string" ? j.error : "cancel_failed";
         setCancelErr(
           code === "cannot_cancel_after_accepted"
             ? "매장이 접수한 뒤에는 여기서 취소할 수 없습니다. 매장에 문의해 주세요."

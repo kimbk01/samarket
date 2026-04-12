@@ -8,6 +8,7 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
 import { useChatRoomRealtime } from "@/lib/chats/use-chat-room-realtime";
+import { fetchGroupChatBootstrapDeduped } from "@/lib/group-chat/fetch-group-chat-bootstrap";
 import { mapGroupApiRowToChatMessage } from "@/lib/group-chat/map-api-messages";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
@@ -16,12 +17,6 @@ import {
 } from "@/lib/ui/app-content-layout";
 
 const THREAD_INNER = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
-
-type BootstrapOk = {
-  ok: true;
-  room: { id: string; title?: string; memberCount?: number };
-  messages: Record<string, unknown>[];
-};
 
 export function GroupChatRoomClient({
   roomId,
@@ -51,12 +46,8 @@ export function GroupChatRoomClient({
     setBootstrapReady(false);
     readPostedRef.current = false;
     try {
-      const res = await fetch(`/api/group-chat/rooms/${encodeURIComponent(roomId)}/bootstrap`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const data = (await res.json().catch(() => ({}))) as BootstrapOk & { error?: string };
-      if (!res.ok) {
+      const { status, data } = await fetchGroupChatBootstrapDeduped(roomId);
+      if (status < 200 || status >= 300) {
         setErr(typeof data?.error === "string" ? data.error : "불러오지 못했습니다.");
         setMessages([]);
         return;

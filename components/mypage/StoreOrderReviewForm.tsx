@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { dispatchWrittenReviewUpdated } from "@/lib/mypage/written-review-events";
+import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type ItemRow = { id: string; product_id: string; product_title_snapshot: string; qty?: number };
 
@@ -76,16 +77,21 @@ export function StoreOrderReviewForm({
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (!json?.ok) {
-        setErr(typeof json?.error === "string" ? json.error : "load_failed");
+      const { json } = await fetchMeStoreOrderDetailDeduped(orderId);
+      const j = json as {
+        ok?: boolean;
+        error?: string;
+        order?: { store_name?: string };
+        items?: unknown;
+        review?: { id?: string };
+        can_submit_review?: boolean;
+      };
+      if (!j?.ok) {
+        setErr(typeof j?.error === "string" ? j.error : "load_failed");
         return;
       }
-      setStoreName(String(json.order?.store_name ?? ""));
-      const raw = (json.items ?? []) as Record<string, unknown>[];
+      setStoreName(String(j.order?.store_name ?? ""));
+      const raw = (j.items ?? []) as Record<string, unknown>[];
       setItems(
         raw.map((r) => ({
           id: String(r.id ?? ""),
@@ -94,8 +100,8 @@ export function StoreOrderReviewForm({
           qty: typeof r.qty === "number" ? r.qty : Number(r.qty) || 1,
         }))
       );
-      setHasReview(!!json.review?.id);
-      setCanSubmit(!!json.can_submit_review);
+      setHasReview(!!j.review?.id);
+      setCanSubmit(!!j.can_submit_review);
     } catch {
       setErr("network_error");
     } finally {

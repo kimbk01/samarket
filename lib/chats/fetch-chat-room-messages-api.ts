@@ -244,7 +244,7 @@ export function fetchIntegratedChatRoomMessagesWithMeta(
   });
 }
 
-/** 과거 페이지 — 커서마다 별도 요청(single-flight 비적용) */
+/** 과거 페이지 — 동일 커서 동시 요청(빠른 스크롤·스트릭트 모드) 합류 */
 export async function fetchIntegratedChatRoomMessagesPage(
   roomId: string,
   input: { cursor: IntegratedChatHistoryCursor; limit?: number }
@@ -255,15 +255,18 @@ export async function fetchIntegratedChatRoomMessagesPage(
     before: input.cursor.before,
     beforeCreatedAt: input.cursor.beforeCreatedAt,
   });
-  const res = await fetch(
-    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?${params}`,
-    { credentials: "include", cache: "no-store" }
-  );
-  if (!res.ok) {
-    return { messages: [], hasMore: false, nextCursor: null };
-  }
-  const data = await res.json();
-  return parseIntegratedMessagesPayload(data);
+  const pageKey = `chat:integrated-messages-page:${roomId}:${input.cursor.before}:${input.cursor.beforeCreatedAt}:${limit}`;
+  return runSingleFlight(pageKey, async () => {
+    const res = await fetch(
+      `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?${params}`,
+      { credentials: "include", cache: "no-store" }
+    );
+    if (!res.ok) {
+      return { messages: [], hasMore: false, nextCursor: null };
+    }
+    const data = await res.json();
+    return parseIntegratedMessagesPayload(data);
+  });
 }
 
 /** 부트스트랩·캐시 등 `hasMore` 를 모를 때 — 한 페이지가 꽉 찼으면 과거가 더 있을 수 있음 */
@@ -337,7 +340,7 @@ export function fetchLegacyChatRoomMessagesWithMeta(
   });
 }
 
-/** 과거 페이지 — 레거시 product_chat 키셋 */
+/** 과거 페이지 — 레거시 product_chat 키셋, 동일 커서 동시 요청 합류 */
 export async function fetchLegacyChatRoomMessagesPage(
   roomId: string,
   input: { cursor: IntegratedChatHistoryCursor; limit?: number }
@@ -348,15 +351,18 @@ export async function fetchLegacyChatRoomMessagesPage(
     before: input.cursor.before,
     beforeCreatedAt: input.cursor.beforeCreatedAt,
   });
-  const res = await fetch(`/api/chat/room/${encodeURIComponent(roomId)}/messages?${params}`, {
-    credentials: "include",
-    cache: "no-store",
+  const pageKey = `chat:legacy-messages-page:${roomId}:${input.cursor.before}:${input.cursor.beforeCreatedAt}:${limit}`;
+  return runSingleFlight(pageKey, async () => {
+    const res = await fetch(`/api/chat/room/${encodeURIComponent(roomId)}/messages?${params}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      return { messages: [], hasMore: false, nextCursor: null };
+    }
+    const data = await res.json();
+    return parseLegacyMessagesPayload(data);
   });
-  if (!res.ok) {
-    return { messages: [], hasMore: false, nextCursor: null };
-  }
-  const data = await res.json();
-  return parseLegacyMessagesPayload(data);
 }
 
 /** 부트스트랩·캐시 등 — 한 페이지가 부트스트랩 한도와 같으면 과거가 더 있을 수 있음 */

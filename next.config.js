@@ -1,5 +1,8 @@
 /** Next가 항상 web 폴더를 기준으로 모듈을 찾도록 함 */
 const path = require("path");
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+});
 
 const webDir = __dirname;
 
@@ -148,4 +151,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withBundleAnalyzer(nextConfig);

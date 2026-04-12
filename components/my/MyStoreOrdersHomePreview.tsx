@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
 
 const ORDER_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
 
@@ -45,21 +46,18 @@ const PREVIEW_LIMIT = 3;
 /** loading / idle 제외 — fetch 완료 후 상태만 반환 */
 async function fetchStoreOrdersPreviewState(): Promise<Exclude<State, { kind: "idle" | "loading" }>> {
   try {
-    const res = await fetch("/api/me/store-orders?limit=8", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (res.status === 401) {
+    const { status, json } = await fetchMeStoreOrdersListDeduped("?limit=8");
+    if (status === 401) {
       return { kind: "unauth" };
     }
-    if (res.status === 503) {
+    if (status === 503) {
       return { kind: "unavailable" };
     }
-    const json = await res.json();
-    if (!json?.ok) {
+    const data = json as { ok?: boolean; orders?: unknown };
+    if (!data?.ok) {
       return { kind: "error" };
     }
-    const rows = (json.orders ?? []) as PreviewOrder[];
+    const rows = (data.orders ?? []) as PreviewOrder[];
     if (rows.length === 0) {
       return { kind: "empty" };
     }

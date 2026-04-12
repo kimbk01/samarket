@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import { fetchPostBuyerChats, postSellerCompleteRequest } from "@/lib/trade/seller-trade-flow-client";
 
 interface BuyerChatRow {
   chatId: string;
@@ -51,45 +51,30 @@ export function PostSellerTradeStrip({
       setRows(null);
       return;
     }
-    if (isOfflineMockPostId(postId)) {
-      setRows([]);
-      setPostStatus("active");
-      setSellerListingState(null);
-      setReservedBuyerId(null);
-      return;
-    }
-    fetch(`/api/my/post-buyer-chats?postId=${encodeURIComponent(postId)}`)
-      .then((r) => r.json())
-      .then(
-        (d: {
-          items?: (BuyerChatRow & { buyerId?: string })[];
-          postStatus?: string;
-          sellerListingState?: string | null;
-          reservedBuyerId?: string | null;
-          error?: string;
-        }) => {
-          if (d.error) {
-            setRows([]);
-            setPostStatus("active");
-            setSellerListingState(null);
-            setReservedBuyerId(null);
-            return;
-          }
-          setPostStatus(typeof d.postStatus === "string" ? d.postStatus : "active");
-          setSellerListingState(
-            typeof d.sellerListingState === "string" ? d.sellerListingState : null
-          );
-          setReservedBuyerId(
-            typeof d.reservedBuyerId === "string" && d.reservedBuyerId.trim()
-              ? d.reservedBuyerId.trim()
-              : null
-          );
-          setRows(Array.isArray(d.items) ? d.items : []);
+    void (async () => {
+      try {
+        const d = await fetchPostBuyerChats(postId);
+        if (d.error) {
+          setRows([]);
+          setPostStatus("active");
+          setSellerListingState(null);
+          setReservedBuyerId(null);
+          return;
         }
-      )
-      .catch(() => {
+        setPostStatus(typeof d.postStatus === "string" ? d.postStatus : "active");
+        setSellerListingState(
+          typeof d.sellerListingState === "string" ? d.sellerListingState : null
+        );
+        setReservedBuyerId(
+          typeof d.reservedBuyerId === "string" && d.reservedBuyerId.trim()
+            ? d.reservedBuyerId.trim()
+            : null
+        );
+        setRows(Array.isArray(d.items) ? (d.items as BuyerChatRow[]) : []);
+      } catch {
         setRows([]);
-      });
+      }
+    })();
   }, [postId, isSeller]);
 
   useEffect(() => {
@@ -108,21 +93,20 @@ export function PostSellerTradeStrip({
     if (!uid) return;
     setBusyChatId(chatId);
     setErr(null);
-    fetch(`/api/trade/product-chat/${encodeURIComponent(chatId)}/seller-complete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    })
-      .then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || !data.ok) {
-          setErr(data.error ?? "거래완료 처리에 실패했습니다.");
+    void (async () => {
+      try {
+        const done = await postSellerCompleteRequest(chatId);
+        if (!done.ok) {
+          setErr(done.error ?? "거래완료 처리에 실패했습니다.");
           return;
         }
         load();
-      })
-      .catch(() => setErr("네트워크 오류입니다."))
-      .finally(() => setBusyChatId(null));
+      } catch {
+        setErr("네트워크 오류입니다.");
+      } finally {
+        setBusyChatId(null);
+      }
+    })();
   };
 
   if (!isSeller || rows === null || rows.length === 0) return null;

@@ -25,6 +25,7 @@ import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/sto
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC } from "@/lib/stores/store-address-form-ui";
+import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 
 function resolveRegionCityIds(regionRaw: string, cityRaw: string): { rid: string; cid: string } {
   const rn = regionRaw.trim();
@@ -169,8 +170,13 @@ export function OwnerStoreBasicInfoForm({
     setTaxonomyLoading(true);
     void (async () => {
       try {
-        const res = await fetch("/api/stores/taxonomy", { cache: "no-store" });
-        const j = await res.json().catch(() => ({}));
+        const { json: jRaw } = await fetchStoresTaxonomyDeduped();
+        const j = jRaw as {
+          meta?: unknown;
+          ok?: boolean;
+          categories?: unknown;
+          topics?: unknown;
+        };
         if (cancelled) return;
         setTaxonomyMeta(
           j?.meta && typeof j.meta === "object"

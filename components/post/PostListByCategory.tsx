@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getPostsByTradeCategoryIds,
@@ -13,8 +14,12 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import { PostCard } from "./PostCard";
 import { HiddenPostCard } from "./HiddenPostCard";
 import { NotInterestedCard } from "./NotInterestedCard";
-import { ReportReasonModal } from "./ReportReasonModal";
 import type { PostListMenuAction } from "./PostListMenuBottomSheet";
+
+const ReportReasonModal = dynamic(
+  () => import("./ReportReasonModal").then((m) => m.ReportReasonModal),
+  { loading: () => null }
+);
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { computeTradeFeedKey } from "@/lib/posts/trade-feed-key";
 

@@ -3,6 +3,7 @@ import {
   communityMessengerRoomBootstrapPath,
   parseCommunityMessengerRoomSnapshotResponse,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const TTL_MS = 60_000;
 const entries = new Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>();
@@ -37,17 +38,22 @@ export function consumeRoomSnapshot(roomId: string): CommunityMessengerRoomSnaps
 
 /** 호버 등으로 미리 채워 두면 방 진입 시 로딩이 거의 없어짐. */
 export async function prefetchCommunityMessengerRoomSnapshot(roomId: string): Promise<boolean> {
-  if (peekRoomSnapshot(roomId)) return true;
-  try {
-    const res = await fetch(communityMessengerRoomBootstrapPath(roomId), { cache: "no-store" });
-    const json = await res.json().catch(() => null);
-    const snap = parseCommunityMessengerRoomSnapshotResponse(json);
-    if (res.ok && snap) {
-      primeRoomSnapshot(roomId, snap);
-      return true;
+  const key = roomId.trim();
+  if (!key) return false;
+  if (peekRoomSnapshot(key)) return true;
+  return runSingleFlight(`cm:prefetch-room-snapshot:${key}`, async () => {
+    if (peekRoomSnapshot(key)) return true;
+    try {
+      const res = await fetch(communityMessengerRoomBootstrapPath(key), { cache: "no-store" });
+      const json = await res.json().catch(() => null);
+      const snap = parseCommunityMessengerRoomSnapshotResponse(json);
+      if (res.ok && snap) {
+        primeRoomSnapshot(key, snap);
+        return true;
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
-  }
-  return false;
+    return false;
+  });
 }

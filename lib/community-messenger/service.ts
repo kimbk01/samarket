@@ -21,6 +21,7 @@ import {
   notifyCommunityMessengerFriendRequestAccepted,
   notifyCommunityMessengerFriendRequestReceived,
 } from "@/lib/notifications/community-messenger-friend-inapp-notify";
+import { MESSENGER_FRIEND_REJECT_COOLDOWN_MS } from "@/lib/community-messenger/messenger-latency-config";
 import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
@@ -67,7 +68,26 @@ type RequestRow = {
   addressee_id: string;
   status: CommunityMessengerFriendRequestStatus;
   created_at: string;
+  responded_at?: string | null;
 };
+
+/** 상대가 거절한 내 발신 요청을 같은 방향으로 재전송할 때만 쿨다운 적용(상대가 먼저 걸면 기존 행 삭제 후 새 방향 허용). */
+function remainingFriendRejectCooldownMs(
+  row: Pick<RequestRow, "status" | "requester_id" | "addressee_id" | "responded_at">,
+  userId: string,
+  target: string,
+  nowMs: number
+): number {
+  const cool = MESSENGER_FRIEND_REJECT_COOLDOWN_MS;
+  if (cool <= 0) return 0;
+  if (row.status !== "rejected") return 0;
+  if (row.requester_id !== userId || row.addressee_id !== target) return 0;
+  const t = row.responded_at;
+  if (t == null || !String(t).trim()) return 0;
+  const respondedMs = Date.parse(String(t));
+  if (!Number.isFinite(respondedMs)) return 0;
+  return Math.max(0, respondedMs + cool - nowMs);
+}
 
 type RoomRow = {
   id: string;
@@ -2181,7 +2201,16 @@ export async function sendCommunityMessengerFriendRequest(
   userId: string,
   targetUserId: string,
   note?: string
-): Promise<{ ok: boolean; request?: CommunityMessengerFriendRequest; error?: string }> {
+): Promise<{
+  ok: boolean;
+  request?: CommunityMessengerFriendRequest;
+  error?: string;
+  /** 상대가 보낸 pending 을 내가 친구추가로 흡수해 수락 처리한 경우 */
+  mergedFromIncoming?: boolean;
+  directRoomId?: string;
+  /** `error === "reject_cooldown_active"` 일 때 재시도 가능 시각까지 남은 ms (올림) */
+  retryAfterMs?: number;
+}> {
   const target = trimText(targetUserId);
   if (!target || target === userId) return { ok: false, error: "bad_target" };
   if (!(await ensureNoBlockedEitherWay(userId, target))) {
@@ -2192,7 +2221,7 @@ export async function sendCommunityMessengerFriendRequest(
   if (sb) {
     const { data: existing, error: existingError } = await (sb as any)
       .from("community_friend_requests")
-      .select("id, requester_id, addressee_id, status, created_at")
+      .select("id, requester_id, addressee_id, status, created_at, responded_at")
       .or(
         `and(requester_id.eq.${userId},addressee_id.eq.${target}),and(requester_id.eq.${target},addressee_id.eq.${userId})`
       )
@@ -2201,11 +2230,26 @@ export async function sendCommunityMessengerFriendRequest(
     if (existing && !existingError) {
       const row = existing as RequestRow;
       if (row.status === "accepted") return { ok: false, error: "already_friend" };
+      /** 교차 요청: B→A pending 인데 A가 친구추가 → 새 행 없이 기존 요청을 A가 수락한 것으로 처리 */
       if (row.status === "pending" && row.requester_id === target) {
-        return { ok: false, error: "incoming_request_exists" };
+        const outcome = await respondCommunityMessengerFriendRequest(userId, row.id, "accept");
+        if (!outcome.ok) return outcome;
+        return {
+          ok: true,
+          mergedFromIncoming: true,
+          directRoomId: outcome.directRoomId,
+        };
       }
       if (row.status === "pending" && row.requester_id === userId) {
         return { ok: false, error: "already_requested" };
+      }
+      const cooldownRemain = remainingFriendRejectCooldownMs(row, userId, target, Date.now());
+      if (cooldownRemain > 0) {
+        return {
+          ok: false,
+          error: "reject_cooldown_active",
+          retryAfterMs: Math.ceil(cooldownRemain),
+        };
       }
       const { error: cleanupError } = await (sb as any)
         .from("community_friend_requests")
@@ -2263,9 +2307,23 @@ export async function sendCommunityMessengerFriendRequest(
   if (existing) {
     if (existing.status === "accepted") return { ok: false, error: "already_friend" };
     if (existing.status === "pending" && existing.requester_id === target) {
-      return { ok: false, error: "incoming_request_exists" };
+      const outcome = await respondCommunityMessengerFriendRequest(userId, existing.id, "accept");
+      if (!outcome.ok) return outcome;
+      return {
+        ok: true,
+        mergedFromIncoming: true,
+        directRoomId: outcome.directRoomId,
+      };
     }
     if (existing.status === "pending") return { ok: false, error: "already_requested" };
+    const cooldownRemain = remainingFriendRejectCooldownMs(existing, userId, target, Date.now());
+    if (cooldownRemain > 0) {
+      return {
+        ok: false,
+        error: "reject_cooldown_active",
+        retryAfterMs: Math.ceil(cooldownRemain),
+      };
+    }
     dev.friendRequests = dev.friendRequests.filter((row) => row.id !== existing.id);
   }
   const row: RequestRow = {
@@ -2352,6 +2410,7 @@ export async function respondCommunityMessengerFriendRequest(
     ((action === "accept" || action === "reject") && request.addressee_id === userId);
   if (!allowed) return { ok: false, error: "forbidden" };
   request.status = nextStatus;
+  request.responded_at = nowIso();
   let directRoomId: string | undefined;
   if (action === "accept") {
     const requesterId = trimText(request.requester_id);
@@ -2537,6 +2596,75 @@ export async function removeCommunityMessengerFriend(
   dev.favoriteFriends.get(userId)?.delete(target);
   dev.favoriteFriends.get(target)?.delete(userId);
   dev.hiddenFriends.get(userId)?.delete(target);
+  return { ok: true };
+}
+
+/**
+ * 커뮤니티 차단(`user_relationships.blocked`) 시 친구·요청·즐겨찾기·숨김 관계를 정리합니다.
+ * 차단 행 자체는 호출 측에서 이미 반영된 뒤 호출하는 것을 전제로 합니다.
+ */
+export async function cleanupCommunityMessengerFriendGraphOnBlock(
+  blockerUserId: string,
+  blockedUserId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const a = trimText(blockerUserId);
+  const b = trimText(blockedUserId);
+  if (!a || !b || a === b) return { ok: false, error: "bad_target" };
+
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: rows, error: selectError } = await (sb as any)
+      .from("community_friend_requests")
+      .select("id")
+      .or(`and(requester_id.eq.${a},addressee_id.eq.${b}),and(requester_id.eq.${b},addressee_id.eq.${a})`);
+    if (selectError && !isMissingTableError(selectError)) {
+      return { ok: false, error: String(selectError.message ?? "friend_request_pair_lookup_failed") };
+    }
+    for (const row of (rows ?? []) as Array<{ id?: string }>) {
+      const id = trimText(row.id);
+      if (!id) continue;
+      const { error: delErr } = await (sb as any).from("community_friend_requests").delete().eq("id", id);
+      if (delErr && !isMissingTableError(delErr)) {
+        return { ok: false, error: String(delErr.message ?? "friend_request_delete_failed") };
+      }
+    }
+
+    const { error: favoriteDeleteError } = await (sb as any)
+      .from("community_friend_favorites")
+      .delete()
+      .or(`and(user_id.eq.${a},target_user_id.eq.${b}),and(user_id.eq.${b},target_user_id.eq.${a})`);
+    if (favoriteDeleteError && !isMissingTableError(favoriteDeleteError)) {
+      return { ok: false, error: String(favoriteDeleteError.message ?? "friend_favorite_cleanup_failed") };
+    }
+
+    for (const [uid, tid] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      const { error: hiddenDeleteError } = await (sb as any)
+        .from("user_relationships")
+        .delete()
+        .eq("user_id", uid)
+        .eq("target_user_id", tid)
+        .or("relation_type.eq.hidden,type.eq.hidden");
+      if (hiddenDeleteError && !isMissingTableError(hiddenDeleteError)) {
+        return { ok: false, error: String(hiddenDeleteError.message ?? "friend_hidden_cleanup_failed") };
+      }
+    }
+
+    return { ok: true };
+  }
+
+  const dev = getDevState();
+  dev.friendRequests = dev.friendRequests.filter((row) => {
+    const samePair =
+      (row.requester_id === a && row.addressee_id === b) || (row.requester_id === b && row.addressee_id === a);
+    return !samePair;
+  });
+  dev.favoriteFriends.get(a)?.delete(b);
+  dev.favoriteFriends.get(b)?.delete(a);
+  dev.hiddenFriends.get(a)?.delete(b);
+  dev.hiddenFriends.get(b)?.delete(a);
   return { ok: true };
 }
 

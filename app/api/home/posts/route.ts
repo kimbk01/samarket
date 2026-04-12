@@ -5,6 +5,7 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import { normalizePostImages, normalizePostMeta, normalizePostPrice } from "@/lib/posts/post-normalize";
 import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export const dynamic = "force-dynamic";
 
@@ -145,53 +146,68 @@ export async function GET(req: NextRequest) {
     posts = cachedPosts.posts;
     hasMore = cachedPosts.hasMore;
   } else {
-    let data: unknown[] | null = null;
-    for (const selectFields of HOME_POSTS_SELECT_TIERS) {
-      let q = sb.from("posts").select(selectFields).or(HOME_POSTS_STATUS_OR);
-      /**
-       * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
-       * (trade: trade_category_id, community: board_id, service: service_id)
-       */
-      if (type === "trade") {
-        q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
-      } else if (type === "community") {
-        q = q.not("board_id", "is", null).neq("board_id", "");
-      } else if (type === "service") {
-        q = q.not("service_id", "is", null).neq("service_id", "");
-      } else if (type === "feature") {
-        // type 컬럼 없을 때 구분 불가 → 과필터 방지 위해 추가 제한 없음(호출처 거의 없음)
-      }
-      if (sort === "latest") {
-        q = q.order("created_at", { ascending: false });
-      } else {
-        q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+    const loaded = await runSingleFlight(`api:home-posts:${cacheKey}`, async () => {
+      const again = homePostsServerCache.get(cacheKey);
+      if (again && again.expiresAt > Date.now()) {
+        return { posts: again.posts, hasMore: again.hasMore };
       }
 
-      const res = await q.range(from, from + PAGE_SIZE - 1);
-      if (!res.error && Array.isArray(res.data)) {
-        data = res.data;
-        break;
-      }
-    }
+      let data: unknown[] | null = null;
+      for (const selectFields of HOME_POSTS_SELECT_TIERS) {
+        let q = sb.from("posts").select(selectFields).or(HOME_POSTS_STATUS_OR);
+        /**
+         * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
+         * (trade: trade_category_id, community: board_id, service: service_id)
+         */
+        if (type === "trade") {
+          q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
+        } else if (type === "community") {
+          q = q.not("board_id", "is", null).neq("board_id", "");
+        } else if (type === "service") {
+          q = q.not("service_id", "is", null).neq("service_id", "");
+        } else if (type === "feature") {
+          // type 컬럼 없을 때 구분 불가 → 과필터 방지 위해 추가 제한 없음(호출처 거의 없음)
+        }
+        if (sort === "latest") {
+          q = q.order("created_at", { ascending: false });
+        } else {
+          q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+        }
 
-    if (!data) {
+        const res = await q.range(from, from + PAGE_SIZE - 1);
+        if (!res.error && Array.isArray(res.data)) {
+          data = res.data;
+          break;
+        }
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      const mapped = data.map((row) =>
+        mapPostRow(
+          row && typeof row === "object" ? (row as Record<string, unknown>) : {}
+        )
+      );
+      const hasMoreFlag = mapped.length === PAGE_SIZE;
+      homePostsServerCache.set(cacheKey, {
+        posts: mapped,
+        hasMore: hasMoreFlag,
+        expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
+      });
+      return { posts: mapped, hasMore: hasMoreFlag };
+    });
+
+    if (!loaded) {
       return NextResponse.json(
         { posts: [], hasMore: false, favoriteMap: {} },
         { headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    posts = data.map((row) =>
-      mapPostRow(
-        row && typeof row === "object" ? (row as Record<string, unknown>) : {}
-      )
-    );
-    hasMore = posts.length === PAGE_SIZE;
-    homePostsServerCache.set(cacheKey, {
-      posts,
-      hasMore,
-      expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
-    });
+    posts = loaded.posts;
+    hasMore = loaded.hasMore;
   }
   const favoriteMap: Record<string, boolean> = {};
   const userId = await getOptionalAuthenticatedUserId();

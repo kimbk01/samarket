@@ -22,6 +22,11 @@ import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
+import {
+  deleteMeStoreOrder,
+  fetchMeStoreOrdersListDeduped,
+  patchMeStoreOrder,
+} from "@/lib/stores/store-delivery-api-client";
 
 type ItemRow = {
   id: string;
@@ -432,15 +437,12 @@ export function MyStoreOrdersView({
       const silent = opts?.silent === true;
       if (!silent) setState({ kind: "loading" });
       try {
-        const res = await fetch("/api/me/store-orders", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (res.status === 401) {
+        const { status, json } = await fetchMeStoreOrdersListDeduped("");
+        if (status === 401) {
           if (!silent) setState({ kind: "unauth" });
           return;
         }
-        if (res.status === 503) {
+        if (status === 503) {
           if (!silent) {
             setState({
               kind: "error",
@@ -449,17 +451,17 @@ export function MyStoreOrdersView({
           }
           return;
         }
-        const json = await res.json();
-        if (!json?.ok) {
+        const data = json as { ok?: boolean; error?: string; orders?: unknown };
+        if (!data?.ok) {
           if (!silent) {
             setState({
               kind: "error",
-              message: typeof json?.error === "string" ? json.error : "load_failed",
+              message: typeof data?.error === "string" ? data.error : "load_failed",
             });
           }
           return;
         }
-        setState({ kind: "ok", orders: (json.orders ?? []) as OrderRow[] });
+        setState({ kind: "ok", orders: (data.orders ?? []) as OrderRow[] });
       } catch {
         if (!silent) setState({ kind: "error", message: "network_error" });
       }
@@ -502,15 +504,10 @@ export function MyStoreOrdersView({
       if (!confirm("주문을 취소할까요? 매장이 아직 접수하지 않은 경우에만 가능합니다.")) return;
       setCancelBusyId(orderId);
       try {
-        const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cancel: true }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || json?.ok === false) {
-          const code = typeof json?.error === "string" ? json.error : "cancel_failed";
+        const { status, json } = await patchMeStoreOrder(orderId, { cancel: true });
+        const j = json as { ok?: boolean; error?: string };
+        if (status < 200 || status >= 300 || j?.ok === false) {
+          const code = typeof j?.error === "string" ? j.error : "cancel_failed";
           const msg =
             code === "cannot_cancel_after_accepted"
               ? "매장이 접수한 뒤에는 여기서 취소할 수 없습니다."
@@ -537,13 +534,10 @@ export function MyStoreOrdersView({
       if (!confirm("이 주문 내역을 내 목록에서 삭제할까요? 매장/관리자 화면에는 유지됩니다.")) return;
       setDeleteBusyId(orderId);
       try {
-        const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || json?.ok === false) {
-          const code = typeof json?.error === "string" ? json.error : "hide_failed";
+        const { status, json } = await deleteMeStoreOrder(orderId);
+        const j = json as { ok?: boolean; error?: string };
+        if (status < 200 || status >= 300 || j?.ok === false) {
+          const code = typeof j?.error === "string" ? j.error : "hide_failed";
           const msg =
             code === "buyer_hide_schema_missing"
               ? "서버 설정이 아직 적용되지 않아 삭제를 처리할 수 없습니다."

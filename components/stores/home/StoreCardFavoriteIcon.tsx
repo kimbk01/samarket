@@ -5,6 +5,7 @@ import {
   STORE_FAVORITE_CHANGED_EVENT,
   type StoreFavoriteChangedDetail,
 } from "@/lib/stores/store-favorite-events";
+import { fetchStoreFavoriteMutation } from "@/lib/stores/store-delivery-api-client";
 
 /**
  * 목록 카드용 찜 — 초기 상태는 요청 없이 아웃라인만; 탭 시 토글(401 시 안내).
@@ -28,18 +29,15 @@ export function StoreCardFavoriteIcon({
       setBusy(true);
       try {
         const method = on ? "DELETE" : "POST";
-        const res = await fetch(`/api/stores/${encodeURIComponent(decoded)}/favorite`, {
-          method,
-          credentials: "include",
-        });
-        const json = await res.json();
-        if (res.status === 401) {
+        const { status, json } = await fetchStoreFavoriteMutation(decoded, method);
+        if (status === 401) {
           window.alert("로그인 후 찜할 수 있습니다.");
           return;
         }
-        if (!json?.ok) return;
-        const favorited = !!json.favorited;
-        const favorite_count = Number(json.favorite_count) || 0;
+        const j = json as { ok?: boolean; favorited?: boolean; favorite_count?: unknown };
+        if (!j?.ok) return;
+        const favorited = !!j.favorited;
+        const favorite_count = Number(j.favorite_count) || 0;
         setOn(favorited);
         window.dispatchEvent(
           new CustomEvent<StoreFavoriteChangedDetail>(STORE_FAVORITE_CHANGED_EVENT, {

@@ -37,6 +37,7 @@ import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import type { UserSettingsRow } from "@/lib/types/settings-db";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type MypageSectionId = "trade" | "board" | "store" | "account";
 type SettingsSheetKind =
@@ -222,16 +223,13 @@ export function MypageInstagramView({
   const loadStorePreview = useCallback(async () => {
     setStorePreview((prev) => ({ ...prev, status: "loading" }));
     try {
-      const res = await fetch("/api/me/store-orders?limit=3", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error("store_preview_failed");
-      const json = (await res.json()) as { ok?: boolean; orders?: StoreOrderPreview[] };
-      if (!json.ok) throw new Error("store_preview_failed");
+      const { status, json } = await fetchMeStoreOrdersListDeduped("?limit=3");
+      if (status < 200 || status >= 300) throw new Error("store_preview_failed");
+      const parsed = json as { ok?: boolean; orders?: StoreOrderPreview[] };
+      if (!parsed.ok) throw new Error("store_preview_failed");
       setStorePreview({
         status: "ready",
-        orders: Array.isArray(json.orders) ? json.orders : [],
+        orders: Array.isArray(parsed.orders) ? parsed.orders : [],
       });
     } catch {
       setStorePreview({ status: "error", orders: [] });

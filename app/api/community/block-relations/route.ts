@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
 
 const SAMPLE_AUTHOR_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -123,5 +124,11 @@ export async function POST(req: NextRequest) {
     relation_type: "blocked",
   });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  const cleanup = await cleanupCommunityMessengerFriendGraphOnBlock(auth.userId, target);
+  if (!cleanup.ok) {
+    console.error("[community/block-relations] community messenger friend graph cleanup failed", cleanup.error);
+  }
+
   return NextResponse.json({ ok: true, blocked: true });
 }

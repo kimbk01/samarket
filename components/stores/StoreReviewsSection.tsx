@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreDetailSectionTitle } from "@/components/stores/StoreDetailSectionTitle";
 import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detail-ui";
+import { fetchStoreReviewsPublicDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type Review = {
   id: string;
@@ -38,14 +39,17 @@ export function StoreReviewsSection({
       const silent = !!opts?.silent;
       if (!silent) setLoading(true);
       try {
-        const res = await fetch(`/api/stores/${encodeURIComponent(storeSlug)}/reviews`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (json?.ok && Array.isArray(json.reviews)) {
-          setReviews(json.reviews);
-          setAvg(typeof json.avg_rating === "number" ? json.avg_rating : null);
-          setCount(Number(json.count) || 0);
+        const { json } = await fetchStoreReviewsPublicDeduped(storeSlug);
+        const j = json as {
+          ok?: boolean;
+          reviews?: Review[];
+          avg_rating?: number;
+          count?: unknown;
+        };
+        if (j?.ok && Array.isArray(j.reviews)) {
+          setReviews(j.reviews);
+          setAvg(typeof j.avg_rating === "number" ? j.avg_rating : null);
+          setCount(Number(j.count) || 0);
         }
       } catch {
         if (!silent) setReviews([]);

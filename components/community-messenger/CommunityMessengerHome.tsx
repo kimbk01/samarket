@@ -40,6 +40,15 @@ import {
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
+import {
+  communityMessengerFriendRequestFailureMessage,
+  messengerFriendRequestBusyId,
+  postCommunityMessengerFriendRequestApi,
+} from "@/lib/community-messenger/community-messenger-friend-request-client";
+import {
+  mergeCommunityMessengerProfileFromBootstrap,
+  resolveMessengerFriendAddCta,
+} from "@/lib/community-messenger/messenger-friend-add-cta";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
   readPreferredCommunityMessengerDeviceIds,
@@ -282,6 +291,17 @@ export function CommunityMessengerHome({
     () => (data?.requests ?? []).filter((r) => r.direction === "incoming").length,
     [data?.requests]
   );
+  const friendProfileForSheet = useMemo(() => {
+    if (!friendSheet || friendSheet.mode !== "profile") return null;
+    if (data) return mergeCommunityMessengerProfileFromBootstrap(friendSheet.profile, data);
+    return friendSheet.profile;
+  }, [friendSheet, data]);
+
+  const friendAddCtaForSheet = useMemo(() => {
+    if (!friendProfileForSheet || !data?.me?.id) return undefined;
+    return resolveMessengerFriendAddCta(friendProfileForSheet, data.me.id, data.requests ?? []);
+  }, [friendProfileForSheet, data?.me?.id, data?.requests]);
+
   const homeRoomIds = useMemo(
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
     [data?.chats, data?.groups]
@@ -824,22 +844,25 @@ export function CommunityMessengerHome({
 
   const requestFriend = useCallback(
     async (targetUserId: string) => {
-      setBusyId(`friend:${targetUserId}`);
+      setBusyId(messengerFriendRequestBusyId(targetUserId));
       try {
-        const res = await fetch("/api/community-messenger/friend-requests", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUserId }),
-        });
-        if (res.ok) {
+        const result = await postCommunityMessengerFriendRequestApi(targetUserId);
+        if (result.ok) {
           void refresh(true);
           void searchUsers();
+          /** 교차 요청 흡수 시 수락과 동일하게 DM 방으로 이동 */
+          if (result.mergedFromIncoming && typeof result.directRoomId === "string" && result.directRoomId.trim()) {
+            router.push(`/community-messenger/rooms/${encodeURIComponent(result.directRoomId.trim())}`);
+          }
+          return;
         }
+        const msg = communityMessengerFriendRequestFailureMessage(result);
+        if (msg) showMessengerSnackbar(msg, { variant: "error" });
       } finally {
         setBusyId(null);
       }
     },
-    [refresh, searchUsers]
+    [refresh, router, searchUsers]
   );
 
   const respondRequest = useCallback(
@@ -1792,61 +1815,66 @@ export function CommunityMessengerHome({
         </section>
       ) : null}
 
-      {friendSheet?.mode === "profile" ? (
+      {friendSheet?.mode === "profile" && friendProfileForSheet ? (
         <MessengerFriendProfileSheet
-          key={friendSheet.profile.id}
-          profile={friendSheet.profile}
+          key={friendProfileForSheet.id}
+          profile={friendProfileForSheet}
           busyId={busyId}
           onClose={() => setFriendSheet(null)}
           onVoiceCall={() => {
-            const id = friendSheet.profile.id;
+            const id = friendProfileForSheet.id;
             setFriendSheet(null);
             void startDirectCall(id, "voice");
           }}
           onVideoCall={() => {
-            const id = friendSheet.profile.id;
+            const id = friendProfileForSheet.id;
             setFriendSheet(null);
             void startDirectCall(id, "video");
           }}
           onChat={() => {
-            const id = friendSheet.profile.id;
+            const id = friendProfileForSheet.id;
             setFriendSheet(null);
             void startDirectRoom(id);
           }}
           onToggleFavorite={() => {
-            void toggleFavoriteFriend(friendSheet.profile.id);
+            void toggleFavoriteFriend(friendProfileForSheet.id);
           }}
           onToggleHidden={
-            friendSheet.profile.isFriend && friendSheet.profile.id !== data?.me?.id
-              ? () => void toggleHiddenFriend(friendSheet.profile.id)
+            friendProfileForSheet.isFriend && friendProfileForSheet.id !== data?.me?.id
+              ? () => void toggleHiddenFriend(friendProfileForSheet.id)
               : undefined
           }
           onInviteToGroup={
-            friendSheet.profile.isFriend
+            friendProfileForSheet.isFriend
               ? () => {
-                  const id = friendSheet.profile.id;
+                  const id = friendProfileForSheet.id;
                   setFriendSheet(null);
                   setGroupMembers((prev) => (prev.includes(id) ? prev : [id, ...prev]));
                   setGroupCreateStep("private_group");
                 }
               : undefined
           }
-          directRoomMuted={directRoomByPeerId.get(friendSheet.profile.id)?.isMuted}
+          directRoomMuted={directRoomByPeerId.get(friendProfileForSheet.id)?.isMuted}
           notificationsBusy={
-            Boolean(friendSheet.profile.isFriend && directRoomByPeerId.get(friendSheet.profile.id)) &&
-            busyId === `room-settings:${directRoomByPeerId.get(friendSheet.profile.id)?.id ?? ""}`
+            Boolean(friendProfileForSheet.isFriend && directRoomByPeerId.get(friendProfileForSheet.id)) &&
+            busyId === `room-settings:${directRoomByPeerId.get(friendProfileForSheet.id)?.id ?? ""}`
           }
           onToggleMuteNotifications={
-            friendSheet.profile.isFriend && directRoomByPeerId.get(friendSheet.profile.id)
+            friendProfileForSheet.isFriend && directRoomByPeerId.get(friendProfileForSheet.id)
               ? () => {
-                  const room = directRoomByPeerId.get(friendSheet.profile.id);
+                  const room = directRoomByPeerId.get(friendProfileForSheet.id);
                   if (room) void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
                 }
               : undefined
           }
-          onRemoveFriend={friendSheet.profile.isFriend ? () => void removeFriend(friendSheet.profile.id) : undefined}
-          onBlock={friendSheet.profile.id !== data?.me?.id ? () => void toggleBlock(friendSheet.profile.id) : undefined}
-          onReport={friendSheet.profile.id !== data?.me?.id ? () => void reportCommunityUser(friendSheet.profile.id) : undefined}
+          onRemoveFriend={friendProfileForSheet.isFriend ? () => void removeFriend(friendProfileForSheet.id) : undefined}
+          onBlock={friendProfileForSheet.id !== data?.me?.id ? () => void toggleBlock(friendProfileForSheet.id) : undefined}
+          onReport={friendProfileForSheet.id !== data?.me?.id ? () => void reportCommunityUser(friendProfileForSheet.id) : undefined}
+          friendAddCta={data?.me?.id ? friendAddCtaForSheet : undefined}
+          onFriendAdd={data?.me?.id ? () => void requestFriend(friendProfileForSheet.id) : undefined}
+          onFriendCancelOutgoing={data?.me?.id ? (requestId: string) => void respondRequest(requestId, "cancel") : undefined}
+          onFriendAcceptIncoming={data?.me?.id ? (requestId: string) => void respondRequest(requestId, "accept") : undefined}
+          onFriendRejectIncoming={data?.me?.id ? (requestId: string) => void respondRequest(requestId, "reject") : undefined}
         />
       ) : null}
 
@@ -2058,10 +2086,14 @@ export function CommunityMessengerHome({
           onSearchUsers={searchUsers}
           friendUserSearchAttempted={friendUserSearchAttempted}
           searchResults={searchResults}
+          viewerUserId={data.me?.id ?? null}
+          friendRequests={data.requests ?? []}
           busyId={busyId}
           onOpenProfile={(profile) => setFriendSheet({ mode: "profile", profile })}
           onPrefetchDirectRoom={(userId) => maybePrefetchDirectRoom(userId)}
           onRequestFriend={(userId) => void requestFriend(userId)}
+          onCancelOutgoingFriendRequest={(requestId) => void respondRequest(requestId, "cancel")}
+          onRespondIncomingFriendRequest={(requestId, action) => void respondRequest(requestId, action)}
           inviteUrl={messengerInviteUrl}
         />
       ) : null}

@@ -28,6 +28,7 @@ import {
 import { StoreOrderSellerHamburger } from "@/components/chats/StoreOrderSellerHamburger";
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
+import { fetchMeStoreOrderDetailDeduped, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 import type { OrderChatMessagePublic } from "@/lib/order-chat/types";
 import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
@@ -1262,21 +1263,18 @@ export function ChatDetailView({
     setStoreOrderLoading(true);
     setStoreOrderLoadErr(null);
     try {
-      const res = await fetch(`/api/me/store-orders/${encodeURIComponent(storeOrderId)}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
+      const { status, json: raw } = await fetchMeStoreOrderDetailDeduped(storeOrderId);
+      const json = raw as {
         ok?: boolean;
         error?: string;
         order?: Record<string, unknown>;
         items?: StoreOrderBuyerItemPayload[];
       };
-      if (!res.ok || !json?.ok) {
+      if (status < 200 || status >= 300 || !json?.ok) {
         setStoreOrderTop(null);
         setStoreOrderItems([]);
         setStoreOrderLoadErr(
-          res.status === 404
+          status === 404
             ? "주문을 찾을 수 없습니다."
             : typeof json?.error === "string"
               ? json.error
@@ -1345,14 +1343,9 @@ export function ChatDetailView({
     if (typeof window !== "undefined" && !window.confirm("주문을 취소할까요?")) return;
     setStoreOrderCancelBusy(true);
     try {
-      const res = await fetch(`/api/me/store-orders/${encodeURIComponent(storeOrderId)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cancel: true }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json?.ok) {
+      const { status, json: raw } = await patchMeStoreOrder(storeOrderId, { cancel: true });
+      const json = raw as { ok?: boolean; error?: string };
+      if (status < 200 || status >= 300 || !json?.ok) {
         const code = typeof json?.error === "string" ? json.error : "";
         if (typeof window !== "undefined") {
           window.alert(

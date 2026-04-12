@@ -31,6 +31,7 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type OrderRowLite = {
   id: string;
@@ -129,14 +130,14 @@ export function StoresHub() {
 
   const loadBuyerHub = useCallback(async () => {
     try {
-      const ordersRes = await fetch("/api/me/store-orders", { credentials: "include", cache: "no-store" });
-      if (ordersRes.status === 401) {
+      const { status: ordersStatus, json: ordersJsonRaw } = await fetchMeStoreOrdersListDeduped("");
+      if (ordersStatus === 401) {
         setBuyerOrderSummary({ kind: "idle" });
         setRecentOrder(null);
         return;
       }
 
-      const ordersJson = (await ordersRes.json().catch(() => ({}))) as {
+      const ordersJson = ordersJsonRaw as {
         ok?: boolean;
         orders?: OrderRowLite[];
       };

@@ -30,7 +30,7 @@ import {
 } from "@/components/stores/store-category-pill-styles";
 import { StoreDeliveryRowCard, browseItemToRowCard } from "@/components/stores/home/StoreDeliveryRowCard";
 import { StorePrimaryIndustrySwitcher } from "@/components/stores/home/StorePrimaryIndustrySwitcher";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchStoresBrowseDeduped } from "@/lib/stores/store-delivery-api-client";
 
 function sortBrowseStores(
   rows: BrowseStoreListItem[],
@@ -196,23 +196,21 @@ export function StoresBrowsePrimaryView({
         setFeedSource(null);
       }
       try {
-        await runSingleFlight(`stores:browse:${browseQuerySuffix}`, async () => {
-          const res = await fetch(`/api/stores/browse?${browseQuerySuffix}`, { cache: "no-store" });
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            stores?: unknown;
-            meta?: { source?: string };
-          };
-          const src = json?.meta?.source;
-          const okSources = src === "supabase" || src === "supabase_unconfigured";
-          if (json?.ok && Array.isArray(json.stores) && okSources) {
-            setRemoteRows(json.stores as BrowseStoreListItem[]);
-            setFeedSource(src as BrowseFeedMetaSource);
-          } else {
-            setRemoteRows([]);
-            setFeedSource(null);
-          }
-        });
+        const { json } = await fetchStoresBrowseDeduped(browseQuerySuffix);
+        const j = json as {
+          ok?: boolean;
+          stores?: unknown;
+          meta?: { source?: string };
+        };
+        const src = j?.meta?.source;
+        const okSources = src === "supabase" || src === "supabase_unconfigured";
+        if (j?.ok && Array.isArray(j.stores) && okSources) {
+          setRemoteRows(j.stores as BrowseStoreListItem[]);
+          setFeedSource(src as BrowseFeedMetaSource);
+        } else {
+          setRemoteRows([]);
+          setFeedSource(null);
+        }
       } catch {
         if (!silent) {
           setRemoteRows([]);

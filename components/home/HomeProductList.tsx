@@ -1,17 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
 import { HiddenPostCard } from "@/components/post/HiddenPostCard";
 import { NotInterestedCard } from "@/components/post/NotInterestedCard";
-import { ReportReasonModal } from "@/components/post/ReportReasonModal";
 import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
 import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
+
+const ReportReasonModal = dynamic(
+  () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
+  { loading: () => null }
+);
 
 type ListState = "idle" | "loading" | "error" | "empty";
 const MIN_SILENT_REFRESH_GAP_MS = 30_000;

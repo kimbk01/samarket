@@ -26,6 +26,7 @@ import {
   isCompletePhMobile,
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
+import { fetchStorePublicBySlugDeduped, postMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   clearLastCheckoutOrderId,
@@ -139,9 +140,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
       try {
-        const res = await fetch(`/api/stores/${encodeURIComponent(storeSlug)}`, { cache: "no-store" });
-        const json = await res.json();
-        if (!json?.ok || !json.store) {
+        const { json } = await fetchStorePublicBySlugDeduped(storeSlug);
+        const j = json as { ok?: boolean; store?: Record<string, unknown> };
+        if (!j?.ok || !j.store) {
           if (!silent) {
             setStoreLoadFailed(true);
             setStore(null);
@@ -149,7 +150,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           return;
         }
         setStoreLoadFailed(false);
-        const s = json.store as Record<string, unknown>;
+        const s = j.store as Record<string, unknown>;
         const head: StoreHead = {
           id: s.id as string,
           store_name: s.store_name as string,
@@ -658,43 +659,38 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     setLastOrderId(null);
     setBusy(true);
     try {
-      const res = await fetch("/api/me/store-orders", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          store_id: store.id,
-          items: lines.map((l) => {
-            const wire: ModifierSelectionsWire =
-              l.modifierWire ?? { pick: { ...l.optionSelections }, qty: {} };
-            const hasPick = Object.keys(wire.pick).some((k) => (wire.pick[k]?.length ?? 0) > 0);
-            const hasQty = Object.keys(wire.qty).length > 0;
-            const row: Record<string, unknown> = {
-              product_id: l.productId,
-              qty: l.qty,
-            };
-            if (hasPick || hasQty) row.modifier_selections = wire;
-            if (l.lineNote?.trim()) row.line_note = l.lineNote.trim();
-            return row;
-          }),
-          fulfillment_type: fulfillment,
-          buyer_note: buyerNote.trim() || undefined,
-          buyer_phone: parsePhMobileInput(buyerPhone) || undefined,
-          payment_method: selectedPaymentMethod,
-          delivery_address_summary: summaryForSubmit || undefined,
-          delivery_address_detail: addressDetail.trim() || undefined,
+      const { status, json } = await postMeStoreOrder({
+        store_id: store.id,
+        items: lines.map((l) => {
+          const wire: ModifierSelectionsWire =
+            l.modifierWire ?? { pick: { ...l.optionSelections }, qty: {} };
+          const hasPick = Object.keys(wire.pick).some((k) => (wire.pick[k]?.length ?? 0) > 0);
+          const hasQty = Object.keys(wire.qty).length > 0;
+          const row: Record<string, unknown> = {
+            product_id: l.productId,
+            qty: l.qty,
+          };
+          if (hasPick || hasQty) row.modifier_selections = wire;
+          if (l.lineNote?.trim()) row.line_note = l.lineNote.trim();
+          return row;
         }),
+        fulfillment_type: fulfillment,
+        buyer_note: buyerNote.trim() || undefined,
+        buyer_phone: parsePhMobileInput(buyerPhone) || undefined,
+        payment_method: selectedPaymentMethod,
+        delivery_address_summary: summaryForSubmit || undefined,
+        delivery_address_detail: addressDetail.trim() || undefined,
       });
-      const json = await res.json();
-      if (res.status === 401) {
+      if (status === 401) {
         if (redirectForBlockedAction(router, t("common_login_required"), pathname || `/stores/${storeSlug}/cart`)) {
           return;
         }
         setErr(t("common_login_required"));
         return;
       }
-      if (!json?.ok) {
-        const code = typeof json?.error === "string" ? json.error : "order_failed";
+      const orderJson = json as { ok?: boolean; error?: string; order?: { id?: string } };
+      if (!orderJson?.ok) {
+        const code = typeof orderJson.error === "string" ? orderJson.error : "order_failed";
         if (redirectForBlockedAction(router, code, pathname || `/stores/${storeSlug}/cart`)) {
           return;
         }
@@ -719,7 +715,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         );
         return;
       }
-      const oid = typeof json.order?.id === "string" ? json.order.id : null;
+      const oid = typeof orderJson.order?.id === "string" ? orderJson.order.id : null;
       /* Context 비우기와 동시에 리렌더되면 lines===0이 lastOrderId보다 먼저 적용될 수 있음 → id 먼저 동기 반영 */
       flushSync(() => {
         setLastOrderId(oid);

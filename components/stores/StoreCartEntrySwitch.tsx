@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreCommerceCartPageClient } from "@/components/stores/StoreCommerceCartPageClient";
 import { StoreCommerceCartEntryFallback } from "@/components/stores/StoreCommerceCartEntryFallback";
+import { fetchStorePublicBySlugDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type EntryState =
   | { kind: "load" }
@@ -25,10 +26,8 @@ export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
         setState({ kind: "load" });
       }
       try {
-        const res = await fetch(`/api/stores/${encodeURIComponent(normalizedSlug)}`, {
-          cache: "no-store",
-        });
-        const json: { ok?: boolean; store?: unknown } = await res.json().catch(() => ({}));
+        const { json: raw } = await fetchStorePublicBySlugDeduped(normalizedSlug);
+        const json = raw as { ok?: boolean; store?: unknown };
         const next = ((): EntryState => {
           if (json?.ok && json?.store) return { kind: "real" };
           if (!json?.ok) return { kind: "fallback", hint: "api" };

@@ -4,6 +4,8 @@
  * - fetchExchangeRates: 서버 등에서 외부 API 직접 호출 시 (선택)
  */
 
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
 export interface ExchangeRates {
   PHP: number;
   KRW: number;
@@ -14,21 +16,23 @@ export interface ExchangeRates {
 
 /** 쓰기 시점에 현재 환율 가져오기 (우리 API 경유 → 서버에서 외부 API 호출, CORS 없음) */
 export async function fetchExchangeRatesViaApp(): Promise<ExchangeRates | null> {
-  try {
-    const res = await fetch("/api/exchange-rates", { cache: "no-store" });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data?.KRW == null || typeof data.KRW !== "number" || data.KRW <= 0) return null;
-    return {
-      PHP: 1,
-      KRW: data.KRW,
-      USD: typeof data.USD === "number" ? data.USD : undefined,
-      JPY: typeof data.JPY === "number" ? data.JPY : undefined,
-      CNY: typeof data.CNY === "number" ? data.CNY : undefined,
-    };
-  } catch {
-    return null;
-  }
+  return runSingleFlight("exchange-rates:via-app", async () => {
+    try {
+      const res = await fetch("/api/exchange-rates", { cache: "no-store" });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data?.KRW == null || typeof data.KRW !== "number" || data.KRW <= 0) return null;
+      return {
+        PHP: 1,
+        KRW: data.KRW,
+        USD: typeof data.USD === "number" ? data.USD : undefined,
+        JPY: typeof data.JPY === "number" ? data.JPY : undefined,
+        CNY: typeof data.CNY === "number" ? data.CNY : undefined,
+      };
+    } catch {
+      return null;
+    }
+  });
 }
 
 const EXTERNAL_API = "https://open.er-api.com/v6/latest/PHP";

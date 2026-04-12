@@ -16,6 +16,7 @@ import type { OrderChatMessagePublic, OrderChatRole, OrderChatRoomPublic } from 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { createCommunityMessengerDeepLinkFromOrderChat } from "@/lib/community-messenger/order-chat-bridge";
+import { fetchOrderChatGetDeduped } from "@/lib/order-chat/fetch-order-chat-get-deduped";
 
 type Snapshot = {
   room: OrderChatRoomPublic;
@@ -68,23 +69,20 @@ export function OrderChatRoomClient({
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const res = await fetch(`/api/order-chat/orders/${encodeURIComponent(orderId)}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as
+      const { status, json } = await fetchOrderChatGetDeduped(orderId);
+      const payload = json as
         | ({ ok?: false; error?: string })
         | ({ ok?: true } & Snapshot);
-      if (!res.ok || json.ok !== true) {
+      if (status < 200 || status >= 300 || payload.ok !== true) {
         const errorMessage =
-          "error" in json && typeof json.error === "string" ? json.error : "load_failed";
+          "error" in payload && typeof payload.error === "string" ? payload.error : "load_failed";
         setState({
           kind: "error",
           message: errorMessage,
         });
         return;
       }
-      setState({ kind: "ready", ...json });
+      setState({ kind: "ready", ...payload });
       void fetch(`/api/order-chat/orders/${encodeURIComponent(orderId)}/read`, {
         method: "POST",
         credentials: "include",

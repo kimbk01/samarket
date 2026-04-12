@@ -4,14 +4,13 @@
  */
 import type { ChatMessage } from "@/lib/types/chat";
 import type { OrderChatMessagePublic } from "@/lib/order-chat/types";
-import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
-
-const orderChatSnapshotKey = (orderId: string) => `chat:order-chat-snapshot:${orderId}`;
+import {
+  fetchOrderChatGetDeduped,
+  forgetOrderChatGetDeduped,
+} from "@/lib/order-chat/fetch-order-chat-get-deduped";
 
 export function bustOrderChatMessagesSingleFlight(orderId: string): void {
-  const oid = orderId.trim();
-  if (!oid) return;
-  forgetSingleFlight(orderChatSnapshotKey(oid));
+  forgetOrderChatGetDeduped(orderId);
 }
 
 export function mapOrderChatMessageToChatMessage(
@@ -42,34 +41,25 @@ export function mapOrderChatMessageToChatMessage(
   };
 }
 
-/** GET /api/order-chat/orders/:orderId → messages 를 ChatMessage[] 로 (동시 호출 합류) */
-export function fetchOrderChatMessagesForUnifiedRoom(
+/** GET /api/order-chat/orders/:orderId → messages 를 ChatMessage[] 로 (`fetchOrderChatGetDeduped` 와 동일 RTT 합류) */
+export async function fetchOrderChatMessagesForUnifiedRoom(
   orderId: string,
   uiRoomId: string,
   roomBuyerId: string,
   currentUserId: string
 ): Promise<ChatMessage[]> {
   const oid = orderId.trim();
-  if (!oid) return Promise.resolve([]);
-  const key = orderChatSnapshotKey(oid);
-  return runSingleFlight(key, async () => {
-    try {
-      const res = await fetch(`/api/order-chat/orders/${encodeURIComponent(oid)}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        messages?: OrderChatMessagePublic[];
-      };
-      if (!res.ok || json.ok !== true || !Array.isArray(json.messages)) {
-        return [];
-      }
-      return json.messages.map((row) =>
-        mapOrderChatMessageToChatMessage(row, uiRoomId, roomBuyerId, currentUserId)
-      );
-    } catch {
+  if (!oid) return [];
+  try {
+    const { status, json } = await fetchOrderChatGetDeduped(oid);
+    const j = json as { ok?: boolean; messages?: OrderChatMessagePublic[] };
+    if (status < 200 || status >= 300 || j.ok !== true || !Array.isArray(j.messages)) {
       return [];
     }
-  });
+    return j.messages.map((row) =>
+      mapOrderChatMessageToChatMessage(row, uiRoomId, roomBuyerId, currentUserId)
+    );
+  } catch {
+    return [];
+  }
 }

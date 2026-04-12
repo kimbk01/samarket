@@ -33,6 +33,7 @@ import {
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
+import { fetchStoreProductPublicDeduped, postMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 
 type PublicStore = {
   id: string;
@@ -219,24 +220,22 @@ export function StoreProductPublic({
         setNotFound(false);
       }
       try {
-        const res = await fetch(`/api/stores/products/${encodeURIComponent(productId)}`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (!json?.ok || !json.product || !json.store) {
+        const { json } = await fetchStoreProductPublicDeduped(productId);
+        const j = json as { ok?: boolean; product?: PublicProduct; store?: PublicStore };
+        if (!j?.ok || !j.product || !j.store) {
           if (!silent) setNotFound(true);
           return;
         }
-        const apiSlug = String(json.store.slug ?? "");
+        const apiSlug = String(j.store.slug ?? "");
         if (!storeSlugsMatch(storeSlug, apiSlug)) {
           router.replace(
             `/stores/${encodeURIComponent(apiSlug)}/p/${encodeURIComponent(productId)}`,
             { scroll: false }
           );
         }
-        setProduct(json.product);
-        setStore(json.store);
-        const p = json.product as PublicProduct;
+        setProduct(j.product);
+        setStore(j.store);
+        const p = j.product;
         const minQ = Math.max(1, Number(p.min_order_qty) || 1);
         const maxQ = Math.max(minQ, Number(p.max_order_qty) || 99);
         const tr = p.track_inventory === true;
@@ -249,7 +248,7 @@ export function StoreProductPublic({
           setOrderOk(null);
           setLastPlacedOrderId(null);
         }
-        const stRow = json.store as { delivery_available?: boolean | null };
+        const stRow = j.store as { delivery_available?: boolean | null };
         const opts: Fulfillment[] = [];
         if (p.pickup_available) opts.push("pickup");
         if (p.local_delivery_available || stRow.delivery_available === true) {
@@ -386,35 +385,30 @@ export function StoreProductPublic({
     setOrderOk(null);
     setOrderBusy(true);
     try {
-      const res = await fetch("/api/me/store-orders", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          store_id: st.id,
-          items: [
-            {
-              product_id: pr.id,
-              qty,
-              modifier_selections:
-                Object.keys(modifierWire.pick).length > 0 || Object.keys(modifierWire.qty).length > 0
-                  ? modifierWire
-                  : undefined,
-              line_note: lineMemo.trim() || undefined,
-            },
-          ],
-          fulfillment_type: fulfillment,
-          buyer_note: buyerNote.trim() || undefined,
-          buyer_phone: parsePhMobileInput(buyerPhone) || undefined,
-        }),
+      const { status, json } = await postMeStoreOrder({
+        store_id: st.id,
+        items: [
+          {
+            product_id: pr.id,
+            qty,
+            modifier_selections:
+              Object.keys(modifierWire.pick).length > 0 || Object.keys(modifierWire.qty).length > 0
+                ? modifierWire
+                : undefined,
+            line_note: lineMemo.trim() || undefined,
+          },
+        ],
+        fulfillment_type: fulfillment,
+        buyer_note: buyerNote.trim() || undefined,
+        buyer_phone: parsePhMobileInput(buyerPhone) || undefined,
       });
-      const json = await res.json();
-      if (res.status === 401) {
+      if (status === 401) {
         setOrderErr(t("common_login_required"));
         return;
       }
-      if (!json?.ok) {
-        const code = typeof json?.error === "string" ? json.error : "order_failed";
+      const orderJ = json as { ok?: boolean; error?: string; order?: { id?: string; order_no?: string } };
+      if (!orderJ?.ok) {
+        const code = typeof orderJ.error === "string" ? orderJ.error : "order_failed";
         const msg =
           code === "insufficient_stock"
             ? "재고가 부족합니다. 수량을 줄이거나 새로고침 후 다시 시도해 주세요."
@@ -444,7 +438,7 @@ export function StoreProductPublic({
         setOrderErr(msg);
         return;
       }
-      const placedId = typeof json.order?.id === "string" ? json.order.id : null;
+      const placedId = typeof orderJ.order?.id === "string" ? orderJ.order.id : null;
       if (placedId) {
         void router.prefetch("/my/store-orders");
         void router.prefetch(`/my/store-orders/${encodeURIComponent(placedId)}`);
@@ -453,7 +447,7 @@ export function StoreProductPublic({
         router.replace("/my/store-orders");
         return;
       }
-      setOrderOk(`${t("notify_order_received_message")} ${json.order?.order_no ?? ""}`.trim());
+      setOrderOk(`${t("notify_order_received_message")} ${orderJ.order?.order_no ?? ""}`.trim());
       setLastPlacedOrderId(null);
       await reloadProduct();
     } catch {

@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -135,23 +135,21 @@ export function StoreNearbyFeedSection({
       }
       if (!silent) setLoading(true);
       try {
-        await runSingleFlight(`stores:home-feed:${fetchSuffix}`, async () => {
-          const res = await fetch(`/api/stores/home-feed${fetchSuffix}`, { cache: "no-store" });
-          const json = await res.json();
-          if (json?.ok && Array.isArray(json.stores)) {
-            const nextStores = json.stores as StoreHomeFeedItem[];
-            const nextMeta = (json.meta ?? null) as { source?: string } | null;
-            storeHomeFeedCache.set(fetchSuffix, {
-              stores: nextStores,
-              meta: nextMeta,
-              expiresAt: Date.now() + STORE_HOME_FEED_TTL_MS,
-            });
-            setStores(nextStores);
-            setMeta(nextMeta);
-          } else {
-            if (!silent) setStores([]);
-          }
-        });
+        const { json } = await fetchStoresHomeFeedDeduped(fetchSuffix);
+        if (json && typeof json === "object" && (json as { ok?: boolean }).ok && Array.isArray((json as { stores?: unknown }).stores)) {
+          const j = json as { stores: StoreHomeFeedItem[]; meta?: { source?: string } };
+          const nextStores = j.stores;
+          const nextMeta = (j.meta ?? null) as { source?: string } | null;
+          storeHomeFeedCache.set(fetchSuffix, {
+            stores: nextStores,
+            meta: nextMeta,
+            expiresAt: Date.now() + STORE_HOME_FEED_TTL_MS,
+          });
+          setStores(nextStores);
+          setMeta(nextMeta);
+        } else {
+          if (!silent) setStores([]);
+        }
       } catch {
         if (!silent) setStores([]);
       } finally {

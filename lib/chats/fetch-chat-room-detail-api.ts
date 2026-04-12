@@ -67,6 +67,15 @@ export async function fetchChatRoomDetailApi(roomId: string): Promise<FetchRoomR
   }
 
   return runSingleFlight(`chat:room-detail:${key}`, async () => {
+    const t = Date.now();
+    const mid = roomDetailCache.get(key);
+    if (mid && t - mid.at < ROOM_DETAIL_TTL_MS) {
+      if (isDegradedChatRoom(mid.room)) {
+        roomDetailCache.delete(key);
+      } else {
+        return { ok: true, room: mid.room, cache: "memory" as const };
+      }
+    }
     try {
       const res = await fetch(`/api/chat/room/${encodeURIComponent(key)}`, {
         credentials: "include",

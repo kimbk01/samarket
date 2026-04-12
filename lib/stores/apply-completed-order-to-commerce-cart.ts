@@ -12,6 +12,7 @@ import {
   lineNoteFromOrderOptionsSnapshot,
   modifierWireFromOrderOptionsSnapshot,
 } from "@/lib/stores/reorder-from-order-snapshot";
+import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
 
 export type ReorderCartItemInput = {
   product_id: string;
@@ -89,15 +90,13 @@ export async function applyCompletedOrderToCommerceCart(
     let discountPercent: number | null = null;
 
     try {
-      const res = await fetch(`/api/stores/products/${encodeURIComponent(pid)}`, {
-        cache: "no-store",
-      });
-      const j = (await res.json().catch(() => ({}))) as {
+      const { status, json: jRaw } = await fetchStoreProductPublicDeduped(pid);
+      const j = jRaw as {
         ok?: boolean;
         product?: Record<string, unknown>;
         store?: { delivery_available?: boolean };
       };
-      if (res.ok && j?.ok && j.product) {
+      if (status >= 200 && status < 300 && j?.ok && j.product) {
         const p = j.product;
         const t = p.title;
         if (typeof t === "string" && t.trim()) title = t.trim();

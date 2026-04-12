@@ -25,6 +25,7 @@ import {
 } from "@/lib/stores/store-address-form-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
+import { fetchStorePublicBySlugDeduped } from "@/lib/stores/store-delivery-api-client";
 
 const STORE_GALLERY_DISPLAY_MAX = 16;
 
@@ -81,11 +82,15 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
     const silent = !!opts?.silent;
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`/api/stores/${encodeURIComponent(slug)}`, { cache: "no-store" });
-      const json = await res.json();
-      if (json?.ok && json.store) {
-        setStore(json.store as StoreInfoRow);
-        setRecentOrderCount(Number(json.meta?.recent_order_count) || 0);
+      const { json } = await fetchStorePublicBySlugDeduped(slug);
+      const j = json as {
+        ok?: boolean;
+        store?: StoreInfoRow;
+        meta?: { recent_order_count?: unknown };
+      };
+      if (j?.ok && j.store) {
+        setStore(j.store);
+        setRecentOrderCount(Number(j.meta?.recent_order_count) || 0);
       } else {
         if (!silent) {
           setStore(null);

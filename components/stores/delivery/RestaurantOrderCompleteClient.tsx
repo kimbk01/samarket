@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { isLikelyUuid } from "@/lib/stores/is-likely-uuid";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type RealOrderHead = {
   id: string;
@@ -42,16 +43,18 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
       const silent = !!opts?.silent;
       if (!silent) setReal({ kind: "loading" });
       try {
-        const res = await fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (!json?.ok || !json.order) {
+        const { json } = await fetchMeStoreOrderDetailDeduped(orderId);
+        const j = json as {
+          ok?: boolean;
+          order?: RealOrderHead;
+          can_submit_review?: boolean;
+          review?: { id?: string };
+        };
+        if (!j?.ok || !j.order) {
           if (!silent) setReal({ kind: "fail" });
           return;
         }
-        const o = json.order as RealOrderHead;
+        const o = j.order as RealOrderHead;
         if (o.store_slug && o.store_slug !== storeSlug) {
           if (!silent) setReal({ kind: "fail" });
           return;
@@ -59,8 +62,8 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
         setReal({
           kind: "ok",
           order: o,
-          canSubmitReview: !!json.can_submit_review,
-          hasReview: !!json.review?.id,
+          canSubmitReview: !!j.can_submit_review,
+          hasReview: !!j.review?.id,
         });
       } catch {
         if (!silent) setReal({ kind: "fail" });

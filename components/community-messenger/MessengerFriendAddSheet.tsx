@@ -3,7 +3,9 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
-import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import { isMessengerFriendRequestBusy } from "@/lib/community-messenger/community-messenger-friend-request-client";
+import { MessengerFriendAddCtaLabels, resolveMessengerFriendAddCta } from "@/lib/community-messenger/messenger-friend-add-cta";
+import type { CommunityMessengerFriendRequest, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 export type MessengerFriendAddTab = "id" | "contacts" | "invite";
 
@@ -19,10 +21,14 @@ type Props = {
   onSearchUsers: () => void | Promise<void>;
   friendUserSearchAttempted: boolean;
   searchResults: CommunityMessengerProfileLite[];
+  viewerUserId: string | null;
+  friendRequests: CommunityMessengerFriendRequest[];
   busyId: string | null;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onPrefetchDirectRoom: (userId: string) => void;
   onRequestFriend: (userId: string) => void;
+  onCancelOutgoingFriendRequest: (requestId: string) => void;
+  onRespondIncomingFriendRequest: (requestId: string, action: "accept" | "reject") => void;
   /** 초대 링크·QR 탭에 표시할 공개 URL */
   inviteUrl: string;
 };
@@ -54,10 +60,14 @@ export function MessengerFriendAddSheet({
   onSearchUsers,
   friendUserSearchAttempted,
   searchResults,
+  viewerUserId,
+  friendRequests,
   busyId,
   onOpenProfile,
   onPrefetchDirectRoom,
   onRequestFriend,
+  onCancelOutgoingFriendRequest,
+  onRespondIncomingFriendRequest,
   inviteUrl,
 }: Props) {
   const [copied, setCopied] = useState(false);
@@ -203,10 +213,14 @@ export function MessengerFriendAddSheet({
                     <SearchResultRow
                       key={user.id}
                       user={user}
+                      viewerUserId={viewerUserId}
+                      friendRequests={friendRequests}
                       busyId={busyId}
                       onOpenProfile={onOpenProfile}
                       onPrefetchDirectRoom={onPrefetchDirectRoom}
                       onRequestFriend={onRequestFriend}
+                      onCancelOutgoingFriendRequest={onCancelOutgoingFriendRequest}
+                      onRespondIncomingFriendRequest={onRespondIncomingFriendRequest}
                     />
                   ))
                 )}
@@ -245,20 +259,30 @@ export function MessengerFriendAddSheet({
 
 function SearchResultRow({
   user,
+  viewerUserId,
+  friendRequests,
   busyId,
   onOpenProfile,
   onPrefetchDirectRoom,
   onRequestFriend,
+  onCancelOutgoingFriendRequest,
+  onRespondIncomingFriendRequest,
 }: {
   user: CommunityMessengerProfileLite;
+  viewerUserId: string | null;
+  friendRequests: CommunityMessengerFriendRequest[];
   busyId: string | null;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onPrefetchDirectRoom: (userId: string) => void;
   onRequestFriend: (userId: string) => void;
+  onCancelOutgoingFriendRequest: (requestId: string) => void;
+  onRespondIncomingFriendRequest: (requestId: string, action: "accept" | "reject") => void;
 }) {
   const prefetchOnceRef = useRef(false);
   const avatarSrc = user.avatarUrl?.trim() ? user.avatarUrl.trim() : null;
   const initial = user.label.trim().slice(0, 1) || "?";
+  const cta = viewerUserId ? resolveMessengerFriendAddCta(user, viewerUserId, friendRequests) : { kind: "add" as const };
+  const bAdd = isMessengerFriendRequestBusy(busyId, user.id);
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 active:bg-[color:var(--messenger-primary-soft)]">
@@ -297,27 +321,76 @@ function SearchResultRow({
           </p>
         </div>
       </button>
-      {user.isFriend ? (
-        <span className="shrink-0 text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
-          친구
-        </span>
-      ) : user.blocked ? (
-        <span className="shrink-0 text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
-          차단됨
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            void onRequestFriend(user.id);
-          }}
-          disabled={busyId === `friend:${user.id}`}
-          className="shrink-0 rounded-full bg-[color:var(--messenger-primary)] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40 active:opacity-90"
-        >
-          요청
-        </button>
-      )}
+      <div className="flex shrink-0 items-center justify-end gap-1">
+        {cta.kind === "friend" || user.isFriend ? (
+          <span className="text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+            {MessengerFriendAddCtaLabels.friend}
+          </span>
+        ) : cta.kind === "blocked" ? (
+          <span className="max-w-[5.5rem] text-right text-[11px] leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+            {MessengerFriendAddCtaLabels.unavailable}
+          </span>
+        ) : cta.kind === "pending_outgoing" ? (
+          <>
+            <span
+              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 text-[11px] font-medium"
+              style={{ color: "var(--messenger-text-secondary)" }}
+            >
+              {MessengerFriendAddCtaLabels.pending}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancelOutgoingFriendRequest(cta.requestId);
+              }}
+              disabled={Boolean(busyId)}
+              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 text-[11px] font-medium disabled:opacity-40"
+              style={{ color: "var(--messenger-text)" }}
+            >
+              {busyId === `request:${cta.requestId}:cancel` ? "…" : MessengerFriendAddCtaLabels.cancel}
+            </button>
+          </>
+        ) : cta.kind === "pending_incoming" ? (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRespondIncomingFriendRequest(cta.requestId, "reject");
+              }}
+              disabled={Boolean(busyId)}
+              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 text-[11px] font-medium disabled:opacity-40"
+              style={{ color: "var(--messenger-text)" }}
+            >
+              {MessengerFriendAddCtaLabels.reject}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRespondIncomingFriendRequest(cta.requestId, "accept");
+              }}
+              disabled={Boolean(busyId)}
+              className="rounded-full bg-[color:var(--messenger-primary)] px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
+            >
+              {MessengerFriendAddCtaLabels.accept}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void onRequestFriend(user.id);
+            }}
+            disabled={Boolean(busyId) || bAdd}
+            className="rounded-full bg-[color:var(--messenger-primary)] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40 active:opacity-90"
+          >
+            {bAdd ? "…" : MessengerFriendAddCtaLabels.add}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

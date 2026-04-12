@@ -37,6 +37,7 @@ import {
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { parseStoreDeliveryMeta, readWeekdaysLineFromJson } from "@/lib/stores/store-detail-meta";
 import { useOwnerManagementHref } from "@/lib/stores/use-owner-management-href";
+import { fetchStorePublicBySlugDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type StoreDetail = {
   id: string;
@@ -95,17 +96,22 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
         setLoading(true);
       }
       try {
-        const res = await fetch(`/api/stores/${encodeURIComponent(slug)}`, { cache: "no-store" });
-        const json = await res.json();
-        setDbOff(json?.meta?.source === "supabase_unconfigured");
-        if (json?.ok && json.store) {
-          setStore(json.store);
+        const { json } = await fetchStorePublicBySlugDeduped(slug);
+        const j = json as {
+          ok?: boolean;
+          store?: StoreDetail;
+          products?: unknown;
+          meta?: { source?: string; canSell?: boolean };
+        };
+        setDbOff(j?.meta?.source === "supabase_unconfigured");
+        if (j?.ok && j.store) {
+          setStore(j.store);
           setProducts(
             sortStoreDetailProductCardsForDisplay(
-              Array.isArray(json.products) ? parseStoreDetailProducts(json.products) : []
+              Array.isArray(j.products) ? parseStoreDetailProducts(j.products) : []
             )
           );
-          setCanSell(!!json.meta?.canSell);
+          setCanSell(!!j.meta?.canSell);
         } else {
           if (!silent) {
             setStore(null);

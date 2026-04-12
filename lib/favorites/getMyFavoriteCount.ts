@@ -15,6 +15,10 @@ export async function getMyFavoriteCount(): Promise<number> {
     return cached.value;
   }
   return runSingleFlight("favorites:count", async () => {
+    const again = cached;
+    if (again && again.expiresAt > Date.now()) {
+      return again.value;
+    }
     try {
       const res = await fetch("/api/favorites/count", { credentials: "include" });
       const data = (await res.json()) as { count?: number };
