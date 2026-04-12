@@ -59,7 +59,10 @@ import {
   fetchIntegratedChatRoomMessagesPage,
   fetchIntegratedChatRoomMessagesWithMeta,
   fetchLegacyChatRoomMessages,
+  fetchLegacyChatRoomMessagesPage,
+  fetchLegacyChatRoomMessagesWithMeta,
   guessIntegratedHistoryMetaFromMessages,
+  guessLegacyHistoryMetaFromMessages,
   CHAT_MESSAGE_CLIENT_CACHE_TTL_MS,
   hasFreshIntegratedChatRoomMessagesCache,
   hasFreshLegacyChatRoomMessagesCache,
@@ -181,8 +184,14 @@ export function ChatDetailView({
     hasMore: boolean;
     nextCursor: { before: string; beforeCreatedAt: string } | null;
   }>({ hasMore: false, nextCursor: null });
+  /** 레거시 product_chat — 과거 페이지(키셋) */
+  const legacyHistoryRef = useRef<{
+    hasMore: boolean;
+    nextCursor: { before: string; beforeCreatedAt: string } | null;
+  }>({ hasMore: false, nextCursor: null });
   const tradeThreadScrollRef = useRef<HTMLDivElement>(null);
   const integratedHistoryLoadInFlightRef = useRef(false);
+  const legacyHistoryLoadInFlightRef = useRef(false);
   const integratedHistoryScrollTsRef = useRef(0);
   const partnerId =
     room.buyerId === currentUserId ? room.sellerId : room.buyerId;
@@ -455,6 +464,7 @@ export function ChatDetailView({
     setListingNotice(null);
     setSellerListingControlsEnabled(true);
     integratedHistoryRef.current = { hasMore: false, nextCursor: null };
+    legacyHistoryRef.current = { hasMore: false, nextCursor: null };
     setIntegratedHistoryLoading(false);
   }, [room.id]);
 
@@ -566,7 +576,12 @@ export function ChatDetailView({
       };
       return page.messages;
     }
-    const fromApi = await fetchLegacyChatRoomMessages(room.id);
+    const legacyPage = await fetchLegacyChatRoomMessagesWithMeta(room.id);
+    legacyHistoryRef.current = {
+      hasMore: legacyPage.hasMore,
+      nextCursor: legacyPage.nextCursor,
+    };
+    const fromApi = legacyPage.messages;
     if (fromApi.length > 0) return fromApi;
     try {
       return await getMessagesFromDb(room.id, currentUserId);
@@ -591,26 +606,62 @@ export function ChatDetailView({
     return fetchLegacyChatRoomMessages(room.id);
   }, [room.id, room.buyerId, currentUserId, isChatRoom, isStoreOrderChat, storeOrderId]);
 
-  /** 통합 거래방: 상단 근처 스크롤 시 과거 메시지(키셋) 로드 */
+  /** 통합 거래방·레거시 product_chat: 상단 근처 스크롤 시 과거 메시지(키셋) 로드 */
   const onTradeThreadScroll = useCallback(() => {
-    if (!isChatRoom || isStoreOrderChat) return;
+    if (isStoreOrderChat) return;
     const el = tradeThreadScrollRef.current;
-    if (!el || integratedHistoryLoadInFlightRef.current) return;
-    const { hasMore, nextCursor } = integratedHistoryRef.current;
-    if (!hasMore || !nextCursor) return;
+    if (!el) return;
     const t = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (t - integratedHistoryScrollTsRef.current < 100) return;
     if (el.scrollTop > 88) return;
 
+    if (isChatRoom) {
+      if (integratedHistoryLoadInFlightRef.current) return;
+      const { hasMore, nextCursor } = integratedHistoryRef.current;
+      if (!hasMore || !nextCursor) return;
+
+      integratedHistoryScrollTsRef.current = t;
+      integratedHistoryLoadInFlightRef.current = true;
+      setIntegratedHistoryLoading(true);
+      const prevH = el.scrollHeight;
+      const prevTop = el.scrollTop;
+
+      void fetchIntegratedChatRoomMessagesPage(room.id, { cursor: nextCursor })
+        .then((page) => {
+          integratedHistoryRef.current = {
+            hasMore: page.hasMore,
+            nextCursor: page.nextCursor,
+          };
+          setMessages((prev) => mergeChatMessagesById(page.messages, prev));
+          requestAnimationFrame(() => {
+            const el2 = tradeThreadScrollRef.current;
+            if (!el2) return;
+            el2.scrollTop = prevTop + (el2.scrollHeight - prevH);
+          });
+        })
+        .catch(() => {
+          /* 네트워크 오류 등 — 기존 스레드 유지 */
+        })
+        .finally(() => {
+          integratedHistoryLoadInFlightRef.current = false;
+          setIntegratedHistoryLoading(false);
+        });
+      return;
+    }
+
+    if (legacyHistoryLoadInFlightRef.current) return;
+    const { hasMore, nextCursor } = legacyHistoryRef.current;
+    if (!hasMore || !nextCursor) return;
+
     integratedHistoryScrollTsRef.current = t;
-    integratedHistoryLoadInFlightRef.current = true;
+    legacyHistoryLoadInFlightRef.current = true;
     setIntegratedHistoryLoading(true);
     const prevH = el.scrollHeight;
     const prevTop = el.scrollTop;
 
-    void fetchIntegratedChatRoomMessagesPage(room.id, { cursor: nextCursor })
+    void fetchLegacyChatRoomMessagesPage(room.id, { cursor: nextCursor })
       .then((page) => {
-        integratedHistoryRef.current = {
+        legacyHistoryRef.current = {
           hasMore: page.hasMore,
           nextCursor: page.nextCursor,
         };
@@ -622,10 +673,10 @@ export function ChatDetailView({
         });
       })
       .catch(() => {
-        /* 네트워크 오류 등 — 기존 스레드 유지 */
+        /* ignore */
       })
       .finally(() => {
-        integratedHistoryLoadInFlightRef.current = false;
+        legacyHistoryLoadInFlightRef.current = false;
         setIntegratedHistoryLoading(false);
       });
   }, [isChatRoom, isStoreOrderChat, room.id]);
@@ -640,6 +691,9 @@ export function ChatDetailView({
       if (isChatRoom && !isStoreOrderChat) {
         const g = guessIntegratedHistoryMetaFromMessages(initialBootstrapMessages);
         integratedHistoryRef.current = { hasMore: g.hasMore, nextCursor: g.nextCursor };
+      } else if (!isChatRoom) {
+        const g = guessLegacyHistoryMetaFromMessages(initialBootstrapMessages);
+        legacyHistoryRef.current = { hasMore: g.hasMore, nextCursor: g.nextCursor };
       }
       logClientPerf("chat-detail.messages.initial", {
         roomId: room.id,
@@ -666,6 +720,9 @@ export function ChatDetailView({
       if (isChatRoom && !isStoreOrderChat && cached.length > 0) {
         const g = guessIntegratedHistoryMetaFromMessages(cached);
         integratedHistoryRef.current = { hasMore: g.hasMore, nextCursor: g.nextCursor };
+      } else if (!isChatRoom && cached.length > 0) {
+        const g = guessLegacyHistoryMetaFromMessages(cached);
+        legacyHistoryRef.current = { hasMore: g.hasMore, nextCursor: g.nextCursor };
       }
       logClientPerf("chat-detail.messages.initial", {
         roomId: room.id,
@@ -1704,7 +1761,7 @@ export function ChatDetailView({
           className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-sam-surface py-2" : "bg-[#F7F7F7] py-1"}`}
         >
           <div className={CHAT_THREAD_COLUMN_INNER_CLASS}>
-            {integratedHistoryLoading && isChatRoom && !isStoreOrderChat ? (
+            {integratedHistoryLoading && !isStoreOrderChat ? (
               <div className="px-4 py-2 text-center text-[13px] text-sam-muted">이전 메시지를 불러오는 중…</div>
             ) : null}
             {messagesLoading ? (

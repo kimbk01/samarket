@@ -29,6 +29,10 @@ import {
   setCommunityMessengerIncomingCallSoundEnabled,
   writeCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
+import {
+  messengerMonitorHomeBootstrapUnreadSync,
+  messengerMonitorUnreadListSync,
+} from "@/lib/community-messenger/monitoring/client";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import {
   clearBootstrapCache,
@@ -368,11 +372,93 @@ export function CommunityMessengerHome({
     }
     if (shouldBlock) setLoading(true);
     try {
-      const url = silent
-        ? "/api/community-messenger/bootstrap?fresh=1"
-        : useLiteBootstrap
-          ? "/api/community-messenger/bootstrap?lite=1"
-          : "/api/community-messenger/bootstrap";
+      /** Realtime 등 사일런트 갱신 — 방 목록만 병합(전체 부트스트랩·fresh 생략) */
+      if (silent) {
+        const tSilentFetch =
+          typeof performance !== "undefined" ? performance.now() : null;
+        const [resRooms, resReq] = await Promise.all([
+          fetch("/api/community-messenger/rooms", { cache: "no-store" }),
+          fetch("/api/community-messenger/friend-requests", { cache: "no-store" }),
+        ]);
+        const jsonRooms = (await resRooms.json().catch(() => ({}))) as {
+          ok?: boolean;
+          chats?: CommunityMessengerRoomSummary[];
+          groups?: CommunityMessengerRoomSummary[];
+        };
+        const jsonReq = (await resReq.json().catch(() => ({}))) as {
+          ok?: boolean;
+          requests?: CommunityMessengerBootstrap["requests"];
+        };
+        if (resRooms.ok && jsonRooms.ok) {
+          setData((prev) => {
+            if (!prev) return prev;
+            const chats = jsonRooms.chats ?? [];
+            const groups = jsonRooms.groups ?? [];
+            const requests =
+              resReq.ok && jsonReq.ok ? (jsonReq.requests ?? prev.requests) : prev.requests;
+            const next: CommunityMessengerBootstrap = {
+              ...prev,
+              chats,
+              groups,
+              requests,
+              tabs: {
+                ...prev.tabs,
+                chats: chats.length,
+                groups: groups.length,
+              },
+            };
+            primeBootstrapCache(next);
+            return next;
+          });
+          if (tSilentFetch != null) {
+            messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
+          }
+        } else {
+          const unauthorized = resRooms.status === 401 || resRooms.status === 403;
+          if (unauthorized) {
+            clearBootstrapCache();
+            setAuthRequired(true);
+            setPageError(tRef.current("nav_messenger_login_required"));
+            setData(null);
+          } else {
+            const res = await fetch("/api/community-messenger/bootstrap?fresh=1", { cache: "no-store" });
+            const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
+              ok?: boolean;
+              error?: string;
+            };
+            if (res.ok && json.ok) {
+              const next: CommunityMessengerBootstrap = {
+                me: json.me ?? null,
+                tabs: {
+                  friends: json.tabs?.friends ?? 0,
+                  chats: json.tabs?.chats ?? 0,
+                  groups: json.tabs?.groups ?? 0,
+                  calls: json.tabs?.calls ?? 0,
+                },
+                friends: json.friends ?? [],
+                following: json.following ?? [],
+                hidden: json.hidden ?? [],
+                blocked: json.blocked ?? [],
+                requests: json.requests ?? [],
+                chats: json.chats ?? [],
+                groups: json.groups ?? [],
+                discoverableGroups: json.discoverableGroups ?? [],
+                calls: json.calls ?? [],
+              };
+              setAuthRequired(false);
+              setPageError(null);
+              setData(next);
+              primeBootstrapCache(next);
+              if (tSilentFetch != null) {
+                messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
+              }
+            }
+          }
+        }
+      } else {
+      const url = useLiteBootstrap
+        ? "/api/community-messenger/bootstrap?lite=1"
+        : "/api/community-messenger/bootstrap";
       const res = await fetch(url, { cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & { ok?: boolean; error?: string };
       if (res.ok && json.ok) {
@@ -434,6 +520,7 @@ export function CommunityMessengerHome({
             setData(null);
           }
         }
+      }
       }
     } finally {
       if (silent) {
@@ -1326,6 +1413,7 @@ export function CommunityMessengerHome({
       const actionKey = `room-read:${roomId}`;
       setBusyId(actionKey);
       setActionError(null);
+      const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
       try {
         const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
@@ -1338,6 +1426,9 @@ export function CommunityMessengerHome({
           return;
         }
         updateRoomSummaryState(roomId, (room) => ({ ...room, unreadCount: 0 }));
+        if (typeof performance !== "undefined") {
+          messengerMonitorUnreadListSync(roomId, Math.round(performance.now() - t0), "mark_read");
+        }
       } finally {
         setBusyId(null);
       }

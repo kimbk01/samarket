@@ -45,7 +45,12 @@ import {
   communityMessengerRoomResourcePath,
   parseCommunityMessengerRoomSnapshotResponse,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
-import { flushMessengerMonitorQueue, messengerMonitorMessageRtt, messengerMonitorRoomLoad } from "@/lib/community-messenger/monitoring/client";
+import {
+  flushMessengerMonitorQueue,
+  messengerMonitorMessageRtt,
+  messengerMonitorRoomLoad,
+  messengerMonitorUnreadListSync,
+} from "@/lib/community-messenger/monitoring/client";
 import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
 import { GroupRoomCallOverlay } from "@/components/community-messenger/call-ui";
@@ -86,6 +91,11 @@ export function CommunityMessengerRoomClient({
   const callActionFromUrl = searchParams.get("callAction") ?? initialCallAction ?? undefined;
   const sessionIdFromUrl = searchParams.get("sessionId") ?? initialCallSessionId ?? undefined;
   const contextMetaFromUrlHandledRef = useRef(false);
+  /** 방 입장 시 미읽음이 있으면 `mark_read` 1회 — 동일 방 재입장마다 초기화 */
+  const roomOpenMarkReadRef = useRef<{ roomId: string | null; phase: "idle" | "in_flight" | "done" }>({
+    roomId: null,
+    phase: "idle",
+  });
   const sheetInfoFromUrlHandledRef = useRef(false);
   const autoHandledSessionRef = useRef<string | null>(null);
   const autoAcceptInFlightRef = useRef<string | null>(null);
@@ -438,6 +448,40 @@ export function CommunityMessengerRoomClient({
     },
     onMessageEvent: handleRealtimeMessageEvent,
   });
+
+  /** 스냅샷에 미읽음이 있으면 방 열람으로 읽음 처리 — 목록·배지와 서버 정합(모니터링 `room_open`) */
+  useEffect(() => {
+    const id = roomId?.trim();
+    if (!id) return;
+    if (roomOpenMarkReadRef.current.roomId !== id) {
+      roomOpenMarkReadRef.current = { roomId: id, phase: "idle" };
+    }
+    if (!snapshot) return;
+    if (String(snapshot.room.id) !== String(id)) return;
+    if (roomOpenMarkReadRef.current.phase !== "idle") return;
+    if (snapshot.room.unreadCount < 1) return;
+    roomOpenMarkReadRef.current.phase = "in_flight";
+    const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+    void (async () => {
+      try {
+        const res = await fetch(communityMessengerRoomResourcePath(id), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ action: "mark_read" }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (res.ok && json.ok && typeof performance !== "undefined") {
+          messengerMonitorUnreadListSync(id, Math.round(performance.now() - t0), "room_open");
+          roomOpenMarkReadRef.current.phase = "done";
+        } else {
+          roomOpenMarkReadRef.current.phase = "idle";
+        }
+      } catch {
+        roomOpenMarkReadRef.current.phase = "idle";
+      }
+    })();
+  }, [roomId, snapshot]);
 
   useEffect(() => {
     if (!snapshot) {

@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useMemo,
+  type LiHTMLAttributes,
+  type ReactElement,
+} from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
@@ -13,6 +20,9 @@ import {
 const DEFAULT_CHAT_BUBBLE_ROW_MAX =
   "max-w-[min(82vw,20rem)] sm:max-w-[72%] md:max-w-[min(75%,34rem)]";
 
+/** 블록 수가 이 이상이면 스크롤 부모 + virtualize 시 창만 렌더 (그룹 채팅 등) */
+const CHAT_MESSAGE_LIST_VIRTUAL_THRESHOLD = 48;
+
 interface ChatMessageListProps {
   messages: ChatMessage[];
   currentUserId: string;
@@ -20,6 +30,13 @@ interface ChatMessageListProps {
   partnerAvatar?: string;
   /** `instagram`: 수신 회색 말풍선·발신 메신저 블루·날짜 필 형태 */
   variant?: "default" | "instagram";
+  /**
+   * 스크롤 컨테이너(ref.current 가 overflow-y 스크롤 요소). `virtualize` 와 함께 쓸 것.
+   * 긴 스레드에서 블록 단위 가상화로 메인 스레드 비용을 줄인다.
+   */
+  scrollParentRef?: React.RefObject<HTMLElement | null>;
+  /** `scrollParentRef` 가 있을 때만 적용 — instagram variant 는 레이아웃 복잡도로 비활성 권장 */
+  virtualize?: boolean;
 }
 
 function getDateKey(isoString: string): string {
@@ -171,6 +188,8 @@ export function ChatMessageList({
   partnerNickname = "",
   partnerAvatar,
   variant = "default",
+  scrollParentRef,
+  virtualize = false,
 }: ChatMessageListProps) {
   const { t } = useI18n();
   const ig = variant === "instagram";
@@ -184,124 +203,191 @@ export function ChatMessageList({
   }, [messages]);
   const blocks = useMemo(() => buildBlocks(uniqueMessages, currentUserId), [uniqueMessages, currentUserId]);
 
-  if (uniqueMessages.length === 0) {
-    return (
-      <div className="flex min-h-[200px] items-center justify-center px-4 py-10">
-        <p
-          className={`text-center font-normal ${ig ? `max-w-[22.2rem] ${IG_DM_BODY_TEXT} text-muted` : "text-[14px] text-[#999999]"}`}
-        >
-          {t("common_start_conversation_message")}
-        </p>
-      </div>
-    );
-  }
-  const items: React.ReactNode[] = [];
+  const listItems = useMemo(() => {
+    const items: React.ReactElement[] = [];
+    blocks.forEach((block, blockIdx) => {
+      const prevBlock = blockIdx > 0 ? blocks[blockIdx - 1] : null;
+      const gapFromPrev =
+        prevBlock && (prevBlock.type === "opponent" || prevBlock.type === "mine")
+          ? ig
+            ? "mt-2.5"
+            : "mt-3"
+          : "";
 
-  blocks.forEach((block, blockIdx) => {
-    const prevBlock = blockIdx > 0 ? blocks[blockIdx - 1] : null;
-    const gapFromPrev =
-      prevBlock && (prevBlock.type === "opponent" || prevBlock.type === "mine")
-        ? ig
-          ? "mt-2.5"
-          : "mt-3"
-        : "";
-
-    if (block.type === "date") {
-      items.push(
-        <li key={`date-${block.dateKey}`} className={`flex justify-center ${ig ? "py-5" : "py-4"}`}>
-          {ig ? (
-            <span className="rounded-full bg-black/[0.05] px-3.5 py-1.5 text-[12px] font-medium leading-none text-muted">
-              {block.label}
-            </span>
-          ) : (
-            <span className="text-[12px] font-medium leading-[16px] text-[#999999]">
-              ——— {block.label} ———
-            </span>
-          )}
-        </li>
-      );
-      return;
-    }
-
-    if (block.type === "system") {
-      const body = ((block.msg.message || "").trim() || t("common_system_message")).trim();
-      if (ig) {
+      if (block.type === "date") {
         items.push(
-          <li key={block.msg.id} className={`flex justify-start ${gapFromPrev}`}>
-            <div className={`flex ${IG_DM_BUBBLE_ROW_MAX} items-end gap-2.5`}>
+          <li key={`date-${block.dateKey}`} className={`flex justify-center ${ig ? "py-5" : "py-4"}`}>
+            {ig ? (
+              <span className="rounded-full bg-black/[0.05] px-3.5 py-1.5 text-[12px] font-medium leading-none text-muted">
+                {block.label}
+              </span>
+            ) : (
+              <span className="text-[12px] font-medium leading-[16px] text-[#999999]">
+                ——— {block.label} ———
+              </span>
+            )}
+          </li>
+        );
+        return;
+      }
+
+      if (block.type === "system") {
+        const body = ((block.msg.message || "").trim() || t("common_system_message")).trim();
+        if (ig) {
+          items.push(
+            <li key={block.msg.id} className={`flex justify-start ${gapFromPrev}`}>
+              <div className={`flex ${IG_DM_BUBBLE_ROW_MAX} items-end gap-2.5`}>
+                <div className="flex shrink-0 flex-col justify-end">
+                  <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]">
+                    {partnerAvatar ? (
+                      <img src={partnerAvatar} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-foreground">
+                        {(partnerNickname || "?").charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div
+                    className={`flex min-h-[36px] min-w-[44px] items-start justify-start rounded-ui-rect bg-[#F0F0F0] ${IG_DM_BUBBLE_PAD} shadow-none`}
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
+                    <p className={`w-full whitespace-pre-wrap break-words text-left ${IG_DM_BODY_TEXT} text-foreground`}>
+                      {body}
+                    </p>
+                  </div>
+                  <div className="mt-0.5 flex justify-start">
+                    <span className="text-[11px] font-normal tabular-nums leading-4 text-muted">
+                      {formatBubbleTime(block.msg.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </li>
+          );
+        } else {
+          items.push(
+            <li key={block.msg.id} className={`flex justify-center px-3 py-1.5 ${gapFromPrev}`}>
+              <p className="max-w-[90%] rounded-ui-rect bg-black/10 px-3 py-2 text-center text-[12px] font-medium leading-[16px] text-[#999999]">
+                {body}
+              </p>
+            </li>
+          );
+        }
+        return;
+      }
+
+      if (block.type === "opponent") {
+        const msgs = block.messages;
+        const opponentBubbleShell = ig ? "bg-[#F0F0F0] shadow-none" : "bg-[#FFFFFF] shadow-sm";
+        const opponentText = ig
+          ? `${IG_DM_BODY_TEXT} text-left text-foreground`
+          : "text-[14px] font-normal leading-[20px] text-[#111111]";
+        const bubblePadIg = IG_DM_BUBBLE_PAD;
+        items.push(
+          <li key={`opponent-${msgs[0].id}`} className={`flex justify-start ${gapFromPrev}`}>
+            <div className={`flex ${ig ? IG_DM_BUBBLE_ROW_MAX : DEFAULT_CHAT_BUBBLE_ROW_MAX} items-end ${ig ? "gap-2.5" : "gap-2"}`}>
               <div className="flex shrink-0 flex-col justify-end">
-                <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]">
+                <div
+                  className={`relative overflow-hidden rounded-full ${ig ? "h-8 w-8 bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]" : "h-[34px] w-[34px] bg-sam-surface-muted"}`}
+                >
                   {partnerAvatar ? (
                     <img src={partnerAvatar} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-foreground">
+                    <div
+                      className={`flex h-full w-full items-center justify-center ${ig ? "text-[13px] font-semibold text-foreground" : "text-[14px] font-medium text-sam-muted"}`}
+                    >
                       {(partnerNickname || "?").charAt(0)}
                     </div>
                   )}
                 </div>
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
-                <div
-                  className={`flex min-h-[36px] min-w-[44px] items-start justify-start rounded-ui-rect bg-[#F0F0F0] ${IG_DM_BUBBLE_PAD} shadow-none`}
-                  onContextMenu={(e) => e.preventDefault()}
+                <p
+                  className={`truncate pl-0.5 ${ig ? "mb-1 text-[12px] font-semibold leading-none text-muted" : "mb-0.5 text-[13px] font-medium text-[#111111]"}`}
                 >
-                  <p className={`w-full whitespace-pre-wrap break-words text-left ${IG_DM_BODY_TEXT} text-foreground`}>
-                    {body}
-                  </p>
-                </div>
-                <div className="mt-0.5 flex justify-start">
-                  <span className="text-[11px] font-normal tabular-nums leading-4 text-muted">
-                    {formatBubbleTime(block.msg.createdAt)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </li>
-        );
-      } else {
-        items.push(
-          <li key={block.msg.id} className={`flex justify-center px-3 py-1.5 ${gapFromPrev}`}>
-            <p className="max-w-[90%] rounded-ui-rect bg-black/10 px-3 py-2 text-center text-[12px] font-medium leading-[16px] text-[#999999]">
-              {body}
-            </p>
-          </li>
-        );
-      }
-      return;
-    }
+                  {partnerNickname || t("common_partner")}
+                </p>
+                {msgs.map((msg, i) => {
+                  const pos = getBubblePosition(msgs, i);
+                  const showTime = isLastInMinuteGroup(msgs, i);
+                  const isImage = msg.messageType === "image" || !!msg.imageUrl;
+                  const text = (msg.message || "").trim();
+                  const hasReply = !!msg.replyTo?.text;
+                  const emojiOnly = !isImage && isEmojiOnlyMessage(text);
 
-    if (block.type === "opponent") {
-      const msgs = block.messages;
-      const opponentBubbleShell = ig ? "bg-[#F0F0F0] shadow-none" : "bg-[#FFFFFF] shadow-sm";
-      const opponentText = ig
-        ? `${IG_DM_BODY_TEXT} text-left text-foreground`
-        : "text-[14px] font-normal leading-[20px] text-[#111111]";
-      const bubblePadIg = IG_DM_BUBBLE_PAD;
-      items.push(
-        <li key={`opponent-${msgs[0].id}`} className={`flex justify-start ${gapFromPrev}`}>
-          <div className={`flex ${ig ? IG_DM_BUBBLE_ROW_MAX : DEFAULT_CHAT_BUBBLE_ROW_MAX} items-end ${ig ? "gap-2.5" : "gap-2"}`}>
-            {/* 프로필: DM은 32px, 기본 34px */}
-            <div className="flex shrink-0 flex-col justify-end">
-              <div
-                className={`relative overflow-hidden rounded-full ${ig ? "h-8 w-8 bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]" : "h-[34px] w-[34px] bg-sam-surface-muted"}`}
-              >
-                {partnerAvatar ? (
-                  <img src={partnerAvatar} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <div
-                    className={`flex h-full w-full items-center justify-center ${ig ? "text-[13px] font-semibold text-foreground" : "text-[14px] font-medium text-sam-muted"}`}
-                  >
-                    {(partnerNickname || "?").charAt(0)}
-                  </div>
-                )}
+                  return (
+                    <div key={msg.id} className={i === 0 ? "" : ig ? "mt-0.5" : "mt-1"}>
+                      {emojiOnly ? (
+                        <div
+                          className="flex min-h-[44px] min-w-[44px] items-center justify-center bg-transparent py-1"
+                          onContextMenu={(e) => e.preventDefault()}
+                        >
+                          <span className="leading-none" style={{ fontSize: ig ? "32px" : "28px" }}>
+                            {text || " "}
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          className={`flex min-h-[36px] min-w-[44px] ${getOpponentBubbleRadius(pos, ig)} ${opponentBubbleShell} ${ig ? bubblePadIg : ""}`}
+                          style={ig ? undefined : { padding: "8px 12px" }}
+                          onContextMenu={(e) => e.preventDefault()}
+                        >
+                          {hasReply && (
+                            <div
+                              className={`mb-1 border-l-2 pl-2 ${ig ? "border-sam-fg/12 text-left text-[12px] font-normal leading-[1.35] text-muted" : "text-[12px] border-sam-border text-[#999999]"}`}
+                            >
+                              {msg.replyTo!.text.slice(0, 50)}
+                              {msg.replyTo!.text.length > 50 ? "…" : ""}
+                            </div>
+                          )}
+                          {isImage ? (
+                            <div className={`overflow-hidden ${ig ? "rounded-ui-rect" : "rounded-ui-rect"}`}>
+                              {msg.imageUrl ? (
+                                <img src={msg.imageUrl} alt="" className="max-h-60 w-full object-cover" />
+                              ) : null}
+                              {text ? (
+                                <p className={`mt-1.5 whitespace-pre-wrap break-words ${opponentText}`}>{text}</p>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <p className={`whitespace-pre-wrap break-words ${opponentText}`}>{text || " "}</p>
+                          )}
+                        </div>
+                      )}
+                      {showTime && (
+                        <div className={`flex justify-end ${ig ? "mt-0.5" : "mt-1"}`}>
+                          <span
+                            className={`text-[11px] font-normal tabular-nums ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
+                          >
+                            {formatBubbleTime(msg.createdAt)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="flex min-w-0 flex-1 flex-col">
-              <p
-                className={`truncate pl-0.5 ${ig ? "mb-1 text-[12px] font-semibold leading-none text-muted" : "mb-0.5 text-[13px] font-medium text-[#111111]"}`}
-              >
-                {partnerNickname || t("common_partner")}
-              </p>
+          </li>
+        );
+        return;
+      }
+
+      if (block.type === "mine") {
+        const msgs = block.messages;
+        const mineBubbleShell = ig ? "bg-signature shadow-none" : "bg-[#FEE500] shadow-sm";
+        const mineText = ig
+          ? `${IG_DM_BODY_TEXT} text-left text-white`
+          : "text-[14px] font-normal leading-[20px] text-[#111111]";
+        const mineReply = ig
+          ? "border-sam-surface/40 text-[12px] font-normal leading-[1.35] text-white/80"
+          : "border-sam-border/50 text-[12px] text-[#999999]";
+        const bubblePadIgMine = IG_DM_BUBBLE_PAD;
+        items.push(
+          <li key={`mine-${msgs[0].id}`} className={`flex justify-end ${gapFromPrev}`}>
+            <div className={`flex flex-col items-end ${ig ? IG_DM_BUBBLE_ROW_MAX : DEFAULT_CHAT_BUBBLE_ROW_MAX}`}>
               {msgs.map((msg, i) => {
                 const pos = getBubblePosition(msgs, i);
                 const showTime = isLastInMinuteGroup(msgs, i);
@@ -317,23 +403,18 @@ export function ChatMessageList({
                         className="flex min-h-[44px] min-w-[44px] items-center justify-center bg-transparent py-1"
                         onContextMenu={(e) => e.preventDefault()}
                       >
-                        <span
-                          className="leading-none"
-                          style={{ fontSize: ig ? "32px" : "28px" }}
-                        >
+                        <span className="leading-none" style={{ fontSize: ig ? "32px" : "28px" }}>
                           {text || " "}
                         </span>
                       </div>
                     ) : (
                       <div
-                        className={`flex min-h-[36px] min-w-[44px] ${getOpponentBubbleRadius(pos, ig)} ${opponentBubbleShell} ${ig ? bubblePadIg : ""}`}
+                        className={`flex min-h-[36px] min-w-[44px] ${getMineBubbleRadius(pos, ig)} ${mineBubbleShell} ${ig ? bubblePadIgMine : ""}`}
                         style={ig ? undefined : { padding: "8px 12px" }}
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         {hasReply && (
-                          <div
-                            className={`mb-1 border-l-2 pl-2 ${ig ? "border-sam-fg/12 text-left text-[12px] font-normal leading-[1.35] text-muted" : "text-[12px] border-sam-border text-[#999999]"}`}
-                          >
+                          <div className={`mb-1 border-l-2 pl-2 ${ig ? "text-left " : ""}${mineReply}`}>
                             {msg.replyTo!.text.slice(0, 50)}
                             {msg.replyTo!.text.length > 50 ? "…" : ""}
                           </div>
@@ -344,20 +425,23 @@ export function ChatMessageList({
                               <img src={msg.imageUrl} alt="" className="max-h-60 w-full object-cover" />
                             ) : null}
                             {text ? (
-                              <p className={`mt-1.5 whitespace-pre-wrap break-words ${opponentText}`}>
-                                {text}
-                              </p>
+                              <p className={`mt-1.5 whitespace-pre-wrap break-words ${mineText}`}>{text}</p>
                             ) : null}
                           </div>
                         ) : (
-                          <p className={`whitespace-pre-wrap break-words ${opponentText}`}>
-                            {text || " "}
-                          </p>
+                          <p className={`whitespace-pre-wrap break-words ${mineText}`}>{text || " "}</p>
                         )}
                       </div>
                     )}
                     {showTime && (
-                      <div className={`flex justify-end ${ig ? "mt-0.5" : "mt-1"}`}>
+                      <div className={`flex items-center justify-start gap-1 ${ig ? "mt-0.5" : "mt-1"}`}>
+                        {msg.isRead && (
+                          <span
+                            className={`text-[11px] font-normal ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
+                          >
+                            읽음
+                          </span>
+                        )}
                         <span
                           className={`text-[11px] font-normal tabular-nums ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
                         >
@@ -369,108 +453,64 @@ export function ChatMessageList({
                 );
               })}
             </div>
-          </div>
-        </li>
-      );
-      return;
-    }
+          </li>
+        );
+      }
+    });
+    return items;
+  }, [blocks, currentUserId, ig, partnerAvatar, partnerNickname, t]);
 
-    if (block.type === "mine") {
-      const msgs = block.messages;
-      const mineBubbleShell = ig ? "bg-signature shadow-none" : "bg-[#FEE500] shadow-sm";
-      const mineText = ig
-        ? `${IG_DM_BODY_TEXT} text-left text-white`
-        : "text-[14px] font-normal leading-[20px] text-[#111111]";
-      const mineReply = ig
-        ? "border-sam-surface/40 text-[12px] font-normal leading-[1.35] text-white/80"
-        : "border-sam-border/50 text-[12px] text-[#999999]";
-      const bubblePadIgMine = IG_DM_BUBBLE_PAD;
-      items.push(
-        <li key={`mine-${msgs[0].id}`} className={`flex justify-end ${gapFromPrev}`}>
-          <div
-            className={`flex flex-col items-end ${ig ? IG_DM_BUBBLE_ROW_MAX : DEFAULT_CHAT_BUBBLE_ROW_MAX}`}
-          >
-            {msgs.map((msg, i) => {
-              const pos = getBubblePosition(msgs, i);
-              const showTime = isLastInMinuteGroup(msgs, i);
-              const isImage = msg.messageType === "image" || !!msg.imageUrl;
-              const text = (msg.message || "").trim();
-              const hasReply = !!msg.replyTo?.text;
-              const emojiOnly = !isImage && isEmojiOnlyMessage(text);
+  const useVirt =
+    virtualize && !ig && Boolean(scrollParentRef) && listItems.length >= CHAT_MESSAGE_LIST_VIRTUAL_THRESHOLD;
 
-              return (
-                <div key={msg.id} className={i === 0 ? "" : ig ? "mt-0.5" : "mt-1"}>
-                  {emojiOnly ? (
-                    <div
-                      className="flex min-h-[44px] min-w-[44px] items-center justify-center bg-transparent py-1"
-                      onContextMenu={(e) => e.preventDefault()}
-                    >
-                      <span
-                        className="leading-none"
-                        style={{ fontSize: ig ? "32px" : "28px" }}
-                      >
-                        {text || " "}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      className={`flex min-h-[36px] min-w-[44px] ${getMineBubbleRadius(pos, ig)} ${mineBubbleShell} ${ig ? bubblePadIgMine : ""}`}
-                      style={ig ? undefined : { padding: "8px 12px" }}
-                      onContextMenu={(e) => e.preventDefault()}
-                    >
-                      {hasReply && (
-                        <div className={`mb-1 border-l-2 pl-2 ${ig ? "text-left " : ""}${mineReply}`}>
-                          {msg.replyTo!.text.slice(0, 50)}
-                          {msg.replyTo!.text.length > 50 ? "…" : ""}
-                        </div>
-                      )}
-                      {isImage ? (
-                        <div className={`overflow-hidden ${ig ? "rounded-ui-rect" : "rounded-ui-rect"}`}>
-                          {msg.imageUrl ? (
-                            <img src={msg.imageUrl} alt="" className="max-h-60 w-full object-cover" />
-                          ) : null}
-                          {text ? (
-                            <p className={`mt-1.5 whitespace-pre-wrap break-words ${mineText}`}>
-                              {text}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <p className={`whitespace-pre-wrap break-words ${mineText}`}>
-                          {text || " "}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {showTime && (
-                    <div className={`flex items-center justify-start gap-1 ${ig ? "mt-0.5" : "mt-1"}`}>
-                      {msg.isRead && (
-                        <span
-                          className={`text-[11px] font-normal ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
-                        >
-                          읽음
-                        </span>
-                      )}
-                      <span
-                        className={`text-[11px] font-normal tabular-nums ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
-                      >
-                        {formatBubbleTime(msg.createdAt)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </li>
-      );
-      return;
-    }
+  const rowVirtualizer = useVirtualizer({
+    count: useVirt ? listItems.length : 0,
+    getScrollElement: () => scrollParentRef?.current ?? null,
+    estimateSize: () => 96,
+    overscan: 8,
   });
 
-  return (
-    <ul className={`flex flex-col ${ig ? "py-3" : "py-2"}`}>
-      {items}
-    </ul>
-  );
+  if (uniqueMessages.length === 0) {
+    return (
+      <div className="flex min-h-[200px] items-center justify-center px-4 py-10">
+        <p
+          className={`text-center font-normal ${ig ? `max-w-[22.2rem] ${IG_DM_BODY_TEXT} text-muted` : "text-[14px] text-[#999999]"}`}
+        >
+          {t("common_start_conversation_message")}
+        </p>
+      </div>
+    );
+  }
+
+  if (useVirt) {
+    return (
+      <ul
+        className={`relative flex w-full list-none flex-col ${ig ? "py-3" : "py-2"}`}
+        style={{ height: rowVirtualizer.getTotalSize() }}
+      >
+        {rowVirtualizer.getVirtualItems().map((vi) => {
+          const row = listItems[vi.index];
+          if (!isValidElement(row)) return null;
+          return cloneElement(
+            row as ReactElement<LiHTMLAttributes<HTMLLIElement>>,
+            {
+              key: vi.key,
+              ref: (el: HTMLLIElement | null) => {
+                rowVirtualizer.measureElement(el);
+              },
+              style: {
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${vi.start}px)`,
+              },
+            } as LiHTMLAttributes<HTMLLIElement>
+          );
+        })}
+      </ul>
+    );
+  }
+
+  return <ul className={`flex flex-col ${ig ? "py-3" : "py-2"}`}>{listItems}</ul>;
 }

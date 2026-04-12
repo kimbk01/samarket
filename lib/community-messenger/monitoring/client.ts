@@ -24,7 +24,7 @@ export function messengerMonitorRecord(partial: Omit<MessengerMonitoringEvent, "
   };
   logMessengerMonitoringDev(event);
   if (event.unit === "ms" && typeof event.value === "number") {
-    const breach = shouldAlertLatency(event.category, event.metric, event.value);
+    const breach = shouldAlertLatency(event.category, event.metric, event.value, event.labels);
     if (breach) {
       logMessengerAlertDev(buildThresholdAlert(breach, event.category, event.metric, event.value, event.labels));
     }
@@ -97,14 +97,18 @@ export function messengerMonitorMessageRtt(roomId: string, durationMs: number, k
   });
 }
 
-/** 그룹 통화: 첫 원격 미디어 연결까지 */
-export function messengerMonitorCallConnection(sessionId: string, durationMs: number): void {
+/** 그룹·1:1 통화: 첫 원격 미디어 연결까지 — `media` 로 음성/영상 SLO 분리 */
+export function messengerMonitorCallConnection(
+  sessionId: string,
+  durationMs: number,
+  media?: "voice" | "video"
+): void {
   messengerMonitorRecord({
     category: "call.connection",
     metric: "first_connected",
     value: durationMs,
     unit: "ms",
-    labels: { sessionIdSuffix: sessionId.slice(-8) },
+    labels: { sessionIdSuffix: sessionId.slice(-8), media: media ?? "voice" },
   });
 }
 
@@ -151,6 +155,85 @@ export function messengerMonitorCallTurnFallback(sessionId: string): void {
 }
 
 /** getStats 샘플 — 손실·RTT·후보 유형(릴레이 경로 여부 추정) */
+/**
+ * Realtime INSERT 메시지: DB `created_at` ~ 클라 수신 시각 (클럭 스큐 가능).
+ * 극단적 미래 시각은 샘플에서 제외하는 것을 권장.
+ */
+export function messengerMonitorRealtimeMessageInsertDelay(roomId: string, latencyMs: number): void {
+  messengerMonitorRecord({
+    category: "chat.realtime",
+    metric: "message_insert_delay",
+    value: latencyMs,
+    unit: "ms",
+    labels: { roomIdSuffix: roomSuffix(roomId) },
+  });
+}
+
+export type MessengerUnreadListSyncKind = "mark_read" | "room_open";
+
+/** 미읽음·목록·배지 정합까지 관측된 지연 (호출부에서 측정) */
+export function messengerMonitorUnreadListSync(
+  roomId: string,
+  latencyMs: number,
+  kind: MessengerUnreadListSyncKind = "mark_read"
+): void {
+  messengerMonitorRecord({
+    category: "chat.unread_sync",
+    metric: "badge_list_align",
+    value: latencyMs,
+    unit: "ms",
+    labels: { roomIdSuffix: roomSuffix(roomId), kind },
+  });
+}
+
+/** 홈 silent 부트스트랩 완료까지 — Realtime 등으로 인한 목록·탭·미읽음 서버 정합 */
+export function messengerMonitorHomeBootstrapUnreadSync(latencyMs: number): void {
+  messengerMonitorRecord({
+    category: "chat.unread_sync",
+    metric: "list_bootstrap_align",
+    value: latencyMs,
+    unit: "ms",
+    labels: { scope: "home_bootstrap" },
+  });
+}
+
+/** Supabase 채널 `subscribe` 결과 — 홈/방 번들 등 scope 로 구분 */
+export function messengerMonitorRealtimeSubscriptionOutcome(scope: string, ok: boolean, channelStatus?: string): void {
+  messengerMonitorRecord({
+    category: "realtime.subscription",
+    metric: "channel_subscribe",
+    value: 1,
+    unit: "count",
+    labels: {
+      scope,
+      outcome: ok ? "ok" : "error",
+      ...(channelStatus ? { status: channelStatus } : {}),
+    },
+  });
+}
+
+/** 시그널링 HTTP POST (ICE 후보는 트래픽 폭주 방지로 제외) */
+export function messengerMonitorSignalingPost(
+  sessionId: string,
+  signalType: "offer" | "answer" | "ice-candidate" | "hangup",
+  ok: boolean,
+  httpStatus?: number
+): void {
+  if (signalType === "ice-candidate") return;
+  messengerMonitorRecord({
+    category: "call.signaling",
+    metric: "signal_post",
+    value: 1,
+    unit: "count",
+    labels: {
+      sessionIdSuffix: sessionId.slice(-8),
+      signalType,
+      outcome: ok ? "ok" : "error",
+      ...(httpStatus != null ? { http: String(httpStatus) } : {}),
+    },
+  });
+}
+
 export function messengerMonitorCallWebRtcSample(sessionId: string, sample: MessengerWebRtcDiagnosticsSample): void {
   const suffix = sessionId.slice(-8);
   const labels: Record<string, string> = { sessionIdSuffix: suffix };

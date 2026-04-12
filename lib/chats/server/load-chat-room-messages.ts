@@ -41,37 +41,23 @@ function keysetBeforeRoomMessagesOrFilter(cursorCreatedAt: string, cursorId: str
   return `created_at.lt.${qTs},and(created_at.eq.${qTs},id.lt.${qId})`;
 }
 
-export async function loadLegacyProductChatMessagesForUser(
-  roomId: string,
-  userId: string
-): Promise<LoadLegacyMessagesResult> {
-  const sb = getChatServiceRoleSupabase();
-  if (!sb) return fail(500, "서버 설정 필요");
+/** 부트스트랩·RSC — 통합 채팅 기본 50과 별도로 레거시 방은 최근 윈도우만 */
+export const LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT = 30;
+/** GET /api/chat/room/.../messages 기본 페이지 크기 (통합 `INTEGRATED_CHAT_MESSAGES_DEFAULT_LIMIT` 과 맞춤) */
+export const LEGACY_PRODUCT_CHAT_MESSAGES_PAGE_MAX = 100;
 
-  const { data: room } = await sb
-    .from("product_chats")
-    .select("id, seller_id, buyer_id")
-    .eq("id", roomId)
-    .maybeSingle();
-  if (!room) {
-    return fail(404, "채팅방을 찾을 수 없습니다.");
-  }
-  if (room.seller_id !== userId && room.buyer_id !== userId) {
-    return fail(403, "참여자가 아님");
-  }
+export type LegacyProductChatMessagesPage = {
+  messages: ChatMessage[];
+  hasMore: boolean;
+  nextCursor: { before: string; beforeCreatedAt: string } | null;
+};
 
-  const { data: rows, error } = await sb
-    .from("product_chat_messages")
-    .select("id, product_chat_id, sender_id, content, message_type, image_url, read_at, created_at, is_hidden")
-    .eq("product_chat_id", roomId)
-    .order("created_at", { ascending: true });
-  if (error) {
-    return fail(500, error.message);
-  }
+type LoadLegacyPageResult = LoaderOk<LegacyProductChatMessagesPage> | LoaderError;
 
-  const messages = (rows ?? [])
-    .filter((m: Record<string, unknown>) => !(m.is_hidden === true))
-    .map((m: Record<string, unknown>) => {
+function mapProductChatRowsToMessages(rows: Record<string, unknown>[]): ChatMessage[] {
+  return rows
+    .filter((m) => !(m.is_hidden === true))
+    .map((m) => {
       const mt = ((m.message_type as string) || "text") as "text" | "image" | "system";
       const rawContent = (m.content as string) ?? "";
       const rawUrl = (m.image_url as string | null | undefined) ?? null;
@@ -97,8 +83,103 @@ export async function loadLegacyProductChatMessagesForUser(
         isRead: typeof m.read_at === "string" && m.read_at.length > 0,
       } satisfies ChatMessage;
     });
+}
 
-  return ok(messages);
+/**
+ * 레거시 product_chat_messages — 최근 페이지만 (키셋 과거 페이지).
+ * 반환 `messages` 는 시간순(오래된 것 먼저) — 통합 채팅 GET 과 동일.
+ */
+export async function loadLegacyProductChatMessagesPageForUser(
+  roomId: string,
+  userId: string,
+  options?: {
+    limit?: number;
+    before?: string | null;
+    beforeCreatedAt?: string | null;
+  }
+): Promise<LoadLegacyPageResult> {
+  const sb = getChatServiceRoleSupabase();
+  if (!sb) return fail(500, "서버 설정 필요");
+
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), LEGACY_PRODUCT_CHAT_MESSAGES_PAGE_MAX);
+  const before = options?.before?.trim();
+  const beforeCreatedAtHint = options?.beforeCreatedAt?.trim() ?? "";
+
+  const { data: room } = await sb
+    .from("product_chats")
+    .select("id, seller_id, buyer_id")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (!room) {
+    return fail(404, "채팅방을 찾을 수 없습니다.");
+  }
+  if (room.seller_id !== userId && room.buyer_id !== userId) {
+    return fail(403, "참여자가 아님");
+  }
+
+  let q = sb
+    .from("product_chat_messages")
+    .select("id, product_chat_id, sender_id, content, message_type, image_url, read_at, created_at, is_hidden")
+    .eq("product_chat_id", roomId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit);
+
+  if (before) {
+    let cursorCreatedAt: string | null = null;
+    let cursorId: string | null = null;
+
+    if (beforeCreatedAtHint && isLikelyIso8601(beforeCreatedAtHint)) {
+      cursorCreatedAt = beforeCreatedAtHint;
+      cursorId = before;
+    } else {
+      const { data: beforeRow } = await sb
+        .from("product_chat_messages")
+        .select("id, created_at")
+        .eq("product_chat_id", roomId)
+        .eq("id", before)
+        .maybeSingle();
+      const br = beforeRow as { id?: string; created_at?: string } | null;
+      if (!br || typeof br.created_at !== "string") {
+        return fail(404, "기준 메시지를 찾을 수 없습니다.");
+      }
+      cursorCreatedAt = br.created_at;
+      cursorId = typeof br.id === "string" ? br.id : before;
+    }
+
+    if (cursorCreatedAt && cursorId) {
+      q = q.or(keysetBeforeRoomMessagesOrFilter(cursorCreatedAt, cursorId));
+    }
+  }
+
+  const { data: rows, error } = await q;
+  if (error) {
+    return fail(500, error.message);
+  }
+
+  const raw = (rows ?? []) as Record<string, unknown>[];
+  const chronological = mapProductChatRowsToMessages(raw).reverse();
+  const hasMore = raw.length === limit && raw.length > 0;
+  const oldest = chronological[0] as ChatMessage | undefined;
+  const nextCursor =
+    hasMore && oldest?.id && oldest.createdAt
+      ? { before: oldest.id, beforeCreatedAt: oldest.createdAt }
+      : null;
+
+  return ok({ messages: chronological, hasMore, nextCursor });
+}
+
+/** 최근 N건만 — 전체 히스토리 로드 금지 (부트스트랩·폴백용) */
+export async function loadLegacyProductChatMessagesForUser(
+  roomId: string,
+  userId: string,
+  options?: { limit?: number }
+): Promise<LoadLegacyMessagesResult> {
+  const page = await loadLegacyProductChatMessagesPageForUser(roomId, userId, {
+    limit: options?.limit ?? LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT,
+  });
+  if (!page.ok) return page;
+  return ok(page.value.messages);
 }
 
 export async function loadIntegratedChatRoomMessageRowsForUser(input: {

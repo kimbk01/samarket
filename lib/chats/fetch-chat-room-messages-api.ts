@@ -188,6 +188,10 @@ export function updateLegacyChatRoomMessagesCache(roomId: string, messages: Chat
 
 /** 서버 기본과 동일 — 휴리스틱·쿼리에 공통 사용 */
 export const INTEGRATED_CHAT_MESSAGES_DEFAULT_LIMIT = 50;
+/** 레거시 product_chat GET 기본 — 서버 `loadLegacyProductChatMessagesPageForUser` 기본과 동기 */
+export const LEGACY_PRODUCT_CHAT_MESSAGES_DEFAULT_LIMIT = 50;
+/** 서버 부트스트랩 `LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT`(30) 과 동기 — 클라 hasMore 휴리스틱 */
+export const LEGACY_PRODUCT_CHAT_BOOTSTRAP_HINT = 30;
 
 export type IntegratedChatHistoryCursor = { before: string; beforeCreatedAt: string };
 
@@ -285,24 +289,95 @@ export function fetchIntegratedChatRoomMessages(roomId: string): Promise<ChatMes
   return fetchIntegratedChatRoomMessagesWithMeta(roomId).then((r) => r.messages);
 }
 
-/** 레거시 방 GET …/api/chat/room/:id/messages (동시 호출 합류) */
-export function fetchLegacyChatRoomMessages(roomId: string): Promise<ChatMessage[]> {
+export type LegacyMessagesPageResult = {
+  messages: ChatMessage[];
+  hasMore: boolean;
+  nextCursor: IntegratedChatHistoryCursor | null;
+};
+
+function parseLegacyMessagesPayload(data: unknown): LegacyMessagesPageResult {
+  const d = data as Record<string, unknown> | null;
+  const raw = Array.isArray(d?.messages) ? (d.messages as ChatMessage[]) : [];
+  const hasMore = d?.hasMore === true;
+  const nc = d?.nextCursor as Record<string, unknown> | undefined;
+  const nextCursor =
+    nc && typeof nc.before === "string" && typeof nc.beforeCreatedAt === "string"
+      ? { before: nc.before, beforeCreatedAt: nc.beforeCreatedAt }
+      : null;
+  return { messages: raw, hasMore, nextCursor };
+}
+
+/**
+ * 레거시 product_chat 최신 페이지 + hasMore / nextCursor — 초기 GET 과 동일 single-flight.
+ */
+export function fetchLegacyChatRoomMessagesWithMeta(
+  roomId: string,
+  opts?: { limit?: number }
+): Promise<LegacyMessagesPageResult> {
+  const limit = Math.min(Math.max(opts?.limit ?? LEGACY_PRODUCT_CHAT_MESSAGES_DEFAULT_LIMIT, 1), 100);
   const key = `chat:legacy-messages:${roomId}`;
   return runSingleFlight(key, async () => {
     try {
-      const res = await fetch(`/api/chat/room/${encodeURIComponent(roomId)}/messages`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!res.ok) return readMessageCache(legacyMessageCache, roomId) ?? [];
-      const apiMessages = await res.json();
-      return writeMessageCache(
-        legacyMessageCache,
-        roomId,
-        Array.isArray(apiMessages) ? (apiMessages as ChatMessage[]) : []
+      const res = await fetch(
+        `/api/chat/room/${encodeURIComponent(roomId)}/messages?limit=${limit}`,
+        { credentials: "include", cache: "no-store" }
       );
+      if (!res.ok) {
+        const cached = readMessageCache(legacyMessageCache, roomId);
+        return { messages: cached ?? [], hasMore: false, nextCursor: null };
+      }
+      const data = await res.json();
+      const parsed = parseLegacyMessagesPayload(data);
+      writeMessageCache(legacyMessageCache, roomId, parsed.messages);
+      return parsed;
     } catch {
-      return readMessageCache(legacyMessageCache, roomId) ?? [];
+      const cached = readMessageCache(legacyMessageCache, roomId);
+      return { messages: cached ?? [], hasMore: false, nextCursor: null };
     }
   });
+}
+
+/** 과거 페이지 — 레거시 product_chat 키셋 */
+export async function fetchLegacyChatRoomMessagesPage(
+  roomId: string,
+  input: { cursor: IntegratedChatHistoryCursor; limit?: number }
+): Promise<LegacyMessagesPageResult> {
+  const limit = Math.min(Math.max(input.limit ?? LEGACY_PRODUCT_CHAT_MESSAGES_DEFAULT_LIMIT, 1), 100);
+  const params = new URLSearchParams({
+    limit: String(limit),
+    before: input.cursor.before,
+    beforeCreatedAt: input.cursor.beforeCreatedAt,
+  });
+  const res = await fetch(`/api/chat/room/${encodeURIComponent(roomId)}/messages?${params}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    return { messages: [], hasMore: false, nextCursor: null };
+  }
+  const data = await res.json();
+  return parseLegacyMessagesPayload(data);
+}
+
+/** 부트스트랩·캐시 등 — 한 페이지가 부트스트랩 한도와 같으면 과거가 더 있을 수 있음 */
+export function guessLegacyHistoryMetaFromMessages(list: ChatMessage[]): {
+  hasMore: boolean;
+  nextCursor: IntegratedChatHistoryCursor | null;
+} {
+  if (list.length < LEGACY_PRODUCT_CHAT_BOOTSTRAP_HINT) {
+    return { hasMore: false, nextCursor: null };
+  }
+  const oldest = list[0];
+  if (!oldest?.id || !oldest.createdAt) {
+    return { hasMore: false, nextCursor: null };
+  }
+  return {
+    hasMore: true,
+    nextCursor: { before: oldest.id, beforeCreatedAt: oldest.createdAt },
+  };
+}
+
+/** 레거시 방 GET …/api/chat/room/:id/messages (동시 호출 합류) */
+export function fetchLegacyChatRoomMessages(roomId: string): Promise<ChatMessage[]> {
+  return fetchLegacyChatRoomMessagesWithMeta(roomId).then((r) => r.messages);
 }

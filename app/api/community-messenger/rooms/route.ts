@@ -17,8 +17,10 @@ import {
   listCommunityMessengerMyChatsAndGroups,
   syncStoreOrderCommunityMessengerRoomId,
 } from "@/lib/community-messenger/service";
+import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 
 export async function GET(req: NextRequest) {
+  const t0 = performance.now();
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -32,6 +34,7 @@ export async function GET(req: NextRequest) {
   if (!listRateLimit.ok) return listRateLimit.response;
 
   const { chats, groups } = await listCommunityMessengerMyChatsAndGroups(auth.userId);
+  recordMessengerApiTiming("GET /api/community-messenger/rooms", Math.round(performance.now() - t0), 200);
   return jsonOk({
     chats,
     groups,

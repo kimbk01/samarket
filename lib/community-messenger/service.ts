@@ -3806,15 +3806,7 @@ export async function getCommunityMessengerRoomSnapshot(
         participants = rawParticipantRows;
       }
       messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
-      void (sb as any)
-        .from("community_messenger_participants")
-        .update({ unread_count: 0, last_read_at: nowIso() })
-        .eq("room_id", id)
-        .eq("user_id", userId)
-        .then(
-          () => undefined,
-          () => undefined
-        );
+      /** 읽음 처리는 `PATCH ... mark_read`(클라) 단일 경로 — 부트스트랩 GET 은 읽기 전용 */
     }
   }
 

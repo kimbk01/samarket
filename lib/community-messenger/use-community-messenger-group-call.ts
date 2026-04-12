@@ -24,6 +24,7 @@ import {
   messengerMonitorCallConnection,
   messengerMonitorCallPacketLoss,
   messengerMonitorCallReconnect,
+  messengerMonitorSignalingPost,
 } from "@/lib/community-messenger/monitoring/client";
 import { estimateInboundPacketLossPercent } from "@/lib/community-messenger/monitoring/webrtc-stats";
 
@@ -236,11 +237,15 @@ export function useCommunityMessengerGroupCall(args: Props) {
       signalType: "offer" | "answer" | "ice-candidate" | "hangup",
       payload: Record<string, unknown>
     ) => {
-      await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ toUserId, signalType, payload }),
       });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const ok = res.ok && json.ok !== false;
+      messengerMonitorSignalingPost(sessionId, signalType, ok, res.status);
+      /* 기존과 같이 예외를 던지지 않음 — 호출부 다수가 실패 처리 없음; 실패는 모니터링으로만 집계 */
     },
     []
   );
@@ -278,6 +283,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
         if (!event.candidate) return;
         void sendSignal(sessionId, peer.userId, "ice-candidate", {
           candidate: event.candidate.toJSON(),
+        }).catch(() => {
+          /* ICE 전송 실패는 흔히 일시적 — 상위에서 재시도 */
         });
       };
 
@@ -943,9 +950,10 @@ export function useCommunityMessengerGroupCall(args: Props) {
     const allOk = remotes.every((uid) => peerStates[uid] === "connected");
     if (allOk && sessionDialStartRef.current) {
       firstConnectionRecordedRef.current = true;
-      messengerMonitorCallConnection(currentSessionId, Date.now() - sessionDialStartRef.current);
+      const media = panel?.kind ?? args.activeCall?.callKind ?? "voice";
+      messengerMonitorCallConnection(currentSessionId, Date.now() - sessionDialStartRef.current, media);
     }
-  }, [currentSessionId, joinedParticipants, peerStates]);
+  }, [args.activeCall?.callKind, currentSessionId, joinedParticipants, panel?.kind, peerStates]);
 
   useEffect(() => {
     if (!currentSessionId) return;

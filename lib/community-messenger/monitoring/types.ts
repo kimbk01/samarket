@@ -10,10 +10,15 @@ export type MessengerMonitoringSource = "client" | "server";
 export type MessengerMonitoringCategory =
   | "chat.room_load"
   | "chat.message_latency"
+  | "chat.realtime"
+  | "chat.unread_sync"
+  | "realtime.subscription"
   | "call.connection"
   | "call.network"
   | "call.reconnect"
+  | "call.signaling"
   | "api.community_messenger"
+  | "api.integrated_chat"
   | "db.community_messenger";
 
 export type MessengerMonitoringEvent = {
@@ -40,6 +45,29 @@ export type MessengerMonitoringAlert = {
   labels?: Record<string, string>;
 };
 
+/** 관리자 UI용 — 참조 SLO(목표·경고·치명)와 관측값을 한 행에 */
+export type MessengerSloDigestRow = {
+  id: string;
+  label: string;
+  unit: "ms" | "ratio" | "percent";
+  target?: number;
+  warning?: number;
+  critical?: number;
+  /** 집계된 평균·최근 (latency 등) */
+  observedAvg?: number;
+  observedLast?: number;
+  sampleCount?: number;
+  /** 원본 집계 키 또는 API route (디버그) */
+  sourceHint?: string;
+};
+
+export type MessengerOutcomeStat = {
+  key: string;
+  ok: number;
+  fail: number;
+  failRate: number;
+};
+
 export type MessengerMonitoringSummary = {
   generatedAt: string;
   windowEvents: number;
@@ -59,4 +87,10 @@ export type MessengerMonitoringSummary = {
   recentAlerts: MessengerMonitoringAlert[];
   /** 클라이언트에서 최근 전송된 이벤트 요약 (동일 집계 키) */
   clientAggregates: Record<string, { count: number; avg: number; last: number }>;
+  /** 목표 대비 요약 (인메모리 윈도우 기준) */
+  sloDigest: MessengerSloDigestRow[];
+  /** 구독·시그널링 등 성공/실패 누적 */
+  outcomeStats: MessengerOutcomeStat[];
+  /** 세션 suffix 기준: 재연결 경험 세션 수 / 부트스트랩된 통화 세션 수 (근사) */
+  reconnectSessionRate: number | null;
 };

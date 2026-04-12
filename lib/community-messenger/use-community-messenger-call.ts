@@ -26,6 +26,7 @@ import {
   messengerMonitorCallIceRestart,
   messengerMonitorCallTurnFallback,
   messengerMonitorCallWebRtcSample,
+  messengerMonitorSignalingPost,
 } from "@/lib/community-messenger/monitoring/client";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
@@ -56,6 +57,8 @@ const CALL_SIGNAL_POLL_MS_REALTIME_OK = 7_000;
 const CALL_SIGNAL_POLL_MS_FALLBACK = 2_000;
 const CALL_SIGNAL_POLL_MS_HIDDEN_TAB = 14_000;
 const ROOM_SNAPSHOT_REFRESH_MS_NEGOTIATING = 2_300;
+/** 시그널 Realtime 구독 중이면 스냅샷 폴링만 느리게 — HTTP onRefresh 와 중복 완화 */
+const ROOM_SNAPSHOT_REFRESH_MS_NEGOTIATING_REALTIME_OK = 6_500;
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -286,7 +289,9 @@ export function useCommunityMessengerCall(args: {
       body: JSON.stringify({ toUserId, signalType, payload }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    if (!res.ok || !json.ok) {
+    const ok = res.ok && !!json.ok;
+    messengerMonitorSignalingPost(sessionId, signalType, ok, res.status);
+    if (!ok) {
       throw new Error(json.error ?? `${signalType}_signal_failed`);
     }
   }, []);
@@ -393,7 +398,7 @@ export function useCommunityMessengerCall(args: {
           setTransportState("connected");
           if (!firstConnectedMetricsSentRef.current && mediaNegotiationStartedAtRef.current) {
             firstConnectedMetricsSentRef.current = true;
-            messengerMonitorCallConnection(sessionId, Date.now() - mediaNegotiationStartedAtRef.current);
+            messengerMonitorCallConnection(sessionId, Date.now() - mediaNegotiationStartedAtRef.current, kind);
           }
           setPanel((prev) =>
             prev && prev.sessionId === sessionId ? { ...prev, mode: "active" } : prev
@@ -430,7 +435,7 @@ export function useCommunityMessengerCall(args: {
           setTransportState("connected");
           if (!firstConnectedMetricsSentRef.current && mediaNegotiationStartedAtRef.current) {
             firstConnectedMetricsSentRef.current = true;
-            messengerMonitorCallConnection(sessionId, Date.now() - mediaNegotiationStartedAtRef.current);
+            messengerMonitorCallConnection(sessionId, Date.now() - mediaNegotiationStartedAtRef.current, kind);
           }
           setPanel((prev) =>
             prev && prev.sessionId === sessionId ? { ...prev, mode: "active" } : prev
@@ -627,13 +632,24 @@ export function useCommunityMessengerCall(args: {
     if (!panel?.sessionId) return;
     if (panel.mode === "active" && transportState === "connected") return;
     let cancelled = false;
+    let timerId: number | null = null;
     const refreshNow = () => {
       if (cancelled) return;
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       void args.onRefresh();
     };
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const gap = callSignalsRealtimeSubscribedRef.current
+        ? ROOM_SNAPSHOT_REFRESH_MS_NEGOTIATING_REALTIME_OK
+        : ROOM_SNAPSHOT_REFRESH_MS_NEGOTIATING;
+      timerId = window.setTimeout(() => {
+        refreshNow();
+        scheduleNext();
+      }, gap);
+    };
     refreshNow();
-    const timer = window.setInterval(refreshNow, ROOM_SNAPSHOT_REFRESH_MS_NEGOTIATING);
+    scheduleNext();
     const onVis = () => {
       if (cancelled || typeof document === "undefined") return;
       if (document.visibilityState === "visible") void args.onRefresh();
@@ -641,7 +657,7 @@ export function useCommunityMessengerCall(args: {
     document.addEventListener("visibilitychange", onVis);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (timerId != null) window.clearTimeout(timerId);
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [args, panel?.mode, panel?.sessionId, transportState]);

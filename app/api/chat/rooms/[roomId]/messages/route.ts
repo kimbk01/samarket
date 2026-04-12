@@ -24,15 +24,32 @@ import {
   safeErrorMessage,
 } from "@/lib/http/api-route";
 import { loadIntegratedChatRoomMessageRowsForUser } from "@/lib/chats/server/load-chat-room-messages";
+import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
+import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+
+const TRADE_CHAT_GET_MESSAGES_ROUTE = "GET /api/chat/rooms/[roomId]/messages";
+const TRADE_CHAT_POST_MESSAGES_ROUTE = "POST /api/chat/rooms/[roomId]/messages";
+
+function markTradeChatApiTiming(route: string, startedAt: number, status: number): void {
+  recordMessengerApiTiming(route, Math.round(performance.now() - startedAt), status, {
+    category: "api.integrated_chat",
+    domain: MESSENGER_MONITORING_LABEL_DOMAIN.trade,
+  });
+}
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
+  const t0 = performance.now();
   const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, auth.response.status);
+    return auth.response;
+  }
   const { roomId } = await params;
   if (!roomId) {
+    markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, 400);
     return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
   }
   const rawLimit = Number(req.nextUrl.searchParams.get("limit"));
@@ -48,6 +65,7 @@ export async function GET(
     limit: limitUsed,
   });
   if (!result.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, result.status);
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
   const messages = result.value;
@@ -59,6 +77,7 @@ export async function GET(
       ? { before: oldest.id, beforeCreatedAt: oldest.created_at }
       : null;
 
+  markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, 200);
   return NextResponse.json({ messages, hasMore, nextCursor });
 }
 
@@ -66,8 +85,12 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
+  const t0 = performance.now();
   const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, auth.response.status);
+    return auth.response;
+  }
   const userId = auth.userId;
 
   const sendRateLimit = await enforceRateLimit({
@@ -77,12 +100,16 @@ export async function POST(
     message: "메시지 전송이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "trade_chat_message_rate_limited",
   });
-  if (!sendRateLimit.ok) return sendRateLimit.response;
+  if (!sendRateLimit.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, sendRateLimit.response.status);
+    return sendRateLimit.response;
+  }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);
     return jsonError("서버 설정 필요", 500);
   }
   const { roomId } = await params;
@@ -92,7 +119,10 @@ export async function POST(
     imageUrl?: string | null;
     imageUrls?: unknown;
   }>(req, "body 필요");
-  if (!parsed.ok) return parsed.response;
+  if (!parsed.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, parsed.response.status);
+    return parsed.response;
+  }
   const body = parsed.value;
   const text = typeof body.body === "string" ? body.body.trim() : "";
   const messageType = (["text", "image", "system", "item_card", "appointment", "safety_notice"] as const).includes(body.messageType as never)
@@ -103,13 +133,16 @@ export async function POST(
     imageUrls: body.imageUrls,
   });
   if (!roomId) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 400);
     return jsonError("roomId 필요", 400);
   }
   if (messageType === "image") {
     if (imageList.length === 0) {
+      markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 400);
       return jsonError("이미지 주소가 필요합니다.", 400);
     }
   } else if (!text && messageType === "text") {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 400);
     return jsonError("메시지를 입력하세요", 400);
   }
 
@@ -123,10 +156,12 @@ export async function POST(
   const sbAny = sb;
   const access = await assertVerifiedMemberForAction(sbAny as any, userId);
   if (!access.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, access.status);
     return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
 
   if (roomFetchErr || !room) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 404);
     return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
   const r = room as {
@@ -142,9 +177,11 @@ export async function POST(
   };
   const adminSuspend = resolveAdminChatSuspension(r);
   if (adminSuspend.suspended) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
     return NextResponse.json({ ok: false, error: ADMIN_CHAT_SUSPENDED_MESSAGE }, { status: 403 });
   }
   if (r.is_readonly === true) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
     return NextResponse.json({ ok: false, error: "읽기 전용 채팅방입니다." }, { status: 403 });
   }
   if (r.is_blocked) {
@@ -157,15 +194,18 @@ export async function POST(
         .eq("blocked_user_id", userId)
         .maybeSingle();
       if (blockRow?.id) {
+        markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
         return NextResponse.json({ ok: false, error: "상대와 대화할 수 없어요." }, { status: 403 });
       }
     }
   }
   const roomTypePost = String((room as { room_type?: string }).room_type ?? "");
   if (roomTypePost === "store_order") {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 404);
     return NextResponse.json({ ok: false, error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
   }
   if (roomTypePost !== "item_trade") {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 404);
     return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
   }
   {
@@ -177,10 +217,12 @@ export async function POST(
       .maybeSingle();
     const partRow = part as { hidden?: boolean; left_at?: string | null; is_active?: boolean | null } | null;
     if (!partRow || partRow.hidden || partRow.left_at || partRow.is_active === false) {
+      markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
       return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
     }
   }
   if (r.request_status === "pending") {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
     return NextResponse.json({ ok: false, error: "채팅이 승인된 후에 메시지를 보낼 수 있어요." }, { status: 403 });
   }
 
@@ -201,6 +243,7 @@ export async function POST(
         roomTrade.buyer_id
       )
     ) {
+      markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
       return NextResponse.json(
         {
           ok: false,
@@ -235,6 +278,7 @@ export async function POST(
     .single();
 
   if (insertErr) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);
     return jsonError(safeErrorMessage(insertErr, "전송에 실패했습니다."), 500, {
       code: "trade_chat_message_insert_failed",
     });
@@ -303,6 +347,7 @@ export async function POST(
 
   await Promise.all([updateRoomPromise, touchLegacyPromise, bumpAndNotifyPromise]);
 
+  markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 200);
   return jsonOk({
     message: {
       id: (msg as { id: string }).id,

@@ -6,6 +6,7 @@ import {
 } from "@/lib/chats/server/load-chat-room-detail";
 import { parseRoomId } from "@/lib/validate-params";
 import {
+  LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT,
   loadChatMessagesForRoom,
   loadIntegratedChatRoomMessageRowsForUser,
   loadLegacyProductChatMessagesForUser,
@@ -17,7 +18,9 @@ async function fetchHintedMessages(
   sourceHint: ChatRoomSource
 ): Promise<ChatMessage[]> {
   if (sourceHint === "product_chat") {
-    const result = await loadLegacyProductChatMessagesForUser(roomId, userId);
+    const result = await loadLegacyProductChatMessagesForUser(roomId, userId, {
+      limit: LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT,
+    });
     return result.ok ? result.value : [];
   }
   const result = await loadIntegratedChatRoomMessageRowsForUser({ roomId, userId });
@@ -72,7 +75,9 @@ export async function loadChatRoomBootstrapForUser(input: {
   if (hintedMessagesPromise && room.source === sourceHint) {
     messages = await hintedMessagesPromise;
   } else if (room.source === "product_chat") {
-    const r = await loadLegacyProductChatMessagesForUser(roomId, userId);
+    const r = await loadLegacyProductChatMessagesForUser(roomId, userId, {
+      limit: LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT,
+    });
     messages = r.ok ? r.value : await loadChatMessagesForRoom({ room, userId });
   } else if (room.source === "chat_room") {
     if (room.generalChat?.kind === "store_order") {

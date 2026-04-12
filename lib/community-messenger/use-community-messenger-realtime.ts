@@ -15,6 +15,10 @@
 import { useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import {
+  messengerMonitorRealtimeMessageInsertDelay,
+  messengerMonitorRealtimeSubscriptionOutcome,
+} from "@/lib/community-messenger/monitoring/client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 /** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
@@ -105,7 +109,14 @@ export function useCommunityMessengerHomeRealtime(args: {
     const roomIds = roomIdsFingerprint.length ? roomIdsFingerprint.split("\0").filter(Boolean) : [];
 
     const subscribe = (name: string, register: (channel: RealtimeChannel) => RealtimeChannel) => {
-      const channel = register(sb.channel(name)).subscribe();
+      const scope = name.split(":").slice(0, 3).join(":") || name;
+      const channel = register(sb.channel(name)).subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          messengerMonitorRealtimeSubscriptionOutcome(scope, true, status);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          messengerMonitorRealtimeSubscriptionOutcome(scope, false, status);
+        }
+      });
       channels.push(channel);
     };
 
@@ -231,7 +242,14 @@ export function useCommunityMessengerHomeRealtime(args: {
           if (!cancelled) refreshScheduler.schedule();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        const scope = `community-messenger-home:call-logs`;
+        if (status === "SUBSCRIBED") {
+          messengerMonitorRealtimeSubscriptionOutcome(scope, true, status);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          messengerMonitorRealtimeSubscriptionOutcome(scope, false, status);
+        }
+      });
     channels.push(callLogsChannel);
 
     return () => {
@@ -294,6 +312,13 @@ export function useCommunityMessengerRoomRealtime(args: {
               eventType,
               message: nextMessage,
             });
+            if (eventType === "INSERT" && args.roomId) {
+              const created = new Date(nextMessage.createdAt).getTime();
+              const delay = Date.now() - created;
+              if (delay >= 0 && delay < 180_000) {
+                messengerMonitorRealtimeMessageInsertDelay(args.roomId, delay);
+              }
+            }
             if (nextMessage.messageType === "call_stub" && !cancelled) {
               callRefreshScheduler.schedule();
             }
@@ -365,7 +390,14 @@ export function useCommunityMessengerRoomRealtime(args: {
           if (!cancelled) callRefreshScheduler.schedule();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        const scope = `community-messenger-room:bundle`;
+        if (status === "SUBSCRIBED") {
+          messengerMonitorRealtimeSubscriptionOutcome(scope, true, status);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          messengerMonitorRealtimeSubscriptionOutcome(scope, false, status);
+        }
+      });
     channels.push(roomChannel);
 
     return () => {
