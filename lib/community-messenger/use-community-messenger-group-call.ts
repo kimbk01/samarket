@@ -8,6 +8,7 @@ import {
 } from "@/lib/community-messenger/call-permission";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { playCommunityMessengerCallSignalSound } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
@@ -121,6 +122,10 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const mountedRef = useRef(true);
   const activeSinceRef = useRef<number | null>(null);
   const groupCallSignalsRealtimeSubscribedRef = useRef(false);
+  const groupCallTerminalSoundPrevRef = useRef<{
+    id: string;
+    status: CommunityMessengerCallSession["status"];
+  } | null>(null);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
   const participants = args.activeCall?.participants ?? [];
@@ -857,6 +862,35 @@ export function useCommunityMessengerGroupCall(args: Props) {
       setBusy(null);
     }
   }, [args.enabled, args.viewerUserId, createOfferForPeer, currentSessionId, joinedParticipants, panel, sendSignal]);
+
+  useEffect(() => {
+    if (!args.enabled) {
+      groupCallTerminalSoundPrevRef.current = null;
+      return;
+    }
+    const ac = args.activeCall;
+    if (!ac || ac.sessionMode !== "group") {
+      groupCallTerminalSoundPrevRef.current = null;
+      return;
+    }
+    const sid = ac.id;
+    const st = ac.status;
+    const prevPair = groupCallTerminalSoundPrevRef.current;
+    if (!prevPair || prevPair.id !== sid) {
+      groupCallTerminalSoundPrevRef.current = { id: sid, status: st };
+      return;
+    }
+    const prevSt = prevPair.status;
+    groupCallTerminalSoundPrevRef.current = { id: sid, status: st };
+    if (prevSt === st) return;
+    const wasLive = prevSt === "ringing" || prevSt === "active";
+    if (!wasLive) return;
+    if (st === "missed") {
+      void playCommunityMessengerCallSignalSound("missed", { dedupeSessionId: sid });
+    } else if (st === "ended") {
+      void playCommunityMessengerCallSignalSound("call_end", { dedupeSessionId: sid });
+    }
+  }, [args.activeCall?.id, args.activeCall?.sessionMode, args.activeCall?.status, args.enabled]);
 
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";

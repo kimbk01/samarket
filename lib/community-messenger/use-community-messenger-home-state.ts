@@ -126,7 +126,8 @@ export function useCommunityMessengerHomeState({
         });
       }
     }
-    return [...roomMap.values()].sort(sortUnifiedRoomListItems);
+    const merged = collapseDirectPeerRooms([...roomMap.values()]);
+    return merged.sort(sortUnifiedRoomListItems);
   }, [sortedChats, sortedGroups, sortedCalls]);
 
   const baseChatListItems = useMemo(() => {
@@ -301,6 +302,44 @@ function sortRooms(rooms: CommunityMessengerRoomSummary[]): CommunityMessengerRo
     if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
     return a.title.localeCompare(b.title, "ko");
   });
+}
+
+/**
+ * 동일 peer 의 1:1 방이 여러 개(거래·배달 등)여도 목록에서는 한 줄로 본다.
+ * 최근 이벤트가 있는 방을 대표로 쓰고, 읽지 않은 수·핀·뮤트는 OR/합산에 가깝게 반영.
+ */
+function collapseDirectPeerRooms(items: UnifiedRoomListItem[]): UnifiedRoomListItem[] {
+  const groups = new Map<string, UnifiedRoomListItem[]>();
+  for (const item of items) {
+    const peerId = item.room.peerUserId;
+    const gkey =
+      item.room.roomType === "direct" && peerId ? `direct:${peerId}` : `id:${item.room.id}`;
+    const list = groups.get(gkey) ?? [];
+    list.push(item);
+    groups.set(gkey, list);
+  }
+  const out: UnifiedRoomListItem[] = [];
+  for (const [, group] of groups) {
+    if (group.length === 1) {
+      out.push(group[0]);
+      continue;
+    }
+    const sorted = [...group].sort(
+      (a, b) => new Date(b.lastEventAt).getTime() - new Date(a.lastEventAt).getTime()
+    );
+    const best = sorted[0];
+    const totalUnread = group.reduce((sum, g) => sum + Math.max(0, g.room.unreadCount), 0);
+    out.push({
+      ...best,
+      room: {
+        ...best.room,
+        unreadCount: totalUnread,
+        isPinned: group.some((g) => g.room.isPinned),
+        isMuted: group.some((g) => g.room.isMuted),
+      },
+    });
+  }
+  return out;
 }
 
 function sortUnifiedRoomListItems(a: UnifiedRoomListItem, b: UnifiedRoomListItem): number {

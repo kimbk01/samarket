@@ -8,9 +8,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  playCommunityMessengerCallSignalSound,
   startCommunityMessengerCallTone,
   stopCommunityMessengerCallFeedback,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { fetchMessengerCallSoundConfig } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
@@ -52,11 +54,19 @@ export function GlobalCommunityMessengerIncomingCall() {
   const lastBurstAtRef = useRef(0);
   const pendingBurstTimerRef = useRef<number | null>(null);
   const realtimeDebounceTimerRef = useRef<number | null>(null);
+  /** 직전 폴링까지 수신 목록에 있던 ringing 세션 id (directOnly — 전부 ringing) */
+  const prevIncomingRingingIdsRef = useRef<Set<string>>(new Set());
+  /** 거절·수락·차단·메시지거절 등 사용자가 끊은 세션은 부재 톤 제외 */
+  const suppressMissedSoundRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
       setUserId(value);
     });
+  }, []);
+
+  useEffect(() => {
+    void fetchMessengerCallSoundConfig();
   }, []);
 
   useEffect(() => {
@@ -245,6 +255,23 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [replySheetSessionId, sessions]);
 
+  /** ringing 이 목록에서 사라졌을 때(타임아웃 부재 등) 부재 사운드 — 사용자가 거절/수락한 경우는 제외 */
+  useEffect(() => {
+    if (!userId) return;
+    const current = new Set(sessions.map((s) => s.id));
+    const prev = prevIncomingRingingIdsRef.current;
+    for (const id of prev) {
+      if (!current.has(id)) {
+        if (suppressMissedSoundRef.current.has(id)) {
+          suppressMissedSoundRef.current.delete(id);
+        } else if (incomingCallSoundEnabled) {
+          void playCommunityMessengerCallSignalSound("missed", { dedupeSessionId: id });
+        }
+      }
+    }
+    prevIncomingRingingIdsRef.current = current;
+  }, [sessions, userId, incomingCallSoundEnabled]);
+
   const visibleSession = incomingCallBannerEnabled ? sessions[0] ?? null : null;
   const visibleSessionId = visibleSession?.id ?? null;
   const visibleSessionStatus = visibleSession?.status ?? null;
@@ -252,15 +279,25 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     if (visibleSessionStatus !== "ringing") return;
-    const tone = startCommunityMessengerCallTone("incoming", {
+    let cancelled = false;
+    let tone: { stop: () => void } | null = null;
+    void startCommunityMessengerCallTone("incoming", {
       callKind: visibleSession?.callKind ?? "voice",
+    }).then((t) => {
+      if (cancelled) {
+        t.stop();
+        return;
+      }
+      tone = t;
     });
     return () => {
-      tone.stop();
+      cancelled = true;
+      tone?.stop();
     };
   }, [visibleSessionId, visibleSessionStatus, visibleSession?.callKind]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
+    suppressMissedSoundRef.current.add(sessionId);
     stopCommunityMessengerCallFeedback();
     const session = sessions.find((item) => item.id === sessionId) ?? null;
     setBusyId(`reject:${sessionId}`);
@@ -294,6 +331,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh, sessions]);
 
   const acceptCall = useCallback((session: CommunityMessengerCallSession) => {
+    suppressMissedSoundRef.current.add(session.id);
     stopCommunityMessengerCallFeedback();
     setBusyId(`accept:${session.id}`);
     setSessions((prev) => prev.filter((item) => item.id !== session.id));
@@ -328,6 +366,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, []);
 
   const blockCaller = useCallback(async (session: CommunityMessengerCallSession) => {
+    suppressMissedSoundRef.current.add(session.id);
     stopCommunityMessengerCallFeedback();
     if (!session.peerUserId) return;
     if (!window.confirm(`${session.peerLabel}님을 차단할까요?`)) {
@@ -373,6 +412,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh]);
 
   const sendQuickReplyAndReject = useCallback(async (session: CommunityMessengerCallSession, content: string) => {
+    suppressMissedSoundRef.current.add(session.id);
     stopCommunityMessengerCallFeedback();
     const trimmedContent = content.trim();
     if (!trimmedContent) return;

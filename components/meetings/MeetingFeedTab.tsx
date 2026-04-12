@@ -62,10 +62,13 @@ export function MeetingFeedTab({
   const [reportTarget, setReportTarget] = useState<{ id: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // 30초 주기 자동 폴링 (탭이 보일 때만)
+  /** 백업 폴링 — 포그라운드에서만 타이머, 복귀 시 1회 동기화, 요청 중복 방지 */
   useEffect(() => {
+    let inFlight = false;
     const poll = async () => {
-      if (document.visibilityState !== "visible") return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (inFlight) return;
+      inFlight = true;
       try {
         const res = await fetch(`/api/philife/meetings/${meetingId}/feed`, {
           credentials: "include",
@@ -78,10 +81,40 @@ export function MeetingFeedTab({
         }
       } catch {
         // 무시
+      } finally {
+        inFlight = false;
       }
     };
-    const timer = setInterval(() => { void poll(); }, 30_000);
-    return () => clearInterval(timer);
+    let intervalId: number | null = null;
+    const stopPoll = () => {
+      if (intervalId == null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const startPoll = () => {
+      stopPoll();
+      intervalId = window.setInterval(() => {
+        void poll();
+      }, 30_000);
+    };
+    const onVisibility = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") {
+        void poll();
+        startPoll();
+      } else {
+        stopPoll();
+      }
+    };
+    if (typeof document === "undefined" || document.visibilityState === "visible") {
+      void poll();
+      startPoll();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stopPoll();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [meetingId]);
 
   const visible = localPosts.filter((p) => !p.is_hidden);

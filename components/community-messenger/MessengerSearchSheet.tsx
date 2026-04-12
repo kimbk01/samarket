@@ -15,7 +15,7 @@ import {
 
 export function MessengerEmptyCard({ message }: { message: string }) {
   return (
-    <div className="rounded-ui-rect border border-ui-border bg-ui-surface px-4 py-8 text-center text-[13px] text-ui-muted">
+    <div className="rounded-ui-rect border border-dashed border-ui-border bg-ui-page px-3 py-4 text-center text-[12px] text-ui-muted">
       {message}
     </div>
   );
@@ -32,8 +32,8 @@ function MessengerSearchSection({
 }) {
   return (
     <section>
-      <h3 className="mb-2 text-[12px] font-semibold text-ui-muted">{title}</h3>
-      {subtitle ? <p className="-mt-1 mb-2 text-[11px] text-ui-muted">{subtitle}</p> : null}
+      <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ui-muted">{title}</h3>
+      {subtitle ? <p className="mb-1 text-[11px] text-ui-muted">{subtitle}</p> : null}
       {children}
     </section>
   );
@@ -85,8 +85,8 @@ export function MessengerSearchSheet({
   return (
     <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
-      <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[var(--ui-shadow-card)]">
-        <p className="text-center text-[14px] font-semibold text-ui-fg">메신저 검색</p>
+      <div className="max-h-[78vh] overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--ui-shadow-card)]">
+        <p className="text-center text-[15px] font-semibold text-ui-fg">검색</p>
         <input
           value={keyword}
           onChange={(e) => onKeywordChange(e.target.value)}
@@ -96,10 +96,10 @@ export function MessengerSearchSheet({
               onCommitRecentSearch(keyword);
             }
           }}
-          placeholder="친구, 채팅방, 메시지, 오픈채팅 검색"
-          className="mt-4 h-11 w-full rounded-ui-rect border border-ui-border bg-ui-surface px-3 text-[14px] text-ui-fg outline-none placeholder:text-ui-muted focus:border-ui-border"
+          placeholder="친구, 방, 메시지, 오픈채팅"
+          className="mt-2 h-10 w-full rounded-ui-rect border border-ui-border bg-ui-page px-2.5 text-[14px] text-ui-fg outline-none placeholder:text-ui-muted"
         />
-        <div className="mt-3 space-y-4">
+        <div className="mt-2 space-y-3">
           {!queryActive ? (
             <MessengerSearchSection title="최근 검색">
               {recentSearches.length ? (
@@ -121,7 +121,7 @@ export function MessengerSearchSheet({
             </MessengerSearchSection>
           ) : (
             <>
-              <MessengerSearchSection title="친구" subtitle="프로필을 열고 바로 대화나 관리 액션으로 이어집니다.">
+              <MessengerSearchSection title="친구">
                 {searchFriendMatches.length ? (
                   <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
                     {searchFriendMatches.map((friend) => (
@@ -133,28 +133,22 @@ export function MessengerSearchSheet({
                           onClose();
                           onSelectFriend(friend);
                         }}
-                        className="flex w-full items-center justify-between gap-3 border-b border-ui-border px-3 py-3 text-left last:border-b-0"
+                        className="flex w-full items-center justify-between gap-2 border-b border-ui-border px-2.5 py-2 text-left last:border-b-0 hover:bg-ui-hover"
                       >
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-[14px] font-medium text-gray-900">{friend.label}</p>
-                            <span className="rounded-ui-rect border border-ui-border bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-                              친구
-                            </span>
+                          <div className="flex items-center gap-1.5">
+                            <p className="truncate text-[13px] font-medium text-ui-fg">{friend.label}</p>
+                            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] font-medium text-ui-muted">친구</span>
                             {friend.isFavoriteFriend ? (
-                              <span className="rounded-ui-rect border border-ui-border bg-ui-surface px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-                                즐겨찾기
-                              </span>
+                              <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">★</span>
                             ) : null}
                             {friend.isHiddenFriend ? (
-                              <span className="rounded-ui-rect border border-ui-border bg-ui-surface px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-                                숨김
-                              </span>
+                              <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">숨김</span>
                             ) : null}
                           </div>
-                          <p className="truncate text-[12px] text-gray-500">{friend.subtitle ?? "친구"}</p>
+                          <p className="truncate text-[11px] text-ui-muted">{friend.subtitle ?? ""}</p>
                         </div>
-                        <span className="text-[11px] text-gray-400">프로필</span>
+                        <span className="text-[10px] text-ui-muted">열기</span>
                       </button>
                     ))}
                   </div>
@@ -162,7 +156,7 @@ export function MessengerSearchSheet({
                   <MessengerEmptyCard message="일치하는 친구가 없습니다." />
                 )}
               </MessengerSearchSection>
-              <MessengerSearchSection title="채팅방" subtitle="현재 참여 중인 대화방을 바로 엽니다.">
+              <MessengerSearchSection title="채팅방">
                 {searchRoomMatches.length ? (
                   <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
                     {searchRoomMatches.map((item) => (
@@ -183,7 +177,7 @@ export function MessengerSearchSheet({
                   <MessengerEmptyCard message="일치하는 채팅방이 없습니다." />
                 )}
               </MessengerSearchSection>
-              <MessengerSearchSection title="그룹·오픈채팅" subtitle="공개방 미리보기 후 입장">
+              <MessengerSearchSection title="오픈채팅">
                 {searchOpenChatMatches.length ? (
                   <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
                     {searchOpenChatMatches.map((group) => (
@@ -195,26 +189,19 @@ export function MessengerSearchSheet({
                           onClose();
                           onSelectOpenGroup(group.id);
                         }}
-                        className="flex w-full items-center justify-between gap-3 border-b border-ui-border px-3 py-3 text-left last:border-b-0"
+                        className="flex w-full items-center justify-between gap-2 border-b border-ui-border px-2.5 py-2 text-left last:border-b-0 hover:bg-ui-hover"
                       >
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-[14px] font-medium text-gray-900">{group.title}</p>
-                            <span className="rounded-ui-rect border border-ui-border bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-                              오픈
-                            </span>
+                          <div className="flex items-center gap-1.5">
+                            <p className="truncate text-[13px] font-medium text-ui-fg">{group.title}</p>
+                            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">오픈</span>
                             {group.isJoined ? (
-                              <span className="rounded-ui-rect border border-ui-border bg-ui-surface px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-                                참여 중
-                              </span>
+                              <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">참여</span>
                             ) : null}
                           </div>
-                          <p className="truncate text-[12px] text-gray-500">{group.summary || `${group.ownerLabel} · ${group.memberCount}명`}</p>
-                          <p className="mt-1 truncate text-[11px] text-gray-400">
-                            {group.ownerLabel} · {group.memberCount}명
-                          </p>
+                          <p className="truncate text-[11px] text-ui-muted">{group.summary || `${group.ownerLabel} · ${group.memberCount}명`}</p>
                         </div>
-                        <span className="text-[11px] text-gray-400">{group.isJoined ? "다시 입장" : "미리보기"}</span>
+                        <span className="text-[10px] text-ui-muted">{group.isJoined ? "입장" : "보기"}</span>
                       </button>
                     ))}
                   </div>
@@ -222,7 +209,7 @@ export function MessengerSearchSheet({
                   <MessengerEmptyCard message="일치하는 그룹·오픈채팅이 없습니다." />
                 )}
               </MessengerSearchSection>
-              <MessengerSearchSection title="메시지" subtitle="미리보기에 검색어가 포함된 대화">
+              <MessengerSearchSection title="메시지">
                 {searchMessageMatches.length ? (
                   <div className="overflow-hidden rounded-ui-rect border border-ui-border bg-ui-surface">
                     {searchMessageMatches.map((item) => (
@@ -234,23 +221,19 @@ export function MessengerSearchSheet({
                           onClose();
                           onSelectMessageRoom(item.room.id);
                         }}
-                        className="flex w-full items-center justify-between gap-3 border-b border-ui-border px-3 py-3 text-left last:border-b-0"
+                        className="flex w-full items-center justify-between gap-2 border-b border-ui-border px-2.5 py-2 text-left last:border-b-0 hover:bg-ui-hover"
                       >
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-[13px] font-medium text-gray-900">{item.room.title}</p>
-                            <span className="rounded-ui-rect border border-ui-border bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                          <div className="flex items-center gap-1.5">
+                            <p className="truncate text-[13px] font-medium text-ui-fg">{item.room.title}</p>
+                            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] text-ui-muted">
                               {getRoomTypeBadgeLabel(item.room)}
                             </span>
-                            <span className="rounded-ui-rect border border-ui-border bg-ui-surface px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-                              메시지
-                            </span>
                           </div>
-                          <p className="truncate text-[12px] text-gray-500">{item.preview}</p>
+                          <p className="truncate text-[11px] text-ui-muted">{item.preview}</p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-[11px] text-gray-400">{formatConversationTimestamp(item.lastEventAt)}</p>
-                          <p className="mt-1 text-[10px] text-gray-300">열기</p>
+                          <p className="text-[10px] text-ui-muted tabular-nums">{formatConversationTimestamp(item.lastEventAt)}</p>
                         </div>
                       </button>
                     ))}
@@ -262,7 +245,7 @@ export function MessengerSearchSheet({
             </>
           )}
         </div>
-        <button type="button" className="mt-3 w-full py-2 text-[14px] text-ui-muted" onClick={onClose}>
+        <button type="button" className="mt-2 w-full py-2 text-[13px] text-ui-muted" onClick={onClose}>
           닫기
         </button>
       </div>

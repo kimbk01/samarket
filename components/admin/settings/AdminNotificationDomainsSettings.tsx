@@ -7,6 +7,7 @@ import type { NotificationDomain } from "@/lib/notifications/notification-domain
 import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
 import { invalidateNotificationSoundConfigCache } from "@/lib/notifications/notification-sound-engine";
 import { AdminNotificationSoundPreview } from "@/components/admin/settings/AdminNotificationSoundPreview";
+import { AdminMessengerCallSoundsSection } from "@/components/admin/settings/AdminMessengerCallSoundsSection";
 
 type Row = {
   type: NotificationDomain;
@@ -270,6 +271,10 @@ export function AdminNotificationDomainsSettings() {
       >
         {saving ? "저장 중…" : "저장"}
       </button>
+
+      <div className="border-t border-ui-border pt-8">
+        <AdminMessengerCallSoundsSection />
+      </div>
     </div>
   );
 }

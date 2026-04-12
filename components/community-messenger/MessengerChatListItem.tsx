@@ -144,11 +144,11 @@ export function MessengerChatListItem({
       {commerceMeta?.thumbnailUrl ? (
         <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
       ) : (
-        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-11 w-11" textClassName="text-[14px]" />
+        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-10 w-10" textClassName="text-[13px]" />
       )}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <p className="min-w-0 truncate text-[15px] font-semibold leading-tight text-ui-fg">{room.title}</p>
+          <p className="min-w-0 truncate text-[14px] font-semibold leading-tight text-ui-fg">{room.title}</p>
           {titleSuffix ? <span className="shrink-0 text-[12px] text-ui-muted">{titleSuffix}</span> : null}
           <span className={`shrink-0 rounded-ui-rect border px-1.5 py-0.5 text-[10px] font-medium leading-none ${getRoomTypeBadgeClassName(badgeLabel)}`}>
             {badgeLabel}
@@ -167,7 +167,7 @@ export function MessengerChatListItem({
             </span>
           ) : null}
           {isFavorite ? <span className="shrink-0 text-[11px] text-ui-muted">★</span> : null}
-          <p className={`min-w-0 truncate text-[13px] ${room.unreadCount > 0 ? "font-medium text-ui-fg" : "text-ui-muted"}`}>
+          <p className={`min-w-0 truncate text-[12px] ${room.unreadCount > 0 ? "font-medium text-ui-fg" : "text-ui-muted"}`}>
             {item.preview}
           </p>
         </div>
@@ -201,7 +201,7 @@ export function MessengerChatListItem({
         href={`/community-messenger/rooms/${room.id}`}
         onPointerEnter={() => void prefetchCommunityMessengerRoomSnapshot(room.id)}
         onPointerDown={() => void prefetchCommunityMessengerRoomSnapshot(room.id)}
-        className="block border-b border-gray-100 px-3 py-3 last:border-b-0"
+        className="block px-2.5 py-2.5"
       >
         {rowContent}
       </Link>
@@ -209,7 +209,7 @@ export function MessengerChatListItem({
   }
 
   return (
-    <div className="relative overflow-hidden border-b border-gray-100 last:border-b-0">
+    <div className="relative overflow-hidden">
       <div className="absolute inset-y-0 right-0 flex w-[168px] items-stretch border-l border-gray-200 bg-white" style={{ pointerEvents: offset < -8 ? "auto" : "none" }}>
         <button
           type="button"
@@ -289,7 +289,7 @@ export function MessengerChatListItem({
             navigateToCommunityRoom(room.id);
           }
         }}
-        className="relative bg-white px-3 py-3 transition hover:bg-gray-50 touch-pan-y"
+        className="relative bg-ui-surface px-2.5 py-2.5 transition hover:bg-ui-hover touch-pan-y"
         style={{
           transform: `translateX(${offset}px)`,
           transition: dragging ? "none" : "transform 0.2s ease-out",

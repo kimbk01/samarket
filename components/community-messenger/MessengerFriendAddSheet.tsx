@@ -1,105 +1,11 @@
 "use client";
 
-import { useEffect, useState, type ReactNode, type RefObject } from "react";
-import { MessengerLineFriendRow } from "@/components/community-messenger/MessengerLineFriendRow";
-import { MessengerEmptyCard } from "@/components/community-messenger/MessengerSearchSheet";
+import { useCallback, useState, type RefObject } from "react";
 import { SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
-function AvatarCircle({
-  src,
-  label,
-  sizeClassName,
-  textClassName,
-}: {
-  src?: string | null;
-  label: string;
-  sizeClassName: string;
-  textClassName: string;
-}) {
-  const safeSrc = typeof src === "string" && src.trim().length > 0 ? src.trim() : "";
-  const [imageFailed, setImageFailed] = useState(false);
-  const initial = label.trim().slice(0, 1).toUpperCase() || "?";
-  useEffect(() => {
-    setImageFailed(false);
-  }, [safeSrc]);
-  return (
-    <div className={`shrink-0 overflow-hidden rounded-full bg-gray-100 ${sizeClassName}`}>
-      {safeSrc && !imageFailed ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={safeSrc} alt="" className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
-      ) : (
-        <div className={`flex h-full w-full items-center justify-center font-semibold text-gray-600 ${textClassName}`}>
-          {initial}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InfoSection({
-  title,
-  subtitle,
-  sectionRef,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  sectionRef?: { current: HTMLElement | null };
-  children: ReactNode;
-}) {
-  return (
-    <section ref={sectionRef} className="rounded-ui-rect border border-gray-200 bg-white p-4">
-      <div className="mb-3">
-        <h2 className="text-[16px] font-semibold text-gray-900">{title}</h2>
-        {subtitle ? <p className="mt-1 text-[13px] text-gray-500">{subtitle}</p> : null}
-      </div>
-      <div className="space-y-2">{children}</div>
-    </section>
-  );
-}
-
-function ProfileCard({
-  profile,
-  actionSlot,
-}: {
-  profile: CommunityMessengerProfileLite;
-  actionSlot: ReactNode;
-}) {
-  const avatarSrc = profile.avatarUrl?.trim() ? profile.avatarUrl.trim() : null;
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-ui-rect border border-gray-200 bg-white px-3 py-3">
-      <div className="flex min-w-0 items-center gap-3">
-        <AvatarCircle src={avatarSrc} label={profile.label} sizeClassName="h-11 w-11" textClassName="text-[15px]" />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-[14px] font-semibold text-gray-900">{profile.label}</p>
-            {profile.isFavoriteFriend ? (
-              <span className="rounded-ui-rect border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                즐겨찾기
-              </span>
-            ) : null}
-            {profile.isHiddenFriend ? (
-              <span className="rounded-ui-rect border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                숨김
-              </span>
-            ) : null}
-            {profile.following ? (
-              <span className="rounded-ui-rect border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                팔로우 중
-              </span>
-            ) : null}
-          </div>
-          <p className="truncate text-[12px] text-gray-500">{profile.subtitle ?? "SAMarket 사용자"}</p>
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{actionSlot}</div>
-    </div>
-  );
-}
-
-export type MessengerFriendAddTab = "contacts" | "id";
+export type MessengerFriendAddTab = "id" | "contacts" | "invite";
 
 type Props = {
   onClose: () => void;
@@ -119,11 +25,24 @@ type Props = {
   onPrefetchDirectRoom: (userId: string) => void;
   onRequestFriend: (userId: string) => void;
   onToggleBlock: (userId: string) => void;
-  me: CommunityMessengerProfileLite | null;
-  sortedFriends: CommunityMessengerProfileLite[];
-  onToggleFavoriteFriend: (userId: string) => void;
-  onRemoveFriend: (userId: string) => void;
+  /** 초대 링크·QR 탭에 표시할 공개 URL */
+  inviteUrl: string;
 };
+
+const TAB_ORDER: MessengerFriendAddTab[] = ["id", "contacts", "invite"];
+
+function tabLabel(t: MessengerFriendAddTab): string {
+  switch (t) {
+    case "id":
+      return "ID · 닉네임";
+    case "contacts":
+      return "연락처";
+    case "invite":
+      return "QR · 초대";
+    default:
+      return "";
+  }
+}
 
 export function MessengerFriendAddSheet({
   onClose,
@@ -143,20 +62,29 @@ export function MessengerFriendAddSheet({
   onPrefetchDirectRoom,
   onRequestFriend,
   onToggleBlock,
-  me,
-  sortedFriends,
-  onToggleFavoriteFriend,
-  onRemoveFriend,
+  inviteUrl,
 }: Props) {
+  const [copied, setCopied] = useState(false);
+
+  const copyInvite = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  }, [inviteUrl]);
+
   return (
     <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
-      <div className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[14px] border border-gray-200 bg-white shadow-[0_-3px_10px_rgba(17,24,39,0.04)]">
-        <div className="flex shrink-0 items-center justify-between px-4 py-3.5">
-          <p className="text-[17px] font-semibold text-gray-900">친구 추가</p>
+      <div className="flex max-h-[78vh] w-full flex-col overflow-hidden rounded-t-[12px] border border-ui-border bg-ui-surface shadow-[var(--ui-shadow-card)]">
+        <div className="flex shrink-0 items-center justify-between border-b border-ui-border px-3 py-2.5">
+          <p className="text-[16px] font-semibold text-ui-fg">친구 추가</p>
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-gray-500 hover:bg-gray-100"
+            className="flex h-8 w-8 items-center justify-center rounded-ui-rect text-ui-muted hover:bg-ui-hover"
             aria-label="닫기"
             onClick={onClose}
           >
@@ -165,71 +93,39 @@ export function MessengerFriendAddSheet({
             </svg>
           </button>
         </div>
-        <div className="grid shrink-0 grid-cols-2 gap-px border-y border-gray-100 bg-gray-100">
-          <button
-            type="button"
-            onClick={() => {
-              if (!localSettings.phoneFriendAddEnabled) return;
-              onFriendAddTabChange("contacts");
-            }}
-            disabled={!localSettings.phoneFriendAddEnabled}
-            className={`bg-white px-4 py-3 text-left ${!localSettings.phoneFriendAddEnabled ? "opacity-50" : ""}`}
-          >
-            <p className="text-[12px] font-medium text-gray-500">기본 흐름</p>
-            <p className="mt-1 text-[14px] font-semibold text-gray-900">연락처로 친구 추가</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onFriendAddTabChange("id");
-              requestAnimationFrame(() => friendSearchRef.current?.focus());
-            }}
-            className="bg-white px-4 py-3 text-left"
-          >
-            <p className="text-[12px] font-medium text-gray-500">검색 기반</p>
-            <p className="mt-1 text-[14px] font-semibold text-gray-900">ID / 닉네임으로 추가</p>
-          </button>
+
+        <div className="flex shrink-0 border-b border-ui-border">
+          {TAB_ORDER.map((tab) => {
+            const disabled = tab === "contacts" && !localSettings.phoneFriendAddEnabled;
+            const active = friendAddTab === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  if (disabled) return;
+                  onFriendAddTabChange(tab);
+                  if (tab === "id") {
+                    requestAnimationFrame(() => friendSearchRef.current?.focus());
+                  }
+                }}
+                className={`relative min-w-0 flex-1 px-1 py-2.5 text-[12px] font-medium ${
+                  active ? "text-ui-fg" : "text-ui-muted"
+                } ${disabled ? "opacity-40" : ""}`}
+              >
+                <span className="line-clamp-2">{tabLabel(tab)}</span>
+                {active ? <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-ui-fg" /> : null}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex shrink-0 border-b border-gray-200 px-4">
-          <button
-            type="button"
-            onClick={() => {
-              if (!localSettings.phoneFriendAddEnabled) return;
-              onFriendAddTabChange("contacts");
-            }}
-            disabled={!localSettings.phoneFriendAddEnabled}
-            className={`relative flex-1 py-3 text-[15px] ${
-              friendAddTab === "contacts" ? "font-semibold text-gray-900" : "font-medium text-gray-500"
-            }`}
-          >
-            연락처로 추가
-            {friendAddTab === "contacts" && localSettings.phoneFriendAddEnabled ? (
-              <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-ui-rect bg-gray-900" />
-            ) : null}
-          </button>
-          <button
-            type="button"
-            onClick={() => onFriendAddTabChange("id")}
-            className={`relative flex-1 py-3 text-[15px] ${
-              friendAddTab === "id" ? "font-semibold text-gray-900" : "font-medium text-gray-500"
-            }`}
-          >
-            ID로 추가
-            {friendAddTab === "id" ? (
-              <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-ui-rect bg-gray-900" />
-            ) : null}
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
           {friendAddTab === "contacts" ? (
-            <div className="space-y-3">
-              <div className="rounded-ui-rect border border-gray-200 bg-white px-4 py-4">
-                <p className="text-[14px] font-semibold text-gray-900">연락처로 친구 추가</p>
-                <p className="mt-1 text-[12px] text-gray-500">
-                  {localSettings.contactAutoAddEnabled ? "자동 추가 켜짐" : "자동 추가 꺼짐"}
-                </p>
-              </div>
-              <div className="overflow-hidden rounded-ui-rect border border-gray-200 bg-white">
+            <div className="space-y-2">
+              <p className="text-[12px] text-ui-muted">연락처 동기화는 모바일 앱·지원 브라우저에서 사용할 수 있습니다.</p>
+              <div className="overflow-hidden rounded-ui-rect border border-ui-border">
                 <SettingsToggleRow
                   title="전화번호로 친구 추가"
                   description="연락처 탭 사용"
@@ -243,14 +139,16 @@ export function MessengerFriendAddSheet({
                   onChange={(next) => updateLocalSetting("contactAutoAddEnabled", next)}
                 />
               </div>
-              <p className="rounded-ui-rect border border-dashed border-gray-200 bg-white px-4 py-4 text-center text-[13px] text-gray-600">
-                웹에서는 ID 검색으로 바로 추가할 수 있습니다.
+              <p className="rounded-ui-rect border border-dashed border-ui-border px-3 py-3 text-center text-[12px] text-ui-muted">
+                웹에서는 ID 검색 탭으로 바로 추가할 수 있습니다.
               </p>
             </div>
-          ) : (
-            <>
-              <div className="relative">
-                <div className="flex justify-end text-[12px] tabular-nums text-gray-400">{searchKeyword.length}/20</div>
+          ) : null}
+
+          {friendAddTab === "id" ? (
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-end text-[11px] tabular-nums text-ui-muted">{searchKeyword.length}/20</div>
                 <input
                   ref={friendSearchRef}
                   value={searchKeyword}
@@ -266,112 +164,133 @@ export function MessengerFriendAddSheet({
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full border-0 border-b border-gray-300 bg-transparent px-0 py-2 text-[16px] text-gray-900 outline-none ring-0 placeholder:text-gray-400 focus:border-gray-500"
+                  className="w-full border-0 border-b border-ui-border bg-transparent px-0 py-2 text-[15px] text-ui-fg outline-none placeholder:text-ui-muted focus:border-ui-fg"
                 />
-                <p className="mt-2 text-[12px] text-gray-500">검색 허용 사용자만 표시됩니다.</p>
+                <p className="mt-1.5 text-[11px] text-ui-muted">검색 허용 사용자만 표시됩니다.</p>
                 <button
                   type="button"
                   onClick={() => void onSearchUsers()}
                   disabled={busyId === "user-search"}
-                  className="mt-4 w-full rounded-ui-rect border border-gray-200 bg-white py-3 text-[15px] font-semibold text-gray-900 disabled:opacity-50"
+                  className="mt-3 w-full rounded-ui-rect border border-ui-fg bg-ui-fg py-2.5 text-[14px] font-semibold text-ui-surface disabled:opacity-50"
                 >
                   {busyId === "user-search" ? "검색 중…" : "검색"}
                 </button>
               </div>
-              <div className="mt-4 space-y-2">
+              <div className="space-y-1.5">
                 {searchResults.length === 0 ? (
-                  <p className="rounded-ui-rect border border-gray-200 bg-white px-3 py-4 text-center text-[13px] text-gray-500">
-                    {!friendUserSearchAttempted
-                      ? "닉네임 또는 아이디를 입력한 뒤 검색을 눌러 주세요."
-                      : "검색 결과가 없습니다."}
+                  <p className="rounded-ui-rect border border-ui-border px-3 py-4 text-center text-[12px] text-ui-muted">
+                    {!friendUserSearchAttempted ? "검색어를 입력한 뒤 검색을 눌러 주세요." : "검색 결과가 없습니다."}
                   </p>
                 ) : (
                   searchResults.map((user) => (
-                    <ProfileCard
+                    <SearchResultRow
                       key={user.id}
-                      profile={user}
-                      actionSlot={
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => void onToggleFollow(user.id)}
-                            disabled={busyId === `follow:${user.id}`}
-                            className="rounded-ui-rect border border-gray-200 px-3 py-2 text-[12px] font-medium text-gray-700"
-                          >
-                            {user.following ? "팔로우 해제" : "팔로우"}
-                          </button>
-                          {user.isFriend ? (
-                            <button
-                              type="button"
-                              onPointerEnter={() => onPrefetchDirectRoom(user.id)}
-                              onClick={() => onOpenProfile(user)}
-                              disabled={busyId === `room:${user.id}` || busyId === `call:voice:${user.id}` || busyId === `call:video:${user.id}`}
-                              className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[12px] font-semibold text-gray-900"
-                            >
-                              프로필
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => void onRequestFriend(user.id)}
-                              disabled={busyId === `friend:${user.id}` || user.blocked}
-                              className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[12px] font-semibold text-gray-900 disabled:opacity-40"
-                            >
-                              친구 요청
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => void onToggleBlock(user.id)}
-                            disabled={busyId === `block:${user.id}`}
-                            className="rounded-ui-rect border border-gray-200 bg-white px-3 py-2 text-[12px] font-medium text-gray-700"
-                          >
-                            {user.blocked ? "차단 해제" : "차단"}
-                          </button>
-                        </>
-                      }
+                      user={user}
+                      busyId={busyId}
+                      onToggleFollow={onToggleFollow}
+                      onOpenProfile={onOpenProfile}
+                      onPrefetchDirectRoom={onPrefetchDirectRoom}
+                      onRequestFriend={onRequestFriend}
+                      onToggleBlock={onToggleBlock}
                     />
                   ))
                 )}
               </div>
-            </>
-          )}
-          <div className="mt-6 space-y-4">
-            <InfoSection title="내 프로필">
-              <ProfileCard
-                profile={
-                  me ?? {
-                    id: "me",
-                    label: "내 프로필",
-                    avatarUrl: null,
-                    following: false,
-                    blocked: false,
-                    isFriend: false,
-                    isFavoriteFriend: false,
-                  }
-                }
-                actionSlot={<span className="text-[12px] text-gray-500">메신저 기본 프로필</span>}
-              />
-            </InfoSection>
-            <InfoSection title={`친구 ${sortedFriends.length}`}>
-              {sortedFriends.length ? (
-                sortedFriends.map((friend) => (
-                  <MessengerLineFriendRow
-                    key={friend.id}
-                    friend={friend}
-                    busyFavorite={busyId === `favorite:${friend.id}`}
-                    busyDelete={busyId === `remove-friend:${friend.id}`}
-                    onRowPress={() => onOpenProfile(friend)}
-                    onToggleFavorite={() => void onToggleFavoriteFriend(friend.id)}
-                    onDelete={() => onRemoveFriend(friend.id)}
-                  />
-                ))
-              ) : (
-                <MessengerEmptyCard message="아직 친구가 없습니다. ID로 추가 탭에서 검색해 보세요." />
-              )}
-            </InfoSection>
-          </div>
+            </div>
+          ) : null}
+
+          {friendAddTab === "invite" ? (
+            <div className="space-y-3">
+              <p className="text-[12px] text-ui-muted">이 링크를 공유하면 상대가 메신저에서 나를 찾을 수 있습니다. QR 스캔은 동일 링크를 사용합니다.</p>
+              <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-ui-muted">초대 URL</p>
+                <p className="mt-1 break-all text-[12px] leading-snug text-ui-fg">{inviteUrl}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void copyInvite()}
+                className="w-full rounded-ui-rect border border-ui-border bg-ui-surface py-2.5 text-[14px] font-semibold text-ui-fg"
+              >
+                {copied ? "복사됨" : "링크 복사"}
+              </button>
+            </div>
+          ) : null}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SearchResultRow({
+  user,
+  busyId,
+  onToggleFollow,
+  onOpenProfile,
+  onPrefetchDirectRoom,
+  onRequestFriend,
+  onToggleBlock,
+}: {
+  user: CommunityMessengerProfileLite;
+  busyId: string | null;
+  onToggleFollow: (userId: string) => void;
+  onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
+  onPrefetchDirectRoom: (userId: string) => void;
+  onRequestFriend: (userId: string) => void;
+  onToggleBlock: (userId: string) => void;
+}) {
+  const avatarSrc = user.avatarUrl?.trim() ? user.avatarUrl.trim() : null;
+  const initial = user.label.trim().slice(0, 1) || "?";
+  return (
+    <div className="flex items-center gap-2 rounded-ui-rect border border-ui-border bg-ui-surface px-2.5 py-2">
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-ui-hover">
+        {avatarSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ui-muted">{initial}</div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] font-semibold text-ui-fg">{user.label}</p>
+        <p className="truncate text-[11px] text-ui-muted">{user.subtitle ?? "SAMarket"}</p>
+      </div>
+      <div className="flex shrink-0 flex-wrap justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => void onToggleFollow(user.id)}
+          disabled={busyId === `follow:${user.id}`}
+          className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] font-medium text-ui-fg disabled:opacity-50"
+        >
+          {user.following ? "언팔" : "팔로우"}
+        </button>
+        {user.isFriend ? (
+          <button
+            type="button"
+            onPointerEnter={() => onPrefetchDirectRoom(user.id)}
+            onClick={() => onOpenProfile(user)}
+            disabled={busyId === `room:${user.id}` || busyId === `call:voice:${user.id}` || busyId === `call:video:${user.id}`}
+            className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] font-semibold text-ui-fg"
+          >
+            프로필
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void onRequestFriend(user.id)}
+            disabled={busyId === `friend:${user.id}` || user.blocked}
+            className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2 py-1 text-[11px] font-semibold text-ui-surface disabled:opacity-40"
+          >
+            요청
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => void onToggleBlock(user.id)}
+          disabled={busyId === `block:${user.id}`}
+          className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] text-ui-muted disabled:opacity-50"
+        >
+          {user.blocked ? "해제" : "차단"}
+        </button>
       </div>
     </div>
   );

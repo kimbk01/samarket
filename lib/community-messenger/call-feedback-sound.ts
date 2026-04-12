@@ -1,6 +1,13 @@
 import { NOTIFICATION_SOUND_ASSET_PATH, playNotificationSound, primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 import { startWebAudioCallTone } from "@/lib/community-messenger/call-tone-web-audio";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import {
+  fetchMessengerCallSoundConfig,
+  getMessengerCallSoundConfigCache,
+  resolveMessengerCallEndSoundUrl,
+  resolveMessengerCallMissedSoundUrl,
+  resolveMessengerCallToneUrl,
+} from "@/lib/community-messenger/messenger-call-sound-config-client";
 
 type CallToneMode = "incoming" | "outgoing";
 
@@ -28,17 +35,52 @@ export type StartCallToneOptions = {
 
 /**
  * 수신/발신 통화 톤. Web Audio 합성을 우선 사용하고, 실패 시 기존 알림 루프로 폴백.
+ * 관리자 설정 URL은 fetch 완료 후 적용되도록 비동기로 로드한다.
  */
-export function startCommunityMessengerCallTone(mode: CallToneMode, options?: StartCallToneOptions): CallToneController {
+export async function startCommunityMessengerCallTone(
+  mode: CallToneMode,
+  options?: StartCallToneOptions
+): Promise<CallToneController> {
   if (typeof window === "undefined") {
     return { stop() {} };
   }
 
-  const kind: "voice" | "video" = options?.callKind === "video" ? "video" : "voice";
-
   activeToneStopper?.();
 
-  const web = startWebAudioCallTone(mode, kind);
+  await fetchMessengerCallSoundConfig();
+
+  const cfg = getMessengerCallSoundConfigCache();
+  const callKind: CommunityMessengerCallKind = options?.callKind === "video" ? "video" : "voice";
+  const adminUrl = resolveMessengerCallToneUrl(cfg, mode, callKind);
+  if (adminUrl) {
+    let audio: HTMLAudioElement | null = null;
+    const clear = () => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+        audio = null;
+      }
+    };
+    primeNotificationSoundAudio();
+    try {
+      const next = new Audio(adminUrl);
+      next.preload = "auto";
+      next.loop = true;
+      next.volume = mode === "incoming" ? 0.72 : 0.45;
+      audio = next;
+      void next.play().catch(() => undefined);
+      const stop = () => {
+        clear();
+        if (activeToneStopper === stop) activeToneStopper = null;
+      };
+      activeToneStopper = stop;
+      return { stop };
+    } catch {
+      clear();
+    }
+  }
+
+  const web = startWebAudioCallTone(mode, callKind);
   if (web) {
     const stop = () => {
       web.stop();
@@ -129,4 +171,52 @@ export function startCommunityMessengerCallTone(mode: CallToneMode, options?: St
   activeToneStopper = stop;
 
   return { stop };
+}
+
+export type CallSignalSoundKind = "missed" | "call_end";
+
+const recentSignalPlays = new Map<string, number>();
+const SIGNAL_DEDUP_MS = 3500;
+
+export type PlayCallSignalSoundOptions = {
+  /** 동일 세션에서 전역 배너·통화 화면 등 중복 재생 방지 */
+  dedupeSessionId?: string;
+};
+
+/** 부재·통화 종료 등 짧은 원샷(루프 아님). URL 없거나 재생 실패 시 짧은 기본 알림음으로 폴백. */
+export async function playCommunityMessengerCallSignalSound(
+  kind: CallSignalSoundKind,
+  options?: PlayCallSignalSoundOptions
+): Promise<void> {
+  if (typeof window === "undefined") return;
+  const dk = options?.dedupeSessionId ? `${options.dedupeSessionId}:${kind}` : null;
+  if (dk) {
+    const now = Date.now();
+    const last = recentSignalPlays.get(dk) ?? 0;
+    if (now - last < SIGNAL_DEDUP_MS) return;
+    recentSignalPlays.set(dk, now);
+    if (recentSignalPlays.size > 80) {
+      const cutoff = now - SIGNAL_DEDUP_MS * 4;
+      for (const [k, t] of recentSignalPlays) {
+        if (t < cutoff) recentSignalPlays.delete(k);
+      }
+    }
+  }
+  await fetchMessengerCallSoundConfig();
+  const cfg = getMessengerCallSoundConfigCache();
+  const url =
+    kind === "missed" ? resolveMessengerCallMissedSoundUrl(cfg) : resolveMessengerCallEndSoundUrl(cfg);
+  primeNotificationSoundAudio();
+  if (url) {
+    try {
+      const audio = new Audio(url);
+      audio.crossOrigin = "anonymous";
+      audio.volume = kind === "missed" ? 0.68 : 0.42;
+      void audio.play().catch(() => playNotificationSound());
+    } catch {
+      playNotificationSound();
+    }
+    return;
+  }
+  playNotificationSound();
 }

@@ -7,19 +7,14 @@ import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import { MessengerNewConversationSheet } from "@/components/community-messenger/MessengerNewConversationSheet";
-import { MessengerFriendAddSheet } from "@/components/community-messenger/MessengerFriendAddSheet";
+import { MessengerFriendAddSheet, type MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
   MessengerNotificationCenterSheet,
   type MessengerNotificationCenterItem,
 } from "@/components/community-messenger/MessengerNotificationCenterSheet";
 import { MessengerSearchSheet } from "@/components/community-messenger/MessengerSearchSheet";
-import {
-  MessengerSettingsBlock,
-  MiniMetricCard,
-  SettingsActionRow,
-  SettingsToggleRow,
-} from "@/components/community-messenger/MessengerSheetUi";
 import { MessengerFriendProfileSheet } from "@/components/community-messenger/MessengerFriendProfileSheet";
+import { MessengerSettingsSheet } from "@/components/community-messenger/MessengerSettingsSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   type CommunityMessengerLocalSettings,
@@ -36,7 +31,6 @@ import {
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
-import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
 import {
   readPreferredCommunityMessengerDeviceIds,
   writePreferredCommunityMessengerDeviceIds,
@@ -127,7 +121,7 @@ export function CommunityMessengerHome({
   const [composerOpen, setComposerOpen] = useState(false);
   const [requestSheetOpen, setRequestSheetOpen] = useState(false);
   const [friendManagerOpen, setFriendManagerOpen] = useState(false);
-  const [friendAddTab, setFriendAddTab] = useState<"contacts" | "id">("id");
+  const [friendAddTab, setFriendAddTab] = useState<MessengerFriendAddTab>("id");
   const [friendUserSearchAttempted, setFriendUserSearchAttempted] = useState(false);
   const [searchSheetOpen, setSearchSheetOpen] = useState(false);
   const [sheetProfile, setSheetProfile] = useState<CommunityMessengerProfileLite | null>(null);
@@ -242,6 +236,23 @@ export function CommunityMessengerHome({
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
     [data?.chats, data?.groups]
   );
+
+  const directRoomByPeerId = useMemo(() => {
+    const map = new Map<string, CommunityMessengerRoomSummary>();
+    for (const room of data?.chats ?? []) {
+      if (room.roomType !== "direct" || !room.peerUserId) continue;
+      const prev = map.get(room.peerUserId);
+      if (!prev || new Date(room.lastMessageAt).getTime() >= new Date(prev.lastMessageAt).getTime()) {
+        map.set(room.peerUserId, room);
+      }
+    }
+    return map;
+  }, [data?.chats]);
+
+  const messengerInviteUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/community-messenger?section=friends`;
+  }, []);
 
   const getMessengerActionErrorMessage = useCallback((error?: string) => {
     switch (error) {
@@ -1452,7 +1463,10 @@ export function CommunityMessengerHome({
           onDeleteFriend={(userId) => void removeFriend(userId, { confirm: false })}
           onToggleBlock={(userId) => void toggleBlock(userId)}
           onRespondRequest={(requestId, action) => void respondRequest(requestId, action)}
-          onOpenFriendInviteTools={() => setFriendManagerOpen(true)}
+          onOpenFriendInviteTools={() => {
+            setFriendAddTab("invite");
+            setFriendManagerOpen(true);
+          }}
           primaryListItems={primaryListItems}
           favoriteFriendIds={favoriteFriendIds}
           onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
@@ -1548,6 +1562,19 @@ export function CommunityMessengerHome({
                 }
               : undefined
           }
+          directRoomMuted={directRoomByPeerId.get(sheetProfile.id)?.isMuted}
+          notificationsBusy={
+            Boolean(sheetProfile.isFriend && directRoomByPeerId.get(sheetProfile.id)) &&
+            busyId === `room-settings:${directRoomByPeerId.get(sheetProfile.id)?.id ?? ""}`
+          }
+          onToggleMuteNotifications={
+            sheetProfile.isFriend && directRoomByPeerId.get(sheetProfile.id)
+              ? () => {
+                  const room = directRoomByPeerId.get(sheetProfile.id);
+                  if (room) void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
+                }
+              : undefined
+          }
           onRemoveFriend={sheetProfile.isFriend ? () => void removeFriend(sheetProfile.id) : undefined}
           onBlock={sheetProfile.id !== data?.me?.id ? () => void toggleBlock(sheetProfile.id) : undefined}
           onReport={sheetProfile.id !== data?.me?.id ? () => void reportCommunityUser(sheetProfile.id) : undefined}
@@ -1611,10 +1638,7 @@ export function CommunityMessengerHome({
           onPrefetchDirectRoom={(userId) => maybePrefetchDirectRoom(userId)}
           onRequestFriend={(userId) => void requestFriend(userId)}
           onToggleBlock={(userId) => void toggleBlock(userId)}
-          me={data.me}
-          sortedFriends={sortedFriends}
-          onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
-          onRemoveFriend={(userId) => void removeFriend(userId, { confirm: false })}
+          inviteUrl={messengerInviteUrl}
         />
       ) : null}
 
@@ -1634,243 +1658,38 @@ export function CommunityMessengerHome({
       ) : null}
 
       {settingsSheetOpen && data ? (
-        <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
-          <button
-            type="button"
-            className="min-h-0 flex-1 cursor-default"
-            aria-label="닫기"
-            onClick={() => setSettingsSheetOpen(false)}
-          />
-          <div className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[14px] border border-gray-200 bg-white shadow-[0_-4px_14px_rgba(17,24,39,0.05)]">
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3.5">
-              <p className="text-[17px] font-semibold text-gray-900">설정</p>
-              <button
-                type="button"
-                className="rounded-ui-rect px-3 py-1.5 text-[15px] text-gray-600"
-                onClick={() => setSettingsSheetOpen(false)}
-              >
-                닫기
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-              <div className="space-y-5">
-                <MessengerSettingsBlock title="알림">
-                  <SettingsToggleRow
-                    title="메신저·1:1 채팅"
-                    description="일반 대화 알림"
-                    checked={notificationSettings.community_chat_enabled}
-                    disabled={busyId === "notification-setting:community_chat_enabled"}
-                    onChange={(next) => void updateNotificationSetting("community_chat_enabled", next)}
-                  />
-                  <SettingsToggleRow
-                    title="거래 채팅"
-                    description="중고·거래 연결 알림"
-                    checked={notificationSettings.trade_chat_enabled}
-                    disabled={busyId === "notification-setting:trade_chat_enabled"}
-                    onChange={(next) => void updateNotificationSetting("trade_chat_enabled", next)}
-                  />
-                  <SettingsToggleRow
-                    title="주문·배달"
-                    checked={notificationSettings.order_enabled}
-                    disabled={busyId === "notification-setting:order_enabled"}
-                    onChange={(next) => void updateNotificationSetting("order_enabled", next)}
-                  />
-                  <SettingsToggleRow
-                    title="매장"
-                    description="매장 공지·운영 알림"
-                    checked={notificationSettings.store_enabled}
-                    disabled={busyId === "notification-setting:store_enabled"}
-                    onChange={(next) => void updateNotificationSetting("store_enabled", next)}
-                  />
-                  <SettingsToggleRow
-                    title="벨소리·수신 통화 톤"
-                    checked={incomingCallSoundEnabled && notificationSettings.sound_enabled}
-                    onChange={(next) => {
-                      setIncomingCallSoundEnabled(next);
-                      setCommunityMessengerIncomingCallSoundEnabled(next);
-                      void updateNotificationSetting("sound_enabled", next);
-                    }}
-                  />
-                  <SettingsToggleRow
-                    title="수신 통화 화면 안내"
-                    description="배너·오버레이"
-                    checked={incomingCallBannerEnabled}
-                    onChange={(next) => {
-                      setIncomingCallBannerEnabled(next);
-                      setCommunityMessengerIncomingCallBannerEnabled(next);
-                    }}
-                  />
-                  <SettingsToggleRow
-                    title="진동"
-                    checked={notificationSettings.vibration_enabled}
-                    disabled={busyId === "notification-setting:vibration_enabled"}
-                    onChange={(next) => void updateNotificationSetting("vibration_enabled", next)}
-                  />
-                </MessengerSettingsBlock>
-
-                <MessengerSettingsBlock title="통화">
-                  <CommunityMessengerDeviceSettingsSection visible={Boolean(settingsSheetOpen && data)} embedded />
-                </MessengerSettingsBlock>
-
-                <MessengerSettingsBlock title="친구">
-                  <div className="grid grid-cols-3 gap-2 px-3 py-3">
-                    <MiniMetricCard label="차단" value={String(data.blocked.length)} helper="연결 차단" compact />
-                    <MiniMetricCard label="숨김" value={String(data.hidden.length)} helper="목록만 숨김" compact />
-                    <MiniMetricCard label="즐겨찾기" value={String(favoriteManageFriends.length)} helper="빠른 접근" compact />
-                  </div>
-                  <SettingsToggleRow
-                    title="전화번호로 친구 추가"
-                    description="연락처 탭 사용"
-                    checked={localSettings.phoneFriendAddEnabled}
-                    onChange={(next) => updateLocalSetting("phoneFriendAddEnabled", next)}
-                  />
-                  <SettingsToggleRow
-                    title="연락처 자동 추가"
-                    description="모바일 연동 시 자동 반영"
-                    checked={localSettings.contactAutoAddEnabled}
-                    onChange={(next) => updateLocalSetting("contactAutoAddEnabled", next)}
-                  />
-                  <div className="px-3 py-2">
-                    <p className="text-[12px] font-medium text-gray-800">차단</p>
-                    {data.blocked.length ? (
-                      <div className="mt-2 space-y-2">
-                        {data.blocked.map((user) => (
-                          <div key={user.id} className="flex items-center justify-between gap-2 border-b border-gray-100 py-2 last:border-0">
-                            <span className="truncate text-[14px] text-gray-900">{user.label}</span>
-                            <button
-                              type="button"
-                              onClick={() => void toggleBlock(user.id)}
-                              disabled={busyId === `block:${user.id}`}
-                              className="shrink-0 text-[12px] font-medium text-gray-600"
-                            >
-                              해제
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-[12px] text-gray-500">차단된 사용자가 없습니다.</p>
-                    )}
-                  </div>
-                  <div className="px-3 py-2">
-                    <p className="text-[12px] font-medium text-gray-800">숨김 친구</p>
-                    {data.hidden.length ? (
-                      <div className="mt-2 space-y-2">
-                        {data.hidden.map((friend) => (
-                          <div key={friend.id} className="flex items-center justify-between gap-2 border-b border-gray-100 py-2 last:border-0">
-                            <div className="min-w-0">
-                              <p className="truncate text-[14px] text-gray-900">{friend.label}</p>
-                              <p className="truncate text-[12px] text-gray-500">{friend.subtitle ?? "친구 목록에서만 숨김"}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => void toggleHiddenFriend(friend.id)}
-                              disabled={busyId === `hidden:${friend.id}`}
-                              className="shrink-0 text-[12px] font-medium text-gray-600"
-                            >
-                              해제
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-[12px] text-gray-500">숨김 처리된 친구가 없습니다.</p>
-                    )}
-                  </div>
-                  <div className="px-3 py-2">
-                    <p className="text-[12px] font-medium text-gray-800">즐겨찾기 관리</p>
-                    {favoriteManageFriends.length ? (
-                      <div className="mt-2 space-y-2">
-                        {favoriteManageFriends.map((friend) => (
-                          <div key={friend.id} className="flex items-center justify-between gap-2 border-b border-gray-100 py-2 last:border-0">
-                            <div className="min-w-0">
-                              <p className="truncate text-[14px] text-gray-900">{friend.label}</p>
-                              <p className="truncate text-[12px] text-gray-500">
-                                {friend.isHiddenFriend ? "숨김 친구 · 즐겨찾기 유지 중" : (friend.subtitle ?? "즐겨찾기 친구")}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => void toggleFavoriteFriend(friend.id)}
-                              disabled={busyId === `favorite:${friend.id}`}
-                              className="shrink-0 text-[12px] font-medium text-gray-600"
-                            >
-                              해제
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-[12px] text-gray-500">즐겨찾기 친구가 없습니다.</p>
-                    )}
-                  </div>
-                </MessengerSettingsBlock>
-
-                <MessengerSettingsBlock title="채팅">
-                  <SettingsToggleRow
-                    title="입장 전 정보 확인"
-                    description="자유 입장 오픈채팅도 먼저 확인"
-                    checked={localSettings.groupJoinPreviewEnabled}
-                    onChange={(next) => updateLocalSetting("groupJoinPreviewEnabled", next)}
-                  />
-                  <SettingsToggleRow
-                    title="미디어 자동 저장"
-                    description="파일·이미지 링크를 저장 중심으로 열기"
-                    checked={localSettings.mediaAutoSaveEnabled}
-                    onChange={(next) => updateLocalSetting("mediaAutoSaveEnabled", next)}
-                  />
-                  <SettingsToggleRow
-                    title="링크 미리보기"
-                    description="대화에서 링크 칩 표시"
-                    checked={localSettings.linkPreviewEnabled}
-                    onChange={(next) => updateLocalSetting("linkPreviewEnabled", next)}
-                  />
-                  <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                    <span className="min-w-0">
-                      <span className="block text-[14px] font-medium text-gray-900">대화 백업</span>
-                      <span className="mt-0.5 block text-[12px] leading-snug text-gray-500">설정과 최근 검색, 장치 선택 백업</span>
-                    </span>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        type="button"
-                        onClick={exportSettingsBackup}
-                        className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-700"
-                      >
-                        내보내기
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => backupInputRef.current?.click()}
-                        className="rounded-ui-rect border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-700"
-                      >
-                        가져오기
-                      </button>
-                    </div>
-                  </div>
-                </MessengerSettingsBlock>
-
-                <MessengerSettingsBlock title="오픈채팅">
-                  <SettingsActionRow
-                    title="오픈채팅 탐색"
-                    description="공개방 목록 열기"
-                    actionLabel="열기"
-                    onClick={() => {
-                      setSettingsSheetOpen(false);
-                      setPublicGroupFindOpen(true);
-                    }}
-                  />
-                </MessengerSettingsBlock>
-                <input
-                  ref={backupInputRef}
-                  type="file"
-                  accept="application/json"
-                  className="hidden"
-                  onChange={(event) => void onBackupFileSelected(event)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <MessengerSettingsSheet
+          onClose={() => setSettingsSheetOpen(false)}
+          busyId={busyId}
+          blocked={data.blocked}
+          hidden={data.hidden}
+          favoriteManageFriends={favoriteManageFriends}
+          favoriteCount={favoriteManageFriends.length}
+          notificationSettings={notificationSettings}
+          updateNotificationSetting={updateNotificationSetting}
+          incomingCallSoundEnabled={incomingCallSoundEnabled}
+          onIncomingCallSoundChange={(next) => {
+            setIncomingCallSoundEnabled(next);
+            setCommunityMessengerIncomingCallSoundEnabled(next);
+          }}
+          incomingCallBannerEnabled={incomingCallBannerEnabled}
+          onIncomingCallBannerChange={(next) => {
+            setIncomingCallBannerEnabled(next);
+            setCommunityMessengerIncomingCallBannerEnabled(next);
+          }}
+          localSettings={localSettings}
+          updateLocalSetting={updateLocalSetting}
+          onToggleBlock={(userId) => void toggleBlock(userId)}
+          onToggleHiddenFriend={(userId) => void toggleHiddenFriend(userId)}
+          onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
+          exportSettingsBackup={exportSettingsBackup}
+          backupInputRef={backupInputRef}
+          onBackupFileSelected={onBackupFileSelected}
+          onOpenOpenChatDiscovery={() => {
+            setSettingsSheetOpen(false);
+            setPublicGroupFindOpen(true);
+          }}
+        />
       ) : null}
 
       {publicGroupFindOpen && data ? (

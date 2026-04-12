@@ -133,16 +133,17 @@ export async function proxy(request: NextRequest) {
   });
 
   /**
-   * 쿠키만 보면 위변조 가능하므로 getSession() 대신 getUser()로 매 요청 검증.
-   * (RSC `app/(main)/layout` 도 getUser() — 이중 호출이나 보안·세션 갱신 일관성이 우선.)
+   * 세션 검증: `getClaims()` — 비대칭 JWT(Elliptic/RSA)면 JWKS 로컬 검증으로 Auth 서버 왕복을 줄일 수 있음.
+   * 대칭 HS 알고리즘 프로젝트는 내부적으로 getUser()로 동일하게 검증(동작·보안 수준 유지).
+   * @see https://supabase.com/docs/reference/javascript/auth-getclaims
    */
   try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error || !user?.id) {
+    const { data, error } = await supabase.auth.getClaims();
+    const sub =
+      data?.claims && typeof data.claims === "object" && "sub" in data.claims
+        ? String((data.claims as { sub?: unknown }).sub ?? "").trim()
+        : "";
+    if (error || !sub) {
       return redirectToLogin(request);
     }
     return preventAuthPageCache(response);

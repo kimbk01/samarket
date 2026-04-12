@@ -44,6 +44,7 @@ import type {
 } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
+  playCommunityMessengerCallSignalSound,
   startCommunityMessengerCallTone,
   stopCommunityMessengerCallFeedback,
 } from "@/lib/community-messenger/call-feedback-sound";
@@ -51,6 +52,7 @@ import {
   attachDetachedCommunityCall,
   takeDetachedCommunityCallCleanup,
 } from "@/lib/community-messenger/direct-call-minimize";
+import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
@@ -155,10 +157,36 @@ export function CommunityMessengerCallClient({
   const refreshSilentInFlightRef = useRef<Promise<CommunityMessengerCallSession | null> | null>(null);
   /** postgres_changes 연속 이벤트로 GET 이 폭주하지 않게 묶는다 */
   const sessionRealtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 터미널 상태 전환 시에만 부재/종료 사운드(초기 로드 시 이미 종료된 세션은 제외) */
+  const callTerminalSoundPrevRef = useRef<{ id: string; status: CommunityMessengerCallSession["status"] } | null>(null);
 
   useLayoutEffect(() => {
     stopCommunityMessengerCallFeedback();
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!session) {
+      callTerminalSoundPrevRef.current = null;
+      return;
+    }
+    const sid = session.id;
+    const st = session.status;
+    const prevPair = callTerminalSoundPrevRef.current;
+    if (!prevPair || prevPair.id !== sid) {
+      callTerminalSoundPrevRef.current = { id: sid, status: st };
+      return;
+    }
+    const prevSt = prevPair.status;
+    callTerminalSoundPrevRef.current = { id: sid, status: st };
+    if (prevSt === st) return;
+    if (isTerminalCallSessionStatus(prevSt)) return;
+    if (!isTerminalCallSessionStatus(st)) return;
+    if (st === "missed") {
+      void playCommunityMessengerCallSignalSound("missed", { dedupeSessionId: sid });
+    } else if (st === "ended") {
+      void playCommunityMessengerCallSignalSound("call_end", { dedupeSessionId: sid });
+    }
+  }, [session?.id, session?.status]);
 
   /** 발신 대기 링백(수신 벨은 전역 수신 배너에서 재생해 중복 방지) */
   useEffect(() => {
@@ -166,9 +194,18 @@ export function CommunityMessengerCallClient({
     if (!session.isMineInitiator) return;
     if (session.status !== "ringing") return;
     if (joined) return;
-    const tone = startCommunityMessengerCallTone("outgoing", { callKind: session.callKind });
+    let cancelled = false;
+    let tone: { stop: () => void } | null = null;
+    void startCommunityMessengerCallTone("outgoing", { callKind: session.callKind }).then((t) => {
+      if (cancelled) {
+        t.stop();
+        return;
+      }
+      tone = t;
+    });
     return () => {
-      tone.stop();
+      cancelled = true;
+      tone?.stop();
     };
   }, [session?.id, session?.status, session?.isMineInitiator, session?.callKind, joined]);
 
@@ -250,6 +287,9 @@ export function CommunityMessengerCallClient({
   }, [cleanupClient]);
 
   const fetchConnection = useCallback(async (): Promise<CommunityMessengerManagedCallConnection> => {
+    if (!isCommunityMessengerAgoraAppConfigured()) {
+      throw new Error("통화 설정이 아직 연결되지 않았습니다.");
+    }
     const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/token`, {
       cache: "no-store",
     });
@@ -269,6 +309,9 @@ export function CommunityMessengerCallClient({
     if (!session) return;
     if (session.sessionMode !== "direct") return;
     if (isTerminalCallSessionStatus(session.status)) return;
+    if (!isCommunityMessengerAgoraAppConfigured()) {
+      return;
+    }
     let cancelled = false;
     void fetchConnection()
       .then((connection) => {
@@ -1041,7 +1084,7 @@ export function CommunityMessengerCallClient({
       className={`flex min-h-0 flex-1 flex-col text-white ${
         videoCall
           ? "h-full min-h-0 bg-black"
-          : "min-h-full bg-gradient-to-b from-[#1a1628] via-[#0e0e12] to-[#060608]"
+          : "min-h-full bg-neutral-950"
       }`}
     >
       <div
@@ -1060,7 +1103,7 @@ export function CommunityMessengerCallClient({
             >
               채팅으로
             </button>
-            <span className="rounded-full border border-[#665CAC]/35 bg-[#665CAC]/15 px-3 py-1 text-[11px] font-semibold tracking-wide text-[#d4c8f5]">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-white/85">
               음성 통화
             </span>
           </header>
@@ -1107,7 +1150,7 @@ export function CommunityMessengerCallClient({
           {session.callKind === "video" ? (
             <div
               ref={videoStageRef}
-              className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-none bg-neutral-950 shadow-none ring-0 sm:min-h-[min(64dvh,600px)] sm:rounded-ui-rect sm:shadow-[0_8px_40px_rgba(0,0,0,0.45)] sm:ring-1 sm:ring-white/[0.08]"
+              className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-none bg-neutral-950 shadow-none ring-0 sm:min-h-[min(64dvh,600px)] sm:rounded-ui-rect sm:shadow-md sm:ring-1 sm:ring-white/10"
             >
               {showCallerMediaGate ? (
                 <CallerMediaGateOverlay
@@ -1267,12 +1310,12 @@ export function CommunityMessengerCallClient({
           ) : (
             <div className="relative z-0 flex flex-1 flex-col items-center justify-center py-4">
               <div
-                className={`relative flex aspect-square w-[min(68vw,264px)] max-w-[280px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#665CAC]/35 via-white/12 to-white/[0.06] text-[clamp(48px,18vw,92px)] font-light text-white shadow-[0_8px_60px_rgba(102,92,172,0.35)] ring-[3px] ring-[#665CAC]/40 ${
+                className={`relative flex aspect-square w-[min(68vw,264px)] max-w-[280px] shrink-0 items-center justify-center rounded-full bg-neutral-800 text-[clamp(48px,18vw,92px)] font-light text-white/95 ring-1 ring-white/10 ${
                   session.status === "ringing" && session.isMineInitiator ? "animate-pulse" : ""
                 }`}
                 aria-hidden
               >
-                <span className="select-none drop-shadow-md">{peerDisplayInitial(session.peerLabel)}</span>
+                <span className="select-none">{peerDisplayInitial(session.peerLabel)}</span>
               </div>
             </div>
           )}
@@ -1283,7 +1326,7 @@ export function CommunityMessengerCallClient({
         className={
           videoCall
             ? "w-full shrink-0 border-t border-white/[0.08] bg-black/85 px-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom,0px)+0.35rem))] pt-2 backdrop-blur-md"
-            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/[0.07] bg-gradient-to-t from-[#0a0a10] via-[#12121a]/98 to-transparent pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))] pt-4 backdrop-blur-[14px]"
+            : "mx-auto w-full max-w-[420px] shrink-0 border-t border-white/10 bg-neutral-950/95 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))] pt-3 backdrop-blur-sm"
         }
       >
         {errorMessage ? (
@@ -1317,7 +1360,7 @@ export function CommunityMessengerCallClient({
                 type="button"
                 onClick={() => void endCall()}
                 disabled={busy === "end"}
-                className="flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center rounded-full bg-[#e5394a] text-white shadow-[0_14px_44px_rgba(229,57,74,0.5)] transition active:scale-95 disabled:opacity-45 sm:h-[4.5rem] sm:w-[4.5rem]"
+                className="flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center rounded-full bg-red-600 text-white shadow-md transition active:scale-95 disabled:opacity-45 sm:h-[4.5rem] sm:w-[4.5rem]"
                 aria-label="통화 종료"
               >
                 <EndCallStandardIcon className="h-9 w-9" />

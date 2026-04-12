@@ -19,7 +19,7 @@ import {
   primeCommunityMessengerDevicePermissionFromUserGesture,
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
-import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
+import { startCommunityMessengerCallTone, type CallToneController } from "@/lib/community-messenger/call-feedback-sound";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { useCommunityMessengerGroupCall } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
@@ -2063,11 +2063,20 @@ export function CommunityMessengerRoomClient({
     if (!isGroupRoom || !callPanel || (callPanel.mode !== "incoming" && callPanel.mode !== "dialing")) {
       return;
     }
-    const tone = startCommunityMessengerCallTone(callPanel.mode === "incoming" ? "incoming" : "outgoing", {
+    let cancelled = false;
+    let tone: CallToneController | null = null;
+    void startCommunityMessengerCallTone(callPanel.mode === "incoming" ? "incoming" : "outgoing", {
       callKind: callPanel.kind,
+    }).then((t) => {
+      if (cancelled) {
+        t.stop();
+        return;
+      }
+      tone = t;
     });
     return () => {
-      tone.stop();
+      cancelled = true;
+      tone?.stop();
     };
   }, [isGroupRoom, callPanel]);
 
