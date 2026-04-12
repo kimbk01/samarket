@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -54,6 +55,9 @@ export function GlobalCommunityMessengerUnreadSound() {
           if (!nextRoomId || nextUnread <= prevUnread) return;
           if (pathname === `/community-messenger/rooms/${nextRoomId}`) return;
           playCoalescedChatNotificationSound(`community-messenger:${nextRoomId}:${nextUnread}`);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
+          }
         }
       )
       .subscribe();

@@ -15,6 +15,7 @@ import {
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
 import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
@@ -348,6 +349,12 @@ function directKeyFor(userA: string, userB: string): string {
 
 function dedupeIds(values: Iterable<string>): string[] {
   return [...new Set([...values].map((v) => trimText(v)).filter(Boolean))];
+}
+
+function invalidateOwnerHubBadgeForCommunityMessengerPeers(senderUserId: string, recipientUserIds: string[]): void {
+  for (const id of dedupeIds([senderUserId, ...recipientUserIds])) {
+    invalidateOwnerHubBadgeCache(id);
+  }
 }
 
 function normalizeRoomStatus(value: unknown): CommunityMessengerRoomStatus {
@@ -3787,7 +3794,10 @@ export async function markCommunityMessengerRoomAsRead(input: {
         .update({ unread_count: 0, last_read_at: nowIso() })
         .eq("room_id", roomId)
         .eq("user_id", input.userId);
-      if (!error) return { ok: true };
+      if (!error) {
+        invalidateOwnerHubBadgeCache(input.userId);
+        return { ok: true };
+      }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_read_failed") };
     }
   }
@@ -3799,6 +3809,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
   const participant = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
   if (!participant || "user_id" in participant) return { ok: false, error: "room_not_found" };
   participant.unreadCount = 0;
+  invalidateOwnerHubBadgeCache(input.userId);
   return { ok: true };
 }
 
@@ -4483,6 +4494,7 @@ export async function sendCommunityMessengerMessage(input: {
         recipientUserIds,
         hasMention,
       }).catch(() => {});
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds);
       return {
         ok: true,
         message: {
@@ -4687,6 +4699,21 @@ export async function sendCommunityMessengerImageMessage(input: {
       if (unreadRpcError) {
         return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
       }
+      const { data: imageRecipientRows } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("user_id")
+        .eq("room_id", roomId)
+        .neq("user_id", input.userId);
+      const imageRecipientUserIds = ((imageRecipientRows ?? []) as Array<{ user_id: string }>)
+        .map((p) => p.user_id)
+        .filter((uid) => Boolean(uid?.trim()));
+      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+        roomId,
+        senderUserId: input.userId,
+        preview: IMAGE_LAST_PREVIEW,
+        recipientUserIds: imageRecipientUserIds,
+      }).catch(() => {});
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, imageRecipientUserIds);
       return {
         ok: true,
         message: {
@@ -4822,6 +4849,21 @@ export async function sendCommunityMessengerFileMessage(input: {
       if (unreadRpcError) {
         return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
       }
+      const { data: fileRecipientRows } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("user_id")
+        .eq("room_id", roomId)
+        .neq("user_id", input.userId);
+      const fileRecipientUserIds = ((fileRecipientRows ?? []) as Array<{ user_id: string }>)
+        .map((p) => p.user_id)
+        .filter((uid) => Boolean(uid?.trim()));
+      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+        roomId,
+        senderUserId: input.userId,
+        preview: FILE_LAST_PREVIEW,
+        recipientUserIds: fileRecipientUserIds,
+      }).catch(() => {});
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, fileRecipientUserIds);
       return {
         ok: true,
         message: {
@@ -5175,6 +5217,21 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       if (unreadRpcError) {
         return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
       }
+      const { data: voiceRecipientRows } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("user_id")
+        .eq("room_id", roomId)
+        .neq("user_id", input.userId);
+      const voiceRecipientUserIds = ((voiceRecipientRows ?? []) as Array<{ user_id: string }>)
+        .map((p) => p.user_id)
+        .filter((uid) => Boolean(uid?.trim()));
+      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+        roomId,
+        senderUserId: input.userId,
+        preview: VOICE_LAST_PREVIEW,
+        recipientUserIds: voiceRecipientUserIds,
+      }).catch(() => {});
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, voiceRecipientUserIds);
       return {
         ok: true,
         message: {

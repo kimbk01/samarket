@@ -1,8 +1,9 @@
 /**
  * 배달 입점(스토어) 오너 허브 배지: 소셜 채팅 미읽음 + 배달 주문(접수·환불) + 미답변 문의 + 배달채팅 미읽음.
  * `chatUnread` = 거래채팅(`/chats`·trade segment) — 행 뱃지 합과 맞춤.
+ * `communityMessengerUnread` = SAMarket 메신저(`community_messenger_participants`) — 하단 「메신저」탭.
  * `philifeChatUnread` = 커뮤니티·일반 DM 등(커뮤니티 계열 참가자 미읽음) — 「커뮤니티」탭 뱃지.
- * `socialChatUnread` = 위 둘의 합(알림·전체 합계용). `storesTabAttention`은 「배달」탭.
+ * `socialChatUnread` = 거래+필라이프 등(chat_rooms/product_chats) 합. `storesTabAttention`은 「배달」탭.
  * GET /api/me/store-owner-hub-badge — 비로그인 시 total 0
  * 서버 단기 캐시: `lib/chats/owner-hub-badge-cache.ts` — 클라 정책 표는 `docs/messenger-realtime-policy.md`
  */
@@ -22,6 +23,7 @@ import { getCachedOwnerHubBadge } from "@/lib/chats/owner-hub-badge-cache";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { countOwnerOrderChatUnread } from "@/lib/order-chat/service";
+import { sumCommunityMessengerParticipantUnread } from "@/lib/community-messenger/community-messenger-unread-total";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,7 @@ export async function GET() {
       degraded: true,
       total: 0,
       chatUnread: 0,
+      communityMessengerUnread: 0,
       philifeChatUnread: 0,
       socialChatUnread: 0,
       storeOrderChatUnread: 0,
@@ -59,6 +62,7 @@ export async function GET() {
       ok: true,
       total: 0,
       chatUnread: 0,
+      communityMessengerUnread: 0,
       philifeChatUnread: 0,
       socialChatUnread: 0,
       storeOrderChatUnread: 0,
@@ -86,12 +90,14 @@ export async function GET() {
         : Promise.resolve({ data: null as unknown, error: { message: "no_stores_sb" } }),
     ]);
 
-    const [socialChatUnread, tradeChatUnread, philifeChatUnread, storeOrderChatUnread] = await Promise.all([
-      Promise.resolve(sumSocialChatUnread(unreadParts)),
-      Promise.resolve(sumTradeChatUnread(unreadParts)),
-      Promise.resolve(Math.max(0, unreadParts.communityParticipantUnread)),
-      countOwnerOrderChatUnread(storesSb as any, userId).catch(() => 0),
-    ]);
+    const [socialChatUnread, tradeChatUnread, philifeChatUnread, storeOrderChatUnread, communityMessengerUnread] =
+      await Promise.all([
+        Promise.resolve(sumSocialChatUnread(unreadParts)),
+        Promise.resolve(sumTradeChatUnread(unreadParts)),
+        Promise.resolve(Math.max(0, unreadParts.communityParticipantUnread)),
+        countOwnerOrderChatUnread(storesSb as any, userId).catch(() => 0),
+        sumCommunityMessengerParticipantUnread(sbAny, userId).catch(() => 0),
+      ]);
     const chatUnread = tradeChatUnread;
 
     let orderAttention = 0;
@@ -143,11 +149,12 @@ export async function GET() {
 
     const storesTabAttention =
       Math.max(0, orderAttention) + Math.max(0, inquiryAttention) + storeOrderChatUnread;
-    const total = socialChatUnread + storesTabAttention;
+    const total = socialChatUnread + storesTabAttention + Math.max(0, communityMessengerUnread);
     return {
       ok: true as const,
       total,
       chatUnread,
+      communityMessengerUnread: Math.max(0, communityMessengerUnread),
       philifeChatUnread,
       socialChatUnread,
       storeOrderChatUnread,

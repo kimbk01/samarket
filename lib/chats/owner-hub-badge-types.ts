@@ -2,6 +2,8 @@
 export type OwnerHubBadgeBreakdown = {
   /** 하단 「채팅」탭 — `/chats` 거래 목록과 동일 범위(item_trade + 레거시 product_chats) */
   chatUnread: number;
+  /** 하단 「메신저」탭(`/community-messenger`) — 친구·그룹 메신저 참가자 미읽음 */
+  communityMessengerUnread: number;
   /** 하단 「커뮤니티」탭 — 커뮤니티·일반 DM 등(非 거래 item_trade) 참가자 미읽음 */
   philifeChatUnread: number;
   /** 거래 + 커뮤니티 채팅 미읽음 합 */
@@ -22,6 +24,7 @@ export type OwnerHubBadgeBreakdown = {
 
 export const OWNER_HUB_BADGE_EMPTY: OwnerHubBadgeBreakdown = {
   chatUnread: 0,
+  communityMessengerUnread: 0,
   philifeChatUnread: 0,
   socialChatUnread: 0,
   storeOrderChatUnread: 0,
@@ -51,6 +54,8 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
   const d = data as Record<string, unknown>;
   const philifeChatUnread = typeof d.philifeChatUnread === "number" ? d.philifeChatUnread : 0;
   const chatUnread = typeof d.chatUnread === "number" ? d.chatUnread : 0;
+  const communityMessengerUnread =
+    typeof d.communityMessengerUnread === "number" ? d.communityMessengerUnread : 0;
   const socialChatUnread =
     typeof d.socialChatUnread === "number"
       ? d.socialChatUnread
@@ -69,9 +74,10 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
   const total =
     typeof d.total === "number"
       ? d.total
-      : Math.max(0, socialChatUnread) + Math.max(0, storesTabAttention);
+      : Math.max(0, socialChatUnread) + Math.max(0, storesTabAttention) + Math.max(0, communityMessengerUnread);
   return {
     chatUnread,
+    communityMessengerUnread,
     philifeChatUnread,
     socialChatUnread,
     storeOrderChatUnread,
@@ -86,6 +92,7 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
 export function sameOwnerHubBadge(a: OwnerHubBadgeBreakdown, b: OwnerHubBadgeBreakdown): boolean {
   return (
     a.chatUnread === b.chatUnread &&
+    a.communityMessengerUnread === b.communityMessengerUnread &&
     a.philifeChatUnread === b.philifeChatUnread &&
     a.socialChatUnread === b.socialChatUnread &&
     a.storeOrderChatUnread === b.storeOrderChatUnread &&

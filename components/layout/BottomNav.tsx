@@ -44,7 +44,7 @@ export function BottomNav() {
   const { tt, t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
-  const { chatUnread, philifeChatUnread, storesTabAttention, storeDeepLink } =
+  const { chatUnread, communityMessengerUnread, philifeChatUnread, storesTabAttention, storeDeepLink } =
     useOwnerHubBadgeBreakdown();
   const { ownerStore } = useOwnerLiteStore();
   const { hubBlockedModal, refresh: refreshBusinessHubGate, setModalOpen: setBusinessHubBlockedModalOpen } =
@@ -194,8 +194,8 @@ export function BottomNav() {
           .filter(Boolean)
           .join(" ");
         const tabBadgeCount = (() => {
-          /** 거래채팅 미읽음은 하단 「거래채팅」탭이 아니라 거래 탭·홈 플로팅에서 표시 */
-          if (tab.icon === "chat") return 0;
+          /** 하단 「메신저」탭 — `/community-messenger` 참가자 미읽음 */
+          if (tab.icon === "chat") return communityMessengerUnread;
           if (tab.icon === "trade") return chatUnread;
           if (tab.icon === "community") return philifeChatUnread;
           if (tab.icon === "stores") return storesTabAttention;

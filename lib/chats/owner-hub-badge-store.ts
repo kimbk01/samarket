@@ -21,6 +21,7 @@ import {
 
 const PATH_FETCH_PREFIXES = [
   "/chats",
+  "/community-messenger",
   "/mypage/trade/chat",
   "/philife",
   "/orders",

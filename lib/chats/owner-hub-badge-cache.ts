@@ -12,6 +12,8 @@ export type OwnerHubBadgePayload = {
   total: number;
   /** 거래 채팅(`/chats` 목록 범위) 미읽음 */
   chatUnread: number;
+  /** `/community-messenger` 메신저 참가자 미읽음 */
+  communityMessengerUnread: number;
   /** 필라이프·일반 DM 등 커뮤니티 계열 참가자 미읽음 */
   philifeChatUnread: number;
   socialChatUnread: number;

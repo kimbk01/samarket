@@ -380,19 +380,20 @@ export function CommunityMessengerHome({
         const { res, json } = await fetchCommunityMessengerHomeSilentLists();
         if (res.ok && json.ok) {
           setData((prev) => {
-            if (!prev) return prev;
+            const base = prev ?? peekBootstrapCache();
+            if (!base) return prev;
             const chats = json.chats ?? [];
             const groups = json.groups ?? [];
-            const requests = json.requests ?? prev.requests;
-            const friends = json.friends ?? prev.friends;
+            const requests = json.requests ?? base.requests;
+            const friends = json.friends ?? base.friends;
             const next: CommunityMessengerBootstrap = {
-              ...prev,
+              ...base,
               chats,
               groups,
               requests,
               friends,
               tabs: {
-                ...prev.tabs,
+                ...base.tabs,
                 chats: chats.length,
                 groups: groups.length,
                 friends: friends.length,
