@@ -98,6 +98,8 @@ export function useCommunityMessengerCall(args: {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  /** `setLocalStream` 직후에도 동기적으로 참조 — 연속 `ensureLocalStream` 에서 GUM 중복 방지 */
+  const localStreamHeldRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
@@ -144,6 +146,7 @@ export function useCommunityMessengerCall(args: {
     for (const track of localStream?.getTracks() ?? []) track.stop();
     for (const track of remoteStream?.getTracks() ?? []) track.stop();
     discardPrimedCommunityMessengerDevicePermission();
+    localStreamHeldRef.current = null;
     setLocalStream(null);
     setRemoteStream(null);
     pendingOfferRef.current = null;
@@ -261,13 +264,19 @@ export function useCommunityMessengerCall(args: {
   }, [args.activeCall, cleanupMedia, clearPendingSessionCleanup, panel?.mode, panel?.sessionId, transportState]);
 
   const ensureLocalStream = useCallback(async (kind: CommunityMessengerCallKind) => {
-    if (localStream) return localStream;
+    const held = localStreamHeldRef.current;
+    if (held) return held;
+    if (localStream) {
+      localStreamHeldRef.current = localStream;
+      return localStream;
+    }
     const primedStream = consumePrimedCommunityMessengerDevicePermission(kind);
     if (primedStream) {
       if (!mountedRef.current) {
         for (const track of primedStream.getTracks()) track.stop();
         throw new Error("unmounted");
       }
+      localStreamHeldRef.current = primedStream;
       setLocalStream(primedStream);
       return primedStream;
     }
@@ -276,6 +285,7 @@ export function useCommunityMessengerCall(args: {
       for (const track of stream.getTracks()) track.stop();
       throw new Error("unmounted");
     }
+    localStreamHeldRef.current = stream;
     setLocalStream(stream);
     return stream;
   }, [localStream]);
@@ -463,17 +473,19 @@ export function useCommunityMessengerCall(args: {
 
   const completeIncomingAcceptance = useCallback(
     async (pending: PendingIncomingAcceptance, offer: RTCSessionDescriptionInit) => {
-      const connection = await ensurePeerConnection(pending.callKind, pending.sessionId, pending.peerUserId);
-      const acceptRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pending.sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "accept" }),
-      });
+      const acceptUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(pending.sessionId)}`;
+      const [connection, acceptRes] = await Promise.all([
+        ensurePeerConnection(pending.callKind, pending.sessionId, pending.peerUserId),
+        fetch(acceptUrl, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "accept" }),
+        }),
+      ]);
       const acceptJson = (await acceptRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!acceptRes.ok || !acceptJson.ok) {
         throw new Error(acceptJson.error ?? "call_accept_failed");
       }
-      await args.onRefresh();
 
       await connection.setRemoteDescription(offer);
       await flushPendingCandidates();
@@ -492,7 +504,7 @@ export function useCommunityMessengerCall(args: {
         sessionId: pending.sessionId,
         peerLabel: pending.peerLabel,
       });
-      await args.onRefresh();
+      void args.onRefresh();
     },
     [args, ensurePeerConnection, flushPendingCandidates, sendSignal]
   );
@@ -910,8 +922,10 @@ export function useCommunityMessengerCall(args: {
       });
       await connection.setLocalDescription(offer);
       if (pendingCallActionIdRef.current !== actionId) return;
-      await sendSignal(session.id, session.peerUserId, "offer", { sdp: offer.sdp ?? "" });
-      await args.onRefresh();
+      await Promise.all([
+        sendSignal(session.id, session.peerUserId, "offer", { sdp: offer.sdp ?? "" }),
+        Promise.resolve(args.onRefresh()),
+      ]);
     } catch (error) {
       const errorName =
         typeof error === "object" && error && "name" in error

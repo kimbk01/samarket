@@ -90,6 +90,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
   const [peerStates, setPeerStates] = useState<Record<string, PeerTransportState>>({});
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  /** 연속 `ensurePeerConnection`·`ensureLocalStream` 에서 GUM 중복 방지 (`setLocalStream` 비동기 반영 보완) */
+  const localStreamHeldRef = useRef<MediaStream | null>(null);
   const remoteVideoNodesRef = useRef<Map<string, HTMLVideoElement | null>>(new Map());
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
@@ -150,6 +152,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       cleanupPeer(userId);
     }
     for (const track of localStream?.getTracks() ?? []) track.stop();
+    localStreamHeldRef.current = null;
     setLocalStream(null);
     setRemotePeers([]);
     processedSignalIdsRef.current.clear();
@@ -207,13 +210,19 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
   const ensureLocalStream = useCallback(
     async (kind: CommunityMessengerCallKind) => {
-      if (localStream) return localStream;
+      const held = localStreamHeldRef.current;
+      if (held) return held;
+      if (localStream) {
+        localStreamHeldRef.current = localStream;
+        return localStream;
+      }
       const primed = consumePrimedCommunityMessengerDevicePermission(kind);
       if (primed) {
         if (!mountedRef.current) {
           for (const track of primed.getTracks()) track.stop();
           throw new Error("unmounted");
         }
+        localStreamHeldRef.current = primed;
         setLocalStream(primed);
         return primed;
       }
@@ -222,6 +231,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
         for (const track of stream.getTracks()) track.stop();
         throw new Error("unmounted");
       }
+      localStreamHeldRef.current = stream;
       setLocalStream(stream);
       return stream;
     },

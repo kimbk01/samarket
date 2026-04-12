@@ -59,18 +59,19 @@ export async function POST(
 
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
-  const access = await assertVerifiedMemberForAction(sbAny, userId);
+  const [access, { data: room, error: roomErr }] = await Promise.all([
+    assertVerifiedMemberForAction(sbAny, userId),
+    sbAny
+      .from("product_chats")
+      .select(
+        "id, post_id, seller_id, buyer_id, unread_count_seller, unread_count_buyer, trade_flow_status, chat_mode"
+      )
+      .eq("id", roomId)
+      .maybeSingle(),
+  ]);
   if (!access.ok) {
     return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
-
-  const { data: room, error: roomErr } = await sbAny
-    .from("product_chats")
-    .select(
-      "id, post_id, seller_id, buyer_id, unread_count_seller, unread_count_buyer, trade_flow_status, chat_mode"
-    )
-    .eq("id", roomId)
-    .maybeSingle();
 
   if (roomErr || !room) {
     return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });

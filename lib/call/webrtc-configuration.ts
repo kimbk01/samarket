@@ -23,7 +23,7 @@ export function buildMessengerRtcConfiguration(
     /** Chromium: ICE 수집을 미리 시작해 첫 후보까지 시간 단축(환경에 따라 무시될 수 있음) */
     iceCandidatePoolSize:
       options?.iceCandidatePoolSize ??
-      (typeof RTCPeerConnection !== "undefined" ? 8 : 0),
+      (typeof RTCPeerConnection !== "undefined" ? 12 : 0),
   };
 }
 

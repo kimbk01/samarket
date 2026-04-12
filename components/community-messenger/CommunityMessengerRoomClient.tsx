@@ -51,7 +51,7 @@ import {
   messengerMonitorRoomLoad,
   messengerMonitorUnreadListSync,
 } from "@/lib/community-messenger/monitoring/client";
-import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { consumeRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
 import { GroupRoomCallOverlay } from "@/components/community-messenger/call-ui";
 import { VoiceMessageBubble } from "@/components/community-messenger/VoiceMessageBubble";
@@ -78,10 +78,13 @@ export function CommunityMessengerRoomClient({
   roomId,
   initialCallAction,
   initialCallSessionId,
+  initialServerSnapshot = null,
 }: {
   roomId: string;
   initialCallAction?: string;
   initialCallSessionId?: string;
+  /** RSC에서 `loadCommunityMessengerRoomBootstrap` — 첫 페인트까지 클라이언트 대기 완화 */
+  initialServerSnapshot?: CommunityMessengerRoomSnapshot | null;
 }) {
   const { t, tt } = useI18n();
   const router = useRouter();
@@ -119,7 +122,7 @@ export function CommunityMessengerRoomClient({
   const voiceMaxTimerRef = useRef<number | null>(null);
   const voiceSessionIdRef = useRef(0);
   const voicePointerDownRef = useRef(false);
-  const loadedRef = useRef(false);
+  const loadedRef = useRef(Boolean(peekRoomSnapshot(roomId) ?? initialServerSnapshot));
   const silentRoomRefreshBusyRef = useRef(false);
   const silentRoomRefreshAgainRef = useRef(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -140,7 +143,10 @@ export function CommunityMessengerRoomClient({
   const stickToBottomRef = useRef(true);
   const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
-  const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
+    const listPrimed = peekRoomSnapshot(roomId);
+    return listPrimed ?? initialServerSnapshot ?? null;
+  });
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const pendingRealtimeRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
@@ -152,7 +158,7 @@ export function CommunityMessengerRoomClient({
   roomMessagesRef.current = roomMessages;
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
   const [friendsLoaded, setFriendsLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !Boolean(peekRoomSnapshot(roomId) ?? initialServerSnapshot));
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -267,8 +273,11 @@ export function CommunityMessengerRoomClient({
   }, [roomId]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    /** 서버 스냅샷이 있으면 첫 동기화는 로딩 스피너 없이(사일런트) — RSC·GET 부트스트랩 중복 체감만 줄임 */
+    void refresh(Boolean(initialServerSnapshot));
+    // `initialServerSnapshot` 은 RSC 재실행마다 새 참조일 수 있어 deps 에 넣지 않음(무한 요청 방지). `key={roomId}` 로 방 전환 시 마운트가 갈린다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh(roomId), initialServerSnapshot 동시에 맞춤
+  }, [refresh, roomId]);
 
   useEffect(() => {
     return () => {

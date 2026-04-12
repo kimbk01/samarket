@@ -1,15 +1,6 @@
-import dynamic from "next/dynamic";
-import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
+import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getCommunityMessengerCallSessionById } from "@/lib/community-messenger/service";
-
-const CommunityMessengerCallClient = dynamic(
-  () =>
-    import("@/components/community-messenger/CommunityMessengerCallClient").then((mod) => ({
-      default: mod.CommunityMessengerCallClient,
-    })),
-  { loading: () => <CommunityMessengerCallRouteLoading /> }
-);
 
 export default async function CommunityMessengerCallPage({
   params,

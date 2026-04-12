@@ -159,15 +159,28 @@ export async function POST(
     return jsonError("메시지를 입력하세요", 400);
   }
 
-  const { data: room, error: roomFetchErr } = await sb
-    .from("chat_rooms")
-    .select(
-      "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status, store_order_id"
-    )
-    .eq("id", roomId)
-    .maybeSingle();
   const sbAny = sb;
-  const access = await assertVerifiedMemberForAction(sbAny as any, userId);
+  /** 방·회원 검증·참가자 행을 한 RTT 묶음으로 조회 (메시지 전송 핫패스 지연 완화). */
+  const [
+    { data: room, error: roomFetchErr },
+    access,
+    { data: part, error: partFetchErr },
+  ] = await Promise.all([
+    sbAny
+      .from("chat_rooms")
+      .select(
+        "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status, store_order_id"
+      )
+      .eq("id", roomId)
+      .maybeSingle(),
+    assertVerifiedMemberForAction(sbAny as any, userId),
+    sbAny
+      .from("chat_room_participants")
+      .select("id, hidden, left_at, is_active")
+      .eq("room_id", roomId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
   if (!access.ok) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, access.status);
     return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
@@ -221,13 +234,11 @@ export async function POST(
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 404);
     return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
   }
+  if (partFetchErr) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);
+    return jsonError("참여자 확인에 실패했습니다.", 500, { code: "trade_chat_participant_lookup_failed" });
+  }
   {
-    const { data: part } = await sbAny
-      .from("chat_room_participants")
-      .select("id, hidden, left_at, is_active")
-      .eq("room_id", roomId)
-      .eq("user_id", userId)
-      .maybeSingle();
     const partRow = part as { hidden?: boolean; left_at?: string | null; is_active?: boolean | null } | null;
     if (!partRow || partRow.hidden || partRow.left_at || partRow.is_active === false) {
       markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);

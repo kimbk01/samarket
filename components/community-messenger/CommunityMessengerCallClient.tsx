@@ -38,6 +38,7 @@ import {
 } from "@/lib/community-messenger/call-permission";
 import {
   COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE,
+  COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT,
   getCommunityMessengerMediaErrorMessage,
   isAgoraJoinRetryableError,
   isCommunityMessengerMediaBlockedByInsecureOrigin,
@@ -1168,7 +1169,7 @@ export function CommunityMessengerCallClient({
               role="status"
             >
               {typeof window !== "undefined" && window.location.protocol === "http:"
-                ? `현재 ${window.location.host} 는 HTTP입니다. 마이크·카메라는 HTTPS 또는 localhost 에서만 사용할 수 있습니다. 개발 서버는 \`next dev --experimental-https\` 또는 역프록시 SSL을 권장합니다.`
+                ? `${window.location.host} — ${COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT}`
                 : "이 출처에서는 미디어 장치를 사용할 수 없습니다."}
             </div>
           ) : null}

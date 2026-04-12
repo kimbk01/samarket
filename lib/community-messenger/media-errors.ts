@@ -21,10 +21,14 @@ export function isCommunityMessengerMediaBlockedByInsecureOrigin(): boolean {
  * @see `NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID`, `COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE`
  */
 export const COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE =
-  "통화 서비스(Agora)가 연결되지 않았습니다. 환경 변수 NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID 를 설정한 뒤 클라이언트를 다시 빌드·배포해 주세요. 운영 환경에서는 COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE 도 함께 설정하는 것을 권장합니다.";
+  "통화 서비스(Agora)가 연결되지 않았습니다. 프로젝트 루트 `.env.local` 에 NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID=… 를 넣은 뒤 개발 서버를 재시작하세요(빌드된 클라이언트에는 빌드 시점 값이 박힙니다). 운영에서는 토큰 발급용 COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE 도 서버에 설정하세요.";
+
+/** HTTP + LAN IP 등 비보안 출처 — UI 배너용 (한 줄 요약) */
+export const COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT =
+  "HTTP(예: 192.168.x.x:3000)에서는 브라우저가 마이크·카메라를 막습니다. `npm run dev:https` 로 띄운 뒤 터미널에 나온 https:// 주소로 접속하거나, PC에서는 localhost 로 접속하세요. 휴대폰·다른 기기는 HTTPS(역프록시·mkcert)가 필요합니다.";
 
 const HTTPS_REQUIRED_FOR_MEDIA_MESSAGE =
-  "이 주소로는 브라우저가 마이크·카메라 사용을 막습니다(HTTP·로컬 IP). HTTPS로 서비스하거나 개발 시 localhost 로 접속해 주세요.";
+  "이 주소로는 브라우저가 마이크·카메라 사용을 막습니다. 개발: npm run dev:https 또는 localhost. 배포: HTTPS로 서비스하세요.";
 
 /** Agora join·publish 단계에서 네트워크·토큰 일시 오류 등 재시도할 만한 경우 */
 export function isAgoraJoinRetryableError(error: unknown): boolean {

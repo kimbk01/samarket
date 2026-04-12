@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/next-dev.cjs",
+    "dev:https": "node scripts/next-dev.cjs --experimental-https",
     "dev:fast": "node scripts/next-dev.cjs --win-fast",
     "dev:next": "next dev",
     "dev:turbo": "node scripts/next-dev.cjs --turbo",
