@@ -782,32 +782,18 @@ export function CommunityMessengerCallClient({
       }
       const fromServer = initialSessionRef.current;
       const sessionUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`;
-      const tokenUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/token`;
-
-      const storeToken = async (res: Response) => {
-        const json = (await res.json().catch(() => ({}))) as TokenResponse;
-        if (res.ok && json.ok && json.connection) {
-          prefetchedConnectionRef.current = json.connection;
-        }
-      };
 
       if (fromServer != null) {
         setSession(fromServer);
         setLoading(false);
-        void fetch(tokenUrl, { cache: "no-store" }).then((r) => {
-          if (!cancelled) void storeToken(r);
-        });
-        /* RSC initialSession 과 중복 대기하지 않음 — 백그라운드로만 최신화 */
+        /* 토큰은 아래 prefetch useEffect 한 경로만 호출 — bootstrap 과 중복 /token 요청 방지 */
         void refreshSession(true);
         return;
       }
 
       setLoading(true);
       try {
-        const [sessionRes, tokenRes] = await Promise.all([
-          fetch(sessionUrl, { cache: "no-store" }),
-          fetch(tokenUrl, { cache: "no-store" }),
-        ]);
+        const sessionRes = await fetch(sessionUrl, { cache: "no-store" });
         if (cancelled) return;
         const json = (await sessionRes.json().catch(() => ({}))) as SessionResponse;
         const nextSession = sessionRes.ok && json.ok && json.session ? json.session : null;
@@ -815,7 +801,7 @@ export function CommunityMessengerCallClient({
         if (!nextSession) {
           setErrorMessage("통화 세션을 찾지 못했습니다.");
         }
-        await storeToken(tokenRes);
+        /* Agora 토큰: session 상태 반영 후 prefetch effect 가 단일 요청 */
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -975,15 +961,17 @@ export function CommunityMessengerCallClient({
     if (!session) return;
     let ms = 2000;
     if (session.sessionMode === "direct") {
-      /* 수신/발신 벨 단계: 서버 부하 완화(Realtime 이 보조). 연결 후는 드물게만 폴링 */
-      if (session.status === "ringing") ms = 750;
-      else if (session.status === "active" && joined && remoteJoined) ms = 3200;
-      else if (session.status === "active" && joined) ms = 650;
-      else if (session.status === "active") ms = 800;
+      /* 벨·협상 구간만 촘촘히 — 수 초마다 전체 세션 GET 은 비용 큼. 백그라운드 탭은 아래에서 스킵 */
+      if (session.status === "ringing") ms = 1_400;
+      else if (session.status === "active" && joined && remoteJoined) ms = 4_000;
+      else if (session.status === "active" && joined) ms = 1_200;
+      else if (session.status === "active") ms = 1_300;
     }
-    const timer = window.setInterval(() => {
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       void refreshSession(true);
-    }, ms);
+    };
+    const timer = window.setInterval(tick, ms);
     return () => window.clearInterval(timer);
   }, [joined, refreshSession, remoteJoined, session?.id, session?.sessionMode, session?.status]);
 

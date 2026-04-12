@@ -44,6 +44,9 @@ type Props = {
 type BindRemoteVideo = (userId: string, node: HTMLVideoElement | null) => void;
 
 const CALL_RING_TIMEOUT_MS = 35_000;
+const GROUP_CALL_SIGNAL_POLL_MS_REALTIME_OK = 7_000;
+const GROUP_CALL_SIGNAL_POLL_MS_FALLBACK = 2_000;
+const GROUP_CALL_SIGNAL_POLL_MS_HIDDEN_TAB = 14_000;
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
 ];
@@ -117,6 +120,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const processedSignalIdsRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
   const activeSinceRef = useRef<number | null>(null);
+  const groupCallSignalsRealtimeSubscribedRef = useRef(false);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
   const participants = args.activeCall?.participants ?? [];
@@ -515,61 +519,6 @@ export function useCommunityMessengerGroupCall(args: Props) {
   }, [args, cleanupMedia]);
 
   useEffect(() => {
-    if (!args.enabled || !currentSessionId) return;
-    const sessionId = currentSessionId;
-    const sb = getSupabaseClient();
-    let channel: RealtimeChannel | null = null;
-    let cancelled = false;
-
-    async function bootstrapSignals() {
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
-      if (!res.ok || !json.ok) return;
-      for (const signal of json.signals ?? []) {
-        if (cancelled) break;
-        await applySignal(signal);
-      }
-    }
-
-    void bootstrapSignals();
-    if (sb) {
-      channel = sb
-        .channel(`community-messenger-group-call-signals:${sessionId}:${args.viewerUserId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "community_messenger_call_signals",
-            filter: `session_id=eq.${sessionId}`,
-          },
-          (payload) => {
-            const row = payload.new as Record<string, unknown> | undefined;
-            if (!row) return;
-            void applySignal({
-              id: String(row.id ?? ""),
-              sessionId: String(row.session_id ?? ""),
-              roomId: String(row.room_id ?? ""),
-              fromUserId: String(row.from_user_id ?? ""),
-              toUserId: String(row.to_user_id ?? ""),
-              signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
-              payload: isRecord(row.payload) ? row.payload : {},
-              createdAt: String(row.created_at ?? new Date().toISOString()),
-            });
-          }
-        )
-        .subscribe();
-    }
-
-    return () => {
-      cancelled = true;
-      if (sb && channel) void sb.removeChannel(channel);
-    };
-  }, [applySignal, args.enabled, args.viewerUserId, currentSessionId]);
-
-  useEffect(() => {
     if (!args.enabled || !currentSessionId || !panel) return;
 
     const anyPeerStillNegotiating =
@@ -586,8 +535,31 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!needsSignalPoll) return;
 
     const sessionId = currentSessionId;
+    const sb = getSupabaseClient();
+    let channel: RealtimeChannel | null = null;
     let cancelled = false;
     let backoffUntil = 0;
+    let timerId: number | null = null;
+
+    async function bootstrapSignals() {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
+      if (!res.ok || !json.ok) return;
+      for (const signal of json.signals ?? []) {
+        if (cancelled) break;
+        await applySignal(signal);
+      }
+    }
+
+    function nextSignalPollGapMs(): number {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return GROUP_CALL_SIGNAL_POLL_MS_HIDDEN_TAB;
+      }
+      if (sb && groupCallSignalsRealtimeSubscribedRef.current) return GROUP_CALL_SIGNAL_POLL_MS_REALTIME_OK;
+      return GROUP_CALL_SIGNAL_POLL_MS_FALLBACK;
+    }
 
     async function pollSignals() {
       if (cancelled) return;
@@ -614,16 +586,79 @@ export function useCommunityMessengerGroupCall(args: Props) {
       }
     }
 
-    void pollSignals();
-    const timer = window.setInterval(() => {
-      void pollSignals();
-    }, 1000);
+    async function runLoop() {
+      while (!cancelled) {
+        await pollSignals();
+        if (cancelled) break;
+        const base = nextSignalPollGapMs();
+        const wait =
+          Date.now() < backoffUntil
+            ? Math.min(120_000, Math.max(0, backoffUntil - Date.now()) + 25)
+            : base;
+        await new Promise<void>((resolve) => {
+          if (cancelled) {
+            resolve();
+            return;
+          }
+          timerId = window.setTimeout(() => {
+            timerId = null;
+            resolve();
+          }, Math.max(200, wait));
+        });
+      }
+    }
+
+    const onVis = () => {
+      if (cancelled || typeof document === "undefined") return;
+      if (document.visibilityState === "visible") void pollSignals();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    groupCallSignalsRealtimeSubscribedRef.current = false;
+    if (sb) {
+      channel = sb
+        .channel(`community-messenger-group-call-signals:${sessionId}:${args.viewerUserId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "community_messenger_call_signals",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const row = payload.new as Record<string, unknown> | undefined;
+            if (!row) return;
+            void applySignal({
+              id: String(row.id ?? ""),
+              sessionId: String(row.session_id ?? ""),
+              roomId: String(row.room_id ?? ""),
+              fromUserId: String(row.from_user_id ?? ""),
+              toUserId: String(row.to_user_id ?? ""),
+              signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
+              payload: isRecord(row.payload) ? row.payload : {},
+              createdAt: String(row.created_at ?? new Date().toISOString()),
+            });
+          }
+        )
+        .subscribe((status) => {
+          groupCallSignalsRealtimeSubscribedRef.current = status === "SUBSCRIBED";
+        });
+    }
+
+    void (async () => {
+      await bootstrapSignals();
+      if (!cancelled) void runLoop();
+    })();
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      groupCallSignalsRealtimeSubscribedRef.current = false;
+      if (timerId != null) window.clearTimeout(timerId);
+      document.removeEventListener("visibilitychange", onVis);
+      if (sb && channel) void sb.removeChannel(channel);
     };
-  }, [applySignal, args.activeCall?.status, args.enabled, currentSessionId, joinedParticipants.length, panel, peerStates]);
+  }, [applySignal, args.activeCall?.status, args.enabled, args.viewerUserId, currentSessionId, joinedParticipants.length, panel, peerStates]);
 
   useEffect(() => {
     if (!args.enabled || !args.activeCall || args.activeCall.sessionMode !== "group") return;

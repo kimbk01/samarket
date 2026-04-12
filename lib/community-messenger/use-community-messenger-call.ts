@@ -33,6 +33,11 @@ type PendingIncomingAcceptance = {
 };
 
 const CALL_RING_TIMEOUT_MS = 35_000;
+/** postgres_changes 로 시그널이 오면 HTTP 폴링은 느린 백업 주기만 유지 */
+const CALL_SIGNAL_POLL_MS_REALTIME_OK = 7_000;
+const CALL_SIGNAL_POLL_MS_FALLBACK = 2_000;
+const CALL_SIGNAL_POLL_MS_HIDDEN_TAB = 14_000;
+const ROOM_SNAPSHOT_REFRESH_MS_NEGOTIATING = 2_300;
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
 ];
@@ -129,6 +134,7 @@ export function useCommunityMessengerCall(args: {
   const autoRetryAttemptRef = useRef(0);
   const locallyClosedSessionIdRef = useRef<string | null>(null);
   const pendingCallActionIdRef = useRef(0);
+  const callSignalsRealtimeSubscribedRef = useRef(false);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
 
@@ -616,17 +622,24 @@ export function useCommunityMessengerCall(args: {
     let cancelled = false;
     const refreshNow = () => {
       if (cancelled) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       void args.onRefresh();
     };
     refreshNow();
-    const timer = window.setInterval(refreshNow, 1500);
+    const timer = window.setInterval(refreshNow, ROOM_SNAPSHOT_REFRESH_MS_NEGOTIATING);
+    const onVis = () => {
+      if (cancelled || typeof document === "undefined") return;
+      if (document.visibilityState === "visible") void args.onRefresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [args, panel?.mode, panel?.sessionId, transportState]);
 
-  // Realtime 이 없거나 초기 GET 이 레이스로 비었을 때 offer/answer/ICE 가 빠져 연결이 멈추는 것을 막는다.
+  // Realtime + 적응형 HTTP 백업 폴링 — 초기 GET 은 한 번만(bootstrap) 후 루프.
   useEffect(() => {
     const sessionId = currentSessionId;
     if (!sessionId || !panel) return;
@@ -640,8 +653,31 @@ export function useCommunityMessengerCall(args: {
     if (!needsSignalPoll) return;
 
     const pollSessionId = sessionId;
+    const sb = getSupabaseClient();
+    let channel: RealtimeChannel | null = null;
     let cancelled = false;
     let backoffUntil = 0;
+    let timerId: number | null = null;
+
+    async function bootstrapSignals() {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(pollSessionId)}/signals`, {
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
+      if (!res.ok || !json.ok) return;
+      for (const signal of json.signals ?? []) {
+        if (cancelled) break;
+        await applySignal(signal);
+      }
+    }
+
+    function nextSignalPollGapMs(): number {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return CALL_SIGNAL_POLL_MS_HIDDEN_TAB;
+      }
+      if (sb && callSignalsRealtimeSubscribedRef.current) return CALL_SIGNAL_POLL_MS_REALTIME_OK;
+      return CALL_SIGNAL_POLL_MS_FALLBACK;
+    }
 
     async function pollSignals() {
       if (cancelled) return;
@@ -668,37 +704,35 @@ export function useCommunityMessengerCall(args: {
       }
     }
 
-    void pollSignals();
-    const timer = window.setInterval(() => {
-      void pollSignals();
-    }, 1000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [applySignal, args.activeCall?.status, currentSessionId, panel?.mode, panel?.sessionId]);
-
-  useEffect(() => {
-    if (!currentSessionId) return;
-    const sessionId = currentSessionId;
-    const sb = getSupabaseClient();
-    let channel: RealtimeChannel | null = null;
-    let cancelled = false;
-
-    async function bootstrapSignals() {
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; signals?: CommunityMessengerCallSignal[] };
-      if (!res.ok || !json.ok) return;
-      for (const signal of json.signals ?? []) {
+    async function runLoop() {
+      while (!cancelled) {
+        await pollSignals();
         if (cancelled) break;
-        await applySignal(signal);
+        const base = nextSignalPollGapMs();
+        const wait =
+          Date.now() < backoffUntil
+            ? Math.min(120_000, Math.max(0, backoffUntil - Date.now()) + 25)
+            : base;
+        await new Promise<void>((resolve) => {
+          if (cancelled) {
+            resolve();
+            return;
+          }
+          timerId = window.setTimeout(() => {
+            timerId = null;
+            resolve();
+          }, Math.max(200, wait));
+        });
       }
     }
 
-    void bootstrapSignals();
+    const onVis = () => {
+      if (cancelled || typeof document === "undefined") return;
+      if (document.visibilityState === "visible") void pollSignals();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    callSignalsRealtimeSubscribedRef.current = false;
     if (sb) {
       channel = sb
         .channel(`community-messenger-call-signals:${sessionId}:${args.viewerUserId}`)
@@ -725,14 +759,24 @@ export function useCommunityMessengerCall(args: {
             });
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          callSignalsRealtimeSubscribedRef.current = status === "SUBSCRIBED";
+        });
     }
+
+    void (async () => {
+      await bootstrapSignals();
+      if (!cancelled) void runLoop();
+    })();
 
     return () => {
       cancelled = true;
+      callSignalsRealtimeSubscribedRef.current = false;
+      if (timerId != null) window.clearTimeout(timerId);
+      document.removeEventListener("visibilitychange", onVis);
       if (sb && channel) void sb.removeChannel(channel);
     };
-  }, [applySignal, args.viewerUserId, currentSessionId]);
+  }, [applySignal, args.activeCall?.status, args.viewerUserId, currentSessionId, panel?.mode, panel?.sessionId]);
 
   const prepareDevices = useCallback(async () => {
     const kind = panel?.kind ?? args.activeCall?.callKind;

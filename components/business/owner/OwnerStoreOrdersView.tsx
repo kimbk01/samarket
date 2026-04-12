@@ -444,12 +444,42 @@ export function OwnerStoreOrdersView() {
 
   useEffect(() => {
     if (!pollStoreId) return;
-    const id = window.setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        void load({ silent: true });
+    let inFlight = false;
+    const safeSilentLoad = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (inFlight) return;
+      inFlight = true;
+      void load({ silent: true }).finally(() => {
+        inFlight = false;
+      });
+    };
+    let intervalId: number | null = null;
+    const stopPoll = () => {
+      if (intervalId == null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const startPoll = () => {
+      stopPoll();
+      intervalId = window.setInterval(safeSilentLoad, 25_000);
+    };
+    const onVisibility = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") {
+        safeSilentLoad();
+        startPoll();
+      } else {
+        stopPoll();
       }
-    }, 25_000);
-    return () => window.clearInterval(id);
+    };
+    if (typeof document === "undefined" || document.visibilityState === "visible") {
+      startPoll();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stopPoll();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [pollStoreId, load]);
 
   let body: ReactNode;

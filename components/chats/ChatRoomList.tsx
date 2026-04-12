@@ -66,10 +66,42 @@ export function ChatRoomList({
 
   useEffect(() => {
     if (sessionDenied) return;
-    const id = window.setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") void load();
-    }, POLL_MS);
-    return () => clearInterval(id);
+    let inFlight = false;
+    const safeLoad = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (inFlight) return;
+      inFlight = true;
+      void load().finally(() => {
+        inFlight = false;
+      });
+    };
+    let intervalId: number | null = null;
+    const stopPoll = () => {
+      if (intervalId == null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const startPoll = () => {
+      stopPoll();
+      intervalId = window.setInterval(safeLoad, POLL_MS);
+    };
+    const onVisibility = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") {
+        safeLoad();
+        startPoll();
+      } else {
+        stopPoll();
+      }
+    };
+    if (typeof document === "undefined" || document.visibilityState === "visible") {
+      startPoll();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stopPoll();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load, sessionDenied]);
 
   useEffect(() => {

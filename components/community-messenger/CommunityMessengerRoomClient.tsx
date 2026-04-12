@@ -2022,7 +2022,8 @@ export function CommunityMessengerRoomClient({
       void refresh(true);
     };
     refreshNow();
-    const timer = window.setInterval(refreshNow, 500);
+    /* 그룹 URL 자동 수락 대기 — 0.5초 폴링은 동일 창에서 /api 부하가 큼 → 1초(최대 5회) */
+    const timer = window.setInterval(refreshNow, 1000);
     const stopTimer = window.setTimeout(() => {
       window.clearInterval(timer);
     }, 5000);

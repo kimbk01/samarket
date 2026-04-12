@@ -672,13 +672,23 @@ export function ChatDetailView({
     clearTradeChatEntryMark();
   }, [messages.length, messagesLoading, room.id]);
 
-  // 당근형: 상대가 보낸 메시지 실시간 반영 — 판매자/구매자 다른 창에서도 답장 수신
+  // 당근형: Realtime 이 주 경로 — HTTP 는 백업(간격·가시성으로 부하 제어)
   useEffect(() => {
     if (!room.id || !currentUserId) return;
     if (messagesLoading) return;
     const cacheIsFresh = isChatRoom
       ? hasFreshIntegratedChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS)
       : hasFreshLegacyChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS);
+
+    /** Realtime live 시에는 DB/API 재조회를 드물게(삽입 누락·탭 복귀 동기화용). 미연결·주문채팅은 상대적으로 촘촘 */
+    const backupPollMs = isStoreOrderChat
+      ? chatRealtimeLive
+        ? 120_000
+        : 8_000
+      : isChatRoom && chatRealtimeLive
+        ? 180_000
+        : 12_000;
+
     const tick = async () => {
       const next = await fetchMessagesForPolling();
       const allowIncomingAlerts = pollTickCountRef.current > 0;
@@ -729,34 +739,58 @@ export function ChatDetailView({
         return mergeChatMessagesById(reconcileOptimisticMessages(prev, next), next);
       });
     };
+
+    let pollInFlight = false;
+    const safeTick = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (pollInFlight) return;
+      pollInFlight = true;
+      void tick().finally(() => {
+        pollInFlight = false;
+      });
+    };
+
+    let intervalId: number | null = null;
+    const stopBackupInterval = () => {
+      if (intervalId == null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const startBackupInterval = () => {
+      stopBackupInterval();
+      intervalId = window.setInterval(safeTick, backupPollMs);
+    };
+
     if (cacheIsFresh) {
       pollTickCountRef.current = 1;
-    } else {
-      tick(); // 마운트 직후 1회 실행 (초기 로드 직후 반영)
+    } else if (typeof document === "undefined" || document.visibilityState === "visible") {
+      safeTick();
     }
-    /** 통합 채팅: Realtime 구독 성공 시 폴링은 백업용으로만 길게. 미연결 시 기존 간격 유지 */
-    const pollMs = isStoreOrderChat
-      ? chatRealtimeLive
-        ? 90_000
-        : 7_000
-      : isChatRoom && chatRealtimeLive
-        ? 120_000
-        : 10_000;
-    const interval = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") void tick();
-    }, pollMs);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void tick();
+
+    const onVisibility = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") {
+        safeTick();
+        startBackupInterval();
+      } else {
+        stopBackupInterval();
+      }
     };
+
+    if (typeof document === "undefined" || document.visibilityState === "visible") {
+      startBackupInterval();
+    }
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisibility);
+
     const onPageShow = (e: Event) => {
       const pe = e as PageTransitionEvent;
-      if (pe.persisted) void tick();
+      if (pe.persisted) safeTick();
     };
-    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisible);
     if (typeof window !== "undefined") window.addEventListener("pageshow", onPageShow);
+
     return () => {
-      clearInterval(interval);
-      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible);
+      stopBackupInterval();
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisibility);
       if (typeof window !== "undefined") window.removeEventListener("pageshow", onPageShow);
     };
   }, [
