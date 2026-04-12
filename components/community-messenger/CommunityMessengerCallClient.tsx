@@ -37,8 +37,10 @@ import {
   shouldSkipCallerMediaGateOverlay,
 } from "@/lib/community-messenger/call-permission";
 import {
+  COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE,
   getCommunityMessengerMediaErrorMessage,
   isAgoraJoinRetryableError,
+  isCommunityMessengerMediaBlockedByInsecureOrigin,
 } from "@/lib/community-messenger/media-errors";
 import type {
   CommunityMessengerCallSession,
@@ -1152,6 +1154,24 @@ export function CommunityMessengerCallClient({
         <main
           className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden pt-0 sm:pt-2" : "overflow-y-auto"}`}
         >
+          {!isCommunityMessengerAgoraAppConfigured() ? (
+            <div
+              className="mb-3 shrink-0 rounded-ui-rect border border-amber-400/35 bg-amber-950/50 px-3 py-2.5 text-left text-[12px] leading-snug text-amber-50"
+              role="status"
+            >
+              {COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE}
+            </div>
+          ) : null}
+          {isCommunityMessengerMediaBlockedByInsecureOrigin() ? (
+            <div
+              className="mb-3 shrink-0 rounded-ui-rect border border-rose-400/30 bg-rose-950/40 px-3 py-2.5 text-left text-[12px] leading-snug text-rose-50"
+              role="status"
+            >
+              {typeof window !== "undefined" && window.location.protocol === "http:"
+                ? `현재 ${window.location.host} 는 HTTP입니다. 마이크·카메라는 HTTPS 또는 localhost 에서만 사용할 수 있습니다. 개발 서버는 \`next dev --experimental-https\` 또는 역프록시 SSL을 권장합니다.`
+                : "이 출처에서는 미디어 장치를 사용할 수 없습니다."}
+            </div>
+          ) : null}
           {!videoCall && showCallerMediaGate ? (
             <CallerMediaGateOverlay
               callKind="voice"

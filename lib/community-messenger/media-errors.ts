@@ -1,9 +1,36 @@
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
+/** 토큰 API·클라이언트에서 동일하게 쓰는 설정 누락 식별 */
+export function isCommunityMessengerCallProviderNotConfiguredError(error: unknown): boolean {
+  const msg = extractErrorDetail(error);
+  if (!msg) return false;
+  return /통화 설정이 아직 연결되지|call_provider_not_configured|통화 설정이 아직 연결되지 않았습니다/i.test(msg);
+}
+
+/** 브라우저가 마이크·카메라를 허용하지 않는 출처(HTTP + LAN IP 등) */
+export function isCommunityMessengerMediaBlockedByInsecureOrigin(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.isSecureContext) return false;
+  const h = window.location.hostname;
+  if (h === "localhost" || h === "127.0.0.1") return false;
+  return true;
+}
+
+/**
+ * Agora 앱 ID 미설정 — 「장치 오류」가 아님. 배포·빌드 환경 변수 안내.
+ * @see `NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID`, `COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE`
+ */
+export const COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE =
+  "통화 서비스(Agora)가 연결되지 않았습니다. 환경 변수 NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID 를 설정한 뒤 클라이언트를 다시 빌드·배포해 주세요. 운영 환경에서는 COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE 도 함께 설정하는 것을 권장합니다.";
+
+const HTTPS_REQUIRED_FOR_MEDIA_MESSAGE =
+  "이 주소로는 브라우저가 마이크·카메라 사용을 막습니다(HTTP·로컬 IP). HTTPS로 서비스하거나 개발 시 localhost 로 접속해 주세요.";
+
 /** Agora join·publish 단계에서 네트워크·토큰 일시 오류 등 재시도할 만한 경우 */
 export function isAgoraJoinRetryableError(error: unknown): boolean {
-  if (error instanceof Error) {
-    const n = error.name;
+  if (isCommunityMessengerCallProviderNotConfiguredError(error)) return false;
+  if (typeof error === "object" && error && "name" in error) {
+    const n = String((error as { name?: unknown }).name ?? "");
     if (
       n === "NotAllowedError" ||
       n === "PermissionDeniedError" ||
@@ -59,10 +86,20 @@ export function getCommunityMessengerMediaErrorMessage(
   error: unknown,
   kind: CommunityMessengerCallKind
 ): string {
+  if (isCommunityMessengerCallProviderNotConfiguredError(error)) {
+    return COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE;
+  }
+
   const name =
     typeof error === "object" && error && "name" in error
       ? String((error as { name?: unknown }).name ?? "")
       : "";
+
+  if (isCommunityMessengerMediaBlockedByInsecureOrigin()) {
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      return HTTPS_REQUIRED_FOR_MEDIA_MESSAGE;
+    }
+  }
 
   if (isNotReadableMediaError(error)) {
     return "다른 앱이 장치를 사용 중일 수 있습니다. 장치 점유를 해제한 뒤 다시 시도해 주세요.";
