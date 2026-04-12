@@ -679,11 +679,20 @@ export function CommunityMessengerCallClient({
         await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
         markCommunityMessengerMediaTrustedOnce();
         setCallerMediaConsentDone(true);
+        const cur = sessionRef.current;
+        if (
+          cur &&
+          cur.isMineInitiator &&
+          cur.sessionMode === "direct" &&
+          !isTerminalCallSessionStatus(cur.status)
+        ) {
+          await joinCall(cur);
+        }
       } catch (err) {
         setErrorMessage(getCommunityMessengerMediaErrorMessage(err, s.callKind));
       }
     })();
-  }, []);
+  }, [joinCall]);
 
   const rejectIncoming = useCallback(async () => {
     if (!session) return;
@@ -872,12 +881,25 @@ export function CommunityMessengerCallClient({
     let cancelled = false;
     void (async () => {
       const skip = await shouldSkipCallerMediaGateOverlay(session.callKind);
-      if (!cancelled) setCallerMediaConsentDone(skip);
+      if (cancelled) return;
+      setCallerMediaConsentDone(skip);
+      /* 게이트 생략 시 effect 재실행 전에 바로 Agora 조인(발신자 전용). joinCall 내부 가드로 중복 방지 */
+      if (skip) {
+        const cur = sessionRef.current;
+        if (
+          cur &&
+          cur.isMineInitiator &&
+          cur.sessionMode === "direct" &&
+          !isTerminalCallSessionStatus(cur.status)
+        ) {
+          void joinCall(cur);
+        }
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [session?.id, session?.isMineInitiator, session?.callKind]);
+  }, [joinCall, session?.id, session?.isMineInitiator, session?.callKind]);
 
   useEffect(() => {
     if (!session) return;

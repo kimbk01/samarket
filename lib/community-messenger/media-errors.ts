@@ -46,6 +46,15 @@ function extractErrorDetail(error: unknown): string {
   return "";
 }
 
+function isNotReadableMediaError(error: unknown): boolean {
+  if (typeof error === "object" && error && "name" in error) {
+    const n = String((error as { name?: unknown }).name ?? "");
+    if (n === "NotReadableError" || n === "TrackStartError") return true;
+  }
+  const raw = error instanceof Error ? error.message : String(error);
+  return /NotReadableError|NOT_READABLE|Could not start audio source/i.test(raw);
+}
+
 export function getCommunityMessengerMediaErrorMessage(
   error: unknown,
   kind: CommunityMessengerCallKind
@@ -54,6 +63,10 @@ export function getCommunityMessengerMediaErrorMessage(
     typeof error === "object" && error && "name" in error
       ? String((error as { name?: unknown }).name ?? "")
       : "";
+
+  if (isNotReadableMediaError(error)) {
+    return "다른 앱이 장치를 사용 중일 수 있습니다. 장치 점유를 해제한 뒤 다시 시도해 주세요.";
+  }
 
   if (name === "NotAllowedError" || name === "PermissionDeniedError") {
     return kind === "video"
@@ -64,9 +77,6 @@ export function getCommunityMessengerMediaErrorMessage(
     return kind === "video"
       ? "사용 가능한 카메라 또는 마이크를 찾지 못했습니다."
       : "사용 가능한 마이크를 찾지 못했습니다.";
-  }
-  if (name === "NotReadableError" || name === "TrackStartError") {
-    return "다른 앱이 장치를 사용 중일 수 있습니다. 장치 점유를 해제한 뒤 다시 시도해 주세요.";
   }
   if (name === "AbortError") {
     return "장치 연결이 잠시 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";

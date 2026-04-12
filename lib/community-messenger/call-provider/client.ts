@@ -21,29 +21,72 @@ export function createCommunityMessengerAgoraClient(): IAgoraRTCClient {
   return AgoraRTC.createClient({ codec: "vp8", mode: "rtc" });
 }
 
-async function createAgoraMicWithPreferredDevice(): Promise<ILocalAudioTrack> {
-  const { audioDeviceId } = readPreferredCommunityMessengerDeviceIds();
-  /** 음성 위주 인코딩을 먼저 시도(윈도우 등 일부 환경에서 music_standard 가 실패하는 경우 완화) */
-  const encoderCandidates = ["speech_standard", "music_standard"] as const;
+const AGORA_MIC_ENCODER_CANDIDATES = ["speech_standard", "music_standard"] as const;
 
-  for (const encoderConfig of encoderCandidates) {
+async function tryCreateAgoraMicTrack(microphoneId?: string): Promise<ILocalAudioTrack | null> {
+  for (const encoderConfig of AGORA_MIC_ENCODER_CANDIDATES) {
     try {
-      if (audioDeviceId) {
-        return await AgoraRTC.createMicrophoneAudioTrack({
-          encoderConfig,
-          microphoneId: audioDeviceId,
-        });
+      if (microphoneId) {
+        return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig, microphoneId });
       }
       return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig });
     } catch {
-      writePreferredCommunityMessengerDeviceIds(null, null);
-      try {
-        return await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig });
-      } catch {
-        /* 다음 인코더 */
-      }
+      /* 다음 인코더 */
     }
   }
+  try {
+    if (microphoneId) {
+      return await AgoraRTC.createMicrophoneAudioTrack({ microphoneId });
+    }
+    return await AgoraRTC.createMicrophoneAudioTrack();
+  } catch {
+    return null;
+  }
+}
+
+async function createAgoraMicWithPreferredDevice(): Promise<ILocalAudioTrack> {
+  let { audioDeviceId } = readPreferredCommunityMessengerDeviceIds();
+
+  if (audioDeviceId) {
+    const t = await tryCreateAgoraMicTrack(audioDeviceId);
+    if (t) return t;
+    const cur = readPreferredCommunityMessengerDeviceIds();
+    writePreferredCommunityMessengerDeviceIds(null, cur.videoDeviceId);
+    audioDeviceId = null;
+  }
+
+  const defaultMic = await tryCreateAgoraMicTrack(undefined);
+  if (defaultMic) return defaultMic;
+
+  if (typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
+    let list: MediaDeviceInfo[] = [];
+    try {
+      list = await navigator.mediaDevices.enumerateDevices();
+    } catch {
+      /* */
+    }
+    const inputs = list.filter((d) => d.kind === "audioinput" && d.deviceId);
+    for (const d of inputs) {
+      const t = await tryCreateAgoraMicTrack(d.deviceId);
+      if (t) return t;
+    }
+  }
+
+  if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const media = stream.getAudioTracks().find((tr) => tr.readyState === "live") ?? stream.getAudioTracks()[0];
+      if (media) {
+        return AgoraRTC.createCustomAudioTrack({
+          mediaStreamTrack: media,
+          encoderConfig: "speech_standard",
+        });
+      }
+    } catch {
+      /* 아래 최종 throw */
+    }
+  }
+
   return AgoraRTC.createMicrophoneAudioTrack();
 }
 
