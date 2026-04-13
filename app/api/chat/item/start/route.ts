@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * POST /api/chat/item/start — 거래 채팅 시작/재사용 (구매자=세션)
  * Body: { itemId: string }
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   // 1) 상품 및 판매자 — 방 생성/차단 판정에 필요한 필드만 조회
   const { data: post, error: postErr } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id, author_id, user_id, status, visibility, is_deleted, seller_listing_state, reserved_buyer_id, meta")
     .eq("id", itemId)
     .maybeSingle();

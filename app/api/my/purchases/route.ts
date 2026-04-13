@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 구매내역 — 내가 구매자인 거래 (product_chats.buyer_id + chat_rooms에서 내가 buyer인 글)
  * GET /api/my/purchases (세션)
@@ -61,7 +63,7 @@ export async function GET(req: NextRequest) {
         ({ data }: { data: { room_id: string }[] | null }) => data ?? []
       ),
     sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select(POST_TRADE_RELATION_SELECT)
       .in("id", postIds)
       .then(
@@ -76,7 +78,7 @@ export async function GET(req: NextRequest) {
   );
   const missingPostIds = postIds.filter((id) => id && !postMap.has(String(id)));
   for (const mid of missingPostIds.slice(0, 20)) {
-    const { data: one } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
+    const { data: one } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
     if (one) postMap.set(String(mid), one as Record<string, unknown>);
   }
 

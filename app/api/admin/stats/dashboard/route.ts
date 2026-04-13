@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -59,54 +61,20 @@ async function mapNicknamesFromProfiles(sbAny: any, ids: string[]): Promise<Map<
   return map;
 }
 
-async function countAuthUsersSince(sb: any, sinceMs: number): Promise<number> {
-  let n = 0;
-  let page = 1;
-  try {
-    while (page <= 40) {
-      const { data, error } = await sb.auth.admin.listUsers({ page, perPage: 1000 });
-      if (error || !data?.users?.length) break;
-      for (const u of data.users) {
-        const c = u.created_at ? new Date(u.created_at).getTime() : NaN;
-        if (Number.isFinite(c) && c >= sinceMs) n++;
-      }
-      if (data.users.length < 1000) break;
-      page++;
-    }
-  } catch {
-    return 0;
-  }
-  return n;
-}
-
-async function authUsersCreatedPerUtcDay(sb: any, dayStartsIso: string[]): Promise<number[]> {
-  const counts = new Array(dayStartsIso.length).fill(0);
-  const bounds = dayStartsIso.map((s) => {
-    const start = new Date(s).getTime();
-    return { start, end: start + 86400000 };
-  });
-  let page = 1;
-  try {
-    while (page <= 40) {
-      const { data, error } = await sb.auth.admin.listUsers({ page, perPage: 1000 });
-      if (error || !data?.users?.length) break;
-      for (const u of data.users) {
-        const c = u.created_at ? new Date(u.created_at).getTime() : NaN;
-        if (!Number.isFinite(c)) continue;
-        for (let i = 0; i < bounds.length; i++) {
-          if (c >= bounds[i].start && c < bounds[i].end) {
-            counts[i]++;
-            break;
-          }
-        }
-      }
-      if (data.users.length < 1000) break;
-      page++;
-    }
-  } catch {
-    /* ignore */
-  }
-  return counts;
+/** `profiles.created_at` 기준 (auth.users 전체 페이지 순회 금지 — 대규모 테넌트에서 타임아웃 방지) */
+async function profilesCreatedPerUtcDay(sbAny: any, dayStartsIso: string[]): Promise<number[]> {
+  return Promise.all(
+    dayStartsIso.map(async (start) => {
+      const end = new Date(new Date(start).getTime() + 86400000).toISOString();
+      const { count, error } = await sbAny
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", start)
+        .lt("created_at", end);
+      if (error) return 0;
+      return typeof count === "number" ? count : 0;
+    })
+  );
 }
 
 export async function GET() {
@@ -124,7 +92,6 @@ export async function GET() {
   const now = new Date();
   const nowIso = now.toISOString();
   const todayStart = todayStartISO(now);
-  const todayStartMs = new Date(todayStart).getTime();
 
   const sbAny = sb as any;
 
@@ -143,11 +110,18 @@ export async function GET() {
     return typeof count === "number" ? count : 0;
   })();
 
-  const newUsersToday = await countAuthUsersSince(sb, todayStartMs);
+  const newUsersToday = await (async () => {
+    const { count, error } = await sbAny
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", todayStart);
+    if (error) return 0;
+    return typeof count === "number" ? count : 0;
+  })();
 
   const newProductsToday = await (async () => {
     const { count, error } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id", { count: "exact", head: true })
       .gte("created_at", todayStart);
     if (error) return 0;
@@ -156,7 +130,7 @@ export async function GET() {
 
   const activeProducts = await (async () => {
     const { count, error } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id", { count: "exact", head: true })
       .in("status", ["active", "reserved"]);
     if (error) return 0;
@@ -183,7 +157,7 @@ export async function GET() {
 
   const completedTransactions = await (async () => {
     const { count, error } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id", { count: "exact", head: true })
       .eq("status", "sold");
     if (error) return 0;
@@ -191,13 +165,10 @@ export async function GET() {
   })();
 
   const averageTrustScore = await (async () => {
-    const { data, error } = await sbAny.from("profiles").select("trust_score");
-    if (error || !Array.isArray(data)) return 50;
-    const nums = data
-      .map((r: { trust_score?: number | string | null }) => Number(r.trust_score))
-      .filter((n: number) => Number.isFinite(n));
-    if (nums.length === 0) return 50;
-    return Math.round((nums.reduce((a: number, b: number) => a + b, 0) / nums.length) * 10) / 10;
+    const { data, error } = await sbAny.rpc("admin_dashboard_avg_trust_score");
+    if (error || data == null) return 50;
+    const n = typeof data === "number" ? data : Number(data);
+    return Number.isFinite(n) ? n : 50;
   })();
 
   const stats: DashboardStats = {
@@ -218,7 +189,7 @@ export async function GET() {
   await Promise.all(
     PRODUCT_STATUSES.map(async (statusKey) => {
       const { count, error } = await sbAny
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select("id", { count: "exact", head: true })
         .eq("status", statusKey);
       if (error) {
@@ -344,7 +315,7 @@ export async function GET() {
 
   const recentProducts: RecentProduct[] = await (async () => {
     const { data: posts, error } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id, title, status, user_id, created_at")
       .order("created_at", { ascending: false })
       .limit(RECENT_LIMIT);
@@ -366,7 +337,7 @@ export async function GET() {
     const { data: users, error } = await sbAny
       .from("profiles")
       .select("id, nickname, username, role, created_at, updated_at")
-      .order("id", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(RECENT_LIMIT);
     if (error || !Array.isArray(users)) return [];
 
@@ -434,7 +405,7 @@ export async function GET() {
     const partnerIds = [...new Set(rooms.flatMap((r: any) => [r.seller_id, r.buyer_id]).filter(Boolean))] as string[];
 
     const { data: posts } = postIds.length
-      ? await sbAny.from("posts").select("id, title").in("id", postIds)
+      ? await sbAny.from(POSTS_TABLE_READ).select("id, title").in("id", postIds)
       : { data: [] };
     const postTitleById = new Map<string, string>(
       (posts ?? []).map((p: any) => [String(p.id ?? ""), String(p.title ?? "")])
@@ -479,14 +450,14 @@ export async function GET() {
 
   const trendDays = 7;
   const dayStarts = utcDayStartIsoStrings(trendDays, now);
-  const newUsersByDay = await authUsersCreatedPerUtcDay(sb, dayStarts);
+  const newUsersByDay = await profilesCreatedPerUtcDay(sbAny, dayStarts);
   const trend: DashboardTrendItem[] = [];
   for (let i = 0; i < trendDays; i++) {
     const start = dayStarts[i];
     const end = new Date(new Date(start).getTime() + 86400000).toISOString();
     const dateLabel = start.slice(0, 10);
     const [{ count: np }, { count: rep }, trQ] = await Promise.all([
-      sbAny.from("posts").select("id", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+      sbAny.from(POSTS_TABLE_READ).select("id", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
       sbAny.from("reports").select("id", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
       sbAny
         .from("transaction_reviews")

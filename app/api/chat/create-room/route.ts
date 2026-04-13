@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 채팅방 생성/조회 API (서비스 롤)
  * - body: { productId: string } — 구매자는 세션
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   // 1) 상품 및 판매자
   const { data: postRaw, error: postErr } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select(POST_TRADE_CHAT_GATE_SELECT)
     .eq("id", productId)
     .maybeSingle();

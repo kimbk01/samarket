@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ReviewRoleType, PublicReviewType } from "@/lib/types/daangn";
@@ -44,7 +46,7 @@ export async function submitTransactionReviewDaangn(
   if (payload.revieweeId !== room.seller_id && payload.revieweeId !== room.buyer_id)
     return { ok: false, error: "상대방 정보가 올바르지 않습니다." };
 
-  const { data: post } = await sb.from("posts").select("status").eq("id", payload.productId).single();
+  const { data: post } = await sb.from(POSTS_TABLE_READ).select("status").eq("id", payload.productId).single();
   if (post?.status !== "sold") return { ok: false, error: "거래가 완료된 후에 후기를 남길 수 있습니다." };
 
   const { data: existing } = await sb

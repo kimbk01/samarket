@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * GET /api/chat/rooms/:roomId/messages — 메시지 목록 (세션)
  * POST /api/chat/rooms/:roomId/messages — 메시지 전송 (body: body, messageType?)
@@ -257,7 +259,7 @@ export async function POST(
   };
   if (roomTrade.room_type === "item_trade" && roomTrade.item_id) {
     const { data: postRow } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id, status, seller_listing_state, reserved_buyer_id")
       .eq("id", roomTrade.item_id)
       .maybeSingle();

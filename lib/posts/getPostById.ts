@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
 import {
@@ -17,7 +19,7 @@ export async function getPostById(postId: string): Promise<PostWithMeta | null> 
 
   try {
     const { data, error } = await supabase
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select(POST_TRADE_DETAIL_SELECT)
       .eq("id", postId.trim())
       .maybeSingle();

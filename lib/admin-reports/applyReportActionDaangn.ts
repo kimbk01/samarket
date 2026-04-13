@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ReportActionType } from "@/lib/types/daangn";
@@ -56,7 +58,7 @@ export async function applyReportActionDaangn(
   if (needsSanctionUser && !sanctionUserId && (report.target_type === "product" || report.target_type === "post")) {
     const pid = report.product_id ?? report.target_id;
     if (pid) {
-      const { data: post } = await sb.from("posts").select("user_id").eq("id", pid).maybeSingle();
+      const { data: post } = await sb.from(POSTS_TABLE_READ).select("user_id").eq("id", pid).maybeSingle();
       sanctionUserId = (post?.user_id ?? "").trim() || "";
     }
   }
@@ -91,7 +93,7 @@ export async function applyReportActionDaangn(
 
   const pid = report.product_id ?? report.target_id;
   if (actionType === "product_hide" && pid) {
-    await sb.from("posts").update({ status: "hidden", updated_at: now }).eq("id", pid);
+    await sb.from(POSTS_TABLE_WRITE).update({ status: "hidden", updated_at: now }).eq("id", pid);
   }
 
   const sanctionType = SANCTION_TYPE_MAP[actionType];

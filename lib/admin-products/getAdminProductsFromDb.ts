@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Product } from "@/lib/types/product";
 import {
@@ -32,7 +34,7 @@ export async function getAdminProductByIdFromDb(productId: string): Promise<Prod
 
   try {
     const { data: row, error } = await (supabase as any)
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, board_id")
       .eq("id", productId)
       .maybeSingle();

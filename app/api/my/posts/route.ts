@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 내상품 목록 (본인이 올린 글) — 서비스 롤
  * GET /api/my/posts (세션)
@@ -17,7 +19,7 @@ export async function GET(_req: NextRequest) {
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   const { data: rows, error } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select(
       "id, title, content, price, status, seller_listing_state, images, view_count, created_at, updated_at, user_id"
     )

@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * posts 조회 — Supabase에 seller_listing_state 미적용·스키마 캐시 불일치 시에도 채팅이 동작하도록 폴백.
  */
@@ -30,12 +32,12 @@ export async function fetchPostRowForChat(
   if (!pid) return null;
 
   let { data, error } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select(POST_COLUMNS_CHAT_PREFERRED)
     .eq("id", pid)
     .maybeSingle();
   if (error && isMissingSellerListingColumnError(error.message)) {
-    const r2 = await sbAny.from("posts").select(POST_COLUMNS_CHAT_SAFE).eq("id", pid).maybeSingle();
+    const r2 = await sbAny.from(POSTS_TABLE_READ).select(POST_COLUMNS_CHAT_SAFE).eq("id", pid).maybeSingle();
     data = (r2.data ?? null) as unknown as typeof data;
     error = r2.error;
   }
@@ -49,13 +51,13 @@ export async function fetchPostRowForChat(
    * 「글 · UUID…」, ₩0, 썸네일 없음 이 됨 → `*` 로 실제 행을 반드시 가져온다.
    */
   if (error) {
-    const rNarrow = await sbAny.from("posts").select(POST_TRADE_DETAIL_SELECT).eq("id", pid).maybeSingle();
+    const rNarrow = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_DETAIL_SELECT).eq("id", pid).maybeSingle();
     if (!rNarrow.error && rNarrow.data) return rNarrow.data as Record<string, unknown>;
-    const rRel = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", pid).maybeSingle();
+    const rRel = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", pid).maybeSingle();
     if (!rRel.error && rRel.data) return rRel.data as Record<string, unknown>;
-    const rAbs = await sbAny.from("posts").select(POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT).eq("id", pid).maybeSingle();
+    const rAbs = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT).eq("id", pid).maybeSingle();
     if (!rAbs.error && rAbs.data) return rAbs.data as Record<string, unknown>;
-    const rBare = await sbAny.from("posts").select(POST_TRADE_CHAT_BARE_MIN_SELECT).eq("id", pid).maybeSingle();
+    const rBare = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_CHAT_BARE_MIN_SELECT).eq("id", pid).maybeSingle();
     if (!rBare.error && rBare.data) return rBare.data as Record<string, unknown>;
   }
 
@@ -123,28 +125,28 @@ export async function fetchPostRowsForChatIn(
   const ids = [...new Set(postIds.map((x) => String(x).trim()).filter(Boolean))];
   if (!ids.length) return [];
 
-  let { data, error } = await sbAny.from("posts").select(POST_COLUMNS_CHAT_PREFERRED).in("id", ids);
+  let { data, error } = await sbAny.from(POSTS_TABLE_READ).select(POST_COLUMNS_CHAT_PREFERRED).in("id", ids);
   if (error && isMissingSellerListingColumnError(error.message)) {
-    const r2 = await sbAny.from("posts").select(POST_COLUMNS_CHAT_SAFE).in("id", ids);
+    const r2 = await sbAny.from(POSTS_TABLE_READ).select(POST_COLUMNS_CHAT_SAFE).in("id", ids);
     data = (r2.data ?? null) as unknown as typeof data;
     error = r2.error;
   }
   if (!error && Array.isArray(data)) return data as Record<string, unknown>[];
 
   if (error) {
-    const rNarrow = await sbAny.from("posts").select(POST_TRADE_DETAIL_SELECT).in("id", ids);
+    const rNarrow = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_DETAIL_SELECT).in("id", ids);
     if (!rNarrow.error && Array.isArray(rNarrow.data) && rNarrow.data.length) {
       return rNarrow.data as Record<string, unknown>[];
     }
-    const rRel = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", ids);
+    const rRel = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).in("id", ids);
     if (!rRel.error && Array.isArray(rRel.data) && rRel.data.length) {
       return rRel.data as Record<string, unknown>[];
     }
-    const rAbs = await sbAny.from("posts").select(POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT).in("id", ids);
+    const rAbs = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT).in("id", ids);
     if (!rAbs.error && Array.isArray(rAbs.data) && rAbs.data.length) {
       return rAbs.data as Record<string, unknown>[];
     }
-    const rBare = await sbAny.from("posts").select(POST_TRADE_CHAT_BARE_MIN_SELECT).in("id", ids);
+    const rBare = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_CHAT_BARE_MIN_SELECT).in("id", ids);
     if (!rBare.error && Array.isArray(rBare.data)) return rBare.data as Record<string, unknown>[];
   }
 

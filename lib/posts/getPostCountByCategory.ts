@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 /**
@@ -12,12 +14,12 @@ export async function getPostCountByCategory(categoryId: string): Promise<number
   const idTrim = categoryId.trim();
   try {
     let res = await (supabase as any)
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id", { count: "exact", head: true })
       .eq("trade_category_id", idTrim);
     if (res.error && typeof res.error?.message === "string" && res.error.message.includes("trade_category_id")) {
       res = await (supabase as any)
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select("id", { count: "exact", head: true })
         .eq("category_id", idTrim);
     }

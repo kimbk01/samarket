@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
 import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "./getPostById";
@@ -19,7 +21,7 @@ export async function getSimilarPosts(
 
   try {
     const q = (supabase as any)
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select(POST_TRADE_LIST_SELECT)
       .neq("status", "hidden")
       .neq("status", "sold")
@@ -33,7 +35,7 @@ export async function getSimilarPosts(
     if (error) {
       if (typeof error?.message === "string" && error.message.includes("trade_category_id")) {
         const fallback = await (supabase as any)
-          .from("posts")
+          .from(POSTS_TABLE_READ)
           .select(POST_TRADE_LIST_SELECT)
           .neq("status", "hidden")
           .neq("status", "sold")

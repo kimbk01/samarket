@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Report, ReportStatus } from "@/lib/types/report";
 
@@ -93,7 +95,7 @@ export async function getReportsForAdminFromDb(): Promise<Report[]> {
     const postAuthorById: Record<string, string> = {};
     if (productIds.length > 0) {
       const { data: posts } = await (supabase as any)
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select("id, title, user_id")
         .in("id", productIds);
       if (Array.isArray(posts)) {
@@ -190,7 +192,7 @@ export async function getReportByIdFromDb(reportId: string): Promise<Report | nu
     if (targetType === "product" && postLookupId) {
       const pid = postLookupId;
       const { data: post } = await (supabase as any)
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select("title, user_id")
         .eq("id", pid)
         .maybeSingle();

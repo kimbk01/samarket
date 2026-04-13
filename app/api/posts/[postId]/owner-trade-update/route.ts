@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * PATCH /api/posts/[postId]/owner-trade-update
  * 본인 trade 글 수정 — 거래 라이프사이클·카테고리별 핵심 필드 검증 (클라이언트와 동일 규칙)
@@ -71,7 +73,7 @@ export async function PATCH(
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient;
   let { data: row, error: fetchErr } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select(
       "id, user_id, trade_category_id, title, content, price, region, city, images, thumbnail_url, meta, status, seller_listing_state, is_free_share, is_price_offer"
     )
@@ -80,7 +82,7 @@ export async function PATCH(
 
   if (fetchErr && /seller_listing_state/i.test(String(fetchErr.message))) {
     const r2 = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select(
         "id, user_id, trade_category_id, title, content, price, region, city, images, thumbnail_url, meta, status, is_free_share, is_price_offer"
       )
@@ -157,7 +159,7 @@ export async function PATCH(
     updated_at: now,
   };
 
-  const { error: updErr } = await sbAny.from("posts").update(patchDb).eq("id", id).eq("user_id", userId);
+  const { error: updErr } = await sbAny.from(POSTS_TABLE_WRITE).update(patchDb).eq("id", id).eq("user_id", userId);
 
   if (updErr) {
     return NextResponse.json({ ok: false, error: updErr.message ?? "저장 실패" }, { status: 500 });

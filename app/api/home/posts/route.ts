@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -154,7 +156,7 @@ export async function GET(req: NextRequest) {
 
       let data: unknown[] | null = null;
       for (const selectFields of HOME_POSTS_SELECT_TIERS) {
-        let q = sb.from("posts").select(selectFields).or(HOME_POSTS_STATUS_OR);
+        let q = sb.from(POSTS_TABLE_READ).select(selectFields).or(HOME_POSTS_STATUS_OR);
         /**
          * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
          * (trade: trade_category_id, community: board_id, service: service_id)

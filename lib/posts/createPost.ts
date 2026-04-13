@@ -5,6 +5,7 @@
  * - Supabase posts 테이블 사용 (없으면 에러 반환, mock 미사용)
  */
 import type { CreatePostPayload, CreatePostResponse } from "./types";
+import { POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-write";
@@ -84,7 +85,7 @@ export async function createPost(
       row.is_price_offer = payload.isPriceOfferEnabled === true;
     }
 
-    const res = await (supabase as any).from("posts").insert(row).select("id").single();
+    const res = await (supabase as any).from(POSTS_TABLE_WRITE).insert(row).select("id").single();
 
     if (res.error) {
       return { ok: false, error: (res.error as { message?: string }).message ?? "저장에 실패했습니다." };

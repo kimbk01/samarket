@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * GET — 일자리 글의 전화번호(채팅 참가자·채팅방 한정, phone_allowed일 때만)
  */
@@ -67,7 +69,7 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "참가자만 볼 수 있습니다." }, { status: 403 });
   }
 
-  const { data: post } = await sbAny.from("posts").select("meta").eq("id", r.item_id).maybeSingle();
+  const { data: post } = await sbAny.from(POSTS_TABLE_READ).select("meta").eq("id", r.item_id).maybeSingle();
   const meta = parsePostMetaField((post as { meta?: unknown } | null)?.meta);
   if (String(meta.trade_chat_kind ?? "").toLowerCase() !== "job") {
     return NextResponse.json({ ok: false, error: "일자리 글이 아닙니다." }, { status: 404 });

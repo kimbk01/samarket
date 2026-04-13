@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * POST /api/posts/[postId]/seller-listing-state
  * Body: { sellerListingState, reservedBuyerId? } — 예약 시 reservedBuyerId 필수(이 글·판매자·해당 구매자 채팅 존재 검증)
@@ -43,11 +45,11 @@ async function updatePostWithoutSellerListingColumn(
   } else {
     patchMinimal.reserved_buyer_id = null;
   }
-  let { error } = await sbAny.from("posts").update(patchMinimal).eq("id", postId);
+  let { error } = await sbAny.from(POSTS_TABLE_WRITE).update(patchMinimal).eq("id", postId);
   if (error && isMissingDbColumnMessage(error.message, "reserved_buyer_id")) {
     const patchNoRb = { ...patchMinimal };
     delete patchNoRb.reserved_buyer_id;
-    const r2 = await sbAny.from("posts").update(patchNoRb).eq("id", postId);
+    const r2 = await sbAny.from(POSTS_TABLE_WRITE).update(patchNoRb).eq("id", postId);
     error = r2.error;
   }
   return error ? error.message : null;
@@ -115,7 +117,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
   const { data: post, error: postErr } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select(
       "id, user_id, status, seller_listing_state, meta, title, content, price, region, city, images, thumbnail_url, trade_category_id, is_free_share, is_price_offer"
     )
@@ -214,7 +216,7 @@ export async function POST(
     patch.reserved_buyer_id = null;
   }
 
-  const { error: updErr } = await sbAny.from("posts").update(patch).eq("id", postId.trim());
+  const { error: updErr } = await sbAny.from(POSTS_TABLE_WRITE).update(patch).eq("id", postId.trim());
 
   if (updErr) {
     let msg = updErr.message ?? "저장 실패";
@@ -223,7 +225,7 @@ export async function POST(
     if (missingReserved) {
       const patchNoRb = { ...patch };
       delete patchNoRb.reserved_buyer_id;
-      const { error: e2 } = await sbAny.from("posts").update(patchNoRb).eq("id", postId.trim());
+      const { error: e2 } = await sbAny.from(POSTS_TABLE_WRITE).update(patchNoRb).eq("id", postId.trim());
       if (!e2) {
         try {
           await sbAny

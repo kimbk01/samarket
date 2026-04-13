@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
 import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "./getPostById";
@@ -29,7 +31,7 @@ export async function searchPosts(
 
   try {
     let select = (supabase as any)
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select(POST_TRADE_LIST_SELECT)
       .or("status.is.null,status.not.in.(hidden,sold)")
       .ilike("title", `%${q}%`);
@@ -44,7 +46,7 @@ export async function searchPosts(
 
     if (error && options.categoryId?.trim() && String(error?.message).includes("trade_category_id")) {
       select = (supabase as any)
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select(POST_TRADE_LIST_SELECT)
         .or("status.is.null,status.not.in.(hidden,sold)")
         .ilike("title", `%${q}%`)

@@ -4,11 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getTestAuth, TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import {
-  getAllowedAdminEmails,
-  isAdminRequireAuthEnabled,
-  isPrivilegedAdminRole,
-} from "@/lib/auth/admin-policy";
+import { getAllowedAdminEmails, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 
 async function fetchServerAdminAccess(): Promise<boolean> {
   try {
@@ -22,20 +18,15 @@ async function fetchServerAdminAccess(): Promise<boolean> {
 
 /**
  * 관리자 영역 접근 제어
- * - production·staging: 서버 `isRouteAdmin`과 동일하게 판별 (test-login 쿠키 + test_users.role 포함)
+ * - 서버 `/api/admin/access-check`(`isRouteAdmin`)과 동일 — 로그인만으로는 통과하지 않음
  * - 허용 이메일(NEXT_PUBLIC_ADMIN_ALLOWED_EMAIL) + Supabase 세션
  * - sessionStorage 테스트 역할(admin/master) — 표기 정규화
- * - local만: NEXT_PUBLIC_ADMIN_REQUIRE_AUTH 미설정 시 개발 편의로 개방
  */
 export function AdminGuard({ children }: { children: ReactNode }) {
-  const requireAuth = isAdminRequireAuthEnabled();
-
-  const [allowed, setAllowed] = useState(!requireAuth);
-  const [checking, setChecking] = useState(requireAuth);
+  const [allowed, setAllowed] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!requireAuth) return;
-
     let cancelled = false;
 
     const run = async () => {
@@ -101,7 +92,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
       }
       unsubAuth();
     };
-  }, [requireAuth]);
+  }, []);
 
   if (checking) {
     return (
@@ -111,7 +102,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (requireAuth && !allowed) {
+  if (!allowed) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <p className="text-[15px] font-medium text-sam-fg">관리자 인증이 필요합니다</p>

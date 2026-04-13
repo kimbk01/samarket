@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
@@ -42,7 +44,7 @@ export async function POST(
 
   const sbAny = sb;
   const { data: post, error: postErr } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id, status, sold_buyer_id, user_id")
     .eq("id", pc.post_id)
     .maybeSingle();
@@ -68,7 +70,7 @@ export async function POST(
     reserved_buyer_id: null,
     updated_at: now,
   };
-  let { error: updPostErr } = await sbAny.from("posts").update(postPatch).eq("id", pc.post_id);
+  let { error: updPostErr } = await sbAny.from(POSTS_TABLE_WRITE).update(postPatch).eq("id", pc.post_id);
   if (
     updPostErr &&
     /reserved_buyer_id|column/i.test(String(updPostErr.message)) &&
@@ -76,7 +78,7 @@ export async function POST(
   ) {
     const rest = { ...postPatch };
     delete rest.reserved_buyer_id;
-    const r2 = await sbAny.from("posts").update(rest).eq("id", pc.post_id);
+    const r2 = await sbAny.from(POSTS_TABLE_WRITE).update(rest).eq("id", pc.post_id);
     updPostErr = r2.error;
   }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { AdminReview } from "@/lib/types/admin-review";
 import {
@@ -65,7 +67,7 @@ export async function getAdminReviewsFromDb(): Promise<AdminReview[]> {
     const postById = new Map<string, Record<string, unknown>>();
     if (productIds.length) {
       const { data: posts } = await (supabase as any)
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select(POST_TRADE_RELATION_SELECT)
         .in("id", productIds);
       if (Array.isArray(posts)) {
@@ -101,7 +103,7 @@ export async function getAdminReviewByIdFromDb(reviewId: string): Promise<AdminR
     const r = row as TransactionReviewDbRow;
 
     const { data: post } = await (supabase as any)
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select(POST_TRADE_RELATION_SELECT)
       .eq("id", r.product_id)
       .maybeSingle();

@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
@@ -43,7 +45,7 @@ export async function POST(_req: NextRequest) {
   const postMetaById: Record<string, { title: string; status: string; sellerListingState: string | null }> = {};
   if (postIds.length) {
     const { data: posts } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id, title, status, seller_listing_state")
       .in("id", postIds);
     (posts ?? []).forEach((p: Record<string, unknown>) => {
@@ -122,7 +124,7 @@ export async function POST(_req: NextRequest) {
     const uids = [...new Set(raw.flatMap((r) => [r.reviewer_id, r.reviewee_id]).filter(Boolean))];
     const postById = new Map<string, Record<string, unknown>>();
     if (pids.length) {
-      const { data: posts } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", pids);
+      const { data: posts } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).in("id", pids);
       (posts ?? []).forEach((p: Record<string, unknown>) => {
         const id = String(p.id ?? "");
         if (id) postById.set(id, p);

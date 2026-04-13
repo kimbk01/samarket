@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
 import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "./getPostById";
@@ -38,7 +40,7 @@ export async function getPostsByAuthor(authorId: string): Promise<PostWithMeta[]
   try {
     const base = () =>
       (supabase as any)
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select(POST_TRADE_LIST_SELECT)
         .or("status.is.null,status.neq.hidden")
         .order("created_at", { ascending: false })

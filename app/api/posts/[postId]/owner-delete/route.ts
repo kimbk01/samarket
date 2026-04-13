@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * POST /api/posts/[postId]/owner-delete — 판매자 본인만, 예약 전 단계 글 삭제(soft)
  */
@@ -31,7 +33,7 @@ export async function POST(
 
   const sbAny = sb;
   let { data: post, error: postErr } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id, user_id, status, seller_listing_state, meta")
     .eq("id", id)
     .maybeSingle();
@@ -41,7 +43,7 @@ export async function POST(
     /seller_listing_state/i.test(String(postErr.message)) &&
     /does not exist|unknown|schema cache|Could not find/i.test(String(postErr.message))
   ) {
-    const r2 = await sbAny.from("posts").select("id, user_id, status, meta").eq("id", id).maybeSingle();
+    const r2 = await sbAny.from(POSTS_TABLE_READ).select("id, user_id, status, meta").eq("id", id).maybeSingle();
     post = r2.data
       ? ({ ...r2.data, seller_listing_state: null } as typeof post)
       : null;
@@ -88,11 +90,11 @@ export async function POST(
     updated_at: now,
   };
 
-  let updErr = (await db.from("posts").update(patch).eq("id", id)).error;
+  let updErr = (await db.from(POSTS_TABLE_WRITE).update(patch).eq("id", id)).error;
   if (updErr && /deleted|check constraint|violates/i.test(String(updErr.message))) {
     updErr = (
       await db
-        .from("posts")
+        .from(POSTS_TABLE_WRITE)
         .update({ status: "hidden", updated_at: now })
         .eq("id", id)
     ).error;

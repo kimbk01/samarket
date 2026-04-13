@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * POST /api/posts/[postId]/trade-lifecycle
  * Body: { action: "resume_active" | "cancel_trade" }
@@ -52,13 +54,13 @@ export async function POST(
   }
 
   let { data: row, error: fetchErr } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id, user_id, status, seller_listing_state, meta")
     .eq("id", id)
     .maybeSingle();
 
   if (fetchErr && /seller_listing_state/i.test(String(fetchErr.message))) {
-    const r2 = await sbAny.from("posts").select("id, user_id, status, meta").eq("id", id).maybeSingle();
+    const r2 = await sbAny.from(POSTS_TABLE_READ).select("id, user_id, status, meta").eq("id", id).maybeSingle();
     row = r2.data ? ({ ...r2.data, seller_listing_state: null } as typeof row) : null;
     fetchErr = r2.error;
   }
@@ -124,7 +126,7 @@ export async function POST(
     patch.meta = baseMeta;
   }
 
-  let updErr = (await sbAny.from("posts").update(patch).eq("id", id)).error;
+  let updErr = (await sbAny.from(POSTS_TABLE_WRITE).update(patch).eq("id", id)).error;
   if (
     updErr &&
     /reserved_buyer_id|column/i.test(String(updErr.message)) &&
@@ -132,7 +134,7 @@ export async function POST(
   ) {
     const rest = { ...patch };
     delete rest.reserved_buyer_id;
-    updErr = (await sbAny.from("posts").update(rest).eq("id", id)).error;
+    updErr = (await sbAny.from(POSTS_TABLE_WRITE).update(rest).eq("id", id)).error;
   }
 
   if (updErr) {

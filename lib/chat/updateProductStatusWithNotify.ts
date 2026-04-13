@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
@@ -29,13 +31,13 @@ export async function updateProductStatusWithNotify(
 
   const sb = supabase as any;
 
-  const { data: post } = await sb.from("posts").select("id, user_id, status").eq("id", productId).single();
+  const { data: post } = await sb.from(POSTS_TABLE_READ).select("id, user_id, status").eq("id", productId).single();
   if (!post || post.user_id !== user.id) return { ok: false, error: "판매자만 상태를 변경할 수 있습니다." };
 
   const allowed = ALLOWED_TRANSITIONS[post.status] ?? [];
   if (!allowed.includes(nextStatus)) return { ok: false, error: "허용되지 않은 상태 변경입니다." };
 
-  await sb.from("posts").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", productId);
+  await sb.from(POSTS_TABLE_WRITE).update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", productId);
 
   const statusLabel = { active: "판매중", reserved: "예약중", sold: "거래완료", hidden: "숨김" }[nextStatus];
 

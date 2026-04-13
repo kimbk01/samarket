@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 판매자: 특정 글에 열린 구매자 채팅방 목록 (거래완료 진입용)
  * GET /api/my/post-buyer-chats?postId=
@@ -37,7 +39,7 @@ export async function GET(req: NextRequest) {
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const { data: post } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", postId).maybeSingle();
+  const { data: post } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", postId).maybeSingle();
   const prow = post as Record<string, unknown> | null;
   const author = postAuthorUserId(prow ?? undefined);
   if (!author || author !== userId) {

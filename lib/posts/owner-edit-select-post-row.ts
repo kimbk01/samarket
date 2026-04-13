@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -40,7 +42,7 @@ export async function fetchPostRowForOwnerEdit(
 
   let lastMsg = "";
   for (const sel of OWNER_EDIT_POST_SELECT_TIERS) {
-    const { data, error } = await sbAny.from("posts").select(sel).eq("id", id).maybeSingle();
+    const { data, error } = await sbAny.from(POSTS_TABLE_READ).select(sel).eq("id", id).maybeSingle();
     const raw = data;
     const okRow =
       raw &&

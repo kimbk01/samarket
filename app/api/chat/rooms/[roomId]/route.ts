@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * GET /api/chat/rooms/:roomId — 채팅방 상세 (chat_rooms 기반, 세션)
  */
@@ -52,7 +54,7 @@ export async function GET(
   let item: Record<string, unknown> | null = null;
   if ((room as { item_id: string | null }).item_id) {
     const { data: post } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id, title, content, price, status, user_id")
       .eq("id", (room as { item_id: string }).item_id)
       .maybeSingle();

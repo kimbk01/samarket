@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { PostStatus } from "./schema";
@@ -18,7 +20,7 @@ export async function updatePostStatus(
 
   try {
     const payload = { status, updated_at: new Date().toISOString() };
-    const res = await (supabase as any).from("posts").update(payload).eq("id", postId).eq("user_id", user.id).select("id");
+    const res = await (supabase as any).from(POSTS_TABLE_WRITE).update(payload).eq("id", postId).eq("user_id", user.id).select("id");
     if (res.error) return { ok: false, error: (res.error as { message?: string }).message ?? "변경에 실패했습니다." };
     return { ok: true };
   } catch (e) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostStatus } from "@/lib/posts/schema";
 
@@ -23,7 +25,7 @@ export async function updatePostStatusAdmin(
       status === "hidden" || status === "deleted" ? "hidden" : "public";
 
     const { error } = await (supabase as any)
-      .from("posts")
+      .from(POSTS_TABLE_WRITE)
       .update({
         status,
         visibility: nextVisibility,
@@ -44,7 +46,7 @@ export async function updatePostBumpAdmin(postId: string): Promise<AdminUpdateRe
   if (!supabase) return { ok: false, error: "DB를 사용할 수 없습니다." };
   try {
     const { error } = await (supabase as any)
-      .from("posts")
+      .from(POSTS_TABLE_WRITE)
       .update({ updated_at: new Date().toISOString() })
       .eq("id", postId);
     if (error) return { ok: false, error: error.message ?? "끌올에 실패했습니다." };

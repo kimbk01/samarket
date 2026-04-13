@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * POST /api/admin/posts/bulk-delete
  * body: { ids: string[] } — 거래 posts 테이블 영구 삭제
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  const { error, data } = await sb.from("posts").delete().in("id", ids).select("id");
+  const { error, data } = await sb.from(POSTS_TABLE_WRITE).delete().in("id", ids).select("id");
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }

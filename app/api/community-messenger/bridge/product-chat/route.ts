@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { buildCommunityMessengerRoomUrlWithContext } from "@/lib/community-messenger/cm-ctx-url";
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
   const pc = resolved.productChat;
   const postId = String(pc.post_id ?? "").trim();
   const { data: post } = await sb
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("title, price, currency, images")
     .eq("id", postId)
     .maybeSingle();

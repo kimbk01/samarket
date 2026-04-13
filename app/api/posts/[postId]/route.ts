@@ -1,8 +1,11 @@
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+
 /**
  * GET /api/posts/[postId] — 글 단건(거래표시용). 부모 경로 404·프리패치 대응.
  * Query: userId (선택, 추후 RLS 대비)
  */
 import { NextRequest, NextResponse } from "next/server";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -26,14 +29,14 @@ export async function GET(
 
   const sbAny = sb;
   let { data, error } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id, status, user_id, title, seller_listing_state, reserved_buyer_id, updated_at")
     .eq("id", id)
     .maybeSingle();
 
   if (error && /reserved_buyer_id|column .* does not exist/i.test(String(error.message))) {
     const r3 = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id, status, user_id, title, seller_listing_state, updated_at")
       .eq("id", id)
       .maybeSingle();
@@ -47,7 +50,7 @@ export async function GET(
     /does not exist|unknown|schema cache|Could not find/i.test(String(error.message))
   ) {
     const r2 = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id, status, user_id, title, updated_at")
       .eq("id", id)
       .maybeSingle();
@@ -66,7 +69,25 @@ export async function GET(
     return NextResponse.json({ error: "상품을 찾을 수 없습니다." }, { status: 404 });
   }
 
-  return NextResponse.json(data, {
+  const viewerId = await getOptionalAuthenticatedUserId();
+  const row = data as {
+    user_id?: string | null;
+    reserved_buyer_id?: string | null;
+  };
+  const sellerId = typeof row.user_id === "string" ? row.user_id : "";
+  const reserved = row.reserved_buyer_id;
+  const canSeeReservedBuyer =
+    Boolean(viewerId) &&
+    reserved != null &&
+    reserved !== "" &&
+    (viewerId === sellerId || viewerId === reserved);
+
+  const payload: Record<string, unknown> = { ...(data as Record<string, unknown>) };
+  if (reserved != null && reserved !== "" && !canSeeReservedBuyer) {
+    payload.reserved_buyer_id = null;
+  }
+
+  return NextResponse.json(payload, {
     headers: { "Cache-Control": "no-store" },
   });
 }

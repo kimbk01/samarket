@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ review: null });
     }
     const r = row as TransactionReviewDbRow;
-    const { data: post } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", r.product_id).maybeSingle();
+    const { data: post } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", r.product_id).maybeSingle();
     const postRow = (post as Record<string, unknown> | null) ?? undefined;
     const nick = await batchNicknamesByUserIds(sbAny, [r.reviewer_id, r.reviewee_id]);
     const review = mapTransactionReviewRowToAdminReview(r, postRow, nick);
@@ -71,14 +73,14 @@ export async function POST(req: NextRequest) {
 
   const postById = new Map<string, Record<string, unknown>>();
   if (productIds.length) {
-    const { data: posts } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", productIds);
+    const { data: posts } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).in("id", productIds);
     (posts ?? []).forEach((p: Record<string, unknown>) => {
       const id = String(p.id ?? "");
       if (id) postById.set(id, p);
     });
     const missing = productIds.filter((id) => !postById.has(id));
     for (const mid of missing.slice(0, 40)) {
-      const { data: one } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
+      const { data: one } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
       if (one) postById.set(String(mid), one as Record<string, unknown>);
     }
   }

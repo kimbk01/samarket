@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
@@ -58,7 +60,7 @@ export async function POST(_req: NextRequest) {
   }
 
   const postIds = [...new Set(rooms.map((r: { post_id: string }) => r.post_id))];
-  const { data: posts } = await sb.from("posts").select("id, title").in("id", postIds);
+  const { data: posts } = await sb.from(POSTS_TABLE_READ).select("id, title").in("id", postIds);
   const postMap = new Map(
     (posts ?? []).map((p: { id: string; title: string }) => [p.id, p])
   );

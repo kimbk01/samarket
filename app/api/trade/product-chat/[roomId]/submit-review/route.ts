@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
@@ -98,7 +100,7 @@ export async function POST(
 
   const sbAny = sb;
   const { data: post } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("status")
     .eq("id", pc.post_id)
     .maybeSingle();

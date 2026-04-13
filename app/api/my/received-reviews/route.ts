@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 내가 받은 거래 후기 (transaction_reviews.reviewee_id = 세션)
  * GET /api/my/received-reviews
@@ -51,14 +53,14 @@ export async function GET(_req: NextRequest) {
 
   const postById = new Map<string, Record<string, unknown>>();
   if (productIds.length) {
-    const { data: posts } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", productIds);
+    const { data: posts } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).in("id", productIds);
     (posts ?? []).forEach((p: Record<string, unknown>) => {
       const id = String(p.id ?? "");
       if (id) postById.set(id, p);
     });
     const missing = productIds.filter((id) => !postById.has(id));
     for (const mid of missing.slice(0, 30)) {
-      const { data: one } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
+      const { data: one } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
       if (one) postById.set(String(mid), one as Record<string, unknown>);
     }
   }

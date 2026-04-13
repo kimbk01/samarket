@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 커뮤니티 게시판 — Supabase (services / boards / posts / post_images)
  */
@@ -212,7 +214,7 @@ export async function getPostsByBoardId(
   const offset = Math.max(options?.offset ?? 0, 0);
 
   let q = sb
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select(
       "id, board_id, title, content, created_at, updated_at, view_count, status, visibility, user_id, is_deleted, community_topic_id, community_topics ( id, slug, name ), post_images ( id, url, storage_path, sort_order )"
     )
@@ -281,7 +283,7 @@ export async function countPostsByBoardId(
   if (filters.topicRequested && filters.communityTopicIds.length === 0) return 0;
 
   let q = sb
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id", { count: "exact", head: true })
     .eq("board_id", boardId)
     .eq("status", "active")
@@ -309,7 +311,7 @@ export async function getPostById(postId: string, boardId?: string): Promise<Pos
   }
 
   const q = sb
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select(
       "id, board_id, title, content, created_at, updated_at, view_count, status, visibility, user_id, is_deleted, community_topic_id, community_topics ( id, slug, name ), post_images ( id, url, storage_path, sort_order )"
     )
@@ -414,7 +416,7 @@ export async function createPost(payload: PostCreatePayload, authorUserId: strin
   };
 
    
-  const { data: inserted, error: insErr } = await (sb as any).from("posts").insert(insertRow).select("id").single();
+  const { data: inserted, error: insErr } = await (sb as any).from(POSTS_TABLE_WRITE).insert(insertRow).select("id").single();
 
   if (insErr || !inserted?.id) {
     throw new Error(insErr?.message ?? "글 저장에 실패했습니다.");

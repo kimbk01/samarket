@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 게시물 관리용 posts 목록 조회 (클라이언트 Supabase / 서비스 롤 공용)
  * - DB마다 컬럼이 달라 SELECT를 단계별로 시도 (없는 컬럼 요청 시 PostgREST 전체 실패)
@@ -143,15 +145,15 @@ async function queryPostsWithFallbackOrder(
   client: any,
   select: string
 ): Promise<{ data: unknown; error: unknown }> {
-  let res = await client.from("posts").select(select).order("created_at", { ascending: false }).limit(1000);
+  let res = await client.from(POSTS_TABLE_READ).select(select).order("created_at", { ascending: false }).limit(1000);
   if (res.error) {
     const msg = formatSupabaseError(res.error).toLowerCase();
     if (msg.includes("created_at") || msg.includes("column") || msg.includes("42703")) {
-      res = await client.from("posts").select(select).order("id", { ascending: false }).limit(1000);
+      res = await client.from(POSTS_TABLE_READ).select(select).order("id", { ascending: false }).limit(1000);
     }
   }
   if (res.error) {
-    res = await client.from("posts").select(select).limit(1000);
+    res = await client.from(POSTS_TABLE_READ).select(select).limit(1000);
   }
   return res;
 }

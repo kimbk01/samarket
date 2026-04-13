@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 구매/판매 내역 API 공통 — 행 목록까지 로드 (썸네일·닉네임 제외)
  */
@@ -52,7 +54,7 @@ async function loadOwnedPostsForSalesScope(
 ): Promise<{ rows: Record<string, unknown>[]; error: Error | null }> {
   if (!forCount) {
     const { data, error } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select(POST_TRADE_RELATION_SELECT)
       .eq("user_id", userId);
     if (error) {
@@ -63,7 +65,7 @@ async function loadOwnedPostsForSalesScope(
 
   let lastMsg = "";
   for (const sel of POSTS_SALES_COUNT_SELECT_TIERS) {
-    const { data, error } = await sbAny.from("posts").select(sel).eq("user_id", userId);
+    const { data, error } = await sbAny.from(POSTS_TABLE_READ).select(sel).eq("user_id", userId);
     if (!error) {
       return { rows: ((data ?? []) as unknown as Record<string, unknown>[]), error: null };
     }

@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 채팅 등에서 사용하는 상품 id가 posts 테이블 id일 때,
  * 서버에서 post 1건 조회 후 Product 형태로 변환 (상품 상세 페이지용)
@@ -73,14 +75,14 @@ export async function getProductFromPostId(postId: string): Promise<Product | nu
     const sbAny = sb as ReturnType<typeof getSupabaseServer>;
 
     let { data: row, error } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select(PRODUCT_FROM_POST_SELECT)
       .eq("id", postId.trim())
       .maybeSingle();
 
     if (error && /could not find|does not exist|unknown column|schema cache/i.test(String(error.message))) {
       const full = await sbAny
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select(POST_TRADE_DETAIL_SELECT)
         .eq("id", postId.trim())
         .maybeSingle();

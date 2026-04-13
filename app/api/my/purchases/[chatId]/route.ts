@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 구매내역 상세 — buyer 본인 + 해당 product_chat만
  * GET /api/my/purchases/[chatId] (세션)
@@ -55,7 +57,7 @@ export async function GET(
   const postId = row.post_id as string;
   const sellerId = row.seller_id as string;
 
-  const { data: post } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", postId).maybeSingle();
+  const { data: post } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", postId).maybeSingle();
   const p = post as Record<string, unknown> | null;
   const summary = chatProductSummaryFromPostRow(p ?? undefined, postId);
   const thumbExtras = await fetchFirstThumbnailByPostIds(sbAny, [postId]);

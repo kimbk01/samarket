@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getLocationLabel, REGIONS } from "@/lib/products/form-options";
@@ -110,7 +112,7 @@ export async function POST() {
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await sb.from("posts").update(patch).eq("user_id", auth.userId).select("id");
+  const { data, error } = await sb.from(POSTS_TABLE_WRITE).update(patch).eq("user_id", auth.userId).select("id");
   if (error) {
     return NextResponse.json({ ok: false, error: error.message ?? "bulk_region_update_failed" }, { status: 500 });
   }

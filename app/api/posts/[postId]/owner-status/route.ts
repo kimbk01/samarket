@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * POST /api/posts/[postId]/owner-status
  * Body: { status: active | reserved | sold | hidden } — 판매자는 세션
@@ -50,7 +52,7 @@ export async function POST(
 
   const sbAny = sb;
   const { data: post, error: postErr } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id, user_id")
     .eq("id", postId.trim())
     .maybeSingle();
@@ -86,7 +88,7 @@ export async function POST(
 
   const db = sbAny as import("@supabase/supabase-js").SupabaseClient;
 
-  let updErr = (await db.from("posts").update(postUpdate).eq("id", postId.trim())).error;
+  let updErr = (await db.from(POSTS_TABLE_WRITE).update(postUpdate).eq("id", postId.trim())).error;
   if (
     updErr &&
     /reserved_buyer_id|column/i.test(String(updErr.message)) &&
@@ -94,7 +96,7 @@ export async function POST(
   ) {
     const rest = { ...postUpdate };
     delete rest.reserved_buyer_id;
-    updErr = (await db.from("posts").update(rest).eq("id", postId.trim())).error;
+    updErr = (await db.from(POSTS_TABLE_WRITE).update(rest).eq("id", postId.trim())).error;
   }
 
   if (updErr) {

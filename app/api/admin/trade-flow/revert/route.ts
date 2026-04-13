@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 관리자: 해당 채팅방 거래 완료·후기 구간을 되돌림 → 판매중(chatting) + 동일 글 다른 방 복구 + 후기·온도 로그 정리
  * POST { roomId: string }
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
   const buyerId = row.buyer_id;
 
   const { data: postRow } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id, status, sold_buyer_id")
     .eq("id", postId)
     .maybeSingle();
@@ -122,7 +124,7 @@ export async function POST(req: NextRequest) {
   if (pMeta?.status === "sold" && pMeta.sold_buyer_id === buyerId) {
     const now = new Date().toISOString();
     await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_WRITE)
       .update({
         status: "active",
         sold_buyer_id: null,

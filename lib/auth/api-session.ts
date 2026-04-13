@@ -1,16 +1,30 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { readKasamaDevUserIdFromRequest } from "@/lib/auth/kasama-session-cookies";
+import { resolveRouteHandlerUserIdFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
 import { allowKasamaDevSession, isProductionDeploy } from "@/lib/config/deploy-surface";
 import { jsonError } from "@/lib/http/api-route";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
 /**
+ * 동일 HTTP 요청·동일 쿠키로 `getOptionalAuthenticatedUserId` 가 동시에 여러 번 호출될 때
+ * JWT 해석(`getClaims`/`getUser`)·클라이언트 생성을 **한 번만** 수행하도록 합류.
+ * 키: `Cookie` 헤더 SHA-256 — 서버 부하·중복 Auth 호출 감소.
+ */
+const AUTH_USER_ID_INFLIGHT = new Map<string, Promise<string | null>>();
+
+function inflightKeyFromCookieHeader(cookieHeader: string): string {
+  if (!cookieHeader) return "∅";
+  return createHash("sha256").update(cookieHeader, "utf8").digest("hex");
+}
+
+/**
  * Supabase 세션(쿠키) 또는 아이디 로그인(test_users) 쿠키에서 사용자 ID.
  * 요청 본문/쿼리의 userId는 신뢰하지 않음.
- * Kasama: production 이 아니고 `allowKasamaDevSession()` 일 때만 인정 — `proxy.ts`·getRouteUserId 와 동일.
+ * Kasama: production 이 아니고 `allowKasamaDevSession()` 일 때만 인정 — `proxy.ts`·`getRouteUserId` 와 동일.
  *
- * 성능: `getSession()` 으로 쿠키 JWT 에서 user id 를 먼저 읽고, 없을 때만 `getUser()` 로 검증·갱신.
- * (매 요청 Auth 서버 왕복을 피하기 위함 — Route Handler 공통 기본값.)
+ * JWT 식별은 `resolveRouteHandlerUserIdFromSupabase` — `getClaims()` 로컬 검증 우선, 필요 시만 `getUser()`.
  */
 export async function getOptionalAuthenticatedUserId(): Promise<string | null> {
   if (!isProductionDeploy() && allowKasamaDevSession()) {
@@ -18,21 +32,39 @@ export async function getOptionalAuthenticatedUserId(): Promise<string | null> {
     if (kasama) return kasama;
   }
 
-  const supabase = await createSupabaseRouteHandlerClient();
-  if (!supabase) return null;
+  let cookieHeader = "";
+  try {
+    cookieHeader = (await headers()).get("cookie") ?? "";
+  } catch {
+    /* next/headers 미사용 컨텍스트 */
+  }
+  const key = inflightKeyFromCookieHeader(cookieHeader);
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (session?.user?.id) return session.user.id;
+  const existing = AUTH_USER_ID_INFLIGHT.get(key);
+  if (existing) return existing;
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (!error && user?.id) return user.id;
+  let resolveFn!: (v: string | null) => void;
+  const p = new Promise<string | null>((resolve) => {
+    resolveFn = resolve;
+  });
+  AUTH_USER_ID_INFLIGHT.set(key, p);
 
-  return null;
+  void (async () => {
+    try {
+      const supabase = await createSupabaseRouteHandlerClient();
+      if (!supabase) {
+        resolveFn(null);
+        return;
+      }
+      resolveFn(await resolveRouteHandlerUserIdFromSupabase(supabase));
+    } catch {
+      resolveFn(null);
+    } finally {
+      AUTH_USER_ID_INFLIGHT.delete(key);
+    }
+  })();
+
+  return p;
 }
 
 /** @deprecated 기본 `getOptionalAuthenticatedUserId` 가 세션 우선. 레거시 import 호환용. */
@@ -59,25 +91,11 @@ export async function requireAuthenticatedUserId(): Promise<
 }
 
 /**
- * 결제·포인트·신고·차단·PII·통화 시그널 등 민감 처리용 — **항상 `getUser()`** 로 Auth 서버 JWT 검증.
- * (세션 쿠키만으로는 부족할 수 있는 남용·만료 직후 경합을 줄이기 위함. 일반 GET 목록은 `requireAuthenticatedUserId` 유지.)
+ * 결제·포인트·신고·차단·PII·통화 시그널 등 — JWT 서명 검증은 `getClaims`/`getUser` 체인과 동일.
+ * (세션 쿠키 문자열만 파싱하는 경로는 쓰지 않음.)
  */
 export async function getOptionalAuthenticatedUserIdStrict(): Promise<string | null> {
-  if (!isProductionDeploy() && allowKasamaDevSession()) {
-    const kasama = await readKasamaDevUserIdFromRequest();
-    if (kasama) return kasama;
-  }
-
-  const supabase = await createSupabaseRouteHandlerClient();
-  if (!supabase) return null;
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (!error && user?.id) return user.id;
-
-  return null;
+  return getOptionalAuthenticatedUserId();
 }
 
 export async function requireAuthenticatedUserIdStrict(): Promise<

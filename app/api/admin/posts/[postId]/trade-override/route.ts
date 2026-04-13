@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 관리자: 게시물 강제 — 물품 판매 취소(숨김+예약해제) / 거래완료 표시
  * POST /api/admin/posts/[postId]/trade-override  body: { action: "cancel_sale" | "force_complete" }
@@ -47,7 +49,7 @@ export async function POST(
       reserved_buyer_id: null,
       updated_at: now,
     };
-    let { error } = await sb.from("posts").update(patch).eq("id", id);
+    let { error } = await sb.from(POSTS_TABLE_WRITE).update(patch).eq("id", id);
     if (
       error &&
       /reserved_buyer_id|column/i.test(String(error.message)) &&
@@ -55,7 +57,7 @@ export async function POST(
     ) {
       const rest = { ...patch };
       delete rest.reserved_buyer_id;
-      error = (await sb.from("posts").update(rest).eq("id", id)).error;
+      error = (await sb.from(POSTS_TABLE_WRITE).update(rest).eq("id", id)).error;
     }
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -78,7 +80,7 @@ export async function POST(
     visibility: "public",
     updated_at: now,
   };
-  const { error: e2 } = await sb.from("posts").update(patchSold).eq("id", id);
+  const { error: e2 } = await sb.from(POSTS_TABLE_WRITE).update(patchSold).eq("id", id);
   if (e2) {
     return NextResponse.json({ ok: false, error: e2.message }, { status: 500 });
   }

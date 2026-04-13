@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * 거래 마켓 목록용 posts 범위 조회 — 클라이언트 Supabase · Route Handler 공용 ("use client" 없음)
  */
@@ -71,7 +73,7 @@ export async function fetchPostsRangeForTradeCategories(
     };
   };
   const run = async (useTradeCol: boolean, selectCols: string) => {
-    let q = (sb.from("posts") as any)
+    let q = (sb.from(POSTS_TABLE_READ) as any)
       .select(selectCols)
       .or("status.is.null,status.not.in.(hidden,sold)");
     q = useTradeCol ? q.in("trade_category_id", ids) : q.in("category_id", ids);

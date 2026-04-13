@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * POST /api/reports — 통합 신고 접수 (public.reports)
  * 서비스 롤로 삽입. 신고자 ID는 세션(또는 로컬 테스트 쿠키)에서만 결정.
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
   let productId: string | null = body.productId?.trim() || null;
 
   if (targetType === "product" || targetType === "post") {
-    const { data: post, error: postErr } = await sbAny.from("posts").select("id").eq("id", targetId).maybeSingle();
+    const { data: post, error: postErr } = await sbAny.from(POSTS_TABLE_READ).select("id").eq("id", targetId).maybeSingle();
     if (postErr) {
       return NextResponse.json({ ok: false, error: postErr.message }, { status: 500 });
     }

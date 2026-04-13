@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * GET /api/admin/chat/rooms — 관리자 채팅방 목록 (관리자 세션)
  * Query: roomType, tradeStatus, requestStatus, blocked, hasReport, limit, cursor
@@ -72,7 +74,7 @@ export async function GET(req: NextRequest) {
 
   let titleByPostId: Record<string, string> = {};
   if (postIdsForTitles.length > 0) {
-    const { data: posts } = await sbAny.from("posts").select("id, title").in("id", postIdsForTitles);
+    const { data: posts } = await sbAny.from(POSTS_TABLE_READ).select("id, title").in("id", postIdsForTitles);
     titleByPostId = (posts ?? []).reduce(
       (acc: Record<string, string>, p: { id: string; title?: string }) => {
         acc[p.id] = p.title ?? "";

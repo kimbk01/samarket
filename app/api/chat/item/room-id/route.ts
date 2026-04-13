@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * GET /api/chat/item/room-id — 해당 상품에 대한 현재 사용자의 기존 채팅방 ID 조회
  * Query: itemId (세션)
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   const sbAny = sb;
   const { data: post } = await sbAny
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select("id, user_id")
     .eq("id", itemId)
     .maybeSingle();

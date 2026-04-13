@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * GET /api/favorites/list — 세션 사용자의 찜한 게시글 목록 (찜한 순)
  * 클라이언트 직접 Supabase 조회(RLS/세션 불일치) 대신 service role + api-session userId 사용.
@@ -48,7 +50,7 @@ export async function GET() {
   const postIds = favs.map((f: { post_id: string }) => f.post_id);
   /** 숨김(hidden) 글도 포함 — 찜 행은 남아 있는데 목록만 비는 현상 방지. UI는 「품절/삭제됨」탭으로 분류 */
   const { data: posts, error: postError } = await sb
-    .from("posts")
+    .from(POSTS_TABLE_READ)
     .select(POST_TRADE_LIST_SELECT)
     .in("id", postIds);
 

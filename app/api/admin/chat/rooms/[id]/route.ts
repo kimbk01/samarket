@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * GET /api/admin/chat/rooms/:id — 관리자 채팅방 상세 (관리자 세션)
  */
@@ -81,7 +83,7 @@ export async function GET(
     const postIdForCard = roomRow.item_id ?? roomRow.related_post_id ?? null;
     if (postIdForCard) {
       const { data: post } = await sbAny
-        .from("posts")
+        .from(POSTS_TABLE_READ)
         .select("id, title, price, status, thumbnail_url, images")
         .eq("id", postIdForCard)
         .maybeSingle();
@@ -152,7 +154,7 @@ export async function GET(
     .select(REPORT_ROW_ADMIN_MIN_SELECT)
     .eq("target_type", "chat_room")
     .eq("target_id", roomId);
-  const { data: postRaw } = await sbAny.from("posts").select("id, title, price, status, thumbnail_url, images").eq("id", pcRow.post_id).maybeSingle();
+  const { data: postRaw } = await sbAny.from(POSTS_TABLE_READ).select("id, title, price, status, thumbnail_url, images").eq("id", pcRow.post_id).maybeSingle();
   const post = postRaw as Record<string, unknown> | null;
   const productTitle = typeof post?.title === "string" ? post.title : "";
   let productThumbnail = "";

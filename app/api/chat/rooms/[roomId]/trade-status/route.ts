@@ -1,3 +1,5 @@
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 /**
  * POST /api/chat/rooms/:roomId/trade-status — 거래 상태 변경 (세션)
  * Body: { tradeStatus: string }
@@ -74,7 +76,7 @@ export async function POST(
     }
 
     const { data: postRow } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("user_id")
       .eq("id", pcRow.post_id)
       .maybeSingle();
@@ -188,7 +190,7 @@ export async function POST(
   // 판매중·문의중·예약중·판매완료 시 posts.status 동기화 — 구매자 채팅·목록과 맞춤
   if (r.item_id && ["inquiry", "negotiating", "reserved", "completed"].includes(tradeStatus)) {
     const { data: postRow } = await sbAny
-      .from("posts")
+      .from(POSTS_TABLE_READ)
       .select("id, user_id")
       .eq("id", r.item_id)
       .maybeSingle();
@@ -200,7 +202,7 @@ export async function POST(
         : tradeStatus === "reserved" ? "reserved"
         : "active"; // inquiry(판매중), negotiating(문의중) -> active
       await sbAny
-        .from("posts")
+        .from(POSTS_TABLE_WRITE)
         .update({ status: postStatus, updated_at: now })
         .eq("id", r.item_id);
     }

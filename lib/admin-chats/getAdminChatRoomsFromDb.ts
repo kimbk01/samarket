@@ -1,5 +1,7 @@
 "use client";
 
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { AdminChatRoom, RoomStatus } from "@/lib/types/admin-chat";
 
@@ -37,7 +39,7 @@ export async function getAdminChatRoomsFromDb(): Promise<AdminChatRoom[]> {
   if (error || !rooms?.length) return [];
 
   const postIds = [...new Set(rooms.map((r: { post_id: string }) => r.post_id))];
-  const { data: posts } = await sb.from("posts").select("id, title").in("id", postIds);
+  const { data: posts } = await sb.from(POSTS_TABLE_READ).select("id, title").in("id", postIds);
   const postMap = new Map((posts ?? []).map((p: { id: string; title: string }) => [p.id, p]));
 
   const { data: msgCounts } = await sb
@@ -141,7 +143,7 @@ export async function getAdminChatRoomByIdFromDb(roomId: string): Promise<AdminC
 
   if (error || !room) return null;
 
-  const { data: post } = await sb.from("posts").select("id, title").eq("id", room.post_id).single();
+  const { data: post } = await sb.from(POSTS_TABLE_READ).select("id, title").eq("id", room.post_id).single();
   const { data: messages } = await sb
     .from("product_chat_messages")
     .select("id")
