@@ -51,8 +51,12 @@ export function getCurrentUser(): Profile | null {
   return getSupabaseProfileCache();
 }
 
-/** DB·API 클라이언트용 UUID: 테스트 유저 우선 → Supabase 세션 */
+/** DB·API 클라이언트용 UUID: 테스트 유저 우선 → Supabase 세션 (클라이언트 전용) */
 export async function getCurrentUserIdForDb(): Promise<string | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
   const cachedProfile = getSupabaseProfileCache();
   if (cachedProfile?.id) {
     currentUserIdCache = {
@@ -72,12 +76,12 @@ export async function getCurrentUserIdForDb(): Promise<string | null> {
 
   currentUserIdPromise = (async () => {
     let resolvedUserId: string | null = null;
-  if (!isProductionDeploy()) {
-    const test = getTestAuth();
+    if (!isProductionDeploy()) {
+      const test = getTestAuth();
       if (test?.userId) {
         resolvedUserId = test.userId;
       }
-  }
+    }
     if (!resolvedUserId) {
       const supabase = getSupabaseClient();
       if (supabase) {

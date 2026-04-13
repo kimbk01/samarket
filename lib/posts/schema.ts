@@ -35,6 +35,10 @@ export interface PostRow {
 }
 
 export interface PostWithMeta extends PostRow {
+  /** DB `user_id` (행 매핑 시 포함될 수 있음) */
+  user_id?: string;
+  /** 거래 서브카테고리 등 */
+  trade_category_id?: string | null;
   category_name?: string;
   author_nickname?: string;
   author_avatar_url?: string;

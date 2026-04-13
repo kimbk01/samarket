@@ -1,84 +1,47 @@
 "use client";
 
-import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
-
-import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
-import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "./getPostById";
-import { POST_TRADE_LIST_SELECT } from "@/lib/posts/trade-posts-range-query";
 
-function mapRows(data: Record<string, unknown>[]): PostWithMeta[] {
-  return data.map((row) => {
-    const images = normalizePostImages(row.images);
-    const thumbnail_url =
-      typeof row.thumbnail_url === "string" && row.thumbnail_url
-        ? row.thumbnail_url
-        : images?.[0] ?? null;
-    const price = normalizePostPrice(row.price);
-    const meta = normalizePostMeta(row.meta);
-    const is_free_share = row.is_free_share === true || row.is_free_share === "true";
-    return {
-      ...row,
-      author_id: row.author_id ?? row.user_id,
-      category_id: row.category_id ?? row.trade_category_id,
-      images,
-      thumbnail_url,
-      price,
-      meta: meta ?? undefined,
-      is_free_share,
-    } as PostWithMeta;
-  });
-}
-
-function baseQuery(supabase: ReturnType<typeof getSupabaseClient>, excludePostId: string) {
-  return (supabase as any)
-    .from(POSTS_TABLE_READ)
-    .select(POST_TRADE_LIST_SELECT)
-    .neq("status", "hidden")
-    .neq("status", "sold")
-    .neq("id", excludePostId);
-}
+export type GetSimilarPostsOptions = {
+  /** 현재 글 판매자 UUID — 가능하면 같은 판매자 글을 제외(다른 판매자 위주) */
+  excludeAuthorUserId?: string | null;
+};
 
 /**
- * 같은 카테고리의 다른 글 — `trade_category_id` / `category_id` 레거시 혼용 대응
+ * 같은 카테고리 유사 물품 — **서버 API** (`/api/posts/.../similar`)로 조회.
+ * 브라우저 Supabase(RLS)만 쓰면 홈·상세와 노출이 어긋나거나 빈 목록이 될 수 있음 (`getPostById` 와 동일 이유).
  */
 export async function getSimilarPosts(
   excludePostId: string,
   categoryId: string,
-  limit = 6
+  limit = 6,
+  options?: GetSimilarPostsOptions
 ): Promise<PostWithMeta[]> {
-  const supabase = getSupabaseClient();
-  if (!supabase || !categoryId?.trim()) return [];
+  if (typeof window === "undefined") return [];
 
-  const cid = categoryId.trim();
+  const cid = categoryId?.trim();
+  if (!cid) return [];
+
+  const pid = excludePostId?.trim();
+  if (!pid) return [];
+
+  const excludeSeller = options?.excludeAuthorUserId?.trim() ?? "";
 
   try {
-    const tryOr = await baseQuery(supabase, excludePostId)
-      .or(`trade_category_id.eq.${cid},category_id.eq.${cid}`)
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    const qs = new URLSearchParams({
+      categoryId: cid,
+      limit: String(Math.min(24, Math.max(1, limit))),
+    });
+    if (excludeSeller) qs.set("excludeSeller", excludeSeller);
 
-    if (!tryOr.error && Array.isArray(tryOr.data) && tryOr.data.length > 0) {
-      return mapRows(tryOr.data as Record<string, unknown>[]);
-    }
+    const res = await fetch(`/api/posts/${encodeURIComponent(pid)}/similar?${qs}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
 
-    const tryTrade = await baseQuery(supabase, excludePostId)
-      .eq("trade_category_id", cid)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (!tryTrade.error && Array.isArray(tryTrade.data) && tryTrade.data.length > 0) {
-      return mapRows(tryTrade.data as Record<string, unknown>[]);
-    }
-
-    const tryCat = await baseQuery(supabase, excludePostId)
-      .eq("category_id", cid)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (!tryCat.error && Array.isArray(tryCat.data)) {
-      return mapRows(tryCat.data as Record<string, unknown>[]);
-    }
-
-    return [];
+    const data = (await res.json()) as { ok?: boolean; posts?: PostWithMeta[] };
+    return Array.isArray(data.posts) ? data.posts : [];
   } catch {
     return [];
   }

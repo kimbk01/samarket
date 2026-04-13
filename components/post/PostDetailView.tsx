@@ -5,14 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import type { PostWithMeta } from "@/lib/posts/schema";
+import type { DetailSectionDTO } from "@/lib/posts/detail-sections/types";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { formatPrice, formatTimeAgo, parseMetaAmount, sqToPyeong } from "@/lib/utils/format";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { getUserProfile } from "@/lib/users/getUserProfile";
-import { getPostsByAuthor } from "@/lib/posts/getPostsByAuthor";
-import { getSimilarPosts } from "@/lib/posts/getSimilarPosts";
 import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { createReport } from "@/lib/reports/createReport";
@@ -45,7 +44,6 @@ import {
   PRODUCT_DETAIL_CTA_BUTTON,
 } from "@/components/product/detail/product-detail-bottom-constants";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
-import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
@@ -57,6 +55,7 @@ import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-s
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailSellerTradeLifecycleBar } from "@/components/post/PostDetailSellerTradeLifecycleBar";
+import { PostDetailRecommendSections } from "@/components/post/PostDetailRecommendSections";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
@@ -453,17 +452,6 @@ function TradeMetaBlock({
 
 const LOGIN_REDIRECT = "/mypage/account";
 
-function postMatchesAuthorSalesTab(
-  p: PostWithMeta,
-  tab: "all" | "trading" | "done"
-): boolean {
-  const st = (p.status ?? "").toLowerCase();
-  const ls = normalizeSellerListingState(p.seller_listing_state, p.status);
-  if (tab === "all") return true;
-  if (tab === "done") return st === "sold" || ls === "completed";
-  return st !== "sold" && ls !== "completed";
-}
-
 type PostDetailSellerAuthor = {
   id: string;
   nickname: string | null;
@@ -517,9 +505,11 @@ function PostDetailSellerProfileRow({
 
 interface PostDetailViewProps {
   post: PostWithMeta;
+  /** 상세 API(`recommendSections=1`)에서 함께 내려온 하단 추천 — 있으면 클라이언트 재요청 없음 */
+  initialDetailSections?: DetailSectionDTO[];
 }
 
-export function PostDetailView({ post }: PostDetailViewProps) {
+export function PostDetailView({ post, initialDetailSections }: PostDetailViewProps) {
   const router = useRouter();
   /** `undefined`: 세션 확인 전 — 동기 프로필 캐시만 쓰면 유휴 후 캐시가 비어 로그아웃으로 오인될 수 있음 */
   const [resolvedViewerId, setResolvedViewerId] = useState<string | null | undefined>(undefined);
@@ -556,9 +546,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const [author, setAuthor] = useState<PostDetailSellerAuthor | null>(null);
   /** `/api/users/.../public-profile` — 기본 거래 주소 동네(글 지역이 비었을 때) */
   const [sellerTradeLocationLine, setSellerTradeLocationLine] = useState<string | null>(null);
-  const [otherPosts, setOtherPosts] = useState<PostWithMeta[]>([]);
-  const [authorSalesTab, setAuthorSalesTab] = useState<"all" | "trading" | "done">("all");
-  const [similarPosts, setSimilarPosts] = useState<PostWithMeta[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(() => {
     const n = post.favorite_count;
@@ -779,26 +766,6 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       cancelled = true;
     };
   }, [listingOwnerId, post.author_id]);
-
-  useEffect(() => {
-    getPostsByAuthor(post.author_id).then((list) =>
-      setOtherPosts(list.filter((p) => p.id !== post.id).slice(0, 36))
-    );
-  }, [post.author_id, post.id]);
-
-  const filteredAuthorPosts = useMemo(
-    () => otherPosts.filter((p) => postMatchesAuthorSalesTab(p, authorSalesTab)),
-    [otherPosts, authorSalesTab]
-  );
-
-  useEffect(() => {
-    const cid = (post.trade_category_id ?? post.category_id ?? "").trim();
-    if (!cid) {
-      setSimilarPosts([]);
-      return;
-    }
-    void getSimilarPosts(post.id, cid, 6).then(setSimilarPosts);
-  }, [post.id, post.trade_category_id, post.category_id]);
 
   useEffect(() => {
     getFavoriteStatus(post.id).then(setIsFavorite);
@@ -1106,69 +1073,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           </div>
         </div>
 
-        {/* 4. 비슷한 조건의 매물 더보기 (하단 고정바 바로 위) */}
-        {similarPosts.length > 0 && (
-          <div className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
-            <Link
-              href={backHref}
-              className="flex items-center justify-between text-[14px] font-medium text-sam-fg"
-            >
-              <span>비슷한 조건의 매물 더보기</span>
-              <span className="text-sam-meta">›</span>
-            </Link>
-            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {similarPosts.slice(0, 6).map((p) => {
-                const pMeta = (p.meta as Record<string, unknown> | undefined) ?? {};
-                const pDeal = (pMeta.deal_type as string)?.trim();
-                const pEstateType = (pMeta.estate_type as string)?.trim() ?? "";
-                const pSize = pMeta.size_sq ?? pMeta.area_sqm;
-                const pSizeStr = pSize != null && String(pSize).trim() ? `${String(pSize).trim()}㎡` : "";
-                const pRoom = (pMeta.room_count as string)?.trim() || "";
-                const pBath = (pMeta.bathroom_count as string)?.trim() || "";
-                const pRoomBath = [pRoom && `방 ${pRoom}개`, pBath && `욕실 ${pBath}개`].filter(Boolean).join(" / ");
-                const pMgmtFee = (pMeta.management_fee as string)?.trim();
-                const pMgmtText = !pMgmtFee || pMgmtFee === "0" ? "관리비 없음" : `관리비 ${pMgmtFee}만원`;
-                const pLocationLabel = p.region && p.city ? getLocationLabel(p.region, p.city) : null;
-                const pBuildingName = (pMeta.building_name as string)?.trim() || "";
-                const pLocationBuilding = [pLocationLabel, pBuildingName].filter(Boolean).join(" ");
-                const pPriceLabel =
-                  pDeal === "판매" && p.price != null
-                    ? `매매 ${formatPrice(p.price, defaultCurrency)}`
-                    : pDeal === "임대"
-                      ? `보증금 ${formatPrice(parseMetaAmount(pMeta.deposit), defaultCurrency)} | 월세 ${formatPrice(parseMetaAmount(pMeta.monthly), defaultCurrency)}`
-                      : p.price != null
-                        ? formatPrice(p.price, defaultCurrency)
-                        : "";
-                const thumb = p.thumbnail_url || (Array.isArray(p.images) && p.images[0] ? p.images[0] : null);
-                const pIsExchange = hasExchangeMeta(pMeta);
-                return (
-                  <Link key={p.id} href={`/post/${p.id}`} className="block">
-                    <div className="overflow-hidden border border-sam-border-soft bg-sam-app">
-                      <div className="aspect-[4/3] w-full bg-sam-surface-muted">
-                        {thumb ? (
-                          <img src={thumb} alt="" className="h-full w-full object-cover" />
-                        ) : pIsExchange ? (
-                          <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[10px] text-sam-muted">↔</span><span>₩</span></div>
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
-                        )}
-                      </div>
-                      <div className="p-2">
-                        <p className="text-[12px] text-sam-muted">
-                          {[pEstateType, pSizeStr, pRoomBath].filter(Boolean).join(" · ") || p.title}
-                        </p>
-                        {pPriceLabel && <p className="mt-0.5 text-[13px] font-bold text-sam-fg">{pPriceLabel}</p>}
-                        <p className="mt-0.5 line-clamp-1 text-[12px] text-sam-muted">
-                          {pMgmtText}
-                          {pLocationBuilding && <> · <span className="font-semibold text-sam-fg">{pLocationBuilding}</span></>}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
+        {post.type !== "community" && (
+          <PostDetailRecommendSections
+            postId={post.id}
+            defaultCurrency={defaultCurrency}
+            initialSections={initialDetailSections}
+          />
         )}
 
         {/* 하단 고정: 상품 상세와 동일 규격(찜 + 가격 + 채팅) — 본인 글은 찜 숨김 */}
@@ -1463,121 +1373,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
         />
       )}
 
-      {otherPosts.length > 0 && (
-        <div className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
-          <div className="flex items-center justify-between text-[14px] font-medium text-sam-fg">
-            <span>{author?.nickname ?? "판매자"}님의 판매 물품</span>
-            <span className="text-sam-meta">›</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(["all", "trading", "done"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setAuthorSalesTab(t)}
-                className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
-                  authorSalesTab === t
-                    ? "bg-sam-ink text-white"
-                    : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
-                }`}
-              >
-                {t === "all" ? "전체" : t === "trading" ? "판매중" : "거래완료"}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1 text-[11px] text-sam-muted">
-            판매중: 판매·문의·예약 단계 물품 · 거래완료: 판매된 물품
-          </p>
-          {filteredAuthorPosts.length === 0 ? (
-            <p className="mt-4 text-center text-[13px] text-sam-muted">이 조건에 맞는 물품이 없어요.</p>
-          ) : (
-            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {filteredAuthorPosts.slice(0, 12).map((p) => {
-                const thumb = p.thumbnail_url || (Array.isArray(p.images) && p.images[0] ? p.images[0] : null);
-                const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
-                return (
-                  <Link key={p.id} href={`/post/${p.id}`} className="block">
-                    <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app">
-                      <div className="aspect-square w-full bg-sam-surface-muted">
-                        {thumb ? (
-                          <img src={thumb} alt="" className="h-full w-full object-cover" />
-                        ) : isExchange ? (
-                          <div
-                            className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-xl font-semibold text-sam-fg"
-                            aria-hidden
-                          >
-                            <span>₱</span>
-                            <span className="text-[8px] text-sam-muted">↔</span>
-                            <span>₩</span>
-                          </div>
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
-                        )}
-                      </div>
-                      <div className="p-2">
-                        <div className="mb-1">
-                          <TradeListingStatusBadge post={p} size="list" />
-                        </div>
-                        <p className="line-clamp-2 text-[12px] font-medium text-sam-fg">{p.title}</p>
-                        <p className="mt-0.5 text-[13px] font-bold text-sam-fg">
-                          {p.price != null
-                            ? formatPrice(p.price, defaultCurrency)
-                            : p.is_free_share
-                              ? "무료나눔"
-                              : ""}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {similarPosts.length > 0 && (
-        <div className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
-          <Link
-            href={backHref}
-            className="flex items-center justify-between text-[14px] font-medium text-sam-fg"
-          >
-            <span>보고 있는 물품과 비슷한 물품</span>
-            <span className="text-sam-meta">›</span>
-          </Link>
-            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {similarPosts.slice(0, 6).map((p) => {
-                const thumb = p.thumbnail_url || (Array.isArray(p.images) && p.images[0] ? p.images[0] : null);
-                const isExchange = hasExchangeMeta((p.meta as Record<string, unknown>) ?? {});
-                return (
-              <Link key={p.id} href={`/post/${p.id}`} className="block">
-                <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app">
-                  <div className="aspect-square w-full bg-sam-surface-muted">
-                    {thumb ? (
-                      <img src={thumb} alt="" className="h-full w-full object-cover" />
-                    ) : isExchange ? (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[8px] text-sam-muted">↔</span><span>₩</span></div>
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
-                    )}
-                  </div>
-                  <div className="p-2">
-                    <p className="line-clamp-2 text-[12px] font-medium text-sam-fg">
-                      {p.title}
-                    </p>
-                    <p className="mt-0.5 text-[13px] font-bold text-sam-fg">
-                      {p.price != null
-                        ? formatPrice(p.price, defaultCurrency)
-                        : p.is_free_share
-                          ? "무료나눔"
-                          : ""}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ); })}
-          </div>
-        </div>
+      {post.type !== "community" && (
+        <PostDetailRecommendSections
+          postId={post.id}
+          defaultCurrency={defaultCurrency}
+          initialSections={initialDetailSections}
+        />
       )}
 
       {/* 하단 고정: 상품 상세와 동일 규격 — 본인 글은 찜 숨김 */}

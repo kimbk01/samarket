@@ -3,16 +3,23 @@ import type { Session, User } from "@supabase/supabase-js";
 
 let cached: Profile | null = null;
 
+/**
+ * 브라우저 탭 전용 — Node(SSR·Route Handler·동시 요청)에서는 모듈 전역이
+ * 요청 간에 공유되어 다른 클라이언트 세션이 섞일 수 있으므로 서버에서는 비활성.
+ */
 export function setSupabaseProfileCache(profile: Profile | null): void {
+  if (typeof window === "undefined") return;
   cached = profile;
 }
 
 export function getSupabaseProfileCache(): Profile | null {
+  if (typeof window === "undefined") return null;
   return cached;
 }
 
 /** profiles 저장 직후 세션 메타와 불일치할 때 헤더·폴백 조회용 캐시를 맞춤 */
 export function patchSupabaseProfileCache(updates: Partial<Profile>): void {
+  if (typeof window === "undefined") return;
   if (!cached) return;
   cached = { ...cached, ...updates };
 }

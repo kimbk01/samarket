@@ -1,53 +1,26 @@
 "use client";
 
-import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
-
-import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
-import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "./getPostById";
-import { POST_TRADE_LIST_SELECT } from "@/lib/posts/trade-posts-range-query";
-
-const MAX = 20;
-
-function mapRowToPostWithMeta(p: Record<string, unknown>): PostWithMeta {
-  const images = normalizePostImages(p.images);
-  const thumbnail_url =
-    typeof p.thumbnail_url === "string" && p.thumbnail_url
-      ? p.thumbnail_url
-      : images?.[0] ?? null;
-  const price = normalizePostPrice(p.price);
-  const meta = normalizePostMeta(p.meta);
-  const is_free_share = p.is_free_share === true || p.is_free_share === "true";
-  return {
-    ...p,
-    author_id: (p.author_id as string) ?? (p.user_id as string),
-    category_id: (p.category_id as string) ?? (p.trade_category_id as string),
-    images,
-    thumbnail_url,
-    price,
-    meta: meta ?? undefined,
-    is_free_share,
-  } as PostWithMeta;
-}
 
 /**
- * 작성자별 게시글 목록 (다른 글 보기)
+ * 작성자별 게시글 목록 — **서버 API** (`/api/posts/by-author`)로 조회.
+ * 브라우저 Supabase(RLS)만 쓰면 상세 하단 「판매자의 다른 물품」이 비는 경우가 있음.
  */
 export async function getPostsByAuthor(authorId: string): Promise<PostWithMeta[]> {
-  const supabase = getSupabaseClient();
-  if (!supabase || !authorId?.trim()) return [];
+  if (typeof window === "undefined") return [];
+
+  const id = authorId?.trim();
+  if (!id) return [];
 
   try {
-    const base = () =>
-      (supabase as any)
-        .from(POSTS_TABLE_READ)
-        .select(POST_TRADE_LIST_SELECT)
-        .or("status.is.null,status.neq.hidden")
-        .order("created_at", { ascending: false })
-        .limit(MAX);
-    const { data: byUser, error: eUser } = await base().eq("user_id", authorId);
-    if (eUser || !Array.isArray(byUser)) return [];
-    return byUser.map((p: Record<string, unknown>) => mapRowToPostWithMeta(p));
+    const res = await fetch(`/api/posts/by-author?${new URLSearchParams({ userId: id })}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as { ok?: boolean; posts?: PostWithMeta[] };
+    return Array.isArray(data.posts) ? data.posts : [];
   } catch {
     return [];
   }
