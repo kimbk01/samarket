@@ -26,7 +26,7 @@ export default async function MypageSectionProfileEditPage({
     <div className="min-h-screen bg-background">
       <MySubpageHeader
         title="프로필 수정"
-        subtitle="닉네임, 사진, 프로필, 지역, 동네"
+        subtitle="닉네임, 사진, 나의 상태, 지역, 동네"
         backHref={backHref}
         hideCtaStrip
       />

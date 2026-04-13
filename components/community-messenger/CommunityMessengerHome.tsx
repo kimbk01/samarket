@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
+import { MessengerIncomingFriendRequestPopup } from "@/components/community-messenger/MessengerIncomingFriendRequestPopup";
 import { MessengerNewConversationSheet } from "@/components/community-messenger/MessengerNewConversationSheet";
 import { MessengerFriendAddSheet, type MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
@@ -88,10 +89,12 @@ import {
   type CommunityMessengerBootstrap,
   type CommunityMessengerCallSession,
   type CommunityMessengerDiscoverableGroupSummary,
+  type CommunityMessengerFriendRequest,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
   type CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+import { useIncomingFriendRequestPopup } from "@/lib/community-messenger/use-incoming-friend-request-popup";
 import {
   type UnifiedRoomListItem,
   useCommunityMessengerHomeState,
@@ -245,6 +248,7 @@ export function CommunityMessengerHome({
   const [pageError, setPageError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [incomingFriendRequestPopup, setIncomingFriendRequestPopup] = useState<CommunityMessengerFriendRequest | null>(null);
   const [roomSearchKeyword, setRoomSearchKeyword] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
@@ -883,6 +887,7 @@ export function CommunityMessengerHome({
           directRoomId?: string;
         };
         if (res.ok && json.ok) {
+          setIncomingFriendRequestPopup((prev) => (prev?.id === requestId ? null : prev));
           void refresh(true);
           if (action === "accept" && typeof json.directRoomId === "string" && json.directRoomId.trim()) {
             router.push(`/community-messenger/rooms/${encodeURIComponent(json.directRoomId.trim())}`);
@@ -894,6 +899,18 @@ export function CommunityMessengerHome({
     },
     [refresh, router]
   );
+
+  useIncomingFriendRequestPopup(data?.me?.id ?? null, Boolean(!loading && !authRequired && data?.me?.id), (req) => {
+    setIncomingFriendRequestPopup(req);
+  });
+
+  useEffect(() => {
+    if (!incomingFriendRequestPopup) return;
+    const stillPending = (data?.requests ?? []).some(
+      (r) => r.id === incomingFriendRequestPopup.id && r.direction === "incoming"
+    );
+    if (!stillPending) setIncomingFriendRequestPopup(null);
+  }, [data?.requests, incomingFriendRequestPopup]);
 
   const toggleFavoriteFriend = useCallback(
     async (friendUserId: string) => {
@@ -1218,7 +1235,6 @@ export function CommunityMessengerHome({
   );
 
   const {
-    favoriteFriends,
     favoriteFriendIds,
     sortedFriends,
     sortedCalls,
@@ -1726,38 +1742,44 @@ export function CommunityMessengerHome({
       className="min-h-0 space-y-3 bg-[color:var(--messenger-bg)] px-3 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
     >
       {!loading && !authRequired && data ? (
-        <MessengerHomeMainSections
-          mainSection={mainSection}
-          onPrimarySectionChange={onPrimarySectionChange}
-          me={data.me}
-          favoriteFriends={favoriteFriends}
-          sortedFriends={sortedFriends}
-          friendStateModel={friendStateModel}
-          requests={data.requests ?? []}
-          busyId={busyId}
-          onOpenFriendsPrivacySummary={() => setFriendsPrivacySheetOpen(true)}
-          onOpenFriendRowActions={(profile) => setFriendSheet({ mode: "actions", profile })}
-          onOpenProfile={(profile) => setFriendSheet({ mode: "profile", profile })}
-          onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
-          onRespondRequest={(requestId, action) => void respondRequest(requestId, action)}
-          onOpenFriendInviteTools={() => {
-            setFriendAddTab("invite");
-            setFriendManagerOpen(true);
-          }}
-          primaryListItems={primaryListItems}
-          favoriteFriendIds={favoriteFriendIds}
-          onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
-          onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
-          onMarkRead={(room) => void markRoomRead(room.id)}
-          onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
-          onOpenRoomActions={(item, listContext) => setRoomActionSheet({ item, listContext })}
-          chatInboxFilter={chatInboxFilter}
-          chatKindFilter={chatKindFilter}
-          onChatListChipChange={onChatListChipChange}
-          openChatJoinedItems={openChatJoinedItems}
-          filteredDiscoverableGroups={filteredDiscoverableGroups}
-          onPreviewOpenGroup={(groupId) => void openJoinModal(groupId)}
-        />
+        <>
+          <MessengerHomeMainSections
+            mainSection={mainSection}
+            onPrimarySectionChange={onPrimarySectionChange}
+            me={data.me}
+            sortedFriends={sortedFriends}
+            friendStateModel={friendStateModel}
+            busyId={busyId}
+            onOpenFriendsPrivacySummary={() => setFriendsPrivacySheetOpen(true)}
+            onOpenFriendRowActions={(profile) => setFriendSheet({ mode: "actions", profile })}
+            onOpenProfile={(profile) => setFriendSheet({ mode: "profile", profile })}
+            onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
+            onFriendSwipeHide={(userId) => void toggleHiddenFriend(userId)}
+            onFriendSwipeRemove={(userId) => void removeFriend(userId)}
+            onFriendSwipeBlock={(userId) => void toggleBlock(userId)}
+            primaryListItems={primaryListItems}
+            favoriteFriendIds={favoriteFriendIds}
+            onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
+            onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
+            onMarkRead={(room) => void markRoomRead(room.id)}
+            onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
+            onOpenRoomActions={(item, listContext) => setRoomActionSheet({ item, listContext })}
+            chatInboxFilter={chatInboxFilter}
+            chatKindFilter={chatKindFilter}
+            onChatListChipChange={onChatListChipChange}
+            openChatJoinedItems={openChatJoinedItems}
+            filteredDiscoverableGroups={filteredDiscoverableGroups}
+            onPreviewOpenGroup={(groupId) => void openJoinModal(groupId)}
+          />
+          {incomingFriendRequestPopup ? (
+            <MessengerIncomingFriendRequestPopup
+              request={incomingFriendRequestPopup}
+              busyId={busyId}
+              onDismiss={() => setIncomingFriendRequestPopup(null)}
+              onRespond={(requestId, action) => void respondRequest(requestId, action)}
+            />
+          ) : null}
+        </>
       ) : null}
 
       {actionError ? (

@@ -1,93 +1,45 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { MessengerFriendRequestsSheet } from "@/components/community-messenger/MessengerFriendRequestsSheet";
+import { useState } from "react";
 import { MessengerFriendsMyProfileStrip } from "@/components/community-messenger/MessengerFriendsMyProfileStrip";
 import { MessengerLineFriendRow } from "@/components/community-messenger/MessengerLineFriendRow";
-import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
-import type { CommunityMessengerFriendRequest, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
 type Props = {
   me: CommunityMessengerProfileLite | null;
-  favoriteFriends: CommunityMessengerProfileLite[];
   sortedFriends: CommunityMessengerProfileLite[];
   friendStateModel: MessengerFriendStateModel;
-  requests: CommunityMessengerFriendRequest[];
   busyId: string | null;
   onOpenPrivacySummary: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onOpenFriendRowActions: (profile: CommunityMessengerProfileLite) => void;
   onToggleFavorite: (userId: string) => void;
-  onRequestAction: (requestId: string, action: "accept" | "reject" | "cancel") => void;
-  onOpenInviteTools: () => void;
+  onFriendHide: (userId: string) => void;
+  onFriendRemove: (userId: string) => void;
+  onFriendBlock: (userId: string) => void;
 };
 
 export function MessengerFriendsScreen({
   me,
-  favoriteFriends,
   sortedFriends,
   friendStateModel,
-  requests,
   busyId,
   onOpenPrivacySummary,
   onOpenProfile,
   onOpenFriendRowActions,
   onToggleFavorite,
-  onRequestAction,
-  onOpenInviteTools,
+  onFriendHide,
+  onFriendRemove,
+  onFriendBlock,
 }: Props) {
-  const [requestsSheetOpen, setRequestsSheetOpen] = useState(false);
-  const requestSections = useMemo(() => {
-    const received = requests.filter((request) => request.direction === "incoming");
-    const sent = requests.filter((request) => request.direction === "outgoing");
-    return { received, sent, suggested: friendStateModel.suggested };
-  }, [friendStateModel.suggested, requests]);
-  const requestTotal =
-    requestSections.received.length + requestSections.sent.length + requestSections.suggested.length;
+  const [openSwipeFriendId, setOpenSwipeFriendId] = useState<string | null>(null);
 
   return (
-    <section className="pt-1">
-      <MessengerFriendsMyProfileStrip me={me} onEdit={() => me && onOpenProfile(me)} onOpenInviteTools={onOpenInviteTools} />
+    <section className="space-y-2 pt-1">
+      <MessengerFriendsMyProfileStrip me={me} />
 
-      <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-1 py-2 shadow-[var(--messenger-shadow-soft)]">
-        <h2
-          className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide"
-          style={{ color: "var(--messenger-text-secondary)" }}
-        >
-          즐겨찾기
-        </h2>
-        {favoriteFriends.length ? (
-          <div className="-mx-0.5 flex gap-2 overflow-x-auto pb-0.5 pt-0.5 [scrollbar-width:thin]">
-            {favoriteFriends.map((friend) => (
-              <FavoriteStripCell
-                key={friend.id}
-                friend={friend}
-                onOpenProfile={() => onOpenProfile(friend)}
-                onOpenActions={() => onOpenFriendRowActions(friend)}
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="px-2 py-2 text-center text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
-            즐겨찾기 친구가 없습니다.
-          </p>
-        )}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setRequestsSheetOpen(true)}
-        className="mt-2 flex w-full items-center justify-between rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-2.5 text-left shadow-[var(--messenger-shadow-soft)] active:bg-[color:var(--messenger-primary-soft)]"
-        style={{ color: "var(--messenger-text)" }}
-      >
-        <span className="text-[14px] font-medium">친구 요청{requestTotal > 0 ? ` (${requestTotal})` : ""}</span>
-        <span className="text-[12px]" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
-          ›
-        </span>
-      </button>
-
-      <div className="mt-2 overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+      <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
         <h2
           className="border-b border-[color:var(--messenger-divider)] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide"
           style={{ color: "var(--messenger-text-secondary)" }}
@@ -103,6 +55,11 @@ export function MessengerFriendsScreen({
               onRowPress={() => onOpenProfile(friend)}
               onOpenActions={() => onOpenFriendRowActions(friend)}
               onToggleFavorite={() => onToggleFavorite(friend.id)}
+              openSwipeFriendId={openSwipeFriendId}
+              onOpenSwipeFriendId={setOpenSwipeFriendId}
+              onHideFriend={() => onFriendHide(friend.id)}
+              onRemoveFriend={() => onFriendRemove(friend.id)}
+              onBlockFriend={() => onFriendBlock(friend.id)}
             />
           ))
         ) : (
@@ -112,7 +69,7 @@ export function MessengerFriendsScreen({
         )}
       </div>
 
-      <div className="mt-2">
+      <div>
         <button
           type="button"
           onClick={onOpenPrivacySummary}
@@ -130,70 +87,6 @@ export function MessengerFriendsScreen({
           </span>
         </button>
       </div>
-
-      {requestsSheetOpen ? (
-        <MessengerFriendRequestsSheet
-          onClose={() => setRequestsSheetOpen(false)}
-          busyId={busyId}
-          received={requestSections.received}
-          sent={requestSections.sent}
-          suggested={requestSections.suggested}
-          onRequestAction={onRequestAction}
-          onOpenProfile={onOpenProfile}
-        />
-      ) : null}
     </section>
-  );
-}
-
-function FavoriteStripCell({
-  friend,
-  onOpenProfile,
-  onOpenActions,
-}: {
-  friend: CommunityMessengerProfileLite;
-  onOpenProfile: () => void;
-  onOpenActions: () => void;
-}) {
-  const openActions = useCallback(() => onOpenActions(), [onOpenActions]);
-  const { bind, consumeClickSuppression } = useMessengerLongPress(openActions);
-  const initial = friend.label.trim().slice(0, 1) || "?";
-
-  return (
-    <div className="flex w-[64px] shrink-0 flex-col items-center px-0.5">
-      <div
-        role="button"
-        tabIndex={0}
-        className="flex w-full flex-col items-center gap-1 touch-manipulation"
-        {...bind}
-        onKeyDown={(ev) => {
-          if (ev.key === "Enter" || ev.key === " ") {
-            ev.preventDefault();
-            onOpenProfile();
-          }
-        }}
-        onClick={() => {
-          if (consumeClickSuppression()) return;
-          onOpenProfile();
-        }}
-      >
-        <div className="h-11 w-11 overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] ring-2 ring-[color:var(--messenger-primary-soft-2)]">
-          {friend.avatarUrl?.trim() ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={friend.avatarUrl.trim()} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div
-              className="flex h-full w-full items-center justify-center text-[12px] font-semibold"
-              style={{ color: "var(--messenger-text-secondary)" }}
-            >
-              {initial}
-            </div>
-          )}
-        </div>
-        <span className="w-full truncate text-center text-[10px] font-medium leading-tight" style={{ color: "var(--messenger-text)" }}>
-          {friend.label}
-        </span>
-      </div>
-    </div>
   );
 }

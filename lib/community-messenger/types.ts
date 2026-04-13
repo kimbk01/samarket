@@ -57,6 +57,8 @@ export type CommunityMessengerProfileLite = {
   id: string;
   label: string;
   subtitle?: string;
+  /** `profiles.bio` — 한 줄 소개(나의 상태). 없으면 UI 에서 생략 */
+  bio?: string | null;
   avatarUrl: string | null;
   memberRole?: "owner" | "admin" | "member";
   identityMode?: CommunityMessengerIdentityMode;
@@ -70,6 +72,8 @@ export type CommunityMessengerProfileLite = {
   isFriend: boolean;
   isFavoriteFriend: boolean;
   isHiddenFriend?: boolean;
+  /** 친구 관계가 수락된 시각(최근 수락 기준). 친구 목록에서 「새 친구」 구간 정렬에 사용 */
+  friendshipAcceptedAt?: string | null;
 };
 
 export type CommunityMessengerFriendRequest = {

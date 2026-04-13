@@ -61,11 +61,11 @@ export function ProfileBasicFields({
         )}
       </div>
       <div>
-        <label className="text-[13px] font-medium text-sam-fg">프로필</label>
+        <label className="text-[13px] font-medium text-sam-fg">나의 상태</label>
         <textarea
           value={bio}
           onChange={(e) => onBioChange(e.target.value)}
-          placeholder="한 줄 프로필"
+          placeholder="한 줄로 상태를 입력해 보세요"
           rows={2}
           className={`${controlClass} min-h-0 resize-y`}
         />

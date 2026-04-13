@@ -60,6 +60,7 @@ type ProfileRow = {
   nickname?: string | null;
   username?: string | null;
   avatar_url?: string | null;
+  bio?: string | null;
 };
 
 type RequestRow = {
@@ -445,7 +446,7 @@ async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow
   if (!sb) return new Map();
   const { data } = await (sb as any)
     .from("profiles")
-    .select("id, nickname, username, avatar_url")
+    .select("id, nickname, username, avatar_url, bio")
     .in("id", unique);
   return new Map(((data ?? []) as ProfileRow[]).map((row) => [row.id, row]));
 }
@@ -685,6 +686,7 @@ async function hydrateProfilesWithProfileMap(
       id,
       label: profileLabel(profile, id),
       subtitle: trimText(profile?.username) ? `@${trimText(profile?.username)}` : undefined,
+      bio: trimText(profile?.bio) || null,
       avatarUrl: trimText(profile?.avatar_url) || null,
       following: id === viewerId ? false : relationSets.following.has(id),
       blocked: id === viewerId ? false : relationSets.blocked.has(id),
@@ -796,6 +798,45 @@ async function listAcceptedFriendIds(userId: string): Promise<string[]> {
     if (peerId) result.add(peerId);
   }
   return [...result];
+}
+
+/** 수락된 친구 관계마다 상대 peer → 수락 시각(가장 최근 값). `responded_at` 우선, 없으면 `created_at` */
+async function fetchFriendshipAcceptedAtByPeerId(userId: string): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const merge = (peerId: string, atRaw: string | null | undefined) => {
+    const at = trimText(atRaw);
+    if (!at || !peerId) return;
+    const prev = map.get(peerId);
+    if (!prev || Date.parse(at) > Date.parse(prev)) map.set(peerId, at);
+  };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data, error } = await (sb as any)
+      .from("community_friend_requests")
+      .select("requester_id, addressee_id, status, responded_at, created_at")
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+    if (!error || !isMissingTableError(error)) {
+      for (const row of (data ?? []) as Array<{
+        requester_id?: string;
+        addressee_id?: string;
+        responded_at?: string | null;
+        created_at?: string;
+      }>) {
+        const requesterId = trimText(row.requester_id);
+        const addresseeId = trimText(row.addressee_id);
+        const peerId = requesterId === userId ? addresseeId : requesterId;
+        const at = trimText(row.responded_at) || trimText(row.created_at);
+        merge(peerId, at);
+      }
+    }
+  }
+  for (const row of getDevState().friendRequests) {
+    if (row.status !== "accepted") continue;
+    const peerId = row.requester_id === userId ? row.addressee_id : row.requester_id;
+    merge(peerId, row.responded_at ?? row.created_at);
+  }
+  return map;
 }
 
 async function listFollowingIds(userId: string, relationType: "neighbor_follow" | "blocked" | "hidden"): Promise<string[]> {
@@ -1998,7 +2039,17 @@ export async function getCommunityMessengerBootstrap(
   options?: { skipDiscoverable?: boolean }
 ): Promise<CommunityMessengerBootstrap> {
   const skipDiscoverable = options?.skipDiscoverable === true;
-  const [friendIds, followingIds, hiddenIds, blockedIds, requests, myPayload, discState, callRows] = await Promise.all([
+  const [
+    friendIds,
+    followingIds,
+    hiddenIds,
+    blockedIds,
+    requests,
+    myPayload,
+    discState,
+    callRows,
+    friendshipAcceptedAtByPeer,
+  ] = await Promise.all([
     listAcceptedFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
     listFollowingIds(userId, "hidden"),
@@ -2015,6 +2066,7 @@ export async function getCommunityMessengerBootstrap(
         })
       : fetchDiscoverableOpenGroupsRawState(userId),
     fetchCallLogRowsOnly(userId),
+    fetchFriendshipAcceptedAtByPeerId(userId),
   ]);
 
   const callRoomIds = dedupeIds(
@@ -2051,7 +2103,11 @@ export async function getCommunityMessengerBootstrap(
   const me = profileById.get(userId) ?? null;
   const friends = friendIds
     .map((id) => profileById.get(id))
-    .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+    .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile))
+    .map((profile) => ({
+      ...profile,
+      friendshipAcceptedAt: friendshipAcceptedAtByPeer.get(profile.id) ?? null,
+    }));
   const following = followingIds
     .map((id) => profileById.get(id))
     .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
@@ -2149,12 +2205,20 @@ export async function getCommunityMessengerBootstrap(
 }
 
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
-  const [friendIds, hiddenIds] = await Promise.all([listAcceptedFriendIds(userId), listFollowingIds(userId, "hidden")]);
+  const [friendIds, hiddenIds, friendshipAcceptedAtByPeer] = await Promise.all([
+    listAcceptedFriendIds(userId),
+    listFollowingIds(userId, "hidden"),
+    fetchFriendshipAcceptedAtByPeerId(userId),
+  ]);
   const hiddenIdSet = new Set(hiddenIds);
-  return hydrateProfiles(
+  const profiles = await hydrateProfiles(
     userId,
     friendIds.filter((id) => !hiddenIdSet.has(id))
   );
+  return profiles.map((profile) => ({
+    ...profile,
+    friendshipAcceptedAt: friendshipAcceptedAtByPeer.get(profile.id) ?? null,
+  }));
 }
 
 /** 홈 사일런트 갱신 — `GET /api/community-messenger/home-sync` 에서 한 번에 정합 */

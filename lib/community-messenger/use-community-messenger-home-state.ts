@@ -5,7 +5,13 @@ import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSe
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import { communityMessengerRoomIsDelivery, communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
-import { communityMessengerRoomIsInboxHidden, type CommunityMessengerBootstrap, type CommunityMessengerCallLog, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import {
+  communityMessengerRoomIsInboxHidden,
+  type CommunityMessengerBootstrap,
+  type CommunityMessengerCallLog,
+  type CommunityMessengerProfileLite,
+  type CommunityMessengerRoomSummary,
+} from "@/lib/community-messenger/types";
 
 export type { MessengerFriendState, MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
@@ -37,12 +43,15 @@ export function useCommunityMessengerHomeState({
 }: Params) {
   const hiddenFriendIds = useMemo(() => new Set((data?.hidden ?? []).map((friend) => friend.id)), [data?.hidden]);
 
-  const favoriteFriends = useMemo(
-    () => (data?.friends ?? []).filter((friend) => friend.isFavoriteFriend && !hiddenFriendIds.has(friend.id)),
+  const favoriteFriendIds = useMemo(
+    () =>
+      new Set(
+        (data?.friends ?? [])
+          .filter((friend) => friend.isFavoriteFriend && !hiddenFriendIds.has(friend.id))
+          .map((friend) => friend.id)
+      ),
     [data?.friends, hiddenFriendIds]
   );
-
-  const favoriteFriendIds = useMemo(() => new Set(favoriteFriends.map((friend) => friend.id)), [favoriteFriends]);
 
   const directRoomByPeerId = useMemo(() => {
     const map = new Map<string, CommunityMessengerRoomSummary>();
@@ -56,26 +65,31 @@ export function useCommunityMessengerHomeState({
     return map;
   }, [data?.chats]);
 
+  /** 카카오톡 친구 탭과 유사: 최근 맺은 친구(기본 7일)는 상단·최근 수락 순, 이후 이름순 */
   const sortedFriends = useMemo(() => {
-    const interactionTimeByFriendId = new Map<string, number>();
-    for (const friend of data?.friends ?? []) {
-      if (hiddenFriendIds.has(friend.id)) continue;
-      const room = directRoomByPeerId.get(friend.id);
-      const score = room ? new Date(room.lastMessageAt).getTime() : Number.NEGATIVE_INFINITY;
-      interactionTimeByFriendId.set(friend.id, Number.isFinite(score) ? score : Number.NEGATIVE_INFINITY);
-    }
+    const NEW_FRIEND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const isNewFriend = (friend: CommunityMessengerProfileLite) => {
+      const raw = friend.friendshipAcceptedAt;
+      if (!raw) return false;
+      const t = new Date(raw).getTime();
+      if (!Number.isFinite(t)) return false;
+      return now - t <= NEW_FRIEND_WINDOW_MS;
+    };
     return [...(data?.friends ?? [])]
       .filter((friend) => !hiddenFriendIds.has(friend.id))
       .sort((a, b) => {
-        const favA = a.isFavoriteFriend ? 1 : 0;
-        const favB = b.isFavoriteFriend ? 1 : 0;
-        if (favA !== favB) return favB - favA;
-        const scoreA = interactionTimeByFriendId.get(a.id) ?? Number.NEGATIVE_INFINITY;
-        const scoreB = interactionTimeByFriendId.get(b.id) ?? Number.NEGATIVE_INFINITY;
-        if (scoreA !== scoreB) return scoreB - scoreA;
+        const newA = isNewFriend(a) ? 1 : 0;
+        const newB = isNewFriend(b) ? 1 : 0;
+        if (newA !== newB) return newB - newA;
+        if (newA && newB) {
+          const ta = new Date(a.friendshipAcceptedAt ?? 0).getTime();
+          const tb = new Date(b.friendshipAcceptedAt ?? 0).getTime();
+          if (ta !== tb) return tb - ta;
+        }
         return a.label.localeCompare(b.label, "ko");
       });
-  }, [data?.friends, directRoomByPeerId, hiddenFriendIds]);
+  }, [data?.friends, hiddenFriendIds]);
 
   const friendStateModel = useMemo(
     () => buildMessengerFriendStateModel(data, directRoomByPeerId),
@@ -183,7 +197,6 @@ export function useCommunityMessengerHomeState({
   }, [archiveListItems, mainSection, openChatJoinedItems, visibleChatListItems]);
 
   return {
-    favoriteFriends,
     favoriteFriendIds,
     sortedFriends,
     sortedCalls,

@@ -1,60 +1,60 @@
 "use client";
 
+import Link from "next/link";
+import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 type Props = {
   me: CommunityMessengerProfileLite | null;
-  onEdit: () => void;
-  onOpenInviteTools: () => void;
 };
 
-export function MessengerFriendsMyProfileStrip({ me, onEdit, onOpenInviteTools }: Props) {
-  const myIdLine = me?.subtitle?.trim() || (me?.id ? `ID · ${me.id.slice(0, 8)}…` : "");
+/**
+ * 친구 탭 상단 — 닉네임 / @아이디 / 나의 상태(bio) · 편집은 마이페이지 프로필 수정과 동일 데이터
+ */
+export function MessengerFriendsMyProfileStrip({ me }: Props) {
   const initial = (me?.label ?? "나").trim().slice(0, 1) || "?";
+  const handleLine = me?.subtitle?.trim() || "";
+  const fallbackId =
+    me?.id && !handleLine ? `ID · ${me.id.slice(0, 8)}…` : "";
+  const secondLine = handleLine || fallbackId;
+  const bioLine = me?.bio?.trim() ?? "";
 
   return (
-    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
-      <button
-        type="button"
-        onClick={() => me && onEdit()}
-        className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-[color:var(--messenger-primary-soft)]"
-        style={{ color: "var(--messenger-text)" }}
-      >
-        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] ring-2 ring-[color:var(--messenger-primary-soft-2)]">
-          {me?.avatarUrl?.trim() ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={me.avatarUrl.trim()} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div
-              className="flex h-full w-full items-center justify-center text-[15px] font-semibold"
-              style={{ color: "var(--messenger-text-secondary)" }}
-            >
-              {initial}
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold">{me?.label ?? "내 프로필"}</p>
-          <p className="truncate text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
-            {me?.subtitle ?? "상태 메시지"}
+    <div className="flex items-center gap-2.5 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-2 shadow-[var(--messenger-shadow-soft)]">
+      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] ring-1 ring-[color:var(--messenger-primary-soft-2)]">
+        {me?.avatarUrl?.trim() ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={me.avatarUrl.trim()} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center text-[13px] font-semibold"
+            style={{ color: "var(--messenger-text-secondary)" }}
+          >
+            {initial}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+          {me?.label ?? "내 프로필"}
+        </p>
+        {secondLine ? (
+          <p className="truncate text-[12px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+            {secondLine}
           </p>
-          {myIdLine ? (
-            <p className="mt-0.5 truncate text-[11px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
-              {myIdLine}
-            </p>
-          ) : null}
-        </div>
-        <span className="shrink-0 text-[12px] font-medium" style={{ color: "var(--messenger-primary)" }}>
-          편집
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={onOpenInviteTools}
-        className="w-full border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-primary-soft)] py-2.5 text-[13px] font-semibold text-[color:var(--messenger-primary)] active:opacity-90"
+        ) : null}
+        {bioLine ? (
+          <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+            {bioLine}
+          </p>
+        ) : null}
+      </div>
+      <Link
+        href={MYPAGE_PROFILE_EDIT_HREF}
+        className="shrink-0 rounded-[var(--messenger-radius-sm)] px-2 py-1.5 text-[13px] font-semibold text-[color:var(--messenger-primary)] active:opacity-80"
       >
-        친구 추가 · ID 검색 / QR · 초대
-      </button>
+        내 프로필 ›
+      </Link>
     </div>
   );
 }

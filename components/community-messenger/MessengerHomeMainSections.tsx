@@ -15,7 +15,6 @@ import {
 } from "@/lib/community-messenger/messenger-ia";
 import type {
   CommunityMessengerDiscoverableGroupSummary,
-  CommunityMessengerFriendRequest,
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
@@ -26,17 +25,16 @@ type Props = {
   mainSection: MessengerMainSection;
   onPrimarySectionChange: (next: MessengerMainSection) => void;
   me: CommunityMessengerProfileLite | null;
-  favoriteFriends: CommunityMessengerProfileLite[];
   sortedFriends: CommunityMessengerProfileLite[];
   friendStateModel: MessengerFriendStateModel;
-  requests: CommunityMessengerFriendRequest[];
   busyId: string | null;
   onOpenFriendsPrivacySummary: () => void;
   onOpenFriendRowActions: (profile: CommunityMessengerProfileLite) => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onToggleFavoriteFriend: (userId: string) => void;
-  onRespondRequest: (requestId: string, action: "accept" | "reject" | "cancel") => void;
-  onOpenFriendInviteTools: () => void;
+  onFriendSwipeHide: (userId: string) => void;
+  onFriendSwipeRemove: (userId: string) => void;
+  onFriendSwipeBlock: (userId: string) => void;
   primaryListItems: UnifiedRoomListItem[];
   favoriteFriendIds: Set<string>;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
@@ -56,17 +54,16 @@ export function MessengerHomeMainSections({
   mainSection,
   onPrimarySectionChange,
   me,
-  favoriteFriends,
   sortedFriends,
   friendStateModel,
-  requests,
   busyId,
   onOpenFriendsPrivacySummary,
   onOpenFriendRowActions,
   onOpenProfile,
   onToggleFavoriteFriend,
-  onRespondRequest,
-  onOpenFriendInviteTools,
+  onFriendSwipeHide,
+  onFriendSwipeRemove,
+  onFriendSwipeBlock,
   primaryListItems,
   favoriteFriendIds,
   onTogglePin,
@@ -90,17 +87,16 @@ export function MessengerHomeMainSections({
       {mainSection === "friends" ? (
         <MessengerFriendsScreen
           me={me}
-          favoriteFriends={favoriteFriends}
           sortedFriends={sortedFriends}
           friendStateModel={friendStateModel}
-          requests={requests}
           busyId={busyId}
           onOpenPrivacySummary={onOpenFriendsPrivacySummary}
           onOpenFriendRowActions={onOpenFriendRowActions}
           onOpenProfile={onOpenProfile}
           onToggleFavorite={onToggleFavoriteFriend}
-          onRequestAction={onRespondRequest}
-          onOpenInviteTools={onOpenFriendInviteTools}
+          onFriendHide={onFriendSwipeHide}
+          onFriendRemove={onFriendSwipeRemove}
+          onFriendBlock={onFriendSwipeBlock}
         />
       ) : null}
 
