@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { ADMIN_NOTIFICATION_SETTINGS_SELECT } from "@/lib/admin/admin-public-settings-select";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const sb = getSupabaseServer();
-    const { data, error } = await sb.from("admin_notification_settings").select("*");
+    const { data, error } = await sb.from("admin_notification_settings").select(ADMIN_NOTIFICATION_SETTINGS_SELECT);
     if (error) {
       if (error.message?.includes("does not exist")) {
         return NextResponse.json({ ok: true, items: [], table_missing: true });

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -10,6 +11,9 @@ const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const upRl = await enforceImageUploadQuota(auth.userId, "community_post");
+  if (!upRl.ok) return upRl.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

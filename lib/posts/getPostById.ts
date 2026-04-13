@@ -7,6 +7,7 @@ import {
   normalizePostMeta,
   normalizePostPrice,
 } from "./post-normalize";
+import { POST_TRADE_DETAIL_SELECT } from "@/lib/posts/post-query-select";
 
 export { normalizePostImages, normalizePostMeta, normalizePostPrice } from "./post-normalize";
 
@@ -17,7 +18,7 @@ export async function getPostById(postId: string): Promise<PostWithMeta | null> 
   try {
     const { data, error } = await supabase
       .from("posts")
-      .select("*")
+      .select(POST_TRADE_DETAIL_SELECT)
       .eq("id", postId.trim())
       .maybeSingle();
 

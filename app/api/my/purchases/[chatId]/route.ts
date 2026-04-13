@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import { fetchFirstThumbnailByPostIds } from "@/lib/mypage/fetch-first-post-thumbnails";
 import { applyBuyerAutoConfirmForRoom } from "@/lib/trade/apply-buyer-auto-confirm";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export async function GET(
   _req: NextRequest,
@@ -57,7 +58,7 @@ export async function GET(
   const postId = row.post_id as string;
   const sellerId = row.seller_id as string;
 
-  const { data: post } = await sbAny.from("posts").select("*").eq("id", postId).maybeSingle();
+  const { data: post } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", postId).maybeSingle();
   const p = post as Record<string, unknown> | null;
   const summary = chatProductSummaryFromPostRow(p ?? undefined, postId);
   const thumbExtras = await fetchFirstThumbnailByPostIds(sbAny, [postId]);

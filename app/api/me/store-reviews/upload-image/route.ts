@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+
+  const upRl = await enforceImageUploadQuota(buyerId, "store_review");
+  if (!upRl.ok) return upRl.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

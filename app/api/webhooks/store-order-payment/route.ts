@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { verifyStoreOrderPaymentWebhookSecret } from "@/lib/payments/store-order-webhook-secret";
+import { enforceWebhookRateLimit } from "@/lib/security/webhook-ip-rate-limit";
 import { appendStorePaymentEvent } from "@/lib/stores/append-store-payment-event";
 import {
   recordStoreOrderPaid,
@@ -15,6 +16,9 @@ export const dynamic = "force-dynamic";
  * 범용 JSON 웹훅: 헤더 `x-store-payment-webhook-secret` 검증 후 결제 성공/실패 반영
  */
 export async function POST(req: NextRequest) {
+  const rl = await enforceWebhookRateLimit(req, "store-order-payment");
+  if (!rl.ok) return rl.response;
+
   const rawBody = await req.text();
   let body: Record<string, unknown>;
   try {

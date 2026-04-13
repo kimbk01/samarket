@@ -7,7 +7,11 @@
 import { NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "@/lib/posts/post-normalize";
+import {
+  mapPostRowsToTradeList,
+  POST_TRADE_LIST_SELECT,
+} from "@/lib/posts/trade-posts-range-query";
+import type { PostWithMeta } from "@/lib/posts/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +47,10 @@ export async function GET() {
 
   const postIds = favs.map((f: { post_id: string }) => f.post_id);
   /** 숨김(hidden) 글도 포함 — 찜 행은 남아 있는데 목록만 비는 현상 방지. UI는 「품절/삭제됨」탭으로 분류 */
-  const { data: posts, error: postError } = await sb.from("posts").select("*").in("id", postIds);
+  const { data: posts, error: postError } = await sb
+    .from("posts")
+    .select(POST_TRADE_LIST_SELECT)
+    .in("id", postIds);
 
   if (postError) {
     if (process.env.NODE_ENV === "development") {
@@ -56,29 +63,15 @@ export async function GET() {
     return NextResponse.json({ items: [], authenticated: true });
   }
 
-  const byId = new Map(posts.map((p: Record<string, unknown>) => [p.id as string, p]));
-  const items: Record<string, unknown>[] = [];
+  const mapped = mapPostRowsToTradeList(posts as unknown[]);
+  const byId = new Map(mapped.map((p) => [p.id, p]));
+  const items: (PostWithMeta & { favorited_at: string })[] = [];
 
   for (const f of favs as { post_id: string; created_at: string }[]) {
     const post = byId.get(f.post_id);
     if (!post) continue;
-    const images = normalizePostImages(post.images);
-    const thumbnail_url =
-      typeof post.thumbnail_url === "string" && post.thumbnail_url
-        ? post.thumbnail_url
-        : images?.[0] ?? null;
-    const price = normalizePostPrice(post.price);
-    const meta = normalizePostMeta(post.meta);
-    const is_free_share = post.is_free_share === true || post.is_free_share === "true";
     items.push({
       ...post,
-      author_id: post.author_id ?? post.user_id,
-      category_id: post.category_id ?? post.trade_category_id,
-      images,
-      thumbnail_url,
-      price,
-      meta: meta ?? undefined,
-      is_free_share,
       favorited_at: f.created_at,
     });
   }

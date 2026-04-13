@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { enforceFavoriteToggleQuota } from "@/lib/security/rate-limit-presets";
 
 async function appendFavoriteAuditLog(
   sbAny: SupabaseClient,
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+
+  const favRl = await enforceFavoriteToggleQuota(userId);
+  if (!favRl.ok) return favRl.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

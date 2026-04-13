@@ -13,6 +13,7 @@ import {
   runItemTradeReconcileBuyerIfStale,
   runItemTradeReconcileSellerIfStale,
 } from "@/lib/trade/run-item-trade-reconcile-if-stale";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 const PC_SEL =
   "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, trade_flow_status, chat_mode, seller_completed_at, buyer_confirmed_at, buyer_confirm_source";
@@ -50,7 +51,10 @@ async function loadOwnedPostsForSalesScope(
   forCount: boolean
 ): Promise<{ rows: Record<string, unknown>[]; error: Error | null }> {
   if (!forCount) {
-    const { data, error } = await sbAny.from("posts").select("*").eq("user_id", userId);
+    const { data, error } = await sbAny
+      .from("posts")
+      .select(POST_TRADE_RELATION_SELECT)
+      .eq("user_id", userId);
     if (error) {
       return { rows: [], error: new Error(error.message) };
     }

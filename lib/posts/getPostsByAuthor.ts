@@ -3,6 +3,7 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
 import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "./getPostById";
+import { POST_TRADE_LIST_SELECT } from "@/lib/posts/trade-posts-range-query";
 
 const MAX = 20;
 
@@ -38,7 +39,7 @@ export async function getPostsByAuthor(authorId: string): Promise<PostWithMeta[]
     const base = () =>
       (supabase as any)
         .from("posts")
-        .select("*")
+        .select(POST_TRADE_LIST_SELECT)
         .or("status.is.null,status.neq.hidden")
         .order("created_at", { ascending: false })
         .limit(MAX);

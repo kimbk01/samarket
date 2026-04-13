@@ -10,6 +10,7 @@ import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-pos
 import { fetchFirstThumbnailByPostIds } from "@/lib/mypage/fetch-first-post-thumbnails";
 import { applyBuyerAutoConfirmAllDue } from "@/lib/trade/apply-buyer-auto-confirm";
 import { loadPurchaseHistoryRows } from "@/lib/mypage/trade-history-load-server";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
       ),
     sbAny
       .from("posts")
-      .select("*")
+      .select(POST_TRADE_RELATION_SELECT)
       .in("id", postIds)
       .then(
         ({ data }: { data: Record<string, unknown>[] | null }) => data ?? []
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
   );
   const missingPostIds = postIds.filter((id) => id && !postMap.has(String(id)));
   for (const mid of missingPostIds.slice(0, 20)) {
-    const { data: one } = await sbAny.from("posts").select("*").eq("id", mid).maybeSingle();
+    const { data: one } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
     if (one) postMap.set(String(mid), one as Record<string, unknown>);
   }
 

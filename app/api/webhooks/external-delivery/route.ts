@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { verifyExternalDeliveryWebhookSecret } from "@/lib/payments/external-delivery-webhook-secret";
+import { enforceWebhookRateLimit } from "@/lib/security/webhook-ip-rate-limit";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { mapExternalDeliveryPartnerStatus } from "@/lib/stores/external-delivery-partner-status-map";
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
@@ -37,6 +38,9 @@ function shallowMetaMerge(
  * - 본문: order_id(내부 UUID) 또는 (provider + partner_order_id)로 주문 조회
  */
 export async function POST(req: NextRequest) {
+  const rl = await enforceWebhookRateLimit(req, "external-delivery");
+  if (!rl.ok) return rl.response;
+
   const rawText = await req.text();
   let body: WebhookBody;
   try {

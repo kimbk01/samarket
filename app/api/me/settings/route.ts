@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { DEFAULT_USER_SETTINGS, type UserSettingsRow } from "@/lib/types/settings-db";
+import { USER_SETTINGS_ROW_SELECT } from "@/lib/me/user-settings-select";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -84,7 +85,7 @@ export async function GET() {
 
   const { data, error } = await sb
     .from("user_settings")
-    .select("*")
+    .select(USER_SETTINGS_ROW_SELECT)
     .eq("user_id", auth.userId)
     .maybeSingle();
 
@@ -139,7 +140,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: before } = await sb
     .from("user_settings")
-    .select("*")
+    .select(USER_SETTINGS_ROW_SELECT)
     .eq("user_id", auth.userId)
     .maybeSingle();
 
@@ -153,7 +154,7 @@ export async function PATCH(req: NextRequest) {
   const { data, error } = await sb
     .from("user_settings")
     .upsert(nextRow, { onConflict: "user_id" })
-    .select("*")
+    .select(USER_SETTINGS_ROW_SELECT)
     .maybeSingle();
 
   if (error) {

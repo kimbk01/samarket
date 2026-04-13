@@ -5,6 +5,7 @@ import { batchNicknamesByUserIds } from "@/lib/admin-reviews/batch-nicknames-ser
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 /**
  * 거래 흐름(product_chats) + 온도 로그 샘플 — 관리자(테스트 계정 또는 profiles.role)
@@ -121,7 +122,7 @@ export async function POST(_req: NextRequest) {
     const uids = [...new Set(raw.flatMap((r) => [r.reviewer_id, r.reviewee_id]).filter(Boolean))];
     const postById = new Map<string, Record<string, unknown>>();
     if (pids.length) {
-      const { data: posts } = await sbAny.from("posts").select("*").in("id", pids);
+      const { data: posts } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", pids);
       (posts ?? []).forEach((p: Record<string, unknown>) => {
         const id = String(p.id ?? "");
         if (id) postById.set(id, p);

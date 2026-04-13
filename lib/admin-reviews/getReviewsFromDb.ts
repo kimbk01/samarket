@@ -6,6 +6,7 @@ import {
   mapTransactionReviewRowToAdminReview,
   type TransactionReviewDbRow,
 } from "@/lib/admin-reviews/map-transaction-review-to-admin";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 const SELECT_FIELDS =
   "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment";
@@ -63,7 +64,10 @@ export async function getAdminReviewsFromDb(): Promise<AdminReview[]> {
 
     const postById = new Map<string, Record<string, unknown>>();
     if (productIds.length) {
-      const { data: posts } = await (supabase as any).from("posts").select("*").in("id", productIds);
+      const { data: posts } = await (supabase as any)
+        .from("posts")
+        .select(POST_TRADE_RELATION_SELECT)
+        .in("id", productIds);
       if (Array.isArray(posts)) {
         posts.forEach((p: Record<string, unknown>) => {
           const id = String(p.id ?? "");
@@ -96,7 +100,11 @@ export async function getAdminReviewByIdFromDb(reviewId: string): Promise<AdminR
     if (error || !row) return null;
     const r = row as TransactionReviewDbRow;
 
-    const { data: post } = await (supabase as any).from("posts").select("*").eq("id", r.product_id).maybeSingle();
+    const { data: post } = await (supabase as any)
+      .from("posts")
+      .select(POST_TRADE_RELATION_SELECT)
+      .eq("id", r.product_id)
+      .maybeSingle();
     const postRow = (post as Record<string, unknown> | null) ?? undefined;
     const nicknameById = await batchNicknamesClient(supabase, [r.reviewer_id, r.reviewee_id]);
     return mapTransactionReviewRowToAdminReview(r, postRow, nicknameById);

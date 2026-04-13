@@ -3,6 +3,7 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
 import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "./getPostById";
+import { POST_TRADE_LIST_SELECT } from "@/lib/posts/trade-posts-range-query";
 
 export interface SearchPostsOptions {
   categoryId?: string;
@@ -29,7 +30,7 @@ export async function searchPosts(
   try {
     let select = (supabase as any)
       .from("posts")
-      .select("*")
+      .select(POST_TRADE_LIST_SELECT)
       .or("status.is.null,status.not.in.(hidden,sold)")
       .ilike("title", `%${q}%`);
 
@@ -44,7 +45,7 @@ export async function searchPosts(
     if (error && options.categoryId?.trim() && String(error?.message).includes("trade_category_id")) {
       select = (supabase as any)
         .from("posts")
-        .select("*")
+        .select(POST_TRADE_LIST_SELECT)
         .or("status.is.null,status.not.in.(hidden,sold)")
         .ilike("title", `%${q}%`)
         .eq("category_id", options.categoryId!.trim());

@@ -4,6 +4,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import {
+  CHAT_ROOM_ITEM_TRADE_API_SELECT,
+  CHAT_ROOM_PARTICIPANT_API_SELECT,
+} from "@/lib/chat/chat-sql-selects";
 
 export async function GET(
   _req: NextRequest,
@@ -26,8 +30,8 @@ export async function GET(
 
   const sbAny = sb;
   const [{ data: room, error: roomErr }, { data: allParticipants, error: partListErr }] = await Promise.all([
-    sbAny.from("chat_rooms").select("*").eq("id", roomId).maybeSingle(),
-    sbAny.from("chat_room_participants").select("*").eq("room_id", roomId),
+    sbAny.from("chat_rooms").select(CHAT_ROOM_ITEM_TRADE_API_SELECT).eq("id", roomId).maybeSingle(),
+    sbAny.from("chat_room_participants").select(CHAT_ROOM_PARTICIPANT_API_SELECT).eq("room_id", roomId),
   ]);
 
   if (roomErr || !room) {

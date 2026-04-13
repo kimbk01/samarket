@@ -2,6 +2,7 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { mapProfileRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
+import { PROFILE_PUBLIC_MIN_SELECT } from "@/lib/users/profile-public-select";
 
 export interface UserProfilePublic {
   id: string;
@@ -27,7 +28,7 @@ export async function getUserProfile(userId: string): Promise<UserProfilePublic 
   try {
     const { data, error } = await (supabase as any)
       .from("profiles")
-      .select("*")
+      .select(PROFILE_PUBLIC_MIN_SELECT)
       .eq("id", userId)
       .maybeSingle();
 

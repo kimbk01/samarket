@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MyServiceRow } from "@/lib/my/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { MY_SERVICES_SELECT } from "@/lib/my/mypage-tables-select";
 
 export function AdminMyServicesPage() {
   const [items, setItems] = useState<MyServiceRow[]>([]);
@@ -20,7 +21,7 @@ export function AdminMyServicesPage() {
       }
       const { data, error } = await supabase
         .from("my_services")
-        .select("*")
+        .select(MY_SERVICES_SELECT)
         .order("sort_order", { ascending: true });
       if (cancelled) return;
       if (error) {

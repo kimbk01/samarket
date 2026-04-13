@@ -2,6 +2,7 @@
  * posts 조회 — Supabase에 seller_listing_state 미적용·스키마 캐시 불일치 시에도 채팅이 동작하도록 폴백.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { POST_TRADE_DETAIL_SELECT, POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export function isMissingSellerListingColumnError(message: string | undefined | null): boolean {
   const m = String(message ?? "");
@@ -43,6 +44,10 @@ export async function fetchPostRowForChat(
    * 「글 · UUID…」, ₩0, 썸네일 없음 이 됨 → `*` 로 실제 행을 반드시 가져온다.
    */
   if (error) {
+    const rNarrow = await sbAny.from("posts").select(POST_TRADE_DETAIL_SELECT).eq("id", pid).maybeSingle();
+    if (!rNarrow.error && rNarrow.data) return rNarrow.data as Record<string, unknown>;
+    const rRel = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", pid).maybeSingle();
+    if (!rRel.error && rRel.data) return rRel.data as Record<string, unknown>;
     const rStar = await sbAny.from("posts").select("*").eq("id", pid).maybeSingle();
     if (!rStar.error && rStar.data) return rStar.data as Record<string, unknown>;
   }
@@ -120,6 +125,14 @@ export async function fetchPostRowsForChatIn(
   if (!error && Array.isArray(data)) return data as Record<string, unknown>[];
 
   if (error) {
+    const rNarrow = await sbAny.from("posts").select(POST_TRADE_DETAIL_SELECT).in("id", ids);
+    if (!rNarrow.error && Array.isArray(rNarrow.data) && rNarrow.data.length) {
+      return rNarrow.data as Record<string, unknown>[];
+    }
+    const rRel = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", ids);
+    if (!rRel.error && Array.isArray(rRel.data) && rRel.data.length) {
+      return rRel.data as Record<string, unknown>[];
+    }
     const rStar = await sbAny.from("posts").select("*").in("id", ids);
     if (!rStar.error && Array.isArray(rStar.data)) return rStar.data as Record<string, unknown>[];
   }

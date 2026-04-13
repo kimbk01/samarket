@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { ADMIN_MESSENGER_CALL_SOUND_SETTINGS_SELECT } from "@/lib/admin/admin-public-settings-select";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,11 @@ export async function GET() {
 
   try {
     const sb = getSupabaseServer();
-    const { data, error } = await sb.from("admin_messenger_call_sound_settings").select("*").eq("id", "default").maybeSingle();
+    const { data, error } = await sb
+      .from("admin_messenger_call_sound_settings")
+      .select(ADMIN_MESSENGER_CALL_SOUND_SETTINGS_SELECT)
+      .eq("id", "default")
+      .maybeSingle();
     if (error) {
       if (error.message?.includes("does not exist")) {
         return NextResponse.json({ ok: true, config: null, table_missing: true });

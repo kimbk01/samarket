@@ -7,6 +7,7 @@ import {
   mapTransactionReviewRowToAdminReview,
   type TransactionReviewDbRow,
 } from "@/lib/admin-reviews/map-transaction-review-to-admin";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 const SELECT_FIELDS =
   "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment";
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ review: null });
     }
     const r = row as TransactionReviewDbRow;
-    const { data: post } = await sbAny.from("posts").select("*").eq("id", r.product_id).maybeSingle();
+    const { data: post } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", r.product_id).maybeSingle();
     const postRow = (post as Record<string, unknown> | null) ?? undefined;
     const nick = await batchNicknamesByUserIds(sbAny, [r.reviewer_id, r.reviewee_id]);
     const review = mapTransactionReviewRowToAdminReview(r, postRow, nick);
@@ -70,14 +71,14 @@ export async function POST(req: NextRequest) {
 
   const postById = new Map<string, Record<string, unknown>>();
   if (productIds.length) {
-    const { data: posts } = await sbAny.from("posts").select("*").in("id", productIds);
+    const { data: posts } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", productIds);
     (posts ?? []).forEach((p: Record<string, unknown>) => {
       const id = String(p.id ?? "");
       if (id) postById.set(id, p);
     });
     const missing = productIds.filter((id) => !postById.has(id));
     for (const mid of missing.slice(0, 40)) {
-      const { data: one } = await sbAny.from("posts").select("*").eq("id", mid).maybeSingle();
+      const { data: one } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
       if (one) postById.set(String(mid), one as Record<string, unknown>);
     }
   }

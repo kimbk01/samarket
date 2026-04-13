@@ -3,6 +3,7 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
 import { normalizePostImages, normalizePostPrice, normalizePostMeta } from "./getPostById";
+import { POST_TRADE_LIST_SELECT } from "@/lib/posts/trade-posts-range-query";
 
 /**
  * 같은 카테고리의 다른 글 (보고 있는 물품과 비슷한 물품)
@@ -19,7 +20,7 @@ export async function getSimilarPosts(
   try {
     const q = (supabase as any)
       .from("posts")
-      .select("*")
+      .select(POST_TRADE_LIST_SELECT)
       .neq("status", "hidden")
       .neq("status", "sold")
       .neq("id", excludePostId)
@@ -33,7 +34,7 @@ export async function getSimilarPosts(
       if (typeof error?.message === "string" && error.message.includes("trade_category_id")) {
         const fallback = await (supabase as any)
           .from("posts")
-          .select("*")
+          .select(POST_TRADE_LIST_SELECT)
           .neq("status", "hidden")
           .neq("status", "sold")
           .neq("id", excludePostId)

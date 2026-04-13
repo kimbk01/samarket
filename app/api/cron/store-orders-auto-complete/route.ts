@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { notifyBuyerStoreOrderAutoCompleted } from "@/lib/notifications/notify-store-commerce";
+import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +19,7 @@ async function runStoreOrdersAutoComplete(req: Request) {
     return NextResponse.json({ ok: false, error: "cron_secret_not_configured" }, { status: 503 });
   }
 
-  const auth = req.headers.get("authorization");
-  const header = req.headers.get("x-cron-secret");
-  if (auth !== `Bearer ${secret}` && header !== secret) {
+  if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 

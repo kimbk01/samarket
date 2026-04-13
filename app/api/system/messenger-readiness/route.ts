@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMessengerReadinessProbe } from "@/lib/system/messenger-readiness";
+import { timingSafeEqualUtf8 } from "@/lib/security/timing-safe-string";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,9 @@ export async function GET(req: NextRequest) {
   if (expected) {
     const header = req.headers.get("x-messenger-readiness-secret")?.trim();
     const q = req.nextUrl.searchParams.get("secret")?.trim();
-    if (header !== expected && q !== expected) {
+    const ok =
+      timingSafeEqualUtf8(header, expected) || timingSafeEqualUtf8(q, expected);
+    if (!ok) {
       return new NextResponse(null, { status: 404 });
     }
   }

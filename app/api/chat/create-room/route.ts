@@ -7,11 +7,16 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { POST_TRADE_CHAT_GATE_SELECT } from "@/lib/posts/post-query-select";
+import { enforceTradeChatCreateRoomQuota } from "@/lib/security/rate-limit-presets";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+
+  const createRl = await enforceTradeChatCreateRoomQuota(userId);
+  if (!createRl.ok) return createRl.response;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
@@ -41,7 +46,7 @@ export async function POST(req: NextRequest) {
   // 1) 상품 및 판매자
   const { data: postRaw, error: postErr } = await sbAny
     .from("posts")
-    .select("*")
+    .select(POST_TRADE_CHAT_GATE_SELECT)
     .eq("id", productId)
     .maybeSingle();
   if (postErr || !postRaw) {

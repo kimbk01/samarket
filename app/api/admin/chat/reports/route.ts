@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { CHAT_REPORTS_ADMIN_SELECT } from "@/lib/chat/chat-sql-selects";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   let q = sbAny
     .from("chat_reports")
-    .select("*")
+    .select(CHAT_REPORTS_ADMIN_SELECT)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (status) q = q.eq("status", status);

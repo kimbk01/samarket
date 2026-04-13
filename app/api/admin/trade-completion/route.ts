@@ -7,6 +7,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export async function POST(_req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -41,7 +42,7 @@ export async function POST(_req: NextRequest) {
   const postIds = [...new Set(list.map((r: { post_id: string }) => r.post_id).filter(Boolean))];
   const postMap = new Map<string, Record<string, unknown>>();
   if (postIds.length) {
-    const { data: posts } = await sbAny.from("posts").select("*").in("id", postIds);
+    const { data: posts } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", postIds);
     (posts ?? []).forEach((p: Record<string, unknown>) => {
       const id = String(p.id ?? "");
       if (id) postMap.set(id, p);

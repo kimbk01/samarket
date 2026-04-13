@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createClient } from "@supabase/supabase-js";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export async function GET(_req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -53,14 +54,14 @@ export async function GET(_req: NextRequest) {
 
   const postById = new Map<string, Record<string, unknown>>();
   if (productIds.length) {
-    const { data: posts } = await sbAny.from("posts").select("*").in("id", productIds);
+    const { data: posts } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).in("id", productIds);
     (posts ?? []).forEach((p: Record<string, unknown>) => {
       const id = String(p.id ?? "");
       if (id) postById.set(id, p);
     });
     const missing = productIds.filter((id) => !postById.has(id));
     for (const mid of missing.slice(0, 30)) {
-      const { data: one } = await sbAny.from("posts").select("*").eq("id", mid).maybeSingle();
+      const { data: one } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
       if (one) postById.set(String(mid), one as Record<string, unknown>);
     }
   }

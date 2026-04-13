@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { inferReportReasonCode } from "@/lib/reports/report-reason-code";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
+import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
 /**
  * 동네생활 피드 전용 신고 — public.community_reports
@@ -10,6 +11,9 @@ import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const reportRl = await enforceUserReportQuota(auth.userId, "community_feed");
+  if (!reportRl.ok) return reportRl.response;
 
   let body: { postId?: string; reasonText?: string };
   try {

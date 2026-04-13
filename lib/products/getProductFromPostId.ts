@@ -4,6 +4,7 @@
  */
 import type { Product } from "@/lib/types/product";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { POST_TRADE_DETAIL_SELECT } from "@/lib/posts/post-query-select";
 
 function imageUrlFromItem(x: unknown): string | null {
   if (typeof x === "string" && x.trim()) return x.trim();
@@ -78,7 +79,11 @@ export async function getProductFromPostId(postId: string): Promise<Product | nu
       .maybeSingle();
 
     if (error && /could not find|does not exist|unknown column|schema cache/i.test(String(error.message))) {
-      const full = await sbAny.from("posts").select("*").eq("id", postId.trim()).maybeSingle();
+      const full = await sbAny
+        .from("posts")
+        .select(POST_TRADE_DETAIL_SELECT)
+        .eq("id", postId.trim())
+        .maybeSingle();
       row = full.data;
       error = full.error;
     }

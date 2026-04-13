@@ -2,6 +2,9 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 
+const ADMIN_SANCTION_LEDGER_SELECT =
+  "action_id, report_id, action_type, action_note, admin_id, action_at, target_type, target_id, room_id, product_id, reporter_id, reason_code, reason_text, report_status, resolved_at, admin_note";
+
 export interface AdminSanctionLedgerRow {
   action_id: string;
   report_id: string;
@@ -45,7 +48,7 @@ export async function getAdminSanctionLedgerFromDb(
   try {
     const { data, error } = await sb
       .from("admin_sanction_ledger")
-      .select("*")
+      .select(ADMIN_SANCTION_LEDGER_SELECT)
       .limit(limit)
       .order("action_at", { ascending: false });
 

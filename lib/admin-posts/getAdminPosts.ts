@@ -2,6 +2,7 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "@/lib/posts/schema";
+import { POST_TRADE_DETAIL_SELECT } from "@/lib/posts/post-query-select";
 
 export async function getAdminPosts(): Promise<PostWithMeta[]> {
   const supabase = getSupabaseClient();
@@ -10,7 +11,7 @@ export async function getAdminPosts(): Promise<PostWithMeta[]> {
   try {
     const { data, error } = await (supabase as any)
       .from("posts")
-      .select("*")
+      .select(POST_TRADE_DETAIL_SELECT)
       .order("created_at", { ascending: false })
       .limit(500);
 

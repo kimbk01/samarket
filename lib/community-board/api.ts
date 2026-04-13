@@ -16,6 +16,7 @@ import type {
   PostListItem,
 } from "./types";
 import { mapBoardRow } from "./board-row-mapper";
+import { COMMUNITY_BOARDS_ROW_SELECT } from "@/lib/community-board/boards-select";
 
 type Sb = ReturnType<typeof getSupabaseServer>;
 type NicknameSb = Parameters<typeof fetchNicknamesForUserIds>[0];
@@ -161,7 +162,7 @@ export async function listCommunityBoards(): Promise<Board[]> {
 
   const { data, error } = await sb
     .from("boards")
-    .select("*")
+    .select(COMMUNITY_BOARDS_ROW_SELECT)
     .eq("service_id", serviceId)
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
@@ -182,7 +183,7 @@ export async function getBoardBySlug(slug: string): Promise<Board | null> {
 
   const { data, error } = await sb
     .from("boards")
-    .select("*")
+    .select(COMMUNITY_BOARDS_ROW_SELECT)
     .eq("service_id", serviceId)
     .eq("slug", slug.trim().toLowerCase())
     .eq("is_active", true)

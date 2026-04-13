@@ -8,6 +8,7 @@ import { getTrustSummary } from "@/lib/reviews/trust-utils";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
 import type { MyPageData, MyPageBannerRow, MyServiceRow, MyPageSectionRow } from "./types";
 import { DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS } from "./my-page-defaults";
+import { MY_PAGE_BANNERS_SELECT, MY_PAGE_SECTIONS_SELECT, MY_SERVICES_SELECT } from "@/lib/my/mypage-tables-select";
 
 function isAdminEmailForServer(email: string | null | undefined): boolean {
   const e = email?.trim();
@@ -41,15 +42,19 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
       const [bannerRes, servicesRes, sectionsRes] = await Promise.all([
         userSb
           .from("my_page_banners")
-          .select("*")
+          .select(MY_PAGE_BANNERS_SELECT)
           .eq("is_active", true)
           .order("sort_order", { ascending: true })
           .limit(1)
           .maybeSingle(),
-        userSb.from("my_services").select("*").eq("is_active", true).order("sort_order", { ascending: true }),
+        userSb
+          .from("my_services")
+          .select(MY_SERVICES_SELECT)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
         userSb
           .from("my_page_sections")
-          .select("*")
+          .select(MY_PAGE_SECTIONS_SELECT)
           .eq("is_active", true)
           .order("sort_order", { ascending: true }),
       ]);

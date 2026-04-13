@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
 const REPORT_TYPES = ["room", "message", "user", "item"] as const;
 const REASON_TYPES = [
@@ -15,6 +16,9 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const reporterUserId = auth.userId;
+
+  const reportRl = await enforceUserReportQuota(reporterUserId, "chat", { limit: 30 });
+  if (!reportRl.ok) return reportRl.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

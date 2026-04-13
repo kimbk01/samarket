@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
+import { ADMIN_NOTIFICATION_SETTINGS_SELECT } from "@/lib/admin/admin-public-settings-select";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,10 @@ export async function GET() {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const { data, error } = await sb.from("admin_notification_settings").select("*").order("type");
+  const { data, error } = await sb
+    .from("admin_notification_settings")
+    .select(ADMIN_NOTIFICATION_SETTINGS_SELECT)
+    .order("type");
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }

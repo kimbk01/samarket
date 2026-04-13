@@ -6,6 +6,7 @@ import {
   loadMemberAccessState,
 } from "@/lib/auth/member-access";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
+import { enforcePhoneVerificationPatchQuota } from "@/lib/security/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,10 @@ type PatchBody = {
 export async function PATCH(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const phoneRl = await enforcePhoneVerificationPatchQuota(auth.userId);
+  if (!phoneRl.ok) return phoneRl.response;
+
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_service_unconfigured" }, { status: 503 });

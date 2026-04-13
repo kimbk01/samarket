@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureProductChatRowForItemTrade } from "./ensure-product-chat-for-item-trade";
+import { PRODUCT_CHAT_ROW_SELECT } from "@/lib/trade/product-chat-select";
 
 export type ProductChatRow = Record<string, unknown> & {
   id: string;
@@ -17,7 +18,7 @@ export async function resolveProductChat(
 ): Promise<{ productChat: ProductChatRow; productChatId: string } | null> {
   const { data: pc } = await sb
     .from("product_chats")
-    .select("*")
+    .select(PRODUCT_CHAT_ROW_SELECT)
     .eq("id", roomId)
     .maybeSingle();
 

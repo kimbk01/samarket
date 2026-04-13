@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { ADMIN_MESSENGER_CALL_SOUND_SETTINGS_SELECT } from "@/lib/admin/admin-public-settings-select";
 export const dynamic = "force-dynamic";
 
 function sbOr503() {
@@ -18,7 +19,11 @@ export async function GET() {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const { data, error } = await sb.from("admin_messenger_call_sound_settings").select("*").eq("id", "default").maybeSingle();
+  const { data, error } = await sb
+    .from("admin_messenger_call_sound_settings")
+    .select(ADMIN_MESSENGER_CALL_SOUND_SETTINGS_SELECT)
+    .eq("id", "default")
+    .maybeSingle();
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }

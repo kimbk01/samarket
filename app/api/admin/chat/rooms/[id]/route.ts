@@ -7,6 +7,13 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
 import { fetchModerationLogsForRoom } from "@/lib/admin-chats/fetch-moderation-logs-for-room";
+import { PRODUCT_CHAT_ADMIN_LIST_SELECT, REPORT_ROW_ADMIN_MIN_SELECT } from "@/lib/admin/product-chat-sql-select";
+import {
+  CHAT_EVENT_LOGS_ADMIN_SELECT,
+  CHAT_REPORTS_ADMIN_SELECT,
+  CHAT_ROOM_ADMIN_DETAIL_SELECT,
+  CHAT_ROOM_PARTICIPANT_API_SELECT,
+} from "@/lib/chat/chat-sql-selects";
 
 export async function GET(
   _req: NextRequest,
@@ -28,7 +35,12 @@ export async function GET(
 
   const sbAny = sb;
 
-  const room = await sbAny.from("chat_rooms").select("*").eq("id", roomId).maybeSingle().then((r) => r.data);
+  const room = await sbAny
+    .from("chat_rooms")
+    .select(CHAT_ROOM_ADMIN_DETAIL_SELECT)
+    .eq("id", roomId)
+    .maybeSingle()
+    .then((r) => r.data);
 
   if (room) {
     const roomRow = room as {
@@ -52,10 +64,15 @@ export async function GET(
       return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
     }
     const [participants, messages, events, reports] = await Promise.all([
-      sbAny.from("chat_room_participants").select("*").eq("room_id", roomId),
+      sbAny.from("chat_room_participants").select(CHAT_ROOM_PARTICIPANT_API_SELECT).eq("room_id", roomId),
       sbAny.from("chat_messages").select("id, sender_id, message_type, body, created_at, is_hidden_by_admin").eq("room_id", roomId).order("created_at", { ascending: true }).limit(200),
-      sbAny.from("chat_event_logs").select("*").eq("room_id", roomId).order("created_at", { ascending: false }).limit(100),
-      sbAny.from("chat_reports").select("*").eq("room_id", roomId),
+      sbAny
+        .from("chat_event_logs")
+        .select(CHAT_EVENT_LOGS_ADMIN_SELECT)
+        .eq("room_id", roomId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      sbAny.from("chat_reports").select(CHAT_REPORTS_ADMIN_SELECT).eq("room_id", roomId),
     ]);
     let item: Record<string, unknown> | null = null;
     let productTitle = "";
@@ -106,7 +123,12 @@ export async function GET(
     });
   }
 
-  const pc = await sbAny.from("product_chats").select("*").eq("id", roomId).maybeSingle().then((r) => r.data);
+  const pc = await sbAny
+    .from("product_chats")
+    .select(PRODUCT_CHAT_ADMIN_LIST_SELECT)
+    .eq("id", roomId)
+    .maybeSingle()
+    .then((r) => r.data);
   if (!pc) {
     return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
   }
@@ -127,7 +149,7 @@ export async function GET(
     .limit(200);
   const { data: reportRows } = await sbAny
     .from("reports")
-    .select("*")
+    .select(REPORT_ROW_ADMIN_MIN_SELECT)
     .eq("target_type", "chat_room")
     .eq("target_id", roomId);
   const { data: postRaw } = await sbAny.from("posts").select("id, title, price, status, thumbnail_url, images").eq("id", pcRow.post_id).maybeSingle();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
 interface Ctx {
   params: Promise<{ meetingId: string }>;
@@ -29,6 +30,9 @@ const VALID_REASON_TYPES = new Set([
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const reportRl = await enforceUserReportQuota(auth.userId, "philife_meeting");
+  if (!reportRl.ok) return reportRl.response;
 
   const { meetingId } = await ctx.params;
   const id = meetingId?.trim();

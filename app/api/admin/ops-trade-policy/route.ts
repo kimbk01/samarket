@@ -27,7 +27,11 @@ export async function GET(_req: NextRequest) {
    
   const sbAny = sb as any;
   try {
-    const { data } = await sbAny.from("ops_trade_policy").select("*").eq("id", 1).maybeSingle();
+    const { data } = await sbAny
+      .from("ops_trade_policy")
+      .select("id, buyer_auto_confirm_days, buyer_review_deadline_days")
+      .eq("id", 1)
+      .maybeSingle();
     const row = data as { buyer_auto_confirm_days?: number; buyer_review_deadline_days?: number } | null;
     return NextResponse.json({
       buyerAutoConfirmDays: clampPolicyDays(

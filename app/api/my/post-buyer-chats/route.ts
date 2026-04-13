@@ -11,6 +11,7 @@ import {
   type ItemTradeRoomRowForSync,
 } from "@/lib/trade/touch-product-chat-from-item-trade-room";
 import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
+import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const { data: post } = await sbAny.from("posts").select("*").eq("id", postId).maybeSingle();
+  const { data: post } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", postId).maybeSingle();
   const prow = post as Record<string, unknown> | null;
   const author = postAuthorUserId(prow ?? undefined);
   if (!author || author !== userId) {

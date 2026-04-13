@@ -14,6 +14,7 @@ import { getTrustSummary } from "@/lib/reviews/trust-utils";
 import { getMySettings } from "./getMySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
+import { MY_PAGE_BANNERS_SELECT, MY_PAGE_SECTIONS_SELECT, MY_SERVICES_SELECT } from "@/lib/my/mypage-tables-select";
 
 export async function getMyPageData(): Promise<MyPageData> {
   const user = getCurrentUser();
@@ -37,19 +38,19 @@ export async function getMyPageData(): Promise<MyPageData> {
         const [bannerRes, servicesRes, sectionsRes] = await Promise.all([
           supabase
             .from("my_page_banners")
-            .select("*")
+            .select(MY_PAGE_BANNERS_SELECT)
             .eq("is_active", true)
             .order("sort_order", { ascending: true })
             .limit(1)
             .maybeSingle(),
           supabase
             .from("my_services")
-            .select("*")
+            .select(MY_SERVICES_SELECT)
             .eq("is_active", true)
             .order("sort_order", { ascending: true }),
           supabase
             .from("my_page_sections")
-            .select("*")
+            .select(MY_PAGE_SECTIONS_SELECT)
             .eq("is_active", true)
             .order("sort_order", { ascending: true }),
         ]);
@@ -60,12 +61,12 @@ export async function getMyPageData(): Promise<MyPageData> {
         const [servicesRes, sectionsRes] = await Promise.all([
           supabase
             .from("my_services")
-            .select("*")
+            .select(MY_SERVICES_SELECT)
             .eq("is_active", true)
             .order("sort_order", { ascending: true }),
           supabase
             .from("my_page_sections")
-            .select("*")
+            .select(MY_PAGE_SECTIONS_SELECT)
             .eq("is_active", true)
             .order("sort_order", { ascending: true }),
         ]);

@@ -2,6 +2,7 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
 import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
+import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,9 @@ export async function POST() {
   if (error || !user) {
     return jsonError("로그인이 필요합니다.", 401, { code: "unauthorized" });
   }
+
+  const ensureRl = await enforceProfileEnsureQuota(user.id);
+  if (!ensureRl.ok) return ensureRl.response;
 
   const serviceSb = tryCreateSupabaseServiceClient();
   if (!serviceSb) {

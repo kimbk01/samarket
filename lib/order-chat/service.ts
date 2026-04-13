@@ -14,6 +14,7 @@ import type {
   OrderChatRoomPublic,
   OrderChatSnapshot,
 } from "./types";
+import { ORDER_CHAT_MESSAGE_ROW_SELECT, ORDER_CHAT_ROOM_ROW_SELECT } from "@/lib/order-chat/order-chat-select";
 
 /**
  * 주문 채팅(`order_chat_*`)과 별개인 커뮤니티 메신저 방에 거래/배달 목록 메타를 넣을 때는
@@ -83,7 +84,7 @@ function computeNextTowardTarget(
 }
 
 async function getRoomByOrderId(sb: SupabaseClient<any>, orderId: string) {
-  const { data } = await sb.from("order_chat_rooms").select("*").eq("order_id", orderId).maybeSingle();
+  const { data } = await sb.from("order_chat_rooms").select(ORDER_CHAT_ROOM_ROW_SELECT).eq("order_id", orderId).maybeSingle();
   return (data as OrderChatRoomPublic | null) ?? null;
 }
 
@@ -147,7 +148,7 @@ async function insertOrderChatMessage(
       is_read_by_admin: false,
       created_at: createdAt,
     })
-    .select("*")
+    .select(ORDER_CHAT_MESSAGE_ROW_SELECT)
     .single();
   if (error || !data) {
     console.error("[order-chat] insert message", error);
@@ -168,7 +169,7 @@ async function insertOrderChatMessage(
     nextPatch.last_chat_order_status = input.relatedOrderStatus;
   }
   await touchRoomSummary(sb, input.room.id, nextPatch);
-  return data as OrderChatMessagePublic;
+  return data as unknown as OrderChatMessagePublic;
 }
 
 async function pushDeliveryCompletedPair(
@@ -322,12 +323,16 @@ export async function ensureOrderChatRoom(
     unread_count_admin: 0,
     last_chat_order_status: null,
   };
-  const { data: roomData, error: roomErr } = await sb.from("order_chat_rooms").insert(roomInsert).select("*").single();
+  const { data: roomData, error: roomErr } = await sb
+    .from("order_chat_rooms")
+    .insert(roomInsert)
+    .select(ORDER_CHAT_ROOM_ROW_SELECT)
+    .single();
   if (roomErr || !roomData) {
     console.error("[order-chat] insert room", roomErr);
     return { ok: false, error: roomErr?.message ?? "room_insert_failed" };
   }
-  const room = roomData as OrderChatRoomPublic;
+  const room = roomData as unknown as OrderChatRoomPublic;
   const { error: partErr } = await sb.from("order_chat_participants").insert([
     {
       room_id: room.id,
@@ -394,7 +399,7 @@ export async function getOrderChatSnapshotForUser(
   if (!match) return { ok: false, error: "forbidden", status: 403 };
   const { data } = await sb
     .from("order_chat_messages")
-    .select("*")
+    .select(ORDER_CHAT_MESSAGE_ROW_SELECT)
     .eq("room_id", match.room.id)
     .order("created_at", { ascending: true });
   return {
@@ -403,7 +408,7 @@ export async function getOrderChatSnapshotForUser(
       room: match.room,
       role: match.role,
       orderStatus: match.orderStatus,
-      messages: (data ?? []) as OrderChatMessagePublic[],
+      messages: (data ?? []) as unknown as OrderChatMessagePublic[],
     },
   };
 }

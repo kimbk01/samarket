@@ -72,6 +72,15 @@ const nextConfig = {
           },
           // 클릭재킹 이중 방어
           { key: "X-XSS-Protection", value: "1; mode=block" },
+          // HTTPS 배포 환경에서만 (로컬 http 개발은 제외)
+          ...(process.env.NODE_ENV === "production" || process.env.VERCEL === "1"
+            ? [
+                {
+                  key: "Strict-Transport-Security",
+                  value: "max-age=31536000; includeSubDomains",
+                },
+              ]
+            : []),
         ],
       },
       {

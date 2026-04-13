@@ -16,6 +16,7 @@ import {
 } from "@/lib/chats/chat-image-bundle";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { parseRoomId } from "@/lib/validate-params";
+import { enforceTradeChatSendQuota } from "@/lib/security/rate-limit-presets";
 
 export async function POST(
   req: NextRequest,
@@ -35,6 +36,10 @@ export async function POST(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+
+  const sendRl = await enforceTradeChatSendQuota(userId, roomId);
+  if (!sendRl.ok) return sendRl.response;
+
   let body: { text?: string; messageType?: string; imageUrl?: string | null; imageUrls?: unknown };
   try {
     body = await req.json();

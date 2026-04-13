@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MyPageSectionRow } from "@/lib/my/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { MY_PAGE_SECTIONS_SELECT } from "@/lib/my/mypage-tables-select";
 
 export function AdminMySectionsPage() {
   const [items, setItems] = useState<MyPageSectionRow[]>([]);
@@ -20,7 +21,7 @@ export function AdminMySectionsPage() {
       }
       const { data, error } = await supabase
         .from("my_page_sections")
-        .select("*")
+        .select(MY_PAGE_SECTIONS_SELECT)
         .order("sort_order", { ascending: true });
       if (cancelled) return;
       if (error) {

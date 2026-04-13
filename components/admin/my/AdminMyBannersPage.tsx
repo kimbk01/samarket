@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MyPageBannerRow } from "@/lib/my/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { MY_PAGE_BANNERS_SELECT } from "@/lib/my/mypage-tables-select";
 
 export function AdminMyBannersPage() {
   const [items, setItems] = useState<MyPageBannerRow[]>([]);
@@ -20,7 +21,7 @@ export function AdminMyBannersPage() {
       }
       const { data, error } = await supabase
         .from("my_page_banners")
-        .select("*")
+        .select(MY_PAGE_BANNERS_SELECT)
         .order("sort_order", { ascending: true });
       if (cancelled) return;
       if (error) {

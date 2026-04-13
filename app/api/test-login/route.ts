@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { enforceRateLimit, getClientIp } from "@/lib/http/api-route";
 import {
   KASAMA_DEV_UID_COOKIE,
   KASAMA_DEV_UID_PUB_COOKIE,
@@ -9,6 +10,15 @@ import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 
 /** 테스트용 아이디/비밀번호 검증 (test_users 테이블) */
 export async function POST(req: NextRequest) {
+  const loginRl = await enforceRateLimit({
+    key: `test-login:${getClientIp(req)}`,
+    limit: 25,
+    windowMs: 900_000,
+    message: "시도 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    code: "test_login_rate_limited",
+  });
+  if (!loginRl.ok) return loginRl.response;
+
   if (isProductionDeploy() || !isTestUsersSurfaceEnabled()) {
     return NextResponse.json(
       { ok: false, error: "아이디 로그인은 이 환경에서 비활성화되었습니다." },

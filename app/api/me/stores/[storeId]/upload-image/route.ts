@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,10 @@ export async function POST(
   if (!gate.ok) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
+
+  const upRl = await enforceStoreOwnerImageUploadQuota(userId, sid);
+  if (!upRl.ok) return upRl.response;
+
   const st = gate.store.approval_status;
   const canUploadImage =
     st === "approved" ||
