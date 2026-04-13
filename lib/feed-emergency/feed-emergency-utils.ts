@@ -4,15 +4,17 @@
 
 import type { FeedFallbackModeState } from "@/lib/types/feed-emergency";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getFeedEmergencyPolicyBySurface } from "./mock-feed-emergency-policies";
-import { getFeedFallbackStateBySurface } from "./mock-feed-fallback-states";
-import { getFeedSectionOverrides } from "./mock-feed-section-overrides";
-import { addFeedEmergencyLog } from "./mock-feed-emergency-logs";
 import { getActiveFeedVersionBySurface } from "@/lib/recommendation-deployments/mock-active-feed-versions";
+import {
+  addFeedEmergencyLog,
+  getFeedEmergencyPolicyBySurface,
+  getFeedFallbackStateBySurface,
+  getFeedSectionOverrides,
+  saveFeedEmergencyPolicy,
+  setFeedFallbackState,
+  setFeedSectionOverride,
+} from "@/lib/feed-emergency/feed-emergency-state";
 import type { FeedSectionOverrideKey } from "@/lib/types/feed-emergency";
-import { saveFeedEmergencyPolicy } from "./mock-feed-emergency-policies";
-import { setFeedFallbackState } from "./mock-feed-fallback-states";
-import { setFeedSectionOverride } from "./mock-feed-section-overrides";
 
 const ADMIN_ID = "admin1";
 const ADMIN_NICK = "관리자";
@@ -34,17 +36,14 @@ export function isKillSwitchEnabled(surface: RecommendationSurface): boolean {
 /** 해당 surface에서 강제 비활성화된 섹션 키 목록 */
 export function getDisabledSectionKeys(surface: RecommendationSurface): FeedSectionOverrideKey[] {
   const overrides = getFeedSectionOverrides(surface);
-  return overrides
-    .filter((o) => o.isForcedDisabled)
-    .map((o) => o.sectionKey);
+  return overrides.filter((o) => o.isForcedDisabled).map((o) => o.sectionKey);
 }
 
 /** fallback 모드일 때 사용할 버전 ID (previous_live_version이면 33단계 previousVersionId) */
 export function getFallbackVersionId(surface: RecommendationSurface): string | null {
   const policy = getFeedEmergencyPolicyBySurface(surface);
   const state = getFeedFallbackStateBySurface(surface);
-  if (state?.currentMode !== "fallback" && state?.currentMode !== "kill_switch")
-    return null;
+  if (state?.currentMode !== "fallback" && state?.currentMode !== "kill_switch") return null;
   if (state?.fallbackVersionId) return state.fallbackVersionId;
   if (policy?.fallbackMode === "previous_live_version") {
     const active = getActiveFeedVersionBySurface(surface);
@@ -61,8 +60,7 @@ export function getEmergencyNotice(surface: RecommendationSurface): {
   const policy = getFeedEmergencyPolicyBySurface(surface);
   const mode = getFeedMode(surface);
   const show =
-    (policy?.emergencyNoticeEnabled ?? false) &&
-    (mode === "kill_switch" || mode === "fallback");
+    (policy?.emergencyNoticeEnabled ?? false) && (mode === "kill_switch" || mode === "fallback");
   return {
     enabled: show,
     text: policy?.emergencyNoticeText ?? "일시적인 점검 중입니다.",
@@ -173,14 +171,7 @@ export function setSectionForcedDisabled(
   adminId = ADMIN_ID,
   adminNickname = ADMIN_NICK
 ): void {
-  setFeedSectionOverride(
-    surface,
-    sectionKey,
-    isForcedDisabled,
-    reason,
-    adminId,
-    adminNickname
-  );
+  setFeedSectionOverride(surface, sectionKey, isForcedDisabled, reason, adminId, adminNickname);
   addFeedEmergencyLog({
     surface,
     actionType: isForcedDisabled ? "disable_section" : "enable_section",

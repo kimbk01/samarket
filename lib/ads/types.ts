@@ -149,6 +149,11 @@ export interface AdApplyResponse {
 export interface ActiveAdsResponse {
   ok: boolean;
   ads: AdFeedPost[];
+  /** 조회 출처 — 클라이언트는 무시 가능 */
+  meta?: {
+    source: "supabase" | "memory" | "empty";
+    hint?: string;
+  };
 }
 
 /** GET /api/me/post-ads */

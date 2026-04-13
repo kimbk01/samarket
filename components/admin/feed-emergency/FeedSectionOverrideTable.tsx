@@ -3,13 +3,13 @@
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import type { FeedSectionOverrideKey } from "@/lib/types/feed-emergency";
-import { getFeedSectionOverrides } from "@/lib/feed-emergency/mock-feed-section-overrides";
 import {
+  getFeedSectionOverrides,
   SECTION_OVERRIDE_KEYS,
   SECTION_OVERRIDE_LABELS,
-  setFeedSectionOverride,
 } from "@/lib/feed-emergency/mock-feed-section-overrides";
 import { setSectionForcedDisabled } from "@/lib/feed-emergency/feed-emergency-utils";
+import { persistFeedEmergencyToServer } from "@/lib/feed-emergency/feed-emergency-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
@@ -23,7 +23,7 @@ export function FeedSectionOverrideTable() {
     [surface, refresh]
   );
 
-  const handleToggle = (
+  const handleToggle = async (
     sectionKey: FeedSectionOverrideKey,
     isForcedDisabled: boolean
   ) => {
@@ -33,7 +33,9 @@ export function FeedSectionOverrideTable() {
       isForcedDisabled,
       isForcedDisabled ? "긴급 비활성화" : "긴급 해제"
     );
-    setRefresh((r) => r + 1);
+    const r = await persistFeedEmergencyToServer();
+    if (!r.ok) console.warn("[feed-emergency] 저장 실패:", r.error);
+    setRefresh((x) => x + 1);
   };
 
   const overrideMap = new Map(
@@ -105,7 +107,7 @@ export function FeedSectionOverrideTable() {
                   <td className="px-3 py-2.5">
                     <button
                       type="button"
-                      onClick={() => handleToggle(sectionKey, !disabled)}
+                      onClick={() => void handleToggle(sectionKey, !disabled)}
                       className={`rounded border px-2 py-1 text-[13px] ${
                         disabled
                           ? "border-sam-border bg-sam-app text-sam-fg"

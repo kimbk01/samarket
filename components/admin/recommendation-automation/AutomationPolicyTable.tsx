@@ -6,6 +6,7 @@ import {
   getRecommendationAutomationPolicies,
   saveRecommendationAutomationPolicy,
 } from "@/lib/recommendation-automation/mock-recommendation-automation-policies";
+import { persistRecommendationOpsToServer } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const FALLBACK_MODE_LABELS: Record<string, string> = {
@@ -22,16 +23,22 @@ export function AutomationPolicyTable() {
     [refresh]
   );
 
-  const handleToggle = (
+  const flush = async () => {
+    const r = await persistRecommendationOpsToServer();
+    if (!r.ok) console.warn("[recommendation-ops] 저장 실패:", r.error);
+    setRefresh((x) => x + 1);
+  };
+
+  const handleToggle = async (
     id: string,
-    surface: RecommendationSurface,
-    field: keyof typeof policies[0],
+    _surface: RecommendationSurface,
+    field: keyof (typeof policies)[0],
     value: boolean
   ) => {
     const p = policies.find((x) => x.id === id);
     if (!p) return;
     saveRecommendationAutomationPolicy({ ...p, [field]: value });
-    setRefresh((r) => r + 1);
+    await flush();
   };
 
   if (policies.length === 0) {
@@ -85,7 +92,7 @@ export function AutomationPolicyTable() {
               <td className="px-3 py-2.5">
                 <button
                   type="button"
-                  onClick={() => handleToggle(p.id, p.surface, "isActive", !p.isActive)}
+                  onClick={() => void handleToggle(p.id, p.surface, "isActive", !p.isActive)}
                   className={`rounded border px-2 py-1 text-[13px] ${
                     p.isActive
                       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -105,7 +112,7 @@ export function AutomationPolicyTable() {
                         ...p,
                         autoFallbackEnabled: e.target.checked,
                       });
-                      setRefresh((r) => r + 1);
+                      void flush();
                     }}
                     className="rounded border-sam-border"
                   />
@@ -121,7 +128,7 @@ export function AutomationPolicyTable() {
                         ...p,
                         autoKillSwitchEnabled: e.target.checked,
                       });
-                      setRefresh((r) => r + 1);
+                      void flush();
                     }}
                     className="rounded border-sam-border"
                   />
@@ -137,7 +144,7 @@ export function AutomationPolicyTable() {
                         ...p,
                         autoRollbackEnabled: e.target.checked,
                       });
-                      setRefresh((r) => r + 1);
+                      void flush();
                     }}
                     className="rounded border-sam-border"
                   />
@@ -153,7 +160,7 @@ export function AutomationPolicyTable() {
                         ...p,
                         autoRecoveryEnabled: e.target.checked,
                       });
-                      setRefresh((r) => r + 1);
+                      void flush();
                     }}
                     className="rounded border-sam-border"
                   />
@@ -169,7 +176,7 @@ export function AutomationPolicyTable() {
                         ...p,
                         dryRunEnabled: e.target.checked,
                       });
-                      setRefresh((r) => r + 1);
+                      void flush();
                     }}
                     className="rounded border-sam-border"
                   />

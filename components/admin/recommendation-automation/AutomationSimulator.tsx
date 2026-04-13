@@ -6,6 +6,7 @@ import {
   evaluateAutomation,
   runAutomationForSurface,
 } from "@/lib/recommendation-automation/recommendation-automation-utils";
+import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
@@ -24,6 +25,9 @@ export function AutomationSimulator() {
     setResult({
       ...r,
       actionTaken: r.actionTaken,
+    });
+    void persistRecommendationRuntimeToServer().then((p) => {
+      if (!p.ok) console.warn("[automation] runtime persist failed", p.error);
     });
   };
 

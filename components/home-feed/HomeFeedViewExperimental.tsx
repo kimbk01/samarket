@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRegion } from "@/contexts/RegionContext";
 import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
 import { getBlockedUserIds } from "@/lib/reports/mock-blocked-users";
@@ -63,12 +63,46 @@ export function HomeFeedViewExperimental() {
     () => getBlockedUserIds(currentUserId),
     [currentUserId]
   );
-  const feedMode = useMemo(() => getFeedMode("home"), []);
-  const emergencyNotice = useMemo(() => getEmergencyNotice("home"), []);
-  const disabledSectionSet = useMemo(() => {
-    const keys = getDisabledSectionKeys("home");
-    return new Set<FeedSectionOverrideKey>(keys);
+
+  /** 운영 DB(admin_settings) 스냅샷 — 없으면 로컬 상태(getFeedMode 등) 폴백 */
+  const [emergencySnap, setEmergencySnap] = useState<{
+    mode: ReturnType<typeof getFeedMode>;
+    emergencyNotice: { enabled: boolean; text: string };
+    disabledSectionKeys: FeedSectionOverrideKey[];
+    fallbackVersionId: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetch("/api/feed/emergency?surface=home", { signal: ac.signal })
+      .then((r) => r.json())
+      .then(
+        (j: {
+          ok?: boolean;
+          mode?: ReturnType<typeof getFeedMode>;
+          emergencyNotice?: { enabled: boolean; text: string };
+          disabledSectionKeys?: FeedSectionOverrideKey[];
+          fallbackVersionId?: string | null;
+        }) => {
+          if (!j?.ok || !j.mode) return;
+          setEmergencySnap({
+            mode: j.mode,
+            emergencyNotice: j.emergencyNotice ?? { enabled: false, text: "" },
+            disabledSectionKeys: Array.isArray(j.disabledSectionKeys) ? j.disabledSectionKeys : [],
+            fallbackVersionId: j.fallbackVersionId ?? null,
+          });
+        }
+      )
+      .catch(() => {});
+    return () => ac.abort();
   }, []);
+
+  const feedMode = emergencySnap?.mode ?? getFeedMode("home");
+  const emergencyNotice = emergencySnap?.emergencyNotice ?? getEmergencyNotice("home");
+  const disabledSectionSet = useMemo(() => {
+    const keys = emergencySnap?.disabledSectionKeys ?? getDisabledSectionKeys("home");
+    return new Set<FeedSectionOverrideKey>(keys);
+  }, [emergencySnap]);
 
   const policies = useMemo(() => {
     const base = getHomeFeedPolicies();
@@ -81,7 +115,7 @@ export function HomeFeedViewExperimental() {
           : { ...p, isActive: false }
       );
     } else if (feedMode === "fallback") {
-      const fallbackVersionId = getFallbackVersionId("home");
+      const fallbackVersionId = emergencySnap?.fallbackVersionId ?? getFallbackVersionId("home");
       if (fallbackVersionId) {
         const version = getFeedVersionById(fallbackVersionId);
         if (version?.sectionConfig?.length) {
@@ -131,7 +165,7 @@ export function HomeFeedViewExperimental() {
         ? { ...p, isActive: false }
         : p
     );
-  }, [feedMode, disabledSectionSet]);
+  }, [feedMode, disabledSectionSet, emergencySnap?.fallbackVersionId]);
   const candidates = useMemo(() => {
     const list = getFeedCandidates(currentRegionName ?? undefined, userRegion);
     return list.filter((c) => !blockedIds.includes(c.sellerId));

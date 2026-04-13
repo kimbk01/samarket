@@ -20,6 +20,7 @@ interface AdminRecentActivityPanelsProps {
   reports: RecentReport[];
   chats: RecentChat[];
   reviews: RecentReview[];
+  loading?: boolean;
 }
 
 /** 서울은 일광절약 없음 — Node/브라우저 ICU 차이·SSR 시각 차로 인한 하이드레이션 불일치 방지 */
@@ -61,13 +62,15 @@ export function AdminRecentActivityPanels({
   reports,
   chats,
   reviews,
+  loading,
 }: AdminRecentActivityPanelsProps) {
+  const emptyLabel = loading ? "불러오는 중…" : "없음";
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       <AdminCard title="최근 등록 상품">
         <ul className="space-y-2">
           {products.length === 0 ? (
-            <li className="text-[13px] text-sam-muted">없음</li>
+            <li className="text-[13px] text-sam-muted">{emptyLabel}</li>
           ) : (
             products.map((p) => (
               <li key={p.id}>
@@ -95,7 +98,7 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 가입 회원">
         <ul className="space-y-2">
           {users.length === 0 ? (
-            <li className="text-[13px] text-sam-muted">없음</li>
+            <li className="text-[13px] text-sam-muted">{emptyLabel}</li>
           ) : (
             users.map((u) => (
               <li key={u.id}>
@@ -123,7 +126,7 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 신고">
         <ul className="space-y-2">
           {reports.length === 0 ? (
-            <li className="text-[13px] text-sam-muted">없음</li>
+            <li className="text-[13px] text-sam-muted">{emptyLabel}</li>
           ) : (
             reports.map((r) => (
               <li key={r.id}>
@@ -151,7 +154,7 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 채팅방">
         <ul className="space-y-2">
           {chats.length === 0 ? (
-            <li className="text-[13px] text-sam-muted">없음</li>
+            <li className="text-[13px] text-sam-muted">{emptyLabel}</li>
           ) : (
             chats.map((c) => (
               <li key={c.id}>
@@ -179,7 +182,7 @@ export function AdminRecentActivityPanels({
       <AdminCard title="최근 리뷰">
         <ul className="space-y-2">
           {reviews.length === 0 ? (
-            <li className="text-[13px] text-sam-muted">없음</li>
+            <li className="text-[13px] text-sam-muted">{emptyLabel}</li>
           ) : (
             reviews.map((r) => (
               <li key={r.id}>

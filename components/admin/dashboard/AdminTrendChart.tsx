@@ -5,13 +5,14 @@ import type { DashboardTrendItem } from "@/lib/types/admin-dashboard";
 interface AdminTrendChartProps {
   data: DashboardTrendItem[];
   title?: string;
+  loading?: boolean;
 }
 
 function formatDate(s: string) {
   return s.slice(5).replace("-", "/");
 }
 
-export function AdminTrendChart({ data, title = "일별 추이" }: AdminTrendChartProps) {
+export function AdminTrendChart({ data, title = "일별 추이", loading }: AdminTrendChartProps) {
   const maxVal = Math.max(
     1,
     ...data.flatMap((d) => [
@@ -28,7 +29,15 @@ export function AdminTrendChart({ data, title = "일별 추이" }: AdminTrendCha
         <h2 className="mb-3 text-[15px] font-medium text-sam-fg">{title}</h2>
       )}
       <div className="space-y-2">
-        {data.map((d) => (
+        {loading &&
+          data.map((d) => (
+            <div key={`sk-${d.date}`} className="flex items-center gap-2 text-[13px]">
+              <span className="w-16 shrink-0 text-sam-muted">{formatDate(d.date)}</span>
+              <div className="h-6 flex-1 animate-pulse rounded bg-sam-border" aria-hidden />
+            </div>
+          ))}
+        {!loading &&
+          data.map((d) => (
           <div key={d.date} className="flex items-center gap-2 text-[13px]">
             <span className="w-16 shrink-0 text-sam-muted">
               {formatDate(d.date)}

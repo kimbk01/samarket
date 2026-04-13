@@ -4,6 +4,8 @@ import type { DashboardStats } from "@/lib/types/admin-dashboard";
 
 interface AdminKpiCardsProps {
   stats: DashboardStats;
+  /** true이면 숫자 대신 스켈레톤 (mock KPI와 구분) */
+  loading?: boolean;
 }
 
 const CARDS: { key: keyof DashboardStats; label: string }[] = [
@@ -18,9 +20,12 @@ const CARDS: { key: keyof DashboardStats; label: string }[] = [
   { key: "averageTrustScore", label: "평균 배터리" },
 ];
 
-export function AdminKpiCards({ stats }: AdminKpiCardsProps) {
+export function AdminKpiCards({ stats, loading }: AdminKpiCardsProps) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div
+      className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      aria-busy={loading ? true : undefined}
+    >
       {CARDS.map(({ key, label }) => {
         const value = stats[key];
         const display =
@@ -34,7 +39,14 @@ export function AdminKpiCards({ stats }: AdminKpiCardsProps) {
           >
             <p className="text-[12px] text-sam-muted">{label}</p>
             <p className="mt-1 text-[18px] font-semibold text-sam-fg">
-              {display}
+              {loading ? (
+                <span
+                  className="inline-block h-[1.125rem] w-[3.5rem] animate-pulse rounded bg-sam-border"
+                  aria-hidden
+                />
+              ) : (
+                display
+              )}
             </p>
           </div>
         );

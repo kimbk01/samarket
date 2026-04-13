@@ -93,3 +93,18 @@ export interface DashboardTrendItem {
   reports: number;
   completedTransactions: number;
 }
+
+/** GET /api/admin/stats/dashboard 응답과 관리자 UI 상태 */
+export type DashboardPayload = {
+  stats: DashboardStats;
+  productSummary: ProductStatusSummary;
+  userSummary: UserStatusSummary;
+  reportSummary: ReportStatusSummary;
+  chatSummary: ChatStatusSummary;
+  recentProducts: RecentProduct[];
+  recentUsers: RecentUser[];
+  recentReports: RecentReport[];
+  recentChats: RecentChat[];
+  recentReviews: RecentReview[];
+  trend: DashboardTrendItem[];
+};

@@ -6,6 +6,7 @@ import {
   getRecommendationAlertEvents,
   acknowledgeAlertEvent,
 } from "@/lib/recommendation-monitoring/mock-recommendation-alert-events";
+import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const ADMIN_ID = "admin1";
@@ -23,9 +24,11 @@ export function AlertEventTable() {
     [refresh, ackFilter]
   );
 
-  const handleAck = (id: string) => {
+  const handleAck = async (id: string) => {
     acknowledgeAlertEvent(id, ADMIN_ID);
     setRefresh((r) => r + 1);
+    const r = await persistRecommendationRuntimeToServer();
+    if (!r.ok) console.warn("[alert-event] persist failed", r.error);
   };
 
   return (

@@ -12,6 +12,7 @@ import {
   disableFallback,
   getFeedMode,
 } from "@/lib/feed-emergency/feed-emergency-utils";
+import { persistFeedEmergencyToServer } from "@/lib/feed-emergency/feed-emergency-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
@@ -29,28 +30,36 @@ export function FeedEmergencyPolicyTable() {
     [refresh]
   );
 
-  const handleKillSwitch = (surface: RecommendationSurface, enabled: boolean) => {
+  const flush = async () => {
+    const r = await persistFeedEmergencyToServer();
+    if (!r.ok) {
+      console.warn("[feed-emergency] 저장 실패:", r.error);
+    }
+    setRefresh((x) => x + 1);
+  };
+
+  const handleKillSwitch = async (surface: RecommendationSurface, enabled: boolean) => {
     if (enabled) enableKillSwitch(surface);
     else disableKillSwitch(surface);
-    setRefresh((r) => r + 1);
+    await flush();
   };
 
-  const handleFallback = (surface: RecommendationSurface, enabled: boolean) => {
+  const handleFallback = async (surface: RecommendationSurface, enabled: boolean) => {
     if (enabled) enableFallback(surface, "관리자 수동 fallback 활성화");
     else disableFallback(surface);
-    setRefresh((r) => r + 1);
+    await flush();
   };
 
-  const handlePolicyChange = (
+  const handlePolicyChange = async (
     id: string,
     surface: RecommendationSurface,
-    field: keyof typeof policies[0],
+    field: keyof (typeof policies)[0],
     value: unknown
   ) => {
     const p = policies.find((x) => x.id === id);
     if (!p) return;
     saveFeedEmergencyPolicy({ ...p, [field]: value });
-    setRefresh((r) => r + 1);
+    await flush();
   };
 
   if (policies.length === 0) {
@@ -101,7 +110,7 @@ export function FeedEmergencyPolicyTable() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => handleKillSwitch(p.surface, !p.killSwitchEnabled)}
+                      onClick={() => void handleKillSwitch(p.surface, !p.killSwitchEnabled)}
                       className={`rounded border px-2 py-1 text-[13px] ${
                         p.killSwitchEnabled
                           ? "border-amber-300 bg-amber-50 text-amber-800"
@@ -120,7 +129,7 @@ export function FeedEmergencyPolicyTable() {
                     <button
                       type="button"
                       onClick={() =>
-                        handleFallback(p.surface, mode !== "fallback")
+                        void handleFallback(p.surface, mode !== "fallback")
                       }
                       className={`rounded border px-2 py-1 text-[13px] ${
                         mode === "fallback"
@@ -136,7 +145,7 @@ export function FeedEmergencyPolicyTable() {
                   <select
                     value={p.fallbackMode}
                     onChange={(e) =>
-                      handlePolicyChange(p.id, p.surface, "fallbackMode", e.target.value)
+                      void handlePolicyChange(p.id, p.surface, "fallbackMode", e.target.value)
                     }
                     className="rounded border border-sam-border px-2 py-1 text-[13px]"
                   >
@@ -155,7 +164,7 @@ export function FeedEmergencyPolicyTable() {
                       type="checkbox"
                       checked={p.emergencyNoticeEnabled}
                       onChange={(e) =>
-                        handlePolicyChange(
+                        void handlePolicyChange(
                           p.id,
                           p.surface,
                           "emergencyNoticeEnabled",
@@ -171,7 +180,7 @@ export function FeedEmergencyPolicyTable() {
                       type="text"
                       value={p.emergencyNoticeText}
                       onChange={(e) =>
-                        handlePolicyChange(
+                        void handlePolicyChange(
                           p.id,
                           p.surface,
                           "emergencyNoticeText",
@@ -189,7 +198,7 @@ export function FeedEmergencyPolicyTable() {
                       type="checkbox"
                       checked={p.autoDisableEnabled}
                       onChange={(e) =>
-                        handlePolicyChange(
+                        void handlePolicyChange(
                           p.id,
                           p.surface,
                           "autoDisableEnabled",

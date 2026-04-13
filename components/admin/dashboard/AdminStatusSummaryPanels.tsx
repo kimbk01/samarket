@@ -19,24 +19,40 @@ interface AdminStatusSummaryPanelsProps {
   user: UserStatusSummary;
   report: ReportStatusSummary;
   chat: ChatStatusSummary;
+  loading?: boolean;
 }
 
 function StatusRow({
   label,
   count,
+  loading,
 }: {
   label: string;
   count: number;
+  loading?: boolean;
 }) {
   return (
     <div className="flex justify-between text-[13px]">
       <span className="text-sam-muted">{label}</span>
-      <span className="font-medium text-sam-fg">{count}</span>
+      {loading ? (
+        <span
+          className="inline-block h-4 w-10 animate-pulse rounded bg-sam-border"
+          aria-hidden
+        />
+      ) : (
+        <span className="font-medium text-sam-fg">{count}</span>
+      )}
     </div>
   );
 }
 
-function ProductSummary({ summary }: { summary: ProductStatusSummary }) {
+function ProductSummary({
+  summary,
+  loading,
+}: {
+  summary: ProductStatusSummary;
+  loading?: boolean;
+}) {
   return (
     <AdminCard title="상품 상태">
       <div className="space-y-2">
@@ -46,6 +62,7 @@ function ProductSummary({ summary }: { summary: ProductStatusSummary }) {
               key={key}
               label={PRODUCT_STATUS_LABELS[key] ?? key}
               count={summary[key] ?? 0}
+              loading={loading}
             />
           )
         )}
@@ -54,7 +71,13 @@ function ProductSummary({ summary }: { summary: ProductStatusSummary }) {
   );
 }
 
-function UserSummary({ summary }: { summary: UserStatusSummary }) {
+function UserSummary({
+  summary,
+  loading,
+}: {
+  summary: UserStatusSummary;
+  loading?: boolean;
+}) {
   return (
     <AdminCard title="회원 상태">
       <div className="space-y-2">
@@ -64,6 +87,7 @@ function UserSummary({ summary }: { summary: UserStatusSummary }) {
               key={key}
               label={USER_STATUS_LABELS[key] ?? key}
               count={summary[key] ?? 0}
+              loading={loading}
             />
           )
         )}
@@ -72,7 +96,13 @@ function UserSummary({ summary }: { summary: UserStatusSummary }) {
   );
 }
 
-function ReportSummary({ summary }: { summary: ReportStatusSummary }) {
+function ReportSummary({
+  summary,
+  loading,
+}: {
+  summary: ReportStatusSummary;
+  loading?: boolean;
+}) {
   return (
     <AdminCard title="신고 상태">
       <div className="space-y-2">
@@ -82,6 +112,7 @@ function ReportSummary({ summary }: { summary: ReportStatusSummary }) {
               key={key}
               label={REPORT_STATUS_LABELS[key] ?? key}
               count={summary[key] ?? 0}
+              loading={loading}
             />
           )
         )}
@@ -90,7 +121,13 @@ function ReportSummary({ summary }: { summary: ReportStatusSummary }) {
   );
 }
 
-function ChatSummary({ summary }: { summary: ChatStatusSummary }) {
+function ChatSummary({
+  summary,
+  loading,
+}: {
+  summary: ChatStatusSummary;
+  loading?: boolean;
+}) {
   return (
     <AdminCard title="채팅 상태">
       <div className="space-y-2">
@@ -100,6 +137,7 @@ function ChatSummary({ summary }: { summary: ChatStatusSummary }) {
               key={key}
               label={CHAT_STATUS_LABELS[key] ?? key}
               count={summary[key] ?? 0}
+              loading={loading}
             />
           )
         )}
@@ -113,13 +151,14 @@ export function AdminStatusSummaryPanels({
   user,
   report,
   chat,
+  loading,
 }: AdminStatusSummaryPanelsProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <ProductSummary summary={product} />
-      <UserSummary summary={user} />
-      <ReportSummary summary={report} />
-      <ChatSummary summary={chat} />
+      <ProductSummary summary={product} loading={loading} />
+      <UserSummary summary={user} loading={loading} />
+      <ReportSummary summary={report} loading={loading} />
+      <ChatSummary summary={chat} loading={loading} />
     </div>
   );
 }

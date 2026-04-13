@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { safeErrorMessage } from "@/lib/http/api-route";
 import { createClient } from "@supabase/supabase-js";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import {
@@ -120,7 +121,10 @@ export async function POST(
     .single();
 
   if (msgErr) {
-    return NextResponse.json({ ok: false, error: msgErr.message ?? "전송 실패" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: safeErrorMessage(msgErr, "전송에 실패했습니다. 잠시 후 다시 시도해 주세요.") },
+      { status: 500 }
+    );
   }
 
   const preview =

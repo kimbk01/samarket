@@ -8,6 +8,7 @@ import {
   acknowledgeIncident,
   resolveIncident,
 } from "@/lib/recommendation-monitoring/mock-recommendation-incidents";
+import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const SEVERITY_LABELS: Record<string, string> = {
@@ -50,14 +51,18 @@ export function IncidentTable() {
     [refresh, statusFilter, surfaceFilter]
   );
 
-  const handleAck = (id: string) => {
+  const handleAck = async (id: string) => {
     acknowledgeIncident(id, ADMIN_ID, ADMIN_NICK);
     setRefresh((r) => r + 1);
+    const r = await persistRecommendationRuntimeToServer();
+    if (!r.ok) console.warn("[incident] persist failed", r.error);
   };
 
-  const handleResolve = (id: string) => {
+  const handleResolve = async (id: string) => {
     resolveIncident(id);
     setRefresh((r) => r + 1);
+    const r = await persistRecommendationRuntimeToServer();
+    if (!r.ok) console.warn("[incident] persist failed", r.error);
   };
 
   return (

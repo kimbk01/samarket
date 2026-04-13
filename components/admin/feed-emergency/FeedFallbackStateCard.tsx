@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getFeedFallbackStates } from "@/lib/feed-emergency/mock-feed-fallback-states";
+import { getFeedFallbackStates } from "@/lib/feed-emergency/feed-emergency-state";
 import { getFeedMode } from "@/lib/feed-emergency/feed-emergency-utils";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
 import { getActiveFeedVersionBySurface } from "@/lib/recommendation-deployments/mock-active-feed-versions";

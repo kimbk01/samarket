@@ -3,7 +3,14 @@
  * 테이블이 없거나 오류 시 호출부에서 인메모리(mock)로 폴백.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AdApplyStatus, AdPaymentMethod, AdType, AdminPostAdRow, PostAd } from "@/lib/ads/types";
+import type {
+  AdApplyStatus,
+  AdFeedPost,
+  AdPaymentMethod,
+  AdType,
+  AdminPostAdRow,
+  PostAd,
+} from "@/lib/ads/types";
 
 /** 인메모리 `PostAd` → 목록 API 공통 행 */
 export function postAdToAdminRow(ad: PostAd): AdminPostAdRow {
@@ -93,6 +100,141 @@ function isMissingPostAdsRelation(err: { code?: string; message?: string }): boo
     m.includes("does not exist") ||
     m.includes("relation") && m.includes("post_ads")
   );
+}
+
+function excerptFromPostBody(raw: string, max = 180): string {
+  const t = String(raw ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max).trimEnd()}…`;
+}
+
+type ActiveAdFeedRow = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  board_key: string;
+  ad_type: string;
+  priority: number;
+  start_at: string;
+  end_at: string;
+  community_posts?: {
+    title?: string | null;
+    summary?: string | null;
+    content?: string | null;
+    region_label?: string | null;
+  } | null;
+};
+
+/**
+ * 피드 상단고정 광고 — 공개 API용 (서비스 롤로만 호출, RLS는 일반 사용자에게 post_ads 노출 안 함).
+ * `docs/ads-schema.sql` + `community_posts` / `community_post_images` 스키마 기준.
+ */
+export async function fetchActiveTopFixedAdFeedPostsFromDb(
+  sb: SupabaseClient,
+  boardKey: string
+): Promise<
+  { ok: true; ads: AdFeedPost[] } | { ok: false; reason: "missing_table" | "error"; message?: string }
+> {
+  const bk = boardKey.trim() || "plife";
+  const nowIso = new Date().toISOString();
+
+  const { data, error } = await sb
+    .from("post_ads")
+    .select(
+      `
+      id,
+      post_id,
+      user_id,
+      board_key,
+      ad_type,
+      priority,
+      start_at,
+      end_at,
+      community_posts ( title, summary, content, region_label )
+    `
+    )
+    .eq("board_key", bk)
+    .eq("ad_type", "top_fixed")
+    .eq("apply_status", "active")
+    .eq("is_active", true)
+    .not("start_at", "is", null)
+    .not("end_at", "is", null)
+    .lte("start_at", nowIso)
+    .gte("end_at", nowIso)
+    .order("priority", { ascending: true });
+
+  if (error) {
+    if (isMissingPostAdsRelation(error)) {
+      return { ok: false, reason: "missing_table" };
+    }
+    return { ok: false, reason: "error", message: error.message };
+  }
+
+  const rows = (data ?? []) as ActiveAdFeedRow[];
+  if (rows.length === 0) {
+    return { ok: true, ads: [] };
+  }
+
+  const postIds = [...new Set(rows.map((r) => r.post_id).filter(Boolean))];
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+
+  const imageByPostId = new Map<string, string[]>();
+  if (postIds.length) {
+    const { data: imgRows, error: imgErr } = await sb
+      .from("community_post_images")
+      .select("post_id, image_url, sort_order")
+      .in("post_id", postIds)
+      .order("sort_order", { ascending: true });
+    if (!imgErr && Array.isArray(imgRows)) {
+      for (const row of imgRows as { post_id?: string; image_url?: string }[]) {
+        const pid = String(row.post_id ?? "");
+        const url = typeof row.image_url === "string" ? row.image_url.trim() : "";
+        if (!pid || !url) continue;
+        const list = imageByPostId.get(pid) ?? [];
+        list.push(url);
+        imageByPostId.set(pid, list);
+      }
+    }
+  }
+
+  const nicknameById = new Map<string, string>();
+  if (userIds.length) {
+    const { data: profs } = await sb.from("profiles").select("id, nickname, username").in("id", userIds);
+    for (const p of (profs ?? []) as { id?: string; nickname?: string | null; username?: string | null }[]) {
+      const id = String(p.id ?? "");
+      const label = String(p.nickname ?? p.username ?? "").trim() || id.slice(0, 8);
+      nicknameById.set(id, label);
+    }
+  }
+
+  const ads: AdFeedPost[] = rows.map((row) => {
+    const cp = row.community_posts;
+    const post = Array.isArray(cp) ? cp[0] : cp ?? null;
+    const title = String(post?.title ?? "").trim() || "(제목 없음)";
+    const summaryRaw = String(post?.summary ?? "").trim();
+    const postSummary = summaryRaw || excerptFromPostBody(String(post?.content ?? ""));
+    const pid = String(row.post_id);
+    const postImages = imageByPostId.get(pid) ?? [];
+    const uid = String(row.user_id);
+    return {
+      adId: row.id,
+      postId: pid,
+      postTitle: title,
+      postSummary,
+      postImages,
+      locationLabel: String(post?.region_label ?? "").trim() || "—",
+      boardKey: row.board_key ?? bk,
+      adType: row.ad_type as AdType,
+      priority: Number(row.priority) || 0,
+      startAt: row.start_at,
+      endAt: row.end_at,
+      advertiserName: nicknameById.get(uid) ?? "회원",
+    };
+  });
+
+  return { ok: true, ads };
 }
 
 export async function fetchPostAdsForUserFromDb(

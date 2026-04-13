@@ -5,9 +5,9 @@ import type { RecommendationSurface } from "@/lib/types/recommendation";
 import type { AlertMetricKey, AlertChannel, AlertSeverity } from "@/lib/types/recommendation-monitoring";
 import {
   getRecommendationAlertRules,
-  saveRecommendationAlertRule,
   setAlertRuleActive,
 } from "@/lib/recommendation-monitoring/mock-recommendation-alert-rules";
+import { persistRecommendationOpsToServer } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const METRIC_LABELS: Record<AlertMetricKey, string> = {
@@ -41,9 +41,11 @@ export function AlertRuleTable() {
   const [refresh, setRefresh] = useState(0);
   const rules = useMemo(() => getRecommendationAlertRules(), [refresh]);
 
-  const handleToggleActive = (id: string, isActive: boolean) => {
+  const handleToggleActive = async (id: string, isActive: boolean) => {
     setAlertRuleActive(id, !isActive);
-    setRefresh((r) => r + 1);
+    const r = await persistRecommendationOpsToServer();
+    if (!r.ok) console.warn("[recommendation-ops] 저장 실패:", r.error);
+    setRefresh((x) => x + 1);
   };
 
   if (rules.length === 0) {
@@ -111,7 +113,7 @@ export function AlertRuleTable() {
               <td className="px-3 py-2.5">
                 <button
                   type="button"
-                  onClick={() => handleToggleActive(r.id, r.isActive)}
+                  onClick={() => void handleToggleActive(r.id, r.isActive)}
                   className={`rounded border px-2 py-1 text-[13px] ${
                     r.isActive
                       ? "border-emerald-200 bg-emerald-50 text-emerald-800"

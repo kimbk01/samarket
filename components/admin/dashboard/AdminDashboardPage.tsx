@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminKpiCards } from "@/components/admin/dashboard/AdminKpiCards";
 import { DashboardUrgentBlock } from "@/components/admin/dashboard/DashboardUrgentBlock";
@@ -9,103 +9,83 @@ import { AdminStatusSummaryPanels } from "@/components/admin/dashboard/AdminStat
 import { AdminRecentActivityPanels } from "@/components/admin/dashboard/AdminRecentActivityPanels";
 import { AdminTrendChart } from "@/components/admin/dashboard/AdminTrendChart";
 import { AdminNoticeCard } from "@/components/admin/dashboard/AdminNoticeCard";
-import { getDashboardStats } from "@/lib/admin-dashboard/mock-dashboard-stats";
 import {
-  getProductStatusSummary,
-  getUserStatusSummary,
-  getReportStatusSummary,
-  getChatStatusSummary,
-} from "@/lib/admin-dashboard/mock-dashboard-summaries";
-import {
-  getRecentProducts,
-  getRecentUsers,
-  getRecentReports,
-  getRecentChats,
-  getRecentReviews,
-} from "@/lib/admin-dashboard/mock-dashboard-activity";
-import { getDashboardTrend } from "@/lib/admin-dashboard/mock-dashboard-trends";
-import type {
-  DashboardStats,
-  ProductStatusSummary,
-  ReportStatusSummary,
-  ChatStatusSummary,
-  RecentProduct,
-  RecentUser,
-  RecentReport,
-  RecentChat,
-  RecentReview,
-  DashboardTrendItem,
-  UserStatusSummary,
-} from "@/lib/types/admin-dashboard";
+  createEmptyDashboardPayload,
+  isDashboardApiPayload,
+} from "@/lib/admin-dashboard/empty-dashboard-payload";
+import type { DashboardPayload } from "@/lib/types/admin-dashboard";
 import { fetchAdminDashboardStatsDeduped } from "@/lib/admin/fetch-admin-dashboard-stats-deduped";
 
-type DashboardPayload = {
-  stats: DashboardStats;
-  productSummary: ProductStatusSummary;
-  userSummary: UserStatusSummary;
-  reportSummary: ReportStatusSummary;
-  chatSummary: ChatStatusSummary;
-  recentProducts: RecentProduct[];
-  recentUsers: RecentUser[];
-  recentReports: RecentReport[];
-  recentChats: RecentChat[];
-  recentReviews: RecentReview[];
-  trend: DashboardTrendItem[];
-};
+type LoadState = "loading" | "ready" | "error";
 
 export function AdminDashboardPage() {
-  const initialPayload = (): DashboardPayload => ({
-    stats: getDashboardStats(),
-    productSummary: getProductStatusSummary(),
-    userSummary: getUserStatusSummary(),
-    reportSummary: getReportStatusSummary(),
-    chatSummary: getChatStatusSummary(),
-    recentProducts: getRecentProducts(),
-    recentUsers: getRecentUsers(),
-    recentReports: getRecentReports(),
-    recentChats: getRecentChats(),
-    recentReviews: getRecentReviews(),
-    trend: getDashboardTrend(7),
-  });
+  const [payload, setPayload] = useState<DashboardPayload>(() => createEmptyDashboardPayload());
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [lastErrorAt, setLastErrorAt] = useState<string | null>(null);
 
-  const [payload, setPayload] = useState<DashboardPayload>(() => initialPayload());
+  const load = useCallback((options?: { showLoading?: boolean }) => {
+    const showLoading = options?.showLoading ?? false;
+    if (showLoading) setLoadState("loading");
+    void fetchAdminDashboardStatsDeduped()
+      .then(({ status, json }) => {
+        if (status === 200 && isDashboardApiPayload(json)) {
+          setPayload(json);
+          setLoadState("ready");
+          setLastErrorAt(null);
+          return;
+        }
+        setPayload(createEmptyDashboardPayload());
+        setLoadState("error");
+        setLastErrorAt(new Date().toISOString());
+      })
+      .catch(() => {
+        setPayload(createEmptyDashboardPayload());
+        setLoadState("error");
+        setLastErrorAt(new Date().toISOString());
+      });
+  }, []);
 
   useEffect(() => {
-    let alive = true;
-    const load = () => {
-      void fetchAdminDashboardStatsDeduped()
-        .then(({ json: d }) => {
-          if (!alive || d == null || typeof d !== "object") return;
-          setPayload(d as DashboardPayload);
-        })
-        .catch(() => {
-          /* keep mock */
-        });
-    };
+    load({ showLoading: true });
+    const id = window.setInterval(() => load({ showLoading: false }), 30_000);
+    return () => window.clearInterval(id);
+  }, [load]);
 
-    load();
-    const id = window.setInterval(load, 30000);
-
-    return () => {
-      alive = false;
-      window.clearInterval(id);
-    };
-  }, []);
+  const loading = loadState === "loading";
 
   return (
     <div className="space-y-6">
       <AdminPageHeader title="대시보드" />
+
+      {loadState === "error" && (
+        <div
+          className="rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[13px] text-sam-fg"
+          role="alert"
+        >
+          <p className="font-medium text-amber-900 dark:text-amber-100">
+            운영 지표를 불러오지 못했습니다.
+          </p>
+          <p className="mt-1 text-sam-muted">
+            Supabase 서비스 키·DB 연결·관리자 권한을 확인한 뒤 다시 시도해 주세요.
+            {lastErrorAt ? ` (오류 시각 ${lastErrorAt.slice(0, 19).replace("T", " ")})` : ""}
+          </p>
+          <button
+            type="button"
+            onClick={() => load({ showLoading: true })}
+            className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-medium text-sam-fg hover:bg-sam-app"
+          >
+            다시 불러오기
+          </button>
+        </div>
+      )}
+
       <section>
-        <h2 className="mb-3 text-[13px] font-medium text-sam-muted">
-          오늘 운영 현황
-        </h2>
-        <AdminKpiCards stats={payload.stats} />
+        <h2 className="mb-3 text-[13px] font-medium text-sam-muted">오늘 운영 현황</h2>
+        <AdminKpiCards stats={payload.stats} loading={loading} />
       </section>
       <DashboardUrgentBlock />
       <section>
-        <h2 className="mb-3 text-[13px] font-medium text-sam-muted">
-          영역별 바로가기
-        </h2>
+        <h2 className="mb-3 text-[13px] font-medium text-sam-muted">영역별 바로가기</h2>
         <DashboardQuickLinksBySection />
       </section>
       <AdminStatusSummaryPanels
@@ -113,6 +93,7 @@ export function AdminDashboardPage() {
         user={payload.userSummary}
         report={payload.reportSummary}
         chat={payload.chatSummary}
+        loading={loading}
       />
       <AdminRecentActivityPanels
         products={payload.recentProducts}
@@ -120,10 +101,15 @@ export function AdminDashboardPage() {
         reports={payload.recentReports}
         chats={payload.recentChats}
         reviews={payload.recentReviews}
+        loading={loading}
       />
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <AdminTrendChart data={payload.trend} title="일별 추이 (최근 7일)" />
+          <AdminTrendChart
+            data={payload.trend}
+            title="일별 추이 (최근 7일)"
+            loading={loading}
+          />
         </div>
         <AdminNoticeCard />
       </div>
