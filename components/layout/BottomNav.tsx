@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -20,15 +20,17 @@ import {
   MAIN_BOTTOM_NAV_LS_REV_KEY,
 } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events";
-import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
-import {
-  cancelScheduledWhenBrowserIdle,
-  isConstrainedNetwork,
-  scheduleWhenBrowserIdle,
-} from "@/lib/ui/network-policy";
+import { isConstrainedNetwork } from "@/lib/ui/network-policy";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+
+/** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
+function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
+  if (!pathname) return true;
+  if (pathname === "/home" && targetHref !== "/home") return false;
+  return true;
+}
 
 const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => React.ReactNode> = {
   home: HomeIcon,
@@ -56,26 +58,6 @@ export function BottomNav() {
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/chats\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/mypage\/trade\/chat\/[^/]+\/?$/) ?? false);
-
-  /** 탭 전환은 replace로 쌓지 않음(뒤로가기가 채팅 등으로만 가는 현상 방지). 홈 루트에서만 push로 이전 홈 유지. */
-  const onMainTabLinkClick = useCallback(
-    (e: MouseEvent<HTMLAnchorElement>, targetHref: string) => {
-      if (!pathname) return;
-      if (pathname === targetHref) return;
-      if (pathname.startsWith(`${targetHref}/`)) {
-        e.preventDefault();
-        router.replace(targetHref);
-        return;
-      }
-      e.preventDefault();
-      if (pathname === "/home") {
-        router.push(targetHref);
-        return;
-      }
-      router.replace(targetHref);
-    },
-    [pathname, router]
-  );
 
   const applyMainBottomNavItems = useCallback(async (force: boolean) => {
     try {
@@ -123,30 +105,34 @@ export function BottomNav() {
     };
   }, [applyMainBottomNavItems]);
 
-  /** 주요 탭 JS·RSC 선로딩 — 거래채팅 허브·다른 탭 전환 체감 지연 완화 */
-  useEffect(() => {
+  /**
+   * 주요 탭·거래채팅 허브 RSC 선로딩 — 예전에는 idle+950ms·3개만 프리페치해 탭 전환이 느렸음.
+   * 다음 프레임에 전부 프리페치(저전력망은 생략).
+   */
+  useLayoutEffect(() => {
     if (isConstrainedNetwork()) return;
-    if (document.visibilityState !== "visible") return;
-    const fromTabs = tabs
-      .map((tab) => tab.href?.trim() ?? "")
-      .filter((href) => href && href !== pathname);
-    const ordered: string[] = [];
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const tradeHub = TRADE_CHAT_SURFACE.hubPath;
-    if (!pathname?.startsWith(tradeHub)) {
-      ordered.push(tradeHub);
+    const hrefs: string[] = [];
+    if (!pathname?.startsWith(tradeHub)) hrefs.push(tradeHub);
+    for (const tab of tabs) {
+      const h = tab.href?.trim() ?? "";
+      if (h && !hrefs.includes(h) && h !== pathname) hrefs.push(h);
     }
-    for (const h of fromTabs) {
-      if (!ordered.includes(h)) ordered.push(h);
-    }
-    /** 탭·허브가 많을수록 RSC 프리페치가 메인 스레드·대역폭과 겹침 — 인접 위주 3개만 */
-    const candidates = ordered.slice(0, 3);
-    const idleId = scheduleWhenBrowserIdle(() => {
-      for (const href of candidates) {
-        router.prefetch(href);
+    let cancelled = false;
+    const id = requestAnimationFrame(() => {
+      if (cancelled) return;
+      for (const href of hrefs) {
+        try {
+          router.prefetch(href);
+        } catch {
+          /* no-op */
+        }
       }
-    }, 950);
+    });
     return () => {
-      cancelScheduledWhenBrowserIdle(idleId);
+      cancelled = true;
+      cancelAnimationFrame(id);
     };
   }, [pathname, tabs, router]);
 
@@ -262,16 +248,11 @@ export function BottomNav() {
           <Link
             key={tab.id}
             href={tab.href}
+            prefetch
+            replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
+            scroll={false}
             className={className}
             aria-label={ariaLbl}
-            onClick={(e) => onMainTabLinkClick(e, tab.href)}
-            onPointerEnter={
-              tab.icon === "chat"
-                ? () => {
-                    void fetchChatRoomsBySegment("trade");
-                  }
-                : undefined
-            }
           >
             {inner}
           </Link>
