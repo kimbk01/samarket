@@ -1,53 +1,27 @@
 "use client";
 
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
-
-import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
-import {
-  normalizePostImages,
-  normalizePostMeta,
-  normalizePostPrice,
-} from "./post-normalize";
-import { POST_TRADE_DETAIL_SELECT } from "@/lib/posts/post-query-select";
 
 export { normalizePostImages, normalizePostMeta, normalizePostPrice } from "./post-normalize";
 
+/**
+ * 거래 글 상세 — 브라우저 Supabase(RLS) 대신 서버 API로 조회해 목록과 동일하게 노출.
+ */
 export async function getPostById(postId: string): Promise<PostWithMeta | null> {
-  const supabase = getSupabaseClient();
-  if (!supabase || !postId?.trim()) return null;
+  const id = postId?.trim();
+  if (!id || typeof window === "undefined") return null;
 
   try {
-    const { data, error } = await supabase
-      .from(POSTS_TABLE_READ)
-      .select(POST_TRADE_DETAIL_SELECT)
-      .eq("id", postId.trim())
-      .maybeSingle();
-
-    if (error || !data) return null;
-
-    const row = data as Record<string, unknown>;
-    const images = normalizePostImages(row.images);
-    const thumbnail_url =
-      typeof row.thumbnail_url === "string" && row.thumbnail_url
-        ? row.thumbnail_url
-        : images?.[0] ?? null;
-    const author_id = (row.author_id as string) ?? (row.user_id as string);
-    const category_id = (row.category_id as string) ?? (row.trade_category_id as string);
-    const price = normalizePostPrice(row.price);
-    const meta = normalizePostMeta(row.meta);
-    const is_free_share = row.is_free_share === true || row.is_free_share === "true";
-
-    return {
-      ...row,
-      author_id,
-      category_id,
-      images,
-      thumbnail_url,
-      price,
-      meta: meta ?? undefined,
-      is_free_share,
-    } as PostWithMeta;
+    const res = await fetch(`/api/posts/${encodeURIComponent(id)}/detail`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as PostWithMeta | null;
+    if (!data || typeof data !== "object" || typeof (data as PostWithMeta).id !== "string") {
+      return null;
+    }
+    return data;
   } catch {
     return null;
   }

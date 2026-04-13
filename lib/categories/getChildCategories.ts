@@ -69,7 +69,10 @@ export async function getChildCategories(parentId: string): Promise<CategoryWith
         .order("sort_order", { ascending: true });
 
       if (error || !Array.isArray(data)) return [];
-      return (data as CategoryDbRow[]).map(mapChildCategoryRow);
+      // Row-2 topic chips: omit primary-menu categories (show_in_home_chips=true) if wrongly linked as children.
+      return (data as CategoryDbRow[])
+        .filter((row) => row.show_in_home_chips !== true)
+        .map(mapChildCategoryRow);
     } catch {
       return [];
     }

@@ -1,23 +1,21 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { normalizePostImages, normalizePostMeta, normalizePostPrice } from "@/lib/posts/post-normalize";
 import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
 const HOME_POSTS_SERVER_CACHE_TTL_MS = 30_000;
 const HOME_POSTS_FAVORITES_CACHE_TTL_MS = 12_000;
-/**
- * 홈 피드 SELECT — 컬럼 누락 DB에서 PostgREST 오류 → 빈 목록이 되는 것을 막기 위해 순차 시도.
- * (`author_avatar_url`·`author_id` 등은 일부 posts 스키마에 없음)
- */
+
 const HOME_POSTS_SELECT_TIERS = [
   "id, category_id, trade_category_id, user_id, author_id, type, title, price, is_free_share, is_price_offer, region, city, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
   "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, is_price_offer, region, city, status, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
@@ -26,7 +24,6 @@ const HOME_POSTS_SELECT_TIERS = [
   "*",
 ] as const;
 
-/** hidden·sold 제외. `status` 가 NULL 인 레거시 행은 `.neq` 만으로는 SQL에서 걸러져 빠지므로 OR 로 포함 */
 const HOME_POSTS_STATUS_OR = "status.is.null,status.not.in.(hidden,sold)";
 
 type HomePostsServerCacheEntry = {
@@ -63,12 +60,31 @@ function normalizePage(raw: string | null): number {
   return Math.max(1, Math.floor(page));
 }
 
-function buildHomePostsCacheKey(page: number, sort: HomePostSort, type: HomePostType): string {
-  return `${page}:${sort}:${type ?? "all"}`;
+/** `tradeMarketParent` 쿼리 — UUID */
+function normalizeTradeMarketParent(raw: string | null): string | null {
+  const t = raw?.trim() ?? "";
+  if (!t) return null;
+  if (!/^[0-9a-f-]{36}$/i.test(t)) return null;
+  return t;
 }
 
-function buildHomePostsFavoriteCacheKey(userId: string, page: number, sort: HomePostSort, type: HomePostType): string {
-  return `${userId}:${buildHomePostsCacheKey(page, sort, type)}`;
+function buildHomePostsCacheKey(
+  page: number,
+  sort: HomePostSort,
+  type: HomePostType,
+  marketSegment: string
+): string {
+  return `${page}:${sort}:${type ?? "all"}:m:${marketSegment}`;
+}
+
+function buildHomePostsFavoriteCacheKey(
+  userId: string,
+  page: number,
+  sort: HomePostSort,
+  type: HomePostType,
+  marketSegment: string
+): string {
+  return `${userId}:${buildHomePostsCacheKey(page, sort, type, marketSegment)}`;
 }
 
 function pruneExpiredEntries<T extends { expiresAt: number }>(cache: Map<string, T>): void {
@@ -120,23 +136,132 @@ function mapPostRow(row: Record<string, unknown>): PostWithMeta {
   } as PostWithMeta;
 }
 
+async function expandTradeMarketCategoryFilterIds(
+  readSb: SupabaseClient<any>,
+  serviceSb: SupabaseClient<any> | null,
+  parentId: string
+): Promise<string[]> {
+  const pid = parentId.trim();
+  const qsb = serviceSb ?? readSb;
+  const { data, error } = await qsb
+    .from("categories")
+    .select("id")
+    .eq("parent_id", pid)
+    .eq("is_active", true);
+  if (error || !Array.isArray(data)) {
+    return [pid];
+  }
+  const childIds = data
+    .map((r: { id?: string }) => r.id)
+    .filter((x): x is string => typeof x === "string" && x.length > 0);
+  return [...new Set([pid, ...childIds])];
+}
+
+async function loadHomePostsPage(
+  sb: SupabaseClient<any>,
+  table: string,
+  from: number,
+  sort: HomePostSort,
+  type: HomePostType,
+  tradeCategoryIds: string[] | null
+): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
+  let data: unknown[] | null = null;
+
+  outer: for (const selectFields of HOME_POSTS_SELECT_TIERS) {
+    const colModes = tradeCategoryIds?.length ? ([true, false] as const) : ([true] as const);
+    for (const useTradeCol of colModes) {
+      let q = sb.from(table).select(selectFields).or(HOME_POSTS_STATUS_OR);
+      if (tradeCategoryIds?.length) {
+        q = useTradeCol
+          ? q.in("trade_category_id", tradeCategoryIds)
+          : q.in("category_id", tradeCategoryIds);
+      }
+      if (type === "trade") {
+        q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
+      } else if (type === "community") {
+        q = q.not("board_id", "is", null).neq("board_id", "");
+      } else if (type === "service") {
+        q = q.not("service_id", "is", null).neq("service_id", "");
+      } else if (type === "feature") {
+        // no-op
+      }
+      if (sort === "latest") {
+        q = q.order("created_at", { ascending: false });
+      } else {
+        q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+      }
+
+      const res = await q.range(from, from + PAGE_SIZE - 1);
+      if (!res.error && Array.isArray(res.data)) {
+        data = res.data;
+        break outer;
+      }
+    }
+  }
+
+  if (!data) return null;
+
+  const mapped = data.map((row) =>
+    mapPostRow(row && typeof row === "object" ? (row as Record<string, unknown>) : {})
+  );
+  const hasMoreFlag = mapped.length === PAGE_SIZE;
+  return { posts: mapped, hasMore: hasMoreFlag };
+}
+
+async function resolveHomePostsPayload(
+  readSb: SupabaseClient<any>,
+  serviceSb: SupabaseClient<any> | null,
+  from: number,
+  sort: HomePostSort,
+  type: HomePostType,
+  tradeCategoryIds: string[] | null
+): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
+  const fromMaskedRead = await loadHomePostsPage(readSb, POSTS_TABLE_READ, from, sort, type, tradeCategoryIds);
+  if (fromMaskedRead) return fromMaskedRead;
+
+  if (serviceSb && serviceSb !== readSb) {
+    const fromMaskedService = await loadHomePostsPage(
+      serviceSb,
+      POSTS_TABLE_READ,
+      from,
+      sort,
+      type,
+      tradeCategoryIds
+    );
+    if (fromMaskedService) return fromMaskedService;
+  }
+
+  if (serviceSb) {
+    return loadHomePostsPage(serviceSb, "posts", from, sort, type, tradeCategoryIds);
+  }
+
+  return null;
+}
+
 export async function GET(req: NextRequest) {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
+  const clients = resolvePostsReadClients(req);
+  if (!clients) {
     return NextResponse.json(
       { posts: [], hasMore: false, favoriteMap: {} },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
+  const { readSb, serviceSb, favoritesSb } = clients;
 
   const { searchParams } = new URL(req.url);
   const page = normalizePage(searchParams.get("page"));
   const sort = normalizeSort(searchParams.get("sort"));
   const type = normalizeType(searchParams.get("type"));
+  const tradeMarketParent = normalizeTradeMarketParent(searchParams.get("tradeMarketParent"));
+
+  let tradeCategoryIds: string[] | null = null;
+  if (tradeMarketParent) {
+    tradeCategoryIds = await expandTradeMarketCategoryFilterIds(readSb, serviceSb, tradeMarketParent);
+  }
+
+  const marketSegment = tradeMarketParent ?? "all";
   const from = (page - 1) * PAGE_SIZE;
-  const cacheKey = buildHomePostsCacheKey(page, sort, type);
+  const cacheKey = buildHomePostsCacheKey(page, sort, type, marketSegment);
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
@@ -154,51 +279,17 @@ export async function GET(req: NextRequest) {
         return { posts: again.posts, hasMore: again.hasMore };
       }
 
-      let data: unknown[] | null = null;
-      for (const selectFields of HOME_POSTS_SELECT_TIERS) {
-        let q = sb.from(POSTS_TABLE_READ).select(selectFields).or(HOME_POSTS_STATUS_OR);
-        /**
-         * 레거시 DB에는 posts.type 컬럼이 없을 수 있음 — 동일 의미로 nullable 컬럼으로 필터.
-         * (trade: trade_category_id, community: board_id, service: service_id)
-         */
-        if (type === "trade") {
-          q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
-        } else if (type === "community") {
-          q = q.not("board_id", "is", null).neq("board_id", "");
-        } else if (type === "service") {
-          q = q.not("service_id", "is", null).neq("service_id", "");
-        } else if (type === "feature") {
-          // type 컬럼 없을 때 구분 불가 → 과필터 방지 위해 추가 제한 없음(호출처 거의 없음)
-        }
-        if (sort === "latest") {
-          q = q.order("created_at", { ascending: false });
-        } else {
-          q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
-        }
-
-        const res = await q.range(from, from + PAGE_SIZE - 1);
-        if (!res.error && Array.isArray(res.data)) {
-          data = res.data;
-          break;
-        }
-      }
-
-      if (!data) {
+      const pack = await resolveHomePostsPayload(readSb, serviceSb, from, sort, type, tradeCategoryIds);
+      if (!pack) {
         return null;
       }
 
-      const mapped = data.map((row) =>
-        mapPostRow(
-          row && typeof row === "object" ? (row as Record<string, unknown>) : {}
-        )
-      );
-      const hasMoreFlag = mapped.length === PAGE_SIZE;
       homePostsServerCache.set(cacheKey, {
-        posts: mapped,
-        hasMore: hasMoreFlag,
+        posts: pack.posts,
+        hasMore: pack.hasMore,
         expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
       });
-      return { posts: mapped, hasMore: hasMoreFlag };
+      return { posts: pack.posts, hasMore: pack.hasMore };
     });
 
     if (!loaded) {
@@ -215,17 +306,17 @@ export async function GET(req: NextRequest) {
   const userId = await getOptionalAuthenticatedUserId();
   const headers = responseHeaders(Boolean(userId));
 
-  await enrichPostsAuthorNicknamesFromProfiles(sb, posts);
+  await enrichPostsAuthorNicknamesFromProfiles(readSb, posts);
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);
-    const favoriteCacheKey = buildHomePostsFavoriteCacheKey(userId, page, sort, type);
+    const favoriteCacheKey = buildHomePostsFavoriteCacheKey(userId, page, sort, type, marketSegment);
     const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);
 
     if (cachedFavorites && cachedFavorites.expiresAt > Date.now()) {
       Object.assign(favoriteMap, cachedFavorites.favoriteMap);
     } else {
-      const { data: favorites } = await sb
+      const { data: favorites } = await favoritesSb
         .from("favorites")
         .select("post_id")
         .eq("user_id", userId)

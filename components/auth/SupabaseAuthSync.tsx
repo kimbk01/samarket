@@ -75,6 +75,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
             phone?: string | null;
             phone_verified?: boolean;
             phone_verification_status?: string;
+            auth_provider?: string | null;
             temperature?: number;
           };
         }
@@ -86,6 +87,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
         ...p,
         avatar_url: p.avatar_url ?? nextProfile?.avatar_url ?? null,
         temperature: p.temperature ?? nextProfile?.temperature ?? 50,
+        auth_provider: p.auth_provider ?? nextProfile?.auth_provider ?? null,
       };
     }
   } catch {

@@ -1,9 +1,7 @@
 "use client";
 
-import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
-import { fetchTradeFeedPage } from "@/lib/posts/fetch-trade-feed-page";
 
 export type PostSort = "latest" | "popular";
 
@@ -24,8 +22,36 @@ export async function getPostsByTradeCategoryIds(
   categoryIds: string[],
   options: GetPostsByCategoryOptions = {}
 ): Promise<GetPostsByCategoryResult> {
-  const supabase = getSupabaseClient();
-  return fetchTradeFeedPage(supabase, categoryIds, options);
+  const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))];
+  if (ids.length === 0) return { posts: [], hasMore: false };
+
+  const params = new URLSearchParams();
+  params.set("categoryIds", ids.join(","));
+  params.set("page", String(Math.max(1, options.page ?? 1)));
+  params.set("sort", options.sort ?? "latest");
+  if (options.jobsListingKind === "hire" || options.jobsListingKind === "work") {
+    params.set("jk", options.jobsListingKind);
+  }
+
+  try {
+    const res = await fetch(`/api/trade/feed?${params.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!res.ok) return { posts: [], hasMore: false };
+    const data = (await res.json()) as {
+      ok?: boolean;
+      posts?: PostWithMeta[];
+      hasMore?: boolean;
+    };
+    if (!data.ok) return { posts: [], hasMore: false };
+    return {
+      posts: Array.isArray(data.posts) ? data.posts : [],
+      hasMore: data.hasMore === true,
+    };
+  } catch {
+    return { posts: [], hasMore: false };
+  }
 }
 
 export async function getPostsByCategory(

@@ -1,10 +1,17 @@
 import type { ProfileRow } from "@/lib/profile/types";
+import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 
 export interface ProfileReadonlyFieldsProps {
   profile: ProfileRow;
 }
 
 export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
+  const contactFormal = hasFormalMemberContactVerification({
+    phone_verified: profile.phone_verified,
+    auth_provider: profile.auth_provider,
+    email: profile.email,
+  });
+
   return (
     <div className="space-y-3 rounded-ui-rect bg-sam-app p-3">
       <p className="text-[12px] font-medium text-sam-muted">읽기 전용</p>
@@ -20,7 +27,11 @@ export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
         <div className="flex justify-between">
           <span className="text-sam-muted">연락처 인증</span>
           <span className="text-sam-fg">
-            {profile.phone_verified ? "완료" : profile.phone_verification_status === "pending" ? "승인 대기" : "미인증"}
+            {contactFormal
+              ? "완료"
+              : profile.phone_verification_status === "pending"
+                ? "승인 대기"
+                : "미인증"}
           </span>
         </div>
         <div className="flex justify-between">

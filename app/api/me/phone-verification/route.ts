@@ -3,6 +3,7 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   PHONE_VERIFICATION_REQUIRED_MESSAGE,
+  canUseVerifiedMemberFeatures,
   loadMemberAccessState,
 } from "@/lib/auth/member-access";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
@@ -18,6 +19,7 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "supabase_service_unconfigured" }, { status: 503 });
   }
   const state = await loadMemberAccessState(sb, auth.userId);
+  const fullMemberAccessOk = canUseVerifiedMemberFeatures(state);
   return NextResponse.json({
     ok: true,
     verification: {
@@ -25,7 +27,10 @@ export async function GET() {
       phone_verified: state.phoneVerified,
       phone_verification_status: state.phoneVerificationStatus,
       nickname: state.nickname,
-      help_text: PHONE_VERIFICATION_REQUIRED_MESSAGE,
+      /** SMS 미완료여도 OAuth·관리자 수동 정식 회원이면 빈 문자열(불필요한 경고 억제) */
+      help_text: fullMemberAccessOk ? "" : PHONE_VERIFICATION_REQUIRED_MESSAGE,
+      /** Google·카카오·애플·이메일 가입자의 이용 조건과 동일(관리자 수동 입력 포함) */
+      full_member_access_ok: fullMemberAccessOk,
     },
   });
 }
@@ -87,6 +92,9 @@ export async function PATCH(req: NextRequest) {
     })
     .eq("id", auth.userId);
 
+  const nextState = await loadMemberAccessState(sb, auth.userId);
+  const fullMemberAccessOk = canUseVerifiedMemberFeatures(nextState);
+
   return NextResponse.json({
     ok: true,
     verification: {
@@ -94,6 +102,8 @@ export async function PATCH(req: NextRequest) {
       phone_verified: false,
       phone_verification_status: "pending",
       nickname,
+      help_text: fullMemberAccessOk ? "" : PHONE_VERIFICATION_REQUIRED_MESSAGE,
+      full_member_access_ok: fullMemberAccessOk,
     },
   });
 }

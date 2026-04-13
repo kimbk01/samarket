@@ -76,7 +76,11 @@ export async function GET(req: NextRequest) {
     return jsonError("하위 주제를 불러오지 못했습니다.", 500);
   }
 
-  const childrenArr = Array.isArray(childRows) ? childRows : [];
+  const rawChildren = Array.isArray(childRows) ? childRows : [];
+  // Same as getChildCategories: exclude primary-menu categories (show_in_home_chips=true).
+  const childrenArr = rawChildren.filter(
+    (r: Record<string, unknown>) => r.show_in_home_chips !== true
+  );
   const iconKey = String((cat as { icon_key?: unknown }).icon_key ?? "");
   const slugVal = String((cat as { slug?: unknown }).slug ?? "");
   const isJobMarket =

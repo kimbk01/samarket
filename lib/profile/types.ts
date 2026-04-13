@@ -46,6 +46,8 @@ export interface ProfileRow {
   trust_score?: number | null;
   preferred_language: string;
   preferred_country: string;
+  /** email OAuth 등 출처 — 관리자 수동 생성은 `manual_admin` */
+  auth_provider: string | null;
   /** false면 매장(commerce) 알림 Resend 이메일 미발송 — DB 컬럼 `notify_commerce_email` (선택 마이그레이션) */
   notify_commerce_email?: boolean | null;
   created_at: string;
@@ -98,6 +100,7 @@ export const DEFAULT_PROFILE_ROW: ProfileRow = {
   trust_score: 50,
   preferred_language: "ko",
   preferred_country: "PH",
+  auth_provider: null,
   created_at: "",
   updated_at: "",
 };

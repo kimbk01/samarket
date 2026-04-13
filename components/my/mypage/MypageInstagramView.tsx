@@ -16,6 +16,7 @@ import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-lo
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import type { MyPageSectionRow, MyServiceRow } from "@/lib/my/types";
 import type { ProfileRow } from "@/lib/profile/types";
+import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 import {
   isProfileLocationComplete,
   resolveProfileLocationAddressLines,
@@ -275,6 +276,12 @@ export function MypageInstagramView({
     tradePreview.status,
   ]);
 
+  const contactFormal = hasFormalMemberContactVerification({
+    phone_verified: profile.phone_verified,
+    auth_provider: profile.auth_provider,
+    email: profile.email,
+  });
+
   const displayName = profile.nickname?.trim() || "닉네임 없음";
   const profileRegionComplete = isProfileLocationComplete(profile);
   const lifeNeighborhoodComplete = neighborhoodFromLife?.complete === true;
@@ -317,7 +324,7 @@ export function MypageInstagramView({
   const statusPills = [
     isBusinessMember ? "비즈 회원" : null,
     hasRegion ? "지역 완료" : "지역 설정 필요",
-    profile.phone_verified ? "연락처 인증" : "연락처 미인증",
+    contactFormal ? "연락처 인증" : "연락처 미인증",
   ].filter(Boolean) as string[];
 
   const sectionMeta: Record<
@@ -361,7 +368,7 @@ export function MypageInstagramView({
 
   const accountAlerts = [
     !hasRegion ? { label: "지역 설정", href: editHref } : null,
-    !profile.phone_verified ? { label: "연락처 인증", href: accountHref } : null,
+    !contactFormal ? { label: "연락처 인증", href: accountHref } : null,
     addressDefaults && !addressDefaults.life ? { label: "생활 주소", href: addressesHref } : null,
     addressDefaults && !addressDefaults.trade ? { label: "거래 주소", href: addressesHref } : null,
     addressDefaults && !addressDefaults.delivery ? { label: "배달 주소", href: addressesHref } : null,

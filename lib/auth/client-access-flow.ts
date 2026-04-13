@@ -2,7 +2,10 @@
 
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import type { Profile } from "@/lib/types/profile";
-import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
+import {
+  PHONE_VERIFICATION_REQUIRED_MESSAGE,
+  bypassesPhilippinePhoneVerificationGate,
+} from "@/lib/auth/member-access";
 
 type RouterLike = {
   push: (href: string) => void;
@@ -66,9 +69,18 @@ export function ensureClientAccessOrRedirect(
     router.replace?.(buildLoginHref(next)) ?? router.push(buildLoginHref(next));
     return false;
   }
-  if (user.role !== "admin" && user.role !== "master" && user.phone_verified === false) {
-    router.replace?.(buildPhoneVerificationHref(next)) ?? router.push(buildPhoneVerificationHref(next));
-    return false;
+  if (user.phone_verified === false) {
+    if (
+      !bypassesPhilippinePhoneVerificationGate({
+        role: user.role,
+        phone_verified: false,
+        auth_provider: user.auth_provider,
+        email: user.email,
+      })
+    ) {
+      router.replace?.(buildPhoneVerificationHref(next)) ?? router.push(buildPhoneVerificationHref(next));
+      return false;
+    }
   }
   return true;
 }

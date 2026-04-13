@@ -28,12 +28,17 @@ export function userToProfile(user: User | null | undefined): Profile | null {
     "User";
   const metaPic = typeof meta?.picture === "string" ? meta.picture : null;
   const metaAvatar = typeof meta?.avatar_url === "string" ? meta.avatar_url : null;
+  const authProv =
+    typeof meta?.auth_provider === "string" && meta.auth_provider.trim()
+      ? meta.auth_provider.trim()
+      : null;
   return {
     id: user.id,
     email: user.email ?? "",
     nickname: nick,
     avatar_url: metaAvatar || metaPic || null,
     temperature: 50,
+    auth_provider: authProv,
   };
 }
 

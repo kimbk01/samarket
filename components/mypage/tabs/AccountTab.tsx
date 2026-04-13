@@ -7,6 +7,7 @@ import {
   MYPAGE_PROFILE_EDIT_HREF,
   buildMypageItemHref,
 } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 
 type Props = Pick<
   MyPageConsoleProps,
@@ -27,6 +28,12 @@ export function AccountTab({
   overviewCounts,
   storeAttentionSummary,
 }: Props & { section: string }) {
+  const contactFormal = hasFormalMemberContactVerification({
+    phone_verified: profile.phone_verified,
+    auth_provider: profile.auth_provider,
+    email: profile.email,
+  });
+
   if (section === "profile") {
     return (
       <div className="space-y-4">
@@ -38,7 +45,7 @@ export function AccountTab({
             </p>
             <p className="text-[12px] text-sam-muted">{profile.email ?? "이메일 정보 없음"}</p>
             <p className="text-[12px] text-sam-muted">
-              연락처 {profile.phone?.trim() || "미등록"} · {profile.phone_verified ? "인증 완료" : "인증 필요"}
+              연락처 {profile.phone?.trim() || "미등록"} · {contactFormal ? "인증 완료" : "인증 필요"}
             </p>
             <div className="pt-1">
               <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
@@ -130,7 +137,7 @@ export function AccountTab({
           </p>
           <p className="text-[12px] text-sam-muted">
             연락처 {profile.phone?.trim() || "미등록"} ·{" "}
-            {profile.phone_verified ? "인증 완료" : "인증 필요"}
+            {contactFormal ? "인증 완료" : "인증 필요"}
           </p>
           <div className="pt-1">
             <MannerBatteryDisplay

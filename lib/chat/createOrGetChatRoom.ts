@@ -1,7 +1,10 @@
 "use client";
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
+import {
+  PHONE_VERIFICATION_REQUIRED_MESSAGE,
+  bypassesPhilippinePhoneVerificationGate,
+} from "@/lib/auth/member-access";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import type { ChatRoomSource } from "@/lib/types/chat";
 
@@ -20,8 +23,17 @@ export type CreateOrGetChatRoomResult =
 export async function createOrGetChatRoom(productId: string): Promise<CreateOrGetChatRoomResult> {
   const user = getCurrentUser();
   if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
-  if (user.role !== "admin" && user.role !== "master" && user.phone_verified === false) {
-    return { ok: false, error: PHONE_VERIFICATION_REQUIRED_MESSAGE };
+  if (user.phone_verified === false) {
+    if (
+      !bypassesPhilippinePhoneVerificationGate({
+        role: user.role,
+        phone_verified: false,
+        auth_provider: user.auth_provider,
+        email: user.email,
+      })
+    ) {
+      return { ok: false, error: PHONE_VERIFICATION_REQUIRED_MESSAGE };
+    }
   }
 
   const cacheKey = `${user.id}:${productId}`;

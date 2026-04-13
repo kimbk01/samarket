@@ -43,6 +43,7 @@ export async function POST() {
         phone: state.phone,
         phone_verified: state.phoneVerified,
         phone_verification_status: state.phoneVerificationStatus,
+        auth_provider: state.authProvider,
         temperature: 50,
       },
     });

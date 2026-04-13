@@ -9,6 +9,7 @@ import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registr
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 import type { ProfileRow } from "@/lib/profile/types";
+import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 
 export function MyAccountContent() {
   const { t } = useI18n();
@@ -55,6 +56,11 @@ export function MyAccountContent() {
     .phone_verification_status;
 
   const displayNickname = profile.nickname?.trim() || t("account_nickname");
+  const contactFormal = hasFormalMemberContactVerification({
+    phone_verified: profile.phone_verified,
+    auth_provider: profile.auth_provider,
+    email: profile.email,
+  });
 
   return (
     <div className="space-y-4">
@@ -110,7 +116,7 @@ export function MyAccountContent() {
           <div>
             <dt className="text-sam-muted">{t("account_phone_verification")}</dt>
             <dd className="mt-0.5 text-sam-fg">
-              {profile.phone_verified
+              {contactFormal
                 ? t("account_verified")
                 : phoneVerificationStatus === "pending"
                   ? t("account_pending")
@@ -118,7 +124,7 @@ export function MyAccountContent() {
             </dd>
           </div>
         </dl>
-        {!profile.phone_verified ? (
+        {!contactFormal ? (
           <Link
             href="/my/account/phone-verification"
             className="mt-4 block rounded-ui-rect border border-signature/20 bg-signature/5 px-4 py-3 text-center text-[14px] font-semibold text-signature"

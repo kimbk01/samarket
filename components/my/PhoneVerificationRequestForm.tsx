@@ -16,6 +16,8 @@ type VerificationPayload = {
   phone_verification_status: string;
   nickname: string;
   help_text?: string;
+  /** OAuth·이메일 가입과 동일 이용 조건 충족(관리자 수동 정식 회원 포함) */
+  full_member_access_ok?: boolean;
 };
 
 export function PhoneVerificationRequestForm() {
@@ -94,8 +96,17 @@ export function PhoneVerificationRequestForm() {
       <div className="rounded-ui-rect border border-ig-border bg-signature/5 px-4 py-3">
         <p className="text-sm font-semibold text-sam-fg">필리핀 전화번호 인증</p>
         <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">
-          전화번호 인증 전까지는 열람만 가능하며 글쓰기, 거래, 주문, 채팅은 사용할 수 없습니다. 현재 단계에서는
-          인증 요청을 저장한 뒤 관리자가 승인합니다.
+          {status?.full_member_access_ok && !status.phone_verified ? (
+            <>
+              Google·카카오·애플·이메일 가입 회원과 동일한 정식 회원으로 등록되어 있어 글쓰기·거래·주문·채팅을 이용할
+              수 있습니다. 필리핀 번호는 선택적으로 등록·변경할 수 있으며, 요청 시 관리자 승인 절차가 적용됩니다.
+            </>
+          ) : (
+            <>
+              전화번호 인증 전까지는 열람만 가능하며 글쓰기, 거래, 주문, 채팅은 사용할 수 없습니다. 현재 단계에서는
+              인증 요청을 저장한 뒤 관리자가 승인합니다.
+            </>
+          )}
         </p>
       </div>
 
@@ -104,11 +115,15 @@ export function PhoneVerificationRequestForm() {
         <p className="mt-1 text-[16px] font-semibold text-sam-fg">
           {status?.phone_verified
             ? "인증 완료"
-            : status?.phone_verification_status === "pending"
-              ? "승인 대기"
-              : "미인증"}
+            : status?.full_member_access_ok
+              ? "정식 회원(앱 이용 가능)"
+              : status?.phone_verification_status === "pending"
+                ? "승인 대기"
+                : "미인증"}
         </p>
-        <p className="mt-1 text-[13px] text-sam-muted">{status?.help_text ?? ""}</p>
+        {status?.help_text ? (
+          <p className="mt-1 text-[13px] text-sam-muted">{status.help_text}</p>
+        ) : null}
       </div>
 
       <form onSubmit={submit} className="space-y-4 rounded-ui-rect bg-sam-surface p-4 shadow-sm">

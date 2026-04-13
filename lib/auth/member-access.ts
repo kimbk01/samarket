@@ -1,6 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
+import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 
 export type MemberAccessState = {
   userId: string;
@@ -20,6 +21,60 @@ export type MemberAccessState = {
 
 export const PHONE_VERIFICATION_REQUIRED_MESSAGE =
   "필리핀 전화번호 인증이 완료되어야 글쓰기, 거래, 주문, 채팅을 사용할 수 있습니다.";
+
+const ADMIN_PROVISIONED_AUTH_PROVIDERS = new Set(["manual_admin", "manual_admin_backfill"]);
+
+/**
+ * 관리자「회원 수동 입력」으로 만든 계정 — 자가 가입 회원과 동일하게 거래·글쓰기·채팅 등에 참여할 수 있어야 함.
+ * (`profiles.auth_provider` 또는 레거시 `@manual.local` Auth 이메일)
+ */
+export function isAdminProvisionedFormalMemberAuthProvider(authProvider: string | null | undefined): boolean {
+  const p = typeof authProvider === "string" ? authProvider.trim().toLowerCase() : "";
+  return ADMIN_PROVISIONED_AUTH_PROVIDERS.has(p);
+}
+
+export function isAdminProvisionedFormalMemberSignals(input: {
+  authProvider?: string | null;
+  email?: string | null;
+}): boolean {
+  if (isAdminProvisionedFormalMemberAuthProvider(input.authProvider)) return true;
+  const email = (input.email ?? "").trim().toLowerCase();
+  return email.endsWith(`@${MANUAL_MEMBER_EMAIL_DOMAIN}`);
+}
+
+/**
+ * 전화 인증을 요구하지 않아도 되는지 — `phone_verified === false` 인 경우에도 관리자 수동 정식 회원이면 true.
+ * (`phone_verified` 미수집(undefined)일 때는 호출하지 말고 상위에서 프로필 확정 후 판단)
+ */
+export function bypassesPhilippinePhoneVerificationGate(input: {
+  role?: string | null;
+  phone_verified: boolean;
+  auth_provider?: string | null;
+  email?: string | null;
+}): boolean {
+  if (input.role === "admin" || input.role === "master") return true;
+  if (input.phone_verified === true) return true;
+  return isAdminProvisionedFormalMemberSignals({
+    authProvider: input.auth_provider ?? null,
+    email: input.email ?? null,
+  });
+}
+
+/**
+ * UI·표시용: OAuth·이메일 가입 뒤 SMS 인증 완료와 동일한「연락처 정식」지위.
+ * 관리자 수동 입력 정식 회원(`manual_admin`·`@manual.local`)도 SMS 없이 동등하게 표시한다.
+ */
+export function hasFormalMemberContactVerification(input: {
+  phone_verified: boolean;
+  auth_provider?: string | null;
+  email?: string | null;
+}): boolean {
+  if (input.phone_verified) return true;
+  return isAdminProvisionedFormalMemberSignals({
+    authProvider: input.auth_provider ?? null,
+    email: input.email ?? null,
+  });
+}
 
 function pickTrimmed(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -181,7 +236,11 @@ export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | u
   if (!state) return false;
   if (state.role === "admin" || state.role === "master") return true;
   if (state.status !== "active") return false;
-  return state.phoneVerified;
+  if (state.phoneVerified) return true;
+  return isAdminProvisionedFormalMemberSignals({
+    authProvider: state.authProvider,
+    email: state.email,
+  });
 }
 
 export async function assertVerifiedMemberForAction(
@@ -193,7 +252,7 @@ export async function assertVerifiedMemberForAction(
     return { ok: false, status: 403, error: "이 회원은 현재 활동이 제한되어 있습니다.", state };
   }
   if (!canUseVerifiedMemberFeatures(state)) {
-    /** 비프로덕션에서 test_users(아이디 로그인)는 프로필 전화 인증 없이도 채팅·액션 허용 */
+    /** 비프로덕션: 레거시 로컬 test_users(순수 테스트 로그인)만 전화 인증 생략 */
     if (!isProductionDeploy()) {
       const { data: tu } = await sb.from("test_users").select("id").eq("id", userId).maybeSingle();
       if (tu && typeof (tu as { id?: string }).id === "string") {

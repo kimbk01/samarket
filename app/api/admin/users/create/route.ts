@@ -13,7 +13,7 @@ import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
  * 관리자 회원 수동 생성
  * - 일반 회원과 동일하게 Supabase `auth.users` + `public.profiles`(동일 PK = auth uid).
  * - `signInWithPassword`·RLS·`auth.uid()` 는 자가 가입 회원과 같은 경로로 동작.
- * - 추가: `test_users`(동일 id) — 일부 API·도구 보강용. 로그인은 `signInWithPassword` 경로로 통일.
+ * - 추가: `test_users`(동일 id) — 닉·연락처 보조 조회용. 이용 권한·지위는 Google·이메일 등 자가 가입 회원과 동일.
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();

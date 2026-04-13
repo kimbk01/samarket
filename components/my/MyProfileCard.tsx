@@ -10,6 +10,7 @@ import {
 } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 
 export type AddressDefaultsFlags = {
   life: boolean;
@@ -57,7 +58,14 @@ export function MyProfileCard({
     if (!addressDefaults.trade) chips.push({ key: "trade", label: tt("거래 주소 미설정"), warn: true });
     if (!addressDefaults.delivery) chips.push({ key: "delivery", label: tt("배달 주소 미설정"), warn: true });
   }
-  if (!profile.phone_verified) chips.push({ key: "phone", label: tt("연락처 미인증"), warn: true });
+  const contactFormal = hasFormalMemberContactVerification({
+    phone_verified: profile.phone_verified,
+    auth_provider: profile.auth_provider,
+    email: profile.email,
+  });
+  if (!contactFormal) {
+    chips.push({ key: "phone", label: tt("연락처 미인증"), warn: true });
+  }
   if (!profile.realname_verified) chips.push({ key: "realname", label: tt("본인인증 필요"), warn: true });
 
   return (

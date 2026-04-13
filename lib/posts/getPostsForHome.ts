@@ -10,6 +10,11 @@ export interface GetPostsForHomeOptions {
   sort?: HomePostSort;
   /** 타입 필터. null/미지정 시 전체 등록 상품 조회 */
   type?: "trade" | "community" | "service" | "feature" | null;
+  /**
+   * 거래 1차 메뉴(중고거래·부동산 등) UUID — 서버에서 하위 카테고리까지 펼쳐 필터.
+   * 미지정이면 `/home` 전체 피드.
+   */
+  tradeMarketParentId?: string | null;
 }
 
 export interface GetPostsForHomeResult {
@@ -31,8 +36,10 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const page = Math.max(1, options.page ?? 1);
   const sort = options.sort ?? "latest";
   const typeFilter = options.type ?? null;
-  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}`;
-  return { page, sort, typeFilter, cacheKey };
+  const tradeMarketParent = options.tradeMarketParentId?.trim() || null;
+  const marketKey = tradeMarketParent ?? "all";
+  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}`;
+  return { page, sort, typeFilter, tradeMarketParent, cacheKey };
 }
 
 export function peekCachedPostsForHome(
@@ -53,7 +60,7 @@ export function peekCachedPostsForHome(
 export async function getPostsForHome(
   options: GetPostsForHomeOptions = {}
 ): Promise<GetPostsForHomeResult> {
-  const { page, sort, typeFilter, cacheKey } = normalizeOptions(options);
+  const { page, sort, typeFilter, tradeMarketParent, cacheKey } = normalizeOptions(options);
   const cached = homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
@@ -72,6 +79,9 @@ export async function getPostsForHome(
       });
       if (typeFilter) {
         params.set("type", typeFilter);
+      }
+      if (tradeMarketParent) {
+        params.set("tradeMarketParent", tradeMarketParent);
       }
 
       const res = await fetch(`/api/home/posts?${params.toString()}`, {
