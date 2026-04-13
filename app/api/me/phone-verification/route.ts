@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   PHONE_VERIFICATION_REQUIRED_MESSAGE,
@@ -11,7 +11,7 @@ import { enforcePhoneVerificationPatchQuota } from "@/lib/security/rate-limit-pr
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
@@ -36,7 +36,7 @@ type PatchBody = {
 };
 
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
 
   const phoneRl = await enforcePhoneVerificationPatchQuota(auth.userId);

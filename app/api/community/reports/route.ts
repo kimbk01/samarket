@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { inferReportReasonCode } from "@/lib/reports/report-reason-code";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
@@ -9,7 +9,7 @@ import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
  * 동네생활 피드 전용 신고 — public.community_reports
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
 
   const reportRl = await enforceUserReportQuota(auth.userId, "community_feed");

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 /**
  * GET ?otherUserId=uuid
@@ -18,16 +18,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
     return NextResponse.json(
       { ok: false, error: "서버 설정이 필요합니다." },
       { status: 500 }
     );
   }
-
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
 
   const [{ data: b1 }, { data: b2 }] = await Promise.all([
     sb

@@ -9,7 +9,7 @@ export async function countPendingAcceptForStore(
   if (!sid) return 0;
   const { count, error } = await sb
     .from("store_orders")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("store_id", sid)
     .eq("order_status", "pending");
   if (error) {
@@ -28,7 +28,7 @@ export async function countPendingDeliveryAcceptForStore(
   if (!sid) return 0;
   const { count, error } = await sb
     .from("store_orders")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("store_id", sid)
     .eq("order_status", "pending")
     .eq("fulfillment_type", "local_delivery");

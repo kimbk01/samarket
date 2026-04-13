@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { buildCommunityMessengerManagedCallToken } from "@/lib/community-messenger/call-provider/server";
 import { getCommunityMessengerCallSessionById } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
@@ -8,7 +8,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
 
   const rateLimit = await enforceRateLimit({

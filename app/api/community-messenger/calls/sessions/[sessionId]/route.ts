@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import {
+  requireAuthenticatedUserId,
+  requireAuthenticatedUserIdStrict,
+} from "@/lib/auth/api-session";
 import {
   getCommunityMessengerCallSessionById,
   updateCommunityMessengerCallSession,
@@ -34,7 +37,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
 
   const rateLimit = await enforceRateLimit({

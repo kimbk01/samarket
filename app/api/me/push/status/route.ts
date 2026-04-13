@@ -16,7 +16,7 @@ export async function GET() {
 
   const { count, error } = await sb
     .from("web_push_subscriptions")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("user_id", auth.userId);
 
   if (error) {

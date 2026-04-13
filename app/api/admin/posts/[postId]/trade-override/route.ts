@@ -3,8 +3,8 @@
  * POST /api/admin/posts/[postId]/trade-override  body: { action: "cancel_sale" | "force_complete" }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export async function POST(
   req: NextRequest,
@@ -12,12 +12,6 @@ export async function POST(
 ) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
-  }
 
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
@@ -39,7 +33,10 @@ export async function POST(
     );
   }
 
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+  }
   const now = new Date().toISOString();
 
   if (action === "cancel_sale") {

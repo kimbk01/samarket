@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest) {
 
   const { count, error } = await sbAny
     .from("favorites")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
 
   if (error) {

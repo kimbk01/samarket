@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
         if (!excludeOwner && !ownerOnly) {
           const { count, error } = await sb
             .from("notifications")
-            .select("*", { count: "exact", head: true })
+            .select("id", { count: "exact", head: true })
             .eq("user_id", userId)
             .eq("is_read", false);
 
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
           if (error.message?.includes("meta") && error.message.includes("does not exist")) {
             const { count, error: cErr } = await sb
               .from("notifications")
-              .select("*", { count: "exact", head: true })
+              .select("id", { count: "exact", head: true })
               .eq("user_id", userId)
               .eq("is_read", false);
             if (cErr) {

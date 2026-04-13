@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { inferReportReasonCode } from "@/lib/reports/report-reason-code";
@@ -20,7 +20,7 @@ const REASON_TYPES = [
 ] as const;
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
 
   const rateLimit = await enforceRateLimit({

@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { safeErrorMessage } from "@/lib/http/api-route";
-import { createClient } from "@supabase/supabase-js";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import {
   ADMIN_CHAT_SUSPENDED_MESSAGE,
@@ -23,12 +23,6 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
-  }
-
   const { roomId: rawRoomId } = await params;
   const roomId = parseRoomId(rawRoomId);
   if (!roomId) {
@@ -63,7 +57,10 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "메시지를 입력하세요" }, { status: 400 });
   }
 
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+  }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
   const [access, { data: room, error: roomErr }] = await Promise.all([
     assertVerifiedMemberForAction(sbAny, userId),

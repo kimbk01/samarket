@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   const { count, error: countErr } = await svc
     .from("web_push_subscriptions")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("user_id", auth.userId);
 
   if (countErr) {

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import {
+  requireAuthenticatedUserId,
+  requireAuthenticatedUserIdStrict,
+} from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
 
@@ -47,7 +50,7 @@ export async function GET(req: NextRequest) {
  * 차단 시 같은 대상의 neighbor_follow 가 있으면 제거합니다.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
 
   let body: { targetUserId?: string };

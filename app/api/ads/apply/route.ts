@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyForAd } from "@/lib/ads/mock-ad-data";
 import type { AdApplyRequest, AdApplyResponse } from "@/lib/ads/types";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 
 /**
  * POST /api/ads/apply
@@ -9,7 +9,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
  * bank_transfer면 ad_payment_requests 생성 후 pending_payment.
  */
 export async function POST(req: NextRequest): Promise<NextResponse<AdApplyResponse>> {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }

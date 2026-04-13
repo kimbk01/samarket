@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { createPointChargeRequest } from "@/lib/points/mock-point-charge-requests";
 import type { PointPaymentMethod } from "@/lib/types/point";
 
@@ -15,7 +15,7 @@ interface ChargeBody {
  * 포인트 충전 신청 생성
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
   const userNickname = userId.slice(0, 8);

@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { createClient } from "@supabase/supabase-js";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { parseRoomId } from "@/lib/validate-params";
@@ -16,19 +16,16 @@ export async function POST(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    return NextResponse.json({ ok: false }, { status: 500 });
-  }
-
   const { roomId: raw } = await params;
   const roomId = parseRoomId(raw);
   if (!roomId) {
     return NextResponse.json({ ok: false, error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   const { data: room, error: roomErr } = await sbAny

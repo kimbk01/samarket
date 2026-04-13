@@ -10,7 +10,7 @@ export async function countRefundRequestedForStore(
 
   const { count, error } = await sb
     .from("store_orders")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("store_id", sid)
     .eq("order_status", "refund_requested");
 

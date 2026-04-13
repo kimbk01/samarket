@@ -60,11 +60,11 @@ export async function GET(
       const [favRes, ordRes] = await Promise.all([
         supabase
           .from("store_favorites")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("store_id", store.id),
         supabase
           .from("store_orders")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("store_id", store.id)
           .in("order_status", [...RECENT_ORDER_STATUSES])
           .gte("created_at", since90d.toISOString()),

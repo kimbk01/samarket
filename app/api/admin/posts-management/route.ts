@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { fetchAdminPostsManagementProducts } from "@/lib/admin-products/admin-posts-management-data";
 
 /**
@@ -26,9 +27,8 @@ export async function GET(_req: NextRequest) {
   }
 
   const anon = createClient(url, anonKey);
-  const supabase = usedServiceRole
-    ? createClient(url, serviceKey, { auth: { persistSession: false } })
-    : anon;
+  const svc = tryCreateSupabaseServiceClient();
+  const supabase = usedServiceRole && svc ? svc : anon;
 
   const { products, queryError } = await fetchAdminPostsManagementProducts(supabase);
   return NextResponse.json({

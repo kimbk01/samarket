@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceFavoriteToggleQuota } from "@/lib/security/rate-limit-presets";
 
@@ -31,7 +31,7 @@ async function appendFavoriteAuditLog(
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
 

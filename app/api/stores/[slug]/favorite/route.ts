@@ -41,7 +41,7 @@ export async function POST(_req: Request, context: { params: Promise<{ slug: str
   }
   const { count } = await supabase
     .from("store_favorites")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("store_id", storeId);
   return NextResponse.json({
     ok: true,
@@ -72,7 +72,7 @@ export async function DELETE(_req: Request, context: { params: Promise<{ slug: s
   }
   const { count } = await supabase
     .from("store_favorites")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("store_id", storeId);
   return NextResponse.json({
     ok: true,

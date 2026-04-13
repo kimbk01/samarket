@@ -85,11 +85,11 @@ export async function GET(
     const [favRes, ordRes] = await Promise.all([
       sb
         .from("store_favorites")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("store_id", store.id),
       sb
         .from("store_orders")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("store_id", store.id)
         .in("order_status", [...RECENT_ORDER_STATUSES])
         .gte("created_at", since90d.toISOString()),

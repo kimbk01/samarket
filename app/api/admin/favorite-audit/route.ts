@@ -3,24 +3,20 @@
  * 사용자 찜 목록(`/api/favorites/list` → `favorites`)과 별도로, 토글 시 쌓이는 `favorite_audit_log` 조회.
  */
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export async function GET(req: Request) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
     return NextResponse.json({ ok: false, error: "서버 설정 필요", items: [] }, { status: 500 });
   }
 
   const { searchParams } = new URL(req.url);
   const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
-
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } }) as SupabaseClient;
 
   const { data, error } = await sb
     .from("favorite_audit_log")

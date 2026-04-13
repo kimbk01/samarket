@@ -132,13 +132,13 @@ export async function GET() {
   const totalFavorites = await (async () => {
     const { count, error } = await sbAny
       .from("favorites")
-      .select("*", { count: "exact", head: true });
+      .select("id", { count: "exact", head: true });
     if (error) return 0;
     return typeof count === "number" ? count : 0;
   })();
 
   const totalUsers = await (async () => {
-    const { count, error } = await sbAny.from("profiles").select("*", { count: "exact", head: true });
+    const { count, error } = await sbAny.from("profiles").select("id", { count: "exact", head: true });
     if (error) return 0;
     return typeof count === "number" ? count : 0;
   })();
@@ -148,7 +148,7 @@ export async function GET() {
   const newProductsToday = await (async () => {
     const { count, error } = await sbAny
       .from("posts")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .gte("created_at", todayStart);
     if (error) return 0;
     return typeof count === "number" ? count : 0;
@@ -157,7 +157,7 @@ export async function GET() {
   const activeProducts = await (async () => {
     const { count, error } = await sbAny
       .from("posts")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .in("status", ["active", "reserved"]);
     if (error) return 0;
     return typeof count === "number" ? count : 0;
@@ -166,7 +166,7 @@ export async function GET() {
   const pendingReports = await (async () => {
     const { count, error } = await sbAny
       .from("reports")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .in("status", ["pending", "reviewing"]);
     if (error) return 0;
     return typeof count === "number" ? count : 0;
@@ -175,7 +175,7 @@ export async function GET() {
   const chatsToday = await (async () => {
     const { count, error } = await sbAny
       .from("product_chats")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .gte("last_message_at", todayStart);
     if (error) return 0;
     return typeof count === "number" ? count : 0;
@@ -184,7 +184,7 @@ export async function GET() {
   const completedTransactions = await (async () => {
     const { count, error } = await sbAny
       .from("posts")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("status", "sold");
     if (error) return 0;
     return typeof count === "number" ? count : 0;
@@ -219,7 +219,7 @@ export async function GET() {
     PRODUCT_STATUSES.map(async (statusKey) => {
       const { count, error } = await sbAny
         .from("posts")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("status", statusKey);
       if (error) {
         productSummary[statusKey] = 0;
@@ -239,21 +239,21 @@ export async function GET() {
   {
     const { count, error } = await sbAny
       .from("reports")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .in("status", ["pending", "reviewing"]);
     if (!error) reportSummary.pending = typeof count === "number" ? count : 0;
   }
   {
     const { count, error } = await sbAny
       .from("reports")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .in("status", ["reviewed", "resolved", "sanctioned"]);
     if (!error) reportSummary.reviewed = typeof count === "number" ? count : 0;
   }
   {
     const { count, error } = await sbAny
       .from("reports")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("status", "rejected");
     if (!error) reportSummary.rejected = typeof count === "number" ? count : 0;
   }
@@ -277,7 +277,7 @@ export async function GET() {
     (Object.keys(chatStatusMap) as (keyof ChatStatusSummary)[]).map(async (uiKey) => {
       const { count, error } = await sbAny
         .from("product_chats")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("room_status", chatStatusMap[uiKey]);
       if (error) chatSummary[uiKey] = 0;
       else chatSummary[uiKey] = typeof count === "number" ? count : 0;
@@ -317,11 +317,11 @@ export async function GET() {
   const premiumAndAdminCounts = await (async () => {
     const { count: premiumCount, error: premiumErr } = await sbAny
       .from("profiles")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .in("role", ["special", "premium"]);
     const { count: adminCount, error: adminErr } = await sbAny
       .from("profiles")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .in("role", ["admin", "master"]);
 
     return {
@@ -486,11 +486,11 @@ export async function GET() {
     const end = new Date(new Date(start).getTime() + 86400000).toISOString();
     const dateLabel = start.slice(0, 10);
     const [{ count: np }, { count: rep }, trQ] = await Promise.all([
-      sbAny.from("posts").select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
-      sbAny.from("reports").select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+      sbAny.from("posts").select("id", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+      sbAny.from("reports").select("id", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
       sbAny
         .from("transaction_reviews")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .gte("created_at", start)
         .lt("created_at", end),
     ]);

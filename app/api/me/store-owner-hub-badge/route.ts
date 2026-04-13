@@ -9,7 +9,7 @@
  */
 import { NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { createClient } from "@supabase/supabase-js";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { countPendingAcceptForStore } from "@/lib/stores/owner-store-pending-counts";
 import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-count";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -34,9 +34,8 @@ function computeCanSell(sales: SalesPerm | null | undefined): boolean {
 }
 
 export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
     if (process.env.NODE_ENV === "production") {
       console.error("[store-owner-hub-badge] NEXT_PUBLIC_SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY 미설정");
     }
@@ -73,7 +72,6 @@ export async function GET() {
     });
   }
 
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   const storesSb = tryGetSupabaseForStores();

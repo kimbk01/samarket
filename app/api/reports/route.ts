@@ -3,14 +3,14 @@
  * 서비스 롤로 삽입. 신고자 ID는 세션(또는 로컬 테스트 쿠키)에서만 결정.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
 const TARGET_TYPES = ["user", "product", "chat_room", "chat_message", "post", "comment"] as const;
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
+  const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
 
   const reportRl = await enforceUserReportQuota(auth.userId, "unified");

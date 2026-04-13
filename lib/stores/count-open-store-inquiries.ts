@@ -9,7 +9,7 @@ export async function countOpenStoreInquiriesForStore(
   if (!sid) return 0;
   const { count, error } = await sb
     .from("store_inquiries")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("store_id", sid)
     .eq("status", "open");
   if (error) return 0;

@@ -4,8 +4,8 @@
  * - 구매/판매 로드는 직렬(reconcile 경합 완화)
  */
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { applyBuyerAutoConfirmAllDue } from "@/lib/trade/apply-buyer-auto-confirm";
 import {
   loadPurchaseHistoryRows,
@@ -19,13 +19,10 @@ export async function GET() {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
-
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   // 구매/판매 목록 API와 동일: 스윕 완료 후 조회 — void 시 product_chats 스윕과 건수 조회가 겹치며 간헐 500 방지

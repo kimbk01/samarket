@@ -6,8 +6,8 @@
  * - 커뮤니티 메신저 `community_messenger_participants` 미읽음
  */
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
@@ -22,13 +22,10 @@ export async function POST() {
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
-
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
   const now = new Date().toISOString();
 

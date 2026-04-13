@@ -23,7 +23,7 @@ export async function GET() {
   const sbAny = sb;
   const { count, error } = await sbAny
     .from("favorites")
-    .select("*", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true });
 
   if (error) {
     return NextResponse.json(

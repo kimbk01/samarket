@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { createClient } from "@supabase/supabase-js";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import {
   touchProductChatPreviewFromItemTradeRoom,
@@ -17,12 +17,6 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
-  }
-
   const postId = req.nextUrl.searchParams.get("postId")?.trim();
   if (!postId) {
     return NextResponse.json({ error: "postId 필요" }, { status: 400 });
@@ -37,7 +31,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
+  }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   const { data: post } = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", postId).maybeSingle();

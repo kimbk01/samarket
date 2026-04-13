@@ -4,7 +4,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { POST_TRADE_CHAT_GATE_SELECT } from "@/lib/posts/post-query-select";
@@ -17,15 +18,6 @@ export async function POST(req: NextRequest) {
 
   const createRl = await enforceTradeChatCreateRoomQuota(userId);
   if (!createRl.ok) return createRl.response;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    return NextResponse.json(
-      { ok: false, error: "서버 설정이 필요합니다. .env.local에 SUPABASE_SERVICE_ROLE_KEY를 넣어 주세요." },
-      { status: 500 }
-    );
-  }
-
   let body: { productId?: string };
   try {
     body = await req.json();
@@ -37,7 +29,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
   }
 
-  const sbAny: SupabaseClient<any> = createClient<any>(url, serviceKey, { auth: { persistSession: false } });
+  const svc = tryCreateSupabaseServiceClient();
+  if (!svc) {
+    return NextResponse.json(
+      { ok: false, error: "서버 설정이 필요합니다. .env.local에 SUPABASE_SERVICE_ROLE_KEY를 넣어 주세요." },
+      { status: 500 }
+    );
+  }
+  const sbAny: SupabaseClient<any> = svc as SupabaseClient<any>;
   const access = await assertVerifiedMemberForAction(sbAny, userId);
   if (!access.ok) {
     return NextResponse.json({ ok: false, error: access.error }, { status: access.status });

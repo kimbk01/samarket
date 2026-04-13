@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { inferMessengerDomainFromChatRoom } from "@/lib/chat-domain/messenger-domains";
-import { createClient } from "@supabase/supabase-js";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import {
   enrichPostWithAuthorNickname,
@@ -141,13 +141,10 @@ export async function GET(req: NextRequest) {
       },
     });
   }
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
     return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
   }
-
-  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   const needProductChats = segment === "all" || segment === "trade";
