@@ -13,9 +13,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
 import { HomeTradeHistorySheetContent } from "@/components/home/HomeTradeHistorySheetContent";
-import { MypageTradeHubChatList } from "@/components/mypage/MypageTradeHubChatList";
 import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
 import {
   fetchTradeHistoryPurchasesBySession,
@@ -32,8 +30,7 @@ import {
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
-import { parseRoomId } from "@/lib/validate-params";
-import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 const CATEGORY_PREFIXES = ["/market/", "/community/", "/philife/", "/services/", "/features/"];
 
@@ -59,7 +56,7 @@ const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 const ROW_FROM_Y = 28;
 const ROW_STAGGER_MS = 45;
 
-type HomeTradeHubSheet = "purchases" | "chat";
+type HomeTradeHubSheet = "purchases";
 
 type MenuDef = {
   key: string;
@@ -74,7 +71,7 @@ type MenuDef = {
  * `/market/[slug]` 가 늘어나도 셸에서 동일 마운트.
  */
 export function HomeTradeHubFloatingBar() {
-  const { t, tt } = useI18n();
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const { chatUnread: tradeChatUnread } = useOwnerHubBadgeBreakdown();
@@ -93,8 +90,6 @@ export function HomeTradeHubFloatingBar() {
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [hubSheet, setHubSheet] = useState<HomeTradeHubSheet | null>(null);
   const [hubSheetEntered, setHubSheetEntered] = useState(false);
-  /** `hubSheet === "chat"` 일 때만 — 목록 vs 대화 */
-  const [tradeChatRoomId, setTradeChatRoomId] = useState<string | null>(null);
   const skipEnterAnimRef = useRef(true);
 
   useEffect(() => {
@@ -133,23 +128,15 @@ export function HomeTradeHubFloatingBar() {
     setHubSheet("purchases");
   }, []);
 
-  const openChatSheet = useCallback(() => {
+  /** 거래 채팅 목록은 메신저 `section=chats&kind=trade` 로 통일 (기존 시트+ChatRoomScreen 제거) */
+  const openTradeChatInMessenger = useCallback(() => {
     setMenuOpen(false);
-    setHubSheet("chat");
-  }, []);
+    router.push(TRADE_CHAT_SURFACE.messengerListHref);
+  }, [router]);
 
   const closeHubSheet = useCallback(() => {
     setHubSheet(null);
-    setTradeChatRoomId(null);
   }, []);
-
-  const backTradeChatToList = useCallback(() => {
-    setTradeChatRoomId(null);
-  }, []);
-
-  useEffect(() => {
-    if (hubSheet !== "chat") setTradeChatRoomId(null);
-  }, [hubSheet]);
 
   const menuItems: MenuDef[] = useMemo(() => {
     const rows: MenuDef[] = [];
@@ -157,11 +144,11 @@ export function HomeTradeHubFloatingBar() {
       rows.push({ key: "write", label: t("common_write"), Icon: PlusBoldIcon, onClick: onWriteClick });
     }
     rows.push(
-      { key: "trade-chat", label: t("nav_trade_chat"), Icon: ChatBubbleIcon, onClick: openChatSheet },
+      { key: "trade-chat", label: t("nav_trade_chat"), Icon: ChatBubbleIcon, onClick: openTradeChatInMessenger },
       { key: "trade-history", label: t("nav_trade_history"), Icon: BagIcon, onClick: openPurchasesSheet },
     );
     return rows;
-  }, [showWriteInDial, onWriteClick, openChatSheet, openPurchasesSheet, t]);
+  }, [showWriteInDial, onWriteClick, openTradeChatInMessenger, openPurchasesSheet, t]);
 
   const maxRowIndex = menuItems.length - 1;
 
@@ -210,10 +197,6 @@ export function HomeTradeHubFloatingBar() {
     if (!launcherOpen && !hubSheet) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (hubSheet === "chat" && tradeChatRoomId) {
-        backTradeChatToList();
-        return;
-      }
       if (hubSheet) {
         closeHubSheet();
         return;
@@ -222,12 +205,12 @@ export function HomeTradeHubFloatingBar() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [launcherOpen, hubSheet, tradeChatRoomId, closeAll, closeHubSheet, backTradeChatToList]);
+  }, [launcherOpen, hubSheet, closeAll, closeHubSheet]);
 
   const shellZ = launcherOpen ? "z-[33]" : "z-[21]";
 
-  /** 거래 미읽음: 시트로 목록/대화 열면 행·방 단위로만 표시 — 플로팅에는 숨김 */
-  const showFloatingTradeChatBadge = tradeChatUnread > 0 && hubSheet !== "chat";
+  /** 거래 미읽음 — 예전에는 거래채팅 시트를 열 때만 플로팅 배지 숨김; 목록은 메신저로 이동하므로 미읽음이면 표시 */
+  const showFloatingTradeChatBadge = tradeChatUnread > 0;
 
   return (
     <>
@@ -252,21 +235,12 @@ export function HomeTradeHubFloatingBar() {
           className="fixed inset-0 z-[50] flex flex-col justify-end pointer-events-auto"
           role="dialog"
           aria-modal="true"
-          aria-labelledby={
-            hubSheet === "purchases"
-              ? "home-trade-history-sheet-title"
-              : hubSheet === "chat" && !tradeChatRoomId
-                ? "home-trade-chat-sheet-title"
-                : undefined
-          }
-          aria-label={
-            hubSheet === "chat" && tradeChatRoomId ? `${tt(TRADE_CHAT_SURFACE.hubTabLabel)} ${t("nav_conversation")}` : undefined
-          }
+          aria-labelledby="home-trade-history-sheet-title"
         >
           <button
             type="button"
             className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${hubSheetEntered ? "opacity-100" : "opacity-0"}`}
-            aria-label={hubSheet === "purchases" ? `${t("nav_trade_history_title")} ${t("nav_close")}` : `${tt(TRADE_CHAT_SURFACE.hubTabLabel)} ${t("nav_close")}`}
+            aria-label={`${t("nav_trade_history_title")} ${t("nav_close")}`}
             onClick={closeHubSheet}
           />
           <div
@@ -276,49 +250,20 @@ export function HomeTradeHubFloatingBar() {
           >
             <div className="flex shrink-0 flex-col border-b border-sam-border pt-2 pb-1">
               <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-sam-surface-muted" aria-hidden />
-              {hubSheet === "chat" && tradeChatRoomId ? (
-                <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex justify-end pb-2 pt-0`}>
-                  <HubSheetCloseButton
-                    onClick={closeHubSheet}
-                    ariaLabel={`${tt(TRADE_CHAT_SURFACE.hubTabLabel)} ${t("nav_close")}`}
-                  />
-                </div>
-              ) : (
-                <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex items-center justify-between pb-3 pt-0`}>
-                  <h2
-                    id={hubSheet === "purchases" ? "home-trade-history-sheet-title" : "home-trade-chat-sheet-title"}
-                    className="text-[17px] font-semibold text-sam-fg"
-                  >
-                    {hubSheet === "purchases" ? t("nav_trade_history_title") : tt(TRADE_CHAT_SURFACE.hubTabLabel)}
-                  </h2>
-                  <HubSheetCloseButton
-                    onClick={closeHubSheet}
-                    ariaLabel={hubSheet === "purchases" ? `${t("nav_trade_history_title")} ${t("nav_close")}` : `${tt(TRADE_CHAT_SURFACE.hubTabLabel)} ${t("nav_close")}`}
-                  />
-                </div>
-              )}
+              <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex items-center justify-between pb-3 pt-0`}>
+                <h2 id="home-trade-history-sheet-title" className="text-[17px] font-semibold text-sam-fg">
+                  {t("nav_trade_history_title")}
+                </h2>
+                <HubSheetCloseButton
+                  onClick={closeHubSheet}
+                  ariaLabel={`${t("nav_trade_history_title")} ${t("nav_close")}`}
+                />
+              </div>
             </div>
             <div
-              className={
-                hubSheet === "purchases"
-                  ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2`
-                  : tradeChatRoomId
-                    ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`
-                    : `min-h-0 flex-1 overflow-y-auto overscroll-contain ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-3`
-              }
+              className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2`}
             >
-              {hubSheet === "purchases" ? (
-                <HomeTradeHistorySheetContent />
-              ) : tradeChatRoomId ? (
-                <ChatRoomScreen
-                  roomId={parseRoomId(tradeChatRoomId)}
-                  listHref={TRADE_CHAT_SURFACE.messengerListHref}
-                  onListNavigate={backTradeChatToList}
-                  tradeHubColumnLayout
-                />
-              ) : (
-                <MypageTradeHubChatList onSelectRoom={(id) => setTradeChatRoomId(id)} />
-              )}
+              <HomeTradeHistorySheetContent />
             </div>
           </div>
         </div>
