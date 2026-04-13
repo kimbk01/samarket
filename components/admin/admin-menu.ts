@@ -186,7 +186,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         title: "메뉴 관리",
         path: "/admin/menus",
         children: [
-          { key: "menu-trade", title: "메뉴 (거래)", path: "/admin/menus/trade", status: "done" },
           { key: "menu-community", title: "메뉴 (커뮤니티)", path: "/admin/menus/philife", status: "done" },
           { key: "menu-main-bottom-nav", title: "메인 하단 탭", path: "/admin/menus/main-bottom-nav", status: "done" },
         ],
@@ -194,9 +193,16 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       {
         key: "trade",
         title: "거래",
-        path: "/admin/products",
+        path: "/admin/trade",
         children: [
+          {
+            key: "trade-hub",
+            title: "거래 통합",
+            path: "/admin/trade",
+            status: "done",
+          },
           { key: "trade-products", title: "상품관리", path: "/admin/products", status: "partial" },
+          { key: "menu-trade", title: "메뉴 (거래)", path: "/admin/menus/trade", status: "done" },
           { key: "trade-feed-topics", title: "거래 피드 주제", path: "/admin/trade/feed-topics", status: "done" },
           { key: "trade-offers", title: "가격제안관리", path: "/admin/price-offers", pendingRoute: true, status: "todo" },
           { key: "trade-likes", title: "찜/관심관리", path: "/admin/favorites", status: "done" },

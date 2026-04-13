@@ -54,6 +54,18 @@ export function peekCachedPostsForHome(
   return cached.data;
 }
 
+/** RSC 시드와 클라이언트 캐시 키를 맞춰 첫 로드 후 재방문 시 중복 요청을 줄인다 */
+export function primeHomePostsCache(
+  options: GetPostsForHomeOptions = {},
+  data: GetPostsForHomeResult
+): void {
+  const { cacheKey } = normalizeOptions(options);
+  homePostsCache.set(cacheKey, {
+    data,
+    expiresAt: Date.now() + HOME_POSTS_TTL_MS,
+  });
+}
+
 /**
  * 홈/물건 등록 리스트용 게시글 조회 (어드민 posts와 동일 테이블)
  * - status: hidden 제외, sold(거래완료)는 홈 목록 미노출
