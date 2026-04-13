@@ -5,6 +5,7 @@ import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { normalizeAdminRole } from "@/lib/auth/admin-policy";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { MemberType } from "@/lib/types/admin-user";
+import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 
 const PHONE_VERIFICATION_STATUSES = ["unverified", "pending", "verified", "rejected"] as const;
 
@@ -74,7 +75,7 @@ async function ensureAuthUserFromTestRow(sb: SupabaseClient, userId: string, tu:
     },
   };
 
-  let email = `${username}@manual.local`;
+  let email = buildManualMemberAuthEmail(username);
   let { error: createErr } = await sb.auth.admin.createUser({
     ...payloadBase,
     email,
@@ -84,7 +85,9 @@ async function ensureAuthUserFromTestRow(sb: SupabaseClient, userId: string, tu:
     createErr &&
     /email|duplicate|already registered/i.test(String(createErr.message ?? ""))
   ) {
-    email = `${username}+${userId.replace(/-/g, "").slice(0, 12)}@manual.local`;
+    email = buildManualMemberAuthEmail(
+      `${username}+${userId.replace(/-/g, "").slice(0, 12)}`
+    );
     ({ error: createErr } = await sb.auth.admin.createUser({
       ...payloadBase,
       email,
@@ -188,7 +191,9 @@ async function ensureProfileRow(
 
   const email =
     authUser.email?.trim() ||
-    (usernameRaw ? `${usernameRaw.toLowerCase()}@manual.local` : `${userId}@manual.local`);
+    (usernameRaw
+      ? buildManualMemberAuthEmail(usernameRaw)
+      : buildManualMemberAuthEmail(userId));
 
   const tr = String(tu?.role ?? "member").trim().toLowerCase();
   let role: string;

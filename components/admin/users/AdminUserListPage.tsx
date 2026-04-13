@@ -20,6 +20,7 @@ import { CreateMemberForm } from "./CreateMemberForm";
 import { EditMemberForm } from "./EditMemberForm";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
+import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 
 const DEFAULT_FILTERS: AdminUserFilters = {
   moderationStatus: "",
@@ -163,31 +164,20 @@ export function AdminUserListPage() {
 
       {tab === "members" && (
         <>
-          <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-4 py-3 text-[13px] leading-relaxed text-sam-fg">
-            <p className="font-medium text-amber-950">회원 목록 (실회원 + 개발 로그인 연결)</p>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[12px] text-sam-fg">
-              <li>
-                목록의 <strong>로그인 아이디</strong>(또는 <code className="rounded bg-sam-surface/80 px-1">아이디@manual.local</code>)와 비밀번호로{" "}
-                <Link href="/login" className="font-medium text-signature underline">
-                  로그인
-                </Link>
-                하면 <strong>회원 UUID</strong>와 동일한 사용자로 API·매장·주문이 연결됩니다. 내 정보에 있는 보조 로그인 폼을 써도 됩니다.
-              </li>
-              <li>
-                <strong>수정</strong>: 각 행「작업」열에서 구분·전화 인증을 바꿀 수 있습니다(profiles DB). 관리자
-                승격·강등은 최고 관리자만 가능합니다.
-              </li>
-              <li>일반 회원가입 계정도 이 목록에 함께 보이며, 전화번호 인증 승인 상태를 관리자에서 확인할 수 있습니다.</li>
-              <li>
-                로그인 세션은 브라우저 <strong>쿠키</strong>를 씁니다. <strong>같은 브라우저·같은 프로필</strong>
-                에서 탭만 여러 개 열면 마지막 로그인이 덮어써서 한 사람처럼 보일 수 있습니다.
-              </li>
-              <li>
-                <strong>서로 다른 브라우저</strong>(Chrome, Edge 등), <strong>Chrome 프로필을 나누기</strong>, 또는{" "}
-                <strong>일반 창 + 시크릿(인코그니토)</strong>을 쓰면 동시에 서로 다른 계정으로 테스트할 수
-                있습니다.
-              </li>
-            </ul>
+          <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-4 py-3 text-[12px] leading-relaxed text-sam-fg">
+            <p className="font-medium text-amber-950">회원 목록</p>
+            <p className="mt-1">
+              로그인 아이디 또는{" "}
+              <code className="rounded bg-sam-surface/80 px-1">아이디@{MANUAL_MEMBER_EMAIL_DOMAIN}</code> + 비밀번호 →{" "}
+              <Link href="/login" className="font-medium text-signature underline">
+                /login
+              </Link>
+              . 로컬에서 배포와 같은 회원 DB인지{" "}
+              <a href="/api/system/supabase-project" className="font-medium text-signature underline">
+                /api/system/supabase-project
+              </a>{" "}
+              로 <code className="rounded bg-sam-surface/80 px-1">projectRef</code> 비교.
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <AdminUserFilterBar

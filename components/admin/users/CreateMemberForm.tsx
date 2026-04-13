@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LocationSelector } from "@/components/write/shared/LocationSelector";
 import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
 import { STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER } from "@/lib/stores/store-address-form-ui";
@@ -13,6 +13,10 @@ import {
   parsePhMobileInput,
   PH_LOCAL_MOBILE_RULE_MESSAGE_KO,
 } from "@/lib/utils/ph-mobile";
+import {
+  buildManualMemberAuthEmail,
+  MANUAL_MEMBER_EMAIL_DOMAIN,
+} from "@/lib/auth/manual-member-email";
 
 const ROLE_OPTIONS: { value: "normal" | "premium"; label: string }[] = [
   { value: "normal", label: "일반 회원" },
@@ -41,6 +45,19 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   const [submitting, setSubmitting] = useState(false);
   const [createdLoginId, setCreatedLoginId] = useState<string | null>(null);
   const [createdLoginEmail, setCreatedLoginEmail] = useState<string | null>(null);
+
+  const previewLoginId = username.trim().toLowerCase();
+  const resolvedAuthEmailPreview = useMemo(() => {
+    const custom = email.trim().toLowerCase();
+    if (custom) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(custom)) return { kind: "invalid_custom" as const, value: custom };
+      return { kind: "explicit" as const, value: custom };
+    }
+    if (previewLoginId.length >= 2) {
+      return { kind: "manual_default" as const, value: buildManualMemberAuthEmail(previewLoginId) };
+    }
+    return { kind: "need_id" as const, value: null as string | null };
+  }, [email, previewLoginId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +140,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         const em =
           typeof data.user?.email === "string" && data.user.email.trim()
             ? data.user.email.trim()
-            : `${id}@manual.local`;
+            : buildManualMemberAuthEmail(id);
         setCreatedLoginEmail(em);
       } else {
         setError(data.error || "생성에 실패했습니다.");
@@ -140,39 +157,14 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
         <div className="border-b border-sam-border px-5 py-4">
           <h2 className="text-lg font-semibold text-sam-fg">회원 수동 입력</h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-sam-muted">
-            <code className="rounded bg-sam-surface-muted px-1">auth.users</code>·
-            <code className="rounded bg-sam-surface-muted px-1">profiles</code>에 생성되며, 동일 UUID로{" "}
-            <code className="rounded bg-sam-surface-muted px-1">test_users</code> 행도 둡니다(도구·일부 API 보강용).
-          </p>
+          <p className="mt-1 text-[12px] text-sam-muted">auth.users · profiles · test_users</p>
         </div>
         {createdLoginId ? (
           <div className="space-y-4 p-5">
             <p className="text-[14px] text-sam-fg">
-              <strong className="text-sam-fg">{createdLoginId}</strong> 계정을 만들었습니다.
+              <strong>{createdLoginId}</strong> 생성됨. 로그인 이메일:{" "}
+              <code className="rounded bg-sam-surface-muted px-1">{createdLoginEmail}</code>
             </p>
-            <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[13px] leading-relaxed text-emerald-950">
-              <p className="font-medium">실제 회원(Supabase Auth)으로 들어갑니다.</p>
-              <p className="mt-1 text-emerald-900/90">
-                로그인 페이지 <strong>이메일 또는 아이디</strong> 칸에{" "}
-                <code className="rounded bg-sam-surface/80 px-1 py-0.5">{createdLoginEmail}</code> 전체 또는{" "}
-                <code className="rounded bg-sam-surface/80 px-1 py-0.5">{createdLoginId}</code> 만 + 생성 시 비밀번호
-                → 일반 회원과 같은 Supabase 세션입니다.
-              </p>
-            </div>
-            <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-sam-muted">
-              <li>
-                로그인하면 브라우저에 <strong>쿠키</strong>가 저장되어 서버가 이 회원 UUID로 요청을 처리합니다.
-              </li>
-              <li>
-                다른 계정과 <strong>동시에</strong> 쓰려면 <strong>브라우저를 나누세요</strong>(Chrome / Edge
-                등) 또는 프로필·시크릿 창으로 쿠키를 분리하세요. 같은 프로필의 탭만 여러 개면 섞일 수 있습니다.
-              </li>
-              <li>
-                회원 목록에서 <strong>회원 UUID</strong>·로그인 아이디를 확인할 수 있고, 상세에서 테스트 안내를
-                다시 볼 수 있습니다.
-              </li>
-            </ul>
             <div className="flex flex-wrap gap-2 border-t border-sam-border pt-4">
               <Link
                 href="/login"
@@ -236,8 +228,18 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
-                placeholder="비워두면 아이디@manual.local 로 생성"
+                placeholder={`비워두면 아이디@${MANUAL_MEMBER_EMAIL_DOMAIN} 로 생성`}
               />
+            </div>
+            <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/60 px-3 py-2">
+              <p className="text-[11px] text-sam-muted">Auth 이메일</p>
+              <code className="mt-0.5 block break-all text-[13px] text-sam-fg">
+                {resolvedAuthEmailPreview.kind === "need_id"
+                  ? "—"
+                  : resolvedAuthEmailPreview.kind === "invalid_custom"
+                    ? "이메일 형식 오류"
+                    : resolvedAuthEmailPreview.value}
+              </code>
             </div>
             <div>
               <label className="mb-1 block text-[13px] font-medium text-sam-fg">

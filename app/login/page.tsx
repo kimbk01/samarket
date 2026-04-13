@@ -8,9 +8,7 @@ import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
-
-/** 관리자 수동 생성 시 이메일 미입력이면 `{username}@manual.local` — 동일 규칙으로 로그인 */
-const MANUAL_LOCAL_EMAIL_SUFFIX = "@manual.local";
+import { resolveManualMemberSignInEmail } from "@/lib/auth/manual-member-email";
 
 /** 브라우저→Supabase 요청이 끊기거나 극단적으로 느릴 때 UI가 멈추지 않도록 */
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
@@ -25,13 +23,6 @@ function rejectAfter(ms: number, message: string): Promise<never> {
 
 function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
   return Promise.race([p, rejectAfter(ms, message)]);
-}
-
-function normalizeEmailForSignIn(raw: string): string {
-  const t = raw.trim();
-  if (!t) return "";
-  if (t.includes("@")) return t.toLowerCase();
-  return `${t.toLowerCase()}${MANUAL_LOCAL_EMAIL_SUFFIX}`;
 }
 
 function LoginPageContent() {
@@ -61,7 +52,7 @@ function LoginPageContent() {
       setLoading(false);
       return;
     }
-    const signInEmail = normalizeEmailForSignIn(email);
+    const signInEmail = resolveManualMemberSignInEmail(email);
     if (!signInEmail) {
       setError("이메일 또는 아이디를 입력하세요.");
       setLoading(false);
@@ -215,17 +206,10 @@ function LoginPageContent() {
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="회원가입 시 입력한 이메일 주소"
+              placeholder="이메일 또는 수동 회원 아이디"
               required
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
             />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-sam-meta">
-              <span className="text-sam-fg/90">회원가입(/signup) 계정</span>은 반드시 가입할 때 쓴 이메일
-              전체를 입력하세요. @ 없이만 입력하면{" "}
-              <span className="whitespace-nowrap">아이디@manual.local</span> 형태로 전송되며, 이는{" "}
-              <span className="text-sam-fg/90">관리자 수동·내부 테스트 계정</span>용입니다. 테스트용 아이디
-              로그인은 아래「아이디 로그인」칸을 사용하세요.
-            </p>
           </div>
           <div>
             <label className="block text-[13px] font-medium text-sam-fg">비밀번호</label>
@@ -237,25 +221,7 @@ function LoginPageContent() {
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
             />
           </div>
-          {error ? (
-            <div className="space-y-1">
-              <p className="text-[13px] text-red-600">{error}</p>
-              {process.env.NODE_ENV === "development" &&
-              (error === AUTH_TIMEOUT_MESSAGE ||
-                error.includes("Supabase 주소를 DNS에서") ||
-                error.includes("Supabase 서버에 연결하지")) ? (
-                <p className="text-[12px] text-sam-meta">
-                  개발 서버에서{" "}
-                  <a href="/api/system/supabase-connectivity" className="underline">
-                    /api/system/supabase-connectivity
-                  </a>
-                  를 열거나 터미널에서{" "}
-                  <code className="rounded bg-sam-border-soft px-1">npm run check:supabase-dns</code> 로 DNS를
-                  확인할 수 있습니다.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+          {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
           <button
             type="submit"
             disabled={loading || !!oauthBusy}
@@ -270,8 +236,14 @@ function LoginPageContent() {
             회원가입
           </Link>
         </p>
-        <p className="mt-3 text-center text-[11px] leading-relaxed text-sam-meta">
-          피드·매장·채팅 등 서비스는 로그인 후 이용할 수 있습니다.
+        <p className="mt-3 text-center text-[10px] text-sam-meta">
+          <a href="/api/system/supabase-project" className="underline">
+            /api/system/supabase-project
+          </a>
+          {" · "}
+          <a href="/api/system/supabase-connectivity" className="underline">
+            supabase-connectivity
+          </a>
         </p>
       </div>
       <div className="w-full max-w-sm">

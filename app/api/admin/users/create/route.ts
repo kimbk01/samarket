@@ -7,6 +7,7 @@ import {
   encodeProfileAppLocationStorage,
 } from "@/lib/profile/profile-location";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 
 /**
  * 관리자 회원 수동 생성
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join("\n") ||
     null;
-  const email = emailRaw || `${username}@manual.local`;
+  const email = emailRaw || buildManualMemberAuthEmail(username);
 
   if (!username || username.length < 2 || username.length > 64) {
     return NextResponse.json({ ok: false, error: "아이디는 2~64자로 입력하세요." }, { status: 400 });
@@ -175,5 +176,7 @@ export async function POST(req: NextRequest) {
       role,
       phoneVerified,
     },
+    /** 개발·운영 확인용: 이메일이 어떤 규칙으로 정해졌는지 */
+    authEmailResolution: emailRaw ? "explicit_email" : "manual_local_default",
   });
 }

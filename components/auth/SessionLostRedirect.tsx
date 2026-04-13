@@ -13,6 +13,24 @@ const SESSION_CHECK_INTERVAL_MS = 90_000;
 const SESSION_CHECK_COOLDOWN_MS = 10_000;
 /** 라우트 전환 직후 쿠키·RSC 타이밍 레이스로 `/api/auth/session` 이 일시 401일 수 있음 — 즉시 검사하지 않음 */
 const PATHNAME_SESSION_DEBOUNCE_MS = 500;
+
+function isAuthEntryPath(path: string): boolean {
+  return (
+    path === "/login" ||
+    path.startsWith("/login/") ||
+    path === "/signup" ||
+    path.startsWith("/signup/")
+  );
+}
+
+/** 로그인·OAuth 콜백 직후 등 세션을 맞출 때만 경로 전환으로 session API 호출 */
+function shouldRunSessionCheckAfterPathChange(prev: string | null, next: string): boolean {
+  if (next === "/login" || next.startsWith("/login/")) return false;
+  if (prev === null) return true;
+  if (prev.startsWith("/auth/")) return true;
+  if (isAuthEntryPath(prev)) return true;
+  return false;
+}
 /** 401 시 refresh 후에도 몇 번 더 재시도(뒤로가기·빠른 전환 시 오탐 로그아웃 방지) */
 const SESSION_UNAUTH_MAX_ATTEMPTS = 4;
 
@@ -23,6 +41,7 @@ export function SessionLostRedirect() {
   const pathname = usePathname() ?? "";
   /** pathname 을 check·handleSessionLost 의 의존성에 넣지 않아, 라우트 전환마다 interval/focus 리스너가 재생성되지 않게 함 */
   const pathnameRef = useRef(pathname);
+  const prevPathForSessionRef = useRef<string | null>(null);
   const lastCheckAtRef = useRef(0);
 
   const handleSessionLost = useCallback(async () => {
@@ -76,9 +95,24 @@ export function SessionLostRedirect() {
     });
   }, [handleSessionLost]);
 
-  /** 경로 변경: 직후 한 틱에 검사하면 전환·쿠키 레이스로 오탐 — 디바운스 */
+  /**
+   * `/home` ↔ `/chats` 등 일반 이동마다 `/api/auth/session` 을 때리지 않음(프록시·RSC 가 이미 인증 처리).
+   * 로그인/가입/OAuth 직후에만 세션 정합 검사.
+   */
   useLayoutEffect(() => {
     pathnameRef.current = pathname;
+    const prev = prevPathForSessionRef.current;
+    const next = pathname;
+
+    if (next === "/login" || next.startsWith("/login/")) {
+      prevPathForSessionRef.current = next;
+      return;
+    }
+
+    const run = shouldRunSessionCheckAfterPathChange(prev, next);
+    prevPathForSessionRef.current = next;
+    if (!run) return;
+
     const t = window.setTimeout(() => {
       void check();
     }, PATHNAME_SESSION_DEBOUNCE_MS);
