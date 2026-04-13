@@ -166,23 +166,36 @@ export function GlobalCommunityMessengerIncomingCall() {
     }, MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS);
   }, [refresh]);
 
+  /** 폴링·가시성 핸들러에서 최신 `refresh`/`queueVisibilityRefreshBurst` 를 쓰되, effect 의존 배열은 `[userId]` 만 둔다(길이 불변·React 19 런타임 검증 통과). */
+  const refreshRef = useRef(refresh);
+  const queueVisibilityRefreshBurstRef = useRef(queueVisibilityRefreshBurst);
+  useEffect(() => {
+    refreshRef.current = refresh;
+    queueVisibilityRefreshBurstRef.current = queueVisibilityRefreshBurst;
+  }, [refresh, queueVisibilityRefreshBurst]);
+
+  /**
+   * 폴링 간격은 `sessions.length` 에 따라 바꾸지 않는다.
+   * 그렇게 하면 수신 목록이 갱신될 때마다 effect 가 재실행되어 interval 재설정·`queueVisibilityRefreshBurst` 중복 호출로 GET 이 폭증할 수 있다.
+   * 벨 지연은 Supabase Realtime + 가시성 시 burst 가 담당하고, 폴링은 일정한 백업 주기만 유지한다.
+   */
   useEffect(() => {
     if (!userId) return;
-    queueVisibilityRefreshBurst();
-    const pollMs = getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, sessions.length > 0);
+    queueVisibilityRefreshBurstRef.current();
+    const pollMs = getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false);
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       /* Realtime 폴백 시 쿨다운에 막히지 않도록 force — 간격은 pollMs 로만 제한 */
-      void refresh(true);
+      void refreshRef.current(true);
     }, pollMs);
     const onVisible = () => {
-      if (document.visibilityState === "visible") queueVisibilityRefreshBurst();
+      if (document.visibilityState === "visible") queueVisibilityRefreshBurstRef.current();
     };
     const onPageShow = () => {
-      queueVisibilityRefreshBurst();
+      queueVisibilityRefreshBurstRef.current();
     };
     const onOnline = () => {
-      queueVisibilityRefreshBurst();
+      queueVisibilityRefreshBurstRef.current();
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("pageshow", onPageShow);
@@ -193,7 +206,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("online", onOnline);
     };
-  }, [queueVisibilityRefreshBurst, refresh, sessions.length, userId]);
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -300,6 +313,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const visibleSession = incomingCallBannerEnabled ? sessions[0] ?? null : null;
   const visibleSessionId = visibleSession?.id ?? null;
   const visibleSessionStatus = visibleSession?.status ?? null;
+  const visibleSessionCallKind = visibleSession?.callKind ?? null;
   const isMinimized = Boolean(visibleSession && minimizedSessionId === visibleSession.id);
 
   useEffect(() => {
@@ -307,7 +321,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     let cancelled = false;
     let tone: { stop: () => void } | null = null;
     void startCommunityMessengerCallTone("incoming", {
-      callKind: visibleSession?.callKind ?? "voice",
+      callKind: visibleSessionCallKind ?? "voice",
     }).then((t) => {
       if (cancelled) {
         t.stop();
@@ -319,7 +333,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       cancelled = true;
       tone?.stop();
     };
-  }, [visibleSessionId, visibleSessionStatus, visibleSession?.callKind]);
+  }, [visibleSessionId, visibleSessionStatus, visibleSessionCallKind]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
     suppressMissedSoundRef.current.add(sessionId);

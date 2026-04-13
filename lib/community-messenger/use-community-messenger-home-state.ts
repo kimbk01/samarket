@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import { communityMessengerRoomIsDelivery, communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
@@ -41,6 +41,12 @@ export function useCommunityMessengerHomeState({
   roomSearchKeyword,
   openGroupSearch,
 }: Params) {
+  /** 렌더 중 Date.now() 금지(react-hooks/purity) — lazy init + 부트스트랩 갱신 시 시각 동기화 */
+  const [friendSortEpochMs, setFriendSortEpochMs] = useState(() => Date.now());
+  useEffect(() => {
+    setFriendSortEpochMs(Date.now());
+  }, [data]);
+
   const hiddenFriendIds = useMemo(() => new Set((data?.hidden ?? []).map((friend) => friend.id)), [data?.hidden]);
 
   const favoriteFriendIds = useMemo(
@@ -68,7 +74,7 @@ export function useCommunityMessengerHomeState({
   /** 카카오톡 친구 탭과 유사: 최근 맺은 친구(기본 7일)는 상단·최근 수락 순, 이후 이름순 */
   const sortedFriends = useMemo(() => {
     const NEW_FRIEND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
+    const now = friendSortEpochMs;
     const isNewFriend = (friend: CommunityMessengerProfileLite) => {
       const raw = friend.friendshipAcceptedAt;
       if (!raw) return false;
@@ -89,7 +95,7 @@ export function useCommunityMessengerHomeState({
         }
         return a.label.localeCompare(b.label, "ko");
       });
-  }, [data?.friends, hiddenFriendIds]);
+  }, [data?.friends, friendSortEpochMs, hiddenFriendIds]);
 
   const friendStateModel = useMemo(
     () => buildMessengerFriendStateModel(data, directRoomByPeerId),

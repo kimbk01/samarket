@@ -13,7 +13,10 @@ export function useIncomingFriendRequestPopup(
   onIncoming: (request: CommunityMessengerFriendRequest) => void
 ) {
   const onIncomingRef = useRef(onIncoming);
-  onIncomingRef.current = onIncoming;
+
+  useEffect(() => {
+    onIncomingRef.current = onIncoming;
+  }, [onIncoming]);
 
   useEffect(() => {
     if (!enabled || !userId) return;
