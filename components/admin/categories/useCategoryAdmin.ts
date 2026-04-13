@@ -41,7 +41,7 @@ export function useCategoryAdmin() {
   }, []);
 
   const handleCreate = useCallback(
-    async (payload: CategoryFormPayload, settings: CategoryFormSettingsPayload) => {
+    async (payload: CategoryFormPayload, settings: CategoryFormSettingsPayload): Promise<boolean> => {
       const res = await createCategory(
         {
           name: payload.name,
@@ -60,16 +60,17 @@ export function useCategoryAdmin() {
       );
       if (!res.ok) {
         showError(res.error);
-        return;
+        return false;
       }
       showSuccess("카테고리가 추가되었습니다.");
       load();
+      return true;
     },
     [load, showError, showSuccess]
   );
 
   const handleUpdate = useCallback(
-    async (id: string, payload: CategoryFormPayload, settings: CategoryFormSettingsPayload) => {
+    async (id: string, payload: CategoryFormPayload, settings: CategoryFormSettingsPayload): Promise<boolean> => {
       const res = await updateCategoryAdmin(
         id,
         {
@@ -89,24 +90,26 @@ export function useCategoryAdmin() {
       );
       if (!res.ok) {
         showError(res.error);
-        return;
+        return false;
       }
       showSuccess("저장되었습니다.");
       load();
+      return true;
     },
     [load, showError, showSuccess]
   );
 
   const handleDelete = useCallback(
-    async (id: string) => {
-      if (!confirm("이 카테고리를 삭제하시겠습니까? (하위에 게시물이 있으면 삭제되지 않고 변경을 안내합니다.)")) return;
+    async (id: string): Promise<boolean> => {
+      if (!confirm("이 카테고리를 삭제하시겠습니까? (하위에 게시물이 있으면 삭제되지 않고 변경을 안내합니다.)")) return false;
       const res = await deleteCategory(id);
       if (!res.ok) {
         showError(res.error);
-        return;
+        return false;
       }
       showSuccess("삭제되었습니다.");
       load();
+      return true;
     },
     [load, showError, showSuccess]
   );

@@ -59,7 +59,7 @@ const TRADE_HUB_RAIL_LINKS: readonly {
   {
     key: "chat",
     label: "거래채팅",
-    href: "/mypage/trade/chat",
+    href: "/community-messenger?section=chats&kind=trade",
     fabClass: `${FAB_BASE} bg-violet-600`,
     Icon: ChatBubbleIcon,
   },

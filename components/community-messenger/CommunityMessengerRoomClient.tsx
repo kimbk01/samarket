@@ -70,7 +70,9 @@ import {
   readCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { CommunityMessengerMessageActionSheet } from "@/components/community-messenger/room/CommunityMessengerMessageActionSheet";
+import { CommunityMessengerTradeProcessSection } from "@/components/community-messenger/CommunityMessengerTradeProcessSection";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 
 /** 이전 말풍선과의 시간 간격이 이 값을 넘으면 프로필·꼬리 말풍선 다시 표시 (Viber 스타일, 기본 5분) */
@@ -296,6 +298,18 @@ export function CommunityMessengerRoomClient({
     setMembersListNextOffset(null);
     membersPageInitializedRef.current = false;
   }, [roomId]);
+
+  /** 거래 채팅 딥링크는 `product_chats` ID 로 들어올 수 있음 — 부트스트랩 후 실제 CM `room.id` 로 URL 정규화 */
+  useEffect(() => {
+    if (!snapshot?.room?.id || !roomId?.trim()) return;
+    const canonical = snapshot.room.id.trim();
+    const fromUrl = roomId.trim();
+    if (canonical === fromUrl) return;
+    const qs = searchParams.toString();
+    router.replace(`/community-messenger/rooms/${encodeURIComponent(canonical)}${qs ? `?${qs}` : ""}`, {
+      scroll: false,
+    });
+  }, [snapshot?.room?.id, roomId, router, searchParams]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -817,6 +831,20 @@ export function CommunityMessengerRoomClient({
   const callPanel = call.panel;
   const roomUnavailable = snapshot ? !communityMessengerRoomIsGloballyUsable(snapshot.room) : true;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
+  /** `summary` 컬럼에 거래/배달 v1 JSON만 들어간 경우 — 공지·소개에 원문 JSON 을 노출하지 않음 */
+  const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(() => {
+    const raw = snapshot?.room.summary?.trim();
+    if (!raw) return false;
+    const k = snapshot?.room.contextMeta?.kind;
+    if (k === "trade" || k === "delivery") return true;
+    return parseCommunityMessengerRoomContextMeta(raw) != null;
+  }, [snapshot?.room.summary, snapshot?.room.contextMeta]);
+  const tradeProductChatIdForDock = useMemo(() => {
+    const m = snapshot?.room.contextMeta;
+    if (!m || m.kind !== "trade") return "";
+    return typeof m.productChatId === "string" ? m.productChatId.trim() : "";
+  }, [snapshot?.room.contextMeta]);
+  const showMessengerTradeProcessDock = !isGroupRoom && tradeProductChatIdForDock.length > 0;
   const permissionGuide = call.panel ? getCommunityMessengerPermissionGuide(call.panel.kind) : null;
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
@@ -844,7 +872,9 @@ export function CommunityMessengerRoomClient({
   const roomNotice =
     snapshot?.room.roomType === "private_group"
       ? snapshot?.room.noticeText?.trim() ?? ""
-      : snapshot?.room.summary?.trim() ?? "";
+      : roomSummaryHoldsOnlyTradeOrDeliveryMeta
+        ? ""
+        : snapshot?.room.summary?.trim() ?? "";
   const canInviteMembers = Boolean(isPrivateGroupRoom && snapshot?.room.allowMemberInvite);
   const myRoleLabel = snapshot
     ? isOwner
@@ -2633,6 +2663,14 @@ export function CommunityMessengerRoomClient({
       />
       <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
 
+      {showMessengerTradeProcessDock ? (
+        <CommunityMessengerTradeProcessSection
+          productChatId={tradeProductChatIdForDock}
+          viewerUserId={snapshot.viewerUserId}
+          onTradeMetaChanged={() => void refresh(true)}
+        />
+      ) : null}
+
       <div
         ref={messagesViewportRef}
         className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--cm-room-chat-bg)]"
@@ -2670,7 +2708,7 @@ export function CommunityMessengerRoomClient({
               : ""}
             {isGroupRoom ? ` · ${groupCallStatusLabel}` : ""}
           </p>
-          {snapshot.room.summary?.trim() ? (
+          {snapshot.room.summary?.trim() && !roomSummaryHoldsOnlyTradeOrDeliveryMeta ? (
             <button
               type="button"
               onClick={() => setActiveSheet("info")}
@@ -4097,7 +4135,9 @@ export function CommunityMessengerRoomClient({
                     <p className="text-[14px] font-semibold text-sam-fg">기본 정보</p>
                     <p className="mt-3 text-[14px] font-semibold text-sam-fg">{snapshot.room.title}</p>
                     <p className="mt-2 text-[13px] leading-5 text-sam-muted">
-                      {snapshot.room.summary?.trim() || roomSubtitle || t("nav_messenger_room_no_intro")}
+                      {roomSummaryHoldsOnlyTradeOrDeliveryMeta
+                        ? roomSubtitle || t("nav_messenger_room_no_intro")
+                        : snapshot.room.summary?.trim() || roomSubtitle || t("nav_messenger_room_no_intro")}
                     </p>
                     <div className="mt-4 space-y-2 border-t border-sam-border-soft pt-4 text-[13px] text-sam-fg">
                       <div className="flex items-center justify-between gap-3">

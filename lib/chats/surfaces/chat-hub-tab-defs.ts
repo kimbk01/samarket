@@ -18,7 +18,7 @@ export function buildChatHubTopTabDefs(opts: {
   const base: ChatHubTabDef[] = [
     {
       segment: "trade",
-      href: TRADE_CHAT_SURFACE.hubPath,
+      href: TRADE_CHAT_SURFACE.messengerListHref,
       label: TRADE_CHAT_SURFACE.hubTabLabel,
       labelKey: TRADE_CHAT_SURFACE.hubTabLabelKey,
     },

@@ -312,7 +312,7 @@ export function HomeTradeHubFloatingBar() {
               ) : tradeChatRoomId ? (
                 <ChatRoomScreen
                   roomId={parseRoomId(tradeChatRoomId)}
-                  listHref={TRADE_CHAT_SURFACE.hubPath}
+                  listHref={TRADE_CHAT_SURFACE.messengerListHref}
                   onListNavigate={backTradeChatToList}
                   tradeHubColumnLayout
                 />

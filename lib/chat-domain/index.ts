@@ -6,6 +6,14 @@ export {
   type MessengerDomain,
 } from "./messenger-domains";
 
+export {
+  isSamarketChatPillarMessengerDomain,
+  SAMARKET_CHAT_BOUNDARY_NOT_PILLARS,
+  SAMARKET_CHAT_PILLAR_IDS,
+  SAMARKET_CHAT_PILLARS,
+  type SamarketChatPillarId,
+} from "./samarket-three-chat-pillars";
+
 export type {
   CommunityMessengerReadPort,
   CommunityMessengerRoomSnapshotOptions,

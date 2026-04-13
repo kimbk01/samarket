@@ -1,5 +1,7 @@
 /**
- * 채팅방 도메인 구분 — 거래/배달은 별도 메신저가 아니라 동일 CHATS 목록의 메타/타입 확장으로 취급한다.
+ * 채팅방 도메인 구분 — 거래/배달 카드는 메신저 목록에서 **표시용 메타**로만 쓰인다.
+ * 사용자 대면 「채팅 3종」 정의·Philife·스토어 스트림·통화와의 혼동 금지는
+ * `lib/chat-domain/samarket-three-chat-pillars.ts` 를 따른다.
  */
 
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";

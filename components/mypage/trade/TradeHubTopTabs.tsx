@@ -11,7 +11,11 @@ const ITEMS = [
   { href: "/mypage/trade/sales", labelKey: "nav_trade_hub_sales", label: "판매 내역" },
   { href: MYPAGE_TRADE_FAVORITES_HREF, labelKey: "nav_trade_hub_favorites", label: "찜 목록" },
   { href: "/mypage/trade/reviews", labelKey: "nav_trade_hub_reviews", label: "후기" },
-  { href: "/mypage/trade/chat", labelKey: "nav_trade_hub_chat", label: "채팅" },
+  {
+    href: "/community-messenger?section=chats&kind=trade",
+    labelKey: "nav_trade_hub_chat",
+    label: "채팅",
+  },
 ] as const;
 
 /** 탭 라벨이 좁은 칸에서도 본문 컬럼 안에만 머물도록 (flex min-width:auto 방지) */
@@ -26,8 +30,8 @@ export function TradeHubTopTabs() {
         <ul className="flex min-w-0 w-full border-b border-ig-border bg-[var(--sub-bg)]">
           {ITEMS.map((item) => {
             const active =
-              item.href === "/mypage/trade/chat"
-                ? pathname === item.href || pathname.startsWith(`${item.href}/`)
+              item.href.includes("community-messenger?section=chats")
+                ? pathname === "/community-messenger" || pathname.startsWith("/community-messenger/")
                 : pathname === item.href;
             return (
               <li key={item.href} className="flex min-w-0 flex-1">

@@ -1,6 +1,8 @@
 /**
  * SAMarket — 제품 표면(거래·커뮤니티·매장/배달·채팅·계정)과 라우트 정렬.
  * 하단 탭의 href 진실은 `bottom-nav-config` 단일 원천; 여기서는 탭 id 연결·딥링크·푸시용 보조 경로만 둔다.
+ *
+ * 사용자 대면 「채팅」3종 정의: `lib/chat-domain/samarket-three-chat-pillars.ts` (Philife·store 스트림·통화는 별도).
  */
 
 import {

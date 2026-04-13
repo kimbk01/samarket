@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import {
+  TRADE_CHAT_SURFACE,
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
 import {
@@ -14,7 +15,7 @@ import {
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import type { ChatRoomSource } from "@/lib/types/chat";
 
-const LIST_HREF = "/mypage/trade/chat";
+const LIST_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 
 export function TradeChatComposeClient({
   productId,
@@ -54,7 +55,7 @@ export function TradeChatComposeClient({
 
   useEffect(() => {
     if (activeRoomId) {
-      /** `/mypage/trade/chat/[roomId]` RSC 가 `loadChatRoomBootstrapForUser` 로 이미 부트스트랩 — 여기서 `/bootstrap` 을 또 호출하면 이중 왕복 */
+      /** 메신저 방 RSC 부트스트랩으로 이어짐 — 여기서 `/bootstrap` 을 또 호출하면 이중 왕복 */
       return;
     }
     if (!productId) {
@@ -100,7 +101,7 @@ export function TradeChatComposeClient({
     });
   }, [activeRoomId, router, hubBootstrapSource, sourceHint]);
 
-  /** 방 ID 확정 후 `ChatRoomScreen` 을 여기서 마운트하지 않음 — 허브 `/mypage/trade/chat/[roomId]` RSC 부트스트랩만 타서 이중 `/bootstrap` 호출 방지 */
+  /** 방 ID 확정 후 메신저 방으로 `replace` — 이 compose 셸에서 `ChatRoomScreen` 을 마운트하지 않음 */
   if (activeRoomId) {
     return (
       <TradeChatLoadingShell

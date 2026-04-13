@@ -57,7 +57,7 @@ export function ChatButton({
   useEffect(() => {
     const user = getCurrentUser();
     if (!user?.id) return;
-    void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+    void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
     if (existingRoomId) {
       void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
     }
@@ -109,7 +109,7 @@ export function ChatButton({
         type="button"
         onClick={handleClick}
         onPointerEnter={() => {
-          void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+          void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
           if (existingRoomId) {
             void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
             warmChatRoomEntryById(existingRoomId, existingRoomSource);

@@ -13,6 +13,8 @@ import {
   parseVoiceWaveformPeaksFromMetadata,
 } from "@/lib/community-messenger/voice-waveform";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
+import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
@@ -4069,6 +4071,59 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
 
 const COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX = 100;
 
+function firstPostThumbnailForTradeMeta(images: unknown): string | null {
+  if (images == null) return null;
+  if (Array.isArray(images) && images.length > 0) {
+    const x = images[0];
+    if (typeof x === "string" && x.trim()) return x.trim();
+    if (x && typeof x === "object" && "url" in x && typeof (x as { url?: unknown }).url === "string") {
+      return String((x as { url: string }).url).trim() || null;
+    }
+  }
+  return null;
+}
+
+/** product_chats → CM 방 연결 직후 `summary` 에 거래 메타를 넣어 목록·방 UI(`productChatId`)가 맞도록 한다. */
+async function hydrateTradeMessengerRoomSummaryFromProductChat(
+  userId: string,
+  productChatId: string,
+  cmRoomId: string
+): Promise<void> {
+  const sb = getSupabaseOrNull();
+  if (!sb) return;
+  const resolved = await resolveProductChat(sb as never, productChatId);
+  if (!resolved) return;
+  const pc = resolved.productChat;
+  const postId = String(pc.post_id ?? "").trim();
+  const { data: post } = await (sb as any)
+    .from(POSTS_TABLE_READ)
+    .select("title, price, currency, images")
+    .eq("id", postId)
+    .maybeSingle();
+  const title = typeof post?.title === "string" ? post.title.trim() : "";
+  const priceRaw = post?.price;
+  const price =
+    typeof priceRaw === "number" && Number.isFinite(priceRaw)
+      ? priceRaw
+      : priceRaw != null
+        ? Number(priceRaw)
+        : null;
+  const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
+  const meta = buildMessengerContextMetaFromProductChatSnapshot({
+    productChatId: resolved.productChatId,
+    productTitle: title || "거래",
+    price: price != null && !Number.isNaN(price) ? price : null,
+    currency,
+    tradeFlowStatus: String((pc as { trade_flow_status?: string }).trade_flow_status ?? "chatting"),
+    thumbnailUrl: firstPostThumbnailForTradeMeta(post?.images),
+  });
+  await updateCommunityMessengerRoomContextMeta({
+    userId,
+    roomId: cmRoomId,
+    contextMeta: meta,
+  });
+}
+
 export type GetCommunityMessengerRoomSnapshotOptions = {
   /** 기본: `COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT` (30) */
   initialMessageLimit?: number;
@@ -4152,6 +4207,18 @@ export async function getCommunityMessengerRoomSnapshot(
       }
       messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
       /** 읽음 처리는 `PATCH ... mark_read`(클라) 단일 경로 — 부트스트랩 GET 은 읽기 전용 */
+    }
+  }
+
+  /**
+   * URL 에 `product_chats.id`(거래 통합 방 ID)가 오면 `community_messenger_rooms` 조회가 비어
+   * 스냅샷이 null 이 된다. 브리지 API 와 동일하게 CM 1:1 방을 보장한 뒤 재조회한다.
+   */
+  if (!room && sb) {
+    const bridged = await ensureCommunityMessengerDirectRoomFromProductChat(userId, id);
+    if (bridged.ok && bridged.roomId && bridged.roomId !== id) {
+      await hydrateTradeMessengerRoomSummaryFromProductChat(userId, id, bridged.roomId);
+      return getCommunityMessengerRoomSnapshot(userId, bridged.roomId, options);
     }
   }
 

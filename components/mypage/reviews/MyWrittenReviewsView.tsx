@@ -16,7 +16,7 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { formatPrice } from "@/lib/utils/format";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
 import { WRITTEN_REVIEW_UPDATED_EVENT } from "@/lib/mypage/written-review-events";
-import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 export interface MyWrittenReviewItem {
   id: string;
@@ -104,7 +104,7 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
       <div className="flex gap-2 border-t border-sam-border-soft px-3 py-2">
         {it.roomId ? (
           <Link
-            href={`${TRADE_CHAT_SURFACE.hubPath}/${encodeURIComponent(it.roomId)}`}
+            href={tradeHubChatRoomHref(it.roomId, "product_chat")}
             className="text-[13px] font-medium text-signature hover:underline"
           >
             채팅방

@@ -37,7 +37,7 @@ export function CommunityComposeSheet({
         <ul className="space-y-2">
           <li>
             <Link
-              href={TRADE_CHAT_SURFACE.hubPath}
+              href={TRADE_CHAT_SURFACE.messengerListHref}
               onClick={onClose}
               className="flex items-center justify-center rounded-ui-rect border border-sam-border-soft bg-sam-app py-3.5 text-[15px] font-medium text-sam-fg"
             >

@@ -9,6 +9,8 @@ const warmedAtByHref = new Map<string, number>();
 
 function extractChatRoomIdFromHrefPath(pathname: string): string | null {
   const tradeSeg = TRADE_CHAT_SURFACE.hubPath.replace(/^\//, "").replace(/\//g, "\\/");
+  const cmRoom = /^\/community-messenger\/rooms\/([^/?#]+)/.exec(pathname);
+  if (cmRoom?.[1]?.trim()) return cmRoom[1].trim();
   const m = new RegExp(`^\\/(?:chats|${tradeSeg})\\/([^/?#]+)`).exec(pathname);
   const roomId = m?.[1]?.trim();
   return roomId || null;

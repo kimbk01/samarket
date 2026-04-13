@@ -1,18 +1,16 @@
-import { ChatRoomScreen } from "@/components/chats/ChatRoomScreen";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { loadTradeChatRoomBootstrap } from "@/lib/chat-domain/use-cases/trade-chat-bootstrap";
-import { createTradeChatReadAdapter } from "@/lib/chats/server/trade-chat-read-adapter";
-import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
+import { redirect } from "next/navigation";
+import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
-
-const LIST_HREF = "/mypage/trade/chat";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
   return v;
 }
 
-/** 거래 허브 레이아웃(상단 탭) 안에서 채팅 상세 — 별도 `/chats` 전체 화면으로 나가지 않음 */
+/**
+ * 레거시 거래 허브 방 URL — 메신저 방(또는 후기 플로우 시 `/chats`)으로 통일 리다이렉트.
+ */
 export default async function TradeHubChatRoomPage({
   params,
   searchParams,
@@ -22,36 +20,14 @@ export default async function TradeHubChatRoomPage({
 }) {
   const { roomId: raw } = await params;
   const sp = await searchParams;
-  const initialViewerUserId = await getOptionalAuthenticatedUserId();
   const roomId = parseRoomId(raw);
   const openReviewOnMount = firstQueryString(sp.review)?.trim() === "1";
   const sourceRaw = firstQueryString(sp.source)?.trim();
   const chatRoomSourceHint: ChatRoomSource | null =
     sourceRaw === "chat_room" || sourceRaw === "product_chat" ? sourceRaw : null;
 
-  let serverBootstrap: { room: ChatRoom; messages: ChatMessage[] } | null = null;
-  if (initialViewerUserId && roomId) {
-    const port = createTradeChatReadAdapter();
-    const boot = await loadTradeChatRoomBootstrap(port, initialViewerUserId, roomId, {
-      sourceHint: chatRoomSourceHint,
-      detailScope: "entry",
-    });
-    if (boot.ok) {
-      serverBootstrap = { room: boot.room, messages: boot.messages };
-    }
-  }
-
-  return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-ig-border bg-sam-surface shadow-sm">
-      <ChatRoomScreen
-        roomId={roomId}
-        openReviewOnMount={openReviewOnMount}
-        listHref={LIST_HREF}
-        initialViewerUserId={initialViewerUserId}
-        tradeHubColumnLayout
-        chatRoomSourceHint={chatRoomSourceHint}
-        serverBootstrap={serverBootstrap}
-      />
-    </section>
-  );
+  const dest = openReviewOnMount
+    ? tradeHubChatRoomHref(roomId, chatRoomSourceHint, { review: true })
+    : tradeHubChatRoomHref(roomId, chatRoomSourceHint);
+  redirect(dest);
 }

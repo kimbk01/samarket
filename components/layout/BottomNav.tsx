@@ -112,7 +112,7 @@ export function BottomNav() {
   useLayoutEffect(() => {
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const tradeHub = TRADE_CHAT_SURFACE.hubPath;
+    const tradeHub = TRADE_CHAT_SURFACE.messengerListHref;
     const hrefs: string[] = [];
     if (!pathname?.startsWith(tradeHub)) hrefs.push(tradeHub);
     for (const tab of tabs) {

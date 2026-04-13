@@ -1,5 +1,3 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
-
 /**
  * POST /api/chat/item/start — 거래 채팅 시작/재사용 (구매자=세션)
  * Body: { itemId: string }
@@ -12,6 +10,7 @@ import { ensureProductChatRowForItemTrade } from "@/lib/trade/ensure-product-cha
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { parsePostMetaField } from "@/lib/chats/chat-product-from-post";
+import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -43,14 +42,9 @@ export async function POST(req: NextRequest) {
 
   const sbAny = sb;
 
-  // 1) 상품 및 판매자 — 방 생성/차단 판정에 필요한 필드만 조회
-  const { data: post, error: postErr } = await sbAny
-    .from(POSTS_TABLE_READ)
-    .select("id, author_id, user_id, status, visibility, is_deleted, seller_listing_state, reserved_buyer_id, meta")
-    .eq("id", itemId)
-    .maybeSingle();
-
-  if (postErr || !post) {
+  // 1) 상품 및 판매자 — `/api/posts/.../detail` 과 동일 로더(DETAIL_SELECT → * → posts 폴백)
+  const post = await fetchPostRowForTradeChatById(sbAny, itemId);
+  if (!post) {
     return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 404 });
   }
   const row = post as Record<string, unknown>;
@@ -76,8 +70,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 2) 차단 확인 (user_blocks: user_id=blocker, blocked_user_id=blocked)
-  const [block1Res, block2Res] = await Promise.all([
+  // 2) 차단 + 기존 방 조회 — 순차 대신 병렬로 RTT 1회 절감
+  const [block1Res, block2Res, existingRes] = await Promise.all([
     sbAny
       .from("user_blocks")
       .select("id")
@@ -90,6 +84,14 @@ export async function POST(req: NextRequest) {
       .eq("user_id", sellerId)
       .eq("blocked_user_id", buyerId)
       .maybeSingle(),
+    sbAny
+      .from("chat_rooms")
+      .select("id")
+      .eq("room_type", "item_trade")
+      .eq("item_id", itemId)
+      .eq("seller_id", sellerId)
+      .eq("buyer_id", buyerId)
+      .maybeSingle(),
   ]);
   const block1 = block1Res.data;
   const block2 = block2Res.data;
@@ -97,15 +99,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "차단 관계에서는 채팅할 수 없습니다." }, { status: 403 });
   }
 
-  // 3) 기존 chat_rooms (item_trade, 동일 item+seller+buyer)
-  const { data: existing } = await sbAny
-    .from("chat_rooms")
-    .select("id")
-    .eq("room_type", "item_trade")
-    .eq("item_id", itemId)
-    .eq("seller_id", sellerId)
-    .eq("buyer_id", buyerId)
-    .maybeSingle();
+  const existing = existingRes.data as { id?: string } | null;
 
   if (existing?.id) {
     // Reopen: participant hidden/left 복구

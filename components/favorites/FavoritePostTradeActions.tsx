@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
@@ -10,7 +10,7 @@ import {
   redirectForBlockedAction,
 } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
+import { createOrGetChatRoom, prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { TRADE_CHAT_SURFACE, tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
@@ -49,6 +49,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
   const [existingRoomSource, setExistingRoomSource] = useState<ChatRoomSource | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
+  const tradeChatPrepareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user?.id || post.type === "community") {
@@ -86,7 +87,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
 
   useEffect(() => {
     if (!user?.id || post.type === "community") return;
-    void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+    void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
     if (existingRoomId) {
       void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
     }
@@ -113,6 +114,31 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     chatLoading ||
     chatBlockedByOtherReservation ||
     (isSold && !allowChatAfterSold && !existingRoomId);
+
+  const scheduleTradeChatPrepare = useCallback(() => {
+    if (!showChat || existingRoomId) return;
+    if (chatBlockedByOtherReservation) return;
+    if (isSold && !allowChatAfterSold) return;
+    if (tradeChatPrepareTimerRef.current) clearTimeout(tradeChatPrepareTimerRef.current);
+    tradeChatPrepareTimerRef.current = setTimeout(() => {
+      tradeChatPrepareTimerRef.current = null;
+      prepareTradeChatRoom(post.id);
+    }, 180);
+  }, [
+    showChat,
+    existingRoomId,
+    chatBlockedByOtherReservation,
+    isSold,
+    allowChatAfterSold,
+    post.id,
+  ]);
+
+  const cancelTradeChatPrepare = useCallback(() => {
+    if (tradeChatPrepareTimerRef.current) {
+      clearTimeout(tradeChatPrepareTimerRef.current);
+      tradeChatPrepareTimerRef.current = null;
+    }
+  }, []);
 
   const handleChat = useCallback(async () => {
     setChatError("");
@@ -165,12 +191,15 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
             type="button"
             onClick={() => void handleChat()}
             onPointerEnter={() => {
-              void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+              scheduleTradeChatPrepare();
+              void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
               if (existingRoomId) {
                 void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
                 warmChatRoomEntryById(existingRoomId, existingRoomSource);
               }
             }}
+            onPointerLeave={cancelTradeChatPrepare}
+            onPointerDown={cancelTradeChatPrepare}
             disabled={chatDisabled}
             title={
               chatBlockedByOtherReservation

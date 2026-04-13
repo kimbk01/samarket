@@ -10,8 +10,20 @@ import { CategoryFormModal } from "@/components/admin/categories/CategoryFormMod
 import type { CategoryFormPayload, CategoryFormSettingsPayload } from "@/components/admin/categories/CategoryFormModal";
 import { updateCategory } from "@/lib/categories/updateCategory";
 import { swapCategorySortOrders } from "@/lib/categories/swapCategorySortOrder";
+import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
 
 export type MenuFormType = "trade" | "community";
+
+async function requestPruneOrphanMarketBottomNav(): Promise<void> {
+  try {
+    await fetch("/api/admin/main-bottom-nav/prune-orphan-market", {
+      method: "POST",
+      cache: "no-store",
+    });
+  } catch {
+    /* 네트워크 실패 시에도 클라 캐시 무효화는 아래에서 수행 */
+  }
+}
 
 /**
  * 메뉴 관리 — `/admin/menus/trade` | `/admin/menus/philife` 에서 각각 호출
@@ -47,29 +59,58 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
   const subtopicParent = subtopicParentId ? list.find((c) => c.id === subtopicParentId) ?? null : null;
   const nextSortOrder = menuRows.length;
 
+  /** 거래 메뉴 변경 시: 고아 `/market/…` 탭을 DB에서 제거한 뒤 하단 탭 재조회 */
+  const syncTradeMenuToStoredBottomNav = useCallback(async () => {
+    if (menuType !== "trade") return;
+    await requestPruneOrphanMarketBottomNav();
+    notifyMainBottomNavConfigChanged();
+  }, [menuType]);
+
   const handleSaveEdit = useCallback(
     async (payload: CategoryFormPayload, settings: CategoryFormSettingsPayload) => {
       if (!editingId) return;
-      await handleUpdate(editingId, payload, settings);
-      setEditingId(null);
+      const ok = await handleUpdate(editingId, payload, settings);
+      if (ok) {
+        setEditingId(null);
+        void syncTradeMenuToStoredBottomNav();
+      }
     },
-    [editingId, handleUpdate]
+    [editingId, handleUpdate, syncTradeMenuToStoredBottomNav]
   );
 
   const handleSaveCreate = useCallback(
     async (payload: CategoryFormPayload, settings: CategoryFormSettingsPayload) => {
-      await handleCreate(payload, settings);
-      setCreateOpen(false);
+      const ok = await handleCreate(payload, settings);
+      if (ok) {
+        setCreateOpen(false);
+        void syncTradeMenuToStoredBottomNav();
+      }
     },
-    [handleCreate]
+    [handleCreate, syncTradeMenuToStoredBottomNav]
   );
+
+  const handleDeleteWithBottomNav = useCallback(
+    async (id: string) => {
+      const ok = await handleDelete(id);
+      if (ok) void syncTradeMenuToStoredBottomNav();
+    },
+    [handleDelete, syncTradeMenuToStoredBottomNav]
+  );
+
+  const refreshMenusAndBottomNav = useCallback(async () => {
+    await load();
+    void syncTradeMenuToStoredBottomNav();
+  }, [load, syncTradeMenuToStoredBottomNav]);
 
   const toggleAndRefresh = useCallback(
     async (id: string, current: boolean) => {
       const res = await updateCategory(id, { show_in_home_chips: !current });
-      if (res.ok) load();
+      if (res.ok) {
+        load();
+        void syncTradeMenuToStoredBottomNav();
+      }
     },
-    [load]
+    [load, syncTradeMenuToStoredBottomNav]
   );
 
   const toggleQuickLauncher = useCallback(
@@ -78,9 +119,10 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       if (res.ok) {
         showSuccess(!current ? "글쓰기 런처에 표시합니다." : "글쓰기 런처에서 뺐습니다.");
         load();
+        void syncTradeMenuToStoredBottomNav();
       }
     },
-    [load, showSuccess]
+    [load, showSuccess, syncTradeMenuToStoredBottomNav]
   );
 
   const handleMoveUp = useCallback(
@@ -91,9 +133,10 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       if (res.ok) {
         showSuccess("순서가 변경되었습니다.");
         load();
+        void syncTradeMenuToStoredBottomNav();
       }
     },
-    [menuRows, load, showSuccess]
+    [menuRows, load, showSuccess, syncTradeMenuToStoredBottomNav]
   );
 
   const handleMoveDown = useCallback(
@@ -104,15 +147,27 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       if (res.ok) {
         showSuccess("순서가 변경되었습니다.");
         load();
+        void syncTradeMenuToStoredBottomNav();
       }
     },
-    [menuRows, load, showSuccess]
+    [menuRows, load, showSuccess, syncTradeMenuToStoredBottomNav]
   );
 
   return (
     <div className="space-y-4">
       <AdminPageHeader title={title} />
       <p className="text-[14px] text-sam-muted">{subtitle}</p>
+      {menuType === "trade" ? (
+        <p className="text-[13px] text-sam-muted">
+          앱 하단 탭에서 경로를 <span className="font-mono text-[12px] text-sam-fg">/market/…</span> 로 둔 항목은
+          여기 거래 메뉴와 연동됩니다(이름 변경·삭제 시 탭 라벨 제거 또는 고아 탭 정리).
+          <span className="font-mono text-[12px]"> /home</span> 등 다른 경로만 쓰는 탭은 이 목록과 자동 동기화되지 않으니{" "}
+          <Link href="/admin/menus/main-bottom-nav" className="font-medium text-signature hover:underline">
+            메인 하단 탭 메뉴
+          </Link>
+          에서 직접 조정하세요.
+        </p>
+      ) : null}
       {menuType === "community" ? (
         <p className="text-[13px] text-sam-muted">
           커뮤니티 <strong className="font-medium text-sam-fg">게시판 목록</strong>(자유게시판 등)은{" "}
@@ -167,7 +222,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
           onToggleShowOnMenu={toggleAndRefresh}
           onToggleQuickLauncher={toggleQuickLauncher}
           onEdit={setEditingId}
-          onDelete={handleDelete}
+          onDelete={handleDeleteWithBottomNav}
           onMoveUp={handleMoveUp}
           onMoveDown={handleMoveDown}
           onManageSubtopics={(c) => setSubtopicParentId(c.id)}
@@ -190,9 +245,11 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
           forceType={menuType}
           category={editing}
           onSave={handleSaveEdit}
-          onDelete={() => {
-            if (confirm("삭제하시겠습니까?")) handleDelete(editing.id);
-            setEditingId(null);
+          onDelete={async () => {
+            if (!confirm("삭제하시겠습니까?")) return;
+            const ok = await handleDelete(editing.id);
+            if (ok) void syncTradeMenuToStoredBottomNav();
+            if (ok) setEditingId(null);
           }}
           onClose={() => setEditingId(null)}
         />
@@ -203,8 +260,8 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
           parent={subtopicParent}
           allCategories={list}
           onClose={() => setSubtopicParentId(null)}
-          onRefresh={load}
-          onDelete={handleDelete}
+          onRefresh={refreshMenusAndBottomNav}
+          onDelete={handleDeleteWithBottomNav}
         />
       )}
     </div>

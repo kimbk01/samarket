@@ -5,55 +5,18 @@
  * 목록 페이지 상단 메타/타입 검증용
  */
 import type { CategoryWithSettings } from "./types";
-import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
-import type { CategorySettingsRaw } from "./normalizeCategorySettings";
-import { normalizeCategorySettings } from "./normalizeCategorySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeMarketSlugParam } from "./tradeMarketPath";
 import { readCategoryCache, writeCategoryCache } from "./category-memory-cache";
 import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
+import {
+  toCategoryWithSettings,
+  type CategoryDbRow,
+} from "./to-category-with-settings";
+
+export { toCategoryWithSettings, type CategoryDbRow };
 
 const CATEGORY_BY_KEY_TTL_MS = 60_000;
-
-interface CategoryDbRow {
-  id: string;
-  name: string;
-  slug: string;
-  icon_key: string;
-  type: string;
-  sort_order: number;
-  is_active: boolean;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-  quick_create_enabled?: boolean;
-  quick_create_group?: string | null;
-  quick_create_order?: number;
-  show_in_home_chips?: boolean;
-  parent_id?: string | null;
-  category_settings?: CategorySettingsRaw;
-}
-
-export function toCategoryWithSettings(row: CategoryDbRow): CategoryWithSettings {
-  return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    icon_key: row.icon_key,
-    type: row.type as CategoryWithSettings["type"],
-    parent_id: row.parent_id ?? null,
-    sort_order: row.sort_order,
-    is_active: row.is_active,
-    description: row.description,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    quick_create_enabled: row.quick_create_enabled ?? false,
-    quick_create_group: parseQuickCreateGroup(row.quick_create_group),
-    quick_create_order: row.quick_create_order ?? 0,
-    show_in_home_chips: row.show_in_home_chips ?? true,
-    settings: normalizeCategorySettings(row.category_settings),
-  };
-}
 
 /**
  * id 또는 slug로 카테고리 조회 (categories + category_settings)

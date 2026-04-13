@@ -15,6 +15,8 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useRegisterCategoryListStickyHeader } from "@/contexts/CategoryListHeaderContext";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
+import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
 
 type ExpectedType = CategoryType;
 
@@ -23,6 +25,8 @@ interface CategoryListLayoutProps {
   slugOrId: string;
   /** 이 페이지가 기대하는 카테고리 type (불일치 시 올바른 경로로 리다이렉트) */
   expectedType: ExpectedType;
+  /** RSC에서 채운 거래 마켓 부트스트랩 — 있으면 첫 `fetch(market-bootstrap)` 생략 */
+  tradeServerSeed?: TradeCategoryServerSeed | null;
   /** 뒤로가기 링크 (미주입 시 history.back) */
   backHref?: string;
   children: (
@@ -41,25 +45,37 @@ export function CategoryListLayout({
   expectedType,
   backHref,
   children,
+  tradeServerSeed = null,
 }: CategoryListLayoutProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsRef = useRef(searchParams);
-  const [category, setCategory] = useState<CategoryWithSettings | null>(null);
+  const isTradeSeeded = expectedType === "trade" && tradeServerSeed != null;
+
+  const [category, setCategory] = useState<CategoryWithSettings | null>(() =>
+    isTradeSeeded ? tradeServerSeed!.category : null
+  );
   const [tradeBootstrapChildren, setTradeBootstrapChildren] = useState<CategoryWithSettings[] | undefined>(
-    undefined
+    () => (isTradeSeeded ? tradeServerSeed!.tradeBootstrapChildren : undefined)
   );
   const [tradeBootstrapFeed, setTradeBootstrapFeed] = useState<
     { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null | undefined
-  >(undefined);
+  >(() => (isTradeSeeded ? tradeServerSeed!.tradeBootstrapFeed ?? null : undefined));
   const [tradeBootstrapChildrenForFilter, setTradeBootstrapChildrenForFilter] = useState<
     { id: string; slug: string | null }[] | undefined
-  >(undefined);
-  const [status, setStatus] = useState<"loading" | "found" | "not_found" | "redirect">("loading");
+  >(() => (isTradeSeeded ? tradeServerSeed!.tradeBootstrapChildrenForFilter : undefined));
+  const [status, setStatus] = useState<"loading" | "found" | "not_found" | "redirect">(() =>
+    isTradeSeeded ? "found" : "loading"
+  );
 
   useEffect(() => {
     searchParamsRef.current = searchParams;
   }, [searchParams]);
+
+  useEffect(() => {
+    if (expectedType !== "trade" || !tradeServerSeed) return;
+    writeCategoryCache(`children:${tradeServerSeed.category.id}`, tradeServerSeed.tradeBootstrapChildren);
+  }, [expectedType, tradeServerSeed]);
 
   const bootstrapFetchAbortRef = useRef<AbortController | null>(null);
 
@@ -68,6 +84,15 @@ export function CategoryListLayout({
       setStatus("not_found");
       return;
     }
+
+    if (expectedType === "trade" && tradeServerSeed) {
+      const topic = (searchParamsRef.current.get("topic")?.trim() ?? "").normalize("NFC");
+      const jk = searchParamsRef.current.get("jk")?.trim().toLowerCase() ?? "";
+      if (tradeServerSeed.queryKey === buildMarketBootstrapQueryKey(slugOrId, topic, jk || null)) {
+        return;
+      }
+    }
+
     bootstrapFetchAbortRef.current?.abort();
     const ac = new AbortController();
     bootstrapFetchAbortRef.current = ac;
@@ -147,7 +172,7 @@ export function CategoryListLayout({
     setTradeBootstrapChildrenForFilter(undefined);
     setTradeBootstrapFeed(null);
     setStatus("found");
-  }, [slugOrId, expectedType, router]);
+  }, [slugOrId, expectedType, router, tradeServerSeed]);
 
   useEffect(() => {
     void load();

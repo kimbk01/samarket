@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
@@ -22,7 +22,7 @@ import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCom
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
-import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
+import { createOrGetChatRoom, prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getAppSettings } from "@/lib/app-settings";
@@ -555,9 +555,10 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState("");
-  const [isChatNavPending, startChatNavTransition] = useTransition();
   const [chatRoomOpening, setChatRoomOpening] = useState(false);
-  const chatCtaBusy = isChatNavPending || chatRoomOpening;
+  /** API(채팅방 생성) 대기만 표시 — 라우트 전환은 `useTransition`에 묶지 않아 우선 반영 */
+  const chatCtaBusy = chatRoomOpening;
+  const tradeChatPrepareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chatError, setChatError] = useState("");
   /** 거래 글: 이 글·본인·판매자 기준으로 이미 열린 채팅방 (상품↔채팅 연동) */
   const [existingTradeRoomId, setExistingTradeRoomId] = useState<string | null>(null);
@@ -830,15 +831,13 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
   const navigateToTradeChatRoom = useCallback(
     (roomId: string, sourceHint?: ChatRoomSource | null) => {
       warmChatRoomEntryById(roomId, sourceHint);
-      startChatNavTransition(() => {
-        router.push(tradeHubChatRoomHref(roomId, sourceHint));
-      });
+      router.push(tradeHubChatRoomHref(roomId, sourceHint));
     },
-    [router, startChatNavTransition]
+    [router]
   );
 
   const prefetchTradeChatShell = useCallback(() => {
-    void router.prefetch(TRADE_CHAT_SURFACE.hubPath);
+    void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
     if (existingTradeRoomId) {
       void router.prefetch(tradeHubChatRoomHref(existingTradeRoomId, existingTradeRoomSource));
       warmChatRoomEntryById(existingTradeRoomId, existingTradeRoomSource);
@@ -885,11 +884,10 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
           return;
         }
         const href = tradeHubChatRoomHref(res.roomId, res.roomSource);
+        setChatRoomOpening(false);
         void router.prefetch(href);
         warmChatRoomEntryById(res.roomId, res.roomSource);
-        startChatNavTransition(() => {
-          router.push(href);
-        });
+        router.push(href);
       } finally {
         setChatRoomOpening(false);
       }
@@ -901,7 +899,6 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
     existingTradeRoomSource,
     chatBlockedByOtherReservation,
     navigateToTradeChatRoom,
-    startChatNavTransition,
   ]);
 
   const runCancelOwnSale = useCallback(async () => {
@@ -934,6 +931,35 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
     (category == null || category.settings?.has_price !== false);
   const showChat =
     post.type !== "community" && chatEnabled && (category == null || category.settings?.has_chat !== false);
+
+  /** 채팅 버튼에 잠시 머물면 POST 선행 — 탭 시 inflight/캐시로 체감 지연 감소 */
+  const scheduleTradeChatPrepare = useCallback(() => {
+    if (!showChat) return;
+    if (existingTradeRoomId) return;
+    if (chatBlockedByOtherReservation) return;
+    if (isSold && !allowChatAfterSold) return;
+    if (tradeChatPrepareTimerRef.current) {
+      clearTimeout(tradeChatPrepareTimerRef.current);
+    }
+    tradeChatPrepareTimerRef.current = setTimeout(() => {
+      tradeChatPrepareTimerRef.current = null;
+      prepareTradeChatRoom(post.id);
+    }, 180);
+  }, [
+    showChat,
+    existingTradeRoomId,
+    chatBlockedByOtherReservation,
+    isSold,
+    allowChatAfterSold,
+    post.id,
+  ]);
+
+  const cancelTradeChatPrepare = useCallback(() => {
+    if (tradeChatPrepareTimerRef.current) {
+      clearTimeout(tradeChatPrepareTimerRef.current);
+      tradeChatPrepareTimerRef.current = null;
+    }
+  }, []);
 
   /** 거래 채팅 허브(및 알려진 기존 거래 방) RSC 선로딩 */
   useEffect(() => {
@@ -1105,7 +1131,12 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
               <button
                 type="button"
                 onClick={handleChat}
-                onPointerDown={prefetchTradeChatShell}
+                onPointerEnter={scheduleTradeChatPrepare}
+                onPointerLeave={cancelTradeChatPrepare}
+                onPointerDown={() => {
+                  cancelTradeChatPrepare();
+                  prefetchTradeChatShell();
+                }}
                 disabled={
                   !showChat ||
                   (isSold && !allowChatAfterSold) ||
@@ -1399,7 +1430,12 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
             <button
               type="button"
               onClick={handleChat}
-              onPointerDown={prefetchTradeChatShell}
+              onPointerEnter={scheduleTradeChatPrepare}
+              onPointerLeave={cancelTradeChatPrepare}
+              onPointerDown={() => {
+                cancelTradeChatPrepare();
+                prefetchTradeChatShell();
+              }}
               disabled={
                 !showChat ||
                 (isSold && !allowChatAfterSold) ||

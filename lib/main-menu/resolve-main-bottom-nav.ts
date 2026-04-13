@@ -158,7 +158,7 @@ export function resolveMainBottomNavDisplayItems(valueJson: unknown): BottomNavI
     .map(({ visible: _v, ...rest }) => rest);
 }
 
-function toStoredItem(merged: MainBottomNavAdminRow): MainBottomNavStoredItem {
+export function mainBottomNavAdminRowToStoredItem(merged: MainBottomNavAdminRow): MainBottomNavStoredItem {
   return {
     id: merged.id,
     visible: merged.visible,
@@ -214,11 +214,11 @@ export function validateMainBottomNavPayload(body: unknown): { ok: true; payload
     const id = String(r.id).trim();
     if (isBuiltinBottomNavTabId(id)) {
       const base = defaults.get(id)!;
-      return toStoredItem(mergeRow(base, r));
+      return mainBottomNavAdminRowToStoredItem(mergeRow(base, r));
     }
     const custom = mergeCustomRow(r);
     if (!custom) return { id, visible: true, label: "메뉴", href: "/home", icon: "home" as BottomNavIconKey };
-    return toStoredItem(custom);
+    return mainBottomNavAdminRowToStoredItem(custom);
   });
 
   return { ok: true, payload: { items: normalized } };

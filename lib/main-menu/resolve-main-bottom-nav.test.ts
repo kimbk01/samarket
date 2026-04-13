@@ -24,7 +24,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
         { id: "community", visible: true, label: "커뮤니티", href: "/philife", icon: "community" },
         { id: "stores", visible: true, label: "매장", href: "/stores", icon: "stores" },
         { id: "orders", visible: true, label: "주문", href: "/orders", icon: "orders" },
-        { id: "chat", visible: true, label: "채팅", href: "/mypage/trade/chat", icon: "chat" },
+        { id: "chat", visible: true, label: "채팅", href: "/community-messenger", icon: "chat" },
         { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
       ],
     });
@@ -41,7 +41,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
     const items = resolveMainBottomNavDisplayItems({
       items: [
         { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
-        { id: "chat", visible: true, label: "채팅", href: "/mypage/trade/chat", icon: "chat" },
+        { id: "chat", visible: true, label: "채팅", href: "/community-messenger", icon: "chat" },
         { id: "stores", visible: true, label: "매장", href: "/stores", icon: "stores" },
         { id: "community", visible: true, label: "커뮤니티", href: "/philife", icon: "community" },
         { id: "home", visible: true, label: "TRADE", href: "/home", icon: "trade" },
@@ -62,7 +62,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
         { id: "home", visible: true, label: "TRADE", href: "/home", icon: "home" },
         { id: "community", visible: true, label: "커뮤니티", href: "/philife", icon: "community" },
         { id: "stores", visible: true, label: "매장", href: "/stores", icon: "stores" },
-        { id: "chat", visible: true, label: "채팅", href: "/mypage/trade/chat", icon: "chat" },
+        { id: "chat", visible: true, label: "채팅", href: "/community-messenger", icon: "chat" },
         { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
       ],
     });
@@ -75,7 +75,7 @@ describe("validateMainBottomNavPayload", () => {
     const body = {
       items: [
         { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
-        { id: "chat", visible: true, label: "채팅", href: "/mypage/trade/chat", icon: "chat" },
+        { id: "chat", visible: true, label: "채팅", href: "/community-messenger", icon: "chat" },
         { id: "stores", visible: true, label: "매장", href: "/stores", icon: "stores" },
         { id: "community", visible: true, label: "커뮤니티", href: "/philife", icon: "community" },
         { id: "home", visible: true, label: "TRADE", href: "/home", icon: "trade" },

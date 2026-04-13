@@ -11,7 +11,7 @@ export function NewChatRedirectClient({ productId }: { productId: string | null 
 
   useEffect(() => {
     if (!productId) {
-      router.replace(TRADE_CHAT_SURFACE.hubPath);
+      router.replace(TRADE_CHAT_SURFACE.messengerListHref);
       return;
     }
     let cancelled = false;
@@ -21,7 +21,7 @@ export function NewChatRedirectClient({ productId }: { productId: string | null 
       if (!result.ok) {
         const errorMessage = result.error || "채팅방을 열 수 없습니다.";
         setMessage(errorMessage);
-        router.replace(`${TRADE_CHAT_SURFACE.hubPath}?error=${encodeURIComponent(errorMessage)}`);
+        router.replace(`${TRADE_CHAT_SURFACE.messengerListHref}&error=${encodeURIComponent(errorMessage)}`);
         return;
       }
       router.replace(tradeHubChatRoomHref(result.roomId, result.roomSource));

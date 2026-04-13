@@ -571,7 +571,7 @@ function TradeSection({
           items={[
             { label: "구매", href: "/mypage/trade/purchases", value: formatCount(overviewCounts.purchases) },
             { label: "판매", href: "/mypage/trade/sales", value: formatCount(overviewCounts.sales) },
-            { label: "채팅", href: "/mypage/trade/chat" },
+            { label: "채팅", href: "/community-messenger?section=chats&kind=trade" },
             { label: "찜", href: MYPAGE_TRADE_FAVORITES_HREF, value: favoriteBadge ?? undefined },
             { label: "후기", href: "/mypage/trade/reviews" },
             { label: "내 상품", href: "/mypage/products" },

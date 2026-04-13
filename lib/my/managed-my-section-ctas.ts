@@ -13,7 +13,7 @@ const TRADE_CTAS: ManagedMyCtaLink[] = [
   { href: "/mypage/trade", label: "거래 허브" },
   { href: "/mypage/trade/purchases", label: "구매" },
   { href: "/mypage/trade/sales", label: "판매" },
-  { href: "/mypage/trade/chat", label: "채팅" },
+  { href: "/community-messenger?section=chats&kind=trade", label: "채팅" },
   { href: MYPAGE_TRADE_FAVORITES_HREF, label: "찜" },
   { href: "/mypage/trade/reviews", label: "후기" },
 ];

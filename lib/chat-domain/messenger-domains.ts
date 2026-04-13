@@ -3,6 +3,10 @@ import type { ChatRoom, GeneralChatMeta } from "@/lib/types/chat";
 /**
  * 제품/런타임에서 구분하는 메신저 도메인 (단일 모듈에 로직 혼합 금지).
  * 관측·로그 라벨은 `domain=` 에 동일 문자열 사용 권장.
+ *
+ * **사용자에게 보이는 「채팅」은 `trade` · `community`(메신저) · `store_order` 세 가지만** 둔다.
+ * `philife` · `store`(쇼핑 통합 스트림) · `voice_call`/`video_call` 은 같은 배열에 있어도
+ * 제품 카피·탭 설명에서 3종과 섞지 않는다 — `@/lib/chat-domain/samarket-three-chat-pillars` 참고.
  */
 export const MESSENGER_DOMAINS = [
   "trade",

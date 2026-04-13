@@ -41,6 +41,11 @@ export function updateChatRoomDetailMemory(roomId: string, room: ChatRoom): void
   roomDetailCache.set(key, { at: Date.now(), room });
 }
 
+/** 거래 액션 후 상세 재조회 시 이전 TTL 캐시를 쓰지 않도록 비웁니다. */
+export function invalidateChatRoomDetailCache(roomId: string): void {
+  roomDetailCache.delete(roomId.trim());
+}
+
 function isChatRoomPayload(j: unknown): j is ChatRoom {
   if (!j || typeof j !== "object") return false;
   const o = j as Record<string, unknown>;

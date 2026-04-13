@@ -23,7 +23,12 @@ export function MessengerServiceStrip({
   const items: Item[] = [
     { id: "find", label: "친구 찾기", emoji: "🔍", onClick: onFindFriend },
     { id: "group", label: "그룹", emoji: "👥", onClick: onCreateGroup },
-    { id: "trade", label: "거래", emoji: "💬", href: "/mypage/trade/chat" },
+    {
+      id: "trade",
+      label: "거래",
+      emoji: "💬",
+      href: "/community-messenger?section=chats&kind=trade",
+    },
     { id: "order", label: "주문", emoji: "🛒", href: "/my/store-orders" },
   ];
 

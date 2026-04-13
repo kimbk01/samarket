@@ -5,7 +5,8 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
-const TTL_MS = 60_000;
+/** 짧게: 거래 메뉴·하단 탭 저장 직후 갱신이 오래 남지 않게 */
+const TTL_MS = 15_000;
 let cached: { expiresAt: number; items: BottomNavItemConfig[] | null } | null = null;
 
 /** 다른 탭·창과 동기화 — storage 이벤트용 */

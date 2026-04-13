@@ -77,33 +77,50 @@ export function MarketCategoryFeed({
     }
   }, [category.id, initialChildrenForFilter]);
 
+  /** 부트스트랩 없을 때만 Supabase — 칩·필터 id 를 한 번에 채워 이중 왕복을 줄임 */
   useEffect(() => {
-    if (initialChildrenForFilter !== undefined) return;
-    let cancelled = false;
-    void getChildCategoriesForFeedFilter(category.id)
-      .then((list) => {
-        if (cancelled) return;
-        setFilterRows(list);
-      })
-      .catch(() => {
-        if (!cancelled) setFilterRows([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [category.id, initialChildrenForFilter]);
+    if (initialChildren !== undefined && initialChildrenForFilter !== undefined) return;
 
-  useEffect(() => {
-    if (initialChildren !== undefined) return;
     let cancelled = false;
-    (async () => {
-      const list = await getChildCategories(category.id);
-      if (!cancelled) setChildren(list);
+    void (async () => {
+      const needChildren = initialChildren === undefined;
+      const needFilter = initialChildrenForFilter === undefined;
+      if (!needChildren && !needFilter) return;
+
+      if (needChildren && needFilter) {
+        const [a, b] = await Promise.allSettled([
+          getChildCategories(category.id),
+          getChildCategoriesForFeedFilter(category.id),
+        ]);
+        if (cancelled) return;
+        if (a.status === "fulfilled") setChildren(a.value);
+        if (b.status === "fulfilled") setFilterRows(b.value);
+        else setFilterRows([]);
+        return;
+      }
+      if (needChildren) {
+        try {
+          const list = await getChildCategories(category.id);
+          if (!cancelled) setChildren(list);
+        } catch {
+          /* 기존과 동일 — 칩 실패는 미처리 */
+        }
+      }
+      if (needFilter) {
+        try {
+          const filterList = await getChildCategoriesForFeedFilter(category.id);
+          if (cancelled) return;
+          setFilterRows(filterList);
+        } catch {
+          if (!cancelled) setFilterRows([]);
+        }
+      }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [category.id, initialChildren]);
+  }, [category.id, initialChildren, initialChildrenForFilter]);
 
   /** 칩 하이라이트: topic 은 피드 풀(activeChildren) 기준으로 유효할 때만 */
   const topicKeyForChips = useMemo(() => {

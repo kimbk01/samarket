@@ -4,6 +4,7 @@ import { loadTradeChatRoomBootstrap } from "@/lib/chat-domain/use-cases/trade-ch
 import { createTradeChatReadAdapter } from "@/lib/chats/server/trade-chat-read-adapter";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
@@ -17,7 +18,7 @@ function resolveChatListHref(from: string | undefined): string {
     case "orders-hub":
       return "/orders?tab=store";
     default:
-      return "/mypage/trade/chat";
+      return TRADE_CHAT_SURFACE.messengerListHref;
   }
 }
 

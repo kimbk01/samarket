@@ -1,5 +1,3 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
-
 /**
  * 채팅방 생성/조회 API (서비스 롤)
  * - body: { productId: string } — 구매자는 세션
@@ -10,7 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
-import { POST_TRADE_CHAT_GATE_SELECT } from "@/lib/posts/post-query-select";
+import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
 import { enforceTradeChatCreateRoomQuota } from "@/lib/security/rate-limit-presets";
 
 export async function POST(req: NextRequest) {
@@ -44,13 +42,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
 
-  // 1) 상품 및 판매자
-  const { data: postRaw, error: postErr } = await sbAny
-    .from(POSTS_TABLE_READ)
-    .select(POST_TRADE_CHAT_GATE_SELECT)
-    .eq("id", productId)
-    .maybeSingle();
-  if (postErr || !postRaw) {
+  // 1) 상품 및 판매자 — 상세 API와 동일 로더
+  const postRaw = await fetchPostRowForTradeChatById(sbAny, productId);
+  if (!postRaw) {
     return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 200 });
   }
   const row = postRaw as Record<string, unknown>;

@@ -83,7 +83,7 @@ export function AdminCategoriesPage() {
         <CategoryTable
           items={list}
           onEdit={setEditingId}
-          onDelete={handleDelete}
+          onDelete={(id) => void handleDelete(id)}
           onMoveUp={handleMoveUp}
           onMoveDown={handleMoveDown}
           onToggleActive={handleToggleActive}

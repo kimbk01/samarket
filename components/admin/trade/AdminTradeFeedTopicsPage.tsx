@@ -93,7 +93,9 @@ export function AdminTradeFeedTopicsPage() {
                 parent={selected}
                 allCategories={list}
                 onRefresh={load}
-                onDelete={handleDelete}
+                onDelete={async (id) => {
+                  await handleDelete(id);
+                }}
               />
             </div>
           ) : null}

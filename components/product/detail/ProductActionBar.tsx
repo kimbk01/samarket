@@ -54,7 +54,7 @@ export function ProductActionBar({
         {STATUS_LABEL[product.status]}
       </span>
       {amISeller ? (
-        <Link href={TRADE_CHAT_SURFACE.hubPath} className={PRODUCT_DETAIL_CTA_BUTTON}>
+        <Link href={TRADE_CHAT_SURFACE.messengerListHref} className={PRODUCT_DETAIL_CTA_BUTTON}>
           채팅 목록 보기
         </Link>
       ) : (

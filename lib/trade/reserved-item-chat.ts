@@ -1,5 +1,9 @@
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 
+/**
+ * 예약자가 아닌 구매자의 **신규** 채팅 시도 차단 — 상세 CTA·채팅방 메시지 규칙.
+ * 전체 플로우: `docs/trade-chat-buyer-seller-process.md`
+ */
 export function reservedBuyerIdFromPost(post: Record<string, unknown> | null | undefined): string | null {
   const v = post?.reserved_buyer_id;
   return typeof v === "string" && v.trim() ? v.trim() : null;

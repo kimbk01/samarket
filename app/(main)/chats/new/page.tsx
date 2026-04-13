@@ -20,7 +20,7 @@ export default async function NewChatPage({
   const sp = await searchParams;
   const productId = firstQueryString(sp.productId)?.trim() || null;
   if (!productId) {
-    redirect(TRADE_CHAT_SURFACE.hubPath);
+    redirect(TRADE_CHAT_SURFACE.messengerListHref);
   }
   redirect(tradeHubChatComposeHref({ productId }));
 }
