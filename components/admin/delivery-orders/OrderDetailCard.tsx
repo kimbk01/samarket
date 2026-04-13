@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { formatKstDatetimeLong } from "@/lib/datetime/format-kst-datetime";
 
 export function OrderDetailCard({ order }: { order: AdminDeliveryOrder }) {

@@ -1,53 +1,67 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import {
-  getDeliveryLogsForOrder,
-  getDeliveryOrder,
-  getDeliveryReports,
-  setAdminMemo,
-} from "@/lib/admin/delivery-orders-mock/mock-store";
-import { useDeliveryMockVersion } from "@/lib/admin/delivery-orders-mock/use-delivery-mock-store";
+import { fetchAdminStoreOrderDetailDeduped } from "@/lib/admin/fetch-admin-store-order-detail";
+import type { AdminDeliveryOrder, OrderStatusLog } from "@/lib/admin/delivery-orders-admin/types";
 import {
   AdminActionStatusBadge,
   OrderStatusBadge,
   PaymentStatusBadge,
   SettlementStatusBadge,
 } from "./DeliveryOrderBadges";
-import { AdminMemoBox } from "./AdminMemoBox";
 import { AdminOrderTimeline } from "./AdminOrderTimeline";
-import { OrderActionPanel } from "./OrderActionPanel";
 import { OrderAmountCard } from "./OrderAmountCard";
 import { OrderDetailCard } from "./OrderDetailCard";
 import { OrderItemsTable } from "./OrderItemsTable";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
-  const v = useDeliveryMockVersion();
-  const order = useMemo(() => {
-    void v;
-    return getDeliveryOrder(orderId);
-  }, [orderId, v]);
+  const [loading, setLoading] = useState(true);
+  const [order, setOrder] = useState<AdminDeliveryOrder | null>(null);
 
-  const logs = useMemo(() => {
-    void v;
-    return order ? getDeliveryLogsForOrder(order.id) : [];
-  }, [order, v]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const { order: fromDb } = await fetchAdminStoreOrderDetailDeduped(orderId);
+        if (cancelled) return;
+        setOrder(fromDb ?? null);
+      } catch {
+        if (!cancelled) setOrder(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId]);
 
-  const orderReports = useMemo(() => {
-    void v;
-    if (!order) return [];
-    return getDeliveryReports().filter((r) => r.orderId === order.id);
-  }, [order, v]);
+  const logs = useMemo<OrderStatusLog[]>(() => [], []);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <AdminPageHeader title="주문 상세" backHref="/admin/delivery-orders" />
+        <p className="text-sm text-sam-muted">원장 불러오는 중…</p>
+      </div>
+    );
+  }
 
   if (!order) {
     return (
       <div className="p-6">
         <AdminPageHeader title="주문 상세" backHref="/admin/delivery-orders" />
         <p className="text-sm text-sam-muted">주문을 찾을 수 없습니다.</p>
+        <p className="mt-2 text-[13px] text-sam-muted">
+          <Link href={`/admin/store-orders?order_id=${encodeURIComponent(orderId)}`} className="text-signature underline">
+            매장 주문(액션)에서 order_id로 검색
+          </Link>
+        </p>
       </div>
     );
   }
@@ -77,6 +91,9 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
   return (
     <div className="space-y-4 p-4 md:p-6">
       <AdminPageHeader title={`주문 ${order.orderNo}`} backHref="/admin/delivery-orders" />
+      <p className="rounded-ui-rect border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-[13px] text-emerald-950">
+        Supabase <code className="rounded bg-white/80 px-1 text-[12px]">store_orders</code> 원장 · 품목 스냅샷
+      </p>
 
       <div className="flex flex-wrap gap-2 text-sm">
         <PaymentStatusBadge status={order.paymentStatus} />
@@ -90,9 +107,9 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
           href={`/admin/delivery-orders/${encodeURIComponent(order.id)}/chat`}
           className="font-semibold text-signature underline"
         >
-          채팅 열람
+          주문 채팅
         </Link>
-        <span className="text-sam-muted"> · 주문방 대화·시스템 메시지 (시뮬)</span>
+        <span className="text-sam-muted"> · order_chat_* 실데이터</span>
       </p>
 
       <AdminCard title="기본 정보">
@@ -193,7 +210,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         </AdminCard>
       )}
 
-      {(order.hasReport || orderReports.length > 0 || order.disputeMemo) && (
+      {(order.hasReport || order.disputeMemo) && (
         <AdminCard title="신고·분쟁">
           {order.hasReport ? (
             <p className="text-sm text-amber-900">이 주문에 신고·분쟁 플래그가 있습니다.</p>
@@ -204,16 +221,6 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
               {order.disputeMemo}
             </p>
           ) : null}
-          {orderReports.length > 0 ? (
-            <ul className="mt-2 space-y-2 text-sm">
-              {orderReports.map((r) => (
-                <li key={r.id} className="rounded border border-sam-border-soft p-2">
-                  <span className="font-mono text-xs">{r.id}</span> · {r.reportType} · {r.status}
-                  <p className="text-xs text-sam-muted">{r.content}</p>
-                </li>
-              ))}
-            </ul>
-          ) : null}
           <p className="mt-2 text-xs">
             <Link href="/admin/delivery-orders/reports" className="text-signature underline">
               신고·분쟁 콘솔로 이동
@@ -222,30 +229,37 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         </AdminCard>
       )}
 
-      <OrderActionPanel
-        orderId={order.id}
-        orderType={order.orderType}
-        orderStatus={order.orderStatus}
-        storeId={order.storeId}
-        buyerUserId={order.buyerUserId}
-      />
+      <AdminCard title="운영 액션">
+        <p className="text-[13px] text-sam-fg">
+          환불 승인·상태 변경은 <strong>매장 주문(액션)</strong> 화면에서 동일 원장으로 진행합니다.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={`/admin/store-orders?order_id=${encodeURIComponent(order.id)}`}
+            className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-medium text-white"
+          >
+            매장 주문(액션) 열기
+          </Link>
+          <Link
+            href={`/admin/delivery-orders/${encodeURIComponent(order.id)}/chat`}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm text-sam-fg"
+          >
+            주문 채팅
+          </Link>
+        </div>
+      </AdminCard>
 
-      <AdminMemoBox
-        key={order.updatedAt}
-        initial={order.adminMemo}
-        onSave={(memo) => setAdminMemo(order.id, memo)}
-      />
-
-      <AdminCard title="상태 변경 · 감사 로그">
+      <AdminCard title="상태 로그">
+        <p className="text-[13px] text-sam-muted">
+          상세 타임라인은 DB <code className="rounded bg-sam-app px-1 text-[12px]">order_status_logs</code> 등과 연동 시
+          표시합니다. 현재는 원장 필드만 반영합니다.
+        </p>
         <AdminOrderTimeline logs={logs} />
       </AdminCard>
 
-      <p className="text-center text-xs text-sam-meta">
-        프론트 mock · 실DB 시 order_status_logs / store_settlements 와 동기화
-      </p>
       <div className="text-center text-sm">
         <Link href={`/stores/${encodeURIComponent(order.storeSlug)}`} className="text-signature underline">
-          사용자 매장 상세 (시뮬)
+          사용자 매장 상세
         </Link>
       </div>
     </div>

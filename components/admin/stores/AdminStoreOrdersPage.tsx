@@ -303,10 +303,22 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           배달·포장 주문(표·KPI)
         </Link>
         <Link
-          href="/admin/delivery-orders/simulation"
+          href="/admin/order-chats"
           className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
         >
-          FD- 시뮬(로컬)
+          주문·채팅 허브
+        </Link>
+        <Link
+          href="/admin/chats/messenger"
+          className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
+        >
+          커뮤니티 메신저
+        </Link>
+        <Link
+          href="/admin/order-notifications"
+          className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
+        >
+          운영 알림
         </Link>
       </nav>
       <p className="text-[13px] leading-relaxed text-sam-fg">
@@ -448,7 +460,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                 <th className="px-3 py-2 font-medium">금액</th>
                 <th className="px-3 py-2 font-medium">주문</th>
                 <th className="px-3 py-2 font-medium">일시</th>
-                <th className="px-3 py-2 font-medium">액션</th>
+                <th className="px-3 py-2 font-medium">연동</th>
               </tr>
             </thead>
             <tbody>
@@ -478,18 +490,36 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                     {new Date(r.created_at).toLocaleString("ko-KR")}
                   </td>
                   <td className="space-y-1 px-3 py-2 align-top">
+                    <div className="flex flex-col gap-1 text-[12px]">
+                      <Link
+                        href={`/admin/delivery-orders/${encodeURIComponent(r.id)}/chat`}
+                        className="font-medium text-signature underline"
+                      >
+                        주문 채팅
+                      </Link>
+                      <Link
+                        href={`/admin/chats/messenger?q=${encodeURIComponent(r.buyer_user_id)}`}
+                        className="text-sam-muted underline"
+                      >
+                        메신저(구매자 id)
+                      </Link>
+                      <Link
+                        href={`/admin/delivery-orders/${encodeURIComponent(r.id)}`}
+                        className="text-sam-muted underline"
+                      >
+                        배달 주문 상세
+                      </Link>
+                    </div>
                     {r.order_status === "refund_requested" ? (
                       <button
                         type="button"
                         disabled={busyId !== null}
                         onClick={() => void approveRefund(r.id)}
-                        className="block rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-800 disabled:opacity-50"
+                        className="mt-2 block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-800 disabled:opacity-50"
                       >
                         {busyId === r.id ? "…" : "환불 승인"}
                       </button>
-                    ) : (
-                      <span className="text-sam-meta">—</span>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               ))}

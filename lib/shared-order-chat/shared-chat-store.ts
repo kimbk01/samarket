@@ -18,15 +18,14 @@ import {
   SYSTEM_LINE_DELIVERY_DONE,
   systemChatLineForOrderStatus,
 } from "./chat-message-builder";
-import { INITIAL_ORDER_CHAT } from "./initial-order-chats";
 import type { OrderChatMessage, OrderChatMessageType, OrderChatRoom, OrderChatRoomStatus, OrderChatSenderType } from "./types";
 
 function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x)) as T;
 }
 
-let rooms: OrderChatRoom[] = clone(INITIAL_ORDER_CHAT.rooms);
-let messages: OrderChatMessage[] = clone(INITIAL_ORDER_CHAT.messages);
+let rooms: OrderChatRoom[] = [];
+let messages: OrderChatMessage[] = [];
 let version = 0;
 const listeners = new Set<() => void>();
 
@@ -101,8 +100,8 @@ function newMsgId() {
 }
 
 export function resetSharedOrderChat() {
-  rooms = clone(INITIAL_ORDER_CHAT.rooms);
-  messages = clone(INITIAL_ORDER_CHAT.messages);
+  rooms = [];
+  messages = [];
   bump();
 }
 

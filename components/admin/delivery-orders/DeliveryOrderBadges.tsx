@@ -1,12 +1,12 @@
 "use client";
 
-import type { AdminActionStatus, OrderStatus, PaymentStatus, SettlementStatus } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminActionStatus, OrderStatus, PaymentStatus, SettlementStatus } from "@/lib/admin/delivery-orders-admin/types";
 import {
   ADMIN_ACTION_LABEL,
   ORDER_STATUS_LABEL,
   PAYMENT_LABEL,
   SETTLEMENT_LABEL,
-} from "@/lib/admin/delivery-orders-mock/labels";
+} from "@/lib/admin/delivery-orders-admin/labels";
 
 const base = "inline-block rounded px-2 py-0.5 text-[11px] font-semibold";
 

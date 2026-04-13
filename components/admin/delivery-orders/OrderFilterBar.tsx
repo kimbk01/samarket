@@ -1,8 +1,8 @@
 "use client";
 
-import type { OrderListFilters } from "@/lib/admin/delivery-orders-mock/types";
-import { ORDER_STATUS_LABEL, PAYMENT_LABEL, SETTLEMENT_LABEL } from "@/lib/admin/delivery-orders-mock/labels";
-import type { OrderStatus, PaymentStatus, SettlementStatus } from "@/lib/admin/delivery-orders-mock/types";
+import type { OrderListFilters } from "@/lib/admin/delivery-orders-admin/types";
+import { ORDER_STATUS_LABEL, PAYMENT_LABEL, SETTLEMENT_LABEL } from "@/lib/admin/delivery-orders-admin/labels";
+import type { OrderStatus, PaymentStatus, SettlementStatus } from "@/lib/admin/delivery-orders-admin/types";
 
 const OS_KEYS = Object.keys(ORDER_STATUS_LABEL) as OrderStatus[];
 const PS_KEYS = Object.keys(PAYMENT_LABEL) as PaymentStatus[];

@@ -1,7 +1,7 @@
 "use client";
 
-import type { SettlementStatus } from "@/lib/admin/delivery-orders-mock/types";
-import { SETTLEMENT_LABEL } from "@/lib/admin/delivery-orders-mock/labels";
+import type { SettlementStatus } from "@/lib/admin/delivery-orders-admin/types";
+import { SETTLEMENT_LABEL } from "@/lib/admin/delivery-orders-admin/labels";
 
 export interface SettlementListFilters {
   settlementStatus: "" | SettlementStatus;

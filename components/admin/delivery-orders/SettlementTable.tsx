@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { SettlementStatusBadge } from "./DeliveryOrderBadges";
 import { formatMoneyPhp } from "@/lib/utils/format";
 

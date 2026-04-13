@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 
 export function RefundRequestTable({
   rows,
   onApprove,
   onReject,
+  busyOrderId = null,
 }: {
   rows: AdminDeliveryOrder[];
   onApprove: (orderId: string) => void;
   onReject: (orderId: string) => void;
+  busyOrderId?: string | null;
 }) {
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-sam-muted">대기 중인 환불 요청이 없습니다.</p>;
@@ -50,14 +52,16 @@ export function RefundRequestTable({
                   </Link>
                   <button
                     type="button"
-                    className="text-xs text-emerald-700 underline"
+                    disabled={busyOrderId !== null}
+                    className="text-xs text-emerald-700 underline disabled:opacity-40"
                     onClick={() => onApprove(o.id)}
                   >
-                    승인
+                    {busyOrderId === o.id ? "…" : "승인"}
                   </button>
                   <button
                     type="button"
-                    className="text-xs text-red-700 underline"
+                    disabled={busyOrderId !== null}
+                    className="text-xs text-red-700 underline disabled:opacity-40"
                     onClick={() => onReject(o.id)}
                   >
                     거절

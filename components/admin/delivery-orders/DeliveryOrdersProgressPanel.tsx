@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import type { AdminDeliveryOrder, OrderListFilters, OrderStatus } from "@/lib/admin/delivery-orders-mock/types";
-import { ORDER_STATUS_LABEL } from "@/lib/admin/delivery-orders-mock/labels";
+import type { AdminDeliveryOrder, OrderListFilters, OrderStatus } from "@/lib/admin/delivery-orders-admin/types";
+import { ORDER_STATUS_LABEL } from "@/lib/admin/delivery-orders-admin/labels";
 
 type Bucket = "" | "in_progress" | "issues";
 

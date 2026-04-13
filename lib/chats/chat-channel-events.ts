@@ -1,7 +1,7 @@
 /**
  * 채팅 채널 분리
  * - 거래 채팅(상품·DM·커뮤니티 룸): API `/api/chat/*` + 아래 이벤트로만 미읽음 갱신
- * - 주문 채팅: `shared-order-chat/shared-chat-store` + `subscribeOrderChat` / `useOrderChatVersion` 만 사용 (이 이벤트와 무관)
+ * - 주문 채팅: `/api/order-chat/*` + `order_chat_*` 원장 (이 이벤트는 허브 새로고침 트리거용)
  */
 
 /** 통합 채팅 미읽음 변경(거래·커뮤니티·매장 주문) — 하단 탭 배지·목록 즉시 갱신 */

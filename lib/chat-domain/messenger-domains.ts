@@ -55,7 +55,9 @@ export function inferMessengerDomainFromChatRoom(
   if (
     g?.kind === "community" ||
     g?.kind === "group" ||
-    g?.kind === "open_chat"
+    g?.kind === "open_chat" ||
+    g?.kind === "business" ||
+    g?.kind === "legacy_general"
   ) {
     return "community";
   }

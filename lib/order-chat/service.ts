@@ -14,6 +14,7 @@ import type {
   OrderChatRoomPublic,
   OrderChatSnapshot,
 } from "./types";
+import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { ORDER_CHAT_MESSAGE_ROW_SELECT, ORDER_CHAT_ROOM_ROW_SELECT } from "@/lib/order-chat/order-chat-select";
 
 /**
@@ -413,6 +414,196 @@ export async function getOrderChatSnapshotForUser(
   };
 }
 
+async function insertOrderChatAdminNoteMessage(
+  sb: SupabaseClient<any>,
+  input: {
+    room: OrderChatRoomPublic;
+    adminUserId: string;
+    adminDisplayName: string;
+    content: string;
+  }
+): Promise<OrderChatMessagePublic | null> {
+  const text = input.content.trim();
+  if (!text) return null;
+  const createdAt = nowIso();
+  const { data, error } = await sb
+    .from("order_chat_messages")
+    .insert({
+      room_id: input.room.id,
+      order_id: input.room.order_id,
+      sender_type: "admin",
+      sender_id: input.adminUserId,
+      sender_name: input.adminDisplayName.slice(0, 120),
+      message_type: "admin_note",
+      content: text,
+      image_url: null,
+      related_order_status: null,
+      is_read_by_buyer: false,
+      is_read_by_owner: false,
+      is_read_by_admin: true,
+      created_at: createdAt,
+    })
+    .select(ORDER_CHAT_MESSAGE_ROW_SELECT)
+    .single();
+  if (error || !data) {
+    console.error("[order-chat] insert admin_note", error);
+    return null;
+  }
+  const { data: roomRow } = await sb
+    .from("order_chat_rooms")
+    .select(ORDER_CHAT_ROOM_ROW_SELECT)
+    .eq("id", input.room.id)
+    .maybeSingle();
+  const r = (roomRow ?? input.room) as OrderChatRoomPublic;
+  await sb
+    .from("order_chat_rooms")
+    .update({
+      last_message: text.slice(0, 200),
+      last_message_at: createdAt,
+      unread_count_buyer: (r.unread_count_buyer ?? 0) + 1,
+      unread_count_owner: (r.unread_count_owner ?? 0) + 1,
+      updated_at: createdAt,
+    })
+    .eq("id", input.room.id);
+  await incrementParticipantUnread(sb, input.room.id, "buyer");
+  await incrementParticipantUnread(sb, input.room.id, "owner");
+  return data as unknown as OrderChatMessagePublic;
+}
+
+/**
+ * 관리자 전용 — 구매자/사장이 아니어도 방·메시지를 조회 (운영 모니터링).
+ */
+export async function getOrderChatSnapshotForAdmin(
+  sb: SupabaseClient<any>,
+  orderId: string
+): Promise<
+  | { ok: true; room: OrderChatRoomPublic; orderStatus: SharedOrderStatus; messages: OrderChatMessagePublic[] }
+  | { ok: false; error: string; status: number }
+> {
+  const ensured = await ensureOrderChatRoom(sb, orderId);
+  if (!ensured.ok) {
+    const e = ensured.error;
+    if (e === "order_not_found") return { ok: false, error: e, status: 404 };
+    return { ok: false, error: e, status: 500 };
+  }
+  const room = ensured.room;
+  const { data: order } = await sb.from("store_orders").select("order_status").eq("id", orderId).maybeSingle();
+  const orderStatus =
+    storeOrderStatusToShared(String((order as { order_status?: string } | null)?.order_status ?? "")) ?? "pending";
+  const { data, error } = await sb
+    .from("order_chat_messages")
+    .select(ORDER_CHAT_MESSAGE_ROW_SELECT)
+    .eq("room_id", room.id)
+    .order("created_at", { ascending: true });
+  if (error) {
+    return { ok: false, error: error.message, status: 500 };
+  }
+  return {
+    ok: true,
+    room,
+    orderStatus,
+    messages: (data ?? []) as unknown as OrderChatMessagePublic[],
+  };
+}
+
+/**
+ * 관리자 허브 — 최근 주문 채팅 방 목록 (`order_chat_rooms` 원장).
+ */
+export async function listOrderChatRoomsForAdmin(
+  sb: SupabaseClient<any>,
+  opts: { limit: number }
+): Promise<{ ok: true; rooms: OrderChatRoomPublic[] } | { ok: false; error: string }> {
+  const limit = Math.min(Math.max(opts.limit, 1), 300);
+  const { data, error } = await sb
+    .from("order_chat_rooms")
+    .select(ORDER_CHAT_ROOM_ROW_SELECT)
+    .order("last_message_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    const e = error as { code?: string; message?: string };
+    const m = String(e?.message ?? "").toLowerCase();
+    const missingTable = e?.code === "42P01" || (m.includes("relation") && m.includes("does not exist"));
+    if (missingTable) {
+      return { ok: true, rooms: [] };
+    }
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, rooms: (data ?? []) as OrderChatRoomPublic[] };
+}
+
+type ListRoomsForMeInput =
+  | { userId: string; mode: "buyer" }
+  | { userId: string; mode: "owner"; storeId: string };
+
+/**
+ * 구매자: 본인 `buyer_user_id` 방 전체.
+ * 사장: `store_id`가 필수이며, `stores.owner_user_id === userId`일 때만 해당 매장 방 목록.
+ */
+export async function listOrderChatRoomsForMe(
+  sb: SupabaseClient<any>,
+  input: ListRoomsForMeInput
+): Promise<{ ok: true; rooms: OrderChatRoomPublic[] } | { ok: false; error: string; status?: number }> {
+  const uid = input.userId.trim();
+  if (!uid) return { ok: false, error: "missing_user", status: 400 };
+
+  if (input.mode === "owner") {
+    const sid = input.storeId.trim();
+    if (!sid) return { ok: false, error: "missing_store_id", status: 400 };
+    const { data: st, error: stErr } = await sb.from("stores").select("owner_user_id").eq("id", sid).maybeSingle();
+    if (stErr) return { ok: false, error: stErr.message, status: 500 };
+    const ownerId = String((st as { owner_user_id?: string } | null)?.owner_user_id ?? "").trim();
+    if (ownerId !== uid) return { ok: false, error: "forbidden", status: 403 };
+  }
+
+  let q = sb
+    .from("order_chat_rooms")
+    .select(ORDER_CHAT_ROOM_ROW_SELECT)
+    .order("last_message_at", { ascending: false })
+    .limit(200);
+
+  if (input.mode === "buyer") {
+    q = q.eq("buyer_user_id", uid);
+  } else {
+    q = q.eq("owner_user_id", uid).eq("store_id", input.storeId.trim());
+  }
+
+  const { data, error } = await q;
+  if (error) {
+    const e = error as { code?: string; message?: string };
+    const m = String(e?.message ?? "").toLowerCase();
+    const missingTable = e?.code === "42P01" || (m.includes("relation") && m.includes("does not exist"));
+    if (missingTable) return { ok: true, rooms: [] };
+    return { ok: false, error: error.message, status: 500 };
+  }
+  return { ok: true, rooms: (data ?? []) as OrderChatRoomPublic[] };
+}
+
+export async function sendOrderChatAdminNote(
+  sb: SupabaseClient<any>,
+  input: { orderId: string; adminUserId: string; text: string }
+): Promise<{ ok: true; message: OrderChatMessagePublic } | { ok: false; error: string; status: number }> {
+  const ensured = await ensureOrderChatRoom(sb, input.orderId);
+  if (!ensured.ok) {
+    const e = ensured.error;
+    if (e === "order_not_found") return { ok: false, error: e, status: 404 };
+    return { ok: false, error: e, status: 500 };
+  }
+  if (ensured.room.room_status === "blocked") return { ok: false, error: "room_blocked", status: 403 };
+  const t = input.text.trim();
+  if (!t) return { ok: false, error: "empty_message", status: 400 };
+  const nickMap = await fetchNicknamesForUserIds(sb, [input.adminUserId]);
+  const adminName = nickMap.get(input.adminUserId)?.trim() || "관리자";
+  const message = await insertOrderChatAdminNoteMessage(sb, {
+    room: ensured.room,
+    adminUserId: input.adminUserId,
+    adminDisplayName: adminName,
+    content: t,
+  });
+  if (!message) return { ok: false, error: "send_failed", status: 500 };
+  return { ok: true, message };
+}
+
 export async function sendOrderChatTextForUser(
   sb: SupabaseClient<any>,
   input: { orderId: string; userId: string; text: string }
@@ -566,4 +757,75 @@ export async function appendOrderChatStatusTransition(
     relatedOrderStatus: next,
     incrementUnreadFor: "buyer",
   });
+}
+
+function isMissingOrderChatRelationError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string };
+  const m = String(e?.message ?? "").toLowerCase();
+  return e?.code === "42P01" || (m.includes("relation") && m.includes("does not exist"));
+}
+
+/**
+ * 매장 주문 채팅(`order_chat_*`) — `chat_rooms` 일괄 읽음과 별도 파이프라인이므로
+ * `POST /api/me/chats/mark-all-read` 에서 함께 호출해 배지·목록 정합을 맞춘다.
+ */
+export async function markAllOrderChatsReadForUser(
+  sb: SupabaseClient<any>,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const uid = String(userId).trim();
+  if (!uid) return { ok: false, error: "missing_user" };
+  const now = nowIso();
+
+  const rb = await sb.from("order_chat_rooms").update({ unread_count_buyer: 0, updated_at: now }).eq("buyer_user_id", uid);
+  if (rb.error && !isMissingOrderChatRelationError(rb.error)) {
+    return { ok: false, error: rb.error.message };
+  }
+
+  const ro = await sb.from("order_chat_rooms").update({ unread_count_owner: 0, updated_at: now }).eq("owner_user_id", uid);
+  if (ro.error && !isMissingOrderChatRelationError(ro.error)) {
+    return { ok: false, error: ro.error.message };
+  }
+
+  const rp = await sb
+    .from("order_chat_participants")
+    .update({ unread_count: 0, last_read_at: now, updated_at: now })
+    .eq("user_id", uid);
+  if (rp.error && !isMissingOrderChatRelationError(rp.error)) {
+    return { ok: false, error: rp.error.message };
+  }
+
+  const { data: buyerRooms, error: buyerSelErr } = await sb.from("order_chat_rooms").select("id").eq("buyer_user_id", uid);
+  if (buyerSelErr && !isMissingOrderChatRelationError(buyerSelErr)) {
+    return { ok: false, error: buyerSelErr.message };
+  }
+  const buyerIds = [...new Set((buyerRooms ?? []).map((r: { id?: string }) => String(r.id ?? "").trim()).filter(Boolean))];
+  for (const ids of chunkIds(buyerIds, CHAT_ROOM_ID_IN_CHUNK_SIZE)) {
+    const mb = await sb
+      .from("order_chat_messages")
+      .update({ is_read_by_buyer: true })
+      .in("room_id", ids)
+      .eq("is_read_by_buyer", false);
+    if (mb.error && !isMissingOrderChatRelationError(mb.error)) {
+      return { ok: false, error: mb.error.message };
+    }
+  }
+
+  const { data: ownerRooms, error: ownerSelErr } = await sb.from("order_chat_rooms").select("id").eq("owner_user_id", uid);
+  if (ownerSelErr && !isMissingOrderChatRelationError(ownerSelErr)) {
+    return { ok: false, error: ownerSelErr.message };
+  }
+  const ownerIds = [...new Set((ownerRooms ?? []).map((r: { id?: string }) => String(r.id ?? "").trim()).filter(Boolean))];
+  for (const ids of chunkIds(ownerIds, CHAT_ROOM_ID_IN_CHUNK_SIZE)) {
+    const mo = await sb
+      .from("order_chat_messages")
+      .update({ is_read_by_owner: true })
+      .in("room_id", ids)
+      .eq("is_read_by_owner", false);
+    if (mo.error && !isMissingOrderChatRelationError(mo.error)) {
+      return { ok: false, error: mo.error.message };
+    }
+  }
+
+  return { ok: true };
 }

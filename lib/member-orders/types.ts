@@ -59,4 +59,6 @@ export interface MemberOrder {
   items: MemberOrderItem[];
   logs: MemberOrderLog[];
   cancel_request_reason?: string | null;
+  /** `store_orders` / API에서 내려주면 표시 — 인메모리 채팅 미사용 */
+  order_chat_unread_count?: number;
 }

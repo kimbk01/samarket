@@ -2,7 +2,12 @@
  * posts 조회 — Supabase에 seller_listing_state 미적용·스키마 캐시 불일치 시에도 채팅이 동작하도록 폴백.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { POST_TRADE_DETAIL_SELECT, POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
+import {
+  POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT,
+  POST_TRADE_CHAT_BARE_MIN_SELECT,
+  POST_TRADE_DETAIL_SELECT,
+  POST_TRADE_RELATION_SELECT,
+} from "@/lib/posts/post-query-select";
 
 export function isMissingSellerListingColumnError(message: string | undefined | null): boolean {
   const m = String(message ?? "");
@@ -48,8 +53,10 @@ export async function fetchPostRowForChat(
     if (!rNarrow.error && rNarrow.data) return rNarrow.data as Record<string, unknown>;
     const rRel = await sbAny.from("posts").select(POST_TRADE_RELATION_SELECT).eq("id", pid).maybeSingle();
     if (!rRel.error && rRel.data) return rRel.data as Record<string, unknown>;
-    const rStar = await sbAny.from("posts").select("*").eq("id", pid).maybeSingle();
-    if (!rStar.error && rStar.data) return rStar.data as Record<string, unknown>;
+    const rAbs = await sbAny.from("posts").select(POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT).eq("id", pid).maybeSingle();
+    if (!rAbs.error && rAbs.data) return rAbs.data as Record<string, unknown>;
+    const rBare = await sbAny.from("posts").select(POST_TRADE_CHAT_BARE_MIN_SELECT).eq("id", pid).maybeSingle();
+    if (!rBare.error && rBare.data) return rBare.data as Record<string, unknown>;
   }
 
   return null;
@@ -133,8 +140,12 @@ export async function fetchPostRowsForChatIn(
     if (!rRel.error && Array.isArray(rRel.data) && rRel.data.length) {
       return rRel.data as Record<string, unknown>[];
     }
-    const rStar = await sbAny.from("posts").select("*").in("id", ids);
-    if (!rStar.error && Array.isArray(rStar.data)) return rStar.data as Record<string, unknown>[];
+    const rAbs = await sbAny.from("posts").select(POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT).in("id", ids);
+    if (!rAbs.error && Array.isArray(rAbs.data) && rAbs.data.length) {
+      return rAbs.data as Record<string, unknown>[];
+    }
+    const rBare = await sbAny.from("posts").select(POST_TRADE_CHAT_BARE_MIN_SELECT).in("id", ids);
+    if (!rBare.error && Array.isArray(rBare.data)) return rBare.data as Record<string, unknown>[];
   }
 
   return [];

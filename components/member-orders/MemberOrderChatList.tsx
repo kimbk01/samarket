@@ -1,31 +1,66 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { getDemoBuyerUserId } from "@/lib/member-orders/member-order-store";
-import { findSharedOrder } from "@/lib/shared-orders/shared-order-store";
-import { listOrderChatRoomsForBuyer } from "@/lib/shared-order-chat/shared-chat-store";
-import { useMemberOrdersVersion } from "@/lib/member-orders/use-member-orders-store";
-import { useOrderChatVersion } from "@/components/order-chat/use-order-chat-version";
+import { useCallback, useEffect, useState } from "react";
 import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
+import { fetchMeOrderChatRoomsDeduped } from "@/lib/me/fetch-me-order-chat-rooms-deduped";
+import type { OrderChatRoomPublic } from "@/lib/order-chat/types";
 
 const BASE = "/my/store-orders";
 
 export function MemberOrderChatList() {
-  const cv = useOrderChatVersion();
-  const ov = useMemberOrdersVersion();
-  const buyerId = getDemoBuyerUserId();
+  const [rooms, setRooms] = useState<OrderChatRoomPublic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const rows = useMemo(() => {
-    void cv;
-    void ov;
-    return listOrderChatRoomsForBuyer(buyerId);
-  }, [buyerId, cv, ov]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { status, json: raw } = await fetchMeOrderChatRoomsDeduped(null);
+      const j = raw as { ok?: boolean; error?: string; rooms?: OrderChatRoomPublic[] };
+      if (status === 401) {
+        setRooms([]);
+        setError("unauthorized");
+        return;
+      }
+      if (status < 200 || status >= 300 || j?.ok === false) {
+        setRooms([]);
+        setError(typeof j?.error === "string" ? j.error : `HTTP ${status}`);
+        return;
+      }
+      setRooms(Array.isArray(j.rooms) ? j.rooms : []);
+    } catch {
+      setRooms([]);
+      setError("network_error");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  if (!buyerId) {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) {
+    return <p className="text-sm text-sam-muted">주문 채팅을 불러오는 중…</p>;
+  }
+
+  if (error === "unauthorized") {
     return (
       <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-        회원 역할에서만 내 주문 채팅 목록이 보여요.
+        로그인 후 내 주문 채팅 목록을 확인할 수 있어요.
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        목록을 불러오지 못했습니다 ({error}).
+        <button type="button" className="ml-2 font-medium text-signature underline" onClick={() => void load()}>
+          다시 시도
+        </button>
       </p>
     );
   }
@@ -39,7 +74,7 @@ export function MemberOrderChatList() {
         </Link>
         에서 하고, 매장과의 대화만 여기서 이어가세요.
       </div>
-      {rows.length === 0 ? (
+      {rooms.length === 0 ? (
         <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted ring-1 ring-sam-border-soft">
           <p>주문 채팅이 없어요.</p>
           <Link href={BASE} className="mt-3 inline-block font-medium text-signature underline">
@@ -48,27 +83,32 @@ export function MemberOrderChatList() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {rows.map((r) => {
-            const order = findSharedOrder(r.order_id);
-            const chatHref = order
-              ? `${BASE}/${encodeURIComponent(r.order_id)}/chat`
-              : `/my/store-orders/${encodeURIComponent(r.order_id)}/chat`;
-            const detailHref = order
-              ? `${BASE}/${encodeURIComponent(r.order_id)}`
-              : `/my/store-orders/${encodeURIComponent(r.order_id)}`;
+          {rooms.map((r) => {
+            const chatHref = `${BASE}/${encodeURIComponent(r.order_id)}/chat`;
+            const detailHref = `${BASE}/${encodeURIComponent(r.order_id)}`;
+            const issue =
+              r.last_chat_order_status &&
+              ["cancel_requested", "refund_requested", "refunded", "cancelled"].includes(r.last_chat_order_status);
             return (
               <li key={r.id}>
                 <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
                   <Link href={chatHref} className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-bold text-sam-fg">{r.store_name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-sam-fg">{r.store_name}</p>
+                        {issue ? (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+                            확인
+                          </span>
+                        ) : null}
+                      </div>
                       <p className="font-mono text-xs text-sam-meta">{r.order_no}</p>
                       <p className="mt-1 line-clamp-2 text-sm text-sam-muted">{r.last_message}</p>
-                      {order ? (
-                        <p className="mt-1 text-[11px] text-signature">상태 · {order.order_status}</p>
+                      {r.last_chat_order_status ? (
+                        <p className="mt-1 text-[11px] text-signature">상태 · {r.last_chat_order_status}</p>
                       ) : null}
                     </div>
-                    <UnreadBadge count={r.unread_count_member} />
+                    <UnreadBadge count={r.unread_count_buyer} />
                   </Link>
                   <div className="mt-3 flex flex-wrap gap-3 text-xs">
                     <Link href={detailHref} className="font-medium text-sam-fg underline">

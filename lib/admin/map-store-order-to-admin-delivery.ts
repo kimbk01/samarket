@@ -3,9 +3,11 @@ import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import type {
   AdminDeliveryOrder,
   AdminDeliveryOrderItem,
+  CancelRequest,
   PaymentStatus,
   OrderStatus,
-} from "@/lib/admin/delivery-orders-mock/types";
+  RefundRequest,
+} from "@/lib/admin/delivery-orders-admin/types";
 
 export type StoreOrderRow = {
   id: string;
@@ -75,6 +77,29 @@ export function mapStoreOrderToAdminDelivery(p: {
   const productAmount = items.reduce((s, it) => s + it.lineTotal, 0);
   const deliveryFee = Math.max(0, Math.round(Number(o.delivery_fee_amount) || 0));
   const discountAmount = Math.max(0, Math.round(Number(o.discount_amount) || 0));
+  const note = (o.buyer_note ?? "").trim();
+  const os = o.order_status as string;
+  const updatedAt = o.updated_at ?? o.created_at;
+
+  const refundRequest: RefundRequest | undefined =
+    os === "refund_requested" || os === "refunded"
+      ? {
+          reason: note || "—",
+          category: os === "refunded" ? "완료" : "대기",
+          requestedBy: "buyer",
+          requestedAt: updatedAt,
+          status: os === "refunded" ? "approved" : "pending",
+        }
+      : undefined;
+
+  const cancelRequest: CancelRequest | undefined =
+    os === "cancelled"
+      ? {
+          reason: note || "—",
+          requestedAt: updatedAt,
+          status: "approved",
+        }
+      : undefined;
 
   return {
     id: o.id,
@@ -108,5 +133,7 @@ export function mapStoreOrderToAdminDelivery(p: {
     createdAt: o.created_at,
     updatedAt: o.updated_at ?? o.created_at,
     orderSource: "store_db",
+    cancelRequest,
+    refundRequest,
   };
 }

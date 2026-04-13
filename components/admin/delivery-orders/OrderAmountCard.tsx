@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 export function OrderAmountCard({ order }: { order: AdminDeliveryOrder }) {

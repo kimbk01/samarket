@@ -17,19 +17,10 @@ export function MyOrderRelatedSection() {
           </div>
           <Chevron />
         </Link>
-        <Link href="/my/order-related/sim-notifications" className={ROW_CLASS}>
-          <span className="text-[15px] font-medium text-foreground">
-            배달 주문 알림
-            <span className="ml-2 text-[12px] font-normal text-signature">시뮬</span>
-          </span>
-          <Chevron />
-        </Link>
-        <Link href="/my/order-related/status-history" className={ROW_CLASS}>
+        <Link href="/mypage/notifications" className={ROW_CLASS}>
           <div className="min-w-0 flex-1 pr-2">
-            <p className="text-[15px] font-medium text-foreground">주문 상태 이력</p>
-            <p className="mt-0.5 text-[12px] text-muted">
-              접수·조리·배달 등 단계 변경 기록을 한곳에서 확인
-            </p>
+            <p className="text-[15px] font-medium text-foreground">주문·알림</p>
+            <p className="mt-0.5 text-[12px] text-muted">알림 센터에서 확인</p>
           </div>
           <Chevron />
         </Link>

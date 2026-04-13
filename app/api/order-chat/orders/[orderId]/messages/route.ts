@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { sendOrderChatTextForUser } from "@/lib/order-chat/service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -9,10 +9,9 @@ export async function POST(
   req: NextRequest,
   context: { params: Promise<{ orderId: string }> }
 ) {
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuthenticatedUserId();
+  if (!auth.ok) return auth.response;
+  const userId = auth.userId;
   const { orderId } = await context.params;
   let body: { text?: string };
   try {

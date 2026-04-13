@@ -1,4 +1,4 @@
-/** 3자(회원·오너·관리자) 공유 주문 시뮬레이션 — 단일 원본 */
+/** 3자(회원·오너·관리자) 공유 주문 상태 모델 — 실데이터는 Supabase `store_orders` */
 
 export type SharedOrderType = "delivery" | "pickup";
 
@@ -132,5 +132,3 @@ export interface SharedOrder {
   updated_at: string;
 }
 
-export const SHARED_SIM_STORE_ID = "mock-seoul-korean";
-export const SHARED_SIM_STORE_SLUG = "seoul-korean-house";

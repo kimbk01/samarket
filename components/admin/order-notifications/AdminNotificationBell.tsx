@@ -1,26 +1,59 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { getMockSession } from "@/lib/mock-auth/mock-auth-store";
-import { useMockAuthVersion } from "@/lib/mock-auth/use-mock-auth-version";
-import { DEMO_ADMIN_USER_ID } from "@/lib/shared-notifications/constants";
-import { countUnreadForTarget } from "@/lib/shared-notifications/shared-notification-store";
-import { useSharedNotificationsVersion } from "@/lib/shared-notifications/use-shared-notifications-version";
+import { useCallback, useEffect, useState } from "react";
+import {
+  KASAMA_NOTIFICATIONS_UPDATED,
+  NOTIFICATION_SYNC_POLL_MS,
+} from "@/lib/notifications/notification-events";
 
 export function AdminNotificationBell() {
-  const av = useMockAuthVersion();
-  const v = useSharedNotificationsVersion();
-  const adminId = useMemo(() => {
-    void av;
-    const s = getMockSession();
-    return s.role === "admin" ? DEMO_ADMIN_USER_ID : null;
-  }, [av]);
-  const n = useMemo(() => {
-    void v;
-    if (!adminId) return 0;
-    return countUnreadForTarget("admin", adminId);
-  }, [adminId, v]);
+  const [count, setCount] = useState(0);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/me/notifications?unread_count_only=1", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; unread_count?: number };
+      if (res.ok && j?.ok) {
+        setCount(Math.max(0, Math.floor(Number(j.unread_count) || 0)));
+      } else {
+        setCount(0);
+      }
+    } catch {
+      setCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const onUpdated = () => void load();
+    if (typeof window !== "undefined") {
+      window.addEventListener("visibilitychange", onVis);
+      window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("visibilitychange", onVis);
+        window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+      }
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, NOTIFICATION_SYNC_POLL_MS);
+    return () => clearInterval(id);
+  }, [load]);
 
   return (
     <Link
@@ -35,9 +68,9 @@ export function AdminNotificationBell() {
         />
       </svg>
       알림
-      {n > 0 ? (
+      {count > 0 ? (
         <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-          {n > 99 ? "99+" : n}
+          {count > 99 ? "99+" : count}
         </span>
       ) : null}
     </Link>

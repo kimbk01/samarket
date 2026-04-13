@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { OrderStatusLog } from "@/lib/admin/delivery-orders-mock/types";
+import type { OrderStatusLog } from "@/lib/admin/delivery-orders-admin/types";
 
 export function DeliveryAuditLogTable({
   logs,

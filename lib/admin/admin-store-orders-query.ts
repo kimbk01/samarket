@@ -44,6 +44,8 @@ export async function fetchAdminStoreOrders(
 ): Promise<{ ok: true; orders: AdminStoreOrderRow[] } | { ok: false; error: string }> {
   const orderId = searchParams.get("order_id")?.trim() || null;
   const orderNoRaw = searchParams.get("order_no")?.trim() || null;
+  const storeIdRaw = searchParams.get("store_id")?.trim() || null;
+  const buyerUserIdRaw = searchParams.get("buyer_user_id")?.trim() || null;
   const paymentStatusRaw = searchParams.get("payment_status")?.trim() || null;
   const orderStatusRaw = searchParams.get("order_status")?.trim() || null;
   const limit = adminOrdersClampLimit(
@@ -61,6 +63,8 @@ export async function fetchAdminStoreOrders(
     .limit(limit);
 
   if (orderId) q = q.eq("id", orderId);
+  if (storeIdRaw) q = q.eq("store_id", storeIdRaw);
+  if (buyerUserIdRaw) q = q.eq("buyer_user_id", buyerUserIdRaw);
   const orderNo = orderNoRaw ? adminOrdersSafeIlike(orderNoRaw) : "";
   if (orderNo) q = q.ilike("order_no", `%${orderNo}%`);
   if (paymentStatusRaw && PAYMENT_STATUS_FILTER.has(paymentStatusRaw)) {

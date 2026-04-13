@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 function isToday(iso: string) {

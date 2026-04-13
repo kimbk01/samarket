@@ -1,6 +1,6 @@
 /**
  * GET /api/admin/store-orders — 관리자 매장 주문 목록 (서비스 롤)
- * Query: order_id, order_no, payment_status, order_status, limit, include_items=1
+ * Query: order_id, order_no, store_id, buyer_user_id, payment_status, order_status, limit, include_items=1
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const orderId = sp.get("order_id")?.trim();
   const orderNo = sp.get("order_no")?.trim();
+  const storeIdFilter = sp.get("store_id")?.trim();
+  const buyerUserIdFilter = sp.get("buyer_user_id")?.trim();
   const paymentStatus = sp.get("payment_status")?.trim();
   const orderStatus = sp.get("order_status")?.trim();
   const includeItems = sp.get("include_items") === "1";
@@ -40,6 +42,8 @@ export async function GET(req: NextRequest) {
 
   if (orderId) q = q.eq("id", orderId);
   if (orderNo) q = q.ilike("order_no", `%${orderNo}%`);
+  if (storeIdFilter) q = q.eq("store_id", storeIdFilter);
+  if (buyerUserIdFilter) q = q.eq("buyer_user_id", buyerUserIdFilter);
   if (paymentStatus) q = q.eq("payment_status", paymentStatus);
   if (orderStatus) q = q.eq("order_status", orderStatus);
 

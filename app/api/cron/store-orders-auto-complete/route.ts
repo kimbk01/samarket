@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
+import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { notifyBuyerStoreOrderAutoCompleted } from "@/lib/notifications/notify-store-commerce";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -43,7 +44,10 @@ async function runStoreOrdersAutoComplete(req: Request) {
       return NextResponse.json({ ok: false, error: "column_missing_apply_migration" }, { status: 503 });
     }
     console.error("[cron store-orders-auto-complete]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: clientSafeInternalErrorMessage(error.message) },
+      { status: 500 }
+    );
   }
 
   const ids = (due ?? []).map((r) => r.id as string).filter(Boolean);
@@ -58,7 +62,10 @@ async function runStoreOrdersAutoComplete(req: Request) {
 
   if (uErr) {
     console.error("[cron store-orders-auto-complete update]", uErr);
-    return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: clientSafeInternalErrorMessage(uErr.message) },
+      { status: 500 }
+    );
   }
 
   for (const row of due ?? []) {

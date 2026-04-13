@@ -1,14 +1,19 @@
 /**
  * POST /api/me/chats/mark-all-read
- * 로그인 사용자 기준: 거래·필라이프·오픈채팅·모임·매장 주문 등
- * `chat_rooms` 파이프라인 참가자 미읽음·레거시 `product_chats`·상대 메시지 read_at 을 일괄 읽음 처리.
+ * 로그인 사용자 기준:
+ * - 통합 `chat_rooms`·`chat_messages`·레거시 `product_chats` / `product_chat_messages`
+ * - 매장 주문 채팅 `order_chat_*` (거래 파이프라인과 별도 테이블)
+ * - 커뮤니티 메신저 `community_messenger_participants` 미읽음
  */
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
+import { markAllCommunityMessengerParticipantsReadForUser } from "@/lib/community-messenger/bulk-mark-all-read";
+import { markAllOrderChatsReadForUser } from "@/lib/order-chat/service";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +38,10 @@ export async function POST() {
     .eq("user_id", userId);
 
   if (partSelErr) {
-    return NextResponse.json({ ok: false, error: partSelErr.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: clientSafeInternalErrorMessage(partSelErr.message) },
+      { status: 500 }
+    );
   }
 
   const roomIds = [...new Set((partRows ?? []).map((r: { room_id: string }) => String(r.room_id ?? "").trim()).filter(Boolean))];
@@ -47,7 +55,10 @@ export async function POST() {
       .is("read_at", null)
       .or(`sender_id.is.null,sender_id.neq.${userId}`);
     if (msgErr) {
-      return NextResponse.json({ ok: false, error: msgErr.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: clientSafeInternalErrorMessage(msgErr.message) },
+        { status: 500 }
+      );
     }
     messageBatches += 1;
   }
@@ -62,7 +73,10 @@ export async function POST() {
     .eq("user_id", userId);
 
   if (partUpErr) {
-    return NextResponse.json({ ok: false, error: partUpErr.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: clientSafeInternalErrorMessage(partUpErr.message) },
+      { status: 500 }
+    );
   }
 
   const [{ error: pcSellErr }, { error: pcBuyErr }] = await Promise.all([
@@ -72,7 +86,13 @@ export async function POST() {
 
   if (pcSellErr || pcBuyErr) {
     const err = pcSellErr ?? pcBuyErr;
-    return NextResponse.json({ ok: false, error: err?.message ?? "product_chats 갱신 실패" }, { status: 500 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: clientSafeInternalErrorMessage(err?.message ?? "product_chats 갱신 실패"),
+      },
+      { status: 500 }
+    );
   }
 
   const { data: legacyRoomRows, error: legErr } = await sbAny
@@ -82,7 +102,10 @@ export async function POST() {
     .limit(5000);
 
   if (legErr) {
-    return NextResponse.json({ ok: false, error: legErr.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: clientSafeInternalErrorMessage(legErr.message) },
+      { status: 500 }
+    );
   }
 
   const legacyIds = [
@@ -99,9 +122,28 @@ export async function POST() {
       .is("read_at", null)
       .or(`sender_id.is.null,sender_id.neq.${userId}`);
     if (lmErr) {
-      return NextResponse.json({ ok: false, error: lmErr.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: clientSafeInternalErrorMessage(lmErr.message) },
+        { status: 500 }
+      );
     }
     legacyMessageBatches += 1;
+  }
+
+  const orderMark = await markAllOrderChatsReadForUser(sbAny, userId);
+  if (!orderMark.ok) {
+    return NextResponse.json(
+      { ok: false, error: clientSafeInternalErrorMessage(orderMark.error) },
+      { status: 500 }
+    );
+  }
+
+  const cmMark = await markAllCommunityMessengerParticipantsReadForUser(sbAny, userId);
+  if (!cmMark.ok) {
+    return NextResponse.json(
+      { ok: false, error: clientSafeInternalErrorMessage(cmMark.error) },
+      { status: 500 }
+    );
   }
 
   invalidateUserChatUnreadCache(userId);
@@ -113,5 +155,8 @@ export async function POST() {
     messageRoomBatches: messageBatches,
     legacyProductChatIds: legacyIds.length,
     legacyProductMessageBatches: legacyMessageBatches,
+    orderChatMarked: true,
+    communityMessengerMarked: !cmMark.skipped,
+    communityMessengerSkipped: Boolean(cmMark.skipped),
   });
 }

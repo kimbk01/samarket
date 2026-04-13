@@ -1,26 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { ChatHubTopTabs } from "@/components/order-chat/ChatHubTopTabs";
 import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
-import { useOrderChatVersion } from "@/components/order-chat/use-order-chat-version";
-import { listOrderChatRoomsForOwner } from "@/lib/shared-order-chat/shared-chat-store";
+import { fetchMeOrderChatRoomsDeduped } from "@/lib/me/fetch-me-order-chat-rooms-deduped";
+import type { OrderChatRoomPublic } from "@/lib/order-chat/types";
 
 type ShellState =
   | { kind: "loading" }
   | { kind: "unauth" }
   | { kind: "no_store" }
   | { kind: "error"; message: string }
-  | { kind: "ok"; storeId: string; ownerUserId: string };
+  | { kind: "ok"; storeId: string };
 
 export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
-  const cv = useOrderChatVersion();
   const [state, setState] = useState<ShellState>({ kind: "loading" });
+  const [rooms, setRooms] = useState<OrderChatRoomPublic[]>([]);
+  const [roomsError, setRoomsError] = useState<string | null>(null);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const loadStore = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = !!opts?.silent;
     if (!silent) setState({ kind: "loading" });
     try {
@@ -41,9 +42,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
         if (!silent) setState({ kind: "error", message: "목록을 불러오지 못했습니다." });
         return;
       }
-      const hit = (j.stores as { id: string; owner_user_id: string; slug: string }[]).find(
-        (s) => s.slug === slug
-      );
+      const hit = (j.stores as { id: string; slug: string }[]).find((s) => s.slug === slug);
       if (!hit) {
         setState({ kind: "no_store" });
         return;
@@ -51,24 +50,42 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
       setState({
         kind: "ok",
         storeId: hit.id,
-        ownerUserId: hit.owner_user_id,
       });
     } catch {
       if (!silent) setState({ kind: "error", message: "네트워크 오류" });
     }
   }, [slug]);
 
+  const loadRooms = useCallback(async (storeId: string) => {
+    setRoomsError(null);
+    try {
+      const { status, json: raw } = await fetchMeOrderChatRoomsDeduped(storeId);
+      const j = raw as { ok?: boolean; error?: string; rooms?: OrderChatRoomPublic[] };
+      if (status < 200 || status >= 300 || j?.ok === false) {
+        setRooms([]);
+        setRoomsError(typeof j?.error === "string" ? j.error : `HTTP ${status}`);
+        return;
+      }
+      setRooms(Array.isArray(j.rooms) ? j.rooms : []);
+    } catch {
+      setRooms([]);
+      setRoomsError("network_error");
+    }
+  }, []);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadStore();
+  }, [loadStore]);
 
-  useRefetchOnPageShowRestore(() => void load({ silent: true }));
+  useEffect(() => {
+    if (state.kind !== "ok") return;
+    void loadRooms(state.storeId);
+  }, [state, loadRooms]);
 
-  const rows = useMemo(() => {
-    if (state.kind !== "ok") return [];
-    void cv;
-    return listOrderChatRoomsForOwner(state.ownerUserId, state.storeId);
-  }, [state, cv]);
+  useRefetchOnPageShowRestore(() => {
+    void loadStore({ silent: true });
+    if (state.kind === "ok") void loadRooms(state.storeId);
+  });
 
   const ordersHref = "/my/business/store-orders";
   const orderChatsHref = "/my/store-orders";
@@ -97,7 +114,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
     return (
       <div className="min-h-screen bg-[#f3f4f6] px-4 py-10 text-center text-sm text-red-600">
         {state.message}
-        <button type="button" onClick={() => void load({ silent: false })} className="mt-4 block w-full text-violet-700 underline">
+        <button type="button" onClick={() => void loadStore({ silent: false })} className="mt-4 block w-full text-violet-700 underline">
           다시 시도
         </button>
       </div>
@@ -115,6 +132,8 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
     );
   }
 
+  const storeId = state.storeId;
+
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-10">
       <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
@@ -128,13 +147,25 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
       </header>
       <ChatHubTopTabs active="order" orderChatsHref={orderChatsHref} />
       <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
-        {rows.length === 0 ? (
+        {roomsError ? (
+          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+            채팅 목록을 불러오지 못했습니다 ({roomsError}).
+            <button
+              type="button"
+              className="ml-2 font-medium text-signature underline"
+              onClick={() => void loadRooms(storeId)}
+            >
+              다시 시도
+            </button>
+          </p>
+        ) : null}
+        {rooms.length === 0 && !roomsError ? (
           <p className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm ring-1 ring-sam-border-soft">
             열린 주문 채팅이 없어요. 고객이 주문·채팅을 시작하면 여기에 표시됩니다.
           </p>
         ) : (
           <ul className="space-y-2">
-            {rows.map((r) => (
+            {rooms.map((r) => (
               <li key={r.id}>
                 <Link
                   href={`/my/business/store-order-chat/${encodeURIComponent(r.order_id)}`}

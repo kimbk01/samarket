@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import {
   getOptionalRateLimitRedis,
   rateLimitIncrCount,
@@ -40,6 +41,16 @@ function withNoStoreHeaders(init?: ResponseInit): ResponseInit {
 
 export function jsonOk(body: JsonObject = {}, init?: ResponseInit) {
   return NextResponse.json({ ok: true, ...body }, withNoStoreHeaders(init));
+}
+
+/**
+ * 운영 환경에서는 PostgREST/DB 원문을 클라이언트에 넘기지 않음 (정보 누수·스키마 노출 완화).
+ * 로컬·스테이징에서는 디버깅을 위해 상세 메시지 유지.
+ */
+export function clientSafeInternalErrorMessage(internalMessage: string | undefined | null): string {
+  const trimmed = typeof internalMessage === "string" ? internalMessage.trim() : "";
+  if (!isProductionDeploy()) return trimmed || "오류가 발생했습니다.";
+  return "일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 }
 
 export function jsonError(

@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderStatusLog } from "@/lib/admin/delivery-orders-mock/types";
+import type { OrderStatusLog } from "@/lib/admin/delivery-orders-admin/types";
 
 export function AdminOrderTimeline({ logs }: { logs: OrderStatusLog[] }) {
   if (logs.length === 0) {

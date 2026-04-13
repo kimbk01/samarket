@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminDeliveryOrderItem } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminDeliveryOrderItem } from "@/lib/admin/delivery-orders-admin/types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 export function OrderItemsTable({ items }: { items: AdminDeliveryOrderItem[] }) {

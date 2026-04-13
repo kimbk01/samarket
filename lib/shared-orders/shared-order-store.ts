@@ -1,34 +1,20 @@
 import { afterSharedOrderMutation, resetSharedOrderChat } from "@/lib/shared-order-chat/order-chat-sync";
 import { emitOrderNotifications } from "@/lib/shared-notifications/order-notification-emit";
 import { resetSharedNotifications } from "@/lib/shared-notifications/shared-notification-store";
-import { INITIAL_SHARED_ORDERS } from "./initial-shared-orders";
 import { buildSharedLog } from "./order-log-utils";
 import type {
   SharedActorType,
   SharedOrder,
   SharedOrderStatus,
-  SharedOrderType,
   SharedPaymentStatus,
   SharedSettlementStatus,
 } from "./types";
-import {
-  SAMPLE_MEMBER_DISPLAY,
-  SAMPLE_MEMBER_USER_ID,
-  SAMPLE_OWNER_DISPLAY,
-  SAMPLE_OWNER_USER_ID,
-} from "@/lib/mock-auth/mock-users";
-import { SHARED_SIM_STORE_ID, SHARED_SIM_STORE_SLUG } from "./types";
-
-const SIM_OWNER_ID = SAMPLE_OWNER_USER_ID;
-const SIM_OWNER_NAME = SAMPLE_OWNER_DISPLAY;
-const SIM_STORE_NAME = "서울한식당";
-let simulateOrderSeq = 0;
 
 function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x)) as T;
 }
 
-let orders: SharedOrder[] = clone(INITIAL_SHARED_ORDERS);
+let orders: SharedOrder[] = [];
 let version = 0;
 const listeners = new Set<() => void>();
 
@@ -64,7 +50,7 @@ export function listSharedOrdersRaw(): SharedOrder[] {
 }
 
 export function resetSharedOrders() {
-  orders = clone(INITIAL_SHARED_ORDERS);
+  orders = [];
   resetSharedNotifications();
   resetSharedOrderChat();
   bump();
@@ -156,8 +142,8 @@ export function validateSharedOrderTransition(
   return null;
 }
 
-function assertStore(o: SharedOrder) {
-  if (o.store_id !== SHARED_SIM_STORE_ID) return "이 시뮬 매장 주문이 아닙니다.";
+/** 레거시 인메모리 주문 스토어는 비어 있으며, 실 주문은 Supabase/API를 사용합니다. */
+function assertStore(_o: SharedOrder) {
   return null;
 }
 
@@ -765,86 +751,3 @@ export function sharedAdminSetMemo(orderId: string, memo: string): { ok: true } 
   return { ok: true };
 }
 
-/** 시뮬/검증용: 회원이 새 주문을 넣은 것처럼 공유 스토어에 1건 추가 (Supabase insert 대체) */
-export function sharedSimulateMemberPlaceOrder(opts?: {
-  buyer_user_id?: string;
-  buyer_name?: string;
-  buyer_phone?: string;
-  order_type?: SharedOrderType;
-}): { ok: true; orderId: string } | { ok: false; error: string } {
-  simulateOrderSeq += 1;
-  const id = `sh-sim-${simulateOrderSeq}`;
-  const d = new Date();
-  const dStr = d.toISOString().slice(0, 10).replace(/-/g, "");
-  const suffix = 1000 + orders.length + simulateOrderSeq;
-  const order_no = `FD-${dStr}-${suffix}`;
-  const buyer_user_id = opts?.buyer_user_id ?? SAMPLE_MEMBER_USER_ID;
-  const buyer_name = opts?.buyer_name ?? SAMPLE_MEMBER_DISPLAY;
-  const buyer_phone = opts?.buyer_phone ?? "+63 911 111 0001";
-  const order_type = opts?.order_type ?? "delivery";
-  const delivery_fee = order_type === "delivery" ? 50 : 0;
-  const product_amount = 200;
-  const final_amount = product_amount + delivery_fee;
-  const created_at = d.toISOString();
-  const o: SharedOrder = {
-    id,
-    order_no,
-    store_id: SHARED_SIM_STORE_ID,
-    store_name: SIM_STORE_NAME,
-    store_slug: SHARED_SIM_STORE_SLUG,
-    owner_user_id: SIM_OWNER_ID,
-    owner_name: SIM_OWNER_NAME,
-    buyer_user_id,
-    buyer_name,
-    buyer_phone,
-    order_type,
-    order_status: "pending",
-    payment_status: "paid",
-    settlement_status: "scheduled",
-    admin_action_status: "none",
-    product_amount,
-    option_amount: 0,
-    delivery_fee,
-    discount_amount: 0,
-    total_amount: final_amount,
-    final_amount,
-    request_message: "시뮬 주문",
-    delivery_address_summary: order_type === "delivery" ? "시뮬 구" : null,
-    delivery_address_detail: order_type === "delivery" ? "시뮬 동 1" : null,
-    pickup_note: order_type === "pickup" ? "카운터 픽업" : null,
-    cancel_request_reason: null,
-    cancel_request_status: "none",
-    cancel_reason: null,
-    refund_reason: null,
-    refund_request: null,
-    admin_memo: "",
-    has_report: false,
-    dispute_memo: null,
-    settlement: null,
-    items: [
-      {
-        id: `${id}-i1`,
-        menu_name: "시뮬 메뉴",
-        options_summary: "기본",
-        qty: 1,
-        line_total: product_amount,
-      },
-    ],
-    logs: [],
-    created_at,
-    updated_at: created_at,
-  };
-  appendLog(o, {
-    actor_type: "system",
-    actor_name: "시스템",
-    action_type: "created",
-    from_status: null,
-    to_status: "pending",
-    message: "주문이 생성되었어요",
-  });
-  orders.push(o);
-  bump();
-  emitOrderNotifications(o, { kind: "order_created" });
-  afterSharedOrderMutation(o, null);
-  return { ok: true, orderId: id };
-}

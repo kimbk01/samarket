@@ -4,7 +4,7 @@ import type {
   AdminDeliverySettlement,
   OrderStatus,
   OrderStatusLog,
-} from "@/lib/admin/delivery-orders-mock/types";
+} from "@/lib/admin/delivery-orders-admin/types";
 import type { SharedOrder, SharedOrderLog } from "./types";
 
 function itemToAdmin(it: SharedOrder["items"][0]): AdminDeliveryOrderItem {
@@ -98,7 +98,7 @@ export function sharedOrderToAdminDelivery(o: SharedOrder): AdminDeliveryOrder {
           status: o.refund_request.status,
         }
       : null,
-    orderSource: "simulation",
+    orderSource: "store_db",
   };
 }
 

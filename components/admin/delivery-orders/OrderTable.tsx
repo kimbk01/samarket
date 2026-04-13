@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import {
   AdminActionStatusBadge,
   OrderStatusBadge,
@@ -92,7 +92,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
         </thead>
         <tbody>
           {rows.map((o) => {
-            const src = o.orderSource ?? "simulation";
+            const src = o.orderSource ?? "store_db";
             const detailHref =
               src === "store_db"
                 ? `/admin/store-orders?order_id=${encodeURIComponent(o.id)}`

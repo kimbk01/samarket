@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const orderId = sp.get("order_id")?.trim();
   const orderNo = sp.get("order_no")?.trim();
+  const storeIdFilter = sp.get("store_id")?.trim();
+  const buyerUserIdFilter = sp.get("buyer_user_id")?.trim();
   const paymentStatus = sp.get("payment_status")?.trim();
   const orderStatus = sp.get("order_status")?.trim();
   const limit = Math.min(Math.max(Number(sp.get("limit")) || 500, 1), 2000);
@@ -39,6 +41,8 @@ export async function GET(req: NextRequest) {
 
   if (orderId) q = q.eq("id", orderId);
   if (orderNo) q = q.ilike("order_no", `%${orderNo}%`);
+  if (storeIdFilter) q = q.eq("store_id", storeIdFilter);
+  if (buyerUserIdFilter) q = q.eq("buyer_user_id", buyerUserIdFilter);
   if (paymentStatus) q = q.eq("payment_status", paymentStatus);
   if (orderStatus) q = q.eq("order_status", orderStatus);
 

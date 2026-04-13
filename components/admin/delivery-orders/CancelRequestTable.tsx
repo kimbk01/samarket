@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-mock/types";
+import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 
 export function CancelRequestTable({
   rows,
   onApprove,
   onReject,
+  showWorkflowActions = true,
 }: {
   rows: AdminDeliveryOrder[];
   onApprove: (orderId: string) => void;
   onReject: (orderId: string) => void;
+  /** 시뮬 워크플로 전용. 원장에서 이미 취소 완료된 건은 상세 링크만 표시 */
+  showWorkflowActions?: boolean;
 }) {
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-sam-muted">대기 중인 취소 요청이 없습니다.</p>;
@@ -46,20 +49,31 @@ export function CancelRequestTable({
                   >
                     상세
                   </Link>
-                  <button
-                    type="button"
-                    className="text-xs text-emerald-700 underline"
-                    onClick={() => onApprove(o.id)}
-                  >
-                    승인
-                  </button>
-                  <button
-                    type="button"
-                    className="text-xs text-red-700 underline"
-                    onClick={() => onReject(o.id)}
-                  >
-                    거절
-                  </button>
+                  {showWorkflowActions ? (
+                    <>
+                      <button
+                        type="button"
+                        className="text-xs text-emerald-700 underline"
+                        onClick={() => onApprove(o.id)}
+                      >
+                        승인
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-red-700 underline"
+                        onClick={() => onReject(o.id)}
+                      >
+                        거절
+                      </button>
+                    </>
+                  ) : (
+                    <Link
+                      href={`/admin/store-orders?order_id=${encodeURIComponent(o.id)}`}
+                      className="text-xs text-sam-muted underline"
+                    >
+                      매장 주문(액션)
+                    </Link>
+                  )}
                 </div>
               </td>
             </tr>

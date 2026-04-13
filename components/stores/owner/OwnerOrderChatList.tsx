@@ -1,56 +1,78 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { SHARED_SIM_STORE_ID } from "@/lib/shared-orders/types";
-import { findSharedOrder } from "@/lib/shared-orders/shared-order-store";
-import { listOrderChatRoomsForOwner } from "@/lib/shared-order-chat/shared-chat-store";
-import { getMockSession } from "@/lib/mock-auth/mock-auth-store";
-import { useMockAuthVersion } from "@/lib/mock-auth/use-mock-auth-version";
-import { useOwnerOrdersVersion } from "@/lib/store-owner/use-owner-orders-store";
-import { useOrderChatVersion } from "@/components/order-chat/use-order-chat-version";
+import { useCallback, useEffect, useState } from "react";
 import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
+import { fetchMeOrderChatRoomsDeduped } from "@/lib/me/fetch-me-order-chat-rooms-deduped";
+import type { OrderChatRoomPublic } from "@/lib/order-chat/types";
 
 export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: string }) {
-  const av = useMockAuthVersion();
-  const cv = useOrderChatVersion();
-  const ov = useOwnerOrdersVersion();
-  const ownerId = useMemo(() => {
-    void av;
-    const s = getMockSession();
-    return s.role === "owner" ? s.userId : null;
-  }, [av]);
+  const [rooms, setRooms] = useState<OrderChatRoomPublic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const rows = useMemo(() => {
-    void cv;
-    void ov;
-    if (!ownerId || storeId !== SHARED_SIM_STORE_ID) return [];
-    return listOrderChatRoomsForOwner(ownerId, storeId);
-  }, [cv, ov, ownerId, storeId]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { status, json: raw } = await fetchMeOrderChatRoomsDeduped(storeId);
+      const j = raw as { ok?: boolean; error?: string; rooms?: OrderChatRoomPublic[] };
+      if (status === 403) {
+        setRooms([]);
+        setError("forbidden");
+        return;
+      }
+      if (status < 200 || status >= 300 || j?.ok === false) {
+        setRooms([]);
+        setError(typeof j?.error === "string" ? j.error : `HTTP ${status}`);
+        return;
+      }
+      setRooms(Array.isArray(j.rooms) ? j.rooms : []);
+    } catch {
+      setRooms([]);
+      setError("network_error");
+    } finally {
+      setLoading(false);
+    }
+  }, [storeId]);
 
-  if (storeId !== SHARED_SIM_STORE_ID) {
-    return <p className="text-sm text-sam-muted">시뮬 매장만 주문 채팅 목록을 씁니다.</p>;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) {
+    return <p className="text-sm text-sam-muted">주문 채팅을 불러오는 중…</p>;
   }
 
-  if (!ownerId) {
+  if (error === "forbidden") {
     return (
-      <p className="rounded-ui-rect bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
-        매장(오너) 역할로 전환한 뒤 확인해 주세요.
+      <p className="text-sm text-sam-muted">
+        이 매장 주문 채팅을 보려면 해당 매장 소유자 계정으로 로그인해 주세요. ({slug})
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+        목록을 불러오지 못했습니다 ({error}).
+        <button type="button" className="ml-2 font-medium text-signature underline" onClick={() => void load()}>
+          다시 시도
+        </button>
       </p>
     );
   }
 
   return (
     <div className="space-y-2">
-      {rows.length === 0 ? (
+      {rooms.length === 0 ? (
         <p className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted">주문 채팅이 없어요.</p>
       ) : (
         <ul className="space-y-2">
-          {rows.map((r) => {
-            const order = findSharedOrder(r.order_id);
+          {rooms.map((r) => {
             const issue =
-              order &&
-              ["cancel_requested", "refund_requested", "refunded", "cancelled"].includes(order.order_status);
+              r.last_chat_order_status &&
+              ["cancel_requested", "refund_requested", "refunded", "cancelled"].includes(r.last_chat_order_status);
             return (
               <li key={r.id}>
                 <Link

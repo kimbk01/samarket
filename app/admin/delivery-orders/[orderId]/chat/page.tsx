@@ -1,4 +1,4 @@
-import { AdminOrderChatPageClient } from "@/components/admin/delivery-orders/AdminOrderChatPageClient";
+import { AdminDeliveryOrderChatDbClient } from "@/components/admin/delivery-orders/AdminDeliveryOrderChatDbClient";
 
 export default async function AdminDeliveryOrderChatPage({
   params,
@@ -6,5 +6,5 @@ export default async function AdminDeliveryOrderChatPage({
   params: Promise<{ orderId: string }>;
 }) {
   const { orderId } = await params;
-  return <AdminOrderChatPageClient orderId={orderId} />;
+  return <AdminDeliveryOrderChatDbClient orderId={orderId} />;
 }

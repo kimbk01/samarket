@@ -1,12 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
-import { useOrderChatVersion } from "@/components/order-chat/use-order-chat-version";
-import { getDemoBuyerUserId } from "@/lib/member-orders/member-order-store";
-import { getOrderChatUnreadForMember } from "@/lib/shared-order-chat/shared-chat-store";
 import type { MemberOrder } from "@/lib/member-orders/types";
 import { MEMBER_STATUS_USER_MESSAGE } from "@/lib/member-orders/member-order-labels";
 import { MemberOrderStatusBadge } from "./MemberOrderStatusBadge";
@@ -31,8 +27,6 @@ export function MemberOrderCard({
   onOpenCancel?: (order: MemberOrder) => void;
 }) {
   const { t, tt } = useI18n();
-  const cv = useOrderChatVersion();
-  const buyerId = getDemoBuyerUserId();
   const activeTab = [
     "pending",
     "accepted",
@@ -43,10 +37,7 @@ export function MemberOrderCard({
   ].includes(order.order_status);
   const canCancelRequest = order.order_status === "pending" || order.order_status === "accepted";
   const canOpenChat = !["cancelled", "refunded"].includes(order.order_status);
-  const chatUnread = useMemo(() => {
-    void cv;
-    return getOrderChatUnreadForMember(order.id, buyerId);
-  }, [cv, order.id, buyerId]);
+  const chatUnread = order.order_chat_unread_count ?? 0;
 
   return (
     <article

@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderReport } from "@/lib/admin/delivery-orders-mock/types";
+import type { OrderReport } from "@/lib/admin/delivery-orders-admin/types";
 
 const STATUS_KO: Record<OrderReport["status"], string> = {
   open: "접수",

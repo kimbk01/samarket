@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { filterOwnerStoreCommerceByStoreId } from "@/lib/notifications/filter-owner-store-commerce-notifications";
 import {
   isBuyerStoreCommerceNotificationRow,
   isOwnerStoreCommerceNotificationRow,
@@ -36,6 +37,7 @@ const UNREAD_SCAN_CAP = 2500;
  * GET …&exclude_buyer_store_commerce=1 (위와 함께) → 하단 네비용: 구매자 매장주문(배송 단계 등) 미읽음 제외
  * GET ?unread_count_only=1&owner_store_commerce_unread_only=1 → 매장 오너용 매장주문 알림만
  * GET (기본) → 최근 알림 목록 (exclude_owner_store_commerce=1 지원)
+ * GET ?owner_store_id=UUID → 해당 매장의 오너 매장주문(commerce·meta.kind) 알림만 (최대 200건)
  */
 export async function GET(req: NextRequest) {
   const userId = await getRouteUserId();
@@ -139,7 +141,9 @@ export async function GET(req: NextRequest) {
   }
 
   const excludeOwnerList = searchParams.get("exclude_owner_store_commerce") === "1";
-  const listLimit = excludeOwnerList ? 200 : 80;
+  const ownerStoreId = searchParams.get("owner_store_id")?.trim() ?? "";
+  /** 매장 오너 전용 목록은 최근 건을 넉넉히 가져온 뒤 `meta.store_id` 로 좁힘 */
+  const listLimit = ownerStoreId ? 500 : excludeOwnerList ? 200 : 80;
 
   const q = sb
     .from("notifications")
@@ -162,7 +166,9 @@ export async function GET(req: NextRequest) {
       .limit(listLimit);
     if (!eMeta) {
       let list = rowsWithMeta ?? [];
-      if (excludeOwnerList) {
+      if (ownerStoreId) {
+        list = filterOwnerStoreCommerceByStoreId(list, ownerStoreId).slice(0, 200);
+      } else if (excludeOwnerList) {
         list = list.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).slice(0, 80);
       }
       return NextResponse.json({ ok: true, notifications: list });
@@ -175,7 +181,9 @@ export async function GET(req: NextRequest) {
       .limit(listLimit);
     if (!eBare) {
       let list = rowsBare ?? [];
-      if (excludeOwnerList) {
+      if (ownerStoreId) {
+        list = [];
+      } else if (excludeOwnerList) {
         list = list.slice(0, 80);
       }
       return NextResponse.json({ ok: true, notifications: list });
@@ -185,7 +193,9 @@ export async function GET(req: NextRequest) {
   }
 
   let notifications = data ?? [];
-  if (excludeOwnerList) {
+  if (ownerStoreId) {
+    notifications = filterOwnerStoreCommerceByStoreId(notifications, ownerStoreId).slice(0, 200);
+  } else if (excludeOwnerList) {
     notifications = notifications.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).slice(0, 80);
   }
 

@@ -1,28 +1,32 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
-import { getMockSession } from "@/lib/mock-auth/mock-auth-store";
-import { useMockAuthVersion } from "@/lib/mock-auth/use-mock-auth-version";
-import { SHARED_SIM_STORE_ID } from "@/lib/shared-orders/types";
-import {
-  getNotificationPreferences,
-  getNotificationSettingsVersion,
-  subscribeNotificationSettings,
-  updateNotificationPreferences,
-} from "@/lib/shared-notifications/notification-settings-store";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+
+type DomainSettings = {
+  order_enabled: boolean;
+  store_enabled: boolean;
+  sound_enabled: boolean;
+  vibration_enabled: boolean;
+};
 
 function Row({
   label,
+  description,
   checked,
   onChange,
 }: {
   label: string;
+  description?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-sam-border-soft px-4 py-3">
-      <span className="text-[15px] text-sam-fg">{label}</span>
+      <div className="min-w-0">
+        <span className="text-[15px] text-sam-fg">{label}</span>
+        {description ? <p className="mt-0.5 text-[12px] text-sam-muted">{description}</p> : null}
+      </div>
       <button
         type="button"
         role="switch"
@@ -43,36 +47,87 @@ function Row({
 }
 
 export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
-  const av = useMockAuthVersion();
-  const v = useSyncExternalStore(
-    subscribeNotificationSettings,
-    getNotificationSettingsVersion,
-    getNotificationSettingsVersion
+  const [loading, setLoading] = useState(true);
+  const [unauthorized, setUnauthorized] = useState(false);
+  const [tableMissing, setTableMissing] = useState(false);
+  const [s, setS] = useState<DomainSettings | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/me/notification-settings", { credentials: "include" });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        table_missing?: boolean;
+        settings?: DomainSettings;
+      };
+      if (res.status === 401) {
+        setUnauthorized(true);
+        setS(null);
+        return;
+      }
+      if (!j?.ok || !j.settings) {
+        setS(null);
+        return;
+      }
+      setUnauthorized(false);
+      setTableMissing(j.table_missing === true);
+      const x = j.settings;
+      setS({
+        order_enabled: x.order_enabled !== false,
+        store_enabled: x.store_enabled !== false,
+        sound_enabled: x.sound_enabled !== false,
+        vibration_enabled: x.vibration_enabled !== false,
+      });
+    } catch {
+      setS(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const patch = useCallback(
+    async (partial: Partial<DomainSettings>) => {
+      if (!s) return;
+      const res = await fetch("/api/me/notification-settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partial),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (res.ok && j?.ok && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
+        setS((prev) => (prev ? { ...prev, ...partial } : prev));
+      } else {
+        await load();
+      }
+    },
+    [s, load]
   );
-  const userId = useMemo(() => {
-    void av;
-    const s = getMockSession();
-    return s.role === "owner" ? s.userId : null;
-  }, [av]);
-  const p = useMemo(() => {
-    void v;
-    if (!userId) return null;
-    return getNotificationPreferences("owner", userId);
-  }, [userId, v]);
 
-  const patch = (partial: Parameters<typeof updateNotificationPreferences>[2]) => {
-    if (!userId) return;
-    updateNotificationPreferences("owner", userId, partial);
-  };
-
-  if (storeId !== SHARED_SIM_STORE_ID) {
-    return <p className="text-sm text-sam-muted">시뮬 매장만 설정할 수 있어요.</p>;
+  if (loading) {
+    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
   }
 
-  if (!userId || !p) {
+  if (unauthorized) {
     return (
       <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-        매장(오너) 역할에서만 알림 설정을 바꿀 수 있어요.
+        로그인한 사장님 계정에서만 알림 설정을 바꿀 수 있어요.
+      </p>
+    );
+  }
+
+  if (!s || tableMissing) {
+    return (
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+        {tableMissing
+          ? "알림 설정 테이블이 아직 없습니다."
+          : "설정을 불러오지 못했습니다."}
       </p>
     );
   }
@@ -80,18 +135,31 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   return (
     <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <div className="border-b border-sam-border-soft px-4 py-3">
-        <h2 className="text-sm font-bold text-sam-fg">매장 알림 (시뮬)</h2>
-        <p className="mt-1 text-[12px] text-sam-muted font-mono">{userId}</p>
+        <h2 className="text-sm font-bold text-sam-fg">매장 알림</h2>
+        <p className="mt-1 text-[12px] text-sam-muted font-mono" title="store id">
+          {storeId}
+        </p>
+        <p className="mt-2 text-[12px] text-sam-muted">
+          <Link href="/my/settings/notifications" className="font-medium text-signature underline">
+            전체 알림 설정
+          </Link>
+          에서 거래·커뮤니티 채팅 알림을 함께 조정할 수 있어요.
+        </p>
       </div>
-      <Row label="새 주문 알림 받기" checked={p.allow_new_order} onChange={(x) => patch({ allow_new_order: x })} />
-      <Row label="취소 요청 알림 받기" checked={p.allow_cancel} onChange={(x) => patch({ allow_cancel: x })} />
-      <Row label="환불 요청 알림 받기" checked={p.allow_refund} onChange={(x) => patch({ allow_refund: x })} />
-      <Row label="정산 알림 받기" checked={p.allow_settlement} onChange={(x) => patch({ allow_settlement: x })} />
       <Row
-        label="관리자 공지 알림 받기"
-        checked={p.allow_admin_notice}
-        onChange={(x) => patch({ allow_admin_notice: x })}
+        label="주문 알림"
+        description="신규 주문·취소·환불·결제 등"
+        checked={s.order_enabled}
+        onChange={(v) => void patch({ order_enabled: v })}
       />
+      <Row
+        label="매장·판매 알림"
+        description="매장 운영 관련 인앱 알림"
+        checked={s.store_enabled}
+        onChange={(v) => void patch({ store_enabled: v })}
+      />
+      <Row label="인앱 알림음" checked={s.sound_enabled} onChange={(v) => void patch({ sound_enabled: v })} />
+      <Row label="진동" checked={s.vibration_enabled} onChange={(v) => void patch({ vibration_enabled: v })} />
     </div>
   );
 }

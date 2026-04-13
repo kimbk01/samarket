@@ -8,8 +8,8 @@ import {
   defaultOrderListFilters,
   type AdminDeliveryOrder,
   type OrderListFilters,
-} from "@/lib/admin/delivery-orders-mock/types";
-import { adminDeliveryOrderMatchesFilters } from "@/lib/admin/delivery-orders-mock/mock-store";
+} from "@/lib/admin/delivery-orders-admin/types";
+import { adminDeliveryOrderMatchesFilters } from "@/lib/admin/admin-delivery-order-filters";
 import { DeliveryOrdersKpiCards } from "./DeliveryOrdersKpiCards";
 import { DeliveryOrdersProgressPanel } from "./DeliveryOrdersProgressPanel";
 import { OrderFilterBar } from "./OrderFilterBar";
@@ -181,7 +181,6 @@ export function DeliveryOrdersDashboardClient() {
     { href: "/admin/store-orders", label: "매장 주문(액션)" },
     { href: "/admin/order-chats", label: "주문 채팅" },
     { href: "/admin/order-notifications", label: "운영 알림" },
-    { href: "/admin/delivery-orders/simulation", label: "시뮬(테스트용)" },
     { href: "/admin/delivery-orders/cancellations", label: "취소" },
     { href: "/admin/delivery-orders/refunds", label: "환불" },
     { href: "/admin/delivery-orders/settlements", label: "정산" },
@@ -193,7 +192,7 @@ export function DeliveryOrdersDashboardClient() {
     <div className="p-4 md:p-6">
       <AdminPageHeader
         title="배달·포장 주문 (실데이터)"
-        description="Supabase store_orders 원장만 표시합니다. 결제·환불 등 처리는 «매장 주문(액션)»에서 진행하세요. 인메모리 시뮬(FD-)은 «시뮬(테스트용)»에서만 다룹니다."
+        description="Supabase store_orders 원장만 표시합니다. 결제·환불 등 처리는 «매장 주문(액션)»에서 진행하세요."
       />
       <AdminCard title="데이터 원장">
         <p className="text-[13px] leading-relaxed text-sam-fg">

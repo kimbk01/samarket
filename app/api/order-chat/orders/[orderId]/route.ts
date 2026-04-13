@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
 import { loadOrderChatSnapshotForOrder } from "@/lib/chat-domain/use-cases/order-chat-snapshot";
 import { createOrderChatReadAdapter } from "@/lib/order-chat/order-chat-read-adapter";
@@ -11,10 +11,9 @@ export async function GET(
   _req: Request,
   context: { params: Promise<{ orderId: string }> }
 ) {
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuthenticatedUserId();
+  if (!auth.ok) return auth.response;
+  const userId = auth.userId;
   const { orderId } = await context.params;
   const oid = String(orderId ?? "").trim();
   if (!oid) {

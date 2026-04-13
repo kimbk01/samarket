@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -24,6 +25,8 @@ const FORCE_END_HEATMAP_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "�
 const FORCE_END_HEATMAP_HOURS = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}시`);
 
 export function AdminCommunityMessengerPage() {
+  const searchParams = useSearchParams();
+  const initialListQueryAppliedRef = useRef(false);
   const [data, setData] = useState<AdminCommunityMessengerDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -44,6 +47,18 @@ export function AdminCommunityMessengerPage() {
   const [forceEndAnalysisPeriodFilter, setForceEndAnalysisPeriodFilter] = useState<"24h" | "7d" | "30d" | "">("");
 
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** 다른 관리 화면에서 `/admin/chats/messenger?room=…` · `?q=…` 로 점프 */
+  useEffect(() => {
+    if (initialListQueryAppliedRef.current) return;
+    const room = searchParams.get("room")?.trim();
+    const q = searchParams.get("q")?.trim();
+    const v = room || q;
+    if (v) {
+      setQuery(v);
+      initialListQueryAppliedRef.current = true;
+    }
+  }, [searchParams]);
 
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
