@@ -40,29 +40,45 @@ export async function GET(req: NextRequest) {
 
   const { data: crRows } = await sbAny
     .from("chat_rooms")
-    .select("id")
+    .select("id, community_messenger_room_id")
     .eq("room_type", "item_trade")
     .eq("item_id", itemId)
     .eq("buyer_id", userId)
     .eq("seller_id", sellerId)
     .order("updated_at", { ascending: false })
     .limit(1);
-  const crId = crRows?.[0]?.id as string | undefined;
+  const crRow = crRows?.[0] as { id?: string; community_messenger_room_id?: string | null } | undefined;
+  const crId = crRow?.id;
+  const crMid =
+    typeof crRow?.community_messenger_room_id === "string" && crRow.community_messenger_room_id.trim()
+      ? crRow.community_messenger_room_id.trim()
+      : null;
   if (crId) {
-    return NextResponse.json({ roomId: crId, source: "chat_room" satisfies ChatRoomSource });
+    return NextResponse.json({
+      roomId: crMid ?? crId,
+      source: "chat_room" satisfies ChatRoomSource,
+      messengerRoomId: crMid,
+    });
   }
 
   const { data: pcRows } = await sbAny
     .from("product_chats")
-    .select("id")
+    .select("id, community_messenger_room_id")
     .eq("post_id", itemId)
     .eq("buyer_id", userId)
     .eq("seller_id", sellerId)
     .order("updated_at", { ascending: false })
     .limit(1);
+  const pcRow = pcRows?.[0] as { id?: string; community_messenger_room_id?: string | null } | undefined;
+  const pcMid =
+    typeof pcRow?.community_messenger_room_id === "string" && pcRow.community_messenger_room_id.trim()
+      ? pcRow.community_messenger_room_id.trim()
+      : null;
+  const pcId = pcRow?.id;
 
   return NextResponse.json({
-    roomId: (pcRows?.[0] as { id?: string } | undefined)?.id ?? null,
-    source: pcRows?.[0] ? ("product_chat" satisfies ChatRoomSource) : null,
+    roomId: pcMid ?? pcId ?? null,
+    source: pcId ? ("product_chat" satisfies ChatRoomSource) : null,
+    messengerRoomId: pcMid,
   });
 }

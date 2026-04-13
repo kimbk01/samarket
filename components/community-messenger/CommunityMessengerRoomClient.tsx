@@ -5,6 +5,7 @@ import {
   type ChangeEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -74,6 +75,21 @@ import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenge
 import { CommunityMessengerMessageActionSheet } from "@/components/community-messenger/room/CommunityMessengerMessageActionSheet";
 import { CommunityMessengerTradeProcessSection } from "@/components/community-messenger/CommunityMessengerTradeProcessSection";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
+import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
+import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+
+/**
+ * 거래 도크보다 먼저 마운트되어 `GET /api/chat/room/[productChatId]` 를 시작 — `runSingleFlight` 로
+ * TradeProcessSection 과 요청이 합쳐져 메신저 본문·실시간과 네트워크 경합을 줄인다.
+ */
+function MessengerTradeChatRoomDetailPrefetch({ productChatId }: { productChatId: string }) {
+  useLayoutEffect(() => {
+    const id = productChatId.trim();
+    if (!id) return;
+    void fetchChatRoomDetailApi(id);
+  }, [productChatId]);
+  return null;
+}
 
 /** 이전 말풍선과의 시간 간격이 이 값을 넘으면 프로필·꼬리 말풍선 다시 표시 (Viber 스타일, 기본 5분) */
 const CM_CLUSTER_GAP_MS = 5 * 60 * 1000;
@@ -277,8 +293,17 @@ export function CommunityMessengerRoomClient({
   }, [roomId]);
 
   useEffect(() => {
-    /** 서버 스냅샷이 있으면 첫 동기화는 로딩 스피너 없이(사일런트) — RSC·GET 부트스트랩 중복 체감만 줄임 */
-    void refresh(Boolean(initialServerSnapshot));
+    setRoomReadyForRealtime(false);
+    if (initialServerSnapshot) {
+      /** RSC가 이미 부트스트랩을 내렸으면 첫 GET `/rooms/.../bootstrap` 생략 — 첫 페인트와 채널 연결까지 RTT·대역폭 경합 제거 */
+      loadedRef.current = true;
+      setRoomReadyForRealtime(true);
+      const idleId = scheduleWhenBrowserIdle(() => {
+        void refresh(true);
+      }, 2800);
+      return () => cancelScheduledWhenBrowserIdle(idleId);
+    }
+    void refresh(false);
     // `initialServerSnapshot` 은 RSC 재실행마다 새 참조일 수 있어 deps 에 넣지 않음(무한 요청 방지). `key={roomId}` 로 방 전환 시 마운트가 갈린다.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh(roomId), initialServerSnapshot 동시에 맞춤
   }, [refresh, roomId]);
@@ -287,10 +312,6 @@ export function CommunityMessengerRoomClient({
     return () => {
       void flushMessengerMonitorQueue();
     };
-  }, [roomId]);
-
-  useEffect(() => {
-    setRoomReadyForRealtime(false);
   }, [roomId]);
 
   useEffect(() => {
@@ -2664,11 +2685,14 @@ export function CommunityMessengerRoomClient({
       <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
 
       {showMessengerTradeProcessDock ? (
-        <CommunityMessengerTradeProcessSection
-          productChatId={tradeProductChatIdForDock}
-          viewerUserId={snapshot.viewerUserId}
-          onTradeMetaChanged={() => void refresh(true)}
-        />
+        <>
+          <MessengerTradeChatRoomDetailPrefetch productChatId={tradeProductChatIdForDock} />
+          <CommunityMessengerTradeProcessSection
+            productChatId={tradeProductChatIdForDock}
+            viewerUserId={snapshot.viewerUserId}
+            onTradeMetaChanged={() => void refresh(true)}
+          />
+        </>
       ) : null}
 
       <div

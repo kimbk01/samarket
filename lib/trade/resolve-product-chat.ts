@@ -7,6 +7,20 @@ export type ProductChatRow = Record<string, unknown> & {
   post_id: string;
   seller_id: string;
   buyer_id: string;
+  community_messenger_room_id?: string | null;
+};
+
+function trimMessengerId(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  return t || null;
+}
+
+export type ResolveProductChatResult = {
+  productChat: ProductChatRow;
+  productChatId: string;
+  /** 원장에 박힌 메신저 방 ID — 있으면 브리지 없이 바로 CM 부트스트랩 */
+  messengerRoomId: string | null;
 };
 
 /**
@@ -15,7 +29,7 @@ export type ProductChatRow = Record<string, unknown> & {
 export async function resolveProductChat(
   sb: SupabaseClient<any>,
   roomId: string
-): Promise<{ productChat: ProductChatRow; productChatId: string } | null> {
+): Promise<ResolveProductChatResult | null> {
   const { data: pc } = await sb
     .from("product_chats")
     .select(PRODUCT_CHAT_ROW_SELECT)
@@ -23,12 +37,17 @@ export async function resolveProductChat(
     .maybeSingle();
 
   if (pc && (pc as ProductChatRow).id) {
-    return { productChat: pc as ProductChatRow, productChatId: (pc as ProductChatRow).id };
+    const row = pc as ProductChatRow;
+    return {
+      productChat: row,
+      productChatId: row.id,
+      messengerRoomId: trimMessengerId(row.community_messenger_room_id),
+    };
   }
 
   const { data: cr } = await sb
     .from("chat_rooms")
-    .select("id, item_id, seller_id, buyer_id, room_type")
+    .select("id, item_id, seller_id, buyer_id, room_type, community_messenger_room_id")
     .eq("id", roomId)
     .eq("room_type", "item_trade")
     .maybeSingle();
@@ -40,7 +59,14 @@ export async function resolveProductChat(
   const buyerId = (cr as { buyer_id: string | null }).buyer_id;
   if (!sellerId || !buyerId) return null;
 
+  const crMid = trimMessengerId((cr as { community_messenger_room_id?: unknown }).community_messenger_room_id);
+
   const ensured = await ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId);
   if (!ensured?.id) return null;
-  return { productChat: ensured, productChatId: ensured.id };
+  const ensuredMid = trimMessengerId((ensured as ProductChatRow).community_messenger_room_id);
+  return {
+    productChat: ensured as ProductChatRow,
+    productChatId: ensured.id,
+    messengerRoomId: crMid ?? ensuredMid,
+  };
 }

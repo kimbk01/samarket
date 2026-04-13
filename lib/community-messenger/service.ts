@@ -15,6 +15,7 @@ import {
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { persistProductChatMessengerRoomId } from "@/lib/trade/persist-trade-messenger-room-link";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
@@ -2948,6 +2949,11 @@ export async function ensureCommunityMessengerDirectRoomFromProductChat(
   const peer = userId === seller ? buyer : seller;
   const out = await ensureCommunityMessengerDirectRoom(userId, peer, { productChatId });
   if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
+  await hydrateTradeMessengerRoomSummaryFromProductChat(userId, productChatId, out.roomId);
+  const sbPersist = getSupabaseOrNull();
+  if (sbPersist) {
+    await persistProductChatMessengerRoomId(sbPersist as never, productChatId, out.roomId);
+  }
   return { ok: true, roomId: out.roomId, peerUserId: peer };
 }
 
@@ -4211,13 +4217,16 @@ export async function getCommunityMessengerRoomSnapshot(
   }
 
   /**
-   * URL 에 `product_chats.id`(거래 통합 방 ID)가 오면 `community_messenger_rooms` 조회가 비어
-   * 스냅샷이 null 이 된다. 브리지 API 와 동일하게 CM 1:1 방을 보장한 뒤 재조회한다.
+   * 거래 URL이 `chat_rooms` / `product_chats` id 인 경우 — 원장 `community_messenger_room_id` 가 있으면
+   * 브리지·ensure 없이 CM 방으로 바로 스냅샷. 없으면 기존 ensure 경로.
    */
   if (!room && sb) {
+    const tradeResolved = await resolveProductChat(sb as never, id);
+    if (tradeResolved?.messengerRoomId) {
+      return getCommunityMessengerRoomSnapshot(userId, tradeResolved.messengerRoomId, options);
+    }
     const bridged = await ensureCommunityMessengerDirectRoomFromProductChat(userId, id);
     if (bridged.ok && bridged.roomId && bridged.roomId !== id) {
-      await hydrateTradeMessengerRoomSummaryFromProductChat(userId, id, bridged.roomId);
       return getCommunityMessengerRoomSnapshot(userId, bridged.roomId, options);
     }
   }

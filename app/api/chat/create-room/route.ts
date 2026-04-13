@@ -10,6 +10,7 @@ import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
 import { enforceTradeChatCreateRoomQuota } from "@/lib/security/rate-limit-presets";
+import { ensureMessengerRoomIdForProductChat } from "@/lib/trade/ensure-messenger-room-for-trade-chat";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -92,7 +93,8 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   const existingRow = existing as { id?: string } | null;
   if (existingRow?.id) {
-    return NextResponse.json({ ok: true, roomId: existingRow.id });
+    const messengerRoomId = await ensureMessengerRoomIdForProductChat(userId, existingRow.id);
+    return NextResponse.json({ ok: true, roomId: existingRow.id, messengerRoomId });
   }
 
   // 4) 새 방 생성 (서비스 롤이라 RLS 통과)
@@ -113,5 +115,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const ins = inserted as { id?: string } | null | undefined;
-  return NextResponse.json({ ok: true, roomId: ins?.id ?? "" });
+  const rid = ins?.id ?? "";
+  const messengerRoomId = rid ? await ensureMessengerRoomIdForProductChat(userId, rid) : undefined;
+  return NextResponse.json({ ok: true, roomId: rid, messengerRoomId });
 }

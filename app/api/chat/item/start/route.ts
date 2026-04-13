@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
-import { ensureProductChatRowForItemTrade } from "@/lib/trade/ensure-product-chat-for-item-trade";
+import { ensureMessengerRoomIdForItemTrade } from "@/lib/trade/ensure-messenger-room-for-trade-chat";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { parsePostMetaField } from "@/lib/chats/chat-product-from-post";
@@ -144,15 +144,11 @@ export async function POST(req: NextRequest) {
     } catch {
       /* ignore */
     }
-    try {
-      await ensureProductChatRowForItemTrade(sbAny, itemId, sellerId, buyerId);
-    } catch {
-      /* product_chats 실패 시에도 채팅방은 유효 */
-    }
+    const messengerRoomId = await ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, existing.id);
     const metaEx = parsePostMetaField(row.meta);
     const tradeChatKind =
       String(metaEx.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
-    return NextResponse.json({ ok: true, roomId: existing.id, tradeChatKind });
+    return NextResponse.json({ ok: true, roomId: existing.id, messengerRoomId, tradeChatKind });
   }
 
   // 4) 새 방 생성
@@ -203,14 +199,10 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  try {
-    await ensureProductChatRowForItemTrade(sbAny, itemId, sellerId, buyerId);
-  } catch {
-    /* product_chats 실패 시에도 채팅방은 유효 */
-  }
+  const messengerRoomId = await ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, roomId);
 
   const metaNew = parsePostMetaField(row.meta);
   const tradeChatKind =
     String(metaNew.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
-  return NextResponse.json({ ok: true, roomId, tradeChatKind });
+  return NextResponse.json({ ok: true, roomId, messengerRoomId, tradeChatKind });
 }

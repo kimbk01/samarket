@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { markCommunityMessengerMediaTrustedOnce } from "@/lib/community-messenger/call-permission";
+import { isCommunityMessengerMediaBlockedByInsecureOrigin } from "@/lib/community-messenger/media-errors";
 import { runCommunityMessengerEntryMediaPreflight } from "@/lib/community-messenger/media-preflight";
 import { warmMessengerIceServers } from "@/lib/call/ice-servers";
 import {
@@ -57,7 +58,10 @@ export function CommunityMessengerMediaPreflight() {
     if (isConstrainedNetwork()) return;
     callChunkWarmupIdleRef.current = scheduleWhenBrowserIdle(() => {
       warmMessengerIceServers();
-      void import("@/components/community-messenger/CommunityMessengerCallClient");
+      /** HTTP+LAN 등 비보안 출처에서 Agora 번들을 미리 로드하면 SDK가 WEB_SECURITY_RESTRICT 를 찍고 Next 개발 오버레이가 뜬다 */
+      if (!isCommunityMessengerMediaBlockedByInsecureOrigin()) {
+        void import("@/components/community-messenger/CommunityMessengerCallClient");
+      }
     }, 900);
     return () => {
       cancelScheduledWhenBrowserIdle(callChunkWarmupIdleRef.current);

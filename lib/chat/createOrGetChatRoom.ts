@@ -103,15 +103,28 @@ async function executeTradeChatStart(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ itemId: productId }),
     });
-    const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({})) as {
+      ok?: boolean;
+      roomId?: string;
+      messengerRoomId?: string;
+      error?: string;
+    };
     if (data.ok && data.roomId) {
+      const navId =
+        typeof data.messengerRoomId === "string" && data.messengerRoomId.trim()
+          ? data.messengerRoomId.trim()
+          : data.roomId;
       itemRoomCache.set(cacheKey, {
-        roomId: data.roomId,
-        source: "chat_room",
+        roomId: navId,
+        source: data.messengerRoomId ? "product_chat" : "chat_room",
         expiresAt: Date.now() + CHAT_ROOM_CACHE_TTL_MS,
       });
-      warmChatRoomEntryById(data.roomId, "chat_room");
-      return { ok: true, roomId: data.roomId, roomSource: "chat_room" };
+      warmChatRoomEntryById(navId, data.messengerRoomId ? "product_chat" : "chat_room");
+      return {
+        ok: true,
+        roomId: navId,
+        roomSource: data.messengerRoomId ? "product_chat" : "chat_room",
+      };
     }
     const errMsg = data.error ?? "";
     const isProductNotFound = res.status === 404 || errMsg.includes("상품을 찾을 수 없습니다");
@@ -122,14 +135,23 @@ async function executeTradeChatStart(
         body: JSON.stringify({ productId }),
       });
       const fallbackData = await fallback.json().catch(() => ({}));
-      if (fallbackData.ok && fallbackData.roomId) {
+      const fb = fallbackData as {
+        ok?: boolean;
+        roomId?: string;
+        messengerRoomId?: string;
+      };
+      if (fb.ok && fb.roomId) {
+        const navId =
+          typeof fb.messengerRoomId === "string" && fb.messengerRoomId.trim()
+            ? fb.messengerRoomId.trim()
+            : fb.roomId;
         itemRoomCache.set(cacheKey, {
-          roomId: fallbackData.roomId,
+          roomId: navId,
           source: "product_chat",
           expiresAt: Date.now() + CHAT_ROOM_CACHE_TTL_MS,
         });
-        warmChatRoomEntryById(fallbackData.roomId, "product_chat");
-        return { ok: true, roomId: fallbackData.roomId, roomSource: "product_chat" };
+        warmChatRoomEntryById(navId, "product_chat");
+        return { ok: true, roomId: navId, roomSource: "product_chat" };
       }
       return { ok: false, error: (fallbackData.error ?? errMsg) || "채팅방 생성에 실패했습니다." };
     }

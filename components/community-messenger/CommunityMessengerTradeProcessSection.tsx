@@ -7,6 +7,7 @@ import { TradeFlowBanner } from "@/components/trade/TradeFlowBanner";
 import {
   fetchChatRoomDetailApi,
   invalidateChatRoomDetailCache,
+  peekChatRoomDetailMemory,
 } from "@/lib/chats/fetch-chat-room-detail-api";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
@@ -30,9 +31,12 @@ export function CommunityMessengerTradeProcessSection({
   onTradeMetaChanged,
 }: Props) {
   const router = useRouter();
-  const [room, setRoom] = useState<ChatRoom | null>(null);
+  const initialId = productChatId.trim();
+  const [room, setRoom] = useState<ChatRoom | null>(() =>
+    initialId ? peekChatRoomDetailMemory(initialId) ?? null : null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(initialId && !peekChatRoomDetailMemory(initialId)));
   const [listingSaving, setListingSaving] = useState(false);
   const [listingError, setListingError] = useState<string | null>(null);
   const [listingNotice, setListingNotice] = useState<string | null>(null);
@@ -55,24 +59,41 @@ export function CommunityMessengerTradeProcessSection({
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      setLoading(true);
-      setLoadError(null);
-      const id = productChatId.trim();
-      if (!id) {
-        if (!cancelled) setLoading(false);
+    setLoadError(null);
+    const id = productChatId.trim();
+    if (!id) {
+      setRoom(null);
+      setLoading(false);
+      return;
+    }
+    const warm = peekChatRoomDetailMemory(id);
+    if (warm) {
+      setRoom(warm);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    /** 부모 `MessengerTradeChatRoomDetailPrefetch` 와 한 틱 내 캐시 합류를 허용 */
+    void queueMicrotask(() => {
+      if (cancelled) return;
+      const again = peekChatRoomDetailMemory(id);
+      if (again) {
+        setRoom(again);
+        setLoading(false);
         return;
       }
-      const r = await fetchChatRoomDetailApi(id);
-      if (cancelled) return;
-      if (r.ok) {
-        setRoom(r.room);
-      } else {
-        setRoom(null);
-        setLoadError("거래 정보를 불러오지 못했습니다.");
-      }
-      setLoading(false);
-    })();
+      void (async () => {
+        const r = await fetchChatRoomDetailApi(id);
+        if (cancelled) return;
+        if (r.ok) {
+          setRoom(r.room);
+        } else {
+          setRoom(null);
+          setLoadError("거래 정보를 불러오지 못했습니다.");
+        }
+        setLoading(false);
+      })();
+    });
     return () => {
       cancelled = true;
     };
