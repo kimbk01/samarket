@@ -8,6 +8,7 @@
 import type { CategoryWithSettings } from "./types";
 import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
 
 interface CategoryDbRow {
   id: string;
@@ -75,7 +76,7 @@ export async function getQuickCreateCategories(): Promise<CategoryWithSettings[]
   try {
     const { data, error } = await (supabase as any)
       .from("categories")
-      .select("*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)")
+      .select(CATEGORY_WITH_SETTINGS_SELECT)
       .eq("is_active", true)
       .eq("quick_create_enabled", true)
       .is("parent_id", null)

@@ -9,10 +9,8 @@ function collectErrorText(err: unknown, depth = 0): string {
   if (typeof err === "string") return err;
   if (err instanceof Error) {
     const cause = err.cause != null ? collectErrorText(err.cause, depth + 1) : "";
-    const code =
-      typeof (err as { code?: string }).code === "string"
-        ? (err as { code: string }).code
-        : "";
+    const withCode = err as Error & { code?: unknown };
+    const code = typeof withCode.code === "string" ? withCode.code : "";
     return [err.name, err.message, code, cause].filter(Boolean).join(" ");
   }
   try {

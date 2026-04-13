@@ -11,15 +11,11 @@ import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
 import { fetchTradeFeedPage } from "@/lib/posts/fetch-trade-feed-page";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { computeTradeFeedKey } from "@/lib/posts/trade-feed-key";
+import { CATEGORY_WITH_SETTINGS_SELECT } from "@/lib/categories/category-select-fragment";
 
 export const dynamic = "force-dynamic";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const SELECT_CAT =
-  "*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)";
-const SELECT_CHILD =
-  "*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim();
@@ -39,7 +35,7 @@ export async function GET(req: NextRequest) {
   }
 
   const sb = supabase as any;
-  const baseQuery = () => sb.from("categories").select(SELECT_CAT);
+  const baseQuery = () => sb.from("categories").select(CATEGORY_WITH_SETTINGS_SELECT);
 
   let cat: Record<string, unknown> | null = null;
   let err: unknown = null;
@@ -67,7 +63,7 @@ export async function GET(req: NextRequest) {
   const parentId = String(cat.id);
   const { data: childRows, error: childErr } = await sb
     .from("categories")
-    .select(SELECT_CHILD)
+    .select(CATEGORY_WITH_SETTINGS_SELECT)
     .eq("parent_id", parentId)
     .eq("is_active", true)
     .order("sort_order", { ascending: true });

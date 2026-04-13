@@ -11,6 +11,7 @@ import { normalizeCategorySettings } from "./normalizeCategorySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeMarketSlugParam } from "./tradeMarketPath";
 import { readCategoryCache, writeCategoryCache } from "./category-memory-cache";
+import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
 
 const CATEGORY_BY_KEY_TTL_MS = 60_000;
 
@@ -87,7 +88,7 @@ async function getCategoryBySlugOrIdUncached(
     const baseQuery = () =>
       (supabase as any)
         .from("categories")
-        .select("*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)");
+        .select(CATEGORY_WITH_SETTINGS_SELECT);
 
     // slug와 id를 따로 조회 (.or() 문자열 이스케이프 이슈 방지)
     let data: CategoryDbRow | null = null;

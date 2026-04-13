@@ -10,6 +10,7 @@ import type { CategoryWithSettings } from "./types";
 import { getActiveCategories } from "./getActiveCategories";
 import { cachedCategoryFetch } from "./category-memory-cache";
 import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
+import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
 
 const HOME_CHIP_TRADE_TTL_MS = 45_000;
 
@@ -87,7 +88,7 @@ async function getHomeChipCategoriesUncached(
   try {
     const { data, error } = await (supabase as any)
       .from("categories")
-      .select("*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)")
+      .select(CATEGORY_WITH_SETTINGS_SELECT)
       .eq("is_active", true)
       .eq("type", "trade")
       .eq("show_in_home_chips", true)

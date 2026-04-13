@@ -9,6 +9,7 @@ import type { CategorySettingsRaw } from "./normalizeCategorySettings";
 import { normalizeCategorySettings } from "./normalizeCategorySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { cachedCategoryFetch } from "./category-memory-cache";
+import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
 
 const CHILDREN_BY_PARENT_TTL_MS = 45_000;
 
@@ -61,9 +62,7 @@ export async function getChildCategories(parentId: string): Promise<CategoryWith
     try {
       const { data, error } = await (supabase as any)
         .from("categories")
-        .select(
-          "*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)"
-        )
+        .select(CATEGORY_WITH_SETTINGS_SELECT)
         .eq("parent_id", parentId.trim())
         .eq("is_active", true)
         .order("sort_order", { ascending: true });

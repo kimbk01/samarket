@@ -10,6 +10,7 @@ import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
 import type { CategorySettingsRaw } from "./normalizeCategorySettings";
 import { normalizeCategorySettings } from "./normalizeCategorySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
 
 /** Supabase 조인 결과 행 */
 interface CategoryDbRow {
@@ -65,7 +66,7 @@ export async function getCategories(filters?: {
      
     const q = (supabase as any)
       .from("categories")
-      .select("*, category_settings(can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type)");
+      .select(CATEGORY_WITH_SETTINGS_SELECT);
     const applied = activeOnly ? q.eq("is_active", true) : q;
     const { data, error } = await applied.order("sort_order", { ascending: true });
 
