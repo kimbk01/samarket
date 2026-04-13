@@ -1,7 +1,9 @@
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
+import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 import {
   loadPostRowForDetail,
@@ -36,6 +38,14 @@ export async function GET(
       : null) ??
     (clients.serviceSb ? await loadPostRowForDetail(clients.serviceSb, "posts", id) : null);
 
+  /** `/api/chat/item/start` 와 동일 로더 — 마스킹 뷰·클라이언트 분기 차이로 위에서 못 찾은 경우 */
+  if (!row) {
+    const svc = resolveServiceSupabaseForApi();
+    if (svc) {
+      row = await fetchPostRowForTradeChatById(svc, id);
+    }
+  }
+
   if (!row) {
     return NextResponse.json({ error: "글을 찾을 수 없습니다." }, { status: 404 });
   }
@@ -57,7 +67,12 @@ export async function GET(
 
   const wantRecommend = req.nextUrl.searchParams.get("recommendSections") === "1";
   if (wantRecommend) {
-    const detailSections = await computeDetailSectionsForLoadedPost(clients, post);
+    let detailSections: Awaited<ReturnType<typeof computeDetailSectionsForLoadedPost>> = [];
+    try {
+      detailSections = await computeDetailSectionsForLoadedPost(clients, post);
+    } catch {
+      /* 추천 블록만 실패해도 글 본문은 내려감 — 상세 404 로 떨어지지 않게 */
+    }
     return NextResponse.json(
       { post, detailSections },
       {

@@ -3,8 +3,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+/**
+ * `resolveServiceSupabaseForApi` 와 동일 순서 — `SUPABASE_SERVICE_ROLE_KEY` 만 있고
+ * `getSupabaseServer()`(엄격 env) 가 실패하는 배포에서도 서비스 롤로 posts 를 읽을 수 있게 한다.
+ */
 export function tryGetSupabaseServiceClient(): SupabaseClient<any> | null {
+  const direct = tryCreateSupabaseServiceClient();
+  if (direct) return direct;
   try {
     return getSupabaseServer();
   } catch {
