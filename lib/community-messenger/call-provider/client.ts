@@ -11,6 +11,7 @@ import {
   writePreferredCommunityMessengerDeviceIds,
 } from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { assertCommunityMessengerWebRtcSecureContext } from "@/lib/community-messenger/media-errors";
 
 export type CommunityMessengerAgoraLocalTracks = {
   audioTrack: ILocalAudioTrack;
@@ -18,6 +19,7 @@ export type CommunityMessengerAgoraLocalTracks = {
 };
 
 export function createCommunityMessengerAgoraClient(): IAgoraRTCClient {
+  assertCommunityMessengerWebRtcSecureContext();
   return AgoraRTC.createClient({ codec: "vp8", mode: "rtc" });
 }
 
@@ -117,6 +119,7 @@ async function createAgoraCamWithPreferredDevice(): Promise<ILocalVideoTrack> {
 export async function createCommunityMessengerAgoraLocalTracks(
   kind: CommunityMessengerCallKind
 ): Promise<CommunityMessengerAgoraLocalTracks> {
+  assertCommunityMessengerWebRtcSecureContext();
   const primed = consumePrimedCommunityMessengerDevicePermission(kind);
   if (primed) {
     const audioMedia = primed.getAudioTracks().find((t) => t.readyState === "live") ?? null;
@@ -196,5 +199,6 @@ export async function closeCommunityMessengerAgoraTracks(tracks: CommunityMessen
 
 /** 영상 통화에서 전후면·외장 캠 전환 시 사용 */
 export async function listCommunityMessengerCameras(): Promise<MediaDeviceInfo[]> {
+  assertCommunityMessengerWebRtcSecureContext();
   return AgoraRTC.getCameras();
 }

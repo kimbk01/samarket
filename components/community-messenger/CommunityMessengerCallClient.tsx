@@ -38,6 +38,7 @@ import {
 } from "@/lib/community-messenger/call-permission";
 import {
   COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE,
+  COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC,
   COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT,
   getCommunityMessengerMediaErrorMessage,
   isAgoraJoinRetryableError,
@@ -592,6 +593,11 @@ export function CommunityMessengerCallClient({
   const joinCall = useCallback(
     async (targetSession: CommunityMessengerCallSession) => {
       if (joinedRef.current || joiningRef.current) return;
+      if (isCommunityMessengerMediaBlockedByInsecureOrigin()) {
+        autoJoinBlockedRef.current = true;
+        setErrorMessage(COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC);
+        return;
+      }
       joiningRef.current = true;
       setBusy("join");
       setErrorMessage(null);

@@ -16,7 +16,6 @@ import {
 } from "@/components/community-messenger/MessengerNotificationCenterSheet";
 import { MessengerSearchSheet } from "@/components/community-messenger/MessengerSearchSheet";
 import { MessengerFriendProfileSheet } from "@/components/community-messenger/MessengerFriendProfileSheet";
-import { MessengerFriendRowActionSheet } from "@/components/community-messenger/MessengerFriendRowActionSheet";
 import { MessengerChatRoomActionSheet } from "@/components/community-messenger/MessengerChatRoomActionSheet";
 import { MessengerFriendsPrivacySheet } from "@/components/community-messenger/MessengerFriendsPrivacySheet";
 import { MessengerSettingsSheet } from "@/components/community-messenger/MessengerSettingsSheet";
@@ -148,9 +147,7 @@ type CommunityMessengerSettingsBackup = {
   };
 };
 
-type FriendSheetState =
-  | { mode: "profile"; profile: CommunityMessengerProfileLite }
-  | { mode: "actions"; profile: CommunityMessengerProfileLite };
+type FriendSheetState = { mode: "profile"; profile: CommunityMessengerProfileLite };
 
 export function CommunityMessengerHome({
   initialTab,
@@ -1751,12 +1748,24 @@ export function CommunityMessengerHome({
             friendStateModel={friendStateModel}
             busyId={busyId}
             onOpenFriendsPrivacySummary={() => setFriendsPrivacySheetOpen(true)}
-            onOpenFriendRowActions={(profile) => setFriendSheet({ mode: "actions", profile })}
             onOpenProfile={(profile) => setFriendSheet({ mode: "profile", profile })}
             onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
             onFriendSwipeHide={(userId) => void toggleHiddenFriend(userId)}
             onFriendSwipeRemove={(userId) => void removeFriend(userId)}
             onFriendSwipeBlock={(userId) => void toggleBlock(userId)}
+            onFriendRowChat={(userId) => void startDirectRoom(userId)}
+            onFriendRowVoiceCall={(userId) => void startDirectCall(userId, "voice")}
+            onFriendRowVideoCall={(userId) => void startDirectCall(userId, "video")}
+            getFriendDirectRoomMuted={(userId) => directRoomByPeerId.get(userId)?.isMuted}
+            friendNotificationsBusy={(userId) =>
+              Boolean(directRoomByPeerId.get(userId)) &&
+              busyId === `room-settings:${directRoomByPeerId.get(userId)?.id ?? ""}`
+            }
+            onFriendToggleRoomMute={(userId) => {
+              const room = directRoomByPeerId.get(userId);
+              if (room) void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
+            }}
+            friendHasDirectRoom={(userId) => Boolean(directRoomByPeerId.get(userId))}
             primaryListItems={primaryListItems}
             favoriteFriendIds={favoriteFriendIds}
             onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
@@ -1901,60 +1910,6 @@ export function CommunityMessengerHome({
           onFriendCancelOutgoing={data?.me?.id ? (requestId: string) => void respondRequest(requestId, "cancel") : undefined}
           onFriendAcceptIncoming={data?.me?.id ? (requestId: string) => void respondRequest(requestId, "accept") : undefined}
           onFriendRejectIncoming={data?.me?.id ? (requestId: string) => void respondRequest(requestId, "reject") : undefined}
-        />
-      ) : null}
-
-      {friendSheet?.mode === "actions" ? (
-        <MessengerFriendRowActionSheet
-          key={friendSheet.profile.id}
-          profile={friendSheet.profile}
-          busyId={busyId}
-          onClose={() => setFriendSheet(null)}
-          onChat={() => {
-            const id = friendSheet.profile.id;
-            setFriendSheet(null);
-            void startDirectRoom(id);
-          }}
-          onVoiceCall={() => {
-            const id = friendSheet.profile.id;
-            setFriendSheet(null);
-            void startDirectCall(id, "voice");
-          }}
-          onVideoCall={() => {
-            const id = friendSheet.profile.id;
-            setFriendSheet(null);
-            void startDirectCall(id, "video");
-          }}
-          onToggleFavorite={() => void toggleFavoriteFriend(friendSheet.profile.id)}
-          onToggleHidden={
-            friendSheet.profile.isFriend && friendSheet.profile.id !== data?.me?.id
-              ? () => void toggleHiddenFriend(friendSheet.profile.id)
-              : undefined
-          }
-          directRoomMuted={directRoomByPeerId.get(friendSheet.profile.id)?.isMuted}
-          notificationsBusy={
-            Boolean(friendSheet.profile.isFriend && directRoomByPeerId.get(friendSheet.profile.id)) &&
-            busyId === `room-settings:${directRoomByPeerId.get(friendSheet.profile.id)?.id ?? ""}`
-          }
-          onToggleMute={
-            friendSheet.profile.isFriend && directRoomByPeerId.get(friendSheet.profile.id)
-              ? () => {
-                  const room = directRoomByPeerId.get(friendSheet.profile.id);
-                  if (room) void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
-                }
-              : undefined
-          }
-          onRemoveFriend={friendSheet.profile.isFriend ? () => void removeFriend(friendSheet.profile.id) : undefined}
-          onBlock={friendSheet.profile.id !== data?.me?.id ? () => void toggleBlock(friendSheet.profile.id) : undefined}
-          onReport={
-            friendSheet.profile.id !== data?.me?.id
-              ? () => {
-                  const uid = friendSheet.profile.id;
-                  setFriendSheet(null);
-                  void reportCommunityUser(uid);
-                }
-              : undefined
-          }
         />
       ) : null}
 

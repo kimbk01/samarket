@@ -16,6 +16,20 @@ export function isCommunityMessengerMediaBlockedByInsecureOrigin(): boolean {
   return true;
 }
 
+/** 통화(Agora) 차단 시 — 짧은 사용자 메시지·throw 공용 */
+export const COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC =
+  "이 주소(HTTP·사설 IP)에서는 브라우저 보안 정책으로 영상·음성 통화(WebRTC)를 사용할 수 없습니다. PC: https://localhost:3000 또는 `npm run dev:https` 로 띄운 주소로 접속하세요. 휴대폰: 같은 Wi‑Fi에서도 HTTPS(역프록시·mkcert) 또는 터널링이 필요합니다.";
+
+/**
+ * Agora·WebRTC 호출 전에 사용. `http://LAN-IP` 는 `window.isSecureContext === false` 라
+ * SDK가 `WEB_SECURITY_RESTRICT` 를 뿌리기 전에 막는다.
+ */
+export function assertCommunityMessengerWebRtcSecureContext(): void {
+  if (typeof window === "undefined") return;
+  if (!isCommunityMessengerMediaBlockedByInsecureOrigin()) return;
+  throw new Error(COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC);
+}
+
 /**
  * Agora 앱 ID 미설정 — 「장치 오류」가 아님. 배포·빌드 환경 변수 안내.
  * @see `NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID`, `COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE`
@@ -27,8 +41,7 @@ export const COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE =
 export const COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT =
   "HTTP(예: 192.168.x.x:3000)에서는 브라우저가 마이크·카메라를 막습니다. `npm run dev:https` 로 띄운 뒤 터미널에 나온 https:// 주소로 접속하거나, PC에서는 localhost 로 접속하세요. 휴대폰·다른 기기는 HTTPS(역프록시·mkcert)가 필요합니다.";
 
-const HTTPS_REQUIRED_FOR_MEDIA_MESSAGE =
-  "이 주소로는 브라우저가 마이크·카메라 사용을 막습니다. 개발: npm run dev:https 또는 localhost. 배포: HTTPS로 서비스하세요.";
+const HTTPS_REQUIRED_FOR_MEDIA_MESSAGE = COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC;
 
 /** Agora join·publish 단계에서 네트워크·토큰 일시 오류 등 재시도할 만한 경우 */
 export function isAgoraJoinRetryableError(error: unknown): boolean {
@@ -92,6 +105,11 @@ export function getCommunityMessengerMediaErrorMessage(
 ): string {
   if (isCommunityMessengerCallProviderNotConfiguredError(error)) {
     return COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE;
+  }
+
+  const rawForSecurity = error instanceof Error ? error.message : String(error);
+  if (/WEB_SECURITY_RESTRICT|limited by web security|isSecureContext/i.test(rawForSecurity)) {
+    return COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC;
   }
 
   const name =

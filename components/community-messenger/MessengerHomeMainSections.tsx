@@ -29,12 +29,18 @@ type Props = {
   friendStateModel: MessengerFriendStateModel;
   busyId: string | null;
   onOpenFriendsPrivacySummary: () => void;
-  onOpenFriendRowActions: (profile: CommunityMessengerProfileLite) => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onToggleFavoriteFriend: (userId: string) => void;
   onFriendSwipeHide: (userId: string) => void;
   onFriendSwipeRemove: (userId: string) => void;
   onFriendSwipeBlock: (userId: string) => void;
+  onFriendRowChat: (userId: string) => void;
+  onFriendRowVoiceCall: (userId: string) => void;
+  onFriendRowVideoCall: (userId: string) => void;
+  getFriendDirectRoomMuted: (userId: string) => boolean | undefined;
+  friendNotificationsBusy: (userId: string) => boolean;
+  onFriendToggleRoomMute: (userId: string) => void;
+  friendHasDirectRoom: (userId: string) => boolean;
   primaryListItems: UnifiedRoomListItem[];
   favoriteFriendIds: Set<string>;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
@@ -58,12 +64,18 @@ export function MessengerHomeMainSections({
   friendStateModel,
   busyId,
   onOpenFriendsPrivacySummary,
-  onOpenFriendRowActions,
   onOpenProfile,
   onToggleFavoriteFriend,
   onFriendSwipeHide,
   onFriendSwipeRemove,
   onFriendSwipeBlock,
+  onFriendRowChat,
+  onFriendRowVoiceCall,
+  onFriendRowVideoCall,
+  getFriendDirectRoomMuted,
+  friendNotificationsBusy,
+  onFriendToggleRoomMute,
+  friendHasDirectRoom,
   primaryListItems,
   favoriteFriendIds,
   onTogglePin,
@@ -91,12 +103,18 @@ export function MessengerHomeMainSections({
           friendStateModel={friendStateModel}
           busyId={busyId}
           onOpenPrivacySummary={onOpenFriendsPrivacySummary}
-          onOpenFriendRowActions={onOpenFriendRowActions}
           onOpenProfile={onOpenProfile}
           onToggleFavorite={onToggleFavoriteFriend}
           onFriendHide={onFriendSwipeHide}
           onFriendRemove={onFriendSwipeRemove}
           onFriendBlock={onFriendSwipeBlock}
+          onFriendChat={onFriendRowChat}
+          onFriendVoiceCall={onFriendRowVoiceCall}
+          onFriendVideoCall={onFriendRowVideoCall}
+          getFriendDirectRoomMuted={getFriendDirectRoomMuted}
+          friendNotificationsBusy={friendNotificationsBusy}
+          onFriendToggleRoomMute={onFriendToggleRoomMute}
+          friendHasDirectRoom={friendHasDirectRoom}
         />
       ) : null}
 

@@ -15,6 +15,8 @@ export type UseMessengerLongPressResult = {
   bind: MessengerLongPressBind;
   /** `onClick` 맨 앞에서 호출 — true면 탭(프로필 열기) 무시 */
   consumeClickSuppression: () => boolean;
+  /** 롱프레스 대기 취소 (스와이프 행 등에서 호출) */
+  cancelPending: () => void;
 };
 
 const DEFAULT_MS = 480;
@@ -50,6 +52,13 @@ export function useMessengerLongPress(onLongPress: () => void, options?: { thres
     }
     return false;
   }, []);
+
+  /** 스와이프 등 다른 제스처가 시작되면 롱프레스 타이머를 끊음 (포인터 캡처로 내부 bind에 move가 안 올 때 필수) */
+  const cancelPending = useCallback(() => {
+    clearTimer();
+    startRef.current = null;
+    pointerIdRef.current = null;
+  }, [clearTimer]);
 
   const bind: MessengerLongPressBind = {
     onPointerDown: (e) => {
@@ -90,5 +99,5 @@ export function useMessengerLongPress(onLongPress: () => void, options?: { thres
     },
   };
 
-  return { bind, consumeClickSuppression };
+  return { bind, consumeClickSuppression, cancelPending };
 }

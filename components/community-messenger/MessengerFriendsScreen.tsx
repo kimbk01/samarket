@@ -13,11 +13,20 @@ type Props = {
   busyId: string | null;
   onOpenPrivacySummary: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
-  onOpenFriendRowActions: (profile: CommunityMessengerProfileLite) => void;
   onToggleFavorite: (userId: string) => void;
   onFriendHide: (userId: string) => void;
   onFriendRemove: (userId: string) => void;
   onFriendBlock: (userId: string) => void;
+  onFriendChat: (userId: string) => void;
+  onFriendVoiceCall: (userId: string) => void;
+  onFriendVideoCall: (userId: string) => void;
+  /** 1:1 방이 있는 친구에 대해 알림 끔 상태 */
+  getFriendDirectRoomMuted: (userId: string) => boolean | undefined;
+  /** 방 설정(알림) 처리 중 */
+  friendNotificationsBusy: (userId: string) => boolean;
+  onFriendToggleRoomMute: (userId: string) => void;
+  /** 친구이며 1:1 방이 있을 때만 대화 알림 행 표시 */
+  friendHasDirectRoom: (userId: string) => boolean;
 };
 
 export function MessengerFriendsScreen({
@@ -27,11 +36,17 @@ export function MessengerFriendsScreen({
   busyId,
   onOpenPrivacySummary,
   onOpenProfile,
-  onOpenFriendRowActions,
   onToggleFavorite,
   onFriendHide,
   onFriendRemove,
   onFriendBlock,
+  onFriendChat,
+  onFriendVoiceCall,
+  onFriendVideoCall,
+  getFriendDirectRoomMuted,
+  friendNotificationsBusy,
+  onFriendToggleRoomMute,
+  friendHasDirectRoom,
 }: Props) {
   const [openSwipeFriendId, setOpenSwipeFriendId] = useState<string | null>(null);
 
@@ -51,10 +66,17 @@ export function MessengerFriendsScreen({
             <MessengerLineFriendRow
               key={friend.id}
               friend={friend}
+              busyId={busyId}
               busyFavorite={busyId === `favorite:${friend.id}`}
               onRowPress={() => onOpenProfile(friend)}
-              onOpenActions={() => onOpenFriendRowActions(friend)}
               onToggleFavorite={() => onToggleFavorite(friend.id)}
+              onFriendChat={() => onFriendChat(friend.id)}
+              onFriendVoiceCall={() => onFriendVoiceCall(friend.id)}
+              onFriendVideoCall={() => onFriendVideoCall(friend.id)}
+              showMuteRow={friend.isFriend && friendHasDirectRoom(friend.id)}
+              directRoomMuted={getFriendDirectRoomMuted(friend.id)}
+              notificationsBusy={friendNotificationsBusy(friend.id)}
+              onToggleDirectMute={() => onFriendToggleRoomMute(friend.id)}
               openSwipeFriendId={openSwipeFriendId}
               onOpenSwipeFriendId={setOpenSwipeFriendId}
               onHideFriend={() => onFriendHide(friend.id)}
