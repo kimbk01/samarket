@@ -24,6 +24,7 @@ import type {
   MeetingAlbumItemDTO,
 } from "@/lib/neighborhood/types";
 import { fetchBlockedAuthorIdsForViewer, fetchNeighborFollowTargetIds } from "@/lib/neighborhood/social-filter";
+import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
 
 function summarize(text: string, max = 120): string {
   const t = text.replace(/\s+/g, " ").trim();
@@ -42,7 +43,12 @@ export type NeighborhoodFeedPageResult = {
 };
 
 export async function listNeighborhoodFeed(options: {
-  locationId: string;
+  /**
+   * `allLocations` 가 false(기본)일 때만 사용 — 해당 동네 `locations.id`.
+   * `allLocations` 가 true 이면 지역 필터 없이 전체 글(주제·차단 등만 적용).
+   */
+  locationId?: string | null;
+  allLocations?: boolean;
   /** 피드 주제 slug — 동네 피드 섹션 `community_topics`와 동기. 미지정이면 전체 */
   category?: string | null;
   authorUserId?: string | null;
@@ -64,8 +70,9 @@ export async function listNeighborhoodFeed(options: {
 
   const pageSize = Math.min(Math.max(options.limit ?? 20, 1), 40);
   const offset = Math.min(Math.max(options.offset ?? 0, 0), 500);
-  const lid = options.locationId.trim();
-  if (!lid) return { posts: [], hasMore: false, dbScannedCount: 0 };
+  const allLocations = options.allLocations === true;
+  const lid = options.locationId?.trim() ?? "";
+  if (!allLocations && !lid) return { posts: [], hasMore: false, dbScannedCount: 0 };
 
   const v = options.viewerUserId?.trim() ?? "";
   const topicsPromise = options.topics ? Promise.resolve(options.topics) : loadPhilifeDefaultSectionTopics();
@@ -102,12 +109,12 @@ export async function listNeighborhoodFeed(options: {
     let qq = sb
       .from("community_posts")
       .select(selectCols)
-      .eq("location_id", lid)
-      .not("location_id", "is", null)
-      .eq("status", "active")
-      .eq("is_sample_data", false)
+      .eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE)
       .order("created_at", { ascending: false })
       .order("id", { ascending: false });
+    if (!allLocations) {
+      qq = qq.eq("location_id", lid).not("location_id", "is", null);
+    }
     if (cat) {
       if (useTopicSlugFilter && selectCols.includes("topic_slug")) {
         if (cat === "meetup") {
@@ -149,12 +156,10 @@ export async function listNeighborhoodFeed(options: {
   let rows = (data as unknown as Record<string, unknown>[]).filter((r) => {
     if (!isCommunityPostPubliclyVisible(r as never)) return false;
     const loc = r.location_id;
-    if (loc == null || String(loc).trim() === "") return false;
+    if (!allLocations && (loc == null || String(loc).trim() === "")) return false;
     const uid = String(r.user_id ?? "");
     if (blockExclude.has(uid)) return false;
     if (neighborOnlySet && !neighborOnlySet.has(uid)) return false;
-    const raw = String(r.category ?? "").trim().toLowerCase();
-    if (!raw) return false;
     return true;
   });
 
@@ -231,7 +236,7 @@ export async function listNeighborhoodFeed(options: {
       title: String(r.title ?? ""),
       content,
       summary: summaryRaw || summarize(content),
-      location_id: String(r.location_id ?? lid),
+      location_id: String(r.location_id ?? (allLocations ? "" : lid)),
       location_label: locationLabel,
       images: imgs,
       view_count: Number(r.view_count ?? 0),
@@ -297,11 +302,12 @@ export async function getNeighborhoodPostDetail(
     "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
 
   const fetchDetailRow = async (cols: string) => {
-    let q = sb.from("community_posts").select(cols).eq("id", postId).eq("is_sample_data", false);
+    /** `is_sample_data` 는 어드민·시드 구분용 — 공개 피드·상세와 동일하게 플래그만으로 숨기지 않음 */
+    let q = sb.from("community_posts").select(cols).eq("id", postId);
     if (v) {
-      q = q.or(`status.eq.active,user_id.eq.${v}`);
+      q = q.or(`status.eq.${COMMUNITY_POST_FEED_STATUS_ACTIVE},user_id.eq.${v}`);
     } else {
-      q = q.eq("status", "active");
+      q = q.eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE);
     }
     return q.maybeSingle();
   };

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getBoardsFromDb } from "@/lib/admin-boards/getBoardsFromDb";
 import type { AdminBoardRow } from "@/lib/admin-boards/getBoardsFromDb";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminBoardCreateForm } from "@/components/admin/boards/AdminBoardCreateForm";
@@ -10,13 +9,37 @@ import { AdminBoardCreateForm } from "@/components/admin/boards/AdminBoardCreate
 export function AdminBoardsPage() {
   const [boards, setBoards] = useState<AdminBoardRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const list = await getBoardsFromDb();
-    setBoards(list);
-    setLoading(false);
+    setListError(null);
+    try {
+      const res = await fetch("/api/admin/boards", { credentials: "include", cache: "no-store" });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        boards?: AdminBoardRow[];
+        error?: string;
+      };
+      if (!res.ok || !j.ok) {
+        setBoards([]);
+        setListError(
+          j.error === "supabase_unconfigured"
+            ? "Supabase 서비스 키가 없어 목록을 불러올 수 없습니다. Vercel 환경변수(SUPABASE_SERVICE_ROLE_KEY 등)를 확인하세요."
+            : j.error === "forbidden"
+              ? "관리자만 볼 수 있습니다."
+              : (j.error ?? `목록을 불러오지 못했습니다. (${res.status})`)
+        );
+        return;
+      }
+      setBoards(Array.isArray(j.boards) ? j.boards : []);
+    } catch {
+      setBoards([]);
+      setListError("목록 요청에 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -39,16 +62,20 @@ export function AdminBoardsPage() {
 
       <AdminBoardCreateForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => void load()} />
 
+      {listError ? (
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">{listError}</div>
+      ) : null}
+
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           불러오는 중…
         </div>
-      ) : boards.length === 0 ? (
+      ) : boards.length === 0 && !listError ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
           등록된 게시판이 없습니다. 상단 <strong className="text-sam-fg">게시판 추가</strong>로 생성하거나, DB에 services·boards 데이터를
           넣을 수 있습니다.
         </div>
-      ) : (
+      ) : boards.length === 0 ? null : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse text-[14px]">
             <thead>

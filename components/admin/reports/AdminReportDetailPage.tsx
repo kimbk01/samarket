@@ -147,7 +147,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
                 <Link href={`/post/${report.targetId}`} className="text-signature hover:underline" target="_blank" rel="noreferrer">
                   웹에서 글 보기
                 </Link>
-                <Link href="/admin/posts" className="text-[13px] text-sam-muted hover:underline">
+                <Link href="/admin/community/posts" className="text-[13px] text-sam-muted hover:underline">
                   게시글 관리 목록
                 </Link>
               </dd>

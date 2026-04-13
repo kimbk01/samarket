@@ -351,7 +351,11 @@ export function CommunityDetail({
                     <img
                       src={url}
                       alt=""
-                      className={`w-full object-cover ${i === 0 ? "max-h-[min(52vh,420px)] min-h-[200px]" : "h-44"}`}
+                      className={`w-full bg-black/[0.03] ${
+                        i === 0
+                          ? "max-h-[min(32vh,260px)] object-contain sm:max-h-[280px]"
+                          : "h-36 object-cover sm:h-44"
+                      }`}
                       loading={i === 0 ? "eager" : "lazy"}
                       decoding="async"
                     />

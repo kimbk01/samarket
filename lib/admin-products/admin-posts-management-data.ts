@@ -93,6 +93,7 @@ function mapRowToProduct(
     },
     isFreeShare: row.is_free_share ?? false,
     categoryName,
+    tradeCategoryId: catId,
     categorySlug: cat?.slug,
     categoryIconKey: cat?.icon_key,
     categoryType: cat?.type as Product["categoryType"],

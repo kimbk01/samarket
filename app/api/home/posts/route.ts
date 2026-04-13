@@ -1,55 +1,49 @@
-import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
-
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import type { PostWithMeta } from "@/lib/posts/schema";
-import { normalizePostImages, normalizePostMeta, normalizePostPrice } from "@/lib/posts/post-normalize";
-import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
-import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
-import { applyPostgrestAndGroup } from "@/lib/posts/apply-postgrest-and-group";
+import {
+  HOME_POSTS_PAGE_SIZE,
+  expandTradeMarketCategoryFilterIds,
+  resolveHomePostsPayload,
+  type HomePostsQuerySort,
+  type HomePostsQueryType,
+} from "@/lib/posts/home-posts-query-server";
+import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
+import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 50;
+/**
+ * `tradeMarketParent` 없을 때 홈 「전체」를 **구성된 거래 메뉴 id 합집합**으로만 제한(정책 A).
+ * 기본값 **끔**: `trade_category_id` 가 메뉴 트리와 어긋난 기존 글·관리자 목록과 동일 노출이 안 되는 문제를 막기 위함.
+ * 데이터 정합 후 `.env` 에 `HOME_POSTS_CONFIGURED_TRADE_UNION=1` 로 켠다.
+ */
+function useConfiguredTradeUnionForHomeAll(): boolean {
+  const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 const HOME_POSTS_SERVER_CACHE_TTL_MS = 30_000;
 const HOME_POSTS_FAVORITES_CACHE_TTL_MS = 12_000;
 
-const HOME_POSTS_SELECT_TIERS = [
-  "id, category_id, trade_category_id, user_id, author_id, type, title, price, is_free_share, is_price_offer, region, city, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
-  "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, is_price_offer, region, city, status, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
-  "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, region, city, status, view_count, thumbnail_url, images, meta, created_at, updated_at, favorite_count, comment_count",
-  "id, user_id, trade_category_id, category_id, title, price, status, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share",
-  "*",
-] as const;
+const homePostsServerCache = new Map<
+  string,
+  { posts: PostWithMeta[]; hasMore: boolean; expiresAt: number }
+>();
+const homePostsFavoriteCache = new Map<
+  string,
+  { favoriteMap: Record<string, boolean>; expiresAt: number }
+>();
 
-const HOME_POSTS_STATUS_OR = "status.is.null,status.not.in.(hidden,sold)";
-
-type HomePostsServerCacheEntry = {
-  posts: PostWithMeta[];
-  hasMore: boolean;
-  expiresAt: number;
-};
-
-type HomePostsFavoriteCacheEntry = {
-  favoriteMap: Record<string, boolean>;
-  expiresAt: number;
-};
-
-const homePostsServerCache = new Map<string, HomePostsServerCacheEntry>();
-const homePostsFavoriteCache = new Map<string, HomePostsFavoriteCacheEntry>();
-
-type HomePostSort = "latest" | "popular";
-type HomePostType = "trade" | "community" | "service" | "feature" | null;
-
-function normalizeSort(raw: string | null): HomePostSort {
+function normalizeSort(raw: string | null): HomePostsQuerySort {
   return raw === "popular" ? "popular" : "latest";
 }
 
-function normalizeType(raw: string | null): HomePostType {
+function normalizeType(raw: string | null): HomePostsQueryType {
   if (raw === "trade" || raw === "community" || raw === "service" || raw === "feature") {
     return raw;
   }
@@ -62,18 +56,10 @@ function normalizePage(raw: string | null): number {
   return Math.max(1, Math.floor(page));
 }
 
-/** `tradeMarketParent` 쿼리 — UUID */
-function normalizeTradeMarketParent(raw: string | null): string | null {
-  const t = raw?.trim() ?? "";
-  if (!t) return null;
-  if (!/^[0-9a-f-]{36}$/i.test(t)) return null;
-  return t;
-}
-
 function buildHomePostsCacheKey(
   page: number,
-  sort: HomePostSort,
-  type: HomePostType,
+  sort: HomePostsQuerySort,
+  type: HomePostsQueryType,
   marketSegment: string
 ): string {
   return `${page}:${sort}:${type ?? "all"}:m:${marketSegment}`;
@@ -82,8 +68,8 @@ function buildHomePostsCacheKey(
 function buildHomePostsFavoriteCacheKey(
   userId: string,
   page: number,
-  sort: HomePostSort,
-  type: HomePostType,
+  sort: HomePostsQuerySort,
+  type: HomePostsQueryType,
   marketSegment: string
 ): string {
   return `${userId}:${buildHomePostsCacheKey(page, sort, type, marketSegment)}`;
@@ -114,122 +100,6 @@ function responseHeaders(authenticated: boolean): HeadersInit {
   };
 }
 
-function mapPostRow(row: Record<string, unknown>): PostWithMeta {
-  const images = normalizePostImages(row.images);
-  const thumbnail_url =
-    typeof row.thumbnail_url === "string" && row.thumbnail_url
-      ? row.thumbnail_url
-      : images?.[0] ?? null;
-  const author_id = resolveAuthorIdFromPostRow(row) ?? "";
-  const category_id = (row.category_id as string) ?? (row.trade_category_id as string);
-  const price = normalizePostPrice(row.price);
-  const meta = normalizePostMeta(row.meta);
-  const is_free_share = row.is_free_share === true || row.is_free_share === "true";
-
-  return {
-    ...row,
-    author_id,
-    category_id,
-    images,
-    thumbnail_url,
-    price,
-    meta: meta ?? undefined,
-    is_free_share,
-  } as PostWithMeta;
-}
-
-async function expandTradeMarketCategoryFilterIds(
-  readSb: SupabaseClient<any>,
-  serviceSb: SupabaseClient<any> | null,
-  parentId: string
-): Promise<string[]> {
-  const pid = parentId.trim();
-  const qsb = serviceSb ?? readSb;
-  const descendants = await fetchTradeCategoryDescendantNodes(qsb, pid);
-  const descIds = descendants.map((d) => d.id).filter(Boolean);
-  return [...new Set([pid, ...descIds])];
-}
-
-async function loadHomePostsPage(
-  sb: SupabaseClient<any>,
-  table: string,
-  from: number,
-  sort: HomePostSort,
-  type: HomePostType,
-  tradeCategoryIds: string[] | null
-): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
-  let data: unknown[] | null = null;
-
-  outer: for (const selectFields of HOME_POSTS_SELECT_TIERS) {
-    let q = sb.from(table).select(selectFields);
-    if (tradeCategoryIds?.length) {
-      const idCsv = tradeCategoryIds.join(",");
-      /** `.or()` 연쇄 시 PostgREST `or` 파라미터가 덮일 수 있어 `and=(or(상태),or(카테고리))` 로 단일화 */
-      applyPostgrestAndGroup(q as unknown as { url: URL }, `(or(${HOME_POSTS_STATUS_OR}),or(trade_category_id.in.(${idCsv}),category_id.in.(${idCsv})))`);
-    } else {
-      q = q.or(HOME_POSTS_STATUS_OR);
-    }
-    if (type === "trade") {
-      q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
-    } else if (type === "community") {
-      q = q.not("board_id", "is", null).neq("board_id", "");
-    } else if (type === "service") {
-      q = q.not("service_id", "is", null).neq("service_id", "");
-    } else if (type === "feature") {
-      // no-op
-    }
-    if (sort === "latest") {
-      q = q.order("created_at", { ascending: false });
-    } else {
-      q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
-    }
-
-    const res = await q.range(from, from + PAGE_SIZE - 1);
-    if (!res.error && Array.isArray(res.data)) {
-      data = res.data;
-      break outer;
-    }
-  }
-
-  if (!data) return null;
-
-  const mapped = data.map((row) =>
-    mapPostRow(row && typeof row === "object" ? (row as Record<string, unknown>) : {})
-  );
-  const hasMoreFlag = mapped.length === PAGE_SIZE;
-  return { posts: mapped, hasMore: hasMoreFlag };
-}
-
-async function resolveHomePostsPayload(
-  readSb: SupabaseClient<any>,
-  serviceSb: SupabaseClient<any> | null,
-  from: number,
-  sort: HomePostSort,
-  type: HomePostType,
-  tradeCategoryIds: string[] | null
-): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
-  const fromMaskedRead = await loadHomePostsPage(readSb, POSTS_TABLE_READ, from, sort, type, tradeCategoryIds);
-  if (fromMaskedRead) return fromMaskedRead;
-
-  if (serviceSb && serviceSb !== readSb) {
-    const fromMaskedService = await loadHomePostsPage(
-      serviceSb,
-      POSTS_TABLE_READ,
-      from,
-      sort,
-      type,
-      tradeCategoryIds
-    );
-    if (fromMaskedService) return fromMaskedService;
-  }
-
-  if (serviceSb) {
-    return loadHomePostsPage(serviceSb, "posts", from, sort, type, tradeCategoryIds);
-  }
-
-  return null;
-}
-
 export async function GET(req: NextRequest) {
   const clients = resolvePostsReadClients(req);
   if (!clients) {
@@ -244,16 +114,39 @@ export async function GET(req: NextRequest) {
   const page = normalizePage(searchParams.get("page"));
   const sort = normalizeSort(searchParams.get("sort"));
   const type = normalizeType(searchParams.get("type"));
-  const tradeMarketParent = normalizeTradeMarketParent(searchParams.get("tradeMarketParent"));
+  const tradeMarketParent = await resolveTradeMarketParentParam(
+    readSb as SupabaseClient<any>,
+    searchParams.get("tradeMarketParent")
+  );
 
   let tradeCategoryIds: string[] | null = null;
+  /** `tradeMarketParent` 없을 때: 구성된 홈 칩 루트들의 합집합(정책 A) — `type` 이 거래가 아닌 경우는 건드리지 않음 */
+  let effectiveType: HomePostsQueryType = type;
+
   if (tradeMarketParent) {
-    tradeCategoryIds = await expandTradeMarketCategoryFilterIds(readSb, serviceSb, tradeMarketParent);
+    tradeCategoryIds = await expandTradeMarketCategoryFilterIds(
+      readSb as SupabaseClient<any>,
+      serviceSb as SupabaseClient<any> | null,
+      tradeMarketParent
+    );
+  } else if (useConfiguredTradeUnionForHomeAll() && (type == null || type === "trade")) {
+    const union = await expandTradeCategoryIdsForAllConfiguredHomeRoots(
+      readSb as SupabaseClient<any>,
+      serviceSb as SupabaseClient<any> | null
+    );
+    if (union.length > 0) {
+      tradeCategoryIds = union;
+      effectiveType = "trade";
+    }
   }
 
-  const marketSegment = tradeMarketParent ?? "all";
-  const from = (page - 1) * PAGE_SIZE;
-  const cacheKey = buildHomePostsCacheKey(page, sort, type, marketSegment);
+  const marketSegment = tradeMarketParent
+    ? tradeMarketParent
+    : tradeCategoryIds && tradeCategoryIds.length > 0
+      ? "configured_trade_union"
+      : "all";
+  const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
+  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment);
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
@@ -271,7 +164,14 @@ export async function GET(req: NextRequest) {
         return { posts: again.posts, hasMore: again.hasMore };
       }
 
-      const pack = await resolveHomePostsPayload(readSb, serviceSb, from, sort, type, tradeCategoryIds);
+      const pack = await resolveHomePostsPayload(
+        readSb as SupabaseClient<any>,
+        serviceSb as SupabaseClient<any> | null,
+        from,
+        sort,
+        effectiveType,
+        tradeCategoryIds
+      );
       if (!pack) {
         return null;
       }
@@ -298,11 +198,11 @@ export async function GET(req: NextRequest) {
   const userId = await getOptionalAuthenticatedUserId();
   const headers = responseHeaders(Boolean(userId));
 
-  await enrichPostsAuthorNicknamesFromProfiles(readSb, posts);
+  await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, posts);
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);
-    const favoriteCacheKey = buildHomePostsFavoriteCacheKey(userId, page, sort, type, marketSegment);
+    const favoriteCacheKey = buildHomePostsFavoriteCacheKey(userId, page, sort, effectiveType, marketSegment);
     const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);
 
     if (cachedFavorites && cachedFavorites.expiresAt > Date.now()) {

@@ -281,7 +281,7 @@ export function AdminPostsPageContent() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="게시글 목록" />
+      <AdminPageHeader title="커뮤니티 게시글" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border pb-2">
         <button
@@ -316,20 +316,20 @@ export function AdminPostsPageContent() {
 
       {tab === "community" ? (
         <p className="text-[13px] text-sam-muted">
-          <code className="rounded bg-sam-surface-muted px-1">community_posts</code> — 앱의{" "}
+          <code className="rounded bg-sam-surface-muted px-1">community_posts</code> 기준 목록입니다. 앱{" "}
           <Link href="/philife" className="text-signature hover:underline">
             /philife
-          </Link>{" "}
-          ·{" "}
-          <Link href="/community" className="text-signature hover:underline">
-            /community
-          </Link>{" "}
-          동네 피드와 동일한 글입니다. 상태 <strong>삭제</strong>는 소프트 삭제이며,{" "}
+          </Link>
+          는 같은 테이블을 쓰며, 상단 주제 탭(전체·모임·주제별)에 맞게 피드가 나뉩니다. 동네(지역) 고정 UI는 추후
+          적용 예정이며, 그때 사용자 동네와 목록이 더 일치합니다. 게시 상태 <strong>삭제</strong>는 소프트 삭제이고,{" "}
           <strong>선택 후 DB 삭제</strong>는 행을 영구 제거합니다.
         </p>
       ) : (
         <p className="text-[13px] text-sam-muted">
-          중고거래 등 <code className="rounded bg-sam-surface-muted px-1">posts</code> 테이블입니다.
+          <strong className="font-semibold text-sam-fg">거래 마켓 글</strong>은{" "}
+          <code className="rounded bg-sam-surface-muted px-1">posts</code> 테이블이며 필라이프 피드와{" "}
+          <strong className="font-semibold text-sam-fg">별도</strong>입니다. 커뮤니티 글은 위의「동네·커뮤니티」탭을
+          이용해 주세요.
         </p>
       )}
 

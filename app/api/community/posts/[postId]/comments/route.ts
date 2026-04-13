@@ -51,9 +51,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
   }
   const { data: postRow } = await sb
     .from("community_posts")
-    .select("id, user_id, status, is_deleted, is_hidden, location_id, is_sample_data")
+    .select("id, user_id, status, is_deleted, is_hidden, location_id")
     .eq("id", id)
-    .eq("is_sample_data", false)
     .maybeSingle();
   const row = postRow as {
     id?: string;

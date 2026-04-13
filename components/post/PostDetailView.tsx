@@ -792,8 +792,13 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   );
 
   useEffect(() => {
-    getSimilarPosts(post.id, post.category_id, 6).then(setSimilarPosts);
-  }, [post.id, post.category_id]);
+    const cid = (post.trade_category_id ?? post.category_id ?? "").trim();
+    if (!cid) {
+      setSimilarPosts([]);
+      return;
+    }
+    void getSimilarPosts(post.id, cid, 6).then(setSimilarPosts);
+  }, [post.id, post.trade_category_id, post.category_id]);
 
   useEffect(() => {
     getFavoriteStatus(post.id).then(setIsFavorite);

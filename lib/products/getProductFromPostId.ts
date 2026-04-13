@@ -5,7 +5,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
  * 서버에서 post 1건 조회 후 Product 형태로 변환 (상품 상세 페이지용)
  */
 import type { Product } from "@/lib/types/product";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { POST_TRADE_DETAIL_SELECT } from "@/lib/posts/post-query-select";
 
 function imageUrlFromItem(x: unknown): string | null {
@@ -65,12 +65,8 @@ const PRODUCT_FROM_POST_SELECT =
 
 export async function getProductFromPostId(postId: string): Promise<Product | null> {
   if (!postId?.trim()) return null;
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return null;
-  }
+  const sb = resolveServiceSupabaseForApi();
+  if (!sb) return null;
   try {
     const sbAny = sb as ReturnType<typeof getSupabaseServer>;
 

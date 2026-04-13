@@ -1,13 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useRegion } from "@/contexts/RegionContext";
-import {
-  neighborhoodLocationKeyFromRegion,
-  neighborhoodLocationMetaFromRegion,
-  neighborhoodLocationLabelFromRegion,
-} from "@/lib/neighborhood/location-key";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
@@ -26,6 +20,7 @@ import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
 import {
   buildPhilifeNeighborhoodFeedClientUrl,
   NEIGHBORHOOD_FEED_PAGE_SIZE,
+  PHILIFE_GLOBAL_FEED_SESSION_KEY,
 } from "@/lib/philife/neighborhood-feed-client-url";
 
 function mergeNeighborhoodFeedById(
@@ -60,10 +55,6 @@ const PHILIFE_TOPIC_TAB_CLASS = {
 
 export function CommunityFeed() {
   const viewerSig = usePhilifeFeedViewerSig();
-  const { currentRegion } = useRegion();
-  const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
-  const locationMeta = neighborhoodLocationMetaFromRegion(currentRegion);
-  const locationLabel = neighborhoodLocationLabelFromRegion(currentRegion);
   const [category, setCategory] = useState<string>("");
   const [neighborOnly, setNeighborOnly] = useState(false);
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>([]);
@@ -79,6 +70,8 @@ export function CommunityFeed() {
   const adsAbortRef = useRef<AbortController | null>(null);
   /** 지역·필터가 바뀌면 증가. 이전 요청 응답은 무시해 트래픽·경합 시 UI 꼬임 방지 */
   const feedSessionRef = useRef(0);
+  /** 첫 페이지 fetch 만 — 세션 불일치 시에도 마지막 요청만 `loading` 해제 */
+  const initialFeedLoadTokenRef = useRef(0);
 
   const [chips, setChips] = useState<{ slug: string; label: string }[]>(() => [{ slug: "", label: "전체" }]);
 
@@ -90,9 +83,9 @@ export function CommunityFeed() {
         if (cancelled) return;
         if (j?.ok && Array.isArray(j.feedChips)) {
           setChips([{ slug: "", label: "전체" }, ...j.feedChips.map((x) => ({ slug: x.slug, label: x.name }))]);
-          return;
+        } else {
+          setChips([{ slug: "", label: "전체" }]);
         }
-        setChips([{ slug: "", label: "전체" }]);
       } catch {
         if (!cancelled) setChips([{ slug: "", label: "전체" }]);
       }
@@ -102,35 +95,27 @@ export function CommunityFeed() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!category) return;
-    const slugs = new Set(chips.map((c) => c.slug));
-    if (!slugs.has(category)) setCategory("");
-  }, [chips, category]);
-
   const fetchPage = useCallback(
     async (nextOffset: number, append: boolean, session: number) => {
-      if (!locationKey) {
-        setPosts([]);
-        setHasMore(false);
-        setLoading(false);
-        setErr("저장된 동네를 선택해 주세요. (지역 설정)");
-        return;
-      }
+      let initialLoadToken = 0;
       if (append) setLoadingMore(true);
       else {
+        initialLoadToken = ++initialFeedLoadTokenRef.current;
         setLoading(true);
         setErr("");
       }
       feedAbortRef.current?.abort();
       const controller = new AbortController();
       feedAbortRef.current = controller;
+      const timeoutId =
+        typeof window !== "undefined"
+          ? window.setTimeout(() => {
+              controller.abort();
+            }, 28_000)
+          : undefined;
       try {
         const url = buildPhilifeNeighborhoodFeedClientUrl({
-          locationKey,
-          meta: locationMeta,
-          locationLabelFallback: locationLabel,
-          regionLabel: currentRegion?.label ?? null,
+          globalFeed: true,
           category: category || undefined,
           neighborOnly,
           offset: nextOffset,
@@ -143,15 +128,23 @@ export function CommunityFeed() {
           priority: "high",
           ...(personalized ? { cache: "no-store" as RequestCache } : {}),
         });
-        const j = (await res.json()) as {
+        let j: {
           ok?: boolean;
           posts?: NeighborhoodFeedPostDTO[];
           hasMore?: boolean;
           error?: string;
-          /** 피드 API: DB에서 이번에 읽은 행 수(데모 글 병합 시에도 offset 계산용) */
           nextOffset?: number | null;
           dbPageLength?: number;
         };
+        try {
+          j = (await res.json()) as typeof j;
+        } catch {
+          if (session !== feedSessionRef.current) return;
+          setErr("응답을 해석하지 못했습니다.");
+          if (!append) setPosts([]);
+          setHasMore(false);
+          return;
+        }
         if (session !== feedSessionRef.current) return;
         if (res.status === 401 && neighborOnly) {
           setErr("관심이웃 필터는 로그인 후 사용할 수 있어요.");
@@ -162,14 +155,15 @@ export function CommunityFeed() {
         }
         if (!res.ok || !j.ok) {
           const code = j.error ?? "";
+          if (code === "invalid_category") {
+            setCategory("");
+          }
           const human =
             code === "invalid_category"
               ? "선택한 주제가 더 이상 사용되지 않아요. 상단 주제를 다시 선택해 주세요."
-              : code === "location_not_registered" || code === "invalid_or_unknown_location_key"
-                ? "동네 위치를 확인하지 못했습니다. 지역을 다시 저장하거나 잠시 후 다시 시도해 주세요."
-                : code === "server_config"
-                  ? "서버 설정을 확인할 수 없습니다."
-                  : (j.error ?? "피드를 불러오지 못했습니다.");
+              : code === "server_config"
+                ? "서버 설정을 확인할 수 없습니다."
+                : (j.error ?? "피드를 불러오지 못했습니다.");
           setErr(human);
           if (!append) setPosts([]);
           setHasMore(false);
@@ -184,14 +178,9 @@ export function CommunityFeed() {
           typeof j.nextOffset === "number" ? j.nextOffset : nextOffset + advance;
         nextOffsetRef.current = resolvedNextOffset;
 
-        if (
-          !append &&
-          session === feedSessionRef.current &&
-          locationKey &&
-          next.length > 0
-        ) {
+        if (!append && session === feedSessionRef.current && next.length > 0) {
           const cachedPosts = mergeNeighborhoodFeedById([], next, false);
-          writePhilifeFeedCache(locationKey, category, neighborOnly, viewerSig, {
+          writePhilifeFeedCache(PHILIFE_GLOBAL_FEED_SESSION_KEY, category, neighborOnly, viewerSig, {
             posts: cachedPosts,
             hasMore: !!j.hasMore,
             nextOffset: resolvedNextOffset,
@@ -204,27 +193,18 @@ export function CommunityFeed() {
         setHasMore(false);
         setErr("피드를 불러오지 못했습니다.");
       } finally {
+        if (typeof timeoutId === "number") window.clearTimeout(timeoutId);
         if (feedAbortRef.current === controller) {
           feedAbortRef.current = null;
         }
         if (append) {
           setLoadingMore(false);
-        } else if (session === feedSessionRef.current) {
+        } else if (initialLoadToken === initialFeedLoadTokenRef.current) {
           setLoading(false);
         }
       }
     },
-    [
-      locationKey,
-      locationMeta?.city,
-      locationMeta?.district,
-      locationMeta?.name,
-      category,
-      neighborOnly,
-      currentRegion?.label,
-      locationLabel,
-      viewerSig,
-    ]
+    [category, neighborOnly, viewerSig]
   );
 
   useLayoutEffect(() => {
@@ -233,20 +213,14 @@ export function CommunityFeed() {
     nextOffsetRef.current = 0;
     loadMoreLockRef.current = false;
 
-    if (locationKey) {
-      const snap = readPhilifeFeedCache(locationKey, category, neighborOnly, viewerSig);
-      if (snap?.posts?.length) {
-        setPosts(snap.posts);
-        setHasMore(snap.hasMore);
-        nextOffsetRef.current = snap.nextOffset;
-        setErr("");
-      } else {
-        setPosts([]);
-        setErr("");
-      }
+    const snap = readPhilifeFeedCache(PHILIFE_GLOBAL_FEED_SESSION_KEY, category, neighborOnly, viewerSig);
+    if (snap?.posts?.length) {
+      setPosts(snap.posts);
+      setHasMore(snap.hasMore);
+      nextOffsetRef.current = snap.nextOffset;
+      setErr("");
     } else {
       setPosts([]);
-      setHasMore(false);
       setErr("");
     }
 
@@ -254,7 +228,7 @@ export function CommunityFeed() {
     return () => {
       feedAbortRef.current?.abort();
     };
-  }, [locationKey, category, neighborOnly, viewerSig, fetchPage]);
+  }, [category, neighborOnly, viewerSig, fetchPage]);
 
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
@@ -297,6 +271,18 @@ export function CommunityFeed() {
     };
   }, []);
 
+  /** 동일 id 가 캐시·재요청 경합으로 두 번 들어오는 경우 대비 */
+  const postsDeduped = useMemo(() => {
+    const seen = new Set<string>();
+    const out: NeighborhoodFeedPostDTO[] = [];
+    for (const p of posts) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      out.push(p);
+    }
+    return out;
+  }, [posts]);
+
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el || !hasMore || loading || loadingMore) return;
@@ -315,6 +301,8 @@ export function CommunityFeed() {
     obs.observe(el);
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore, fetchPage]);
+
+  const postsForList = postsDeduped;
 
   return (
     <div className="min-h-screen min-w-0 max-w-full overflow-x-hidden bg-background pb-28">
@@ -360,14 +348,7 @@ export function CommunityFeed() {
                   관심이웃 글만 보기
                 </label>
                 <p className="text-[11px] leading-snug text-[var(--text-muted)]">
-                  글 목록은{" "}
-                  <span className="font-medium text-sam-muted">상단에 표시된 내 동네</span> 기준이에요. 광역·시만 같아도{" "}
-                  <span className="font-medium text-sam-muted">프로필 상세 주소</span>가 다르면 다른 동네로 잡혀 피드가
-                  달라질 수 있어요. 테스트 시{" "}
-                  <Link href="/regions" className="font-medium text-signature underline-offset-2 hover:underline">
-                    지역·상세 주소
-                  </Link>
-                  를 동일하게 맞춰 주세요.
+                  글은 지역과 무관하게 모두 보이며, 상단 주제 탭으로 나눠 볼 수 있어요.
                 </p>
               </div>
             </div>
@@ -376,7 +357,7 @@ export function CommunityFeed() {
       />
 
       <div className="relative min-w-0">
-        {loading && posts.length > 0 ? (
+        {loading && postsForList.length > 0 ? (
           <div
             className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] animate-pulse bg-signature/50"
             aria-hidden
@@ -390,11 +371,11 @@ export function CommunityFeed() {
             <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">{err}</div>
           </div>
         ) : null}
-        {loading && posts.length === 0 ? (
+        {loading && postsForList.length === 0 ? (
           <CommunityFeedSkeleton />
-        ) : posts.length === 0 ? (
+        ) : postsForList.length === 0 ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
-            이 동네에 아직 글이 없어요.
+            아직 글이 없어요.
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <Link
                 href={category === "meetup" ? philifeAppPaths.writeMeeting : philifeAppPaths.write}
@@ -409,13 +390,13 @@ export function CommunityFeed() {
             <div
               className={`${APP_MAIN_GUTTER_X_CLASS} space-y-2.5 pt-2 pb-1 ${topAds.length > 0 ? "mt-2" : ""}`}
             >
-              {posts.map((p) => (
+              {postsForList.map((p) => (
                 <CommunityCard key={p.id} post={p} />
               ))}
             </div>
             <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
             {loadingMore ? <p className="py-4 text-center text-[13px] text-sam-meta">더 불러오는 중…</p> : null}
-            {!hasMore && posts.length > 0 ? (
+            {!hasMore && postsForList.length > 0 ? (
               <p className="pb-8 pt-2 text-center text-[12px] text-sam-meta">모든 글을 불러왔어요</p>
             ) : null}
           </>

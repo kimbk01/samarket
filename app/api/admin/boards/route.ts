@@ -8,6 +8,70 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const dynamic = "force-dynamic";
 
+const BOARDS_LIST_SELECT =
+  "id, service_id, name, slug, description, skin_type, form_type, category_mode, is_active, sort_order, created_at, updated_at";
+
+/**
+ * 관리자: `boards` 전체 목록 — **서비스 롤** (클라이언트 anon + RLS 와 달리 실제 행 반환).
+ * `docs/community-surfaces-contract.md`
+ */
+export async function GET() {
+  if (!(await isRouteAdmin())) {
+    return NextResponse.json({ ok: false, error: "forbidden", boards: [] }, { status: 403 });
+  }
+
+  const sb = tryGetSupabaseForStores();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured", boards: [] }, { status: 503 });
+  }
+
+  const { data: rows, error } = await sb
+    .from("boards")
+    .select(BOARDS_LIST_SELECT)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[GET admin/boards]", error);
+    return NextResponse.json({ ok: false, error: error.message ?? "query_failed", boards: [] }, { status: 500 });
+  }
+
+  const list = Array.isArray(rows) ? rows : [];
+  const serviceIds = [...new Set(list.map((r: { service_id?: string }) => r.service_id).filter(Boolean))] as string[];
+  const serviceById: Record<string, { name?: string; slug?: string }> = {};
+  if (serviceIds.length > 0) {
+    const { data: services } = await sb.from("services").select("id, name, slug").in("id", serviceIds);
+    if (Array.isArray(services)) {
+      services.forEach((s: { id: string; name?: string; slug?: string }) => {
+        serviceById[s.id] = { name: s.name, slug: s.slug };
+      });
+    }
+  }
+
+  const boards = list.map((r: Record<string, unknown>) => {
+    const sid = String(r.service_id ?? "");
+    const svc = serviceById[sid];
+    return {
+      id: String(r.id ?? ""),
+      service_id: sid,
+      name: String(r.name ?? ""),
+      slug: String(r.slug ?? ""),
+      description: (r.description as string | null) ?? null,
+      skin_type: String(r.skin_type ?? "basic"),
+      form_type: String(r.form_type ?? "basic"),
+      category_mode: String(r.category_mode ?? "none"),
+      is_active: r.is_active === true,
+      sort_order: typeof r.sort_order === "number" ? r.sort_order : 0,
+      created_at: String(r.created_at ?? ""),
+      updated_at: String(r.updated_at ?? ""),
+      service_name: svc?.name,
+      service_slug: svc?.slug,
+    };
+  });
+
+  return NextResponse.json({ ok: true, boards }, { headers: { "Cache-Control": "no-store" } });
+}
+
 /** 관리자: 게시판 생성 (boards RLS에 INSERT 없음 → 서비스 롤) */
 export async function POST(req: NextRequest) {
   if (!(await isRouteAdmin())) {

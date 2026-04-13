@@ -51,6 +51,8 @@ export interface Product {
   /** 게시물 관리: 카테고리명/슬러그 (탭·필터용) */
   categoryName?: string;
   categorySlug?: string;
+  /** 게시물 관리: `posts.trade_category_id` / `category_id` (거래 루트 필터용) */
+  tradeCategoryId?: string | null;
   /** 게시물 관리: categories.icon_key (slug와 함께 탭 매칭) */
   categoryIconKey?: string;
   /** 게시물 관리: 노출상태 (public | hidden 등) */

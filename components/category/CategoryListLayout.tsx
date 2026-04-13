@@ -61,11 +61,18 @@ export function CategoryListLayout({
     searchParamsRef.current = searchParams;
   }, [searchParams]);
 
+  const bootstrapFetchAbortRef = useRef<AbortController | null>(null);
+
   const load = useCallback(async () => {
     if (!slugOrId?.trim()) {
       setStatus("not_found");
       return;
     }
+    bootstrapFetchAbortRef.current?.abort();
+    const ac = new AbortController();
+    bootstrapFetchAbortRef.current = ac;
+    const signal = ac.signal;
+
     setStatus("loading");
     setTradeBootstrapChildren(undefined);
     setTradeBootstrapChildrenForFilter(undefined);
@@ -83,7 +90,9 @@ export function CategoryListLayout({
         const res = await fetch(`/api/categories/market-bootstrap?${qs.toString()}`, {
           credentials: "include",
           cache: "no-store",
+          signal,
         });
+        if (signal.aborted) return;
         const j = (await res.json()) as {
           ok?: boolean;
           category?: Record<string, unknown>;
@@ -107,6 +116,7 @@ export function CategoryListLayout({
               slug: typeof row?.slug === "string" ? row.slug : null,
             }))
             .filter((r) => r.id.length > 0);
+          if (signal.aborted) return;
           setCategory(c);
           setTradeBootstrapChildren(children);
           setTradeBootstrapChildrenForFilter(childrenForFilter);
@@ -114,12 +124,15 @@ export function CategoryListLayout({
           setStatus("found");
           return;
         }
-      } catch {
+      } catch (e) {
+        if (signal.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
         /* 폴백: 기존 클라이언트 조회 */
       }
     }
 
+    if (signal.aborted) return;
     const c = await getCategoryBySlugOrId(slugOrId.trim());
+    if (signal.aborted) return;
     if (!c) {
       setStatus("not_found");
       return;
@@ -137,7 +150,8 @@ export function CategoryListLayout({
   }, [slugOrId, expectedType, router]);
 
   useEffect(() => {
-    load();
+    void load();
+    return () => bootstrapFetchAbortRef.current?.abort();
   }, [load]);
 
   /** 거래(중고) 마켓: 메인 1단만 공통 헤더로 두고, 뒤로가기·카테고리 제목 서브헤더는 노출하지 않음 */

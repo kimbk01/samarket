@@ -5,13 +5,28 @@
 
 import type { CategoryWithSettings } from "./types";
 
-/** URL 단일 세그먼트용 퍼센트 인코딩 */
-export function encodedTradeMarketSegment(category: Pick<CategoryWithSettings, "slug" | "id">): string {
+/**
+ * URL 단일 세그먼트용 퍼센트 인코딩.
+ * 거래(trade) 루트는 slug 중복 시 `/market/{slug}` 가 동일해져 탭·피드가 합쳐지므로 **항상 id** 사용.
+ * `type` 이 없으면(레거시 호출) slug 우선 유지.
+ */
+export function encodedTradeMarketSegment(
+  category: Pick<CategoryWithSettings, "slug" | "id"> & {
+    type?: CategoryWithSettings["type"];
+  }
+): string {
+  if (category.type === "trade") {
+    return encodeURIComponent(category.id);
+  }
   const raw = category.slug?.trim() ? category.slug.trim() : category.id;
   return encodeURIComponent(raw);
 }
 
-export function tradeMarketPath(category: Pick<CategoryWithSettings, "slug" | "id">): string {
+export function tradeMarketPath(
+  category: Pick<CategoryWithSettings, "slug" | "id"> & {
+    type?: CategoryWithSettings["type"];
+  }
+): string {
   return `/market/${encodedTradeMarketSegment(category)}`;
 }
 

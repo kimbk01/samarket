@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { Product, ProductStatus } from "@/lib/types/product";
+import type { CategoryWithSettings } from "@/lib/categories/types";
 import {
   STATUS_OPTIONS,
   SORT_OPTIONS,
@@ -16,6 +17,10 @@ export interface AdminProductFilterBarProps {
   searchQuery: string;
   onFiltersChange: (f: AdminProductFilters) => void;
   onSearchChange: (q: string) => void;
+  /** `/admin/menus/trade` 홈 칩과 동일한 거래 루트 — `fetchTradeHomeRootCategories` 결과 */
+  tradeMenuRoots?: CategoryWithSettings[];
+  tradeMenuRootId: string;
+  onTradeMenuRootIdChange: (rootId: string) => void;
 }
 
 export function AdminProductFilterBar({
@@ -24,6 +29,9 @@ export function AdminProductFilterBar({
   searchQuery,
   onFiltersChange,
   onSearchChange,
+  tradeMenuRoots = [],
+  tradeMenuRootId,
+  onTradeMenuRootIdChange,
 }: AdminProductFilterBarProps) {
   const { tt, t } = useI18n();
   const categories = getCategoryOptions(products);
@@ -31,6 +39,21 @@ export function AdminProductFilterBar({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        {tradeMenuRoots.length > 0 ? (
+          <select
+            value={tradeMenuRootId}
+            onChange={(e) => onTradeMenuRootIdChange(e.target.value)}
+            className="min-w-[140px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+            aria-label="거래 메뉴(홈 탭)"
+          >
+            <option value="">거래 메뉴 전체</option>
+            {tradeMenuRoots.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <input
           type="text"
           placeholder={t("admin_search_product")}

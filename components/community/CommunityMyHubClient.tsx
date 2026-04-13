@@ -2,45 +2,24 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useRegion } from "@/contexts/RegionContext";
-import {
-  neighborhoodLocationKeyFromRegion,
-  neighborhoodLocationMetaFromRegion,
-  neighborhoodLocationLabelFromRegion,
-} from "@/lib/neighborhood/location-key";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
-import { philifeNeighborhoodFeedUrl } from "@domain/philife/api";
+import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { philifeAppPaths } from "@domain/philife/paths";
 
 export function CommunityMyHubClient({ userId }: { userId: string }) {
-  const { currentRegion } = useRegion();
-  const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
-  const locationMeta = neighborhoodLocationMetaFromRegion(currentRegion);
-  const locationLabel = neighborhoodLocationLabelFromRegion(currentRegion);
-  const locationCity = locationMeta?.city ?? "";
-  const locationDistrict = locationMeta?.district ?? "";
-  const locationName = locationMeta?.name ?? "";
-  const regionLabel = currentRegion?.label ?? "";
   const [mine, setMine] = useState<NeighborhoodFeedPostDTO[]>([]);
   const [err, setErr] = useState("");
 
   const load = useCallback(async () => {
-    if (!locationKey) {
-      setErr("지역을 먼저 선택해 주세요.");
-      setMine([]);
-      return;
-    }
     setErr("");
     try {
-      const p = new URLSearchParams();
-      p.set("locationKey", locationKey);
-      p.set("city", locationCity);
-      p.set("district", locationDistrict);
-      p.set("name", locationName || locationLabel || regionLabel);
-      p.set("authorId", userId);
-      p.set("limit", "30");
-      p.set("offset", "0");
-      const res = await fetch(philifeNeighborhoodFeedUrl(p.toString()), { cache: "no-store" });
+      const url = buildPhilifeNeighborhoodFeedClientUrl({
+        globalFeed: true,
+        authorUserId: userId,
+        limit: 30,
+        offset: 0,
+      });
+      const res = await fetch(url, { cache: "no-store" });
       const j = (await res.json()) as { ok?: boolean; posts?: NeighborhoodFeedPostDTO[]; error?: string };
       if (!res.ok || !j.ok) {
         setErr(j.error ?? "불러오기 실패");
@@ -51,7 +30,7 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
     } catch (e) {
       setErr((e as Error).message);
     }
-  }, [locationKey, locationLabel, locationCity, locationDistrict, locationName, regionLabel, userId]);
+  }, [userId]);
 
   useEffect(() => {
     void load();
@@ -73,7 +52,7 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
       </section>
 
       <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-[15px] font-semibold text-sam-fg">내가 쓴 글 (현재 동네)</h2>
+        <h2 className="text-[15px] font-semibold text-sam-fg">내가 쓴 글</h2>
         {err ? <p className="mt-2 text-[13px] text-red-600">{err}</p> : null}
         <ul className="mt-3 divide-y divide-sam-border-soft">
           {mine.length === 0 && !err ? (

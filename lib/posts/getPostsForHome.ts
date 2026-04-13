@@ -37,8 +37,9 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const sort = options.sort ?? "latest";
   const typeFilter = options.type ?? null;
   const tradeMarketParent = options.tradeMarketParentId?.trim() || null;
+  /** 서버 정책 A(구성된 거래 루트 합집합)와 캐시 일치 — 키 버전 올리면 브라우저 구 캐시 무효 */
   const marketKey = tradeMarketParent ?? "all";
-  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}`;
+  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:v3`;
   return { page, sort, typeFilter, tradeMarketParent, cacheKey };
 }
 

@@ -85,6 +85,8 @@ export function PhilifeNeighborhoodWriteForm({
   const [adMemo, setAdMemo] = useState("");
 
   const submitErrorAnchorRef = useRef<HTMLDivElement>(null);
+  /** setState 전에 연속 제출이 들어오는 경우(더블 탭 등) 동기적으로 막음 */
+  const submitLockRef = useRef(false);
   const me = getCurrentUser();
   const pointBalance = me?.id ? getUserPointBalance(me.id) : 0;
 
@@ -185,8 +187,11 @@ export function PhilifeNeighborhoodWriteForm({
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr("");
-    const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
+    if (submitLockRef.current || busy) return;
+    submitLockRef.current = true;
+    try {
+      setErr("");
+      const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
     const locationMeta = neighborhoodLocationMetaFromRegion(currentRegion);
     const locationName = neighborhoodLocationLabelFromRegion(currentRegion);
     if (!locationKey || !locationMeta) {
@@ -317,10 +322,13 @@ export function PhilifeNeighborhoodWriteForm({
           }
         })();
       }
-    } catch {
-      setErr("네트워크 오류가 발생했습니다.");
+      } catch {
+        setErr("네트워크 오류가 발생했습니다.");
+      } finally {
+        setBusy(false);
+      }
     } finally {
-      setBusy(false);
+      submitLockRef.current = false;
     }
   };
 

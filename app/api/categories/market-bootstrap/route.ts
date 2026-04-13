@@ -1,16 +1,17 @@
 /**
  * 마켓 거래 탭: 카테고리 단건 + 하위 주제를 **한 번의 HTTP**로 내려
  * 브라우저→Supabase 왕복(직접) 2회를 1회(Vercel→Supabase)로 줄임.
- * `includePosts=1` 이면 첫 페이지 글까지 합쳐 피드 워터폴을 줄임(알바는 `jk=hire|work` 와 동일 메타 필터).
+ * `includePosts=1` 이면 첫 페이지 글은 `fetchTradeFeedPage` — `docs/trade-market-feed-contract.md`.
  */
 import { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
 import { fetchTradeFeedPage } from "@/lib/posts/fetch-trade-feed-page";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
-import { computeTradeFeedKey } from "@/lib/posts/trade-feed-key";
+import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import { CATEGORY_WITH_SETTINGS_SELECT } from "@/lib/categories/category-select-fragment";
 import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
 
@@ -24,7 +25,10 @@ export async function GET(req: NextRequest) {
     return jsonError("q 파라미터가 필요합니다.", 400);
   }
 
-  const supabase = await createSupabaseRouteHandlerClient();
+  const cookieSb = await createSupabaseRouteHandlerClient();
+  const svcSb = tryCreateSupabaseServiceClient();
+  /** 카테고리·posts 조회 공통 — 서비스 롤이 있으면 우선(anon RLS 회피) */
+  const supabase = svcSb ?? cookieSb;
   if (!supabase) {
     return jsonError("데이터베이스 설정이 없습니다.", 503);
   }
@@ -98,22 +102,42 @@ export async function GET(req: NextRequest) {
   let initialFeed: { posts: unknown[]; hasMore: boolean; feedKey: string } | undefined;
 
   if (includePosts) {
-    const filterIds = computeMarketFilterIds({
-      parentCategoryId: parentId,
-      activeChildren: childrenForFilter,
-      topicParam,
-    });
-    const { posts, hasMore } = await fetchTradeFeedPage(supabase, filterIds, {
-      page: 1,
-      sort: "latest",
-      jobsListingKind: jobListingKindForFeed,
-    });
-    const feedKey = computeTradeFeedKey(filterIds, "latest", jobListingKindForFeed);
-    initialFeed = {
-      posts,
-      hasMore,
-      feedKey,
-    };
+    const feedKey = computeTradeFeedKeyForMarketParent(parentId, topicParam, "latest", jobListingKindForFeed);
+    /** 주제 없음·비알바: 첫 화면은 `/api/trade/feed` 와 동일 파이프라인 — 홈 전용 `resolveHomePostsPayload` 는 스키마/RLS 에서 빈 목록만 나오는 경우가 있어 마켓과 어긋남 */
+    const useHomeQuery = !isJobMarket && !topicParam.trim();
+    if (useHomeQuery) {
+      const filterIds = computeMarketFilterIds({
+        parentCategoryId: parentId,
+        activeChildren: childrenForFilter,
+        topicParam: "",
+      });
+      const result = await fetchTradeFeedPage(sb, filterIds, {
+        page: 1,
+        sort: "latest",
+        jobsListingKind: undefined,
+      });
+      initialFeed = {
+        posts: result.posts,
+        hasMore: result.hasMore,
+        feedKey,
+      };
+    } else {
+      const filterIds = computeMarketFilterIds({
+        parentCategoryId: parentId,
+        activeChildren: childrenForFilter,
+        topicParam,
+      });
+      const result = await fetchTradeFeedPage(supabase, filterIds, {
+        page: 1,
+        sort: "latest",
+        jobsListingKind: jobListingKindForFeed,
+      });
+      initialFeed = {
+        posts: result.posts,
+        hasMore: result.hasMore,
+        feedKey,
+      };
+    }
   }
 
   return jsonOk({

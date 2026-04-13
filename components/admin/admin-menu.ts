@@ -206,7 +206,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       {
         key: "community",
         title: "커뮤니티",
-        path: "/admin/posts",
+        path: "/admin/community/posts",
         children: [
           { key: "community-boards", title: "게시판관리", path: "/admin/boards", status: "done" },
           { key: "community-sections", title: "피드 섹션", path: "/admin/philife/sections", status: "done" },
@@ -224,7 +224,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/philife/meeting-events",
             status: "done",
           },
-          { key: "community-posts", title: "게시글관리", path: "/admin/posts", status: "done" },
+          { key: "community-posts", title: "게시글관리", path: "/admin/community/posts", status: "done" },
           { key: "community-comments", title: "댓글관리", path: "/admin/comments", status: "done" },
           { key: "community-board-categories", title: "게시판카테고리", path: "/admin/board-categories", pendingRoute: true, status: "todo" },
           { key: "community-popular", title: "인기글관리", path: "/admin/popular-posts", pendingRoute: true, status: "todo" },

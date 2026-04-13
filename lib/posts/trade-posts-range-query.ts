@@ -10,6 +10,10 @@ import {
   normalizePostPrice,
 } from "./post-normalize";
 import { applyPostgrestAndGroup } from "./apply-postgrest-and-group";
+import {
+  buildTradePostsStatusAndCategoryAndFilter,
+  buildTradePostsStatusAndTradeCategoryOnlyAndFilter,
+} from "./trade-posts-category-filter";
 
 /** listing_kind 필터 시 DB를 순차 스캔하는 최대 청크 수(getPostsByCategory 와 동일) */
 export const MAX_JOB_LISTING_KIND_CHUNKS = 120;
@@ -59,18 +63,8 @@ export function mapPostRowsToTradeList(data: unknown[]): PostWithMeta[] {
 
 export type TradePostSort = "latest" | "popular";
 
-/**
- * 거래 카테고리 필터 — `trade_category_id` 와 레거시/마이그레이션 `category_id` 중 하나에만
- * 값이 있어도 매칭되도록 OR 로 조회한다. (전체 피드는 컬럼 필터 없음 → 양쪽 글이 모두 보임)
- */
-/** PostgREST `and=(or(상태),or(카테고리열))` — `.or()` 를 두 번 체이닝하면 `or` 쿼리 키가 덮여 AND 가 깨질 수 있음 */
 function buildTradeFeedAndFilter(ids: string[]): string {
-  const cleaned = [...new Set(ids.map((x) => x.trim()).filter(Boolean))];
-  if (cleaned.length === 0) return "";
-  const csv = cleaned.join(",");
-  const statusOr = "status.is.null,status.not.in.(hidden,sold)";
-  const categoryOr = `trade_category_id.in.(${csv}),category_id.in.(${csv})`;
-  return `(or(${statusOr}),or(${categoryOr}))`;
+  return buildTradePostsStatusAndCategoryAndFilter(ids);
 }
 
 /** Supabase 클라이언트(브라우저·서버) 공통 — 내부 구현 타입 회피용 any */
@@ -111,8 +105,8 @@ export async function fetchPostsRangeForTradeCategories(
     }
     /** 스키마에 category_id 가 없는 경우 trade_category_id 만 사용 */
     if (error && typeof error?.message === "string" && /category_id/i.test(error.message)) {
-      const csv = [...new Set(ids.map((x) => x.trim()).filter(Boolean))].join(",");
-      const fallbackAnd = `(or(status.is.null,status.not.in.(hidden,sold)),or(trade_category_id.in.(${csv})))`;
+      const fallbackAnd = buildTradePostsStatusAndTradeCategoryOnlyAndFilter(ids);
+      if (!fallbackAnd) return [];
       let q = (sb.from(POSTS_TABLE_READ) as any).select(selectCols);
       applyPostgrestAndGroup(q, fallbackAnd);
       if (sort === "latest") {

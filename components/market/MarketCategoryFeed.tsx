@@ -26,8 +26,7 @@ import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 import { useRegisterTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
 import { TRADE_MARKET_TOPIC_SCROLL_NAV_CLASS } from "@/lib/trade/ui/market-topic-scroll";
 import { JobListingKindTabs, type JobListingKindTab } from "@/components/market/JobListingKindTabs";
-import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
-import { computeTradeFeedKey } from "@/lib/posts/trade-feed-key";
+import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import type { PostWithMeta } from "@/lib/posts/schema";
 
 function parseJobListingKindParam(raw: string | null): JobListingKindTab {
@@ -81,10 +80,14 @@ export function MarketCategoryFeed({
   useEffect(() => {
     if (initialChildrenForFilter !== undefined) return;
     let cancelled = false;
-    void getChildCategoriesForFeedFilter(category.id).then((list) => {
-      if (cancelled) return;
-      setFilterRows(list);
-    });
+    void getChildCategoriesForFeedFilter(category.id)
+      .then((list) => {
+        if (cancelled) return;
+        setFilterRows(list);
+      })
+      .catch(() => {
+        if (!cancelled) setFilterRows([]);
+      });
     return () => {
       cancelled = true;
     };
@@ -112,23 +115,19 @@ export function MarketCategoryFeed({
     return match ? topicRaw : null;
   }, [filterRows, topicRaw]);
 
-  const filterIds = useMemo(() => {
-    if (filterRows === null) return null;
-    return computeMarketFilterIds({
-      parentCategoryId: category.id,
-      activeChildren: filterRows,
-      topicParam: topicRaw,
-    });
-  }, [category.id, filterRows, topicRaw]);
-
   const marketBase = `/market/${encodedTradeMarketSegment(category)}`;
   const isJobMarket =
     category.icon_key === "job" || category.icon_key === "jobs" || category.slug === "job";
   const postSort = sortKeyToHomePostSort("latest");
   const feedKey = useMemo(() => {
-    if (!filterIds) return "";
-    return computeTradeFeedKey(filterIds, postSort, isJobMarket ? jobKindTab : undefined);
-  }, [filterIds, postSort, isJobMarket, jobKindTab]);
+    if (filterRows === null) return "";
+    return computeTradeFeedKeyForMarketParent(
+      category.id,
+      topicRaw,
+      postSort,
+      isJobMarket ? jobKindTab : undefined
+    );
+  }, [filterRows, category.id, topicRaw, postSort, isJobMarket, jobKindTab]);
   const initialTradeFeed =
     bootstrapFeed && feedKey && bootstrapFeed.feedKey === feedKey ? bootstrapFeed : null;
   const onNavigate = useCallback(
@@ -194,12 +193,13 @@ export function MarketCategoryFeed({
             : TRADE_GAP_MENU_TO_POSTS_CLASS
         }`}
       >
-        {filterIds === null ? (
+        {filterRows === null ? (
           <div className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>
         ) : (
           <PostListByCategory
             categoryId={category.id}
-            filterCategoryIds={filterIds}
+            tradeFeedServerResolution
+            tradeTopicParam={topicRaw}
             category={category}
             sort={postSort}
             jobsListingKind={isJobMarket ? jobKindTab : undefined}

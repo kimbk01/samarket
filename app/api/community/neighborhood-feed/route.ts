@@ -10,6 +10,7 @@ import {
 import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
 
 export async function GET(req: NextRequest) {
+  const globalFeed = req.nextUrl.searchParams.get("globalFeed") === "1";
   const locationKey = req.nextUrl.searchParams.get("locationKey")?.trim() ?? "";
   const city = req.nextUrl.searchParams.get("city")?.trim() ?? "";
   const district = req.nextUrl.searchParams.get("district")?.trim() ?? "";
@@ -20,24 +21,26 @@ export async function GET(req: NextRequest) {
   const limitRaw = req.nextUrl.searchParams.get("limit")?.trim() ?? "";
   const neighborOnly = req.nextUrl.searchParams.get("neighborOnly") === "1";
 
-  if (!locationKey) {
+  if (!globalFeed && !locationKey) {
     return NextResponse.json({ ok: false, error: "locationKey_required" }, { status: 400 });
   }
 
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
-  }
-
-  const coalesced = coalesceNeighborhoodLocationInput(locationKey, { city, district, name });
-
-  const [viewerUserId, locationId, topics] = await Promise.all([
+  const [viewerUserId, topics] = await Promise.all([
     getOptionalAuthenticatedUserId(),
-    ensureLocationId(sb, locationKey, coalesced),
     loadPhilifeDefaultSectionTopics(),
   ]);
+
+  let locationId: string | null = null;
+  if (!globalFeed) {
+    let sb: ReturnType<typeof getSupabaseServer>;
+    try {
+      sb = getSupabaseServer();
+    } catch {
+      return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
+    }
+    const coalesced = coalesceNeighborhoodLocationInput(locationKey, { city, district, name });
+    locationId = await ensureLocationId(sb, locationKey, coalesced);
+  }
 
   if (neighborOnly && !viewerUserId) {
     return NextResponse.json({ ok: false, error: "neighbor_only_requires_login" }, { status: 401 });
@@ -48,7 +51,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "author_filter_requires_self" }, { status: 403 });
   }
 
-  if (!locationId) {
+  if (!globalFeed && !locationId) {
     return NextResponse.json({
       ok: true,
       locationId: null,
@@ -71,7 +74,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Math.max(parseInt(limitRaw, 10) || 20, 1), 40);
 
   const { posts, hasMore, dbScannedCount } = await listNeighborhoodFeed({
-    locationId,
+    ...(globalFeed ? { allLocations: true as const } : { locationId: locationId! }),
     category: category ?? undefined,
     authorUserId: authorId,
     offset,
@@ -83,7 +86,7 @@ export async function GET(req: NextRequest) {
 
   const body = {
     ok: true as const,
-    locationId,
+    locationId: globalFeed ? null : locationId,
     posts,
     hasMore,
     nextOffset: hasMore ? offset + dbScannedCount : null,

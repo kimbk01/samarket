@@ -21,15 +21,21 @@ const ReportReasonModal = dynamic(
   { loading: () => null }
 );
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
-import { computeTradeFeedKey } from "@/lib/posts/trade-feed-key";
+import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 
 interface PostListByCategoryProps {
   categoryId: string;
   /** 스킨 적용용 (일반/부동산/중고차/알바/환전) */
   category?: CategoryWithSettings | null;
   sort?: PostSort;
-  /** 상위+주제 OR 조회 시 id 목록. 미지정이면 categoryId만 사용 */
+  /** 상위+주제 OR 조회 시 id 목록. `tradeFeedServerResolution` 이면 무시 */
   filterCategoryIds?: string[];
+  /**
+   * true: `/api/trade/feed?tradeMarketParent=` 로 서버에서 카테고리 트리 펼침 — 홈·마켓·bootstrap 단일 소스
+   */
+  tradeFeedServerResolution?: boolean;
+  /** `tradeFeedServerResolution` 일 때 `?topic=` (주제 칩) */
+  tradeTopicParam?: string;
   /** 알바 마켓: 구인/구직 메타 필터 */
   jobsListingKind?: JobListingKindFilter;
   /** 마켓 bootstrap 첫 페이지 — `feedKey`가 현재 필터와 같을 때만 적용 */
@@ -41,6 +47,8 @@ export function PostListByCategory({
   category,
   sort = "latest",
   filterCategoryIds,
+  tradeFeedServerResolution = false,
+  tradeTopicParam = "",
   jobsListingKind,
   initialTradeFeed = null,
 }: PostListByCategoryProps) {
@@ -55,27 +63,87 @@ export function PostListByCategory({
   const [page, setPage] = useState(1);
 
   const effectiveIds = useMemo(() => {
+    if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
     return [categoryId];
-  }, [categoryId, filterCategoryIds]);
+  }, [categoryId, filterCategoryIds, tradeFeedServerResolution]);
 
   const feedKey = useMemo(
-    () => computeTradeFeedKey(effectiveIds, sort, jobsListingKind),
-    [effectiveIds, sort, jobsListingKind]
+    () =>
+      tradeFeedServerResolution
+        ? computeTradeFeedKeyForMarketParent(categoryId, tradeTopicParam, sort, jobsListingKind)
+        : computeTradeFeedKey(effectiveIds, sort, jobsListingKind),
+    [
+      tradeFeedServerResolution,
+      categoryId,
+      tradeTopicParam,
+      effectiveIds,
+      sort,
+      jobsListingKind,
+    ]
   );
 
   const load = useCallback(
     async (pageNum: number = 1) => {
-      if (!categoryId || effectiveIds.length === 0) return;
+      if (!categoryId) {
+        setLoading(false);
+        return;
+      }
+      if (!tradeFeedServerResolution && effectiveIds.length === 0) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
-      let res: Awaited<ReturnType<typeof getPostsByTradeCategoryIds>> | null = null;
       try {
-        const next = await getPostsByTradeCategoryIds(effectiveIds, {
-          page: pageNum,
-          sort,
-          jobsListingKind,
-        });
-        res = next;
+        const useHomePostsApi =
+          tradeFeedServerResolution &&
+          jobsListingKind !== "hire" &&
+          jobsListingKind !== "work" &&
+          !tradeTopicParam.trim();
+
+        if (useHomePostsApi) {
+          /** `/api/home/posts` 가 아니라 `/api/trade/feed` — 마켓 bootstrap·관리자 trade-expand 와 동일 id·쿼리 */
+          const next = await getPostsByTradeCategoryIds([], {
+            page: pageNum,
+            sort,
+            tradeMarketParent: categoryId,
+            topic: "",
+          });
+          if (pageNum === 1) {
+            setPosts(next.posts);
+            setHiddenPostIds(new Set());
+            setNotInterestedPostIds(new Set());
+          } else {
+            setPosts((prev) => [...prev, ...next.posts]);
+          }
+          setHasMore(next.hasMore);
+          if (next.posts.length > 0) {
+            const map = await getFavoriteStatusForPosts(next.posts.map((p) => p.id));
+            if (pageNum === 1) {
+              setFavoriteMap(map);
+            } else {
+              setFavoriteMap((prev) => ({ ...prev, ...map }));
+            }
+          } else if (pageNum === 1) {
+            setFavoriteMap({});
+          }
+          return;
+        }
+
+        const next = await getPostsByTradeCategoryIds(
+          tradeFeedServerResolution ? [] : effectiveIds,
+          {
+            page: pageNum,
+            sort,
+            jobsListingKind,
+            ...(tradeFeedServerResolution
+              ? {
+                  tradeMarketParent: categoryId,
+                  topic: tradeTopicParam,
+                }
+              : {}),
+          }
+        );
         if (pageNum === 1) {
           setPosts(next.posts);
           setHiddenPostIds(new Set());
@@ -85,21 +153,19 @@ export function PostListByCategory({
           setPosts((prev) => [...prev, ...next.posts]);
         }
         setHasMore(next.hasMore);
+        if (next.posts.length > 0) {
+          const map = await getFavoriteStatusForPosts(next.posts.map((p) => p.id));
+          if (pageNum === 1) {
+            setFavoriteMap(map);
+          } else {
+            setFavoriteMap((prev) => ({ ...prev, ...map }));
+          }
+        }
       } finally {
         setLoading(false);
       }
-      /** 찜 상태는 목록 표시를 막지 않음(워터폴 제거 — 체감 로딩 단축) */
-      if (!res) return;
-      if (res.posts.length > 0) {
-        const map = await getFavoriteStatusForPosts(res.posts.map((p) => p.id));
-        if (pageNum === 1) {
-          setFavoriteMap(map);
-        } else {
-          setFavoriteMap((prev) => ({ ...prev, ...map }));
-        }
-      }
     },
-    [categoryId, sort, effectiveIds, jobsListingKind]
+    [categoryId, sort, effectiveIds, jobsListingKind, tradeFeedServerResolution, tradeTopicParam]
   );
 
   useEffect(() => {

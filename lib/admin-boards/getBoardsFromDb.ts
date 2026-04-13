@@ -20,7 +20,8 @@ export interface AdminBoardRow {
 }
 
 /**
- * 어드민 게시판 목록 — boards 테이블 + services 조인
+ * @deprecated 관리자 UI는 `GET /api/admin/boards`(서비스 롤) 사용. 클라이언트 anon·RLS 는 빈 목록을 낼 수 있음.
+ * `docs/community-surfaces-contract.md`
  */
 export async function getBoardsFromDb(): Promise<AdminBoardRow[]> {
   const supabase = getSupabaseClient();

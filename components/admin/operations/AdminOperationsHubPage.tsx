@@ -7,7 +7,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 const LINKS: { href: string; label: string; desc: string }[] = [
   { href: "/admin/chats", label: "채팅 관리", desc: "거래·커뮤니티·비즈 등 방 목록 및 상세 조치" },
   { href: "/admin/reports", label: "신고", desc: "채팅·게시글 신고 검토" },
-  { href: "/admin/posts", label: "게시글", desc: "커뮤니티 콘텐츠 점검" },
+  { href: "/admin/community/posts", label: "게시글", desc: "커뮤니티 콘텐츠 점검" },
   { href: "/admin/comments", label: "댓글", desc: "댓글 문의·악성 댓글 대응" },
   { href: "/admin/users", label: "회원", desc: "계정·제재 연계" },
 ];

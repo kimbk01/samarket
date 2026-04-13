@@ -2,12 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { useRegion } from "@/contexts/RegionContext";
-import {
-  neighborhoodLocationKeyFromRegion,
-  neighborhoodLocationLabelFromRegion,
-  neighborhoodLocationMetaFromRegion,
-} from "@/lib/neighborhood/location-key";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { warmPhilifeNeighborhoodFeedByUrl } from "@/lib/philife/warm-philife-neighborhood-feed";
 import { isConstrainedNetwork, scheduleWhenBrowserIdle, cancelScheduledWhenBrowserIdle } from "@/lib/ui/network-policy";
@@ -22,7 +16,6 @@ const warmedFeedAtByKey = new Map<string, number>();
 export function PhilifeFeedWarmPrefetch() {
   const pathname = usePathname();
   const viewerSig = usePhilifeFeedViewerSig();
-  const { currentRegion } = useRegion();
   const tickRef = useRef(0);
 
   useEffect(() => {
@@ -31,18 +24,8 @@ export function PhilifeFeedWarmPrefetch() {
     if (document.visibilityState !== "visible") return;
     if (isConstrainedNetwork()) return;
 
-    const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
-    if (!locationKey) return;
-
-    const meta = neighborhoodLocationMetaFromRegion(currentRegion);
-    const locationLabel = neighborhoodLocationLabelFromRegion(currentRegion);
-    const url = buildPhilifeNeighborhoodFeedClientUrl({
-      locationKey,
-      meta,
-      locationLabelFallback: locationLabel,
-      regionLabel: currentRegion?.label ?? null,
-    });
-    const cacheKey = `${locationKey}:${viewerSig}:${url}`;
+    const url = buildPhilifeNeighborhoodFeedClientUrl({ globalFeed: true });
+    const cacheKey = `global:${viewerSig}:${url}`;
     const lastWarmedAt = warmedFeedAtByKey.get(cacheKey) ?? 0;
     if (Date.now() - lastWarmedAt < PHILIFE_WARM_PREFETCH_TTL_MS) return;
 
@@ -65,7 +48,7 @@ export function PhilifeFeedWarmPrefetch() {
       window.clearTimeout(t);
       cancelScheduledWhenBrowserIdle(refreshIdleId);
     };
-  }, [pathname, currentRegion, viewerSig]);
+  }, [pathname, viewerSig]);
 
   return null;
 }

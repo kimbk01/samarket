@@ -6,7 +6,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import type { ChatRoomSource } from "@/lib/types/chat";
 
@@ -18,10 +18,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ roomId: null, source: null });
   }
 
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
+  const sb = resolveServiceSupabaseForApi();
+  if (!sb) {
     return NextResponse.json({ roomId: null, source: null });
   }
 

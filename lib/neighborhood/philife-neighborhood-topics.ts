@@ -60,6 +60,19 @@ export function isPhilifeFeedCategorySlugAllowedByTopics(topics: CommunityTopicD
   );
 }
 
+/**
+ * 동네 피드 섹션 `community_topics`에 해당 slug 행이 있으면(정렬 전용 주제 포함) 「전체」탭에서 노출.
+ * 어드민에 보이는 주제·글과 필라이프 누락을 맞추기 위함.
+ */
+export function sectionHasTopicSlug(topics: CommunityTopicDTO[], slug: string): boolean {
+  const s = slug.trim().toLowerCase();
+  if (!s) return false;
+  if (s === "meetup") {
+    return topics.some((t) => t.allow_meetup);
+  }
+  return topics.some((t) => t.slug.trim().toLowerCase() === s);
+}
+
 /** 홈 피드 상단 칩: `is_feed_sort` 제외, `allow_meetup` 은 단일 「모임」칩으로 묶음 */
 export function buildPhilifeFeedChipsFromTopics(topics: CommunityTopicDTO[]): PhilifeNeighborhoodFeedChip[] {
   const chips: PhilifeNeighborhoodFeedChip[] = [];

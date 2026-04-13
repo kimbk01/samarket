@@ -6,7 +6,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { ensureProductChatRowForItemTrade } from "@/lib/trade/ensure-product-chat-for-item-trade";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
@@ -18,10 +18,8 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const buyerId = auth.userId;
 
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
+  const sb = resolveServiceSupabaseForApi();
+  if (!sb) {
     return NextResponse.json(
       { ok: false, error: "서버 설정이 필요합니다." },
       { status: 500 }

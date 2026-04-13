@@ -1,5 +1,6 @@
-import { AdminPostsPageContent } from "./AdminPostsPageContent";
+import { redirect } from "next/navigation";
 
-export default function AdminPostsPage() {
-  return <AdminPostsPageContent />;
+/** @deprecated `/admin/community/posts` 로 이동했습니다. */
+export default function AdminPostsPageRedirect() {
+  redirect("/admin/community/posts");
 }
