@@ -12,6 +12,7 @@ import { fetchTradeFeedPage } from "@/lib/posts/fetch-trade-feed-page";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { computeTradeFeedKey } from "@/lib/posts/trade-feed-key";
 import { CATEGORY_WITH_SETTINGS_SELECT } from "@/lib/categories/category-select-fragment";
+import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
 
 export const dynamic = "force-dynamic";
 
@@ -73,10 +74,12 @@ export async function GET(req: NextRequest) {
   }
 
   const rawChildren = Array.isArray(childRows) ? childRows : [];
-  // Same as getChildCategories: exclude primary-menu categories (show_in_home_chips=true).
+  /** 2행 칩 UI 만: 홈 칩과 겹치는 하위(show_in_home_chips) 제외 — 피드 ID 와는 분리 */
   const childrenArr = rawChildren.filter(
     (r: Record<string, unknown>) => r.show_in_home_chips !== true
   );
+  /** 피드: 루트 아래 **모든 깊이** trade 카테고리 — 글은 리프 UUID 로만 저장되는 경우가 많음 */
+  const childrenForFilter = await fetchTradeCategoryDescendantNodes(supabase, parentId);
   const iconKey = String((cat as { icon_key?: unknown }).icon_key ?? "");
   const slugVal = String((cat as { slug?: unknown }).slug ?? "");
   const isJobMarket =
@@ -95,13 +98,9 @@ export async function GET(req: NextRequest) {
   let initialFeed: { posts: unknown[]; hasMore: boolean; feedKey: string } | undefined;
 
   if (includePosts) {
-    const childForFilter = childrenArr.map((r: Record<string, unknown>) => ({
-      id: String(r.id ?? ""),
-      slug: typeof r.slug === "string" ? r.slug : null,
-    }));
     const filterIds = computeMarketFilterIds({
       parentCategoryId: parentId,
-      children: childForFilter,
+      activeChildren: childrenForFilter,
       topicParam,
     });
     const { posts, hasMore } = await fetchTradeFeedPage(supabase, filterIds, {
@@ -120,6 +119,7 @@ export async function GET(req: NextRequest) {
   return jsonOk({
     category: cat,
     children: childrenArr,
+    childrenForFilter,
     ...(initialFeed ? { initialFeed } : {}),
   });
 }

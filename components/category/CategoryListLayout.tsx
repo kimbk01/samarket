@@ -29,6 +29,8 @@ interface CategoryListLayoutProps {
     category: CategoryWithSettings,
     extra?: {
       tradeBootstrapChildren?: CategoryWithSettings[];
+      /** 피드 SQL 필터용 직계 하위 id/slug 전체(bootstrap) — 칩 목록과 분리 */
+      tradeBootstrapChildrenForFilter?: { id: string; slug: string | null }[];
       tradeBootstrapFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null;
     }
   ) => React.ReactNode;
@@ -50,6 +52,9 @@ export function CategoryListLayout({
   const [tradeBootstrapFeed, setTradeBootstrapFeed] = useState<
     { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null | undefined
   >(undefined);
+  const [tradeBootstrapChildrenForFilter, setTradeBootstrapChildrenForFilter] = useState<
+    { id: string; slug: string | null }[] | undefined
+  >(undefined);
   const [status, setStatus] = useState<"loading" | "found" | "not_found" | "redirect">("loading");
 
   useEffect(() => {
@@ -63,6 +68,7 @@ export function CategoryListLayout({
     }
     setStatus("loading");
     setTradeBootstrapChildren(undefined);
+    setTradeBootstrapChildrenForFilter(undefined);
     setTradeBootstrapFeed(undefined);
 
     if (expectedType === "trade") {
@@ -82,6 +88,7 @@ export function CategoryListLayout({
           ok?: boolean;
           category?: Record<string, unknown>;
           children?: Record<string, unknown>[];
+          childrenForFilter?: { id?: string; slug?: unknown }[];
           initialFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string };
           error?: string;
         };
@@ -94,8 +101,15 @@ export function CategoryListLayout({
           }
           const children = (j.children ?? []).map((row) => mapChildCategoryRow(row as unknown as TradeChildDbRow));
           writeCategoryCache(`children:${c.id}`, children);
+          const childrenForFilter = (j.childrenForFilter ?? [])
+            .map((row) => ({
+              id: String(row?.id ?? ""),
+              slug: typeof row?.slug === "string" ? row.slug : null,
+            }))
+            .filter((r) => r.id.length > 0);
           setCategory(c);
           setTradeBootstrapChildren(children);
+          setTradeBootstrapChildrenForFilter(childrenForFilter);
           setTradeBootstrapFeed(j.initialFeed ?? null);
           setStatus("found");
           return;
@@ -117,6 +131,7 @@ export function CategoryListLayout({
     }
     setCategory(c);
     setTradeBootstrapChildren(undefined);
+    setTradeBootstrapChildrenForFilter(undefined);
     setTradeBootstrapFeed(null);
     setStatus("found");
   }, [slugOrId, expectedType, router]);
@@ -167,6 +182,8 @@ export function CategoryListLayout({
       <div className={`${APP_MAIN_GUTTER_X_CLASS} ${tradeInnerY}`}>
         {children(category, {
           tradeBootstrapChildren: expectedType === "trade" ? tradeBootstrapChildren : undefined,
+          tradeBootstrapChildrenForFilter:
+            expectedType === "trade" ? tradeBootstrapChildrenForFilter : undefined,
           tradeBootstrapFeed: expectedType === "trade" ? tradeBootstrapFeed : undefined,
         })}
       </div>

@@ -9,6 +9,8 @@ import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
+import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
+import { applyPostgrestAndGroup } from "@/lib/posts/apply-postgrest-and-group";
 
 export const dynamic = "force-dynamic";
 
@@ -143,18 +145,9 @@ async function expandTradeMarketCategoryFilterIds(
 ): Promise<string[]> {
   const pid = parentId.trim();
   const qsb = serviceSb ?? readSb;
-  const { data, error } = await qsb
-    .from("categories")
-    .select("id")
-    .eq("parent_id", pid)
-    .eq("is_active", true);
-  if (error || !Array.isArray(data)) {
-    return [pid];
-  }
-  const childIds = data
-    .map((r: { id?: string }) => r.id)
-    .filter((x): x is string => typeof x === "string" && x.length > 0);
-  return [...new Set([pid, ...childIds])];
+  const descendants = await fetchTradeCategoryDescendantNodes(qsb, pid);
+  const descIds = descendants.map((d) => d.id).filter(Boolean);
+  return [...new Set([pid, ...descIds])];
 }
 
 async function loadHomePostsPage(
@@ -168,34 +161,33 @@ async function loadHomePostsPage(
   let data: unknown[] | null = null;
 
   outer: for (const selectFields of HOME_POSTS_SELECT_TIERS) {
-    const colModes = tradeCategoryIds?.length ? ([true, false] as const) : ([true] as const);
-    for (const useTradeCol of colModes) {
-      let q = sb.from(table).select(selectFields).or(HOME_POSTS_STATUS_OR);
-      if (tradeCategoryIds?.length) {
-        q = useTradeCol
-          ? q.in("trade_category_id", tradeCategoryIds)
-          : q.in("category_id", tradeCategoryIds);
-      }
-      if (type === "trade") {
-        q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
-      } else if (type === "community") {
-        q = q.not("board_id", "is", null).neq("board_id", "");
-      } else if (type === "service") {
-        q = q.not("service_id", "is", null).neq("service_id", "");
-      } else if (type === "feature") {
-        // no-op
-      }
-      if (sort === "latest") {
-        q = q.order("created_at", { ascending: false });
-      } else {
-        q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
-      }
+    let q = sb.from(table).select(selectFields);
+    if (tradeCategoryIds?.length) {
+      const idCsv = tradeCategoryIds.join(",");
+      /** `.or()` 연쇄 시 PostgREST `or` 파라미터가 덮일 수 있어 `and=(or(상태),or(카테고리))` 로 단일화 */
+      applyPostgrestAndGroup(q as unknown as { url: URL }, `(or(${HOME_POSTS_STATUS_OR}),or(trade_category_id.in.(${idCsv}),category_id.in.(${idCsv})))`);
+    } else {
+      q = q.or(HOME_POSTS_STATUS_OR);
+    }
+    if (type === "trade") {
+      q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
+    } else if (type === "community") {
+      q = q.not("board_id", "is", null).neq("board_id", "");
+    } else if (type === "service") {
+      q = q.not("service_id", "is", null).neq("service_id", "");
+    } else if (type === "feature") {
+      // no-op
+    }
+    if (sort === "latest") {
+      q = q.order("created_at", { ascending: false });
+    } else {
+      q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+    }
 
-      const res = await q.range(from, from + PAGE_SIZE - 1);
-      if (!res.error && Array.isArray(res.data)) {
-        data = res.data;
-        break outer;
-      }
+    const res = await q.range(from, from + PAGE_SIZE - 1);
+    if (!res.error && Array.isArray(res.data)) {
+      data = res.data;
+      break outer;
     }
   }
 

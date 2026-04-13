@@ -19,6 +19,7 @@ function MarketCategoryPageInner() {
           <MarketCategoryFeed
             category={category}
             initialChildren={extra?.tradeBootstrapChildren}
+            initialChildrenForFilter={extra?.tradeBootstrapChildrenForFilter}
             bootstrapFeed={extra?.tradeBootstrapFeed}
           />
         </Suspense>
