@@ -31,7 +31,8 @@ export async function requireAdminApiUser(): Promise<
       supabaseEnv.url,
       supabaseEnv.anonKey,
       auth.userId,
-      sessionEmail
+      sessionEmail,
+      supabaseEnv.serviceKey
     ))
   ) {
     return {

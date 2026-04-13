@@ -3,23 +3,28 @@ import { getAllowedAdminEmails, isPrivilegedAdminRole } from "@/lib/auth/admin-p
 
 /**
  * trade-flow 등 관리자 API 공통 — test_users.role / profiles.role
+ *
+ * 운영에서는 `SUPABASE_SERVICE_ROLE_KEY`가 있으면 서비스 롤로 조회해 RLS·정책 차이로 인한
+ * 오판·403 과다를 막고, `isRouteAdmin()` 과 동일한 DB 신뢰 경로를 쓴다.
+ * 서비스 키가 없는 로컬 등에서만 anon 폴백.
  */
 export async function verifyAdminUserId(
   url: string,
   anonKey: string,
-  userId: string
+  userId: string,
+  serviceKey?: string | null
 ): Promise<boolean> {
-  const anon = createClient(url, anonKey);
-  const { data: testUser } = await anon
+  const db = getServiceOrAnonClient(url, anonKey, serviceKey ?? undefined);
+  const { data: testUser } = await db
     .from("test_users")
-    .select("id, username, role")
+    .select("id, role")
     .eq("id", userId)
     .maybeSingle();
 
   const tr = (testUser as { role?: string } | null)?.role;
   if (isPrivilegedAdminRole(tr)) return true;
 
-  const { data: prof } = await anon.from("profiles").select("role").eq("id", userId).maybeSingle();
+  const { data: prof } = await db.from("profiles").select("role").eq("id", userId).maybeSingle();
   const role = (prof as { role?: string } | null)?.role;
   return isPrivilegedAdminRole(role);
 }
@@ -32,9 +37,10 @@ export async function verifyAdminAccess(
   url: string,
   anonKey: string,
   userId: string,
-  sessionEmail?: string | null
+  sessionEmail?: string | null,
+  serviceKey?: string | null
 ): Promise<boolean> {
-  if (await verifyAdminUserId(url, anonKey, userId)) return true;
+  if (await verifyAdminUserId(url, anonKey, userId, serviceKey)) return true;
   const em = sessionEmail?.trim();
   if (em && getAllowedAdminEmails().includes(em)) return true;
   return false;

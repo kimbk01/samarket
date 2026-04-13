@@ -35,16 +35,29 @@ function fetchProfileEnsureDeduped(): Promise<Response> {
  * - 세션 메타만 쓰면(OAuth/Google picture만 반영) 저장한 프로필 사진이 사라지는 문제가 난다.
  */
 async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
-  const {
-    data: { user },
-    error,
-  } = await sb.auth.getUser();
-  if (error || !user) {
+  let user: Awaited<ReturnType<SupabaseClient["auth"]["getUser"]>>["data"]["user"] = null;
+  try {
+    const {
+      data: { user: u },
+      error,
+    } = await sb.auth.getUser();
+    if (error || !u) {
+      invalidateMeProfileDedupedCache();
+      setSupabaseProfileCache(null);
+      dispatchTestAuthChanged();
+      return;
+    }
+    user = u;
+  } catch (e) {
     invalidateMeProfileDedupedCache();
     setSupabaseProfileCache(null);
     dispatchTestAuthChanged();
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[SupabaseAuthSync] getUser 실패(네트워크·DNS 등):", e);
+    }
     return;
   }
+  if (!user) return;
   let nextProfile = userToProfile(user);
   try {
     const res = await fetchProfileEnsureDeduped();
