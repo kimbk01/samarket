@@ -5523,6 +5523,75 @@ export async function createCommunityMessengerCallLog(input: {
   return { ok: true };
 }
 
+/**
+ * 1:1 DM 통화 발신: `getCommunityMessengerRoomSnapshot`(메시지·프로필 전체) 없이
+ * 방 메타·참가자 id·진행 중 세션만 병렬 조회해 TTFB 를 줄인다. 그룹방은 기존 스냅샷 경로 유지.
+ */
+type CallSessionStartResolve =
+  | { kind: "fullSnapshot"; snapshot: CommunityMessengerRoomSnapshot }
+  | {
+      kind: "directLight";
+      peerUserId: string;
+      activeCall: CommunityMessengerCallSession | null;
+      roomStatus: CommunityMessengerRoomStatus;
+      isReadonly: boolean;
+    };
+
+async function resolveRoomContextForCallSessionStart(
+  userId: string,
+  roomId: string
+): Promise<CallSessionStartResolve | null> {
+  const id = trimText(roomId);
+  if (!id) return null;
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const snapshot = await getCommunityMessengerRoomSnapshot(userId, roomId);
+    return snapshot ? { kind: "fullSnapshot", snapshot } : null;
+  }
+
+  const [{ data: roomData, error: roomErr }, activeCall] = await Promise.all([
+    (sb as any)
+      .from("community_messenger_rooms")
+      .select("id, room_type, room_status, is_readonly")
+      .eq("id", id)
+      .maybeSingle(),
+    getActiveCallSessionForRoom(userId, id),
+  ]);
+
+  if (roomErr || !roomData) return null;
+  const roomType = (roomData as RoomRow).room_type;
+  if (isCommunityMessengerGroupRoomType(roomType)) {
+    const snapshot = await getCommunityMessengerRoomSnapshot(userId, roomId);
+    return snapshot ? { kind: "fullSnapshot", snapshot } : null;
+  }
+
+  const { data: pRows } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("user_id")
+    .eq("room_id", id);
+  const memberIds = dedupeIds(
+    ((pRows ?? []) as Array<{ user_id?: string | null }>)
+      .map((r) => r.user_id)
+      .filter((v): v is string => typeof v === "string" && v.length > 0)
+  );
+  if (!memberIds.includes(userId)) return null;
+  const peers = memberIds.filter((uid) => uid !== userId);
+  const peerUserId = peers[0] ?? null;
+  if (!peerUserId) return null;
+
+  const rawStatus = (roomData as RoomRow).room_status;
+  const roomStatus = (rawStatus ?? "active") as CommunityMessengerRoomStatus;
+  const isReadonly = (roomData as { is_readonly?: boolean | null }).is_readonly === true;
+
+  return {
+    kind: "directLight",
+    peerUserId,
+    activeCall,
+    roomStatus,
+    isReadonly,
+  };
+}
+
 export async function startCommunityMessengerCallSession(input: {
   userId: string;
   roomId: string;
@@ -5530,21 +5599,43 @@ export async function startCommunityMessengerCallSession(input: {
 }): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   const roomId = trimText(input.roomId);
   if (!roomId) return { ok: false, error: "room_required" };
-  const snapshot = await getCommunityMessengerRoomSnapshot(input.userId, roomId);
-  if (!snapshot) return { ok: false, error: "room_not_found" };
-  if (snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly) {
-    return { ok: false, error: "room_unavailable" };
+
+  const resolved = await resolveRoomContextForCallSessionStart(input.userId, roomId);
+  if (!resolved) return { ok: false, error: "room_not_found" };
+
+  let snapshot: CommunityMessengerRoomSnapshot | null = null;
+  let isGroupRoom: boolean;
+  let peerUserId: string | null;
+
+  if (resolved.kind === "fullSnapshot") {
+    snapshot = resolved.snapshot;
+    if (snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly) {
+      return { ok: false, error: "room_unavailable" };
+    }
+    if (snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
+      return { ok: true, session: snapshot.activeCall };
+    }
+    isGroupRoom = isCommunityMessengerGroupRoomType(snapshot.room.roomType);
+    peerUserId = isGroupRoom
+      ? null
+      : trimText(snapshot.room.peerUserId ?? "") || snapshot.members.find((item) => item.id !== input.userId)?.id || null;
+    if (!isGroupRoom && !peerUserId) return { ok: false, error: "peer_not_found" };
+    if (isGroupRoom && snapshot.members.length > 4) {
+      return { ok: false, error: "group_call_limit_exceeded" };
+    }
+  } else {
+    if (resolved.roomStatus !== "active" || resolved.isReadonly) {
+      return { ok: false, error: "room_unavailable" };
+    }
+    if (resolved.activeCall && !isTerminalCallSessionStatus(resolved.activeCall.status)) {
+      return { ok: true, session: resolved.activeCall };
+    }
+    peerUserId = resolved.peerUserId;
+    isGroupRoom = false;
   }
-  if (snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
-    return { ok: true, session: snapshot.activeCall };
-  }
-  const isGroupRoom = isCommunityMessengerGroupRoomType(snapshot.room.roomType);
-  const peerUserId = isGroupRoom
-    ? null
-    : trimText(snapshot.room.peerUserId ?? "") || snapshot.members.find((item) => item.id !== input.userId)?.id || null;
-  if (!isGroupRoom && !peerUserId) return { ok: false, error: "peer_not_found" };
-  if (isGroupRoom && snapshot.members.length > 4) {
-    return { ok: false, error: "group_call_limit_exceeded" };
+
+  if (isGroupRoom && !snapshot) {
+    return { ok: false, error: "room_not_found" };
   }
 
   const sb = getSupabaseOrNull();
@@ -5570,7 +5661,7 @@ export async function startCommunityMessengerCallSession(input: {
     if (!error && data) {
       const inserted = data as CallSessionRow;
       const participantRows = isGroupRoom
-        ? snapshot.members.map((member) => ({
+        ? snapshot!.members.map((member) => ({
             session_id: inserted.id,
             room_id: roomId,
             user_id: member.id,
@@ -5642,9 +5733,17 @@ export async function startCommunityMessengerCallSession(input: {
     }
   }
 
+  if (!snapshot && !isGroupRoom) {
+    snapshot = await getCommunityMessengerRoomSnapshot(input.userId, roomId);
+  }
+
   const existingDevLive = await getActiveCallSessionForRoom(input.userId, roomId);
   if (existingDevLive) {
     return { ok: true, session: existingDevLive };
+  }
+
+  if (!snapshot) {
+    return { ok: false, error: "room_not_found" };
   }
 
   const dev = getDevState();

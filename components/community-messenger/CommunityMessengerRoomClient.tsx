@@ -34,6 +34,7 @@ import {
   communityMessengerRoomIsGloballyUsable,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
+  type CommunityMessengerCallSession,
   type CommunityMessengerMessage,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
@@ -62,6 +63,7 @@ import {
 } from "@/lib/community-messenger/voice-waveform";
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
+import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
@@ -1148,7 +1150,7 @@ export function CommunityMessengerRoomClient({
     (nextSessionId: string, action?: "accept") => {
       const suffix = action ? `?action=${encodeURIComponent(action)}` : "";
       const href = `/community-messenger/calls/${encodeURIComponent(nextSessionId)}${suffix}`;
-      router.prefetch(href);
+      void router.prefetch(href);
       router.push(href);
     },
     [router]
@@ -1180,7 +1182,9 @@ export function CommunityMessengerRoomClient({
           setManagedDirectCallError(getRoomActionErrorMessage(json.error));
           return;
         }
-        openDirectCallPage(String(json.session.id));
+        const sess = json.session as CommunityMessengerCallSession;
+        primeCommunityMessengerCallNavigationSeed(sess.id, sess);
+        openDirectCallPage(String(sess.id));
       } finally {
         setBusy(null);
       }
@@ -2232,8 +2236,10 @@ export function CommunityMessengerRoomClient({
           return;
         }
         setMemberActionTarget(null);
-        const groupCallHref = `/community-messenger/calls/${encodeURIComponent(String(callJson.session.id))}`;
-        router.prefetch(groupCallHref);
+        const sess = callJson.session as CommunityMessengerCallSession;
+        primeCommunityMessengerCallNavigationSeed(sess.id, sess);
+        const groupCallHref = `/community-messenger/calls/${encodeURIComponent(String(sess.id))}`;
+        void router.prefetch(groupCallHref);
         router.push(groupCallHref);
       } finally {
         setBusy(null);

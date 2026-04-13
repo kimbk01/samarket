@@ -172,7 +172,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     const pollMs = getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, sessions.length > 0);
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      void refresh();
+      /* Realtime 폴백 시 쿨다운에 막히지 않도록 force — 간격은 pollMs 로만 제한 */
+      void refresh(true);
     }, pollMs);
     const onVisible = () => {
       if (document.visibilityState === "visible") queueVisibilityRefreshBurst();

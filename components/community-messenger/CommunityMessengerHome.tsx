@@ -40,6 +40,7 @@ import {
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
+import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   communityMessengerFriendRequestFailureMessage,
   messengerFriendRequestBusyId,
@@ -85,6 +86,7 @@ import {
 import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
+  type CommunityMessengerCallSession,
   type CommunityMessengerDiscoverableGroupSummary,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
@@ -812,8 +814,10 @@ export function CommunityMessengerHome({
           setActionError(getMessengerActionErrorMessage(cJson.error));
           return;
         }
-        const callHref = `/community-messenger/calls/${encodeURIComponent(cJson.session.id)}`;
-        router.prefetch(callHref);
+        const sess = cJson.session as CommunityMessengerCallSession;
+        primeCommunityMessengerCallNavigationSeed(sess.id, sess);
+        const callHref = `/community-messenger/calls/${encodeURIComponent(sess.id)}`;
+        void router.prefetch(callHref);
         router.push(callHref);
       } finally {
         setBusyId(null);

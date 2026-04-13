@@ -49,26 +49,26 @@ export const MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS = readPublicEnvMs(
   2000
 );
 
-/** 수신 통화: postgres_changes 연속 시 GET 합류 방지 */
+/** 수신 통화: postgres_changes 연속 시 GET 합류 방지 — 너무 길면 벨 지연 체감 */
 export const MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_RT_DEBOUNCE_MS",
-  280,
-  100,
+  90,
+  50,
   2000
 );
 
-/** 수신 목록 GET 레이트 (연속 Realtime·포커스) */
+/** 수신 목록 GET 레이트 (연속 Realtime·포커스) — 폴링이 force 로 우회하므로 상한만 완화 */
 export const MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_REFRESH_COOLDOWN_MS",
-  1_200,
-  400,
+  450,
+  200,
   10_000
 );
 
 export const MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_BURST_GAP_MS",
-  2_000,
-  500,
+  900,
+  300,
   15_000
 );
 
@@ -95,7 +95,8 @@ export function getIncomingCallPollIntervalMs(
   hasActiveIncomingSessions: boolean
 ): number {
   if (tier === "production") {
-    return hasActiveIncomingSessions ? 11_000 : 26_000;
+    /* Realtime 폴백: 과거 11~26s 는 수신 벨 체감 지연이 커서 상한을 낮춤 */
+    return hasActiveIncomingSessions ? 2_500 : 3_500;
   }
-  return hasActiveIncomingSessions ? 5_000 : 14_000;
+  return hasActiveIncomingSessions ? 2_000 : 3_000;
 }

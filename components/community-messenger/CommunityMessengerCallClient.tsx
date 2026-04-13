@@ -62,6 +62,7 @@ import { formatMessengerAgoraLastMileLine } from "@/lib/community-messenger/call
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import { CallScreenShell, MESSENGER_CALL_GRADIENT_SURFACE } from "@/components/community-messenger/call-ui/CallScreenShell";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { consumeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
@@ -181,6 +182,16 @@ export function CommunityMessengerCallClient({
 
   useLayoutEffect(() => {
     stopCommunityMessengerCallFeedback();
+  }, [sessionId]);
+
+  /** 발신 직후 네비게이션 시드 — RSC/GET 전에 세션을 채워 로딩 스피너 단축 */
+  useLayoutEffect(() => {
+    if (initialSessionRef.current != null) return;
+    const seeded = consumeCommunityMessengerCallNavigationSeed(sessionId);
+    if (seeded) {
+      setSession(seeded);
+      setLoading(false);
+    }
   }, [sessionId]);
 
   useEffect(() => {
@@ -875,6 +886,11 @@ export function CommunityMessengerCallClient({
         setSession(fromServer);
         setLoading(false);
         /* 토큰은 아래 prefetch useEffect 한 경로만 호출 — bootstrap 과 중복 /token 요청 방지 */
+        void refreshSession(true);
+        return;
+      }
+
+      if (sessionRef.current) {
         void refreshSession(true);
         return;
       }
