@@ -7,7 +7,7 @@ import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
-import { getPostsForHome } from "@/lib/posts/getPostsForHome";
+import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
@@ -19,8 +19,9 @@ export function warmMainShellData(): void {
   if (document.visibilityState !== "visible") return;
   if (isConstrainedNetwork()) return;
 
-  /** 홈 목록 API를 먼저 예열 — `HomeProductList` 마운트와 경쟁해도 캐시로 한 번만 나감 */
+  /** 홈 목록 API 예열 — RSC 시드 + `primeHomePostsCache` 가 이미 채웠으면 네트워크 생략 */
   const postsWarmId = scheduleWhenBrowserIdle(() => {
+    if (peekCachedPostsForHome({ sort: "latest", type: null })) return;
     void getPostsForHome({ sort: "latest", type: null }).catch(() => {});
   }, 280);
 

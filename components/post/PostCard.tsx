@@ -126,44 +126,46 @@ export function PostCard({
       {footer ? (
         <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2.5">{footer}</div>
       ) : null}
-      <PostListMenuBottomSheet
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        showOwnerTradeActions={showOwnerTradeActions}
-        ownerEditLocked={showOwnerTradeActions && ownerEditLocked}
-        ownerDeleteLocked={showOwnerTradeActions && ownerDeleteLocked}
-        ownerEditLockHint={ownerEditLockHint(ownerMenuPost)}
-        ownerDeleteLockHint={ownerDeleteLockHint(ownerMenuPost)}
-        onAction={(action) => {
-          if (action === "edit_own") {
-            router.push(`/products/${encodeURIComponent(post.id)}/edit`);
-            return;
-          }
-          if (action === "delete_own") {
-            void (async () => {
-              try {
-                const res = await fetch(
-                  `/api/posts/${encodeURIComponent(post.id)}/owner-delete`,
-                  { method: "POST", credentials: "include" }
-                );
-                const data = (await res.json().catch(() => ({}))) as {
-                  ok?: boolean;
-                  error?: string;
-                };
-                if (!res.ok || !data.ok) {
-                  window.alert(data.error ?? "삭제하지 못했습니다.");
-                  return;
+      {menuOpen ? (
+        <PostListMenuBottomSheet
+          open
+          onClose={() => setMenuOpen(false)}
+          showOwnerTradeActions={showOwnerTradeActions}
+          ownerEditLocked={showOwnerTradeActions && ownerEditLocked}
+          ownerDeleteLocked={showOwnerTradeActions && ownerDeleteLocked}
+          ownerEditLockHint={ownerEditLockHint(ownerMenuPost)}
+          ownerDeleteLockHint={ownerDeleteLockHint(ownerMenuPost)}
+          onAction={(action) => {
+            if (action === "edit_own") {
+              router.push(`/products/${encodeURIComponent(post.id)}/edit`);
+              return;
+            }
+            if (action === "delete_own") {
+              void (async () => {
+                try {
+                  const res = await fetch(
+                    `/api/posts/${encodeURIComponent(post.id)}/owner-delete`,
+                    { method: "POST", credentials: "include" }
+                  );
+                  const data = (await res.json().catch(() => ({}))) as {
+                    ok?: boolean;
+                    error?: string;
+                  };
+                  if (!res.ok || !data.ok) {
+                    window.alert(data.error ?? "삭제하지 못했습니다.");
+                    return;
+                  }
+                  onMenuAction?.(post.id, "delete_own");
+                } catch {
+                  window.alert("네트워크 오류로 삭제하지 못했습니다.");
                 }
-                onMenuAction?.(post.id, "delete_own");
-              } catch {
-                window.alert("네트워크 오류로 삭제하지 못했습니다.");
-              }
-            })();
-            return;
-          }
-          onMenuAction?.(post.id, action);
-        }}
-      />
+              })();
+              return;
+            }
+            onMenuAction?.(post.id, action);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

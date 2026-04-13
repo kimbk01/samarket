@@ -18,9 +18,19 @@ import { fetchAdminDashboardStatsDeduped } from "@/lib/admin/fetch-admin-dashboa
 
 type LoadState = "loading" | "ready" | "error";
 
-export function AdminDashboardPage() {
-  const [payload, setPayload] = useState<DashboardPayload>(() => createEmptyDashboardPayload());
-  const [loadState, setLoadState] = useState<LoadState>("loading");
+export function AdminDashboardPage({
+  initialDashboardPayload,
+}: {
+  /** RSC에서 관리자 확인 후 한 번 조회 — 클라이언트 첫 `/api/admin/stats/dashboard` 생략 */
+  initialDashboardPayload?: DashboardPayload | null;
+}) {
+  const serverSeeded =
+    initialDashboardPayload != null && isDashboardApiPayload(initialDashboardPayload);
+
+  const [payload, setPayload] = useState<DashboardPayload>(() =>
+    serverSeeded ? initialDashboardPayload : createEmptyDashboardPayload()
+  );
+  const [loadState, setLoadState] = useState<LoadState>(() => (serverSeeded ? "ready" : "loading"));
   const [lastErrorAt, setLastErrorAt] = useState<string | null>(null);
 
   const load = useCallback((options?: { showLoading?: boolean }) => {
@@ -46,10 +56,12 @@ export function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
-    load({ showLoading: true });
+    if (!serverSeeded) {
+      load({ showLoading: true });
+    }
     const id = window.setInterval(() => load({ showLoading: false }), 30_000);
     return () => window.clearInterval(id);
-  }, [load]);
+  }, [load, serverSeeded]);
 
   const loading = loadState === "loading";
 

@@ -4,6 +4,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
  * 채팅 등에서 사용하는 상품 id가 posts 테이블 id일 때,
  * 서버에서 post 1건 조회 후 Product 형태로 변환 (상품 상세 페이지용)
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Product } from "@/lib/types/product";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { POST_TRADE_DETAIL_SELECT } from "@/lib/posts/post-query-select";
@@ -68,7 +69,7 @@ export async function getProductFromPostId(postId: string): Promise<Product | nu
   const sb = resolveServiceSupabaseForApi();
   if (!sb) return null;
   try {
-    const sbAny = sb as ReturnType<typeof getSupabaseServer>;
+    const sbAny = sb as SupabaseClient;
 
     let { data: row, error } = await sbAny
       .from(POSTS_TABLE_READ)

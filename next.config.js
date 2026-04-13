@@ -36,6 +36,10 @@ const resolvedDistDir = resolveDistDirForNextConfig();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   ...(resolvedDistDir ? { distDir: resolvedDistDir } : {}),
+  experimental: {
+    /** 가상 스크롤 패키지 — named export 트리가 커질 때 클라이언트 청크 슬림 */
+    optimizePackageImports: ["@tanstack/react-virtual"],
+  },
   /** Vercel 빌드 시 클라이언트에서도 Preview/Production 구분 (deploy-surface.ts) */
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? "",

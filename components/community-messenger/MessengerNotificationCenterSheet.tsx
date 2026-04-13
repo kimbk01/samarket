@@ -2,39 +2,20 @@
 
 import { useCallback, useState } from "react";
 import type { PointerEvent } from "react";
-import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type {
   CommunityMessengerCallLog,
   CommunityMessengerFriendRequest,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+import type { MessengerNotificationCenterItem } from "@/lib/community-messenger/messenger-notification-center-model";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import {
   formatConversationTimestamp,
   getRoomTypeBadgeLabel,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 
-export type MessengerNotificationCenterItem =
-  | {
-      id: string;
-      kind: "request";
-      createdAt: string;
-      request: CommunityMessengerFriendRequest;
-    }
-  | {
-      id: string;
-      kind: "missed_call";
-      createdAt: string;
-      call: CommunityMessengerCallLog;
-    }
-  | {
-      id: string;
-      kind: "important_room";
-      createdAt: string;
-      room: CommunityMessengerRoomSummary;
-      preview: string;
-      highlightReason: "pinned" | "trade" | "delivery";
-    };
+export type { MessengerNotificationCenterItem } from "@/lib/community-messenger/messenger-notification-center-model";
+export { resolveImportantRoomHighlightReason } from "@/lib/community-messenger/messenger-notification-center-model";
 
 type Summary = {
   requestCount: number;
@@ -478,12 +459,4 @@ export function MessengerNotificationCenterSheet({
       </div>
     </div>
   );
-}
-
-export function resolveImportantRoomHighlightReason(
-  room: CommunityMessengerRoomSummary
-): "pinned" | "trade" | "delivery" {
-  if (room.isPinned) return "pinned";
-  if (communityMessengerRoomIsTrade(room)) return "trade";
-  return "delivery";
 }

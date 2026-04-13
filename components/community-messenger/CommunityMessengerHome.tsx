@@ -1,24 +1,64 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
-import { MessengerIncomingFriendRequestPopup } from "@/components/community-messenger/MessengerIncomingFriendRequestPopup";
-import { MessengerNewConversationSheet } from "@/components/community-messenger/MessengerNewConversationSheet";
-import { MessengerFriendAddSheet, type MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
+import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
-  MessengerNotificationCenterSheet,
   resolveImportantRoomHighlightReason,
   type MessengerNotificationCenterItem,
-} from "@/components/community-messenger/MessengerNotificationCenterSheet";
-import { MessengerSearchSheet } from "@/components/community-messenger/MessengerSearchSheet";
-import { MessengerFriendProfileSheet } from "@/components/community-messenger/MessengerFriendProfileSheet";
-import { MessengerChatRoomActionSheet } from "@/components/community-messenger/MessengerChatRoomActionSheet";
-import { MessengerFriendsPrivacySheet } from "@/components/community-messenger/MessengerFriendsPrivacySheet";
-import { MessengerSettingsSheet } from "@/components/community-messenger/MessengerSettingsSheet";
+} from "@/lib/community-messenger/messenger-notification-center-model";
+
+const MessengerIncomingFriendRequestPopup = dynamic(
+  () =>
+    import("@/components/community-messenger/MessengerIncomingFriendRequestPopup").then(
+      (m) => m.MessengerIncomingFriendRequestPopup
+    ),
+  { ssr: false, loading: () => null }
+);
+const MessengerFriendProfileSheet = dynamic(
+  () =>
+    import("@/components/community-messenger/MessengerFriendProfileSheet").then((m) => m.MessengerFriendProfileSheet),
+  { ssr: false, loading: () => null }
+);
+const MessengerChatRoomActionSheet = dynamic(
+  () =>
+    import("@/components/community-messenger/MessengerChatRoomActionSheet").then((m) => m.MessengerChatRoomActionSheet),
+  { ssr: false, loading: () => null }
+);
+const MessengerFriendsPrivacySheet = dynamic(
+  () =>
+    import("@/components/community-messenger/MessengerFriendsPrivacySheet").then((m) => m.MessengerFriendsPrivacySheet),
+  { ssr: false, loading: () => null }
+);
+const MessengerSearchSheet = dynamic(
+  () => import("@/components/community-messenger/MessengerSearchSheet").then((m) => m.MessengerSearchSheet),
+  { ssr: false, loading: () => null }
+);
+const MessengerNewConversationSheet = dynamic(
+  () =>
+    import("@/components/community-messenger/MessengerNewConversationSheet").then((m) => m.MessengerNewConversationSheet),
+  { ssr: false, loading: () => null }
+);
+const MessengerFriendAddSheet = dynamic(
+  () => import("@/components/community-messenger/MessengerFriendAddSheet").then((m) => m.MessengerFriendAddSheet),
+  { ssr: false, loading: () => null }
+);
+const MessengerNotificationCenterSheet = dynamic(
+  () =>
+    import("@/components/community-messenger/MessengerNotificationCenterSheet").then(
+      (m) => m.MessengerNotificationCenterSheet
+    ),
+  { ssr: false, loading: () => null }
+);
+const MessengerSettingsSheet = dynamic(
+  () => import("@/components/community-messenger/MessengerSettingsSheet").then((m) => m.MessengerSettingsSheet),
+  { ssr: false, loading: () => null }
+);
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   type CommunityMessengerLocalSettings,

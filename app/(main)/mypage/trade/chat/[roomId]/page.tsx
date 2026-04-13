@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
-import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import {
+  TRADE_CHAT_MESSENGER_LIST_HREF,
+  tradeHubChatRoomHref,
+} from "@/lib/chats/surfaces/trade-chat-surface";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
@@ -21,6 +24,9 @@ export default async function TradeHubChatRoomPage({
   const { roomId: raw } = await params;
   const sp = await searchParams;
   const roomId = parseRoomId(raw);
+  if (!roomId) {
+    redirect(TRADE_CHAT_MESSENGER_LIST_HREF);
+  }
   const openReviewOnMount = firstQueryString(sp.review)?.trim() === "1";
   const sourceRaw = firstQueryString(sp.source)?.trim();
   const chatRoomSourceHint: ChatRoomSource | null =

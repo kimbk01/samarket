@@ -40,7 +40,7 @@ export async function getPostById(postId: string): Promise<PostDetailClientBundl
     }
 
     if (typeof o.id === "string") {
-      return { post: o as PostWithMeta, detailSections: [] };
+      return { post: o as unknown as PostWithMeta, detailSections: [] };
     }
 
     return null;
