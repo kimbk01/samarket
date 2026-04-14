@@ -54,4 +54,16 @@ describe("parseCommunityMessengerRoomContextMeta", () => {
     const meta = parseCommunityMessengerRoomContextMeta(raw);
     expect(meta?.productChatId).toBe("pc-uuid-1");
   });
+
+  it("preserves tradeFlowStatus", () => {
+    const raw = JSON.stringify({
+      v: 1,
+      kind: "trade",
+      headline: "Item",
+      productChatId: "pc-2",
+      tradeFlowStatus: "buyer_confirmed",
+    });
+    const meta = parseCommunityMessengerRoomContextMeta(raw);
+    expect(meta?.tradeFlowStatus).toBe("buyer_confirmed");
+  });
 });

@@ -8,6 +8,7 @@ export type ProductChatRow = Record<string, unknown> & {
   seller_id: string;
   buyer_id: string;
   community_messenger_room_id?: string | null;
+  trade_flow_status?: string | null;
 };
 
 function trimMessengerId(raw: unknown): string | null {

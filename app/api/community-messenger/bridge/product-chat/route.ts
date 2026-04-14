@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   const postId = String(pc.post_id ?? "").trim();
   const { data: post } = await sb
     .from(POSTS_TABLE_READ)
-    .select("title, price, currency, images")
+    .select("title, price, currency, images, status, seller_listing_state")
     .eq("id", postId)
     .maybeSingle();
 
@@ -96,12 +96,18 @@ export async function POST(req: NextRequest) {
         : null;
   const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
 
+  const sellerId = String(pc.seller_id ?? "").trim();
+  const role: "seller" | "buyer" = auth.userId === sellerId ? "seller" : "buyer";
+
   const meta = buildMessengerContextMetaFromProductChatSnapshot({
     productChatId: resolved.productChatId,
     productTitle: title || "거래",
     price: price != null && !Number.isNaN(price) ? price : null,
     currency,
-    tradeFlowStatus: String((pc as { trade_flow_status?: string }).trade_flow_status ?? "chatting"),
+    role,
+    sellerListingStateRaw: (post as { seller_listing_state?: unknown } | null)?.seller_listing_state,
+    postStatus: typeof post?.status === "string" ? post.status : null,
+    tradeFlowStatus: String(pc.trade_flow_status ?? "chatting"),
     thumbnailUrl: firstPostThumbnail(post?.images),
   });
 

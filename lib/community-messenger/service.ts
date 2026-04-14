@@ -4240,6 +4240,7 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
     role,
     sellerListingStateRaw: (post as any)?.seller_listing_state,
     postStatus: (post as any)?.status ?? null,
+    tradeFlowStatus: String(pc.trade_flow_status ?? "chatting"),
     thumbnailUrl: firstPostThumbnailForTradeMeta(post?.images),
   });
   await updateCommunityMessengerRoomContextMeta({

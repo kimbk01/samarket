@@ -28,6 +28,9 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
     if (typeof o.roleLabel === "string" && o.roleLabel.trim()) out.roleLabel = o.roleLabel.trim();
     if (typeof o.itemStateLabel === "string" && o.itemStateLabel.trim()) out.itemStateLabel = o.itemStateLabel.trim();
     if (typeof o.productChatId === "string" && o.productChatId.trim()) out.productChatId = o.productChatId.trim();
+    if (typeof o.tradeFlowStatus === "string" && o.tradeFlowStatus.trim()) {
+      out.tradeFlowStatus = o.tradeFlowStatus.trim();
+    }
     return out;
   } catch {
     return null;

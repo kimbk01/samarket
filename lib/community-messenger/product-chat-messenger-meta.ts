@@ -13,6 +13,8 @@ export function buildMessengerContextMetaFromProductChatSnapshot(input: {
   sellerListingStateRaw?: unknown;
   postStatus?: string | null;
   thumbnailUrl?: string | null;
+  /** `product_chats.trade_flow_status` */
+  tradeFlowStatus?: string | null;
 }): CommunityMessengerRoomContextMetaV1 {
   const headline = input.productTitle.trim() || "거래";
   const meta: CommunityMessengerRoomContextMetaV1 = {
@@ -32,5 +34,7 @@ export function buildMessengerContextMetaFromProductChatSnapshot(input: {
   } else if (typeof input.thumbnailUrl === "string" && input.thumbnailUrl.trim()) {
     meta.thumbnailUrl = input.thumbnailUrl.trim();
   }
+  const flow = String(input.tradeFlowStatus ?? "").trim();
+  if (flow) meta.tradeFlowStatus = flow;
   return meta;
 }

@@ -21,4 +21,15 @@ describe("buildMessengerContextMetaFromProductChatSnapshot", () => {
     expect(m.roleLabel).toBeTruthy();
     expect(m.itemStateLabel).toBeTruthy();
   });
+
+  it("includes tradeFlowStatus when provided", () => {
+    const m = buildMessengerContextMetaFromProductChatSnapshot({
+      productChatId: "pc2",
+      productTitle: "X",
+      price: 100,
+      role: "seller",
+      tradeFlowStatus: "buyer_confirmed",
+    });
+    expect(m.tradeFlowStatus).toBe("buyer_confirmed");
+  });
 });
