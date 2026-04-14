@@ -5,6 +5,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { PostDetailView } from "@/components/post/PostDetailView";
 import { PostDetailFeedChromeReset } from "@/components/post/PostDetailFeedChromeReset";
+import type { TradeItemDetailPageData } from "@/services/trade/trade-detail.service";
 
 type ApiPostRow = {
   status?: string;
@@ -15,19 +16,19 @@ type ApiPostRow = {
 };
 
 type Props = {
-  initialPost: PostWithMeta;
+  initialBundle: TradeItemDetailPageData;
 };
 
 /**
  * 상세 본문은 RSC에서 이미 로드 — 클라이언트는 가시성·포커스 시 목록 필드만 보정.
  */
-export function PostDetailPageClient({ initialPost }: Props) {
-  const id = initialPost.id;
-  const [post, setPost] = useState<PostWithMeta>(initialPost);
+export function PostDetailPageClient({ initialBundle }: Props) {
+  const id = initialBundle.item.id;
+  const [post, setPost] = useState<PostWithMeta>(initialBundle.item);
 
   useEffect(() => {
-    setPost(initialPost);
-  }, [initialPost]);
+    setPost(initialBundle.item);
+  }, [initialBundle.item]);
 
   const refreshListingFields = useCallback(async () => {
     if (!id) return;
@@ -83,7 +84,14 @@ export function PostDetailPageClient({ initialPost }: Props) {
   return (
     <>
       <PostDetailFeedChromeReset />
-      <PostDetailView post={post} />
+      <PostDetailView
+        post={post}
+        related={{
+          sellerItems: initialBundle.sellerItems,
+          similarItems: initialBundle.similarItems,
+          ads: initialBundle.ads,
+        }}
+      />
     </>
   );
 }

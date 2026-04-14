@@ -15,6 +15,11 @@ const SECTIONS: { title: string; items: HubCard[] }[] = [
     title: "메뉴 · 홈 칩",
     items: [
       {
+        href: "/admin/trade/settings",
+        title: "거래 설정",
+        description: "상세 하단 추천 규칙·지역 fallback·광고/유사상품 개수",
+      },
+      {
         href: "/admin/menus/trade",
         title: "메뉴 (거래)",
         description: "홈 상단 칩·거래 종류(일반·중고차 등)·글쓰기 런처 노출",

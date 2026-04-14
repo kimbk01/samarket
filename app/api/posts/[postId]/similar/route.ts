@@ -19,6 +19,7 @@ export async function GET(
   const limitRaw = req.nextUrl.searchParams.get("limit");
   const limit = Math.min(24, Math.max(1, Number(limitRaw) || 6));
   const excludeSeller = req.nextUrl.searchParams.get("excludeSeller")?.trim() ?? "";
+  const regionId = req.nextUrl.searchParams.get("regionId")?.trim() ?? "";
 
   if (!id || !categoryId) {
     return NextResponse.json({ ok: false, error: "postId·categoryId 필요", posts: [] }, { status: 400 });
@@ -31,6 +32,7 @@ export async function GET(
 
   const posts = await fetchSimilarPostsWithSupabase(clients.readSb, id, categoryId, limit, {
     excludeAuthorUserId: excludeSeller || null,
+    regionId: regionId || null,
   });
   await enrichPostsAuthorNicknamesFromProfiles(clients.readSb, posts);
 

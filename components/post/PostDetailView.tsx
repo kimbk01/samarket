@@ -50,6 +50,7 @@ import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-s
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailSellerTradeLifecycleBar } from "@/components/post/PostDetailSellerTradeLifecycleBar";
+import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
@@ -503,9 +504,14 @@ function PostDetailSellerProfileRow({
 
 interface PostDetailViewProps {
   post: PostWithMeta;
+  related?: {
+    sellerItems: PostWithMeta[];
+    similarItems: PostWithMeta[];
+    ads: PostWithMeta[];
+  };
 }
 
-export function PostDetailView({ post }: PostDetailViewProps) {
+export function PostDetailView({ post, related }: PostDetailViewProps) {
   const router = useRouter();
   /** `undefined`: 세션 확인 전 — 동기 프로필 캐시만 쓰면 유휴 후 캐시가 비어 로그아웃으로 오인될 수 있음 */
   const [resolvedViewerId, setResolvedViewerId] = useState<string | null | undefined>(undefined);
@@ -1069,6 +1075,14 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           </div>
         </div>
 
+        {related ? (
+          <PostDetailRelatedSections
+            sellerItems={related.sellerItems}
+            similarItems={related.similarItems}
+            ads={related.ads}
+          />
+        ) : null}
+
         {/* 하단 고정: 상품 상세와 동일 규격(찜 + 가격 + 채팅) — 본인 글은 찜 숨김 */}
         <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}>
           {!isOwnPost && (
@@ -1358,6 +1372,14 @@ export function PostDetailView({ post }: PostDetailViewProps) {
           </div>
         </div>
       )}
+
+      {related ? (
+        <PostDetailRelatedSections
+          sellerItems={related.sellerItems}
+          similarItems={related.similarItems}
+          ads={related.ads}
+        />
+      ) : null}
 
       {post.type === "community" && (
         <PostCommunityCommentsSection

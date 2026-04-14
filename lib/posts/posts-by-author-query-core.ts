@@ -36,22 +36,31 @@ function mapRowToPostWithMeta(p: Record<string, unknown>): PostWithMeta {
 
 export async function fetchPostsByAuthorWithSupabase(
   sb: SupabaseClient,
-  authorId: string
+  authorId: string,
+  options?: { excludePostId?: string | null; limit?: number }
 ): Promise<PostWithMeta[]> {
   const id = authorId?.trim();
   if (!id) return [];
+  const excludePostId = options?.excludePostId?.trim() ?? "";
+  const limit = Math.min(MAX, Math.max(1, options?.limit ?? MAX));
 
   try {
-    const { data, error } = await sb
+    let query = sb
       .from(POSTS_TABLE_READ)
       .select(POST_TRADE_LIST_SELECT)
-      .or("status.is.null,status.neq.hidden")
+      .eq("status", "active")
       .eq("user_id", id)
       .order("created_at", { ascending: false })
-      .limit(MAX);
+      .limit(limit);
+    if (excludePostId) {
+      query = query.neq("id", excludePostId);
+    }
+    const { data, error } = await query;
 
     if (error || !Array.isArray(data)) return [];
-    return data.map((p: Record<string, unknown>) => mapRowToPostWithMeta(p));
+    return data
+      .map((p: Record<string, unknown>) => mapRowToPostWithMeta(p))
+      .filter((p) => p.type !== "community");
   } catch {
     return [];
   }

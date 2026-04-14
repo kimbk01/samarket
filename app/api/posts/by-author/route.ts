@@ -11,6 +11,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId")?.trim() ?? "";
+  const excludePostId = req.nextUrl.searchParams.get("excludePostId")?.trim() ?? "";
+  const limitRaw = Number(req.nextUrl.searchParams.get("limit") ?? "");
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(24, Math.floor(limitRaw))) : 12;
   if (!userId) {
     return NextResponse.json({ ok: false, error: "userId 필요", posts: [] }, { status: 400 });
   }
@@ -20,7 +23,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다.", posts: [] }, { status: 503 });
   }
 
-  const posts = await fetchPostsByAuthorWithSupabase(clients.readSb, userId);
+  const posts = await fetchPostsByAuthorWithSupabase(clients.readSb, userId, {
+    excludePostId: excludePostId || null,
+    limit,
+  });
   await enrichPostsAuthorNicknamesFromProfiles(clients.readSb, posts);
 
   return NextResponse.json(

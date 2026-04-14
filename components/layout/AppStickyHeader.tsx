@@ -25,7 +25,9 @@ export function AppStickyHeader() {
   const extras = extrasOpt?.extras ?? null;
   /** 거래 1·2단 탭(필요 시 2단만) — `/mypage/trade` 는 허브 자체 내비가 있어 TRADE 탭 스택 숨김 */
   const isTradeMenuSurface =
-    pathname === "/home" || (pathname?.startsWith("/market/") ?? false);
+    pathname === "/home" ||
+    pathname === "/market" ||
+    (pathname?.startsWith("/market/") ?? false);
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
 
   /** 빈 `sticky z-20` 래퍼는 아래 본문 스티키(채팅 허브 등)와 쌓임이 꼬여 가릴 수 있음 */

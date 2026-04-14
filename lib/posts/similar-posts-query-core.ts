@@ -10,6 +10,10 @@ import {
   normalizePostMeta,
   normalizePostPrice,
 } from "@/lib/posts/post-normalize";
+import {
+  matchRegionGroupOrGlobal,
+  matchRegionOrGlobal,
+} from "@/services/trade/trade-region.service";
 
 function rowAuthorUserId(row: Record<string, unknown>): string | null {
   const u = row.user_id;
@@ -63,6 +67,8 @@ const FETCH_POOL = 48;
 
 export type SimilarPostsQueryOptions = {
   excludeAuthorUserId?: string | null;
+  regionId?: string | null;
+  regionGroups?: Record<string, string> | null;
 };
 
 /**
@@ -76,9 +82,9 @@ export async function fetchSimilarPostsWithSupabase(
   options?: SimilarPostsQueryOptions
 ): Promise<PostWithMeta[]> {
   const cid = categoryId.trim();
-  if (!cid) return [];
 
   const excludeSeller = options?.excludeAuthorUserId?.trim() ?? null;
+  const regionId = options?.regionId?.trim() ?? "";
 
   const base = () =>
     sb
@@ -95,14 +101,38 @@ export async function fetchSimilarPostsWithSupabase(
     return pickOtherSellersFirst(mapRows(filtered), excludeSeller, limit);
   };
 
-  const tryOr = await run(
-    base().or(`trade_category_id.eq.${cid},category_id.eq.${cid}`)
-  );
-  if (tryOr.length > 0) return tryOr;
+  const applyRegionFallback = (rows: PostWithMeta[]): PostWithMeta[] => {
+    if (!regionId) return rows.slice(0, limit);
+    const tier1 = rows.filter((p) => matchRegionOrGlobal(p.region, regionId));
+    if (tier1.length >= limit) return tier1.slice(0, limit);
+    const tier2 = rows.filter((p) =>
+      matchRegionGroupOrGlobal(p.region, regionId, options?.regionGroups)
+    );
+    const merged = [...tier1, ...tier2, ...rows];
+    const seen = new Set<string>();
+    const out: PostWithMeta[] = [];
+    for (const row of merged) {
+      if (!row.id || seen.has(row.id)) continue;
+      seen.add(row.id);
+      out.push(row);
+      if (out.length >= limit) break;
+    }
+    return out;
+  };
 
-  const tryTrade = await run(base().eq("trade_category_id", cid));
-  if (tryTrade.length > 0) return tryTrade;
+  if (cid) {
+    const tryOr = await run(
+      base().or(`trade_category_id.eq.${cid},category_id.eq.${cid}`)
+    );
+    if (tryOr.length > 0) return applyRegionFallback(tryOr);
 
-  const tryCat = await run(base().eq("category_id", cid));
-  return tryCat;
+    const tryTrade = await run(base().eq("trade_category_id", cid));
+    if (tryTrade.length > 0) return applyRegionFallback(tryTrade);
+
+    const tryCat = await run(base().eq("category_id", cid));
+    if (tryCat.length > 0) return applyRegionFallback(tryCat);
+  }
+
+  const recent = await run(base());
+  return applyRegionFallback(recent);
 }
