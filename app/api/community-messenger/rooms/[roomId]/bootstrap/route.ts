@@ -29,10 +29,16 @@ export async function GET(
 
   const { roomId } = await params;
   const rawLimit = req.nextUrl.searchParams.get("messages");
-  const opts: CommunityMessengerRoomSnapshotOptions | undefined =
-    rawLimit != null && rawLimit !== ""
-      ? { initialMessageLimit: Math.floor(Number(rawLimit)) || COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT }
-      : { initialMessageLimit: COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT };
+  const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
+  /** `minimal` — 참가자 전원 프로필 생략(첫 페인트·백그라운드 동기화용) */
+  const hydrateFullMemberList = memberHydration !== "minimal";
+  const opts: CommunityMessengerRoomSnapshotOptions = {
+    initialMessageLimit:
+      rawLimit != null && rawLimit !== ""
+        ? Math.floor(Number(rawLimit)) || COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
+        : COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
+    hydrateFullMemberList,
+  };
 
   const t0 = performance.now();
   const readPort = createSupabaseCommunityMessengerReadPort();

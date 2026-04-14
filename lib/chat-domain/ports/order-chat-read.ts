@@ -8,9 +8,15 @@ export type OrderChatSnapshotResult =
   | { ok: true; snapshot: OrderChatSnapshot }
   | { ok: false; error: string; status: number };
 
+export type OrderChatSnapshotLoadOptions = {
+  /** 최근 N개만 (오래된 순 정렬). 미지정 시 전체 */
+  messageLimit?: number;
+};
+
 export interface OrderChatReadPort {
   getSnapshotForOrder(
     userId: string,
-    orderId: string
+    orderId: string,
+    opts?: OrderChatSnapshotLoadOptions
   ): Promise<OrderChatSnapshotResult>;
 }

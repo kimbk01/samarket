@@ -1,17 +1,15 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
-
-export default function MyStoreOrderChatBridgePage() {
-  const params = useParams();
-  const router = useRouter();
-  const orderId = typeof params?.orderId === "string" ? params.orderId : "";
-
-  useEffect(() => {
-    if (!orderId) return;
-    router.replace(`/mypage/store-orders/${encodeURIComponent(orderId)}/chat`);
-  }, [orderId, router]);
-
-  return null;
+/** 레거시 `/my/store-orders/:id/chat` → 통합 채팅 URL (클라이언트 replace 제거로 지연 없음) */
+export default async function MyStoreOrderChatBridgePage({
+  params,
+}: {
+  params: Promise<{ orderId: string }>;
+}) {
+  const { orderId: raw } = await params;
+  const orderId = typeof raw === "string" ? raw.trim() : "";
+  if (!orderId) {
+    redirect("/mypage/store-orders");
+  }
+  redirect(`/mypage/store-orders/${encodeURIComponent(orderId)}/chat`);
 }

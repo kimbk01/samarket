@@ -1,5 +1,6 @@
 import type {
   OrderChatReadPort,
+  OrderChatSnapshotLoadOptions,
   OrderChatSnapshotResult,
 } from "../ports/order-chat-read";
 
@@ -7,7 +8,8 @@ import type {
 export async function loadOrderChatSnapshotForOrder(
   port: OrderChatReadPort,
   userId: string,
-  orderId: string
+  orderId: string,
+  opts?: OrderChatSnapshotLoadOptions
 ): Promise<OrderChatSnapshotResult> {
-  return port.getSnapshotForOrder(userId, orderId);
+  return port.getSnapshotForOrder(userId, orderId, opts);
 }

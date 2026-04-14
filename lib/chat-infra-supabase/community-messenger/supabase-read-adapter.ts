@@ -6,7 +6,7 @@ import {
 
 function toServiceOptions(o?: CommunityMessengerRoomSnapshotOptions): GetCommunityMessengerRoomSnapshotOptions | undefined {
   if (!o) return undefined;
-  return { initialMessageLimit: o.initialMessageLimit };
+  return { initialMessageLimit: o.initialMessageLimit, hydrateFullMemberList: o.hydrateFullMemberList };
 }
 
 /** Supabase + 기존 `service.ts` 구현을 포트 뒤에 둔 어댑터 (점진 이전용) */

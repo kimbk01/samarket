@@ -394,22 +394,37 @@ async function getOrderWithRoomForUser(
 export async function getOrderChatSnapshotForUser(
   sb: SupabaseClient<any>,
   orderId: string,
-  userId: string
+  userId: string,
+  opts?: { messageLimit?: number }
 ): Promise<{ ok: true; snapshot: OrderChatSnapshot } | { ok: false; error: string; status: number }> {
   const match = await getOrderWithRoomForUser(sb, orderId, userId);
   if (!match) return { ok: false, error: "forbidden", status: 403 };
-  const { data } = await sb
+  const requested =
+    typeof opts?.messageLimit === "number" && Number.isFinite(opts.messageLimit)
+      ? Math.min(200, Math.max(1, Math.floor(opts.messageLimit)))
+      : 0;
+  const useLimit = requested > 0;
+
+  let q = sb
     .from("order_chat_messages")
     .select(ORDER_CHAT_MESSAGE_ROW_SELECT)
     .eq("room_id", match.room.id)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: useLimit ? false : true });
+  if (useLimit) {
+    q = q.limit(requested);
+  }
+  const { data } = await q;
+  const raw = (data ?? []) as unknown as OrderChatMessagePublic[];
+  const chronological = useLimit ? raw.slice().reverse() : raw;
+  const messagesCapped = useLimit && raw.length >= requested;
   return {
     ok: true,
     snapshot: {
       room: match.room,
       role: match.role,
       orderStatus: match.orderStatus,
-      messages: (data ?? []) as unknown as OrderChatMessagePublic[],
+      messages: chronological,
+      ...(messagesCapped ? { messagesCapped: true as const } : {}),
     },
   };
 }

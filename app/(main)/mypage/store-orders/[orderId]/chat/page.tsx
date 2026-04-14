@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RedirectStoreOrderToUnifiedChat } from "@/components/chats/RedirectStoreOrderToUnifiedChat";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
+import { ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/order-chat/types";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,9 @@ export default async function MypageStoreOrderChatPage({
     );
   }
 
-  const result = await loadOrderChatSnapshotForPage(userId, orderId);
+  const result = await loadOrderChatSnapshotForPage(userId, orderId, {
+    messageLimit: ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT,
+  });
   if (result == null || !result.ok) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-sam-app px-4 text-center">

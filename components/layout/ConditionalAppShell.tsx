@@ -82,6 +82,9 @@ export function ConditionalAppShell({
   const isMypageTradeChatRoom = pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/) ?? false;
   const isCommunityMessengerRoom = pathname?.match(/^\/community-messenger\/rooms\/[^/]+$/) ?? false;
   const isCommunityMessengerCallPage = pathname?.match(/^\/community-messenger\/calls\/[^/]+$/) ?? false;
+  /** Agora 통화 세션 화면만 수신 풀스크린과 겹침 방지 — `calls/outgoing` 발신 준비 중에도 수신 배너는 띄운다. */
+  const suppressIncomingCallOverlay =
+    Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/)) && pathname !== "/community-messenger/calls/outgoing";
   const isAddressMapSelect = pathname === "/address/select";
   /**
    * 거래 채팅방: AppStickyHeader(1단)은 플로우 상단에 따로 있으므로,
@@ -205,7 +208,7 @@ export function ConditionalAppShell({
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
       {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerUnreadSound /> : null}
-      {!isCommunityMessengerCallPage ? <IncomingCallOverlay /> : null}
+      {!suppressIncomingCallOverlay ? <IncomingCallOverlay /> : null}
       <WebConnectivityBanner />
       {showRegionBar && <RegionBar />}
       {showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}

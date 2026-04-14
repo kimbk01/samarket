@@ -4188,6 +4188,11 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
 export type GetCommunityMessengerRoomSnapshotOptions = {
   /** 기본: `COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT` (30) */
   initialMessageLimit?: number;
+  /**
+   * 기본 true. false면 참가자 전원 프로필 하이드레이션을 생략하고
+   * 메시지 발신자·방장·DM 상대 등 최소 집합만 로드한다(`membersDeferred`).
+   */
+  hydrateFullMemberList?: boolean;
 };
 
 /** CM 방 `summary` JSON 에서 trade + productChatId 를 읽어 거래 상세(상품 카드)를 프로필 하이드레이션과 병렬 로드 */
@@ -4215,6 +4220,36 @@ function clampCommunityMessengerSnapshotMessageLimit(raw: unknown): number {
   const n = Math.floor(Number(raw));
   if (!Number.isFinite(n)) return COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT;
   return Math.min(COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX, Math.max(1, n));
+}
+
+/** 부트스트랩에서 전원 멤버 프로필을 생략할 때 — 말풍선·헤더에 필요한 최소 user id */
+function collectMinimalSnapshotUserIdsForRoomSnapshot(
+  userId: string,
+  room: RoomRow | DevRoom,
+  participants: Array<ParticipantRow | DevParticipant>,
+  messages: Array<MessageRow | DevMessage>
+): string[] {
+  const ids = new Set<string>();
+  const add = (raw: string | null | undefined) => {
+    const t = trimText(raw);
+    if (t) ids.add(t);
+  };
+  add(userId);
+  const isDbRoom = "room_type" in room;
+  const roomType = (isDbRoom ? room.room_type : room.roomType) as CommunityMessengerRoomType;
+  const ownerUserId = trimText(
+    isDbRoom ? (room.owner_user_id ?? room.created_by) : (room.ownerUserId ?? room.createdBy)
+  );
+  if (ownerUserId) add(ownerUserId);
+  if (roomType === "direct") {
+    const peer = dedupeParticipantUserIds(participants).find((uid) => uid !== userId);
+    if (peer) add(peer);
+  }
+  for (const message of messages) {
+    const sid = "sender_id" in message ? message.sender_id : message.senderId;
+    add(sid);
+  }
+  return [...ids];
 }
 
 /** 스냅샷에 담는 최근 메시지 개수 — `listCommunityMessengerRoomMessagesBefore`와 함께 동작 */
@@ -4337,12 +4372,16 @@ export async function getCommunityMessengerRoomSnapshot(
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
   }
 
-  const memberIds = dedupeParticipantUserIds(participants);
+  const allMemberIds = dedupeParticipantUserIds(participants);
+  const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
+  const hydrationUserIds = hydrateFullMemberList
+    ? allMemberIds
+    : collectMinimalSnapshotUserIdsForRoomSnapshot(userId, room, participants, messages);
   const tradeChatRoomDetailPromise = tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId);
   const [roomProfileMap, activeCall, hydrated, tradeChatRoomDetail] = await Promise.all([
     fetchRoomProfilesByRoomIds([id]),
     getActiveCallSessionForRoom(userId, id),
-    hydrateProfilesWithProfileMap(userId, memberIds, { includeSelf: true }),
+    hydrateProfilesWithProfileMap(userId, hydrationUserIds, { includeSelf: true }),
     tradeChatRoomDetailPromise,
   ]);
   const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members, {
@@ -4405,6 +4444,7 @@ export async function getCommunityMessengerRoomSnapshot(
             `${summary.memberCount}명이 함께 있는 ${summary.roomType === "open_group" ? "공개" : "비공개"} 그룹 채팅`,
     },
     members,
+    ...(hydrateFullMemberList ? {} : { membersDeferred: true as const }),
     ...(membersTruncated ? { membersTruncated: true as const } : {}),
     messages: mappedMessages,
     myRole: meRole,

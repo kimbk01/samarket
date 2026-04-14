@@ -28,6 +28,7 @@ type Snapshot = {
   role: OrderChatRole;
   orderStatus: SharedOrderStatus;
   messages: OrderChatMessagePublic[];
+  messagesCapped?: boolean;
 };
 
 function mapMessageForUi(message: OrderChatMessagePublic) {
@@ -79,6 +80,7 @@ export function OrderChatRoomClient({
           role: initialSnapshot.role,
           orderStatus: initialSnapshot.orderStatus,
           messages: initialSnapshot.messages,
+          messagesCapped: initialSnapshot.messagesCapped,
         }
       : { kind: "loading" }
   );
@@ -117,14 +119,41 @@ export function OrderChatRoomClient({
     void load();
   }, [load, initialSnapshot]);
 
+  /** RSC 스냅샷이 있을 때: 읽음 처리 + (메시지 cap 시) 전체 스냅샷 한 번 보강 */
   useEffect(() => {
     if (!initialSnapshot || !orderId.trim()) return;
+
     void fetch(`/api/order-chat/orders/${encodeURIComponent(orderId)}/read`, {
       method: "POST",
       credentials: "include",
     }).finally(() => {
       window.dispatchEvent(new Event(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
     });
+
+    if (!initialSnapshot.messagesCapped) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { status, json } = await fetchOrderChatGetDeduped(orderId);
+        const payload = json as
+          | ({ ok?: false; error?: string })
+          | ({ ok?: true } & Omit<Snapshot, "messagesCapped">);
+        if (cancelled || status < 200 || status >= 300 || payload.ok !== true) return;
+        setState({
+          kind: "ready",
+          room: payload.room,
+          role: payload.role,
+          orderStatus: payload.orderStatus,
+          messages: payload.messages,
+        });
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [initialSnapshot, orderId]);
 
   const flow = useMemo<OrderChatFlow>(() => {

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ChangeEvent,
@@ -56,8 +57,6 @@ import {
 import { consumeRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
-import { GroupRoomCallOverlay } from "@/components/community-messenger/call-ui";
-import { VoiceMessageBubble } from "@/components/community-messenger/VoiceMessageBubble";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
   downsampleVoiceWaveformPeaks,
@@ -76,14 +75,52 @@ import {
 } from "@/lib/community-messenger/preferences";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
-import { CommunityMessengerMessageActionSheet } from "@/components/community-messenger/room/CommunityMessengerMessageActionSheet";
-import { CommunityMessengerTradeProcessSection } from "@/components/community-messenger/CommunityMessengerTradeProcessSection";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import {
   fetchChatRoomDetailApi,
   updateChatRoomDetailMemory,
 } from "@/lib/chats/fetch-chat-room-detail-api";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+
+const GroupRoomCallOverlay = dynamic(
+  () =>
+    import("@/components/community-messenger/call-ui/GroupRoomCallOverlay").then((m) => ({
+      default: m.GroupRoomCallOverlay,
+    })),
+  { ssr: false, loading: () => null }
+);
+
+const VoiceMessageBubble = dynamic(
+  () =>
+    import("@/components/community-messenger/VoiceMessageBubble").then((m) => ({
+      default: m.VoiceMessageBubble,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <span
+        className="inline-block h-10 min-w-[8rem] rounded-lg bg-[color:var(--cm-room-divider)]/35"
+        aria-hidden
+      />
+    ),
+  }
+);
+
+const CommunityMessengerTradeProcessSection = dynamic(
+  () =>
+    import("@/components/community-messenger/CommunityMessengerTradeProcessSection").then((m) => ({
+      default: m.CommunityMessengerTradeProcessSection,
+    })),
+  { ssr: false, loading: () => null }
+);
+
+const CommunityMessengerMessageActionSheet = dynamic(
+  () =>
+    import("@/components/community-messenger/room/CommunityMessengerMessageActionSheet").then((m) => ({
+      default: m.CommunityMessengerMessageActionSheet,
+    })),
+  { ssr: false, loading: () => null }
+);
 
 /**
  * 거래 도크보다 먼저 마운트되어 `GET /api/chat/room/[productChatId]` 를 시작 — `runSingleFlight` 로
@@ -166,6 +203,8 @@ export function CommunityMessengerRoomClient({
   const voiceSessionIdRef = useRef(0);
   const voicePointerDownRef = useRef(false);
   const loadedRef = useRef(Boolean(peekRoomSnapshot(roomId) ?? initialServerSnapshot));
+  /** RSC가 `membersDeferred` 부트스트랩을 내렸으면 사일런트 갱신 시 전원 멤버 프로필을 다시 끌어오지 않음 */
+  const deferredMemberBootstrapRef = useRef(Boolean(initialServerSnapshot?.membersDeferred));
   const silentRoomRefreshBusyRef = useRef(false);
   const silentRoomRefreshAgainRef = useRef(false);
   /** 발신 다이얼 `router.push` 연타 방지 — ref 는 동기 연타, state 는 버튼 비활성 표시 */
@@ -252,6 +291,7 @@ export function CommunityMessengerRoomClient({
   const [membersListNextOffset, setMembersListNextOffset] = useState<number | null>(null);
   const [membersPagingBusy, setMembersPagingBusy] = useState(false);
   const membersPageInitializedRef = useRef(false);
+  const prevActiveSheetRef = useRef<typeof activeSheet>(null);
   const roomMembersDisplayRef = useRef<CommunityMessengerProfileLite[]>([]);
 
   const notifSurface = useNotificationSurface();
@@ -293,7 +333,11 @@ export function CommunityMessengerRoomClient({
         setLoading(false);
       }
       const tBoot = typeof performance !== "undefined" ? performance.now() : Date.now();
-      const roomRes = await fetch(communityMessengerRoomBootstrapPath(roomId), { cache: "no-store" });
+      const bootstrapQuery =
+        silent && deferredMemberBootstrapRef.current ? "?memberHydration=minimal" : "";
+      const roomRes = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQuery}`, {
+        cache: "no-store",
+      });
       const raw = await roomRes.json().catch(() => null);
       const snap = parseCommunityMessengerRoomSnapshotResponse(raw);
       if (roomRes.ok && snap) {
@@ -362,7 +406,11 @@ export function CommunityMessengerRoomClient({
     if (!snapshot) return;
     if (membersPageInitializedRef.current) return;
     membersPageInitializedRef.current = true;
-    setMembersListNextOffset(snapshot.membersTruncated ? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP : null);
+    if (snapshot.membersDeferred) {
+      setMembersListNextOffset(0);
+    } else {
+      setMembersListNextOffset(snapshot.membersTruncated ? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP : null);
+    }
   }, [snapshot]);
 
   /** `?cm_ctx=` 딥링크로 입장 시 거래/배달 목록 메타 1회 동기화 — 스토어는 `buildCommunityMessengerRoomUrlWithContext` 사용 */
@@ -715,6 +763,17 @@ export function CommunityMessengerRoomClient({
       setMembersPagingBusy(false);
     }
   }, [membersListNextOffset, membersPagingBusy, roomId, snapshot]);
+
+  /** `membersDeferred` 방: 멤버 시트로 전환되는 순간에만 첫 `/members` 페이지를 요청 */
+  useEffect(() => {
+    const prev = prevActiveSheetRef.current;
+    prevActiveSheetRef.current = activeSheet;
+    if (activeSheet !== "members") return;
+    if (prev === "members") return;
+    if (!snapshot?.membersDeferred) return;
+    if (membersListNextOffset === null) return;
+    void loadMoreRoomMembers();
+  }, [activeSheet, loadMoreRoomMembers, membersListNextOffset, snapshot?.membersDeferred]);
 
   const inviteCandidates = useMemo(() => {
     const memberIds = new Set(roomMembersDisplay.map((member) => member.id));

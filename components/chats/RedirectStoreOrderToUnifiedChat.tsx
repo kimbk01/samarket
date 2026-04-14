@@ -6,7 +6,7 @@ import type { OrderChatSnapshot } from "@/lib/order-chat/types";
 
 type Props =
   | { variant: "buyer"; orderId: string; initialSnapshot?: OrderChatSnapshot | null }
-  | { variant: "owner"; storeId: string; slug: string; orderId: string; initialSnapshot?: OrderChatSnapshot | null };
+  | { variant: "owner"; storeId: string; orderId: string; initialSnapshot?: OrderChatSnapshot | null };
 
 /** 주문 채팅 전용 엔진 화면 브리지. */
 export function RedirectStoreOrderToUnifiedChat(props: Props) {

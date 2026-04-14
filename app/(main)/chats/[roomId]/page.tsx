@@ -1,10 +1,16 @@
-import { ChatRoomPageClient } from "./ChatRoomPageClient";
+import dynamic from "next/dynamic";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadTradeChatRoomBootstrap } from "@/lib/chat-domain/use-cases/trade-chat-bootstrap";
 import { createTradeChatReadAdapter } from "@/lib/chats/server/trade-chat-read-adapter";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+
+const ChatRoomPageClient = dynamic(
+  () => import("./ChatRoomPageClient").then((m) => m.ChatRoomPageClient),
+  { loading: () => <MainFeedRouteLoading rows={5} /> }
+);
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];

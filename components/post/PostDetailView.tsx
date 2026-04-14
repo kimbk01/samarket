@@ -16,12 +16,15 @@ import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { createReport } from "@/lib/reports/createReport";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
-import { TRADE_CHAT_SURFACE, tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import {
+  TRADE_CHAT_SURFACE,
+  tradeHubChatComposeHref,
+  tradeHubChatRoomHref,
+} from "@/lib/chats/surfaces/trade-chat-surface";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
-import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
-import { createOrGetChatRoom, prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
+import { prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getAppSettings } from "@/lib/app-settings";
@@ -551,9 +554,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState("");
-  const [chatRoomOpening, setChatRoomOpening] = useState(false);
-  /** API(채팅방 생성) 대기만 표시 — 라우트 전환은 `useTransition`에 묶지 않아 우선 반영 */
-  const chatCtaBusy = chatRoomOpening;
+  /** 새 채팅은 compose 로 즉시 이동해 방 생성은 다음 화면에서 처리 — 별도 대기 스피너 없음 */
+  const chatCtaBusy = false;
   const tradeChatPrepareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chatError, setChatError] = useState("");
   /** 거래 글: 이 글·본인·판매자 기준으로 이미 열린 채팅방 (상품↔채팅 연동) */
@@ -834,11 +836,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
 
   const prefetchTradeChatShell = useCallback(() => {
     void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
+    void router.prefetch(tradeHubChatComposeHref({ productId: post.id }));
     if (existingTradeRoomId) {
       void router.prefetch(tradeHubChatRoomHref(existingTradeRoomId, existingTradeRoomSource));
       warmChatRoomEntryById(existingTradeRoomId, existingTradeRoomSource);
     }
-  }, [router, existingTradeRoomId, existingTradeRoomSource]);
+  }, [router, existingTradeRoomId, existingTradeRoomSource, post.id]);
 
   const handleChat = useCallback(async () => {
     setChatError("");
@@ -870,24 +873,8 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       mode: "create",
       productId: post.id,
     });
-    setChatRoomOpening(true);
-    void (async () => {
-      try {
-        const res = await createOrGetChatRoom(post.id);
-        if (!res.ok) {
-          if (redirectForBlockedAction(router, res.error)) return;
-          setChatError(res.error ?? "채팅방을 열 수 없습니다.");
-          return;
-        }
-        const href = tradeHubChatRoomHref(res.roomId, res.roomSource);
-        setChatRoomOpening(false);
-        void router.prefetch(href);
-        warmChatRoomEntryById(res.roomId, res.roomSource);
-        router.push(href);
-      } finally {
-        setChatRoomOpening(false);
-      }
-    })();
+    void router.prefetch(tradeHubChatComposeHref({ productId: post.id }));
+    router.push(tradeHubChatComposeHref({ productId: post.id }));
   }, [
     post.id,
     router,

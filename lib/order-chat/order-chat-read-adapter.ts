@@ -7,8 +7,8 @@ export function createOrderChatReadAdapter(
   sb: SupabaseClient<any>
 ): OrderChatReadPort {
   return {
-    getSnapshotForOrder(userId, orderId) {
-      return getOrderChatSnapshotForUser(sb, orderId, userId);
+    getSnapshotForOrder(userId, orderId, opts) {
+      return getOrderChatSnapshotForUser(sb, orderId, userId, opts);
     },
   };
 }

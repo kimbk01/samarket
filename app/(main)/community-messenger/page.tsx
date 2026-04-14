@@ -1,6 +1,13 @@
-import { CommunityMessengerHome } from "@/components/community-messenger/CommunityMessengerHome";
+import nextDynamic from "next/dynamic";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getCommunityMessengerBootstrap } from "@/lib/community-messenger/service";
+
+const CommunityMessengerHome = nextDynamic(
+  () =>
+    import("@/components/community-messenger/CommunityMessengerHome").then((m) => m.CommunityMessengerHome),
+  { loading: () => <MainFeedRouteLoading rows={4} /> }
+);
 
 export const dynamic = "force-dynamic";
 

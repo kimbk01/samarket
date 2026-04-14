@@ -6,6 +6,8 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
  */
 export type CommunityMessengerRoomSnapshotOptions = {
   initialMessageLimit?: number;
+  /** 기본 true. false면 참가자 전원 프로필 생략(첫 페인트 가속) — `membersDeferred` 스냅샷 */
+  hydrateFullMemberList?: boolean;
 };
 
 export interface CommunityMessengerReadPort {

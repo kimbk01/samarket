@@ -61,9 +61,14 @@ export type OrderChatMessageRow = {
 export type OrderChatRoomPublic = OrderChatRoomRow;
 export type OrderChatMessagePublic = OrderChatMessageRow;
 
+/** RSC·첫 페인트용 최근 메시지 개수 — 전체는 API GET 또는 `messagesCapped` 보강 */
+export const ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT = 48;
+
 export type OrderChatSnapshot = {
   room: OrderChatRoomPublic;
   role: OrderChatRole;
   orderStatus: SharedOrderStatus;
   messages: OrderChatMessagePublic[];
+  /** true면 더 오래된 메시지가 있을 수 있음 — 클라이언트에서 전체 스냅샷으로 한 번 보강 */
+  messagesCapped?: boolean;
 };

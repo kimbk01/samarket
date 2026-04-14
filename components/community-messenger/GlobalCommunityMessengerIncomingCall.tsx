@@ -20,7 +20,7 @@ import {
   isCommunityMessengerIncomingCallBannerEnabled,
   isCommunityMessengerIncomingCallSoundEnabled,
 } from "@/lib/community-messenger/preferences";
-import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -31,6 +31,7 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import { applyIncomingCallSessionsRealtimeEvent } from "@/lib/community-messenger/incoming-call-realtime-preview";
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
@@ -49,7 +50,9 @@ const QUICK_REPLY_OPTIONS = [
 
 export function GlobalCommunityMessengerIncomingCall() {
   const { t } = useI18n();
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(() =>
+    typeof window !== "undefined" ? getCurrentUser()?.id?.trim() || null : null
+  );
   const [sessions, setSessions] = useState<CommunityMessengerCallSession[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [minimizedSessionId, setMinimizedSessionId] = useState<string | null>(null);
@@ -69,6 +72,9 @@ export function GlobalCommunityMessengerIncomingCall() {
   const prevIncomingRingingIdsRef = useRef<Set<string>>(new Set());
   /** 거절·수락·차단·메시지거절 등 사용자가 끊은 세션은 부재 톤 제외 */
   const suppressMissedSoundRef = useRef<Set<string>>(new Set());
+
+  const viewerUserIdRef = useRef<string | null>(null);
+  viewerUserIdRef.current = userId;
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
@@ -112,7 +118,8 @@ export function GlobalCommunityMessengerIncomingCall() {
           return;
         }
         if (res.ok && json.ok) {
-          setSessions(json.sessions ?? []);
+          const serverList = json.sessions ?? [];
+          setSessions((prev) => mergeIncomingCallSessionsAfterFetch(viewerUserIdRef.current, serverList, prev));
           setIncomingListError(null);
           setSessionActionError(null);
           return;
@@ -738,6 +745,34 @@ export function GlobalCommunityMessengerIncomingCall() {
         )}
       </div>
     </CallScreenShell>
+  );
+}
+
+/** GET 수신 목록이 Realtime INSERT 보다 빨리(또는 빈 배열로) 돌아올 때 낙관적 세션을 지우지 않도록 합친다. */
+const INCOMING_OPTIMISTIC_KEEP_MS = 55_000;
+
+function mergeIncomingCallSessionsAfterFetch(
+  viewerUserId: string | null,
+  serverList: CommunityMessengerCallSession[],
+  previous: CommunityMessengerCallSession[]
+): CommunityMessengerCallSession[] {
+  if (!viewerUserId) return serverList;
+
+  const serverIds = new Set(serverList.map((s) => s.id));
+  const now = Date.now();
+  const optimisticExtras = previous.filter((s) => {
+    if (serverIds.has(s.id)) return false;
+    if (s.status !== "ringing" || s.sessionMode !== "direct" || s.isMineInitiator) return false;
+    if (!messengerUserIdsEqual(s.recipientUserId, viewerUserId)) return false;
+    const started = new Date(s.startedAt).getTime();
+    if (!Number.isFinite(started) || now - started > INCOMING_OPTIMISTIC_KEEP_MS) return false;
+    return true;
+  });
+
+  if (optimisticExtras.length === 0) return serverList;
+
+  return [...serverList, ...optimisticExtras].sort(
+    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
   );
 }
 

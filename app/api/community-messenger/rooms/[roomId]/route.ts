@@ -34,11 +34,14 @@ export async function GET(
 
   const { roomId } = await params;
   const rawLimit = req.nextUrl.searchParams.get("messages");
+  const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
+  const hydrateFullMemberList = memberHydration !== "minimal";
   const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, roomId, {
     initialMessageLimit:
       rawLimit != null && rawLimit !== ""
         ? Math.floor(Number(rawLimit))
         : undefined,
+    hydrateFullMemberList,
   });
   if (!snapshot) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });

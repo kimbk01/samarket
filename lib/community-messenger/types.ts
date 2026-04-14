@@ -213,6 +213,11 @@ export type CommunityMessengerRoomSnapshot = {
     description?: string;
   };
   members: CommunityMessengerProfileLite[];
+  /**
+   * true: 전 참가자 프로필을 부트스트랩에 실지 않았음 — 멤버 시트·`/members` 페이지에서 로드.
+   * (메시지 말풍선·헤더에 필요한 최소 프로필만 포함)
+   */
+  membersDeferred?: boolean;
   /** 그룹방에서 `COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP` 초과 시 프로필 일부만 내려보냄 */
   membersTruncated?: boolean;
   messages: CommunityMessengerMessage[];

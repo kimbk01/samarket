@@ -144,11 +144,12 @@ export async function POST(req: NextRequest) {
     } catch {
       /* ignore */
     }
-    const messengerRoomId = await ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, existing.id);
+    /** CM 방 연결은 응답을 막지 않고 백그라운드로 — 클라이언트는 `chat_rooms.id` 로 바로 진입, 스냅샷에서 ensure */
+    void ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, existing.id).catch(() => {});
     const metaEx = parsePostMetaField(row.meta);
     const tradeChatKind =
       String(metaEx.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
-    return NextResponse.json({ ok: true, roomId: existing.id, messengerRoomId, tradeChatKind });
+    return NextResponse.json({ ok: true, roomId: existing.id, tradeChatKind });
   }
 
   // 4) 새 방 생성
@@ -199,10 +200,10 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  const messengerRoomId = await ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, roomId);
+  void ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, roomId).catch(() => {});
 
   const metaNew = parsePostMetaField(row.meta);
   const tradeChatKind =
     String(metaNew.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
-  return NextResponse.json({ ok: true, roomId, messengerRoomId, tradeChatKind });
+  return NextResponse.json({ ok: true, roomId, tradeChatKind });
 }
