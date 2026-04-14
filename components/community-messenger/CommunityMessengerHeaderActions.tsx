@@ -16,7 +16,7 @@ export function CommunityMessengerHeaderActions({
   onOpenSettings: () => void;
 }) {
   const iconBtn =
-    "flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] text-[color:var(--messenger-icon)] shadow-sm active:bg-[color:var(--messenger-primary-soft)]";
+    "flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] text-[color:var(--messenger-icon)] shadow-sm active:bg-[color:var(--messenger-primary-soft)]";
 
   return (
     <div className="flex max-w-[min(100vw-120px,200px)] shrink-0 items-center justify-end gap-1.5">

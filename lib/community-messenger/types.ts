@@ -96,7 +96,12 @@ export type CommunityMessengerRoomContextMetaV1 = {
   headline?: string;
   priceLabel?: string;
   thumbnailUrl?: string | null;
+  /** 배달: 배송/결제 단계 등 */
   stepLabel?: string;
+  /** 거래: 내 역할(구매자/판매자) */
+  roleLabel?: string;
+  /** 거래: 상품 상태(판매중/예약중/거래완료/숨김/삭제됨) */
+  itemStateLabel?: string;
   /** 중고 거래채팅(`product_chats`)과 연결된 경우 */
   productChatId?: string;
 };

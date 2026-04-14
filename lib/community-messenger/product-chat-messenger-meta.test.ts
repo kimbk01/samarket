@@ -8,7 +8,9 @@ describe("buildMessengerContextMetaFromProductChatSnapshot", () => {
       productTitle: "테스트 상품",
       price: 20000,
       currency: "PHP",
-      tradeFlowStatus: "chatting",
+      role: "buyer",
+      sellerListingStateRaw: "inquiry",
+      postStatus: "active",
       thumbnailUrl: null,
     });
     expect(m.v).toBe(1);
@@ -16,6 +18,7 @@ describe("buildMessengerContextMetaFromProductChatSnapshot", () => {
     expect(m.productChatId).toBe("pc1");
     expect(m.headline).toBe("테스트 상품");
     expect(m.priceLabel).toBeTruthy();
-    expect(m.stepLabel).toBeTruthy();
+    expect(m.roleLabel).toBeTruthy();
+    expect(m.itemStateLabel).toBeTruthy();
   });
 });

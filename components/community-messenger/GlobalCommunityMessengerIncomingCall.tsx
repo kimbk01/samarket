@@ -39,6 +39,10 @@ import {
   MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS,
   MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
+import {
+  getCommunityMessengerIncomingCallBridgeStatus,
+  syncCommunityMessengerNativeIncomingCall,
+} from "@/lib/community-messenger/native-call-receive";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
@@ -335,6 +339,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const visibleSessionStatus = visibleSession?.status ?? null;
   const visibleSessionCallKind = visibleSession?.callKind ?? null;
   const isMinimized = Boolean(visibleSession && minimizedSessionId === visibleSession.id);
+  const bridgeStatus = getCommunityMessengerIncomingCallBridgeStatus();
 
   useEffect(() => {
     if (visibleSessionStatus !== "ringing") return;
@@ -354,6 +359,13 @@ export function GlobalCommunityMessengerIncomingCall() {
       tone?.stop();
     };
   }, [visibleSessionId, visibleSessionStatus, visibleSessionCallKind]);
+
+  useEffect(() => {
+    syncCommunityMessengerNativeIncomingCall(visibleSession);
+    return () => {
+      if (visibleSession) syncCommunityMessengerNativeIncomingCall({ ...visibleSession, status: "missed" });
+    };
+  }, [visibleSession]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
     suppressMissedSoundRef.current.add(sessionId);
@@ -644,14 +656,14 @@ export function GlobalCommunityMessengerIncomingCall() {
             </button>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col justify-between rounded-t-[var(--messenger-radius-lg)] border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-5 pb-[max(20px,calc(env(safe-area-inset-bottom)+12px))] pt-[max(16px,calc(env(safe-area-inset-top)+8px))] shadow-[0_-8px_32px_rgba(17,24,39,0.08)]">
+          <div className="flex min-h-0 flex-1 flex-col justify-between bg-[linear-gradient(180deg,#5f4ad4_0%,#352a80_46%,#17142d_100%)] px-5 pb-[max(20px,calc(env(safe-area-inset-bottom)+12px))] pt-[max(16px,calc(env(safe-area-inset-top)+8px))] text-white shadow-[0_-8px_32px_rgba(17,24,39,0.08)]">
             <div>
               <div className="flex items-center justify-between">
                 <span
                   className="rounded-full px-2.5 py-1 text-[11px] font-medium"
                   style={{
-                    backgroundColor: "var(--messenger-primary-soft)",
-                    color: "var(--messenger-primary)",
+                    backgroundColor: "rgba(255,255,255,0.18)",
+                    color: "white",
                   }}
                 >
                   {t("nav_incoming_call")}
@@ -659,21 +671,28 @@ export function GlobalCommunityMessengerIncomingCall() {
                 <button
                   type="button"
                   onClick={() => setMinimizedSessionId(visibleSession.id)}
-                  className="rounded-[var(--messenger-radius-sm)] px-3 py-2 text-[12px] font-medium active:bg-[color:var(--messenger-primary-soft)]"
-                  style={{ color: "var(--messenger-text)" }}
+                  className="rounded-[var(--messenger-radius-sm)] px-3 py-2 text-[12px] font-medium text-white/85 active:bg-white/10"
                 >
                   최소화
                 </button>
               </div>
+              <div className="mt-4 rounded-[18px] border border-white/10 bg-white/8 px-3 py-2.5 backdrop-blur-sm">
+                <p className="text-[11px] font-semibold text-white/85">{bridgeStatus.label}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-white/65">
+                  {bridgeStatus.supportsBackgroundParity
+                    ? "앱 래퍼가 연결되면 잠금화면/백그라운드 수신까지 확장할 수 있습니다."
+                    : "브라우저에서는 앱이 열린 상태의 수신 경험을 우선 제공합니다."}
+                </p>
+              </div>
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-10 text-center">
                 <IncomingAvatar label={visibleSession.peerLabel} />
-                <h2 className="mt-5 text-[22px] font-semibold tracking-tight" style={{ color: "var(--messenger-text)" }}>
+                <h2 className="mt-5 text-[24px] font-semibold tracking-tight text-white">
                   {visibleSession.peerLabel}
                 </h2>
-                <p className="mt-2 text-[13px]" style={{ color: "var(--messenger-text-secondary)" }}>
+                <p className="mt-2 text-[13px] text-white/70">
                   수신 통화
                 </p>
-                <p className="mt-1 text-[14px] font-medium" style={{ color: "var(--messenger-text)" }}>
+                <p className="mt-1 text-[15px] font-medium text-white">
                   {callTypeLabel}
                 </p>
               </div>
@@ -687,8 +706,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                     setReplySheetSessionId((prev) => (prev === visibleSession.id ? null : visibleSession.id))
                   }
                   disabled={busyId === `reply:${visibleSession.id}`}
-                  className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-4 py-3 text-[13px] font-medium disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
-                  style={{ color: "var(--messenger-text)" }}
+                  className="rounded-[var(--messenger-radius-md)] border border-white/12 bg-white/10 px-4 py-3 text-[13px] font-medium text-white disabled:opacity-40 active:bg-white/15"
                 >
                   메시지 응답
                 </button>
@@ -696,15 +714,14 @@ export function GlobalCommunityMessengerIncomingCall() {
                   type="button"
                   onClick={() => void blockCaller(visibleSession)}
                   disabled={busyId === `block:${visibleSession.id}`}
-                  className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 text-[13px] font-medium disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
-                  style={{ color: "var(--messenger-text)" }}
+                  className="rounded-[var(--messenger-radius-md)] border border-white/12 bg-white/10 px-4 py-3 text-[13px] font-medium text-white disabled:opacity-40 active:bg-white/15"
                 >
                   {busyId === `block:${visibleSession.id}` ? "차단 중..." : "차단"}
                 </button>
               </div>
               {replySheetSessionId === visibleSession.id ? (
-                <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] p-2">
-                  <p className="px-1 pb-2 text-[11px] font-medium" style={{ color: "var(--messenger-text-secondary)" }}>
+                <div className="rounded-[var(--messenger-radius-md)] border border-white/12 bg-white/10 p-2">
+                  <p className="px-1 pb-2 text-[11px] font-medium text-white/70">
                     메시지 후 거절
                   </p>
                   <div className="grid gap-2">
@@ -714,8 +731,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                         type="button"
                         onClick={() => void sendQuickReplyAndReject(visibleSession, option)}
                         disabled={busyId === `reply:${visibleSession.id}`}
-                        className="rounded-[var(--messenger-radius-sm)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-2 text-left text-[12px] disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
-                        style={{ color: "var(--messenger-text)" }}
+                        className="rounded-[var(--messenger-radius-sm)] border border-white/12 bg-black/10 px-3 py-2 text-left text-[12px] text-white disabled:opacity-40 active:bg-white/15"
                       >
                         {busyId === `reply:${visibleSession.id}` ? "전송 중..." : option}
                       </button>
@@ -728,7 +744,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                   variant="outline"
                   onClick={() => void rejectCall(visibleSession.id)}
                   disabled={busyId === `reject:${visibleSession.id}` || busyId === `block:${visibleSession.id}`}
-                  className="!font-medium"
+                  className="!border-white/12 !bg-white/10 !font-medium !text-white"
                 >
                   {t("common_reject")}
                 </CallPrimaryButton>

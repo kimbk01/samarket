@@ -111,14 +111,17 @@ import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 import {
   type MessengerChatInboxFilter,
   type MessengerChatKindFilter,
+  type MessengerArchiveSection,
   type MessengerChatListChip,
   type MessengerChatListContext,
   type MessengerMainSection,
   chipToInboxKind,
   messengerChatFiltersToSearchParams,
+  messengerRoomMenuItemId,
   resolveMessengerChatFilters,
   resolveMessengerSection,
 } from "@/lib/community-messenger/messenger-ia";
+import { MESSENGER_SCROLL_OVERLAY_IDLE_MS } from "@/lib/community-messenger/messenger-transient-ui-policy";
 import {
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
@@ -249,6 +252,75 @@ export function CommunityMessengerHome({
     item: UnifiedRoomListItem;
     listContext: MessengerChatListContext;
   } | null>(null);
+  const [openedSwipeItemId, setOpenedSwipeItemId] = useState<string | null>(null);
+  const [openedMenuItemId, setOpenedMenuItemId] = useState<string | null>(null);
+  const [messengerOverlayGeneration, setMessengerOverlayGeneration] = useState(0);
+  /** Tab swipe between friends/chats/archive; avoid parent re-render when friends quick menu toggles. */
+  const friendQuickMenuBlocksTabSwipeRef = useRef(false);
+  const [selectedArchiveSection, setSelectedArchiveSection] = useState<MessengerArchiveSection | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const isScrollingRef = useRef(false);
+  const scrollResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Coalesce swipe/menu dismiss during list scroll (see `messenger-transient-ui-policy.ts`). */
+  const listScrollDismissRafRef = useRef<number | null>(null);
+
+  const resetMessengerTransientUi = useCallback(() => {
+    setOpenedSwipeItemId(null);
+    setOpenedMenuItemId(null);
+    setRoomActionSheet(null);
+    setMessengerOverlayGeneration((g) => g + 1);
+  }, []);
+
+  const notifyMessengerListScroll = useCallback(() => {
+    if (!isScrollingRef.current) {
+      isScrollingRef.current = true;
+      setIsScrolling(true);
+    }
+    if (scrollResetTimerRef.current != null) {
+      clearTimeout(scrollResetTimerRef.current);
+    }
+    scrollResetTimerRef.current = setTimeout(() => {
+      isScrollingRef.current = false;
+      setIsScrolling(false);
+      scrollResetTimerRef.current = null;
+    }, MESSENGER_SCROLL_OVERLAY_IDLE_MS);
+
+    if (listScrollDismissRafRef.current != null) return;
+    listScrollDismissRafRef.current = requestAnimationFrame(() => {
+      listScrollDismissRafRef.current = null;
+      setOpenedSwipeItemId((s) => (s == null ? s : null));
+      setOpenedMenuItemId((m) => (m == null ? m : null));
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (listScrollDismissRafRef.current != null) {
+        cancelAnimationFrame(listScrollDismissRafRef.current);
+        listScrollDismissRafRef.current = null;
+      }
+    };
+  }, []);
+
+  const openMessengerMenuItem = useCallback((id: string) => {
+    setOpenedSwipeItemId(null);
+    setOpenedMenuItemId(id);
+    setRoomActionSheet(null);
+  }, []);
+
+  const closeMessengerMenuItem = useCallback((id?: string) => {
+    setOpenedMenuItemId((current) => {
+      if (!id) return null;
+      return current === id ? null : current;
+    });
+  }, []);
+
+  const openRoomActions = useCallback((item: UnifiedRoomListItem, listContext: MessengerChatListContext) => {
+    setOpenedSwipeItemId(null);
+    setOpenedMenuItemId(messengerRoomMenuItemId(item.room.id, listContext));
+    setRoomActionSheet({ item, listContext });
+  }, []);
+
   const replaceMessengerSectionUrl = useCallback(
     (section: MessengerMainSection, inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter) => {
       const qs = new URLSearchParams();
@@ -263,6 +335,7 @@ export function CommunityMessengerHome({
   );
   const onPrimarySectionChange = useCallback(
     (next: MessengerMainSection) => {
+      resetMessengerTransientUi();
       setMainSection(next);
       if (next === "chats") {
         replaceMessengerSectionUrl("chats", chatInboxFilter, chatKindFilter);
@@ -272,16 +345,17 @@ export function CommunityMessengerHome({
         router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
       }
     },
-    [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, router]
+    [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, resetMessengerTransientUi, router]
   );
   const onChatListChipChange = useCallback(
     (chip: MessengerChatListChip) => {
+      resetMessengerTransientUi();
       const { inbox, kind } = chipToInboxKind(chip);
       setChatInboxFilter(inbox);
       setChatKindFilter(kind);
       replaceMessengerSectionUrl("chats", inbox, kind);
     },
-    [replaceMessengerSectionUrl]
+    [replaceMessengerSectionUrl, resetMessengerTransientUi]
   );
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
   const [loading, setLoading] = useState(() => !initialServerBootstrap);
@@ -1773,12 +1847,31 @@ export function CommunityMessengerHome({
           <MessengerHomeMainSections
             mainSection={mainSection}
             onPrimarySectionChange={onPrimarySectionChange}
+            openedSwipeItemId={openedSwipeItemId}
+            openedMenuItemId={openedMenuItemId}
+            friendQuickMenuBlocksTabSwipeRef={friendQuickMenuBlocksTabSwipeRef}
+            messengerOverlayGeneration={messengerOverlayGeneration}
+            selectedArchiveSection={selectedArchiveSection}
+            pendingCallTarget={null}
+            isScrolling={isScrolling}
+            onResetTransientUi={resetMessengerTransientUi}
+            onListScrollStart={notifyMessengerListScroll}
+            onOpenMenuItem={openMessengerMenuItem}
+            onCloseMenuItem={closeMessengerMenuItem}
+            onOpenSwipeItem={setOpenedSwipeItemId}
+            onSelectArchiveSection={setSelectedArchiveSection}
             me={data.me}
             sortedFriends={sortedFriends}
             friendStateModel={friendStateModel}
             busyId={busyId}
-            onOpenFriendsPrivacySummary={() => setFriendsPrivacySheetOpen(true)}
-            onOpenProfile={(profile) => setFriendSheet({ mode: "profile", profile })}
+            onOpenFriendsPrivacySummary={() => {
+              resetMessengerTransientUi();
+              setFriendsPrivacySheetOpen(true);
+            }}
+            onOpenProfile={(profile) => {
+              resetMessengerTransientUi();
+              setFriendSheet({ mode: "profile", profile });
+            }}
             onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
             onFriendSwipeHide={(userId) => void toggleHiddenFriend(userId)}
             onFriendSwipeRemove={(userId) => void removeFriend(userId)}
@@ -1787,6 +1880,7 @@ export function CommunityMessengerHome({
             onFriendRowVoiceCall={(userId) => void startDirectCall(userId, "voice")}
             onFriendRowVideoCall={(userId) => void startDirectCall(userId, "video")}
             getFriendDirectRoomMuted={(userId) => directRoomByPeerId.get(userId)?.isMuted}
+            getFriendDirectRoomKind={(userId) => directRoomByPeerId.get(userId)?.contextMeta?.kind ?? null}
             friendNotificationsBusy={(userId) =>
               Boolean(directRoomByPeerId.get(userId)) &&
               busyId === `room-settings:${directRoomByPeerId.get(userId)?.id ?? ""}`
@@ -1802,13 +1896,17 @@ export function CommunityMessengerHome({
             onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
             onMarkRead={(room) => void markRoomRead(room.id)}
             onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
-            onOpenRoomActions={(item, listContext) => setRoomActionSheet({ item, listContext })}
+            onOpenRoomActions={openRoomActions}
             chatInboxFilter={chatInboxFilter}
             chatKindFilter={chatKindFilter}
             onChatListChipChange={onChatListChipChange}
             openChatJoinedItems={openChatJoinedItems}
             filteredDiscoverableGroups={filteredDiscoverableGroups}
-            onPreviewOpenGroup={(groupId) => void openJoinModal(groupId)}
+            onPreviewOpenGroup={(groupId) => {
+              resetMessengerTransientUi();
+              void openJoinModal(groupId);
+            }}
+            incomingRequestCount={incomingRequestCount}
           />
           {incomingFriendRequestPopup ? (
             <MessengerIncomingFriendRequestPopup
@@ -1948,7 +2046,10 @@ export function CommunityMessengerHome({
           item={roomActionSheet.item}
           listContext={roomActionSheet.listContext}
           busyId={busyId}
-          onClose={() => setRoomActionSheet(null)}
+          onClose={() => {
+            setRoomActionSheet(null);
+            setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
+          }}
           onEnterRoom={() => {
             const id = roomActionSheet.item.room.id;
             setRoomActionSheet(null);

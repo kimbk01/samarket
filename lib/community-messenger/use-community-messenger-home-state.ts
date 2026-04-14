@@ -251,7 +251,7 @@ export function getRoomTypeBadgeLabel(room: CommunityMessengerRoomSummary): stri
   if (room.contextMeta?.kind === "trade") return "거래";
   if (communityMessengerRoomIsDelivery(room)) return "배달";
   if (communityMessengerRoomIsTrade(room)) return "거래";
-  return "친구";
+  return "1:1";
 }
 
 function getRoomPreviewText(room: CommunityMessengerRoomSummary): string {

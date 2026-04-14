@@ -5,13 +5,22 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
-import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
+import {
+  messengerRoomMenuItemId,
+  messengerRoomSwipeItemId,
+  type MessengerChatListContext,
+} from "@/lib/community-messenger/messenger-ia";
 import { communityMessengerRoomIsInboxHidden, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import {
   formatConversationTimestamp,
   getRoomTypeBadgeLabel,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
+
+const ACTION_W = 78;
+const ACTION_TOTAL = ACTION_W * 3;
+const DRAG_START_X = 16;
+const DRAG_CANCEL_Y = 14;
 
 type Props = {
   item: UnifiedRoomListItem;
@@ -27,6 +36,10 @@ type Props = {
   compact?: boolean;
   /** 검색 시트 등: 탭은 방 이동, 롱프레스는 부모 액션 시트 */
   onCompactLongPress?: () => void;
+  openedSwipeItemId?: string | null;
+  onOpenSwipeItem?: (id: string | null) => void;
+  onCloseMenuItem?: (id?: string) => void;
+  onResetTransientUi?: () => void;
 };
 
 export function MessengerChatListItem({
@@ -41,10 +54,25 @@ export function MessengerChatListItem({
   listContext = "default",
   compact = false,
   onCompactLongPress,
+  openedSwipeItemId = null,
+  onOpenSwipeItem,
+  onCloseMenuItem,
+  onResetTransientUi,
 }: Props) {
   const router = useRouter();
   const room = item.room;
-  const badgeLabel = getRoomTypeBadgeLabel(room);
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({
+    startX: 0,
+    startY: 0,
+    origin: 0,
+    active: false,
+    dragging: false,
+  });
+  const dragXRef = useRef(0);
+  const suppressTapRef = useRef(false);
+  const roomTypeLabel = getRoomTypeBadgeLabel(room);
   const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
   const titleSuffix = room.roomType !== "direct" && room.memberCount > 0 ? String(room.memberCount) : "";
@@ -53,6 +81,14 @@ export function MessengerChatListItem({
       ? [commerceMeta.headline, commerceMeta.priceLabel].filter(Boolean).join(" · ")
       : null;
   const prefetchOnceRef = useRef(false);
+  const settingsBusy = _busyId === `room-settings:${room.id}`;
+  const archiveBusy = _busyId === `room-archive:${room.id}`;
+  const readBusy = _busyId === `room-read:${room.id}`;
+  const swipeItemId = messengerRoomSwipeItemId(room.id, listContext);
+  const menuItemId = messengerRoomMenuItemId(room.id, listContext);
+  const tradeRoleLabel = commerceMeta?.kind === "trade" ? commerceMeta.roleLabel?.trim() || null : null;
+  const tradeItemStateLabel = commerceMeta?.kind === "trade" ? commerceMeta.itemStateLabel?.trim() || null : null;
+  const deliveryStepLabel = commerceMeta?.kind === "delivery" ? commerceMeta.stepLabel?.trim() || null : null;
 
   const secondaryHint =
     item.previewKind === "call" && item.callStatus === "missed"
@@ -73,7 +109,14 @@ export function MessengerChatListItem({
     [router]
   );
 
+  const closeSwipe = useCallback(() => {
+    dragXRef.current = 0;
+    setDragX(0);
+    onOpenSwipeItem?.(null);
+  }, [onOpenSwipeItem]);
+
   const longPressHandler = useCallback(() => {
+    closeSwipe();
     if (compact && onCompactLongPress) {
       onCompactLongPress();
       return;
@@ -81,9 +124,112 @@ export function MessengerChatListItem({
     if (!compact) {
       onOpenRoomActions?.(item, listContext);
     }
-  }, [compact, item, listContext, onCompactLongPress, onOpenRoomActions]);
+  }, [closeSwipe, compact, item, listContext, onCompactLongPress, onOpenRoomActions]);
 
-  const { bind, consumeClickSuppression } = useMessengerLongPress(longPressHandler, { thresholdMs: 480 });
+  const { bind, cancelPending, consumeClickSuppression } = useMessengerLongPress(longPressHandler, { thresholdMs: 480 });
+
+  useEffect(() => {
+    dragXRef.current = dragX;
+  }, [dragX]);
+
+  useEffect(() => {
+    if (openedSwipeItemId && openedSwipeItemId !== swipeItemId) {
+      dragXRef.current = 0;
+      setDragX(0);
+    }
+  }, [openedSwipeItemId, swipeItemId]);
+
+  useEffect(() => {
+    if (openedSwipeItemId === swipeItemId) {
+      dragXRef.current = -ACTION_TOTAL;
+      setDragX(-ACTION_TOTAL);
+    }
+  }, [openedSwipeItemId, swipeItemId]);
+
+  const clamp = useCallback((x: number) => Math.max(-ACTION_TOTAL, Math.min(0, x)), []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (compact) return;
+    if (e.button !== 0) return;
+    suppressTapRef.current = false;
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: dragXRef.current,
+      active: true,
+      dragging: false,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  }, [compact]);
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (compact) return;
+      if (!dragRef.current.active) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      if (!dragRef.current.dragging) {
+        if (Math.abs(dy) > DRAG_CANCEL_Y && Math.abs(dy) > Math.abs(dx)) {
+          dragRef.current.active = false;
+          return;
+        }
+        if (Math.abs(dx) < DRAG_START_X || Math.abs(dx) <= Math.abs(dy)) {
+          return;
+        }
+        dragRef.current.dragging = true;
+        cancelPending();
+        suppressTapRef.current = true;
+        setIsDragging(true);
+      }
+      const next = clamp(dragRef.current.origin + dx);
+      dragXRef.current = next;
+      setDragX(next);
+    },
+    [cancelPending, clamp, compact]
+  );
+
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (compact) return;
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      const wasDragging = dragRef.current.dragging;
+      dragRef.current.dragging = false;
+      setIsDragging(false);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+      } catch {
+        /* noop */
+      }
+      if (!wasDragging) return;
+      const snap = dragXRef.current < -ACTION_TOTAL / 2 ? -ACTION_TOTAL : 0;
+      dragXRef.current = snap;
+      setDragX(snap);
+      onCloseMenuItem?.(menuItemId);
+      onOpenSwipeItem?.(snap === -ACTION_TOTAL ? swipeItemId : null);
+    },
+    [compact, menuItemId, onCloseMenuItem, onOpenSwipeItem, swipeItemId]
+  );
+
+  const onPointerCancel = useCallback((e: React.PointerEvent) => {
+    dragRef.current.active = false;
+    dragRef.current.dragging = false;
+    setIsDragging(false);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const runRowAction = useCallback(
+    (fn: () => void) => {
+      closeSwipe();
+      onCloseMenuItem?.(menuItemId);
+      fn();
+    },
+    [closeSwipe, menuItemId, onCloseMenuItem]
+  );
 
   const rowContent = (
     <div className="flex items-start gap-2">
@@ -102,21 +248,38 @@ export function MessengerChatListItem({
               {titleSuffix}
             </span>
           ) : null}
-          <span className={`shrink-0 rounded-full px-1.5 py-px text-[9px] font-semibold leading-none ${getRoomTypeBadgeClassName(badgeLabel)}`}>
-            {badgeLabel}
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold leading-none ${getRoomTypeBadgeClassName(
+              roomTypeLabel
+            )}`}
+          >
+            {roomTypeLabel}
           </span>
-          {commerceMeta?.stepLabel ? (
-            <span className="max-w-[38%] shrink-0 truncate rounded-ui-rect border border-ui-border bg-ui-page px-1 py-px text-[9px] font-medium text-ui-muted">
-              {commerceMeta.stepLabel}
+          {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (
+            <span className="shrink-0 rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2 py-0.5 text-[9px] font-semibold text-[color:var(--messenger-text-secondary)]">
+              {tradeItemStateLabel}
             </span>
           ) : null}
         </div>
-        {commerceSubline ? (
+        {commerceMeta?.kind === "trade" ? (
+          tradeRoleLabel ? (
+            <p className="mt-0.5 truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+              {tradeRoleLabel}
+            </p>
+          ) : null
+        ) : commerceSubline ? (
           <p className="mt-0.5 truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
             {commerceSubline}
           </p>
         ) : null}
         <div className="mt-0.5 flex items-center gap-1">
+          {commerceMeta?.kind === "delivery" ? (
+            deliveryStepLabel ? (
+              <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-700">
+                {deliveryStepLabel}
+              </span>
+            ) : null
+          ) : null}
           {secondaryHint ? (
             <span
               className="shrink-0 rounded-sm border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium"
@@ -208,24 +371,81 @@ export function MessengerChatListItem({
   }
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      {...bind}
-      onClick={() => {
-        if (consumeClickSuppression()) return;
-        navigateToCommunityRoom(room.id);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          if (consumeClickSuppression()) return;
-          navigateToCommunityRoom(room.id);
-        }
-      }}
-      className="block w-full cursor-default bg-[color:var(--messenger-surface)] px-2.5 py-1.5 transition active:bg-[color:var(--messenger-primary-soft)] touch-pan-y"
-    >
-      {rowContent}
+    <div className="relative overflow-hidden" data-messenger-chat-row="true">
+      <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX === 0}>
+        <button
+          type="button"
+          onClick={() => runRowAction(() => onTogglePin(room))}
+          disabled={settingsBusy}
+          className="flex w-[78px] items-center justify-center bg-violet-600 px-2 text-[12px] font-semibold text-white disabled:opacity-50"
+        >
+          {room.isPinned ? "고정 해제" : "고정"}
+        </button>
+        <button
+          type="button"
+          onClick={() => runRowAction(() => onToggleMute(room))}
+          disabled={settingsBusy}
+          className="flex w-[78px] items-center justify-center bg-slate-600 px-2 text-[12px] font-semibold text-white disabled:opacity-50"
+        >
+          {room.isMuted ? "알림 켜기" : "알림 끄기"}
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            runRowAction(() => {
+              if (room.unreadCount > 0 && !readBusy) onMarkRead(room);
+              onToggleArchive(room);
+            })
+          }
+          disabled={archiveBusy || readBusy}
+          className="flex w-[78px] items-center justify-center bg-amber-600 px-2 text-[12px] font-semibold text-white disabled:opacity-50"
+        >
+          {listContext === "archive" ? "복원" : "보관"}
+        </button>
+      </div>
+      <div
+        className="relative flex min-w-0 flex-row bg-[color:var(--messenger-surface)] touch-pan-y"
+        style={{
+          transform: `translate3d(${dragX}px,0,0)`,
+          transition: isDragging ? "none" : "transform 0.2s ease-out",
+          willChange: isDragging ? "transform" : undefined,
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onLostPointerCapture={onPointerCancel}
+      >
+        <div
+          role="button"
+          tabIndex={0}
+          {...bind}
+          onClick={() => {
+            if (suppressTapRef.current) {
+              suppressTapRef.current = false;
+              return;
+            }
+            if (consumeClickSuppression()) return;
+            if (dragX < -16) {
+              closeSwipe();
+              return;
+            }
+            onResetTransientUi?.();
+            navigateToCommunityRoom(room.id);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              if (consumeClickSuppression()) return;
+              navigateToCommunityRoom(room.id);
+            }
+          }}
+          className="block w-full flex-1 cursor-default bg-[color:var(--messenger-surface)] px-2.5 py-1.5 transition active:bg-[color:var(--messenger-primary-soft)]"
+          style={{ minWidth: 0, flex: "1 1 0%" }}
+        >
+          {rowContent}
+        </div>
+      </div>
     </div>
   );
 }
@@ -283,12 +503,12 @@ function AvatarCircle({
 }
 
 function getRoomTypeBadgeClassName(label: string): string {
-  if (label === "친구") return "border-transparent bg-[color:var(--messenger-badge-direct-bg)] text-[color:var(--messenger-primary)]";
-  if (label === "그룹") return "border-transparent bg-[color:var(--messenger-badge-group-bg)] text-violet-900";
-  if (label === "오픈") return "border-transparent bg-[color:var(--messenger-badge-openchat-bg)] text-sky-800";
-  if (label === "거래") return "border-transparent bg-[color:var(--messenger-badge-trade-bg)] text-emerald-900";
-  if (label === "배달") return "border-transparent bg-[color:var(--messenger-badge-delivery-bg)] text-amber-900";
-  return "border-transparent bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]";
+  if (label.startsWith("1:1")) return "border border-violet-200 bg-violet-50 text-violet-700";
+  if (label.startsWith("그룹")) return "border border-sky-200 bg-sky-50 text-sky-700";
+  if (label.startsWith("오픈")) return "border border-cyan-200 bg-cyan-50 text-cyan-700";
+  if (label.startsWith("거래")) return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (label.startsWith("배달")) return "border border-amber-200 bg-amber-50 text-amber-700";
+  return "border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]";
 }
 
 function PinIcon() {
@@ -308,3 +528,4 @@ function MuteIcon() {
     </svg>
   );
 }
+

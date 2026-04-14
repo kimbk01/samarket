@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -12,17 +13,24 @@ type Props = {
   anchorRect: DOMRect | null;
   onClose: () => void;
   busyId: string | null;
+  onOpenProfile: () => void;
+  favoriteActive: boolean;
+  onToggleFavorite: () => void;
   onChat: () => void;
   onVoiceCall: () => void;
   onVideoCall: () => void;
-  /** 친구이며 1:1 방이 있을 때만 표시 */
+  pendingVoice: boolean;
+  pendingVideo: boolean;
   showMuteRow: boolean;
   directRoomMuted: boolean | undefined;
   notificationsBusy: boolean;
   onToggleMute?: () => void;
+  onHide: () => void;
+  onRemove: () => void;
+  onBlock: () => void;
+  isHidden: boolean;
+  isBlocked: boolean;
 };
-
-const POPUP_W = 280;
 
 function IconChatOutline({ className }: { className?: string }) {
   return (
@@ -65,62 +73,50 @@ function IconVideoOutline({ className }: { className?: string }) {
   );
 }
 
-/**
- * 친구 행 ⋮ — 전체 화면 시트 대신 앵커 근처 고정 팝업 (채팅·통화 + 대화 알림)
- */
 export function MessengerFriendRowQuickPopup({
   profile,
   open,
-  anchorRect,
+  anchorRect: _anchorRect,
   onClose,
   busyId,
+  onOpenProfile,
+  favoriteActive,
+  onToggleFavorite,
   onChat,
   onVoiceCall,
   onVideoCall,
+  pendingVoice,
+  pendingVideo,
   showMuteRow,
   directRoomMuted,
   notificationsBusy,
   onToggleMute,
+  onHide,
+  onRemove,
+  onBlock,
+  isHidden,
+  isBlocked,
 }: Props) {
   const pid = profile.id;
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  /** Only close dimmer on a real pointer cycle on the dimmer (avoids synthetic `click` after touch). */
+  const dimmerPointerIdRef = useRef<number | null>(null);
+  /** Ignore dimmer close briefly after open (same touch can synthesize a follow-up on mobile). */
+  const dimmerSuppressUntilRef = useRef(0);
   const [step, setStep] = useState<Step>("main");
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [launching, setLaunching] = useState<null | "chat" | "voice" | "video">(null);
 
   useEffect(() => {
     if (!open) {
       setStep("main");
+      setLaunching(null);
       return;
     }
+    dimmerSuppressUntilRef.current = Date.now() + 320;
     setStep("main");
+    setLaunching(null);
   }, [open, pid]);
-
-  const layout = useCallback(() => {
-    if (!open || !anchorRect) return;
-    const vw = typeof window !== "undefined" ? window.innerWidth : 400;
-    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-    const margin = 8;
-    let left = anchorRect.left + anchorRect.width / 2 - POPUP_W / 2;
-    left = Math.max(margin, Math.min(left, vw - POPUP_W - margin));
-    const estH = step === "main" ? (showMuteRow ? 220 : 180) : 260;
-    let top = anchorRect.bottom + 8;
-    if (top + estH > vh - margin) {
-      top = Math.max(margin, anchorRect.top - estH - 8);
-    }
-    setPos({ top, left });
-  }, [open, anchorRect, step, showMuteRow]);
-
-  useLayoutEffect(() => {
-    layout();
-  }, [layout]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onResize = () => layout();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [open, layout]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,161 +127,295 @@ export function MessengerFriendRowQuickPopup({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current && !panelRef.current.contains(t)) onClose();
-    };
-    document.addEventListener("mousedown", onDoc, true);
-    return () => document.removeEventListener("mousedown", onDoc, true);
-  }, [open, onClose]);
-
-  if (!open || typeof document === "undefined" || !pos) return null;
+  if (!open || typeof document === "undefined") return null;
+  if (!document.body) return null;
 
   const bChat = busyId === `room:${pid}`;
-  const bVoice = busyId === `call:voice:${pid}`;
-  const bVideo = busyId === `call:video:${pid}`;
-  const anyBusy = Boolean(busyId);
+  const bVoice = pendingVoice || busyId === `call:voice:${pid}`;
+  const bVideo = pendingVideo || busyId === `call:video:${pid}`;
+  const anyBusy = Boolean(busyId) || launching != null;
+
+  const haptic = (ms = 10) => {
+    try {
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) (navigator as Navigator).vibrate(ms);
+    } catch {
+      // ignore
+    }
+  };
+
+  const closeAfterPress = (ms = 240) => {
+    window.setTimeout(() => onClose(), ms);
+  };
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[55] bg-black/20" aria-hidden onClick={onClose} />
       <div
-        ref={panelRef}
+        className="fixed inset-0 z-[55] bg-black/50"
+        data-messenger-friend-quick-popup="true"
+        aria-hidden
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          if (e.target !== e.currentTarget) return;
+          dimmerPointerIdRef.current = e.pointerId;
+        }}
+        onPointerUp={(e) => {
+          if (e.button !== 0) return;
+          if (e.target !== e.currentTarget) return;
+          if (dimmerPointerIdRef.current !== e.pointerId) return;
+          dimmerPointerIdRef.current = null;
+          if (Date.now() < dimmerSuppressUntilRef.current) return;
+          onClose();
+        }}
+        onPointerCancel={() => {
+          dimmerPointerIdRef.current = null;
+        }}
+      />
+      <div
+        className="pointer-events-none fixed inset-0 z-[56] flex items-center justify-center px-4 py-6"
+        data-messenger-friend-quick-popup="true"
+        data-messenger-shell
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="fixed z-[56] max-w-[calc(100vw-16px)] rounded-[14px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
-        style={{ width: POPUP_W, top: pos.top, left: pos.left }}
       >
-        <div className="flex justify-center pt-2 pb-1" aria-hidden>
-          <span className="h-0.5 w-9 rounded-full bg-[color:var(--messenger-text)] opacity-80" />
+        <div
+          ref={panelRef}
+          data-messenger-friend-sheet="true"
+          className="pointer-events-auto w-full max-w-[420px] overflow-hidden rounded-[24px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[0_24px_70px_rgba(15,23,42,0.34)]"
+        >
+          {step === "main" ? (
+            <>
+              <div className="border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3">
+                <p id={titleId} className="truncate text-[16px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+                  {profile.label}
+                </p>
+                <p className="mt-1 truncate text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+                  {profile.bio?.trim() || profile.subtitle?.trim() || ""}
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <ActionTile
+                    label={bChat ? "연결 중" : "1:1 채팅"}
+                    icon={<IconChatOutline className="h-5 w-5" />}
+                    onClick={() => {
+                      haptic(12);
+                      setLaunching("chat");
+                      window.setTimeout(() => onChat(), 220);
+                      closeAfterPress(300);
+                    }}
+                    disabled={anyBusy}
+                  />
+                  <ActionTile
+                    label={bVoice ? "연결 중" : "음성"}
+                    icon={<IconPhoneOutline className="h-5 w-5" />}
+                    onClick={() => {
+                      haptic(14);
+                      setLaunching("voice");
+                      window.setTimeout(() => onVoiceCall(), 220);
+                      closeAfterPress(300);
+                    }}
+                    disabled={anyBusy}
+                  />
+                  <ActionTile
+                    label={bVideo ? "연결 중" : "영상"}
+                    icon={<IconVideoOutline className="h-5 w-5" />}
+                    onClick={() => {
+                      haptic(14);
+                      setLaunching("video");
+                      window.setTimeout(() => onVideoCall(), 220);
+                      closeAfterPress(300);
+                    }}
+                    disabled={anyBusy}
+                  />
+                </div>
+              </div>
+
+              <div className="px-4 py-3">
+                <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
+                  <SheetRow
+                    label="프로필 보기"
+                    onClick={() => {
+                      haptic(10);
+                      onOpenProfile();
+                      closeAfterPress();
+                    }}
+                  />
+                  <SheetRow
+                    label={favoriteActive ? "즐겨찾기 해제" : "즐겨찾기"}
+                    onClick={() => {
+                      haptic(10);
+                      onToggleFavorite();
+                      closeAfterPress();
+                    }}
+                    disabled={busyId != null}
+                  />
+                  {showMuteRow && onToggleMute ? (
+                    <SheetRow
+                      label={
+                        notificationsBusy
+                          ? "처리 중…"
+                          : typeof directRoomMuted === "boolean"
+                            ? directRoomMuted
+                              ? "대화 알림 켜기"
+                              : "대화 알림 끄기"
+                            : "대화 알림"
+                      }
+                      sub={typeof directRoomMuted === "boolean" ? (directRoomMuted ? "현재 OFF" : "현재 ON") : undefined}
+                      onClick={() => {
+                        haptic(10);
+                        onToggleMute();
+                        closeAfterPress();
+                      }}
+                      disabled={anyBusy || typeof directRoomMuted !== "boolean" || notificationsBusy}
+                    />
+                  ) : null}
+                </div>
+
+            <div className="mt-3 overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
+                  <SheetRow
+                    label={isHidden ? "숨김 해제" : "숨기기"}
+                    onClick={() => {
+                      haptic(12);
+                      onHide();
+                      closeAfterPress();
+                    }}
+                    danger
+                  />
+                  <SheetRow
+                    label={isBlocked ? "차단 해제" : "차단"}
+                    onClick={() => {
+                      haptic(12);
+                      onBlock();
+                      closeAfterPress();
+                    }}
+                    danger
+                  />
+                  <SheetRow
+                    label="친구 삭제"
+                    onClick={() => {
+                      haptic(14);
+                      onRemove();
+                      closeAfterPress();
+                    }}
+                    danger
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full border-t border-[color:var(--messenger-divider)] px-4 py-3 text-[14px] font-medium"
+                style={{ color: "var(--messenger-text-secondary)" }}
+              >
+                닫기
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-1 border-b border-[color:var(--messenger-divider)] px-2 py-2">
+                <button
+                  type="button"
+                  onClick={() => setStep("main")}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[18px] active:bg-[color:var(--messenger-primary-soft)]"
+                  style={{ color: "var(--messenger-text)" }}
+                  aria-label="뒤로"
+                >
+                  ‹
+                </button>
+                <p className="flex-1 text-center text-[13px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+                  통화하기
+                </p>
+                <span className="w-8" />
+              </div>
+              <div className="px-4 py-4">
+                <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
+                  <SheetRow
+                    label={bVoice ? "음성 통화 연결 중…" : "음성 통화"}
+                    sub="보이스톡"
+                    icon={<IconPhoneOutline className="h-5 w-5" />}
+                    onClick={() => {
+                      haptic(14);
+                      onVoiceCall();
+                      closeAfterPress();
+                    }}
+                    disabled={anyBusy}
+                  />
+                  <SheetRow
+                    label={bVideo ? "영상 통화 연결 중…" : "영상 통화"}
+                    sub="페이스톡"
+                    icon={<IconVideoOutline className="h-5 w-5" />}
+                    onClick={() => {
+                      haptic(14);
+                      onVideoCall();
+                      closeAfterPress();
+                    }}
+                    disabled={anyBusy}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
-
-        {step === "main" ? (
-          <>
-            <div className="border-b border-[color:var(--messenger-divider)] px-3 pb-2 pt-0.5">
-              <p id={titleId} className="truncate text-[14px] font-semibold" style={{ color: "var(--messenger-text)" }}>
-                {profile.label}
-              </p>
-              <p className="truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
-                {profile.subtitle?.trim() || `ID · ${pid.slice(0, 8)}…`}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 divide-x divide-[color:var(--messenger-divider)] border-b border-[color:var(--messenger-divider)]">
-              <button
-                type="button"
-                onClick={() => {
-                  onChat();
-                  onClose();
-                }}
-                disabled={anyBusy}
-                className="flex flex-col items-center gap-1 py-3 active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-50"
-                style={{ color: "var(--messenger-text)" }}
-              >
-                <IconChatOutline className="h-6 w-6" />
-                <span className="text-[13px] font-medium">{bChat ? "연결 중…" : "1:1 채팅"}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep("call")}
-                disabled={anyBusy}
-                className="flex flex-col items-center gap-1 py-3 active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-50"
-                style={{ color: "var(--messenger-text)" }}
-              >
-                <IconPhoneOutline className="h-6 w-6" />
-                <span className="text-[13px] font-medium">통화</span>
-              </button>
-            </div>
-
-            {showMuteRow && onToggleMute ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onToggleMute();
-                  onClose();
-                }}
-                disabled={anyBusy || typeof directRoomMuted !== "boolean" || notificationsBusy}
-                className="flex w-full min-h-[var(--ui-tap-min,44px)] items-center justify-between px-3 py-2.5 text-left active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-50"
-                style={{ color: "var(--messenger-text)" }}
-              >
-                <span className="text-[14px] font-medium">
-                  {notificationsBusy
-                    ? "처리 중…"
-                    : typeof directRoomMuted === "boolean"
-                      ? directRoomMuted
-                        ? "대화 알림 켜기"
-                        : "대화 알림 끄기"
-                      : "대화 알림"}
-                </span>
-              </button>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <div className="flex items-center gap-1 border-b border-[color:var(--messenger-divider)] px-2 py-1.5">
-              <button
-                type="button"
-                onClick={() => setStep("main")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[18px] active:bg-[color:var(--messenger-primary-soft)]"
-                style={{ color: "var(--messenger-text)" }}
-                aria-label="뒤로"
-              >
-                ‹
-              </button>
-              <p className="flex-1 text-center text-[13px] font-semibold" style={{ color: "var(--messenger-text)" }}>
-                통화하기
-              </p>
-              <span className="w-8" />
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                onVoiceCall();
-                onClose();
-              }}
-              disabled={anyBusy}
-              className="flex w-full items-center gap-3 border-b border-[color:var(--messenger-divider)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-50"
-            >
-              <span className="text-[color:var(--messenger-text)]">
-                <IconPhoneOutline className="h-6 w-6 shrink-0" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-medium" style={{ color: "var(--messenger-text)" }}>
-                  {bVoice ? "연결 중…" : "음성 통화"}
-                </span>
-                <span className="block text-[10px]" style={{ color: "var(--messenger-text-secondary)" }}>
-                  보이스톡
-                </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onVideoCall();
-                onClose();
-              }}
-              disabled={anyBusy}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-50"
-            >
-              <span className="text-[color:var(--messenger-text)]">
-                <IconVideoOutline className="h-6 w-6 shrink-0" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-medium" style={{ color: "var(--messenger-text)" }}>
-                  {bVideo ? "연결 중…" : "영상 통화"}
-                </span>
-                <span className="block text-[10px]" style={{ color: "var(--messenger-text-secondary)" }}>
-                  페이스톡
-                </span>
-              </span>
-            </button>
-          </>
-        )}
       </div>
     </>,
     document.body
+  );
+}
+
+function ActionTile({
+  label,
+  icon,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-[16px] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 text-[12px] font-semibold disabled:opacity-50 active:bg-[color:var(--messenger-primary-soft-2)]"
+      style={{ color: "var(--messenger-text)" }}
+    >
+      <span className="text-[color:var(--messenger-primary)]">{icon}</span>
+      <span className="text-[12px]">{label}</span>
+    </button>
+  );
+}
+
+function SheetRow({
+  label,
+  sub,
+  icon,
+  onClick,
+  disabled,
+  danger = false,
+}: {
+  label: string;
+  sub?: string;
+  icon?: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex min-h-[56px] w-full items-center gap-3 border-b border-[color:var(--messenger-divider)] px-4 py-3 text-left last:border-b-0 disabled:opacity-50 ${
+        danger ? "active:bg-rose-50" : "active:bg-[color:var(--messenger-primary-soft)]"
+      }`}
+      style={{ color: danger ? "var(--ui-danger)" : "var(--messenger-text)" }}
+    >
+      {icon ? <span className="shrink-0">{icon}</span> : null}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-medium">{label}</span>
+        {sub ? <span className="mt-0.5 block text-[11px] text-[color:var(--messenger-text-secondary)]">{sub}</span> : null}
+      </span>
+    </button>
   );
 }

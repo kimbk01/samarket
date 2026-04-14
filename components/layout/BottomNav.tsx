@@ -22,7 +22,7 @@ import {
 import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
-import { isConstrainedNetwork } from "@/lib/ui/network-policy";
+import { cancelScheduledWhenBrowserIdle, isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 /** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
@@ -120,19 +120,20 @@ export function BottomNav() {
       if (h && !hrefs.includes(h) && h !== pathname) hrefs.push(h);
     }
     let cancelled = false;
-    const id = requestAnimationFrame(() => {
+    const idleId = scheduleWhenBrowserIdle(() => {
       if (cancelled) return;
       for (const href of hrefs) {
+        if (cancelled) return;
         try {
           router.prefetch(href);
         } catch {
           /* no-op */
         }
       }
-    });
+    }, 900);
     return () => {
       cancelled = true;
-      cancelAnimationFrame(id);
+      cancelScheduledWhenBrowserIdle(idleId);
     };
   }, [pathname, tabs, router]);
 

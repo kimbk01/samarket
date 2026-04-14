@@ -72,7 +72,12 @@ export function MessengerChatRoomActionSheet({
     Boolean(commerceMeta?.productChatId?.trim()) && (communityMessengerRoomIsTrade(room) || communityMessengerRoomIsDelivery(room));
 
   return (
-    <div className="fixed inset-0 z-[46] flex flex-col justify-end bg-black/30" role="dialog" aria-modal="true">
+    <div
+      data-messenger-chat-sheet="true"
+      className="fixed inset-0 z-[46] flex flex-col justify-end bg-black/30"
+      role="dialog"
+      aria-modal="true"
+    >
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
       <div className="w-full max-h-[min(72vh,560px)] overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="border-b border-ui-border px-3 py-2">

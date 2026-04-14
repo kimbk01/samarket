@@ -8,6 +8,13 @@ export type MessengerMainSection = "friends" | "chats" | "open_chat" | "archive"
 /** 채팅 목록 행·액션 시트가 일반 탭인지 보관함 탭인지(복원·로컬 삭제 범위 문구 분기). */
 export type MessengerChatListContext = "default" | "archive";
 
+export type MessengerArchiveSection =
+  | "hidden_friends"
+  | "blocked_friends"
+  | "muted_chats"
+  | "archived_chats"
+  | "requests";
+
 /** 받은함/목록 범위(전체·안읽음·고정) — 대화 유형과 한 줄에 섞지 않는다. */
 export type MessengerChatInboxFilter = "all" | "unread" | "pinned";
 
@@ -15,8 +22,8 @@ export type MessengerChatInboxFilter = "all" | "unread" | "pinned";
 export type MessengerChatKindFilter = "all" | "direct" | "private_group" | "trade" | "delivery";
 
 /**
- * 모바일 채팅 목록 단일 칩(전체·안읽음·고정·유형) — inbox+kind 를 한 축으로 표현.
- * kind 가 all 이 아니면 유형 칩이 우선(안읽음+1:1 같은 URL 조합은 유형 쪽으로 표시).
+ * 모바일 채팅 목록 단일 칩. 현재 UI는 유형 중심(`전체/1:1/그룹/거래/배달`)만 전면 노출하고,
+ * `안읽음/고정`은 행 뱃지/핀 표시로 표현한다. 레거시 URL 호환 때문에 타입은 유지한다.
  */
 export type MessengerChatListChip =
   | "all"
@@ -29,8 +36,6 @@ export type MessengerChatListChip =
 
 export const MESSENGER_CHAT_LIST_CHIP_ORDER: readonly MessengerChatListChip[] = [
   "all",
-  "unread",
-  "pinned",
   "direct",
   "private_group",
   "trade",
@@ -162,8 +167,6 @@ export function inboxKindToChatListChip(
   if (kind !== "all") {
     return kind;
   }
-  if (inbox === "unread") return "unread";
-  if (inbox === "pinned") return "pinned";
   return "all";
 }
 
@@ -212,6 +215,41 @@ export function messengerSectionLabel(section: MessengerMainSection): string {
     default:
       return "채팅";
   }
+}
+
+export function messengerFriendSwipeItemId(userId: string): string {
+  return `friend:swipe:${String(userId ?? "").trim()}`;
+}
+
+export function messengerFriendMenuItemId(userId: string): string {
+  return `friend:menu:${String(userId ?? "").trim()}`;
+}
+
+/**
+ * Extract `userId` from Friends-tab swipe / quick-menu interaction ids.
+ * Validates open UI against bootstrap `friends` even when derived list sets lag a frame.
+ */
+
+export function messengerFriendUserIdFromListInteractionId(interactionId: string): string | null {
+  const raw = String(interactionId ?? "").trim();
+  if (!raw) return null;
+  const menuPrefix = "friend:menu:";
+  if (raw.startsWith(menuPrefix)) {
+    const uid = raw.slice(menuPrefix.length).trim();
+    return uid || null;
+  }
+  const m = /^friend:swipe:(.+):(left|right)$/.exec(raw);
+  if (!m?.[1]) return null;
+  const uid = String(m[1]).trim();
+  return uid || null;
+}
+
+export function messengerRoomSwipeItemId(roomId: string, listContext: MessengerChatListContext = "default"): string {
+  return `room:swipe:${listContext}:${String(roomId ?? "").trim()}`;
+}
+
+export function messengerRoomMenuItemId(roomId: string, listContext: MessengerChatListContext = "default"): string {
+  return `room:menu:${listContext}:${String(roomId ?? "").trim()}`;
 }
 
 export function messengerChatInboxFilterLabel(filter: MessengerChatInboxFilter): string {

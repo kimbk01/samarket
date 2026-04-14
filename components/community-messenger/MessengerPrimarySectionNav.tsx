@@ -16,27 +16,33 @@ type Props = {
 export function MessengerPrimarySectionNav({ value, onChange }: Props) {
   return (
     <div
-      className="sam-tabs rounded-t-[var(--messenger-radius-md)] pb-0 shadow-[var(--messenger-shadow-soft)]"
+      className="rounded-[var(--messenger-radius-lg)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] p-1 shadow-[var(--messenger-shadow-soft)]"
       style={{ color: "var(--messenger-text)" }}
     >
-      {SECTIONS.map((id) => {
-        const active = value === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(id)}
-            className="sam-tab py-3 text-[13px] transition-colors active:bg-[color:var(--messenger-primary-soft)]"
-            style={{ color: active ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
-          >
-            <span className="flex items-center justify-center">
-              <span className="truncate">{messengerSectionLabel(id)}</span>
-            </span>
-          </button>
-        );
-      })}
+      <div className="grid grid-cols-4 gap-1">
+        {SECTIONS.map((id) => {
+          const active = value === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onChange(id)}
+              className={`min-h-[44px] rounded-[var(--messenger-radius-md)] px-1.5 py-2 text-[13px] font-semibold transition-colors ${
+                active
+                  ? "bg-[color:var(--messenger-primary)] text-white shadow-sm"
+                  : "bg-transparent active:bg-[color:var(--messenger-primary-soft)]"
+              }`}
+              style={{ color: active ? undefined : "var(--messenger-text-secondary)" }}
+            >
+              <span className="flex items-center justify-center">
+                <span className="truncate">{messengerSectionLabel(id)}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

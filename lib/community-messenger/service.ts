@@ -1619,6 +1619,7 @@ export async function listCommunityMessengerMyChatsAndGroups(userId: string): Pr
     myPayload.byRoomId,
     profileById
   );
+  await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
   return { chats, groups };
@@ -2184,6 +2185,7 @@ export async function getCommunityMessengerBootstrap(
     myPayload.byRoomId,
     profileById
   );
+  await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
 
@@ -2260,6 +2262,64 @@ export async function getCommunityMessengerBootstrap(
     discoverableGroups,
     calls,
   };
+}
+
+async function enrichTradeRoomContextMetaForBootstrap(
+  userId: string,
+  summaries: CommunityMessengerRoomSummary[]
+): Promise<void> {
+  const sb = getSupabaseOrNull();
+  if (!sb) return;
+  const targets = summaries.filter(
+    (s) => s.contextMeta?.kind === "trade" && Boolean(s.contextMeta.productChatId?.trim())
+  );
+  if (!targets.length) return;
+  const productChatIds = dedupeIds(targets.map((s) => s.contextMeta?.productChatId?.trim() ?? "").filter(Boolean));
+  if (!productChatIds.length) return;
+
+  const { data: pcs } = await (sb as any)
+    .from("product_chats")
+    .select("id, post_id, seller_id, buyer_id")
+    .in("id", productChatIds);
+  const byPcId = new Map<string, { postId: string; sellerId: string; buyerId: string }>();
+  for (const row of (pcs ?? []) as Array<{ id?: unknown; post_id?: unknown; seller_id?: unknown; buyer_id?: unknown }>) {
+    const pcid = trimText(row.id);
+    const postId = trimText(row.post_id);
+    const sellerId = trimText(row.seller_id);
+    const buyerId = trimText(row.buyer_id);
+    if (!pcid || !postId || !sellerId || !buyerId) continue;
+    byPcId.set(pcid, { postId, sellerId, buyerId });
+  }
+  const postIds = dedupeIds([...byPcId.values()].map((v) => v.postId));
+  const { data: posts } = await (sb as any)
+    .from(POSTS_TABLE_READ)
+    .select("id, title, price, currency, images, status, seller_listing_state")
+    .in("id", postIds);
+  const postById = new Map<string, any>(((posts ?? []) as any[]).map((p) => [trimText(p.id), p]));
+
+  for (const s of targets) {
+    const pcid = s.contextMeta?.productChatId?.trim() ?? "";
+    const pc = byPcId.get(pcid);
+    if (!pc) continue;
+    const post = postById.get(pc.postId);
+    const title = typeof post?.title === "string" ? post.title.trim() : "";
+    const priceRaw = post?.price;
+    const price =
+      typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
+    const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
+    const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
+    const meta = buildMessengerContextMetaFromProductChatSnapshot({
+      productChatId: pcid,
+      productTitle: title || "거래",
+      price: price != null && !Number.isNaN(price) ? price : null,
+      currency,
+      role,
+      sellerListingStateRaw: post?.seller_listing_state,
+      postStatus: post?.status ?? null,
+      thumbnailUrl: firstPostThumbnailForTradeMeta(post?.images),
+    });
+    s.contextMeta = meta;
+  }
 }
 
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
@@ -4158,7 +4218,7 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
   const postId = String(pc.post_id ?? "").trim();
   const { data: post } = await (sb as any)
     .from(POSTS_TABLE_READ)
-    .select("title, price, currency, images")
+    .select("title, price, currency, images, status, seller_listing_state")
     .eq("id", postId)
     .maybeSingle();
   const title = typeof post?.title === "string" ? post.title.trim() : "";
@@ -4170,12 +4230,16 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
         ? Number(priceRaw)
         : null;
   const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
+  const seller = trimText((pc as { seller_id?: unknown }).seller_id);
+  const role: "seller" | "buyer" = userId === seller ? "seller" : "buyer";
   const meta = buildMessengerContextMetaFromProductChatSnapshot({
     productChatId: resolved.productChatId,
     productTitle: title || "거래",
     price: price != null && !Number.isNaN(price) ? price : null,
     currency,
-    tradeFlowStatus: String((pc as { trade_flow_status?: string }).trade_flow_status ?? "chatting"),
+    role,
+    sellerListingStateRaw: (post as any)?.seller_listing_state,
+    postStatus: (post as any)?.status ?? null,
     thumbnailUrl: firstPostThumbnailForTradeMeta(post?.images),
   });
   await updateCommunityMessengerRoomContextMeta({

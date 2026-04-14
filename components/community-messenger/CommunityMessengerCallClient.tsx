@@ -1173,7 +1173,7 @@ export function CommunityMessengerCallClient({
               onClick={() => navigateToChatDuringCall()}
               className="rounded-full border border-sam-surface/18 bg-sam-surface/[0.06] px-4 py-2 text-[13px] font-medium text-white/90 transition active:scale-[0.98]"
             >
-              채팅으로
+              채팅으로 돌아가기
             </button>
             <span className="rounded-full border border-sam-surface/15 bg-sam-surface/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-white/85">
               음성 통화
@@ -1215,6 +1215,7 @@ export function CommunityMessengerCallClient({
                 {session.peerLabel}
               </p>
               <p className="mt-2 text-[15px] text-white/65">{statusLabel}</p>
+              <p className="mt-2 text-[11px] text-white/45">대화로 돌아가도 통화는 유지되며 언제든 다시 복귀할 수 있습니다.</p>
               {joined && session.status === "active" ? (
                 <p className="mt-3 font-mono text-[17px] font-semibold tabular-nums text-white/90">
                   {formatDuration(elapsedSeconds)}

@@ -1,21 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import {
-  MESSENGER_CHAT_LIST_CHIP_ORDER,
   type MessengerChatListChip,
   type MessengerChatListContext,
   messengerChatListChipLabel,
 } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
+import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
+import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
 
-function chipClass(active: boolean): string {
-  return `shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold leading-tight touch-manipulation transition-colors ${
-    active
-      ? "bg-[color:var(--messenger-primary)] text-white shadow-sm"
-      : "bg-[color:var(--messenger-primary-soft)] text-[color:var(--messenger-text-secondary)] active:bg-[color:var(--messenger-primary-soft-2)]"
-  }`;
+function FilterIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M7 12h10M10 18h4" />
+    </svg>
+  );
 }
 
 type Props = {
@@ -32,6 +34,11 @@ type Props = {
   emptyMessage: string;
   showFilters?: boolean;
   listContext?: MessengerChatListContext;
+  openedSwipeItemId: string | null;
+  onOpenSwipeItem: (id: string | null) => void;
+  onCloseMenuItem: (id?: string) => void;
+  onResetTransientUi: MessengerResetTransientUiFn;
+  onListScrollStart: () => void;
 };
 
 export function MessengerChatsScreen({
@@ -48,26 +55,84 @@ export function MessengerChatsScreen({
   emptyMessage,
   showFilters = true,
   listContext = "default",
+  openedSwipeItemId,
+  onOpenSwipeItem,
+  onCloseMenuItem,
+  onResetTransientUi,
+  onListScrollStart,
 }: Props) {
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+
+  const closeAllTransient = () => {
+    setFilterSheetOpen(false);
+    onResetTransientUi();
+  };
+
   return (
-    <section className="pt-1">
+    <section
+      className="space-y-3 pt-1"
+      onPointerDownCapture={(e) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        if (target.closest("[data-messenger-chat-row='true']")) return;
+        if (target.closest("[data-messenger-chat-sheet='true']")) return;
+        if (target.closest("[data-messenger-chat-filter-sheet='true']")) return;
+        closeAllTransient();
+      }}
+    >
       {showFilters ? (
-        <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {MESSENGER_CHAT_LIST_CHIP_ORDER.map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onChatListChipChange(id)}
-              className={chipClass(chatListChip === id)}
-            >
-              {messengerChatListChipLabel(id)}
-            </button>
-          ))}
+        <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-3 shadow-[var(--messenger-shadow-soft)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+                {listContext === "archive" ? "보관된 대화" : "대화 목록"}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+                필터는 버튼으로 열고, 안읽음은 뱃지로, 고정은 핀 아이콘으로 확인합니다.
+              </p>
+            </div>
+            <div className="shrink-0 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  closeAllTransient();
+                  setFilterSheetOpen(true);
+                }}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 text-[12px] font-semibold active:bg-[color:var(--messenger-primary-soft)]"
+                style={{ color: "var(--messenger-text)" }}
+              >
+                <FilterIcon />
+                필터
+              </button>
+              <span
+                className="inline-flex h-10 items-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 text-[12px] font-semibold"
+                style={{ color: "var(--messenger-text)" }}
+              >
+                {messengerChatListChipLabel(chatListChip)}
+              </span>
+            </div>
+          </div>
         </div>
       ) : null}
 
+      <MessengerChatFilterSheet
+        open={filterSheetOpen}
+        value={chatListChip}
+        onClose={() => closeAllTransient()}
+        onSelect={(next) => {
+          closeAllTransient();
+          onChatListChipChange(next);
+        }}
+      />
+
       {items.length ? (
-        <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+        <div
+          className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+          onScrollCapture={() => {
+            setFilterSheetOpen(false);
+            onListScrollStart();
+          }}
+        >
           {items.map((item) => (
             <MessengerChatListItem
               key={item.room.id}
@@ -80,6 +145,10 @@ export function MessengerChatsScreen({
               onToggleArchive={(room) => onToggleArchive(room)}
               listContext={listContext}
               onOpenRoomActions={onOpenRoomActions}
+              openedSwipeItemId={openedSwipeItemId}
+              onOpenSwipeItem={onOpenSwipeItem}
+              onCloseMenuItem={onCloseMenuItem}
+              onResetTransientUi={onResetTransientUi}
             />
           ))}
         </div>
@@ -109,6 +178,11 @@ export function MessengerOpenChatScreen({
   onToggleArchive,
   onPreviewGroup,
   onOpenRoomActions,
+  openedSwipeItemId,
+  onOpenSwipeItem,
+  onCloseMenuItem,
+  onResetTransientUi,
+  onListScrollStart,
 }: {
   joinedItems: UnifiedRoomListItem[];
   discoverableGroups: Array<{
@@ -127,12 +201,31 @@ export function MessengerOpenChatScreen({
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
   onPreviewGroup: (groupId: string) => void;
   onOpenRoomActions?: (item: UnifiedRoomListItem, listContext: MessengerChatListContext) => void;
+  openedSwipeItemId: string | null;
+  onOpenSwipeItem: (id: string | null) => void;
+  onCloseMenuItem: (id?: string) => void;
+  onResetTransientUi: MessengerResetTransientUiFn;
+  onListScrollStart: () => void;
 }) {
   return (
-    <section className="space-y-3 pt-1.5">
-      <p className="px-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-        공개 오픈채팅만 표시합니다. 입장 전 미리보기를 확인하세요.
-      </p>
+    <section
+      className="space-y-3 pt-1.5"
+      onPointerDownCapture={(e) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        if (target.closest("[data-messenger-chat-row='true']")) return;
+        if (target.closest("[data-messenger-chat-sheet='true']")) return;
+        onResetTransientUi();
+      }}
+    >
+      <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-3 shadow-[var(--messenger-shadow-soft)]">
+        <p className="text-[14px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+          오픈채팅
+        </p>
+        <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          참여 중인 방과 새 오픈채팅을 한 흐름 안에서 탐색할 수 있게 정리했습니다.
+        </p>
+      </div>
 
       <div>
         <div className="mb-1 px-0.5">
@@ -141,7 +234,10 @@ export function MessengerOpenChatScreen({
           </h2>
         </div>
         {joinedItems.length ? (
-          <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+          <div
+            className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+            onScrollCapture={onListScrollStart}
+          >
             {joinedItems.map((item) => (
               <MessengerChatListItem
                 key={item.room.id}
@@ -154,6 +250,10 @@ export function MessengerOpenChatScreen({
                 onToggleArchive={(room) => onToggleArchive(room)}
                 listContext="default"
                 onOpenRoomActions={onOpenRoomActions}
+              openedSwipeItemId={openedSwipeItemId}
+              onOpenSwipeItem={onOpenSwipeItem}
+              onCloseMenuItem={onCloseMenuItem}
+              onResetTransientUi={onResetTransientUi}
               />
             ))}
           </div>
@@ -176,8 +276,11 @@ export function MessengerOpenChatScreen({
               <button
                 key={group.id}
                 type="button"
-                onClick={() => onPreviewGroup(group.id)}
-                className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left active:bg-[color:var(--messenger-primary-soft)]"
+                onClick={() => {
+                  onResetTransientUi();
+                  onPreviewGroup(group.id);
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left active:bg-[color:var(--messenger-primary-soft)]"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">

@@ -5,7 +5,7 @@ import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messen
  * 백엔드가 채우지 않으면 null — 목록은 기존 휴리스틱(제목/요약 키워드)만 사용.
  *
  * 예:
- * `{"v":1,"kind":"trade","headline":"상품명","priceLabel":"29,000원","thumbnailUrl":"https://…","stepLabel":"배송 중"}`
+ * `{"v":1,"kind":"trade","headline":"상품명","priceLabel":"29,000원","thumbnailUrl":"https://…","roleLabel":"구매자","itemStateLabel":"판매중"}`
  */
 export function parseCommunityMessengerRoomContextMeta(raw: string | null | undefined): CommunityMessengerRoomContextMetaV1 | null {
   const s = typeof raw === "string" ? raw.trim() : "";
@@ -25,6 +25,8 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
       out.thumbnailUrl = o.thumbnailUrl.trim();
     }
     if (typeof o.stepLabel === "string" && o.stepLabel.trim()) out.stepLabel = o.stepLabel.trim();
+    if (typeof o.roleLabel === "string" && o.roleLabel.trim()) out.roleLabel = o.roleLabel.trim();
+    if (typeof o.itemStateLabel === "string" && o.itemStateLabel.trim()) out.itemStateLabel = o.itemStateLabel.trim();
     if (typeof o.productChatId === "string" && o.productChatId.trim()) out.productChatId = o.productChatId.trim();
     return out;
   } catch {
