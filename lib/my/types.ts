@@ -5,6 +5,26 @@
 
 import type { ProfileRow } from "@/lib/profile/types";
 import type { UserSettingsRow } from "@/lib/types/settings-db";
+import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
+import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
+import type { MyPageOverviewCounts } from "@/components/mypage/types";
+import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
+
+/** RSC: /mypage home order & community post counts (no list payload). */
+export type MyPageHomeDashboardCounts = {
+  storeOrderCount: number | null;
+  communityPostCount: number | null;
+};
+
+/** RSC-only: seeds `useMypageHubModel` to skip redundant client fetches on first paint. */
+export type MypageHubServerExtras = {
+  addressDefaults: AddressDefaultsFlags;
+  neighborhoodFromLife: LifeDefaultLocationSummary | null;
+  overviewCounts: MyPageOverviewCounts;
+  ownerHubStoreId: string | null;
+  ownerStoreGate: OwnerStoreGateState | null;
+  ownerStoreGateFirstId: string | null;
+};
 
 /** my_page_banners */
 export interface MyPageBannerRow {
@@ -54,6 +74,9 @@ export interface MyPageData {
   isAdmin: boolean;
   /** 내 매장(`/api/me/stores`) 1건 이상 — 매장 관리자 접속 노출 */
   hasOwnerStore: boolean;
+  /** Prefetched hub badges (addresses, trade counts, store attention) — fewer client GETs. */
+  hubServerExtras?: MypageHubServerExtras | null;
+  homeDashboardCounts?: MyPageHomeDashboardCounts | null;
 }
 
 /** 설정 화면용 설정 타입 (user_settings 호환) */

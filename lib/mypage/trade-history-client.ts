@@ -83,6 +83,16 @@ export function invalidateTradeHistoryCache(userId?: string): void {
   salesCache.delete(TRADE_HISTORY_SESSION_CACHE_KEY);
 }
 
+/** Align client trade-count cache with RSC hubServerExtras. */
+export function primeTradeHistoryCountsCache(
+  userId: string,
+  data: { purchaseCount: number; salesCount: number }
+): void {
+  const key = getCacheKey(userId);
+  if (!key) return;
+  tradeCountsCache.set(key, { data: { ...data }, updatedAt: Date.now() });
+}
+
 /**
  * 내정보 대시보드 등 — 구매/판매 「건수」만 필요할 때.
  * `GET /api/my/trade-counts` 한 번으로 구매·판매 건수만 로드 (dev 라우트 이중 컴파일 방지).

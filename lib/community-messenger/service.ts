@@ -6121,6 +6121,75 @@ export async function startCommunityMessengerCallSession(input: {
   return { ok: true, session: await mapCallSession(input.userId, session) };
 }
 
+/** 1:1 voice → video: set session call_kind to video while active (in-call upgrade). */
+export async function upgradeCommunityMessengerCallSessionToVideo(input: {
+  userId: string;
+  sessionId: string;
+}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+  const sessionId = trimText(input.sessionId);
+  if (!sessionId) return { ok: false, error: "session_required" };
+  const uid = trimText(input.userId);
+  if (!uid) return { ok: false, error: "forbidden" };
+
+  const sessionSelect =
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at";
+
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: row } = await (sb as any)
+      .from("community_messenger_call_sessions")
+      .select(sessionSelect)
+      .eq("id", sessionId)
+      .maybeSingle();
+    if (!row) return { ok: false, error: "not_found" };
+    const session = row as CallSessionRow;
+    if ((session.session_mode ?? "direct") !== "direct") {
+      return { ok: false, error: "bad_action" };
+    }
+    const recip = trimText(session.recipient_user_id ?? "");
+    const isParty =
+      messengerUserIdsEqual(session.initiator_user_id, uid) || (recip.length > 0 && messengerUserIdsEqual(recip, uid));
+    if (!isParty) return { ok: false, error: "forbidden" };
+    if (session.status !== "active") return { ok: false, error: "bad_action" };
+    if (session.call_kind === "video") {
+      return { ok: true, session: await mapCallSession(uid, session) };
+    }
+    if (session.call_kind !== "voice") return { ok: false, error: "bad_action" };
+
+    const now = nowIso();
+    const { data: updated, error } = await (sb as any)
+      .from("community_messenger_call_sessions")
+      .update({ call_kind: "video", updated_at: now })
+      .eq("id", sessionId)
+      .select(sessionSelect)
+      .single();
+    if (error || !updated) {
+      const message =
+        typeof error === "object" && error && "message" in error
+          ? String((error as { message?: unknown }).message ?? "")
+          : "";
+      return { ok: false, error: message || "call_session_update_failed" };
+    }
+    return { ok: true, session: await mapCallSession(uid, updated as CallSessionRow) };
+  }
+
+  const dev = getDevState();
+  const session = dev.callSessions.find((item) => item.id === sessionId);
+  if (!session) return { ok: false, error: "not_found" };
+  if (session.sessionMode !== "direct") return { ok: false, error: "bad_action" };
+  const r = session.recipientUserId ? trimText(session.recipientUserId) : "";
+  const isParty =
+    messengerUserIdsEqual(session.initiatorUserId, uid) || (r.length > 0 && messengerUserIdsEqual(r, uid));
+  if (!isParty) return { ok: false, error: "forbidden" };
+  if (session.status !== "active") return { ok: false, error: "bad_action" };
+  if (session.callKind === "video") {
+    return { ok: true, session: await mapCallSession(uid, session) };
+  }
+  if (session.callKind !== "voice") return { ok: false, error: "bad_action" };
+  session.callKind = "video";
+  return { ok: true, session: await mapCallSession(uid, session) };
+}
+
 export async function updateCommunityMessengerCallSession(input: {
   userId: string;
   sessionId: string;

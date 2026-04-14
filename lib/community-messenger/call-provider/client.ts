@@ -167,6 +167,12 @@ export async function createCommunityMessengerAgoraLocalTracks(
   }
 }
 
+/** Voice call in progress: add camera track only (keep existing mic publish). */
+export async function createCommunityMessengerAgoraVideoTrackOnly(): Promise<ILocalVideoTrack> {
+  assertCommunityMessengerWebRtcSecureContext();
+  return createAgoraCamWithPreferredDevice();
+}
+
 export async function joinCommunityMessengerAgoraChannel(args: {
   client: IAgoraRTCClient;
   appId: string;

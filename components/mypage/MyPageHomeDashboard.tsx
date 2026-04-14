@@ -16,6 +16,7 @@ import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import type { ProfileRow } from "@/lib/profile/types";
+import type { MyPageHomeDashboardCounts } from "@/lib/my/types";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
 
@@ -31,32 +32,41 @@ export function MyPageHomeDashboard({
   overviewCounts,
   showBanner,
   bannerSlot,
+  homeDashboardCounts = null,
 }: {
   profile: ProfileRow;
   mannerScore: number;
   overviewCounts: MyPageOverviewCounts;
   showBanner?: boolean;
   bannerSlot?: React.ReactNode;
+  /** From RSC — skips client list fetches for order/post counts. */
+  homeDashboardCounts?: MyPageHomeDashboardCounts | null;
 }) {
   const { count: favoriteCount } = useMyFavoriteCount();
   const { socialChatUnread, storeOrderChatUnread } = useOwnerHubBadgeBreakdown();
-  const [orderCount, setOrderCount] = useState<number | null>(null);
-  const [postCount, setPostCount] = useState<number | null>(null);
+  const [orderCount, setOrderCount] = useState<number | null>(() => homeDashboardCounts?.storeOrderCount ?? null);
+  const [postCount, setPostCount] = useState<number | null>(() => homeDashboardCounts?.communityPostCount ?? null);
 
   const viewerId = profile.id?.trim() ?? "";
 
+  /** RSC counts when present; otherwise capped list endpoints as fallback. */
   useEffect(() => {
     if (!viewerId) {
       setOrderCount(null);
       setPostCount(null);
       return;
     }
+    if (homeDashboardCounts != null) {
+      setOrderCount(homeDashboardCounts.storeOrderCount);
+      setPostCount(homeDashboardCounts.communityPostCount);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
         const [ordersWrapped, postsRes] = await Promise.all([
-          fetchMeStoreOrdersListDeduped("?limit=200"),
-          fetch("/api/me/community-posts?limit=50", { credentials: "include", cache: "no-store" }),
+          fetchMeStoreOrdersListDeduped("?limit=100"),
+          fetch("/api/me/community-posts?limit=20", { credentials: "include", cache: "no-store" }),
         ]);
         const oj =
           ordersWrapped.status >= 200 && ordersWrapped.status < 300
@@ -66,7 +76,7 @@ export function MyPageHomeDashboard({
         if (cancelled) return;
         setOrderCount(Array.isArray(oj?.orders) ? oj.orders.length : 0);
         const plen = Array.isArray(pj?.posts) ? pj.posts.length : 0;
-        setPostCount(plen >= 50 ? 50 : plen);
+        setPostCount(plen);
       } catch {
         if (!cancelled) {
           setOrderCount(null);
@@ -77,7 +87,7 @@ export function MyPageHomeDashboard({
     return () => {
       cancelled = true;
     };
-  }, [viewerId]);
+  }, [viewerId, homeDashboardCounts]);
 
   const regionLine = resolveProfileLocationAddressLines(profile).join(" · ") || "대표 지역을 설정해 주세요";
   const displayName = profile.nickname?.trim() || "닉네임 없음";
@@ -111,7 +121,7 @@ export function MyPageHomeDashboard({
     },
     {
       label: "내가 쓴 글",
-      value: postCount != null ? (postCount >= 50 ? "50+" : String(postCount)) : "—",
+      value: formatCount(postCount),
       href: "/mypage/section/community/posts",
     },
   ];

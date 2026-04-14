@@ -155,3 +155,15 @@ export async function fetchMeStoreOrdersListDeduped(queryWithQuestionOrEmpty: st
     return { status: res.status, json };
   });
 }
+
+/** GET /api/me/store-orders?hub_summary=1 — stores hub buyer card (lightweight) */
+export async function fetchMeStoreOrdersHubSummaryDeduped(): Promise<StoreApiJsonResponse> {
+  return runSingleFlight("me:store-orders:hub-summary:get", async () => {
+    const res = await fetch("/api/me/store-orders?hub_summary=1", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => ({}));
+    return { status: res.status, json };
+  });
+}

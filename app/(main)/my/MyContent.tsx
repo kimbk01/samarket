@@ -94,6 +94,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
             profile={profile}
             mannerScore={mannerScore}
             overviewCounts={overviewCounts}
+            homeDashboardCounts={data.homeDashboardCounts ?? null}
             showBanner={Boolean(showBanner)}
             bannerSlot={
               showBanner ? <MyTopBanner banner={banner} onDismiss={loadBanner} /> : null

@@ -31,15 +31,7 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
-import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
-
-type OrderRowLite = {
-  id: string;
-  order_status?: string;
-  store_name?: string;
-  created_at?: string;
-  order_chat_unread_count?: number;
-};
+import { fetchMeStoreOrdersHubSummaryDeduped } from "@/lib/stores/store-delivery-api-client";
 
 /** 매장주만 마운트 — 허브 진입 모달만 여기서 켜고, 배지 데이터는 부모 구독과 동일 스냅샷을 받습니다 */
 function StoresHubOwnerOperChip({
@@ -130,7 +122,7 @@ export function StoresHub() {
 
   const loadBuyerHub = useCallback(async () => {
     try {
-      const { status: ordersStatus, json: ordersJsonRaw } = await fetchMeStoreOrdersListDeduped("");
+      const { status: ordersStatus, json: ordersJsonRaw } = await fetchMeStoreOrdersHubSummaryDeduped();
       if (ordersStatus === 401) {
         setBuyerOrderSummary({ kind: "idle" });
         setRecentOrder(null);
@@ -139,38 +131,30 @@ export function StoresHub() {
 
       const ordersJson = ordersJsonRaw as {
         ok?: boolean;
-        orders?: OrderRowLite[];
+        hub_summary?: {
+          activeOrders?: number;
+          totalOrders?: number;
+          orderChatRooms?: number;
+          unreadChats?: number;
+          recent?: RecentOrderPreview | null;
+        };
       };
 
-      const orders = Array.isArray(ordersJson.orders) ? ordersJson.orders : [];
-      const activeOrders = orders.filter((order) =>
-        ["pending", "accepted", "preparing", "delivering", "ready_for_pickup", "arrived"].includes(
-          String(order.order_status ?? "")
-        )
-      ).length;
-      const unreadChats = orders.reduce(
-        (sum, order) => sum + Math.max(0, Number(order.order_chat_unread_count) || 0),
-        0
-      );
+      const hub = ordersJson.hub_summary;
+      if (!ordersJson.ok || !hub) {
+        setBuyerOrderSummary({ kind: "idle" });
+        setRecentOrder(null);
+        return;
+      }
 
-      const first = orders[0];
-      setRecentOrder(
-        first?.id ?
-          {
-            id: String(first.id),
-            store_name: String(first.store_name ?? ""),
-            order_status: String(first.order_status ?? ""),
-            created_at: String(first.created_at ?? ""),
-          }
-        : null
-      );
+      setRecentOrder(hub.recent && hub.recent.id ? hub.recent : null);
 
       setBuyerOrderSummary({
         kind: "ready",
-        activeOrders,
-        totalOrders: orders.length,
-        orderChatRooms: orders.length,
-        unreadChats,
+        activeOrders: Math.max(0, Number(hub.activeOrders) || 0),
+        totalOrders: Math.max(0, Number(hub.totalOrders) || 0),
+        orderChatRooms: Math.max(0, Number(hub.orderChatRooms) || 0),
+        unreadChats: Math.max(0, Number(hub.unreadChats) || 0),
       });
     } catch {
       setBuyerOrderSummary({ kind: "idle" });

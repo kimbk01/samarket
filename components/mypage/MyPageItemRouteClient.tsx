@@ -2,8 +2,6 @@
 
 import type { MyPageData } from "@/lib/my/types";
 import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
-import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
-import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
 import { MyPageItemScreen } from "@/components/mypage/MyPageItemScreen";
 import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
@@ -28,15 +26,9 @@ export function MyPageItemRouteClient({
     addressDefaults,
     neighborhoodFromLife,
   } = useMypageHubModel(initialMyPageData ?? undefined);
-  const { count: favoriteCount } = useMyFavoriteCount();
-  const notificationUnreadCount = useMyNotificationUnreadCount();
-
-  const favoriteBadge =
-    favoriteCount != null && favoriteCount > 0 ? `${favoriteCount > 99 ? "99+" : favoriteCount}` : null;
-  const notificationBadge =
-    notificationUnreadCount != null && notificationUnreadCount > 0
-      ? `${notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}`
-      : null;
+  /* Mobile stack routes have no AccountTab home grid; badges only on desktop ?tab=account&section=home. */
+  const favoriteBadge = null;
+  const notificationBadge = null;
 
   const hasOwnerStore = data?.hasOwnerStore ?? false;
   const storeAttentionSummary =

@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
+import { MessengerCallDialingLayout } from "@/components/community-messenger/call-ui/MessengerCallDialingLayout";
 import {
   bootstrapCommunityMessengerOutgoingCallSession,
   primeCommunityMessengerCallNavigationSeed,
@@ -54,7 +55,7 @@ export default function CommunityMessengerOutgoingDialPage() {
   useEffect(() => {
     if (!dial) return;
     if (!dial.roomId && !dial.peerUserId) {
-      setError("방 정보가 없어 통화를 시작할 수 없습니다.");
+      setError("\uBC29 \uC815\uBCF4\uAC00 \uC5C6\uC5B4 \uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
     if (bootStartedRef.current) return;
@@ -105,8 +106,8 @@ export default function CommunityMessengerOutgoingDialPage() {
     };
   }, [dial, router]);
 
-  const displayName = dial?.peerLabelRaw || "상대방";
-  const kindLabel = dial?.kind === "video" ? "영상 통화" : "음성 통화";
+  const displayName = dial?.peerLabelRaw || "\uC0C1\uB300\uBC29";
+  const kindLabel = dial?.kind === "video" ? "\uC601\uC0C1 \uD1B5\uD654" : "\uC74C\uC131 \uD1B5\uD654";
 
   if (error) {
     return (
@@ -127,46 +128,12 @@ export default function CommunityMessengerOutgoingDialPage() {
 
   return (
     <CallScreenShell variant="page" className={`${MESSENGER_CALL_GRADIENT_SURFACE} bg-sam-app`}>
-      <div className="flex min-h-[100dvh] flex-col justify-between px-6 pb-[max(24px,calc(env(safe-area-inset-bottom)+12px))] pt-[max(24px,calc(env(safe-area-inset-top)+12px))] text-center">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[13px] font-medium text-white/90"
-            onClick={() => router.back()}
-          >
-            취소
-          </button>
-          <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-white/85">
-            {dial ? kindLabel : "통화"}
-          </span>
-        </div>
-        <div className="flex flex-1 flex-col items-center justify-center">
-          <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-white/10 text-[44px] font-semibold text-white shadow-[0_0_0_18px_rgba(255,255,255,0.05)]">
-            <div className="absolute inset-[-14px] rounded-full border border-white/20 animate-pulse" aria-hidden />
-            {(dial ? displayName : "?").trim().slice(0, 1)}
-          </div>
-          <p className="mt-8 text-[26px] font-semibold tracking-tight text-white">{dial ? displayName : "…"}</p>
-          <p className="mt-2 text-[14px] text-white/75">{dial ? kindLabel : "음성 통화"}</p>
-          <p className="mt-10 text-[16px] font-medium text-white/92">발신 중…</p>
-          <p className="mt-2 text-[13px] text-white/60">연결을 준비하고 있습니다</p>
-        </div>
-        <div className="flex justify-center">
-          <button
-            type="button"
-            className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-[#e5394a] text-white shadow-[0_12px_40px_rgba(229,57,74,0.45)]"
-            onClick={() => router.back()}
-            aria-label="통화 취소"
-          >
-            <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-              <path
-                d="M5.6 9.3c3.7-3.5 9.1-3.5 12.8 0l.7.7-2.5 2.4-.7-.7a6.3 6.3 0 0 0-7.8 0l-.7.7L4.9 10l.7-.7Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <MessengerCallDialingLayout
+        peerLabel={dial ? displayName : "\u2026"}
+        kindLabel={dial ? kindLabel : "\uD1B5\uD654"}
+        onCancel={() => router.back()}
+        onEndCall={() => router.back()}
+      />
     </CallScreenShell>
   );
 }

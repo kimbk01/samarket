@@ -712,6 +712,28 @@ export async function getBuyerOrderChatUnreadMap(
   return map;
 }
 
+/** Sum buyer unread across order chat rooms, skipping hidden (buyer-removed) orders. */
+export async function sumBuyerOrderChatUnreadForBuyerExcludingHiddenOrders(
+  sb: SupabaseClient<any>,
+  buyerUserId: string,
+  hiddenOrderIds: Set<string>
+): Promise<number> {
+  const uid = buyerUserId.trim();
+  if (!uid) return 0;
+  const { data, error } = await sb
+    .from("order_chat_rooms")
+    .select("order_id, unread_count_buyer")
+    .eq("buyer_user_id", uid);
+  if (error || !data?.length) return 0;
+  let sum = 0;
+  for (const row of data) {
+    const oid = String((row as { order_id?: string }).order_id ?? "").trim();
+    if (!oid || hiddenOrderIds.has(oid)) continue;
+    sum += Math.max(0, Number((row as { unread_count_buyer?: number }).unread_count_buyer) || 0);
+  }
+  return sum;
+}
+
 export async function countOwnerOrderChatUnread(
   sb: SupabaseClient<any>,
   ownerUserId: string

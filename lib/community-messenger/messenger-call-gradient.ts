@@ -3,4 +3,4 @@
  * 서버 컴포넌트(로딩 경계)에서도 안전하게 참조한다.
  */
 export const MESSENGER_CALL_GRADIENT_SURFACE =
-  "bg-gradient-to-b from-[#5042c9] via-[#3d348c] to-[#1a1635] [box-shadow:inset_0_0_100px_rgba(115,96,242,0.08)]";
+  "bg-gradient-to-b from-[#7360f2] via-[#4f3eb5] to-[#1a1430] [box-shadow:inset_0_0_120px_rgba(115,96,242,0.12)]";

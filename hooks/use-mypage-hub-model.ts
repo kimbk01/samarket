@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getMyPageData } from "@/lib/my/getMyPageData";
 import type { MyPageData } from "@/lib/my/types";
 import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
-import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
+import {
+  fetchTradeHistoryCounts,
+  primeTradeHistoryCountsCache,
+} from "@/lib/mypage/trade-history-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
@@ -20,20 +23,29 @@ import {
 } from "@/lib/settings/user-settings-store";
 
 export function useMypageHubModel(initialMyPageData: MyPageData | null | undefined) {
+  const hub0 = initialMyPageData?.hubServerExtras;
   const [data, setData] = useState<MyPageData | null>(() =>
     initialMyPageData !== undefined ? initialMyPageData : null,
   );
   const [loading, setLoading] = useState(() => initialMyPageData === undefined);
-  const [overviewCounts, setOverviewCounts] = useState<MyPageOverviewCounts>({
-    purchases: null,
-    sales: null,
-    storeAttention: null,
-  });
-  const [ownerHubStoreId, setOwnerHubStoreId] = useState<string | null>(null);
-  const [ownerStoreGate, setOwnerStoreGate] = useState<OwnerStoreGateState | null>(null);
-  const [ownerStoreGateFirstId, setOwnerStoreGateFirstId] = useState<string | null>(null);
-  const [addressDefaults, setAddressDefaults] = useState<AddressDefaultsFlags>(null);
-  const [neighborhoodFromLife, setNeighborhoodFromLife] = useState<LifeDefaultLocationSummary | null>(null);
+  const [overviewCounts, setOverviewCounts] = useState<MyPageOverviewCounts>(() =>
+    hub0
+      ? { ...hub0.overviewCounts }
+      : { purchases: null, sales: null, storeAttention: null },
+  );
+  const [ownerHubStoreId, setOwnerHubStoreId] = useState<string | null>(() => hub0?.ownerHubStoreId ?? null);
+  const [ownerStoreGate, setOwnerStoreGate] = useState<OwnerStoreGateState | null>(
+    () => hub0?.ownerStoreGate ?? null,
+  );
+  const [ownerStoreGateFirstId, setOwnerStoreGateFirstId] = useState<string | null>(
+    () => hub0?.ownerStoreGateFirstId ?? null,
+  );
+  const [addressDefaults, setAddressDefaults] = useState<AddressDefaultsFlags>(() => hub0?.addressDefaults ?? null);
+  const [neighborhoodFromLife, setNeighborhoodFromLife] = useState<LifeDefaultLocationSummary | null>(
+    () => hub0?.neighborhoodFromLife ?? null,
+  );
+  const skipInitialAddressFetchRef = useRef(Boolean(hub0));
+  const skipInitialCountsFetchRef = useRef(Boolean(hub0));
   const load = useCallback(async () => {
     setLoading(true);
     const d = await getMyPageData();
@@ -75,6 +87,17 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
     if (initialMyPageData !== undefined) return;
     void load();
   }, [load, initialMyPageData]);
+
+  useLayoutEffect(() => {
+    const x = initialMyPageData?.hubServerExtras;
+    const uid = data?.profile?.id?.trim();
+    if (!x || !uid) return;
+    const p = x.overviewCounts.purchases;
+    const s = x.overviewCounts.sales;
+    if (typeof p === "number" && typeof s === "number") {
+      primeTradeHistoryCountsCache(uid, { purchaseCount: p, salesCount: s });
+    }
+  }, [initialMyPageData?.hubServerExtras, data?.profile?.id]);
 
   useEffect(() => {
     if (initialMyPageData === undefined || !data?.profile?.id) return;
@@ -128,6 +151,11 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
     if (!viewerId) {
       setAddressDefaults(null);
       setNeighborhoodFromLife(null);
+      skipInitialAddressFetchRef.current = false;
+      return;
+    }
+    if (skipInitialAddressFetchRef.current) {
+      skipInitialAddressFetchRef.current = false;
       return;
     }
     void loadAddressDefaults();
@@ -139,6 +167,12 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
       setOwnerStoreGate(null);
       setOwnerStoreGateFirstId(null);
       setOverviewCounts({ purchases: null, sales: null, storeAttention: null });
+      skipInitialCountsFetchRef.current = false;
+      return;
+    }
+
+    if (skipInitialCountsFetchRef.current) {
+      skipInitialCountsFetchRef.current = false;
       return;
     }
 

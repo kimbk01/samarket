@@ -18,6 +18,11 @@ import type {
   AdminCommunityMessengerRoomSummary,
 } from "@/lib/admin-community-messenger/service";
 import type { CommunityMessengerFriendRequestStatus, CommunityMessengerRoomStatus } from "@/lib/community-messenger/types";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
+const ADMIN_MESSENGER_OVERVIEW_SILENT_FLIGHT = "admin:community-messenger:overview:silent";
+/** Coalesce burst postgres_changes into one overview GET. */
+const REALTIME_OVERVIEW_DEBOUNCE_MS = 900;
 
 type DashboardResponse = AdminCommunityMessengerDashboard & { ok?: boolean };
 
@@ -97,8 +102,9 @@ export function AdminCommunityMessengerPage() {
     const scheduleRefresh = () => {
       if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
       refreshTimeoutRef.current = setTimeout(() => {
-        void refresh(true);
-      }, 300);
+        refreshTimeoutRef.current = null;
+        void runSingleFlight(ADMIN_MESSENGER_OVERVIEW_SILENT_FLIGHT, () => refresh(true));
+      }, REALTIME_OVERVIEW_DEBOUNCE_MS);
     };
 
     const channel: RealtimeChannel = sb

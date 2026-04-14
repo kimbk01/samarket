@@ -6,6 +6,7 @@ import {
 import {
   getCommunityMessengerCallSessionById,
   updateCommunityMessengerCallSession,
+  upgradeCommunityMessengerCallSessionToVideo,
 } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
@@ -50,13 +51,23 @@ export async function PATCH(
   if (!rateLimit.ok) return rateLimit.response;
 
   let body: {
-    action?: "accept" | "reject" | "cancel" | "end" | "missed";
+    action?: "accept" | "reject" | "cancel" | "end" | "missed" | "upgrade_to_video";
     durationSeconds?: number;
   };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const { sessionId } = await params;
+
+  if (body.action === "upgrade_to_video") {
+    const result = await upgradeCommunityMessengerCallSessionToVideo({
+      userId: auth.userId,
+      sessionId,
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   }
 
   if (
@@ -69,7 +80,6 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });
   }
 
-  const { sessionId } = await params;
   const result = await updateCommunityMessengerCallSession({
     userId: auth.userId,
     sessionId,

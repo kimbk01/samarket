@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import {
@@ -179,6 +187,20 @@ export function StoresBrowsePrimaryView({
     userGeo,
   ]);
 
+  const browseListContextKey = useMemo(
+    () =>
+      [
+        primarySlug,
+        activeSub,
+        primaryRegion?.regionId ?? "",
+        primaryRegion?.cityId ?? "",
+        primaryRegion?.barangay ?? "",
+      ].join("|"),
+    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay]
+  );
+  const prevBrowseListContextKeyRef = useRef<string | null>(null);
+  const browseHadListForContextRef = useRef(false);
+
   const loadRemote = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
@@ -207,14 +229,17 @@ export function StoresBrowsePrimaryView({
         if (j?.ok && Array.isArray(j.stores) && okSources) {
           setRemoteRows(j.stores as BrowseStoreListItem[]);
           setFeedSource(src as BrowseFeedMetaSource);
+          browseHadListForContextRef.current = true;
         } else {
           setRemoteRows([]);
           setFeedSource(null);
+          if (!silent) browseHadListForContextRef.current = false;
         }
       } catch {
         if (!silent) {
           setRemoteRows([]);
           setFeedSource(null);
+          browseHadListForContextRef.current = false;
         }
       } finally {
         if (!silent) setRemoteLoading(false);
@@ -224,8 +249,14 @@ export function StoresBrowsePrimaryView({
   );
 
   useEffect(() => {
-    void loadRemote();
-  }, [loadRemote]);
+    const ctxChanged = prevBrowseListContextKeyRef.current !== browseListContextKey;
+    if (ctxChanged) {
+      prevBrowseListContextKeyRef.current = browseListContextKey;
+      browseHadListForContextRef.current = false;
+    }
+    const silent = browseHadListForContextRef.current;
+    void loadRemote({ silent });
+  }, [loadRemote, browseListContextKey]);
 
   useEffect(() => {
     setListSort("default");

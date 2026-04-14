@@ -9,6 +9,8 @@ import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
 import type { MyPageData, MyPageBannerRow, MyServiceRow, MyPageSectionRow } from "./types";
 import { DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS } from "./my-page-defaults";
 import { MY_PAGE_BANNERS_SELECT, MY_PAGE_SECTIONS_SELECT, MY_SERVICES_SELECT } from "@/lib/my/mypage-tables-select";
+import { loadMypageHubExtrasServer } from "@/lib/my/load-mypage-hub-extras-server";
+import { loadMypageHomeDashboardCountsServer } from "@/lib/my/load-mypage-home-dashboard-counts-server";
 
 function isAdminEmailForServer(email: string | null | undefined): boolean {
   const e = email?.trim();
@@ -32,6 +34,9 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
     const { data: oneStore } = await sbStores.from("stores").select("id").eq("owner_user_id", userId).limit(1);
     hasOwnerStore = Array.isArray(oneStore) && oneStore.length > 0;
   }
+
+  const hubExtrasPromise = loadMypageHubExtrasServer(userId, hasOwnerStore);
+  const homeDashboardCountsPromise = loadMypageHomeDashboardCountsServer(userId);
 
   let banner: MyPageBannerRow | null = null;
   let services: MyServiceRow[] = DEFAULT_MY_SERVICES;
@@ -74,6 +79,11 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
   const isBusinessMember = hasOwnerStore;
   const isAdmin = isAdminEmailForServer(profile?.email ?? null);
 
+  const [hubServerExtras, homeDashboardCounts] = await Promise.all([
+    hubExtrasPromise,
+    homeDashboardCountsPromise,
+  ]);
+
   return {
     profile,
     banner,
@@ -84,5 +94,7 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
     isBusinessMember,
     isAdmin,
     hasOwnerStore,
+    hubServerExtras,
+    homeDashboardCounts,
   };
 });

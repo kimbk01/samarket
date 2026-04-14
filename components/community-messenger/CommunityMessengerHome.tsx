@@ -674,10 +674,7 @@ export function CommunityMessengerHome({
       loadedRef.current = true;
       setAuthRequired(false);
       setPageError(null);
-      const idleId = scheduleWhenBrowserIdle(() => {
-        void refresh(true);
-      }, 420);
-      return () => cancelScheduledWhenBrowserIdle(idleId);
+      return;
     }
     const stale = peekBootstrapCache();
     if (stale) {

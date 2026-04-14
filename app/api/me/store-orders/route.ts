@@ -32,6 +32,7 @@ import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-
 import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { ensureOrderChatRoom, getBuyerOrderChatUnreadMap } from "@/lib/order-chat/service";
+import { loadBuyerStoreOrdersHubSummary } from "@/lib/stores/load-buyer-store-orders-hub-summary";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
@@ -96,6 +97,15 @@ export async function GET(req: NextRequest) {
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+
+  const hubSummaryFlag = req.nextUrl.searchParams.get("hub_summary");
+  if (hubSummaryFlag === "1" || hubSummaryFlag === "true") {
+    const summary = await loadBuyerStoreOrdersHubSummary(sb as SupabaseClient, buyerId);
+    if (!summary.ok) {
+      return NextResponse.json({ ok: false, error: summary.error }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, hub_summary: summary.hub_summary });
   }
 
   const rawLimit = req.nextUrl.searchParams.get("limit");
