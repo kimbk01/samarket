@@ -11,6 +11,7 @@ export type GroupChatBootstrapPayload = {
   room?: { id: string; title?: string; memberCount?: number };
   messages?: Record<string, unknown>[];
   error?: string;
+  [key: string]: unknown;
 };
 
 export async function fetchGroupChatBootstrapDeduped(roomId: string): Promise<{

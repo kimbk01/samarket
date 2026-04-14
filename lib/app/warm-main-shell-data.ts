@@ -1,13 +1,14 @@
 /**
- * `/home` 첫 페인트 직후 — 홈 피드·하단 탭·내 매장 목록·거래 건수 캐시를 예열.
- * 각 호출은 자체 runSingleFlight/TTL 을 쓰므로 BottomNav·OwnerLite·FAB·HomeProductList 와 겹쳐도 네트워크는 한 갈래로 합쳐짐.
+ * `/home` 첫 페인트 직후 — 하단 탭·내 매장 목록·거래 건수·거래 채팅 목록 캐시를 예열.
+ * 홈 피드 첫 페이지는 RSC + `HomeProductList` 의 `primeHomePostsCache` 가 담당 — 여기서 `/api/home/posts` 를
+ * 다시 예열하면 idle 타이밍에 중복 네트워크가 나기 쉬워 제외함.
+ * 각 호출은 자체 runSingleFlight/TTL 을 쓰므로 BottomNav·OwnerLite·FAB 과 겹쳐도 네트워크는 한 갈래로 합쳐짐.
  */
 import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
-import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
@@ -18,12 +19,6 @@ export function warmMainShellData(): void {
   if (typeof window === "undefined") return;
   if (document.visibilityState !== "visible") return;
   if (isConstrainedNetwork()) return;
-
-  /** 홈 목록 API 예열 — RSC 시드 + `primeHomePostsCache` 가 이미 채웠으면 네트워크 생략 */
-  const postsWarmId = scheduleWhenBrowserIdle(() => {
-    if (peekCachedPostsForHome({ sort: "latest", type: null })) return;
-    void getPostsForHome({ sort: "latest", type: null }).catch(() => {});
-  }, 280);
 
   const idleId = scheduleWhenBrowserIdle(() => {
     void Promise.all([fetchMainBottomNavDeduped(), fetchMeStoresListDeduped()]).catch(() => {});
@@ -46,7 +41,6 @@ export function warmMainShellData(): void {
   window.addEventListener(
     "pagehide",
     () => {
-      cancelScheduledWhenBrowserIdle(postsWarmId);
       cancelScheduledWhenBrowserIdle(idleId);
     },
     { once: true }

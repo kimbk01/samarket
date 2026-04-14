@@ -1,8 +1,12 @@
+import Link from "next/link";
 import { GroupChatRoomClient } from "@/components/group-chat/GroupChatRoomClient";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { loadGroupChatBootstrapForUser } from "@/lib/group-chat/load-group-chat-bootstrap-server";
+
+export const dynamic = "force-dynamic";
 
 /**
- * 다자 그룹 채팅 방 (group_* 축)
- * — 방 생성: `/group-chat` 에서 만들기 후 이 경로로 이동
+ * 그룹 방: RSC에서 부트스트랩 선로딩 — 클라이언트 첫 GET 제거(동일 로더를 API와 공유).
  */
 export default async function GroupChatRoomPage({
   params,
@@ -17,9 +21,50 @@ export default async function GroupChatRoomPage({
     );
   }
 
+  const userId = await getOptionalAuthenticatedUserId();
+  if (!userId) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-sm text-sam-muted">로그인이 필요합니다.</p>
+        <Link href="/login" className="font-medium text-signature underline">
+          로그인
+        </Link>
+      </div>
+    );
+  }
+
+  const boot = await loadGroupChatBootstrapForUser(userId, id);
+  if (!boot.ok) {
+    if (boot.status === 404) {
+      return (
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center text-sm text-sam-muted">
+          <p>방을 찾을 수 없습니다.</p>
+          <Link href="/group-chat" className="font-medium text-signature underline">
+            목록으로
+          </Link>
+        </div>
+      );
+    }
+    if (boot.status === 403) {
+      return (
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center text-sm text-sam-muted">
+          <p>{boot.error}</p>
+          <Link href="/group-chat" className="font-medium text-signature underline">
+            목록으로
+          </Link>
+        </div>
+      );
+    }
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center text-sm text-sam-muted">
+        <p>{boot.error}</p>
+      </div>
+    );
+  }
+
   return (
     <section className="flex min-h-[70vh] min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-      <GroupChatRoomClient roomId={id} listHref="/group-chat" />
+      <GroupChatRoomClient key={id} roomId={id} listHref="/group-chat" initialBootstrap={boot.body} />
     </section>
   );
 }

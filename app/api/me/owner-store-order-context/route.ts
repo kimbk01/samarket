@@ -3,6 +3,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { loadOwnerStoreOrderContext } from "@/lib/business/load-owner-store-order-context";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const dynamic = "force-dynamic";
@@ -21,31 +22,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const { data: ord, error: oErr } = await sb
-    .from("store_orders")
-    .select("store_id")
-    .eq("id", orderId)
-    .maybeSingle();
-  if (oErr || !ord) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  }
-  const sid = String((ord as { store_id: string }).store_id ?? "").trim();
-  if (!sid) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  }
-
-  const { data: st, error: sErr } = await sb
-    .from("stores")
-    .select("id, owner_user_id, slug")
-    .eq("id", sid)
-    .maybeSingle();
-  if (sErr || !st || String(st.owner_user_id) !== userId) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  const ctx = await loadOwnerStoreOrderContext(sb, userId, orderId);
+  if (!ctx.ok) {
+    const status = ctx.error === "not_found" ? 404 : 403;
+    return NextResponse.json({ ok: false, error: ctx.error }, { status });
   }
 
   return NextResponse.json({
     ok: true,
-    store_id: st.id as string,
-    slug: String((st as { slug?: string | null }).slug ?? "").trim(),
+    store_id: ctx.context.store_id,
+    slug: ctx.context.slug,
   });
 }

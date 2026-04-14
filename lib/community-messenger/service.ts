@@ -15,6 +15,8 @@ import {
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { loadChatRoomDetailForUser } from "@/lib/chats/server/load-chat-room-detail";
+import type { ChatRoom } from "@/lib/types/chat";
 import { persistProductChatMessengerRoomId } from "@/lib/trade/persist-trade-messenger-room-link";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
@@ -4135,6 +4137,27 @@ export type GetCommunityMessengerRoomSnapshotOptions = {
   initialMessageLimit?: number;
 };
 
+/** CM 방 `summary` JSON 에서 trade + productChatId 를 읽어 거래 상세(상품 카드)를 프로필 하이드레이션과 병렬 로드 */
+function tradeChatRoomDetailPromiseFromMessengerRoomRow(
+  room: RoomRow | DevRoom,
+  userId: string
+): Promise<ChatRoom | null> {
+  const raw =
+    "room_type" in room
+      ? trimText(room.summary ?? "")
+      : trimText((room as DevRoom).summary ?? "");
+  const meta = parseCommunityMessengerRoomContextMeta(raw);
+  if (meta?.kind !== "trade" || !meta.productChatId?.trim()) return Promise.resolve(null);
+  const pcid = meta.productChatId.trim();
+  return loadChatRoomDetailForUser({
+    roomId: pcid,
+    userId,
+    detailScope: "entry",
+  })
+    .then((res) => (res.ok ? res.room : null))
+    .catch(() => null);
+}
+
 function clampCommunityMessengerSnapshotMessageLimit(raw: unknown): number {
   const n = Math.floor(Number(raw));
   if (!Number.isFinite(n)) return COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT;
@@ -4262,10 +4285,12 @@ export async function getCommunityMessengerRoomSnapshot(
   }
 
   const memberIds = dedupeParticipantUserIds(participants);
-  const [roomProfileMap, activeCall, hydrated] = await Promise.all([
+  const tradeChatRoomDetailPromise = tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId);
+  const [roomProfileMap, activeCall, hydrated, tradeChatRoomDetail] = await Promise.all([
     fetchRoomProfilesByRoomIds([id]),
     getActiveCallSessionForRoom(userId, id),
     hydrateProfilesWithProfileMap(userId, memberIds, { includeSelf: true }),
+    tradeChatRoomDetailPromise,
   ]);
   const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members, {
     totalMemberCount: roomTotalMemberCount ?? participants.length,
@@ -4331,6 +4356,7 @@ export async function getCommunityMessengerRoomSnapshot(
     messages: mappedMessages,
     myRole: meRole,
     activeCall,
+    ...(tradeChatRoomDetail ? { tradeChatRoomDetail } : {}),
   };
 }
 

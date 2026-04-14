@@ -12,7 +12,12 @@ import { OrderChatProgressStrip } from "@/components/order-chat/OrderChatProgres
 import { OwnerChatInput } from "@/components/order-chat/OwnerChatInput";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
 import type { OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
-import type { OrderChatMessagePublic, OrderChatRole, OrderChatRoomPublic } from "@/lib/order-chat/types";
+import type {
+  OrderChatMessagePublic,
+  OrderChatRole,
+  OrderChatRoomPublic,
+  OrderChatSnapshot,
+} from "@/lib/order-chat/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { createCommunityMessengerDeepLinkFromOrderChat } from "@/lib/community-messenger/order-chat-bridge";
@@ -43,11 +48,14 @@ export function OrderChatRoomClient({
   orderChatsHref,
   /** 전체 화면 주문 채팅에서만 기본 표시. 모달 등 좁은 UI에서는 false. */
   showMessengerDeepLink = true,
+  /** RSC에서 `loadOrderChatSnapshotForPage` — 첫 GET 생략 */
+  initialSnapshot = null,
 }: {
   orderId: string;
   backHref: string;
   orderChatsHref?: string;
   showMessengerDeepLink?: boolean;
+  initialSnapshot?: OrderChatSnapshot | null;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -63,7 +71,17 @@ export function OrderChatRoomClient({
     | { kind: "loading" }
     | { kind: "error"; message: string }
     | ({ kind: "ready" } & Snapshot)
-  >({ kind: "loading" });
+  >(() =>
+    initialSnapshot
+      ? {
+          kind: "ready",
+          room: initialSnapshot.room,
+          role: initialSnapshot.role,
+          orderStatus: initialSnapshot.orderStatus,
+          messages: initialSnapshot.messages,
+        }
+      : { kind: "loading" }
+  );
   const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -95,8 +113,19 @@ export function OrderChatRoomClient({
   }, [orderId]);
 
   useEffect(() => {
+    if (initialSnapshot) return;
     void load();
-  }, [load]);
+  }, [load, initialSnapshot]);
+
+  useEffect(() => {
+    if (!initialSnapshot || !orderId.trim()) return;
+    void fetch(`/api/order-chat/orders/${encodeURIComponent(orderId)}/read`, {
+      method: "POST",
+      credentials: "include",
+    }).finally(() => {
+      window.dispatchEvent(new Event(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
+    });
+  }, [initialSnapshot, orderId]);
 
   const flow = useMemo<OrderChatFlow>(() => {
     if (state.kind !== "ready") return "pickup";

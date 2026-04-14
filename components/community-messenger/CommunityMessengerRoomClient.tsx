@@ -54,6 +54,7 @@ import {
   messengerMonitorUnreadListSync,
 } from "@/lib/community-messenger/monitoring/client";
 import { consumeRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
 import { GroupRoomCallOverlay } from "@/components/community-messenger/call-ui";
 import { VoiceMessageBubble } from "@/components/community-messenger/VoiceMessageBubble";
@@ -75,7 +76,10 @@ import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenge
 import { CommunityMessengerMessageActionSheet } from "@/components/community-messenger/room/CommunityMessengerMessageActionSheet";
 import { CommunityMessengerTradeProcessSection } from "@/components/community-messenger/CommunityMessengerTradeProcessSection";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
-import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
+import {
+  fetchChatRoomDetailApi,
+  updateChatRoomDetailMemory,
+} from "@/lib/chats/fetch-chat-room-detail-api";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 
 /**
@@ -88,6 +92,22 @@ function MessengerTradeChatRoomDetailPrefetch({ productChatId }: { productChatId
     if (!id) return;
     void fetchChatRoomDetailApi(id);
   }, [productChatId]);
+  return null;
+}
+
+/** RSC 스냅샷에 실린 거래 상세를 클라 메모리 캐시에 맞춰 `fetchChatRoomDetailApi` 단일 비행과 일치 */
+function SeedTradeChatDetailMemoryFromSnapshot({
+  productChatId,
+  room,
+}: {
+  productChatId: string;
+  room: ChatRoom;
+}) {
+  useLayoutEffect(() => {
+    const id = productChatId.trim();
+    if (!id) return;
+    updateChatRoomDetailMemory(id, room);
+  }, [productChatId, room]);
   return null;
 }
 
@@ -2686,10 +2706,18 @@ export function CommunityMessengerRoomClient({
 
       {showMessengerTradeProcessDock ? (
         <>
-          <MessengerTradeChatRoomDetailPrefetch productChatId={tradeProductChatIdForDock} />
+          {snapshot.tradeChatRoomDetail ? (
+            <SeedTradeChatDetailMemoryFromSnapshot
+              productChatId={tradeProductChatIdForDock}
+              room={snapshot.tradeChatRoomDetail}
+            />
+          ) : (
+            <MessengerTradeChatRoomDetailPrefetch productChatId={tradeProductChatIdForDock} />
+          )}
           <CommunityMessengerTradeProcessSection
             productChatId={tradeProductChatIdForDock}
             viewerUserId={snapshot.viewerUserId}
+            initialTradeChatRoom={snapshot.tradeChatRoomDetail ?? null}
             onTradeMetaChanged={() => void refresh(true)}
           />
         </>

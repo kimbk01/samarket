@@ -194,11 +194,14 @@ export function CommunityMessengerHome({
   initialSection,
   initialFilter,
   initialKind,
+  /** RSC에서 `getCommunityMessengerBootstrap` — 첫 `/api/.../bootstrap` 왕복 제거 */
+  initialServerBootstrap = null,
 }: {
   initialTab?: string;
   initialSection?: string;
   initialFilter?: string;
   initialKind?: string;
+  initialServerBootstrap?: CommunityMessengerBootstrap | null;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -279,8 +282,8 @@ export function CommunityMessengerHome({
     },
     [replaceMessengerSectionUrl]
   );
-  const [data, setData] = useState<CommunityMessengerBootstrap | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
+  const [loading, setLoading] = useState(() => !initialServerBootstrap);
   const [authRequired, setAuthRequired] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -591,6 +594,16 @@ export function CommunityMessengerHome({
   }, []);
 
   useEffect(() => {
+    if (initialServerBootstrap) {
+      primeBootstrapCache(initialServerBootstrap);
+      loadedRef.current = true;
+      setAuthRequired(false);
+      setPageError(null);
+      const idleId = scheduleWhenBrowserIdle(() => {
+        void refresh(true);
+      }, 420);
+      return () => cancelScheduledWhenBrowserIdle(idleId);
+    }
     const stale = peekBootstrapCache();
     if (stale) {
       const idleId = scheduleWhenBrowserIdle(() => {
@@ -601,7 +614,7 @@ export function CommunityMessengerHome({
       };
     }
     void refresh();
-  }, [refresh]);
+  }, [refresh, initialServerBootstrap]);
 
   useEffect(() => {
     setIncomingCallSoundEnabled(isCommunityMessengerIncomingCallSoundEnabled());

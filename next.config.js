@@ -37,8 +37,12 @@ const resolvedDistDir = resolveDistDirForNextConfig();
 const nextConfig = {
   ...(resolvedDistDir ? { distDir: resolvedDistDir } : {}),
   experimental: {
-    /** 가상 스크롤 패키지 — named export 트리가 커질 때 클라이언트 청크 슬림 */
-    optimizePackageImports: ["@tanstack/react-virtual"],
+    /** named export 트리가 커질 때 클라이언트 청크 슬림 */
+    optimizePackageImports: [
+      "@tanstack/react-virtual",
+      "zustand",
+      "@supabase/supabase-js",
+    ],
   },
   /** Vercel 빌드 시 클라이언트에서도 Preview/Production 구분 (deploy-surface.ts) */
   env: {

@@ -1,3 +1,5 @@
+import type { ChatRoom } from "@/lib/types/chat";
+
 export type CommunityMessengerTab = "friends" | "chats" | "groups" | "calls";
 
 export type CommunityMessengerRoomType = "direct" | "private_group" | "open_group";
@@ -216,6 +218,11 @@ export type CommunityMessengerRoomSnapshot = {
   messages: CommunityMessengerMessage[];
   myRole: "owner" | "admin" | "member";
   activeCall: CommunityMessengerCallSession | null;
+  /**
+   * `contextMeta.kind === "trade"` + `productChatId` 일 때 — `loadChatRoomDetailForUser`(entry) 로 조립.
+   * 메신저 상단 거래 도크가 클라 `GET /api/chat/room/...` 를 다시 기다리지 않도록 RSC·부트스트랩 GET 과 동일 페이로드를 실음.
+   */
+  tradeChatRoomDetail?: ChatRoom | null;
 };
 
 /** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */

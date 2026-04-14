@@ -57,6 +57,7 @@ export default async function ChatRoomPage({ params, searchParams }: PageProps) 
 
   return (
     <ChatRoomPageClient
+      key={roomId ?? "none"}
       roomId={roomId}
       openReviewOnMount={openReviewOnMount}
       listHref={listHref}

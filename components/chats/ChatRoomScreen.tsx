@@ -323,7 +323,11 @@ export function ChatRoomScreen({
     });
   }, [roomId]);
 
-  /** 라우트 roomId 변경 시 메모리 peek 로 즉시 복원(메시지 캐시까지) */
+  /**
+   * 라우트 roomId 변경 시 복원.
+   * - RSC `serverBootstrap` 이 있으면 peek·메모리보다 우선(레이스로 빈 로딩 상태가 덮어쓰지 않게).
+   * - 부모 `key={roomId}` 로 방 전환 시 마운트가 갈리므로 state 초기값과 이 effect 가 일치하기 쉬움.
+   */
   useEffect(() => {
     if (!roomId?.trim()) {
       setRoom(null);
@@ -331,6 +335,15 @@ export function ChatRoomScreen({
       setErr(null);
       setBootstrapMessages(null);
       setTradeChatBootstrapReady(false);
+      return;
+    }
+    const id = roomId.trim();
+    if (serverBootstrap?.room?.id === id) {
+      setErr(null);
+      setRoom(serverBootstrap.room);
+      setBootstrapMessages(serverBootstrap.messages);
+      setTradeChatBootstrapReady(true);
+      setLoading(false);
       return;
     }
     const peeked = peekChatRoomDetailMemory(roomId);
@@ -350,7 +363,7 @@ export function ChatRoomScreen({
       setTradeChatBootstrapReady(false);
       setLoading(true);
     }
-  }, [roomId]);
+  }, [roomId, serverBootstrap?.room?.id]);
 
   useEffect(() => {
     if (!roomId?.trim() || resolvedUserId === null) return;

@@ -1,43 +1,21 @@
-"use client";
-
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { RedirectStoreOrderToUnifiedChat } from "@/components/chats/RedirectStoreOrderToUnifiedChat";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { loadOwnerStoreOrderContext } from "@/lib/business/load-owner-store-order-context";
+import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
-export default function OwnerStoreOrderChatBridgePage() {
-  const params = useParams();
-  const orderId = typeof params?.orderId === "string" ? params.orderId.trim() : "";
-  const [ctx, setCtx] = useState<{ store_id: string; slug: string } | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+export const dynamic = "force-dynamic";
 
-  useEffect(() => {
-    if (!orderId) return;
-    let cancelled = false;
-    (async () => {
-      const res = await fetch(
-        `/api/me/owner-store-order-context?order_id=${encodeURIComponent(orderId)}`,
-        { credentials: "include", cache: "no-store" }
-      );
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        store_id?: string;
-        slug?: string;
-        error?: string;
-      };
-      if (cancelled) return;
-      if (!res.ok || j?.ok !== true || typeof j.store_id !== "string") {
-        setErr(typeof j?.error === "string" ? j.error : "load_failed");
-        return;
-      }
-      setCtx({ store_id: j.store_id, slug: typeof j.slug === "string" ? j.slug : "" });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [orderId]);
-
+/** 매장 오너 주문 채팅 — 컨텍스트·스냅샷을 RSC에서 한 번에 */
+export default async function OwnerStoreOrderChatPage({
+  params,
+}: {
+  params: Promise<{ orderId: string }>;
+}) {
+  const { orderId: raw } = await params;
+  const orderId = typeof raw === "string" ? raw.trim() : "";
   if (!orderId) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-sam-fg">
@@ -49,36 +27,63 @@ export default function OwnerStoreOrderChatBridgePage() {
     );
   }
 
-  if (err) {
-    const orderBackHref =
-      ctx?.store_id != null
-        ? buildStoreOrdersHref({ storeId: ctx.store_id, orderId })
-        : "/my/business";
+  const userId = await getOptionalAuthenticatedUserId();
+  if (!userId) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-sam-fg">
-        <p>채팅을 열 수 없습니다. ({err})</p>
-        <Link href={orderBackHref} className="font-medium text-signature underline">
-          {ctx?.store_id != null ? "주문 관리" : "매장 어드민"}
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+        <Link href="/login" className="font-medium text-signature underline">
+          로그인
         </Link>
       </div>
     );
   }
 
-  if (!ctx) {
+  const sb = tryGetSupabaseForStores();
+  if (!sb) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-background px-4">
-        <p className="text-sm text-sam-muted">채팅을 불러오는 중…</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-sm text-sam-muted">
+        서버 설정이 필요합니다.
+      </div>
+    );
+  }
+
+  const ctx = await loadOwnerStoreOrderContext(sb, userId, orderId);
+  if (!ctx.ok) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-sam-fg">
+        <p>채팅을 열 수 없습니다. ({ctx.error})</p>
+        <Link href="/my/business" className="font-medium text-signature underline">
+          매장 어드민
+        </Link>
+      </div>
+    );
+  }
+
+  const snap = await loadOrderChatSnapshotForPage(userId, orderId);
+  if (snap == null || !snap.ok) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center">
+        <p className="text-sm text-sam-fg">
+          채팅을 불러오지 못했습니다.{snap && !snap.ok ? ` (${snap.error})` : ""}
+        </p>
+        <Link
+          href={buildStoreOrdersHref({ storeId: ctx.context.store_id, orderId })}
+          className="text-sm font-medium text-signature underline"
+        >
+          주문 관리
+        </Link>
       </div>
     );
   }
 
   return (
     <RedirectStoreOrderToUnifiedChat
-      key={`${ctx.store_id}:${orderId}`}
+      key={`${ctx.context.store_id}:${orderId}`}
       variant="owner"
-      storeId={ctx.store_id}
-      slug={ctx.slug}
+      storeId={ctx.context.store_id}
+      slug={ctx.context.slug}
       orderId={orderId}
+      initialSnapshot={snap.snapshot}
     />
   );
 }

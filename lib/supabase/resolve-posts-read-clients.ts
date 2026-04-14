@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
 /**
  * `resolveServiceSupabaseForApi` 와 동일 순서 — `SUPABASE_SERVICE_ROLE_KEY` 만 있고
@@ -57,5 +58,21 @@ export function resolvePostsReadClients(request: NextRequest): PostsReadClients 
   }
   if (!env.ok) return null;
   const readSb = createSupabaseFromRequestForRead(request, env.url, env.anonKey);
+  return { readSb, serviceSb: null, favoritesSb: readSb };
+}
+
+/**
+ * App Router 서버 컴포넌트 — `NextRequest` 없이 쿠키 기반 클라이언트로 posts 읽기.
+ * API 의 `resolvePostsReadClients(req)` 와 동일 우선순위(서비스 롤 우선).
+ */
+export async function resolvePostsReadClientsForServerComponent(): Promise<PostsReadClients | null> {
+  const serviceSb = tryGetSupabaseServiceClient();
+  if (serviceSb) {
+    return { readSb: serviceSb, serviceSb, favoritesSb: serviceSb };
+  }
+  const env = requireSupabaseEnv({ requireAnonKey: true });
+  if (!env.ok) return null;
+  const readSb = await createSupabaseRouteHandlerClient();
+  if (!readSb) return null;
   return { readSb, serviceSb: null, favoritesSb: readSb };
 }

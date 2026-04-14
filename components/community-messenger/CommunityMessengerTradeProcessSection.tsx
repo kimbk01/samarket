@@ -18,6 +18,8 @@ import type { ChatRoom } from "@/lib/types/chat";
 type Props = {
   productChatId: string;
   viewerUserId: string;
+  /** RSC·부트스트랩 스냅샷에 포함된 거래 방 — 있으면 초기 네트워크 대기 생략 */
+  initialTradeChatRoom?: ChatRoom | null;
   /** 거래 상태 변경 후 메신저 방 스냅샷·목록 동기화 */
   onTradeMetaChanged?: () => void;
 };
@@ -28,15 +30,20 @@ type Props = {
 export function CommunityMessengerTradeProcessSection({
   productChatId,
   viewerUserId,
+  initialTradeChatRoom = null,
   onTradeMetaChanged,
 }: Props) {
   const router = useRouter();
   const initialId = productChatId.trim();
-  const [room, setRoom] = useState<ChatRoom | null>(() =>
-    initialId ? peekChatRoomDetailMemory(initialId) ?? null : null
-  );
+  const [room, setRoom] = useState<ChatRoom | null>(() => {
+    if (initialTradeChatRoom) return initialTradeChatRoom;
+    return initialId ? peekChatRoomDetailMemory(initialId) ?? null : null;
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(() => Boolean(initialId && !peekChatRoomDetailMemory(initialId)));
+  const [loading, setLoading] = useState(() => {
+    if (initialTradeChatRoom) return false;
+    return Boolean(initialId && !peekChatRoomDetailMemory(initialId));
+  });
   const [listingSaving, setListingSaving] = useState(false);
   const [listingError, setListingError] = useState<string | null>(null);
   const [listingNotice, setListingNotice] = useState<string | null>(null);
@@ -64,6 +71,12 @@ export function CommunityMessengerTradeProcessSection({
     if (!id) {
       setRoom(null);
       setLoading(false);
+      return;
+    }
+    if (initialTradeChatRoom) {
+      setRoom(initialTradeChatRoom);
+      setLoading(false);
+      setLoadError(null);
       return;
     }
     const warm = peekChatRoomDetailMemory(id);
@@ -97,7 +110,7 @@ export function CommunityMessengerTradeProcessSection({
     return () => {
       cancelled = true;
     };
-  }, [productChatId]);
+  }, [productChatId, initialTradeChatRoom]);
 
   const postId = (room?.product?.id ?? room?.productId ?? "").trim();
   const propListing = normalizeSellerListingState(room?.product?.sellerListingState, room?.product?.status);

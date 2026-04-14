@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+/** `load-trade-ad-product` 와 동일 컬럼 + 감사용 타임스탬프 */
+const AD_PRODUCTS_PATCH_RETURN =
+  "id, name, description, board_key, ad_type, duration_days, point_cost, priority_default, is_active, placement, service_type, category_id, region_target, allow_duplicate, auto_approve, created_at, updated_at";
+
 type Body = Partial<{
   name: string;
   description: string;
@@ -64,7 +68,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body[k] !== undefined) patch[k] = body[k];
   }
 
-  const { data, error } = await sb.from("ad_products").update(patch).eq("id", id).select("*").maybeSingle();
+  const { data, error } = await sb
+    .from("ad_products")
+    .update(patch)
+    .eq("id", id)
+    .select(AD_PRODUCTS_PATCH_RETURN)
+    .maybeSingle();
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }

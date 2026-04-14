@@ -4,6 +4,10 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { chargePointsOnTradePostAdActivation } from "@/lib/trade-ads/charge-trade-post-ad-points";
 import { releaseHeldPointsForTradePostAd } from "@/lib/trade-ads/trade-post-ad-point-flow";
 
+/** `select('*')` 지양 — 응답·DB 대역 최소화 (스키마: trade_post_ads 마이그레이션) */
+const TRADE_POST_ADS_ROW =
+  "id, post_id, user_id, ad_product_id, apply_status, point_cost, priority, start_at, end_at, admin_memo, approved_by, approved_at, rejected_by, rejected_at, created_at, updated_at";
+
 type Body = {
   apply_status?: string;
   start_at?: string | null;
@@ -40,7 +44,11 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "Supabase 서비스 클라이언트가 없습니다." }, { status: 503 });
   }
 
-  const { data: row, error: re } = await sb.from("trade_post_ads").select("*").eq("id", id).maybeSingle();
+  const { data: row, error: re } = await sb
+    .from("trade_post_ads")
+    .select(TRADE_POST_ADS_ROW)
+    .eq("id", id)
+    .maybeSingle();
   if (re || !row || typeof row !== "object") {
     return NextResponse.json({ ok: false, error: re?.message ?? "행 없음" }, { status: 404 });
   }
@@ -95,7 +103,7 @@ export async function PATCH(
     .from("trade_post_ads")
     .update(patch)
     .eq("id", id)
-    .select("*")
+    .select(TRADE_POST_ADS_ROW)
     .maybeSingle();
 
   if (ue) {

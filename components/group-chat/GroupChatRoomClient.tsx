@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
 import { useChatRoomRealtime } from "@/lib/chats/use-chat-room-realtime";
 import { fetchGroupChatBootstrapDeduped } from "@/lib/group-chat/fetch-group-chat-bootstrap";
+import type { GroupChatBootstrapApiBody } from "@/lib/group-chat/group-chat-bootstrap-types";
 import { mapGroupApiRowToChatMessage } from "@/lib/group-chat/map-api-messages";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
@@ -18,20 +19,37 @@ import {
 
 const THREAD_INNER = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
+function applyBootstrapPayload(
+  roomId: string,
+  data: GroupChatBootstrapApiBody
+): { title: string; memberCount: number | null; messages: ChatMessage[] } {
+  const title = data.room.title ?? "";
+  const memberCount = typeof data.room.memberCount === "number" ? data.room.memberCount : null;
+  const messages = (Array.isArray(data.messages) ? data.messages : []).map((m) =>
+    mapGroupApiRowToChatMessage(m as Record<string, unknown>, roomId)
+  );
+  return { title, memberCount, messages };
+}
+
 export function GroupChatRoomClient({
   roomId,
   listHref = "/group-chat",
+  /** RSC·API와 동일 페이로드 — 있으면 첫 GET 생략 */
+  initialBootstrap = null,
 }: {
   roomId: string;
   listHref?: string;
+  initialBootstrap?: GroupChatBootstrapApiBody | null;
 }) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [memberCount, setMemberCount] = useState<number | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const primed = initialBootstrap && initialBootstrap.room?.id === roomId.trim();
+  const applied = primed ? applyBootstrapPayload(roomId, initialBootstrap) : null;
+  const [title, setTitle] = useState(() => applied?.title ?? "");
+  const [memberCount, setMemberCount] = useState<number | null>(() => applied?.memberCount ?? null);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => applied?.messages ?? []);
+  const [loading, setLoading] = useState(() => !primed);
   const [err, setErr] = useState<string | null>(null);
-  const [bootstrapReady, setBootstrapReady] = useState(false);
+  const [bootstrapReady, setBootstrapReady] = useState(() => Boolean(primed));
   const readPostedRef = useRef(false);
   const threadScrollParentRef = useRef<HTMLDivElement>(null);
 
@@ -58,10 +76,11 @@ export function GroupChatRoomClient({
       }
       setTitle(data.room.title ?? "");
       setMemberCount(typeof data.room.memberCount === "number" ? data.room.memberCount : null);
-      const mapped = (Array.isArray(data.messages) ? data.messages : []).map((m) =>
-        mapGroupApiRowToChatMessage(m as Record<string, unknown>, roomId)
+      setMessages(
+        (Array.isArray(data.messages) ? data.messages : []).map((m) =>
+          mapGroupApiRowToChatMessage(m as Record<string, unknown>, roomId)
+        )
       );
-      setMessages(mapped);
       setBootstrapReady(true);
     } catch {
       setErr("네트워크 오류입니다.");
@@ -71,8 +90,9 @@ export function GroupChatRoomClient({
   }, [roomId]);
 
   useEffect(() => {
+    if (initialBootstrap?.room?.id === roomId.trim()) return;
     void loadBootstrap();
-  }, [loadBootstrap]);
+  }, [loadBootstrap, roomId, initialBootstrap?.room?.id]);
 
   const postRead = useCallback(async () => {
     if (readPostedRef.current) return;
