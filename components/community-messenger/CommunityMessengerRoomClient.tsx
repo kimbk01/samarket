@@ -65,7 +65,10 @@ import {
 } from "@/lib/community-messenger/voice-waveform";
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
-import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
+  buildCommunityMessengerOutgoingDialHref,
+  primeCommunityMessengerCallNavigationSeed,
+} from "@/lib/community-messenger/call-session-navigation-seed";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
@@ -165,6 +168,9 @@ export function CommunityMessengerRoomClient({
   const loadedRef = useRef(Boolean(peekRoomSnapshot(roomId) ?? initialServerSnapshot));
   const silentRoomRefreshBusyRef = useRef(false);
   const silentRoomRefreshAgainRef = useRef(false);
+  /** 발신 다이얼 `router.push` 연타 방지 — ref 는 동기 연타, state 는 버튼 비활성 표시 */
+  const outgoingDialSyncGuardRef = useRef(false);
+  const [outgoingDialLocked, setOutgoingDialLocked] = useState(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
   const messageLongPressTimerRef = useRef<number | null>(null);
@@ -1229,38 +1235,44 @@ export function CommunityMessengerRoomClient({
 
   /** 발신 — `lib/community-messenger/outgoing-call-surfaces.ts` 의 roomManaged (채팅방 헤더·컨트롤) */
   const startManagedDirectCall = useCallback(
-    async (kind: "voice" | "video") => {
+    (kind: "voice" | "video") => {
       if (roomUnavailable || isGroupRoom) return;
+      if (outgoingDialSyncGuardRef.current) return;
+      outgoingDialSyncGuardRef.current = true;
+      setOutgoingDialLocked(true);
+      window.setTimeout(() => {
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+      }, 900);
+
       setManagedDirectCallError(null);
-      setBusy(`managed-call:${kind}`);
-      try {
-        const existingSession = snapshot?.activeCall;
-        if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
-          openDirectCallPage(existingSession.id);
-          return;
-        }
-        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/calls`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ callKind: kind }),
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          session?: { id?: string };
-        };
-        if (!res.ok || !json.ok || !json.session?.id) {
-          setManagedDirectCallError(getRoomActionErrorMessage(json.error));
-          return;
-        }
-        const sess = json.session as CommunityMessengerCallSession;
-        primeCommunityMessengerCallNavigationSeed(sess.id, sess);
-        openDirectCallPage(String(sess.id));
-      } finally {
-        setBusy(null);
+      const existingSession = snapshot?.activeCall;
+      if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
+        openDirectCallPage(existingSession.id);
+        return;
       }
+      const peerLabel =
+        snapshot?.room.roomType === "direct"
+          ? snapshot.members.find((m) => m.id === snapshot.room.peerUserId)?.label?.trim() ?? snapshot.room.title
+          : "";
+      const dialHref = buildCommunityMessengerOutgoingDialHref({
+        kind,
+        roomId,
+        peerLabel: peerLabel || undefined,
+      });
+      void router.prefetch(dialHref);
+      router.push(dialHref);
     },
-    [getRoomActionErrorMessage, isGroupRoom, openDirectCallPage, roomId, roomUnavailable, snapshot?.activeCall]
+    [
+      isGroupRoom,
+      openDirectCallPage,
+      roomId,
+      roomUnavailable,
+      router,
+      snapshot?.activeCall,
+      snapshot?.members,
+      snapshot?.room,
+    ]
   );
 
   useEffect(() => {
@@ -2278,45 +2290,30 @@ export function CommunityMessengerRoomClient({
 
   /** 발신 — roomManaged (멤버 시트 등 방 안에서만) */
   const startDirectCallWithMember = useCallback(
-    async (peerUserId: string, kind: "voice" | "video") => {
-      setBusy(`member-call:${kind}:${peerUserId}`);
-      try {
-        const roomRes = await fetch("/api/community-messenger/rooms", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomType: "direct", peerUserId }),
-        });
-        const roomJson = (await roomRes.json().catch(() => ({}))) as { ok?: boolean; error?: string; roomId?: string };
-        if (!roomRes.ok || !roomJson.ok || !roomJson.roomId) {
-          showMessengerSnackbar(getRoomActionErrorMessage(roomJson.error), { variant: "error" });
-          return;
-        }
-        const directRoomId = String(roomJson.roomId);
-        const callRes = await fetch(`${communityMessengerRoomResourcePath(directRoomId)}/calls`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ callKind: kind }),
-        });
-        const callJson = (await callRes.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          session?: { id?: string };
-        };
-        if (!callRes.ok || !callJson.ok || !callJson.session?.id) {
-          showMessengerSnackbar(getRoomActionErrorMessage(callJson.error), { variant: "error" });
-          return;
-        }
-        setMemberActionTarget(null);
-        const sess = callJson.session as CommunityMessengerCallSession;
-        primeCommunityMessengerCallNavigationSeed(sess.id, sess);
-        const groupCallHref = `/community-messenger/calls/${encodeURIComponent(String(sess.id))}`;
-        void router.prefetch(groupCallHref);
-        router.push(groupCallHref);
-      } finally {
-        setBusy(null);
-      }
+    (peerUserId: string, kind: "voice" | "video") => {
+      if (outgoingDialSyncGuardRef.current) return;
+      outgoingDialSyncGuardRef.current = true;
+      setOutgoingDialLocked(true);
+      window.setTimeout(() => {
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+      }, 900);
+
+      const peerLabel =
+        memberActionTarget?.id === peerUserId ? memberActionTarget.label?.trim() || "" : "";
+      const fromMembers = snapshot?.members?.find((m) => m.id === peerUserId)?.label?.trim() ?? "";
+      const label = peerLabel || fromMembers;
+
+      setMemberActionTarget(null);
+      const dialHref = buildCommunityMessengerOutgoingDialHref({
+        kind,
+        peerUserId,
+        peerLabel: label || undefined,
+      });
+      void router.prefetch(dialHref);
+      router.push(dialHref);
     },
-    [getRoomActionErrorMessage, router]
+    [memberActionTarget, router, snapshot?.members]
   );
 
   const removeGroupMember = useCallback(
@@ -2363,7 +2360,7 @@ export function CommunityMessengerRoomClient({
       if (isGroupRoom) {
         await startGroupCall(kind);
       } else {
-        await startManagedDirectCall(kind);
+        startManagedDirectCall(kind);
       }
     },
     [isGroupRoom, roomUnavailable, startGroupCall, startManagedDirectCall]
@@ -2658,7 +2655,7 @@ export function CommunityMessengerRoomClient({
                 <button
                   type="button"
                   onClick={() => void startManagedDirectCall("voice")}
-                  disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
+                  disabled={roomUnavailable || outgoingDialLocked}
                   className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
                   aria-label={t("nav_voice_call_label")}
                 >
@@ -2667,7 +2664,7 @@ export function CommunityMessengerRoomClient({
                 <button
                   type="button"
                   onClick={() => void startManagedDirectCall("video")}
-                  disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
+                  disabled={roomUnavailable || outgoingDialLocked}
                   className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
                   aria-label={t("nav_video_call_label")}
                 >
@@ -3825,7 +3822,7 @@ export function CommunityMessengerRoomClient({
                             dismissRoomSheet();
                             void startManagedDirectCall("voice");
                           }}
-                          disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
+                          disabled={roomUnavailable || outgoingDialLocked}
                           className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[15px] font-semibold text-sam-fg disabled:opacity-40"
                         >
                           음성 통화
@@ -3836,7 +3833,7 @@ export function CommunityMessengerRoomClient({
                             dismissRoomSheet();
                             void startManagedDirectCall("video");
                           }}
-                          disabled={roomUnavailable || busy === "managed-call:voice" || busy === "managed-call:video"}
+                          disabled={roomUnavailable || outgoingDialLocked}
                           className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[15px] font-semibold text-sam-fg disabled:opacity-40"
                         >
                           {t("nav_video_call_label")}
@@ -4931,7 +4928,7 @@ export function CommunityMessengerRoomClient({
                 <button
                   type="button"
                   onClick={() => void startDirectCallWithMember(memberActionTarget.id, "voice")}
-                  disabled={busy === `member-call:voice:${memberActionTarget.id}`}
+                  disabled={outgoingDialLocked}
                   className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[14px] font-semibold text-sam-fg disabled:opacity-40"
                 >
                   음성 통화
@@ -4939,7 +4936,7 @@ export function CommunityMessengerRoomClient({
                 <button
                   type="button"
                   onClick={() => void startDirectCallWithMember(memberActionTarget.id, "video")}
-                  disabled={busy === `member-call:video:${memberActionTarget.id}`}
+                  disabled={outgoingDialLocked}
                   className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[14px] font-semibold text-sam-fg disabled:opacity-40"
                 >
                   영상 통화

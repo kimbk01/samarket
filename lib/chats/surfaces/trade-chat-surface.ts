@@ -64,7 +64,7 @@ export function tradeHubChatRoomHref(
   if (!id) return TRADE_CHAT_MESSENGER_LIST_HREF;
   if (opts?.review) {
     const base = `/chats/${encodeURIComponent(id)}`;
-    let href = appendTradeHubRoomSourceQuery(base, sourceHint);
+    const href = appendTradeHubRoomSourceQuery(base, sourceHint);
     const u = new URL(href, "https://samarket.local");
     u.searchParams.set("review", "1");
     return `${u.pathname}${u.search}`;

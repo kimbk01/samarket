@@ -117,6 +117,7 @@ export function useCommunityMessengerCall(args: {
   const iceRestartCountForMetricsRef = useRef(0);
   const locallyClosedSessionIdRef = useRef<string | null>(null);
   const pendingCallActionIdRef = useRef(0);
+  const startOutgoingSyncGuardRef = useRef(false);
   const callSignalsRealtimeSubscribedRef = useRef(false);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
@@ -874,6 +875,8 @@ export function useCommunityMessengerCall(args: {
 
   const startOutgoingCall = useCallback(async (kind: CommunityMessengerCallKind) => {
     if (!args.peerUserId) return;
+    if (startOutgoingSyncGuardRef.current) return;
+    startOutgoingSyncGuardRef.current = true;
     const actionId = pendingCallActionIdRef.current + 1;
     pendingCallActionIdRef.current = actionId;
     setBusy("call-start");
@@ -900,11 +903,13 @@ export function useCommunityMessengerCall(args: {
             ? "그룹 통화 실연결은 다음 단계에서 지원합니다."
             : "통화 시작에 실패했습니다."
         );
+        setPanel(null);
         return;
       }
       const session = json.session;
       if (!session.peerUserId) {
         setErrorMessage("상대방 정보를 불러오지 못했습니다.");
+        setPanel(null);
         return;
       }
       if (pendingCallActionIdRef.current !== actionId) return;
@@ -932,8 +937,10 @@ export function useCommunityMessengerCall(args: {
           ? String((error as { name?: unknown }).name ?? "")
           : "";
       setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, kind) : "통화 연결을 시작하지 못했습니다.");
+      setPanel(null);
     } finally {
       setBusy(null);
+      startOutgoingSyncGuardRef.current = false;
     }
   }, [args, ensureLocalStream, ensurePeerConnection, sendSignal]);
 

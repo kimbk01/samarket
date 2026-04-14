@@ -17,7 +17,8 @@ import {
 } from "@/lib/posts/home-posts-query-server";
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
-function useConfiguredTradeUnionForHomeAll(): boolean {
+/** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
+function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
   const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
   return v === "1" || v === "true" || v === "yes";
 }
@@ -114,7 +115,7 @@ export async function resolveHomePostsGetData(req: NextRequest): Promise<HomePos
       serviceSb as SupabaseClient<any> | null,
       tradeMarketParent
     );
-  } else if (useConfiguredTradeUnionForHomeAll() && (type == null || type === "trade")) {
+  } else if (isConfiguredTradeUnionEnabledForHomeAll() && (type == null || type === "trade")) {
     const union = await expandTradeCategoryIdsForAllConfiguredHomeRoots(
       readSb as SupabaseClient<any>,
       serviceSb as SupabaseClient<any> | null
@@ -161,6 +162,9 @@ export async function resolveHomePostsGetData(req: NextRequest): Promise<HomePos
         return null;
       }
 
+      /** 캐시에 넣기 전 닉네임 보강 — TTL 동안 요청마다 `profiles` 재조회하지 않음 */
+      await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
+
       homePostsServerCache.set(cacheKey, {
         posts: pack.posts,
         hasMore: pack.hasMore,
@@ -178,8 +182,6 @@ export async function resolveHomePostsGetData(req: NextRequest): Promise<HomePos
   }
   const favoriteMap: Record<string, boolean> = {};
   const userId = await getOptionalAuthenticatedUserId();
-
-  await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, posts);
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);

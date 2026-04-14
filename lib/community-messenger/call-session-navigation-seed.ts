@@ -1,6 +1,91 @@
-import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 const KEY = "samarket.cm.call_session_seed.v1";
+
+export type BuildCommunityMessengerOutgoingDialHrefArgs = {
+  kind: CommunityMessengerCallKind;
+  /** 이미 알고 있으면 세션 생성 전에 `POST .../calls` 까지 한 단계 줄인다. */
+  roomId?: string;
+  /** 방 ID 를 아직 모를 때(홈에서 DM 방 생성 API 를 기다리지 않고 진입). */
+  peerUserId?: string;
+  /** 발신 calling UI 용(선택). */
+  peerLabel?: string;
+};
+
+/**
+ * 발신 다이얼 URL — **클릭 직후** `router.push` 해서 `/calls/outgoing` calling UI 를 먼저 띄운다.
+ * `roomId` 또는 `peerUserId` 중 하나는 있어야 한다.
+ */
+export function buildCommunityMessengerOutgoingDialHref(args: BuildCommunityMessengerOutgoingDialHrefArgs): string {
+  const q = new URLSearchParams();
+  q.set("kind", args.kind);
+  const rid = args.roomId?.trim();
+  const pid = args.peerUserId?.trim();
+  if (rid) q.set("roomId", rid);
+  if (pid) q.set("peerUserId", pid);
+  const pl = args.peerLabel?.trim();
+  if (pl) q.set("peerLabel", pl);
+  return `/community-messenger/calls/outgoing?${q.toString()}`;
+}
+
+export type OutgoingCallSessionBootstrapResult =
+  | { ok: true; session: CommunityMessengerCallSession; roomId: string }
+  | { ok: false; userMessage: string };
+
+/**
+ * `/calls/outgoing` 에서 세션 생성 — 방 ID 가 없으면 `POST /api/community-messenger/rooms` 후 `POST .../calls`.
+ */
+export async function bootstrapCommunityMessengerOutgoingCallSession(args: {
+  signal?: AbortSignal;
+  roomId: string | null;
+  peerUserId: string | null;
+  kind: CommunityMessengerCallKind;
+}): Promise<OutgoingCallSessionBootstrapResult> {
+  let roomId = args.roomId?.trim() ?? "";
+
+  if (!roomId && args.peerUserId?.trim()) {
+    const res = await fetch("/api/community-messenger/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomType: "direct", peerUserId: args.peerUserId.trim() }),
+      signal: args.signal,
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, userMessage: "로그인이 필요합니다." };
+    }
+    if (!res.ok || !json.ok || !json.roomId) {
+      return { ok: false, userMessage: "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요." };
+    }
+    roomId = String(json.roomId);
+  }
+
+  if (!roomId) {
+    return { ok: false, userMessage: "방 정보가 없어 통화를 시작할 수 없습니다." };
+  }
+
+  const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/calls`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callKind: args.kind }),
+    signal: args.signal,
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    error?: string;
+    session?: CommunityMessengerCallSession;
+  };
+  if (!res.ok || !json.ok || !json.session?.id) {
+    if (json.error === "group_call_not_supported_yet") {
+      return { ok: false, userMessage: "그룹 통화 실연결은 다음 단계에서 지원합니다." };
+    }
+    if (json.error === "room_unavailable" || json.error === "room_archived") {
+      return { ok: false, userMessage: "이 대화방에서는 지금 통화를 시작할 수 없습니다." };
+    }
+    return { ok: false, userMessage: "통화를 시작할 수 없습니다." };
+  }
+  return { ok: true, session: json.session, roomId };
+}
 
 /**
  * 통화 발신 직후 `router.push` 시 RSC·클라이언트 GET 보다 먼저 세션을 알 수 있게 sessionStorage 에 두어

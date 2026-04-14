@@ -712,6 +712,36 @@ async function hydrateProfiles(
   return members;
 }
 
+/**
+ * 통화 세션 매핑 전용 — `getViewerRelationSets` 생략(친구/팔로우 등 3쿼리)으로 발신·GET TTFB 를 줄인다.
+ * 통화 UI는 표시명·아바타 중심이며 관계 뱃지는 불필요하다.
+ */
+async function hydrateProfilesLabelsOnly(
+  viewerId: string,
+  targetIds: string[],
+  options?: { includeSelf?: boolean }
+): Promise<CommunityMessengerProfileLite[]> {
+  const includeSelf = options?.includeSelf === true;
+  const uniqueTargets = dedupeIds(targetIds.filter((id) => id && (includeSelf || id !== viewerId)));
+  if (!uniqueTargets.length) return [];
+  const profileMap = await fetchProfilesByIds(uniqueTargets);
+  return uniqueTargets.map((id) => {
+    const profile = profileMap.get(id);
+    return {
+      id,
+      label: profileLabel(profile, id),
+      subtitle: trimText(profile?.username) ? `@${trimText(profile?.username)}` : undefined,
+      bio: trimText(profile?.bio) || null,
+      avatarUrl: trimText(profile?.avatar_url) || null,
+      following: false,
+      blocked: false,
+      isFriend: false,
+      isFavoriteFriend: false,
+      isHiddenFriend: false,
+    };
+  });
+}
+
 async function resolveCommunityMessengerGroupTitle(
   userId: string,
   memberIds: string[],
@@ -1594,6 +1624,8 @@ export async function listCommunityMessengerMyChatsAndGroups(userId: string): Pr
   return { chats, groups };
 }
 
+type CallSessionProfileHydrationMode = "full" | "labels_only";
+
 async function loadCallSessionParticipants(
   userId: string,
   session: CallSessionRow | DevCallSession,
@@ -1601,7 +1633,8 @@ async function loadCallSessionParticipants(
   preloadedDbRows?: CallSessionParticipantRow[] | null,
   /** `listIncomingCommunityMessengerCallSessions` 배치 경로 — 참가자 행을 이미 묶어 조회했으면 세션당 재조회하지 않는다 */
   profileById?: Map<string, CommunityMessengerProfileLite>,
-  dbParticipantsPreloaded?: boolean
+  dbParticipantsPreloaded?: boolean,
+  profileHydration: CallSessionProfileHydrationMode = "full"
 ): Promise<CommunityMessengerCallParticipant[]> {
   const isDbSession = "initiator_user_id" in session;
   const sessionId = session.id;
@@ -1667,11 +1700,17 @@ async function loadCallSessionParticipants(
     }
     const need = dedupeIds(missing);
     if (need.length) {
-      const hydrated = await hydrateProfiles(userId, need, { includeSelf: true });
+      const hydrated =
+        profileHydration === "labels_only"
+          ? await hydrateProfilesLabelsOnly(userId, need, { includeSelf: true })
+          : await hydrateProfiles(userId, need, { includeSelf: true });
       for (const p of hydrated) profileMap.set(p.id, p);
     }
   } else {
-    const profiles = await hydrateProfiles(userId, memberIds, { includeSelf: true });
+    const profiles =
+      profileHydration === "labels_only"
+        ? await hydrateProfilesLabelsOnly(userId, memberIds, { includeSelf: true })
+        : await hydrateProfiles(userId, memberIds, { includeSelf: true });
     profileMap = new Map(profiles.map((item) => [item.id, item]));
   }
   return rows.map((row) => {
@@ -1694,7 +1733,8 @@ async function mapCallSession(
   session: CallSessionRow | DevCallSession,
   preloadedParticipantRows?: CallSessionParticipantRow[] | null,
   profileById?: Map<string, CommunityMessengerProfileLite>,
-  dbParticipantsPreloaded?: boolean
+  dbParticipantsPreloaded?: boolean,
+  profileHydration: CallSessionProfileHydrationMode = "full"
 ): Promise<CommunityMessengerCallSession> {
   const isDbSession = "initiator_user_id" in session;
   const initiatorUserId = isDbSession ? session.initiator_user_id : session.initiatorUserId;
@@ -1705,7 +1745,8 @@ async function mapCallSession(
     session,
     preloadedParticipantRows,
     profileById,
-    dbParticipantsPreloaded
+    dbParticipantsPreloaded,
+    profileHydration
   );
   const peerUserId =
     sessionMode === "direct"
@@ -1800,7 +1841,7 @@ async function getActiveCallSessionForRoom(
       .limit(1)
       .maybeSingle();
     if (data && !error) {
-      return mapCallSession(userId, data as CallSessionRow);
+      return mapCallSession(userId, data as CallSessionRow, undefined, undefined, undefined, "labels_only");
     }
   }
 
@@ -1808,7 +1849,7 @@ async function getActiveCallSessionForRoom(
   const session = dev.callSessions
     .filter((item) => item.roomId === roomId && (item.status === "ringing" || item.status === "active"))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  return session ? mapCallSession(userId, session) : null;
+  return session ? mapCallSession(userId, session, undefined, undefined, undefined, "labels_only") : null;
 }
 
 export async function getCommunityMessengerCallSessionById(
@@ -1819,23 +1860,28 @@ export async function getCommunityMessengerCallSessionById(
   if (!id) return null;
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data, error } = await (sb as any)
-      .from("community_messenger_call_sessions")
-      .select(
-        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
-      )
-      .eq("id", id)
-      .maybeSingle();
+    const [sessionRes, participantRes] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_call_sessions")
+        .select(
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+        )
+        .eq("id", id)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_call_session_participants")
+        .select("id, session_id, room_id, user_id, participation_status, joined_at, left_at, created_at")
+        .eq("session_id", id)
+        .order("created_at", { ascending: true }),
+    ]);
+    const { data, error } = sessionRes as { data: unknown; error: unknown };
     if (data && !error) {
       const row = data as CallSessionRow;
-      const { data: participantRows } = await (sb as any)
-        .from("community_messenger_call_session_participants")
-        .select("user_id")
-        .eq("session_id", id);
+      const participantRows = (!participantRes.error && participantRes.data
+        ? participantRes.data
+        : []) as CallSessionParticipantRow[];
       const participants = dedupeIds(
-        ((participantRows ?? []) as Array<{ user_id?: string | null }>)
-          .map((item) => item.user_id)
-          .filter((value): value is string => typeof value === "string" && value.length > 0)
+        participantRows.map((item) => item.user_id).filter((value): value is string => typeof value === "string" && value.length > 0)
       );
       const mode = trimText(row.session_mode ?? "") || "direct";
       const canRead =
@@ -1844,7 +1890,14 @@ export async function getCommunityMessengerCallSessionById(
           (messengerUserIdsEqual(row.initiator_user_id, userId) ||
             messengerUserIdsEqual(row.recipient_user_id, userId)));
       if (!canRead) return null;
-      return mapCallSession(userId, row);
+      return mapCallSession(
+        userId,
+        row,
+        participantRows.length ? participantRows : null,
+        undefined,
+        participantRows.length > 0,
+        "labels_only"
+      );
     }
   }
 
@@ -1858,7 +1911,7 @@ export async function getCommunityMessengerCallSessionById(
       (messengerUserIdsEqual(session.initiatorUserId, userId) ||
         messengerUserIdsEqual(session.recipientUserId, userId)));
   if (!canRead) return null;
-  return mapCallSession(userId, session);
+  return mapCallSession(userId, session, undefined, undefined, undefined, "labels_only");
 }
 
 function formatCommunityMessengerCallStubStatus(status: CommunityMessengerCallStatus): string {
@@ -5886,7 +5939,17 @@ export async function startCommunityMessengerCallSession(input: {
           left_at: row.left_at,
           created_at: row.created_at,
         }));
-      return { ok: true, session: await mapCallSession(input.userId, inserted as CallSessionRow, syntheticParticipantRows) };
+      return {
+        ok: true,
+        session: await mapCallSession(
+          input.userId,
+          inserted as CallSessionRow,
+          syntheticParticipantRows,
+          undefined,
+          true,
+          "labels_only"
+        ),
+      };
     }
     if (error && isUniqueViolationError(error)) {
       const existing = await getActiveCallSessionForRoom(input.userId, roomId);

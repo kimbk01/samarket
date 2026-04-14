@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getPostsByTradeCategoryIds,
+  primeTradeFeedCache,
   type PostSort,
 } from "@/lib/posts/getPostsByCategory";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
@@ -180,6 +181,38 @@ export function PostListByCategory({
         setNotInterestedPostIds(new Set());
         setFavoriteMap({});
         setLoading(false);
+        const useHomePostsApi =
+          tradeFeedServerResolution &&
+          jobsListingKind !== "hire" &&
+          jobsListingKind !== "work" &&
+          !tradeTopicParam.trim();
+        if (tradeFeedServerResolution) {
+          if (useHomePostsApi) {
+            primeTradeFeedCache(
+              [],
+              { page: 1, sort, tradeMarketParent: categoryId, topic: "" },
+              { posts: initialTradeFeed.posts, hasMore: initialTradeFeed.hasMore }
+            );
+          } else {
+            primeTradeFeedCache(
+              [],
+              {
+                page: 1,
+                sort,
+                jobsListingKind,
+                tradeMarketParent: categoryId,
+                topic: tradeTopicParam,
+              },
+              { posts: initialTradeFeed.posts, hasMore: initialTradeFeed.hasMore }
+            );
+          }
+        } else {
+          primeTradeFeedCache(
+            effectiveIds,
+            { page: 1, sort, jobsListingKind },
+            { posts: initialTradeFeed.posts, hasMore: initialTradeFeed.hasMore }
+          );
+        }
         if (initialTradeFeed.posts.length > 0) {
           const map = await getFavoriteStatusForPosts(initialTradeFeed.posts.map((p) => p.id));
           if (!cancelled) setFavoriteMap(map);

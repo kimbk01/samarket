@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { KASAMA_DEV_UID_COOKIE, KASAMA_DEV_UID_PUB_COOKIE } from "@/lib/auth/dev-session-cookie";
+import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
 import { allowKasamaDevSession } from "@/lib/config/deploy-surface";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
@@ -20,6 +21,10 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === "/signup" || pathname.startsWith("/signup/")) return true;
   if (pathname.startsWith("/auth/")) return true;
   return false;
+}
+
+function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
 function requestHasSupabaseAuthCookies(request: NextRequest): boolean {
@@ -95,6 +100,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (allowKasamaDevSession() && requestHasKasamaDevAuthCookies(request)) {
+    /**
+     * 운영·스테이징(`isAdminRequireAuthEnabled`)에서는 `/admin` 에 **Supabase 세션**을 요구한다.
+     * Kasama 쿠키만으로 HTML 을 통과시키면 레이아웃·API 전에 프록시가 끝나 JWT 검증이 생략될 수 있어,
+     * 관리자 화면은 실제 로그인( `sb-*-auth-token` ) 경로로만 진입하게 맞춘다.
+     */
+    if (isAdminPath(pathname) && isAdminRequireAuthEnabled() && !requestHasSupabaseAuthCookies(request)) {
+      return redirectToLogin(request);
+    }
     return preventAuthPageCache(NextResponse.next());
   }
 

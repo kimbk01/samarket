@@ -21,15 +21,12 @@ import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import {
-  closeCommunityMessengerAgoraTracks,
-  createCommunityMessengerAgoraClient,
-  createCommunityMessengerAgoraLocalTracks,
-  joinCommunityMessengerAgoraChannel,
-  listCommunityMessengerCameras,
-  publishCommunityMessengerAgoraTracks,
-  type CommunityMessengerAgoraLocalTracks,
-} from "@/lib/community-messenger/call-provider/client";
+import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messenger/call-provider/client";
+
+/** Agora 번들은 수 MB — 정적 import 시 통화 페이지 첫 페인트·파싱이 지연된다. 조인 직전에만 로드한다. */
+async function loadCommunityMessengerCallProvider() {
+  return import("@/lib/community-messenger/call-provider/client");
+}
 import {
   markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
@@ -295,7 +292,10 @@ export function CommunityMessengerCallClient({
     useRearFacingRef.current = false;
     setLastMileLine("네트워크 품질 · 확인 중");
     remoteAudioTrackRef.current = null;
-    await closeCommunityMessengerAgoraTracks(localTracksRef.current);
+    if (localTracksRef.current) {
+      const { closeCommunityMessengerAgoraTracks } = await loadCommunityMessengerCallProvider();
+      await closeCommunityMessengerAgoraTracks(localTracksRef.current);
+    }
     localTracksRef.current = null;
     if (client) {
       try {
@@ -430,6 +430,7 @@ export function CommunityMessengerCallClient({
     } catch {
       useRearFacingRef.current = !useRearFacingRef.current;
       try {
+        const { listCommunityMessengerCameras } = await loadCommunityMessengerCallProvider();
         const list = await listCommunityMessengerCameras();
         if (list.length < 2) return;
         const cur = v.getMediaStreamTrack().getSettings().deviceId;
@@ -603,6 +604,12 @@ export function CommunityMessengerCallClient({
       setErrorMessage(null);
 
       const runJoinAttempt = async (): Promise<void> => {
+        const {
+          createCommunityMessengerAgoraClient,
+          createCommunityMessengerAgoraLocalTracks,
+          joinCommunityMessengerAgoraChannel,
+          publishCommunityMessengerAgoraTracks,
+        } = await loadCommunityMessengerCallProvider();
         const prefetched = prefetchedConnectionRef.current;
         prefetchedConnectionRef.current = null;
         const connection = prefetched ?? (await fetchConnection());

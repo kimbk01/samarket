@@ -30,6 +30,7 @@ import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-cal
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
+import { applyIncomingCallSessionsRealtimeEvent } from "@/lib/community-messenger/incoming-call-realtime-preview";
 import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
@@ -224,8 +225,20 @@ export function GlobalCommunityMessengerIncomingCall() {
           table: "community_messenger_call_sessions",
           filter: `recipient_user_id=eq.${userId}`,
         },
-        () => {
-          scheduleRealtimeIncomingRefresh();
+        (payload) => {
+          const p = payload as {
+            eventType?: string;
+            new?: Record<string, unknown> | null;
+            old?: Record<string, unknown> | null;
+          };
+          setSessions((prev) =>
+            applyIncomingCallSessionsRealtimeEvent(prev, userId, {
+              eventType: p.eventType,
+              new: p.new ?? null,
+              old: p.old ?? null,
+            })
+          );
+          void refreshRef.current(true);
         }
       )
       .on(

@@ -80,7 +80,7 @@ import {
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
-import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
+import { buildCommunityMessengerOutgoingDialHref } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   communityMessengerFriendRequestFailureMessage,
   messengerFriendRequestBusyId,
@@ -126,7 +126,6 @@ import {
 import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
-  type CommunityMessengerCallSession,
   type CommunityMessengerDiscoverableGroupSummary,
   type CommunityMessengerFriendRequest,
   type CommunityMessengerProfileLite,
@@ -221,6 +220,8 @@ export function CommunityMessengerHome({
   tRef.current = t;
   const silentRefreshBusyRef = useRef(false);
   const silentRefreshAgainRef = useRef(false);
+  /** 발신 다이얼 `router.push` 동기 연타 방지 */
+  const outgoingDialSyncGuardRef = useRef(false);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const [composerOpen, setComposerOpen] = useState(false);
   const [requestSheetOpen, setRequestSheetOpen] = useState(false);
@@ -826,58 +827,34 @@ export function CommunityMessengerHome({
 
   /** 1:1 발신 — `lib/community-messenger/outgoing-call-surfaces.ts` (friendsFavoriteQuickActions, friendProfileSheet) 에만 연결 */
   const startDirectCall = useCallback(
-    async (peerUserId: string, kind: "voice" | "video") => {
+    (peerUserId: string, kind: "voice" | "video") => {
+      if (outgoingDialSyncGuardRef.current) return;
+      outgoingDialSyncGuardRef.current = true;
+      window.setTimeout(() => {
+        outgoingDialSyncGuardRef.current = false;
+      }, 900);
+
       setActionError(null);
-      setBusyId(`call:${kind}:${peerUserId}`);
-      try {
-        const existingRoom = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId) ?? null;
-        if (existingRoom) {
-          const revived = await reviveDirectRoomForEntry(existingRoom);
-          if (!revived) return;
-        }
-        let rid = existingRoom?.id ?? null;
-        if (!rid) {
-          const res = await fetch("/api/community-messenger/rooms", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ roomType: "direct", peerUserId }),
-          });
-          const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-          if (res.status === 401 || res.status === 403) {
-            setAuthRequired(true);
-            setPageError(t("nav_messenger_login_required"));
-            return;
-          }
-          if (!res.ok || !json.ok || !json.roomId) {
-            setActionError(getMessengerActionErrorMessage(json.error));
-            return;
-          }
-          rid = json.roomId;
-        }
-        const cRes = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(rid)}/calls`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ callKind: kind }),
-        });
-        const cJson = (await cRes.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          session?: { id?: string };
-        };
-        if (!cRes.ok || !cJson.ok || !cJson.session?.id) {
-          setActionError(getMessengerActionErrorMessage(cJson.error));
-          return;
-        }
-        const sess = cJson.session as CommunityMessengerCallSession;
-        primeCommunityMessengerCallNavigationSeed(sess.id, sess);
-        const callHref = `/community-messenger/calls/${encodeURIComponent(sess.id)}`;
-        void router.prefetch(callHref);
-        router.push(callHref);
-      } finally {
-        setBusyId(null);
+      const existingRoom = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId) ?? null;
+      if (existingRoom && communityMessengerRoomIsInboxHidden(existingRoom)) {
+        void reviveDirectRoomForEntry(existingRoom);
       }
+
+      const peerLabel =
+        existingRoom?.title?.trim() ||
+        [...(data?.friends ?? []), ...(data?.hidden ?? [])].find((f) => f.id === peerUserId)?.label?.trim() ||
+        "";
+
+      const dialHref = buildCommunityMessengerOutgoingDialHref({
+        kind,
+        roomId: existingRoom?.id,
+        peerUserId: existingRoom?.id ? undefined : peerUserId,
+        peerLabel: peerLabel || undefined,
+      });
+      void router.prefetch(dialHref);
+      router.push(dialHref);
     },
-    [data?.chats, getMessengerActionErrorMessage, reviveDirectRoomForEntry, router, t]
+    [data?.chats, data?.friends, data?.hidden, reviveDirectRoomForEntry, router]
   );
 
   const searchUsers = useCallback(async () => {
