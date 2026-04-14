@@ -2,17 +2,14 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { ensureClientAccessOrRedirect } from "@/lib/auth/client-access-flow";
-import { prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import {
-  TRADE_CHAT_SURFACE,
-  tradeHubChatComposeHref,
-  tradeHubChatRoomHref,
-} from "@/lib/chats/surfaces/trade-chat-surface";
-import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
-import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
+  openCreateTradeChat,
+  openExistingTradeChat,
+  prefetchTradeChatEntry,
+} from "@/lib/chats/trade-chat-entry-navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 
 interface ChatButtonProps {
@@ -40,7 +37,6 @@ export function ChatButton({
 }: ChatButtonProps) {
   const { t, tt } = useI18n();
   const router = useRouter();
-  const [error, setError] = useState("");
 
   const hasExisting = !!existingRoomId;
   const label = hasExisting
@@ -52,34 +48,25 @@ export function ChatButton({
   useEffect(() => {
     const user = getCurrentUser();
     if (!user?.id) return;
-    void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
-    if (existingRoomId) {
-      void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
-    }
-  }, [existingRoomId, existingRoomSource, router]);
+    prefetchTradeChatEntry(router, {
+      productId,
+      existingRoomId,
+      existingRoomSource,
+    });
+  }, [existingRoomId, existingRoomSource, productId, router]);
 
   const handleClick = () => {
-    setError("");
     const user = getCurrentUser();
     if (!ensureClientAccessOrRedirect(router, user)) return;
     if (hasExisting) {
-      startTradeChatEntryMark({
-        mode: "existing",
+      openExistingTradeChat(router, {
         productId,
         roomId: existingRoomId,
         sourceHint: existingRoomSource,
       });
-      warmChatRoomEntryById(existingRoomId, existingRoomSource);
-      router.push(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
       return;
     }
-    startTradeChatEntryMark({
-      mode: "create",
-      productId,
-    });
-    const composeHref = tradeHubChatComposeHref({ productId });
-    void router.prefetch(composeHref);
-    router.push(composeHref);
+    openCreateTradeChat(router, { productId });
   };
 
   return (
@@ -88,21 +75,18 @@ export function ChatButton({
         type="button"
         onClick={handleClick}
         onPointerEnter={() => {
-          void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
-          if (existingRoomId) {
-            void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
-            warmChatRoomEntryById(existingRoomId, existingRoomSource);
-          } else {
-            void router.prefetch(tradeHubChatComposeHref({ productId }));
-            prepareTradeChatRoom(productId);
-          }
+          prefetchTradeChatEntry(router, {
+            productId,
+            existingRoomId,
+            existingRoomSource,
+            prepareIfCreate: true,
+          });
         }}
         disabled={disabled}
         className={className ?? "rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
       >
         {label}
       </button>
-      {error && <p className="mt-1 text-[12px] text-red-600">{error}</p>}
     </div>
   );
 }

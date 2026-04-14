@@ -5,6 +5,7 @@
 | 용도 | 메서드 | 경로 | 비고 |
 |------|--------|------|------|
 | 거래 채팅 시작 | POST | `/api/chat/item/start` | body: `itemId`, `userId` |
+| 거래 채팅 단일 진입(권장) | POST | `/api/trade/chat/entry/resolve` | body: `productId` |
 | 거래 채팅 폴백 | POST | `/api/chat/create-room` | body: `productId`, `userId` |
 
 ## 목록·미읽음

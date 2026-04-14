@@ -52,8 +52,8 @@ export function prepareTradeChatRoom(productId: string): void {
 
 /**
  * 당근형 거래 채팅: 채팅방 생성 또는 기존 방 반환 (같은 item + 판매자/구매자 → 재사용·reopen)
- * - POST /api/chat/item/start 우선 (chat_rooms 기반)
- * - 404 또는 "상품을 찾을 수 없습니다" 시 기존 create-room으로 폴백 (product_chats)
+ * - POST /api/trade/chat/entry/resolve 단일 계약 호출
+ * - 서버 오케스트레이터가 item/start + legacy(product_chats) 폴백을 내부에서 처리
  */
 export async function createOrGetChatRoom(productId: string): Promise<CreateOrGetChatRoomResult> {
   const user = getCurrentUser();
@@ -98,64 +98,33 @@ async function executeTradeChatStart(
   cacheKey: string
 ): Promise<CreateOrGetChatRoomResult> {
   try {
-    const res = await fetch("/api/chat/item/start", {
+    const res = await fetch("/api/trade/chat/entry/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId: productId }),
+      body: JSON.stringify({ productId }),
     });
-    const data = await res.json().catch(() => ({})) as {
+    const data = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       roomId?: string;
-      messengerRoomId?: string;
+      roomSource?: ChatRoomSource;
       error?: string;
     };
     if (data.ok && data.roomId) {
-      const navId =
-        typeof data.messengerRoomId === "string" && data.messengerRoomId.trim()
-          ? data.messengerRoomId.trim()
-          : data.roomId;
+      const navId = data.roomId;
+      const source = data.roomSource === "product_chat" ? "product_chat" : "chat_room";
       itemRoomCache.set(cacheKey, {
         roomId: navId,
-        source: data.messengerRoomId ? "product_chat" : "chat_room",
+        source,
         expiresAt: Date.now() + CHAT_ROOM_CACHE_TTL_MS,
       });
-      warmChatRoomEntryById(navId, data.messengerRoomId ? "product_chat" : "chat_room");
+      warmChatRoomEntryById(navId, source);
       return {
         ok: true,
         roomId: navId,
-        roomSource: data.messengerRoomId ? "product_chat" : "chat_room",
+        roomSource: source,
       };
     }
-    const errMsg = data.error ?? "";
-    const isProductNotFound = res.status === 404 || errMsg.includes("상품을 찾을 수 없습니다");
-    if (isProductNotFound) {
-      const fallback = await fetch("/api/chat/create-room", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
-      });
-      const fallbackData = await fallback.json().catch(() => ({}));
-      const fb = fallbackData as {
-        ok?: boolean;
-        roomId?: string;
-        messengerRoomId?: string;
-      };
-      if (fb.ok && fb.roomId) {
-        const navId =
-          typeof fb.messengerRoomId === "string" && fb.messengerRoomId.trim()
-            ? fb.messengerRoomId.trim()
-            : fb.roomId;
-        itemRoomCache.set(cacheKey, {
-          roomId: navId,
-          source: "product_chat",
-          expiresAt: Date.now() + CHAT_ROOM_CACHE_TTL_MS,
-        });
-        warmChatRoomEntryById(navId, "product_chat");
-        return { ok: true, roomId: navId, roomSource: "product_chat" };
-      }
-      return { ok: false, error: (fallbackData.error ?? errMsg) || "채팅방 생성에 실패했습니다." };
-    }
-    return { ok: false, error: errMsg || "채팅방 생성에 실패했습니다." };
+    return { ok: false, error: data.error || "채팅방 생성에 실패했습니다." };
   } catch (e) {
     return { ok: false, error: (e as Error)?.message ?? "채팅방 생성에 실패했습니다." };
   }

@@ -7,15 +7,12 @@ import type { ChatRoomSource } from "@/lib/types/chat";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { ensureClientAccessOrRedirect } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
-import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import {
-  TRADE_CHAT_SURFACE,
-  tradeHubChatComposeHref,
-  tradeHubChatRoomHref,
-} from "@/lib/chats/surfaces/trade-chat-surface";
-import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
+  openCreateTradeChat,
+  openExistingTradeChat,
+  prefetchTradeChatEntry,
+} from "@/lib/chats/trade-chat-entry-navigation";
 import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
 import { getAppSettings } from "@/lib/app-settings";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
@@ -88,10 +85,11 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
 
   useEffect(() => {
     if (!user?.id || post.type === "community") return;
-    void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
-    if (existingRoomId) {
-      void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
-    }
+    prefetchTradeChatEntry(router, {
+      productId: post.id,
+      existingRoomId,
+      existingRoomSource,
+    });
   }, [existingRoomId, existingRoomSource, post.type, router, user?.id]);
 
   const chatBlockedByOtherReservation =
@@ -122,15 +120,22 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     if (tradeChatPrepareTimerRef.current) clearTimeout(tradeChatPrepareTimerRef.current);
     tradeChatPrepareTimerRef.current = setTimeout(() => {
       tradeChatPrepareTimerRef.current = null;
-      prepareTradeChatRoom(post.id);
+      prefetchTradeChatEntry(router, {
+        productId: post.id,
+        existingRoomId,
+        existingRoomSource,
+        prepareIfCreate: true,
+      });
     }, 180);
   }, [
     showChat,
     existingRoomId,
+    existingRoomSource,
     chatBlockedByOtherReservation,
     isSold,
     allowChatAfterSold,
     post.id,
+    router,
   ]);
 
   const cancelTradeChatPrepare = useCallback(() => {
@@ -146,14 +151,11 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     if (!ensureClientAccessOrRedirect(router, me)) return;
     if (post.type === "community") return;
     if (existingRoomId) {
-      startTradeChatEntryMark({
-        mode: "existing",
+      openExistingTradeChat(router, {
         productId: post.id,
         roomId: existingRoomId,
         sourceHint: existingRoomSource,
       });
-      warmChatRoomEntryById(existingRoomId, existingRoomSource);
-      router.push(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
       return;
     }
     if (chatBlockedByOtherReservation) {
@@ -164,10 +166,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
       setChatError("거래가 완료된 상품은 새 채팅을 열 수 없습니다.");
       return;
     }
-    startTradeChatEntryMark({ mode: "create", productId: post.id });
-    const composeHref = tradeHubChatComposeHref({ productId: post.id });
-    void router.prefetch(composeHref);
-    router.push(composeHref);
+    openCreateTradeChat(router, { productId: post.id });
   }, [
     router,
     post.id,
@@ -191,13 +190,11 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
             onClick={() => void handleChat()}
             onPointerEnter={() => {
               scheduleTradeChatPrepare();
-              void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
-              if (existingRoomId) {
-                void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
-                warmChatRoomEntryById(existingRoomId, existingRoomSource);
-              } else {
-                void router.prefetch(tradeHubChatComposeHref({ productId: post.id }));
-              }
+              prefetchTradeChatEntry(router, {
+                productId: post.id,
+                existingRoomId,
+                existingRoomSource,
+              });
             }}
             onPointerLeave={cancelTradeChatPrepare}
             onPointerDown={cancelTradeChatPrepare}

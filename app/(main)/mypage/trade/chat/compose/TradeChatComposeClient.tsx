@@ -21,19 +21,13 @@ const LIST_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 
 export function TradeChatComposeClient({
   productId,
-  initialRoomId,
-  sourceHint,
 }: {
-  productId: string | null;
-  initialRoomId: string | null;
-  sourceHint: ChatRoomSource | null;
+  productId: string;
 }) {
   const router = useRouter();
-  const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(initialRoomId);
+  const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(null);
   /** createOrGetChatRoom 이 돌린 뒤 방 종류 — URL `source` 보다 우선 */
-  const [hubBootstrapSource, setHubBootstrapSource] = useState<ChatRoomSource | null>(() =>
-    initialRoomId ? sourceHint : null
-  );
+  const [hubBootstrapSource, setHubBootstrapSource] = useState<ChatRoomSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const replaceStartedRef = useRef<string | null>(null);
   const shellLoggedRef = useRef(false);
@@ -60,17 +54,12 @@ export function TradeChatComposeClient({
       /** 메신저 방 RSC 부트스트랩으로 이어짐 — 여기서 `/bootstrap` 을 또 호출하면 이중 왕복 */
       return;
     }
-    if (!productId) {
-      setError("채팅 상품 정보가 없습니다.");
-      return;
-    }
     let cancelled = false;
     void (async () => {
       const result = await createOrGetChatRoom(productId);
       if (cancelled) return;
       if (!result.ok) {
-        const next =
-          productId.trim().length > 0 ? tradeHubChatComposeHref({ productId }) : undefined;
+        const next = tradeHubChatComposeHref({ productId });
         if (redirectForBlockedAction(router, result.error, next)) return;
         setError(result.error || "채팅방을 열 수 없습니다.");
         return;
@@ -95,16 +84,16 @@ export function TradeChatComposeClient({
     return () => {
       cancelled = true;
     };
-  }, [activeRoomId, productId, sourceHint, hubBootstrapSource]);
+  }, [activeRoomId, productId, router]);
 
   useEffect(() => {
     if (!activeRoomId) return;
     if (replaceStartedRef.current === activeRoomId) return;
     replaceStartedRef.current = activeRoomId;
-    router.replace(tradeHubChatRoomHref(activeRoomId, hubBootstrapSource ?? sourceHint), {
+    router.replace(tradeHubChatRoomHref(activeRoomId, hubBootstrapSource), {
       scroll: false,
     });
-  }, [activeRoomId, router, hubBootstrapSource, sourceHint]);
+  }, [activeRoomId, router, hubBootstrapSource]);
 
   /** 방 ID 확정 후 메신저 방으로 `replace` — 이 compose 셸에서 `ChatRoomScreen` 을 마운트하지 않음 */
   if (activeRoomId) {

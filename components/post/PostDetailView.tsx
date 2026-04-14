@@ -14,17 +14,10 @@ import { getUserProfile } from "@/lib/users/getUserProfile";
 import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { createReport } from "@/lib/reports/createReport";
-import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
-import {
-  TRADE_CHAT_SURFACE,
-  tradeHubChatComposeHref,
-  tradeHubChatRoomHref,
-} from "@/lib/chats/surfaces/trade-chat-surface";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
-import { prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getAppSettings } from "@/lib/app-settings";
@@ -60,7 +53,11 @@ import { PostDetailSellerTradeLifecycleBar } from "@/components/post/PostDetailS
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
-import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
+import {
+  openCreateTradeChat,
+  openExistingTradeChat,
+  prefetchTradeChatEntry,
+} from "@/lib/chats/trade-chat-entry-navigation";
 
 const META_LABELS: Record<string, Record<string, string>> = {
   "real-estate": {
@@ -826,21 +823,12 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     return shouldBlockNewItemChatForBuyer(post as unknown as Record<string, unknown>, resolvedViewerId);
   }, [post, resolvedViewerId, listingOwnerId, existingTradeRoomId]);
 
-  const navigateToTradeChatRoom = useCallback(
-    (roomId: string, sourceHint?: ChatRoomSource | null) => {
-      warmChatRoomEntryById(roomId, sourceHint);
-      router.push(tradeHubChatRoomHref(roomId, sourceHint));
-    },
-    [router]
-  );
-
   const prefetchTradeChatShell = useCallback(() => {
-    void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
-    void router.prefetch(tradeHubChatComposeHref({ productId: post.id }));
-    if (existingTradeRoomId) {
-      void router.prefetch(tradeHubChatRoomHref(existingTradeRoomId, existingTradeRoomSource));
-      warmChatRoomEntryById(existingTradeRoomId, existingTradeRoomSource);
-    }
+    prefetchTradeChatEntry(router, {
+      productId: post.id,
+      existingRoomId: existingTradeRoomId,
+      existingRoomSource: existingTradeRoomSource,
+    });
   }, [router, existingTradeRoomId, existingTradeRoomSource, post.id]);
 
   const handleChat = useCallback(async () => {
@@ -851,13 +839,11 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       return;
     }
     if (existingTradeRoomId) {
-      startTradeChatEntryMark({
-        mode: "existing",
+      openExistingTradeChat(router, {
         productId: post.id,
         roomId: existingTradeRoomId,
         sourceHint: existingTradeRoomSource,
       });
-      navigateToTradeChatRoom(existingTradeRoomId, existingTradeRoomSource);
       return;
     }
     const tradeOwnerId = postAuthorUserId(post as unknown as Record<string, unknown>);
@@ -869,19 +855,13 @@ export function PostDetailView({ post }: PostDetailViewProps) {
       setChatError("다른 분과 예약이 진행 중인 상품입니다. 예약자가 아니면 새 채팅을 열 수 없어요.");
       return;
     }
-    startTradeChatEntryMark({
-      mode: "create",
-      productId: post.id,
-    });
-    void router.prefetch(tradeHubChatComposeHref({ productId: post.id }));
-    router.push(tradeHubChatComposeHref({ productId: post.id }));
+    openCreateTradeChat(router, { productId: post.id });
   }, [
     post.id,
     router,
     existingTradeRoomId,
     existingTradeRoomSource,
     chatBlockedByOtherReservation,
-    navigateToTradeChatRoom,
   ]);
 
   const runCancelOwnSale = useCallback(async () => {
@@ -926,15 +906,22 @@ export function PostDetailView({ post }: PostDetailViewProps) {
     }
     tradeChatPrepareTimerRef.current = setTimeout(() => {
       tradeChatPrepareTimerRef.current = null;
-      prepareTradeChatRoom(post.id);
+      prefetchTradeChatEntry(router, {
+        productId: post.id,
+        existingRoomId: existingTradeRoomId,
+        existingRoomSource: existingTradeRoomSource,
+        prepareIfCreate: true,
+      });
     }, 180);
   }, [
     showChat,
     existingTradeRoomId,
+    existingTradeRoomSource,
     chatBlockedByOtherReservation,
     isSold,
     allowChatAfterSold,
     post.id,
+    router,
   ]);
 
   const cancelTradeChatPrepare = useCallback(() => {
