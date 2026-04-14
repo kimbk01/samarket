@@ -3,6 +3,7 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import {
   POST_TRADE_LIST_SELECT,
+  looksLikeMissingColumnOrSchemaError,
   mapPostRowsToTradeList,
 } from "@/lib/posts/trade-posts-range-query";
 
@@ -26,6 +27,17 @@ function mapRows(rows: unknown[]): PostWithMeta[] {
   return mapPostRowsToTradeList(Array.isArray(rows) ? rows : []);
 }
 
+async function runSelectWithFallback(
+  run: (selectCols: string) => Promise<{ data: unknown; error: { message?: string } | null }>
+): Promise<unknown[] | null> {
+  const first = await run(POST_TRADE_LIST_SELECT);
+  if (!first.error && Array.isArray(first.data)) return first.data;
+  if (!first.error || !looksLikeMissingColumnOrSchemaError(first.error.message)) return null;
+  const second = await run("*");
+  if (!second.error && Array.isArray(second.data)) return second.data;
+  return null;
+}
+
 export async function getSellerItemsFromDb(
   sb: SupabaseClient<any>,
   input: {
@@ -38,17 +50,51 @@ export async function getSellerItemsFromDb(
   const excludePostId = input.excludePostId.trim();
   if (!sellerId || !excludePostId) return [];
 
-  const { data, error } = await sb
-    .from(POSTS_TABLE_READ)
-    .select(POST_TRADE_LIST_SELECT)
-    .eq("user_id", sellerId)
-    .eq("status", "active")
-    .neq("id", excludePostId)
-    .order("created_at", { ascending: false })
-    .limit(Math.min(SELLER_ITEMS_POOL, Math.max(input.limit, 1)));
+  const rows = await runSelectWithFallback(async (selectCols) => {
+    const q = sb
+      .from(POSTS_TABLE_READ)
+      .select(selectCols)
+      .or(`user_id.eq.${sellerId},author_id.eq.${sellerId}`)
+      .in("status", ["active", "sold"])
+      .neq("id", excludePostId)
+      .order("created_at", { ascending: false })
+      .limit(Math.min(SELLER_ITEMS_POOL, Math.max(input.limit, 1)));
+    const { data, error } = await q;
+    return { data, error };
+  });
+  if (!rows) return [];
+  return mapRows(rows).filter((p) => p.type !== "community");
+}
 
-  if (error || !Array.isArray(data)) return [];
-  return mapRows(data).filter((p) => p.type !== "community");
+export async function getSellerItemsByNicknameFromDb(
+  sb: SupabaseClient<any>,
+  input: {
+    nickname: string;
+    excludePostId: string;
+    limit: number;
+  }
+): Promise<PostWithMeta[]> {
+  const nickname = input.nickname.trim();
+  const excludePostId = input.excludePostId.trim();
+  if (!nickname || !excludePostId) return [];
+
+  const rows = await runSelectWithFallback(async (selectCols) => {
+    const q = sb
+      .from(POSTS_TABLE_READ)
+      .select(selectCols)
+      .in("status", ["active", "sold"])
+      .neq("id", excludePostId)
+      .order("created_at", { ascending: false })
+      .limit(Math.max(SIMILAR_ITEMS_POOL, input.limit * 8));
+    const { data, error } = await q;
+    return { data, error };
+  });
+
+  if (!rows) return [];
+  return mapRows(rows)
+    .filter((p) => p.type !== "community")
+    .filter((p) => (p.author_nickname?.trim() ?? "") === nickname)
+    .slice(0, Math.min(SELLER_ITEMS_POOL, Math.max(input.limit, 1)));
 }
 
 export async function getSimilarPoolByCategoryFromDb(
@@ -74,9 +120,22 @@ export async function getSimilarPoolByCategoryFromDb(
     ? base.or(`trade_category_id.eq.${categoryId},category_id.eq.${categoryId}`)
     : base;
 
-  const { data, error } = await q;
-  if (error || !Array.isArray(data)) return [];
-  return mapRows(data).filter((p) => p.type !== "community");
+  const rows = await runSelectWithFallback(async (selectCols) => {
+    const base = sb
+      .from(POSTS_TABLE_READ)
+      .select(selectCols)
+      .eq("status", "active")
+      .neq("id", excludePostId)
+      .order("created_at", { ascending: false })
+      .limit(SIMILAR_ITEMS_POOL);
+    const query = categoryId
+      ? base.or(`trade_category_id.eq.${categoryId},category_id.eq.${categoryId}`)
+      : base;
+    const { data, error } = await query;
+    return { data, error };
+  });
+  if (!rows) return [];
+  return mapRows(rows).filter((p) => p.type !== "community");
 }
 
 export async function getRecentTradePoolFromDb(
@@ -88,16 +147,19 @@ export async function getRecentTradePoolFromDb(
   const excludePostId = input.excludePostId.trim();
   if (!excludePostId) return [];
 
-  const { data, error } = await sb
-    .from(POSTS_TABLE_READ)
-    .select(POST_TRADE_LIST_SELECT)
-    .eq("status", "active")
-    .neq("id", excludePostId)
-    .order("created_at", { ascending: false })
-    .limit(SIMILAR_ITEMS_POOL);
-
-  if (error || !Array.isArray(data)) return [];
-  return mapRows(data).filter((p) => p.type !== "community");
+  const rows = await runSelectWithFallback(async (selectCols) => {
+    const q = sb
+      .from(POSTS_TABLE_READ)
+      .select(selectCols)
+      .eq("status", "active")
+      .neq("id", excludePostId)
+      .order("created_at", { ascending: false })
+      .limit(SIMILAR_ITEMS_POOL);
+    const { data, error } = await q;
+    return { data, error };
+  });
+  if (!rows) return [];
+  return mapRows(rows).filter((p) => p.type !== "community");
 }
 
 type TradeAdCandidateRow = {

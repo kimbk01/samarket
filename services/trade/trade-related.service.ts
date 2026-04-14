@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import {
   getRecentTradePoolFromDb,
+  getSellerItemsByNicknameFromDb,
   getSellerItemsFromDb,
   getSimilarPoolByCategoryFromDb,
   getTradeAdsCandidatesFromDb,
@@ -12,6 +13,7 @@ import {
   matchRegionOrGlobal,
   resolveRegionGroup,
 } from "./trade-region.service";
+import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 
 export type TradeDetailRelatedBundle = {
   sellerItems: PostWithMeta[];
@@ -20,6 +22,7 @@ export type TradeDetailRelatedBundle = {
 };
 
 const RELATED_CACHE_TTL_MS = 60_000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const similarCache = new Map<string, { expiresAt: number; rows: PostWithMeta[] }>();
 const adsCache = new Map<string, { expiresAt: number; rows: PostWithMeta[] }>();
 
@@ -40,17 +43,32 @@ function pickWithinLimit(rows: PostWithMeta[], limit: number): PostWithMeta[] {
   return uniqPosts(rows).slice(0, limit);
 }
 
+function applyCompletedVisibilityRetention(rows: PostWithMeta[], visibleDays: number): PostWithMeta[] {
+  const days = Math.max(1, Math.floor(visibleDays || 1));
+  const now = Date.now();
+  return rows.filter((row) => {
+    const state = normalizeSellerListingState(row.seller_listing_state, row.status);
+    if (state !== "completed") return true;
+    const timeText = row.updated_at ?? row.created_at ?? "";
+    const t = Date.parse(timeText);
+    if (!Number.isFinite(t)) return false;
+    return now - t <= days * DAY_MS;
+  });
+}
+
 function pickSimilarByFallback(
   pool: PostWithMeta[],
   input: {
     categoryId: string | null | undefined;
     regionId: string | null | undefined;
+    regionEnabled?: boolean;
+    regionRequired?: boolean;
     regionGroups?: Record<string, string> | null;
     limit: number;
   }
 ): PostWithMeta[] {
   const categoryId = input.categoryId?.trim() ?? "";
-  const regionId = input.regionId?.trim() ?? "";
+  const regionId = input.regionEnabled ? input.regionId?.trim() ?? "" : "";
   const limit = Math.max(1, input.limit);
 
   const sameCategory = categoryId
@@ -66,11 +84,18 @@ function pickSimilarByFallback(
   }
 
   const sameRegion = regionId
-    ? pool.filter((p) => matchRegionOrGlobal(p.region, regionId))
+    ? pool.filter((p) =>
+        input.regionRequired ? (p.region?.trim() ?? "") === regionId : matchRegionOrGlobal(p.region, regionId)
+      )
     : pool;
 
   const sameRegionGroup = regionId
-    ? pool.filter((p) => matchRegionGroupOrGlobal(p.region, regionId, input.regionGroups))
+    ? pool.filter((p) =>
+        input.regionRequired
+          ? (p.region?.trim() ?? "") !== "" &&
+            matchRegionGroupOrGlobal(p.region, regionId, input.regionGroups)
+          : matchRegionGroupOrGlobal(p.region, regionId, input.regionGroups)
+      )
     : pool;
 
   const merged = uniqPosts([
@@ -87,12 +112,14 @@ function pickAdsByFallback(
   input: {
     categoryId: string | null | undefined;
     regionId: string | null | undefined;
+    regionEnabled?: boolean;
+    regionRequired?: boolean;
     regionGroups?: Record<string, string> | null;
     limit: number;
   }
 ): PostWithMeta[] {
   const categoryId = input.categoryId?.trim() ?? "";
-  const regionId = input.regionId?.trim() ?? "";
+  const regionId = input.regionEnabled ? input.regionId?.trim() ?? "" : "";
   const limit = Math.max(1, input.limit);
   const globalTarget = isGlobalRegion(regionId);
 
@@ -103,10 +130,15 @@ function pickAdsByFallback(
       p.trade_category_id?.trim() === categoryId;
     if (!sameCategory) return false;
     if (globalTarget) return true;
-    return (
-      matchRegionOrGlobal(p.region, regionId) ||
-      matchRegionGroupOrGlobal(p.region, regionId, input.regionGroups)
-    );
+    if (input.regionRequired) {
+      const candidateRegion = p.region?.trim() ?? "";
+      return (
+        (candidateRegion !== "" && candidateRegion === regionId) ||
+        (candidateRegion !== "" &&
+          matchRegionGroupOrGlobal(candidateRegion, regionId, input.regionGroups))
+      );
+    }
+    return matchRegionOrGlobal(p.region, regionId) || matchRegionGroupOrGlobal(p.region, regionId, input.regionGroups);
   });
   if (tier1.length >= limit) return pickWithinLimit(tier1, limit);
 
@@ -149,12 +181,16 @@ export async function loadTradeDetailRelatedBundle(
   input: {
     itemId: string;
     sellerId: string | null | undefined;
+    sellerNickname?: string | null | undefined;
     categoryId: string | null | undefined;
     regionId: string | null | undefined;
     sellerLimit: number;
     similarLimit: number;
     adsLimit: number;
+    regionEnabled?: boolean;
+    regionRequired?: boolean;
     regionGroups?: Record<string, string> | null;
+    completedVisibleDays?: number;
   }
 ): Promise<TradeDetailRelatedBundle> {
   const itemId = input.itemId.trim();
@@ -163,6 +199,7 @@ export async function loadTradeDetailRelatedBundle(
   }
 
   const sellerId = input.sellerId?.trim() ?? "";
+  const sellerNickname = input.sellerNickname?.trim() ?? "";
   const categoryId = input.categoryId?.trim() ?? "";
   const regionId = input.regionId?.trim() ?? "";
   const regionGroupRev = input.regionGroups
@@ -207,6 +244,27 @@ export async function loadTradeDetailRelatedBundle(
     similarPoolPromise,
     adsCandidatesPromise,
   ]);
+  const sellerItemsFallback =
+    sellerItemsRaw.length === 0 && sellerNickname
+      ? await getSellerItemsByNicknameFromDb(sb, {
+          nickname: sellerNickname,
+          excludePostId: itemId,
+          limit: input.sellerLimit,
+        })
+      : [];
+  const sellerItemsResolved = sellerItemsRaw.length > 0 ? sellerItemsRaw : sellerItemsFallback;
+  const sellerItemsUltimate =
+    sellerItemsResolved.length > 0
+      ? sellerItemsResolved
+      : (similarPoolPair?.[1] ?? []).filter((p) => {
+          if (sellerId && (p.user_id?.trim() ?? "") === sellerId) return true;
+          if (sellerNickname && (p.author_nickname?.trim() ?? "") === sellerNickname) return true;
+          return false;
+        });
+  const sellerItemsVisible = applyCompletedVisibilityRetention(
+    sellerItemsUltimate,
+    input.completedVisibleDays ?? 7
+  );
 
   const similarItems =
     cachedSimilar ??
@@ -217,12 +275,18 @@ export async function loadTradeDetailRelatedBundle(
       const next = pickSimilarByFallback(baseSimilarPool, {
         categoryId: input.categoryId,
         regionId: input.regionId,
+        regionEnabled: input.regionEnabled,
+        regionRequired: input.regionRequired,
         regionGroups: input.regionGroups,
         limit: input.similarLimit,
       });
       writeCache(similarCache, similarKey, next);
       return next;
     })();
+  const similarItemsVisible = applyCompletedVisibilityRetention(
+    similarItems,
+    input.completedVisibleDays ?? 7
+  );
 
   const adsItems =
     cachedAds ??
@@ -230,6 +294,8 @@ export async function loadTradeDetailRelatedBundle(
       const next = pickAdsByFallback(adCandidates?.posts ?? [], {
         categoryId: input.categoryId,
         regionId: input.regionId,
+        regionEnabled: input.regionEnabled,
+        regionRequired: input.regionRequired,
         regionGroups: input.regionGroups,
         limit: input.adsLimit,
       });
@@ -238,8 +304,8 @@ export async function loadTradeDetailRelatedBundle(
     })();
 
   return {
-    sellerItems: pickWithinLimit(sellerItemsRaw, input.sellerLimit),
-    similarItems,
+    sellerItems: pickWithinLimit(sellerItemsVisible, input.sellerLimit),
+    similarItems: pickWithinLimit(similarItemsVisible, input.similarLimit),
     ads: adsItems,
   };
 }

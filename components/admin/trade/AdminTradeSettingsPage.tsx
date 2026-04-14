@@ -105,6 +105,11 @@ export function AdminTradeSettingsPage() {
     <div className="space-y-4" data-admin>
       <AdminPageHeader title="거래 설정" backHref="/admin/trade" />
       <AdminCard title="거래 상세 하단 추천·지역 운영">
+        <p className="mb-4 text-[13px] text-sam-muted">
+          설정 반영 규칙: 지역 사용 OFF면 지역 조건 없이 추천하고, ON이면
+          <span className="font-medium text-sam-fg"> region_id → region_group → 전체 fallback</span>
+          순서로 완화합니다. 지역 필수 ON은 지역 우선 매칭을 더 엄격하게 적용하지만, 최종 fallback은 유지해 빈 화면을 막습니다.
+        </p>
         <form onSubmit={onSave} className="space-y-4 text-[13px]">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="flex items-center gap-2">
@@ -166,6 +171,27 @@ export function AdminTradeSettingsPage() {
               />
             </label>
           </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-sam-muted">거래완료 노출 유지(일)</span>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                className="rounded border border-sam-border px-2 py-1.5"
+                value={settings.completedVisibleDays}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    completedVisibleDays: Math.max(1, Math.min(60, Number(e.target.value) || 1)),
+                  })
+                }
+              />
+              <span className="text-[12px] text-sam-muted">
+                거래완료(completed/sold) 아이템은 설정한 기간 이후 상세 추천 리스트에서 자동 제외됩니다.
+              </span>
+            </label>
+          </div>
 
           <label className="flex flex-col gap-1">
             <span className="font-medium text-sam-fg">지역 그룹 맵 (한 줄: region:group)</span>
@@ -175,6 +201,9 @@ export function AdminTradeSettingsPage() {
               className="min-h-[140px] rounded border border-sam-border px-2 py-2 font-mono text-[12px]"
               placeholder="quezon city:metro-manila"
             />
+            <span className="text-[12px] text-sam-muted">
+              예) quezon city:metro-manila / makati:metro-manila
+            </span>
           </label>
 
           <button

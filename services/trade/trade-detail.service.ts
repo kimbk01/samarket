@@ -54,7 +54,11 @@ export async function getItemDetailPageData(
     };
   }
 
-  const sellerId = postAuthorUserId(item as unknown as Record<string, unknown>) ?? "";
+  const sellerId =
+    (typeof item.user_id === "string" && item.user_id.trim() ? item.user_id.trim() : "") ||
+    postAuthorUserId(item as unknown as Record<string, unknown>) ||
+    "";
+  const sellerNickname = typeof item.author_nickname === "string" ? item.author_nickname.trim() : "";
   const categoryId = item.category_id?.trim() ?? item.trade_category_id?.trim() ?? "";
   const regionId = item.region?.trim() ?? "";
   const ops = await loadTradeOpsSettings(clients);
@@ -65,13 +69,30 @@ export async function getItemDetailPageData(
   const related = await loadTradeDetailRelatedBundle(clients.readSb, {
     itemId,
     sellerId,
+    sellerNickname,
     categoryId,
     regionId,
     sellerLimit,
     similarLimit,
     adsLimit,
+    regionEnabled: ops.regionEnabled,
+    regionRequired: ops.regionRequired,
     regionGroups: ops.regionGroups,
+    completedVisibleDays: ops.completedVisibleDays,
   });
+  if (process.env.NODE_ENV !== "production") {
+    // 로컬 문제 재현 시 원인 추적: seller/similar/ads가 왜 비는지 확인
+    console.info("[trade-detail-related]", {
+      itemId,
+      sellerId,
+      sellerNickname,
+      counts: {
+        seller: related.sellerItems.length,
+        similar: related.similarItems.length,
+        ads: related.ads.length,
+      },
+    });
+  }
 
   return {
     item,

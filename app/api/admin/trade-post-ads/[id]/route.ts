@@ -9,6 +9,7 @@ const TRADE_POST_ADS_ROW =
   "id, post_id, user_id, ad_product_id, apply_status, point_cost, priority, start_at, end_at, admin_memo, approved_by, approved_at, rejected_by, rejected_at, created_at, updated_at";
 
 type Body = {
+  action?: "verify" | "activate" | "reject" | "cancel" | "end";
   apply_status?: string;
   start_at?: string | null;
   end_at?: string | null;
@@ -17,8 +18,46 @@ type Body = {
   charge_points?: boolean;
 };
 
+function resolveNextStatus(prevStatus: string, body: Body): { nextStatus: string; actionMode: string } {
+  const action = body.action?.trim();
+  if (action === "verify") {
+    if (prevStatus !== "pending") {
+      throw new Error("확인 완료는 신청 대기(pending) 상태에서만 가능합니다.");
+    }
+    return { nextStatus: "approved", actionMode: "verify" };
+  }
+  if (action === "activate") {
+    if (prevStatus !== "approved") {
+      throw new Error("활성화는 확인 완료(approved) 상태에서만 가능합니다.");
+    }
+    return { nextStatus: "active", actionMode: "activate" };
+  }
+  if (action === "reject") {
+    if (prevStatus !== "pending" && prevStatus !== "approved") {
+      throw new Error("반려는 신청/확인 단계에서만 가능합니다.");
+    }
+    return { nextStatus: "rejected", actionMode: "reject" };
+  }
+  if (action === "cancel") {
+    return { nextStatus: "cancelled", actionMode: "cancel" };
+  }
+  if (action === "end") {
+    if (prevStatus !== "active") {
+      throw new Error("종료는 노출중(active) 상태에서만 가능합니다.");
+    }
+    return { nextStatus: "ended", actionMode: "end" };
+  }
+  return {
+    nextStatus: body.apply_status?.trim() ?? prevStatus,
+    actionMode: "legacy",
+  };
+}
+
 /**
- * PATCH /api/admin/trade-post-ads/[id] — 상태·기간·메모 변경. `active` 전환 시 포인트 차감.
+ * PATCH /api/admin/trade-post-ads/[id]
+ * - 신청 확인(verify): pending -> approved
+ * - 심사 집행(activate): approved -> active (+포인트 확정/차감)
+ * - 반려(reject): pending|approved -> rejected (+hold 해제)
  */
 export async function PATCH(
   req: NextRequest,
@@ -55,7 +94,18 @@ export async function PATCH(
 
   const prev = row as Record<string, unknown>;
   const prevStatus = String(prev.apply_status ?? "");
-  const nextStatus = body.apply_status?.trim() ?? prevStatus;
+  let nextStatus = prevStatus;
+  let actionMode = "legacy";
+  try {
+    const resolved = resolveNextStatus(prevStatus, body);
+    nextStatus = resolved.nextStatus;
+    actionMode = resolved.actionMode;
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "상태 전이 오류" },
+      { status: 400 }
+    );
+  }
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -64,6 +114,10 @@ export async function PATCH(
   if (body.start_at !== undefined) patch.start_at = body.start_at;
   if (body.end_at !== undefined) patch.end_at = body.end_at;
   if (body.admin_memo !== undefined) patch.admin_memo = body.admin_memo;
+
+  if (body.action && body.apply_status == null) {
+    patch.apply_status = nextStatus;
+  }
 
   const activating = nextStatus === "active" && prevStatus !== "active";
   const chargePoints = body.charge_points !== false;
@@ -81,7 +135,29 @@ export async function PATCH(
     }
   }
 
+  if (actionMode === "verify") {
+    patch.approved_at = patch.approved_at ?? new Date().toISOString();
+    patch.approved_by = admin.userId;
+  }
+
   if (activating && chargePoints) {
+    if ((body.start_at == null || body.start_at === "") && (prev.start_at == null || prev.start_at === "")) {
+      patch.start_at = new Date().toISOString();
+    }
+    if ((body.end_at == null || body.end_at === "") && (prev.end_at == null || prev.end_at === "")) {
+      const adProductId = String(prev.ad_product_id ?? "").trim();
+      let days = 3;
+      if (adProductId) {
+        const { data: product } = await sb
+          .from("ad_products")
+          .select("duration_days")
+          .eq("id", adProductId)
+          .maybeSingle();
+        days = Math.max(1, Math.floor(Number((product as { duration_days?: number } | null)?.duration_days ?? 3)));
+      }
+      const baseStart = new Date(String(patch.start_at ?? prev.start_at ?? new Date().toISOString()));
+      patch.end_at = new Date(baseStart.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+    }
     const cost = Math.max(0, Math.floor(Number(prev.point_cost ?? 0)));
     const uid = String(prev.user_id ?? "");
     if (!uid) {

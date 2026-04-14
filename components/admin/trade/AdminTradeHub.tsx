@@ -102,6 +102,16 @@ const SECTIONS: { title: string; items: HubCard[] }[] = [
         description: "거래 게시 노출·광고",
       },
       {
+        href: "/admin/trade-post-ads",
+        title: "거래 광고 신청",
+        description: "거래 상세/목록 광고 신청 심사·활성 운영",
+      },
+      {
+        href: "/admin/trade-ad-policies",
+        title: "거래 광고 정책",
+        description: "광고 상품(기간·포인트·슬롯) 정책 운영",
+      },
+      {
         href: "/admin/home-feed",
         title: "홈피드",
         description: "홈 노출·피드 운영",

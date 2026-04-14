@@ -7,6 +7,7 @@ export type TradeDetailOpsSettings = {
   similarCount: number;
   adsCount: number;
   fallbackCount: number;
+  completedVisibleDays: number;
 };
 
 const DEFAULT_REGION_GROUPS: Record<string, string> = {
@@ -26,12 +27,19 @@ const DEFAULT_TRADE_SETTINGS: TradeDetailOpsSettings = {
   similarCount: 8,
   adsCount: 8,
   fallbackCount: 8,
+  completedVisibleDays: 7,
 };
 
 function toNumber(value: unknown, fallback: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.min(24, Math.floor(n)));
+}
+
+function toDays(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(60, Math.floor(n)));
 }
 
 function toRegionGroups(value: unknown): Record<string, string> {
@@ -61,5 +69,6 @@ export function mergeTradeDetailOpsSettings(value: unknown): TradeDetailOpsSetti
     similarCount: toNumber(raw.similarCount, DEFAULT_TRADE_SETTINGS.similarCount),
     adsCount: toNumber(raw.adsCount, DEFAULT_TRADE_SETTINGS.adsCount),
     fallbackCount: toNumber(raw.fallbackCount, DEFAULT_TRADE_SETTINGS.fallbackCount),
+    completedVisibleDays: toDays(raw.completedVisibleDays, DEFAULT_TRADE_SETTINGS.completedVisibleDays),
   };
 }

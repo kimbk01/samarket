@@ -51,6 +51,7 @@ import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBotto
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailSellerTradeLifecycleBar } from "@/components/post/PostDetailSellerTradeLifecycleBar";
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
+import { TradePostAdApplySheet } from "@/components/post/TradePostAdApplySheet";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
@@ -59,6 +60,7 @@ import {
   openExistingTradeChat,
   prefetchTradeChatEntry,
 } from "@/lib/chats/trade-chat-entry-navigation";
+import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 
 const META_LABELS: Record<string, Record<string, string>> = {
   "real-estate": {
@@ -566,6 +568,7 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
   const [existingTradeRoomSource, setExistingTradeRoomSource] = useState<ChatRoomSource | null>(null);
   const [detailMoreOpen, setDetailMoreOpen] = useState(false);
   const [sellerMoreOpen, setSellerMoreOpen] = useState(false);
+  const [tradeAdSheetOpen, setTradeAdSheetOpen] = useState(false);
   const [cancelSaleBusy, setCancelSaleBusy] = useState(false);
 
   const appSettings = getAppSettings();
@@ -582,8 +585,10 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
     !!listingOwnerId &&
     resolvedViewerId === listingOwnerId;
   const postStatusLower = String(post.status ?? "").toLowerCase();
+  const listingState = normalizeSellerListingState(post.seller_listing_state, post.status);
   const showSellerTradeControls =
     isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
+  const canApplyTradeAd = isOwnPost && post.type !== "community" && postStatusLower === "active";
   const showSellerMoreMenu =
     isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
 
@@ -828,6 +833,9 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
     if (existingTradeRoomId) return false;
     return shouldBlockNewItemChatForBuyer(post as unknown as Record<string, unknown>, resolvedViewerId);
   }, [post, resolvedViewerId, listingOwnerId, existingTradeRoomId]);
+  const chatBlockedByCompleted = listingState === "completed";
+  const chatBlockedByReservedState = listingState === "reserved" && !existingTradeRoomId;
+  const chatBlockedByListingState = chatBlockedByCompleted || chatBlockedByReservedState;
 
   const prefetchTradeChatShell = useCallback(() => {
     prefetchTradeChatEntry(router, {
@@ -842,6 +850,14 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
     const uid = (await getCurrentUserIdForDb())?.trim() || null;
     if (!uid) {
       router.push(LOGIN_REDIRECT);
+      return;
+    }
+    if (chatBlockedByCompleted) {
+      setChatError("거래완료 상품입니다.");
+      return;
+    }
+    if (chatBlockedByReservedState) {
+      setChatError("예약중 입니다.");
       return;
     }
     if (existingTradeRoomId) {
@@ -868,6 +884,8 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
     existingTradeRoomId,
     existingTradeRoomSource,
     chatBlockedByOtherReservation,
+    chatBlockedByCompleted,
+    chatBlockedByReservedState,
   ]);
 
   const runCancelOwnSale = useCallback(async () => {
@@ -905,6 +923,7 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
   const scheduleTradeChatPrepare = useCallback(() => {
     if (!showChat) return;
     if (existingTradeRoomId) return;
+    if (chatBlockedByListingState) return;
     if (chatBlockedByOtherReservation) return;
     if (isSold && !allowChatAfterSold) return;
     if (tradeChatPrepareTimerRef.current) {
@@ -923,6 +942,7 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
     showChat,
     existingTradeRoomId,
     existingTradeRoomSource,
+    chatBlockedByListingState,
     chatBlockedByOtherReservation,
     isSold,
     allowChatAfterSold,
@@ -1115,13 +1135,17 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
                 }}
                 disabled={
                   !showChat ||
-                  (isSold && !allowChatAfterSold) ||
+                  chatBlockedByListingState ||
                   chatCtaBusy ||
                   chatBlockedByOtherReservation
                 }
                 className={PRODUCT_DETAIL_CTA_BUTTON}
                 title={
-                  chatBlockedByOtherReservation
+                  chatBlockedByCompleted
+                    ? "거래완료 상품입니다"
+                    : chatBlockedByReservedState
+                      ? "예약중 입니다."
+                  : chatBlockedByOtherReservation
                     ? "다른 구매자와 예약이 진행 중입니다"
                     : !showChat
                       ? "채팅이 비활성화되어 있습니다"
@@ -1134,6 +1158,15 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
           )}
           {showSellerTradeControls && (
             <div className="w-full basis-full border-t border-sam-border-soft px-2 pt-2">
+              {canApplyTradeAd ? (
+                <button
+                  type="button"
+                  onClick={() => setTradeAdSheetOpen(true)}
+                  className="mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                >
+                  유료 광고 신청
+                </button>
+              ) : null}
               <PostDetailSellerTradeLifecycleBar
                 postId={post.id}
                 status={post.status ?? "active"}
@@ -1151,6 +1184,11 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
             {chatError}
           </p>
         )}
+        <TradePostAdApplySheet
+          postId={post.id}
+          open={tradeAdSheetOpen}
+          onClose={() => setTradeAdSheetOpen(false)}
+        />
 
         <PostDetailMoreBottomSheet
           open={detailMoreOpen}
@@ -1414,13 +1452,17 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
               }}
               disabled={
                 !showChat ||
-                (isSold && !allowChatAfterSold) ||
+                chatBlockedByListingState ||
                 chatCtaBusy ||
                 chatBlockedByOtherReservation
               }
               className={PRODUCT_DETAIL_CTA_BUTTON}
               title={
-                chatBlockedByOtherReservation
+                chatBlockedByCompleted
+                  ? "거래완료 상품입니다"
+                  : chatBlockedByReservedState
+                    ? "예약중 입니다."
+                : chatBlockedByOtherReservation
                   ? "다른 구매자와 예약이 진행 중입니다"
                   : !showChat
                     ? "채팅이 비활성화되어 있습니다"
@@ -1433,6 +1475,15 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
         )}
         {showSellerTradeControls && (
           <div className="w-full basis-full border-t border-sam-border-soft px-2 pt-2">
+            {canApplyTradeAd ? (
+              <button
+                type="button"
+                onClick={() => setTradeAdSheetOpen(true)}
+                className="mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+              >
+                유료 광고 신청
+              </button>
+            ) : null}
             <PostDetailSellerTradeLifecycleBar
               postId={post.id}
               status={post.status ?? "active"}
@@ -1450,6 +1501,11 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
           {chatError}
         </p>
       )}
+      <TradePostAdApplySheet
+        postId={post.id}
+        open={tradeAdSheetOpen}
+        onClose={() => setTradeAdSheetOpen(false)}
+      />
 
       <PostDetailMoreBottomSheet
         open={detailMoreOpen}

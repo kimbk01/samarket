@@ -7,6 +7,7 @@ import { loadCategoryLite } from "@/lib/posts/category-lite";
 import { resolveServiceSegment } from "@/lib/posts/listing-service-segment";
 import { loadTradeAdProductById } from "@/lib/trade-ads/load-trade-ad-product";
 import { holdPointsForTradePostAdApply } from "@/lib/trade-ads/trade-post-ad-point-flow";
+import { evaluateTradePostAdEligibility } from "@/lib/trade-ads/trade-post-ad-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -66,31 +67,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
     return NextResponse.json({ ok: false, error: "유효한 광고 상품이 아닙니다." }, { status: 400 });
   }
 
-  const isTradeBoard =
-    product.board_key === "trade" ||
-    product.placement === "detail_bottom" ||
-    product.placement === "list_top" ||
-    product.placement === "home_featured";
-  if (!isTradeBoard) {
-    return NextResponse.json({ ok: false, error: "거래 마켓용 광고 상품이 아닙니다." }, { status: 400 });
-  }
-
-  if (product.service_type && product.service_type.trim() && product.service_type !== segment) {
-    return NextResponse.json({ ok: false, error: "이 광고 상품은 해당 서비스 유형에 적용되지 않습니다." }, { status: 400 });
-  }
-
-  if (product.category_id) {
-    const cid = String(post.category_id ?? post.trade_category_id ?? "");
-    if (cid !== product.category_id) {
-      return NextResponse.json({ ok: false, error: "선택한 카테고리에 맞는 광고 상품이 아닙니다." }, { status: 400 });
-    }
-  }
-
-  if (product.region_target?.trim()) {
-    const reg = String(post.region ?? "").trim();
-    if (!reg || (reg !== product.region_target.trim() && !reg.includes(product.region_target.trim()))) {
-      return NextResponse.json({ ok: false, error: "해당 지역 타겟 광고에 맞지 않습니다." }, { status: 400 });
-    }
+  const eligibility = evaluateTradePostAdEligibility({
+    post,
+    product,
+    serviceSegment: segment,
+  });
+  if (!eligibility.eligible) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: eligibility.blockingReason ?? "광고 신청 기준을 충족하지 않습니다.",
+        checks: eligibility.checks,
+      },
+      { status: 400 }
+    );
   }
 
   const { data: existing } = await sb
