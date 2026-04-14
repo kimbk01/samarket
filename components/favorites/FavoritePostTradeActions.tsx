@@ -5,15 +5,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import {
-  ensureClientAccessOrRedirect,
-  redirectForBlockedAction,
-} from "@/lib/auth/client-access-flow";
+import { ensureClientAccessOrRedirect } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { createOrGetChatRoom, prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
+import { prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
-import { TRADE_CHAT_SURFACE, tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import {
+  TRADE_CHAT_SURFACE,
+  tradeHubChatComposeHref,
+  tradeHubChatRoomHref,
+} from "@/lib/chats/surfaces/trade-chat-surface";
+import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
 import { getAppSettings } from "@/lib/app-settings";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
@@ -47,7 +49,6 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
 
   const [existingRoomId, setExistingRoomId] = useState<string | null>(null);
   const [existingRoomSource, setExistingRoomSource] = useState<ChatRoomSource | null>(null);
-  const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const tradeChatPrepareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -111,7 +112,6 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     post.type !== "community" && existingRoomId ? "채팅 이어가기" : "채팅하기";
 
   const chatDisabled =
-    chatLoading ||
     chatBlockedByOtherReservation ||
     (isSold && !allowChatAfterSold && !existingRoomId);
 
@@ -140,12 +140,18 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     }
   }, []);
 
-  const handleChat = useCallback(async () => {
+  const handleChat = useCallback(() => {
     setChatError("");
     const me = getCurrentUser();
     if (!ensureClientAccessOrRedirect(router, me)) return;
     if (post.type === "community") return;
     if (existingRoomId) {
+      startTradeChatEntryMark({
+        mode: "existing",
+        productId: post.id,
+        roomId: existingRoomId,
+        sourceHint: existingRoomSource,
+      });
       warmChatRoomEntryById(existingRoomId, existingRoomSource);
       router.push(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
       return;
@@ -158,16 +164,10 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
       setChatError("거래가 완료된 상품은 새 채팅을 열 수 없습니다.");
       return;
     }
-    setChatLoading(true);
-    const res = await createOrGetChatRoom(post.id);
-    setChatLoading(false);
-    if (res.ok) {
-      warmChatRoomEntryById(res.roomId, res.roomSource);
-      router.push(tradeHubChatRoomHref(res.roomId, res.roomSource));
-    } else {
-      if (redirectForBlockedAction(router, res.error)) return;
-      setChatError(res.error ?? "채팅방을 열 수 없습니다.");
-    }
+    startTradeChatEntryMark({ mode: "create", productId: post.id });
+    const composeHref = tradeHubChatComposeHref({ productId: post.id });
+    void router.prefetch(composeHref);
+    router.push(composeHref);
   }, [
     router,
     post.id,
@@ -178,7 +178,6 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     isSold,
     allowChatAfterSold,
     setChatError,
-    setChatLoading,
   ]);
 
   const sellerHref = `/post/${post.id}#${POST_DETAIL_SELLER_ANCHOR_ID}`;
@@ -196,6 +195,8 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
               if (existingRoomId) {
                 void router.prefetch(tradeHubChatRoomHref(existingRoomId, existingRoomSource));
                 warmChatRoomEntryById(existingRoomId, existingRoomSource);
+              } else {
+                void router.prefetch(tradeHubChatComposeHref({ productId: post.id }));
               }
             }}
             onPointerLeave={cancelTradeChatPrepare}
@@ -208,7 +209,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
             }
             className={BTN_PRIMARY}
           >
-            {chatLoading ? "이동 중…" : tradeChatCtaLabel}
+            {tradeChatCtaLabel}
           </button>
         ) : null}
         <Link href={sellerHref} className={showChat ? BTN_SECONDARY : `${BTN_SECONDARY} flex-[2]`}>

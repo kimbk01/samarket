@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, startTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import {
   TRADE_CHAT_SURFACE,
+  tradeHubChatComposeHref,
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
 import {
@@ -67,6 +69,9 @@ export function TradeChatComposeClient({
       const result = await createOrGetChatRoom(productId);
       if (cancelled) return;
       if (!result.ok) {
+        const next =
+          productId.trim().length > 0 ? tradeHubChatComposeHref({ productId }) : undefined;
+        if (redirectForBlockedAction(router, result.error, next)) return;
         setError(result.error || "채팅방을 열 수 없습니다.");
         return;
       }
@@ -96,8 +101,8 @@ export function TradeChatComposeClient({
     if (!activeRoomId) return;
     if (replaceStartedRef.current === activeRoomId) return;
     replaceStartedRef.current = activeRoomId;
-    startTransition(() => {
-      router.replace(tradeHubChatRoomHref(activeRoomId, hubBootstrapSource ?? sourceHint), { scroll: false });
+    router.replace(tradeHubChatRoomHref(activeRoomId, hubBootstrapSource ?? sourceHint), {
+      scroll: false,
     });
   }, [activeRoomId, router, hubBootstrapSource, sourceHint]);
 

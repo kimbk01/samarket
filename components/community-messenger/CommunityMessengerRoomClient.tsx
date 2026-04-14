@@ -81,6 +81,7 @@ import {
   updateChatRoomDetailMemory,
 } from "@/lib/chats/fetch-chat-room-detail-api";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 const GroupRoomCallOverlay = dynamic(
   () =>
@@ -1319,6 +1320,7 @@ export function CommunityMessengerRoomClient({
         roomId,
         peerLabel: peerLabel || undefined,
       });
+      logClientPerf("messenger-call.dial.push", { phase: "room_managed", roomId, kind });
       void router.prefetch(dialHref);
       router.push(dialHref);
     },
@@ -2369,6 +2371,7 @@ export function CommunityMessengerRoomClient({
         peerUserId,
         peerLabel: label || undefined,
       });
+      logClientPerf("messenger-call.dial.push", { phase: "member_sheet", peerUserId, kind });
       void router.prefetch(dialHref);
       router.push(dialHref);
     },

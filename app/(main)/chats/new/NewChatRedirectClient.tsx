@@ -1,39 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
-import { TRADE_CHAT_SURFACE, tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import {
+  TRADE_CHAT_SURFACE,
+  tradeHubChatComposeHref,
+} from "@/lib/chats/surfaces/trade-chat-surface";
+import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 
 export function NewChatRedirectClient({ productId }: { productId: string | null }) {
   const router = useRouter();
-  const [message, setMessage] = useState("채팅방으로 이동 중...");
 
   useEffect(() => {
     if (!productId) {
       router.replace(TRADE_CHAT_SURFACE.messengerListHref);
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      const result = await createOrGetChatRoom(productId);
-      if (cancelled) return;
-      if (!result.ok) {
-        const errorMessage = result.error || "채팅방을 열 수 없습니다.";
-        setMessage(errorMessage);
-        router.replace(`${TRADE_CHAT_SURFACE.messengerListHref}&error=${encodeURIComponent(errorMessage)}`);
-        return;
-      }
-      router.replace(tradeHubChatRoomHref(result.roomId, result.roomSource));
-    })();
-    return () => {
-      cancelled = true;
-    };
+    startTradeChatEntryMark({ mode: "create", productId });
+    router.replace(tradeHubChatComposeHref({ productId }));
   }, [productId, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <p className="text-center text-[14px] text-sam-muted">{message}</p>
+      <p className="text-center text-[14px] text-sam-muted">채팅방으로 이동 중...</p>
     </div>
   );
 }
