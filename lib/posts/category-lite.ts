@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CategoryLite } from "./types";
+
+/** `categories` 행 최소 필드 — 광고·세그먼트 분기용 */
+export type CategoryLite = {
+  id: string;
+  icon_key: string;
+  parent_id?: string | null;
+  name?: string;
+};
 
 export async function loadCategoryLite(
   sb: SupabaseClient,

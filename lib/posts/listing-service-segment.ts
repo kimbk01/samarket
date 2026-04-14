@@ -1,8 +1,11 @@
 import type { PostWithMeta } from "@/lib/posts/schema";
-import type { CategoryLite, ServiceSegment } from "./types";
+import type { CategoryLite } from "@/lib/posts/category-lite";
+
+/** 스펙 서비스 타입 — `category.icon_key`·`meta` 기준 */
+export type ServiceSegment = "used" | "car" | "real_estate" | "exchange" | "job";
 
 /**
- * PostDetailView 의 부동산/환전/중고차 분기와 정합 — `category.icon_key` 우선.
+ * 부동산/환전/중고차 분기와 정합 — `category.icon_key` 우선.
  * 카테고리 로드 전·메타만 있는 경우 보조.
  */
 export function resolveServiceSegment(post: PostWithMeta, category: CategoryLite | null): ServiceSegment {

@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { getPostById } from "@/lib/posts/getPostById";
 import type { PostWithMeta } from "@/lib/posts/schema";
-import type { DetailSectionDTO } from "@/lib/posts/detail-sections/types";
 import { PostDetailView } from "@/components/post/PostDetailView";
 import { PostDetailFeedChromeReset } from "@/components/post/PostDetailFeedChromeReset";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
@@ -22,19 +21,16 @@ export default function PostDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
   const [post, setPost] = useState<PostWithMeta | null | undefined>(undefined);
-  const [detailSections, setDetailSections] = useState<DetailSectionDTO[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
     setPost(undefined);
-    setDetailSections([]);
     const bundle = await getPostById(id);
     if (!bundle) {
       setPost(null);
       return;
     }
     setPost(bundle.post);
-    setDetailSections(bundle.detailSections);
   }, [id]);
 
   /** 서비스 롤 API로 거래 단계·status 갱신 (클라이언트 RLS/캐시와 무관) */
@@ -116,7 +112,7 @@ export default function PostDetailPage() {
           </div>
         </div>
       ) : (
-        <PostDetailView post={post} initialDetailSections={detailSections} />
+        <PostDetailView post={post} />
       )}
     </>
   );

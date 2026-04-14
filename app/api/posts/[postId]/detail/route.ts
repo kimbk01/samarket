@@ -9,7 +9,6 @@ import {
   loadPostRowForDetail,
   mapPostDetailRowToPostWithMeta,
 } from "@/lib/posts/map-post-detail-row";
-import { computeDetailSectionsForLoadedPost } from "@/lib/posts/detail-sections/get-detail-sections-for-api";
 
 export const dynamic = "force-dynamic";
 
@@ -64,22 +63,6 @@ export async function GET(
   }
 
   const post = mapPostDetailRowToPostWithMeta(row);
-
-  const wantRecommend = req.nextUrl.searchParams.get("recommendSections") === "1";
-  if (wantRecommend) {
-    let detailSections: Awaited<ReturnType<typeof computeDetailSectionsForLoadedPost>> = [];
-    try {
-      detailSections = await computeDetailSectionsForLoadedPost(clients, post);
-    } catch {
-      /* 추천 블록만 실패해도 글 본문은 내려감 — 상세 404 로 떨어지지 않게 */
-    }
-    return NextResponse.json(
-      { post, detailSections },
-      {
-        headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=45", Vary: "Cookie" },
-      }
-    );
-  }
 
   await enrichPostsAuthorNicknamesFromProfiles(clients.readSb, [post]);
 

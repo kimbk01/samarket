@@ -103,7 +103,16 @@ export function AdminTradePostAdsPage() {
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="거래 상세 광고 (trade_post_ads)" />
+      <AdminPageHeader
+        title="거래 상세 광고 (trade_post_ads)"
+        description="포인트 보류·승인·활성은 여기서 처리합니다. 광고 상품·포인트 정책은 「거래 광고 정책」에서 수정하세요."
+      />
+
+      <p className="text-[13px] text-sam-muted">
+        <Link href="/admin/trade-ad-policies" className="text-blue-700 underline">
+          거래 광고 정책 (ad_products)
+        </Link>
+      </p>
 
       {err ? (
         <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">

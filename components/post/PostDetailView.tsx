@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import type { PostWithMeta } from "@/lib/posts/schema";
-import type { DetailSectionDTO } from "@/lib/posts/detail-sections/types";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
@@ -55,7 +54,6 @@ import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-s
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailSellerTradeLifecycleBar } from "@/components/post/PostDetailSellerTradeLifecycleBar";
-import { PostDetailRecommendSections } from "@/components/post/PostDetailRecommendSections";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
@@ -505,11 +503,9 @@ function PostDetailSellerProfileRow({
 
 interface PostDetailViewProps {
   post: PostWithMeta;
-  /** 상세 API(`recommendSections=1`)에서 함께 내려온 하단 추천 — 있으면 클라이언트 재요청 없음 */
-  initialDetailSections?: DetailSectionDTO[];
 }
 
-export function PostDetailView({ post, initialDetailSections }: PostDetailViewProps) {
+export function PostDetailView({ post }: PostDetailViewProps) {
   const router = useRouter();
   /** `undefined`: 세션 확인 전 — 동기 프로필 캐시만 쓰면 유휴 후 캐시가 비어 로그아웃으로 오인될 수 있음 */
   const [resolvedViewerId, setResolvedViewerId] = useState<string | null | undefined>(undefined);
@@ -1099,14 +1095,6 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
           </div>
         </div>
 
-        {post.type !== "community" && (
-          <PostDetailRecommendSections
-            postId={post.id}
-            defaultCurrency={defaultCurrency}
-            initialSections={initialDetailSections}
-          />
-        )}
-
         {/* 하단 고정: 상품 상세와 동일 규격(찜 + 가격 + 채팅) — 본인 글은 찜 숨김 */}
         <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}>
           {!isOwnPost && (
@@ -1401,14 +1389,6 @@ export function PostDetailView({ post, initialDetailSections }: PostDetailViewPr
         <PostCommunityCommentsSection
           postId={post.id}
           currentUserId={resolvedViewerId ?? null}
-        />
-      )}
-
-      {post.type !== "community" && (
-        <PostDetailRecommendSections
-          postId={post.id}
-          defaultCurrency={defaultCurrency}
-          initialSections={initialDetailSections}
         />
       )}
 

@@ -83,7 +83,8 @@ export async function getProductFromPostId(postId: string): Promise<Product | nu
         .select(POST_TRADE_DETAIL_SELECT)
         .eq("id", postId.trim())
         .maybeSingle();
-      row = full.data;
+      /** `POST_TRADE_DETAIL_SELECT` 에 `author_id` 가 없을 수 있음 — 런타임은 user_id 로 보강 */
+      row = full.data as typeof row;
       error = full.error;
     }
 

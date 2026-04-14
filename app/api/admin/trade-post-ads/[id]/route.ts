@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { chargePointsOnTradePostAdActivation } from "@/lib/trade-ads/charge-trade-post-ad-points";
+import { releaseHeldPointsForTradePostAd } from "@/lib/trade-ads/trade-post-ad-point-flow";
 
 type Body = {
   apply_status?: string;
@@ -58,32 +59,36 @@ export async function PATCH(
 
   const activating = nextStatus === "active" && prevStatus !== "active";
   const chargePoints = body.charge_points !== false;
+  const releasing =
+    (nextStatus === "rejected" || nextStatus === "cancelled") && prevStatus !== nextStatus;
+
+  if (releasing) {
+    const rel = await releaseHeldPointsForTradePostAd(sb, { tradePostAdId: id });
+    if (!rel.ok) {
+      return NextResponse.json({ ok: false, error: rel.error }, { status: 400 });
+    }
+    if (nextStatus === "rejected") {
+      patch.rejected_at = new Date().toISOString();
+      patch.rejected_by = admin.userId;
+    }
+  }
 
   if (activating && chargePoints) {
     const cost = Math.max(0, Math.floor(Number(prev.point_cost ?? 0)));
-    if (cost > 0) {
-      const { data: existing } = await sb
-        .from("trade_ad_point_holds")
-        .select("id")
-        .eq("trade_post_ad_id", id)
-        .eq("status", "charged")
-        .limit(1);
-
-      if (!existing || (Array.isArray(existing) && existing.length === 0)) {
-        const uid = String(prev.user_id ?? "");
-        if (!uid) {
-          return NextResponse.json({ ok: false, error: "user_id 없음" }, { status: 400 });
-        }
-        const ch = await chargePointsOnTradePostAdActivation(sb, {
-          tradePostAdId: id,
-          advertiserUserId: uid,
-          pointCost: cost,
-        });
-        if (!ch.ok) {
-          return NextResponse.json({ ok: false, error: ch.error }, { status: 400 });
-        }
-      }
+    const uid = String(prev.user_id ?? "");
+    if (!uid) {
+      return NextResponse.json({ ok: false, error: "user_id 없음" }, { status: 400 });
     }
+    const ch = await chargePointsOnTradePostAdActivation(sb, {
+      tradePostAdId: id,
+      advertiserUserId: uid,
+      pointCost: cost,
+    });
+    if (!ch.ok) {
+      return NextResponse.json({ ok: false, error: ch.error }, { status: 400 });
+    }
+    patch.approved_at = patch.approved_at ?? new Date().toISOString();
+    patch.approved_by = admin.userId;
   }
 
   const { data: updated, error: ue } = await sb
