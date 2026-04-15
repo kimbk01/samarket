@@ -378,20 +378,24 @@ export function ChatRoomScreen({
       setTradeChatBootstrapReady(false);
       setLoading(true);
     }
+    /* `serverBootstrap` 전체를 deps 에 넣으면 부모가 매 렌더 새 객체를 넘길 때 상태 루프 위험 — RSC 는 room.id 단위로 일관 */
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- roomId + serverBootstrap.room.id 만으로 동기화
   }, [roomId, serverBootstrap?.room?.id]);
 
   useEffect(() => {
     if (!roomId?.trim() || resolvedUserId === null) return;
+    const id = roomId.trim();
 
     /**
      * RSC가 이미 `loadChatRoomBootstrapForUser`(entry)로 방·메시지를 내려준 경우
      * 마운트 직후 동일 `/bootstrap` GET을 다시 하지 않음 — DB·네트워크 이중화와 체감 지연 방지.
      * 후기 제출 여부 등 `full` 메타는 탭 복귀·bfcache 시 `useRefetchOnPageShowRestore`로 보강.
+     * `serverBootstrap.room` 참조만 바뀌는 경우 effect 재실행으로 레이스 나지 않게 `room.id` 기준.
      */
-    if (serverBootstrap?.room) return;
+    if (serverBootstrap?.room?.id === id) return;
 
     void reload();
-  }, [roomId, resolvedUserId, serverBootstrap?.room, reload]);
+  }, [roomId, resolvedUserId, serverBootstrap?.room?.id, reload]);
 
   useRefetchOnPageShowRestore(() => {
     void hardRefreshBootstrap();

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { UserRegion } from "@/lib/regions/types";
@@ -18,7 +19,10 @@ import {
 import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getRegionName } from "@/lib/regions/region-utils";
-import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
+import {
+  fetchMeProfileDeduped,
+  ME_PROFILE_CACHE_INVALIDATED_EVENT,
+} from "@/lib/profile/fetch-me-profile-deduped";
 import {
   cancelScheduledWhenBrowserIdle,
   scheduleWhenBrowserIdle,
@@ -50,6 +54,7 @@ const RegionContext = createContext<RegionContextValue | null>(null);
 
 export function RegionProvider({ children }: { children: React.ReactNode }) {
   const userId = useRegionMockUserId();
+  const profileInvalidateIdleRef = useRef<number | null>(null);
   const [userRegions, setUserRegions] = useState<UserRegion[]>(() => getUserRegions(userId));
   const [currentRegionId, setCurrentRegionId] = useState<string | null>(null);
   const [profileSourcedRegion, setProfileSourcedRegion] = useState<UserRegion | null>(null);
@@ -102,6 +107,29 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     return () => cancelScheduledWhenBrowserIdle(idleId);
   }, [userId, refreshProfileLocation]);
 
+  /** 프로필 캐시 무효화(저장·아바타·세션) — 단일 이벤트로 지역 상태 동기화 */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onInvalidated = () => {
+      if (profileInvalidateIdleRef.current != null) {
+        cancelScheduledWhenBrowserIdle(profileInvalidateIdleRef.current);
+        profileInvalidateIdleRef.current = null;
+      }
+      profileInvalidateIdleRef.current = scheduleWhenBrowserIdle(() => {
+        profileInvalidateIdleRef.current = null;
+        void refreshProfileLocation();
+      }, 0);
+    };
+    window.addEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onInvalidated);
+    return () => {
+      window.removeEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onInvalidated);
+      if (profileInvalidateIdleRef.current != null) {
+        cancelScheduledWhenBrowserIdle(profileInvalidateIdleRef.current);
+        profileInvalidateIdleRef.current = null;
+      }
+    };
+  }, [refreshProfileLocation]);
+
   const mockPrimaryRegion = useMemo(
     () => userRegions.find((r) => r.isPrimary) ?? userRegions[0] ?? null,
     [userRegions]
@@ -123,7 +151,7 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (primaryRegion && !currentRegionId) setCurrentRegionId(primaryRegion.id);
-  }, [primaryRegion?.id, currentRegionId]);
+  }, [primaryRegion, currentRegionId]);
 
   /** 프로필 지역이 있으면 현재 동네 id 를 프로필 행으로 맞춤 — userRegions 참조 변경만으로는 재실행하지 않음 */
   useEffect(() => {
@@ -131,13 +159,7 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     setCurrentRegionId((prev) =>
       prev === profileSourcedRegion.id ? prev : profileSourcedRegion.id
     );
-  }, [
-    profileSourcedRegion?.id,
-    profileSourcedRegion?.regionId,
-    profileSourcedRegion?.cityId,
-    profileSourcedRegion?.barangay,
-    profileSourcedRegion?.label,
-  ]);
+  }, [profileSourcedRegion]);
 
   /** 프로필 지역이 비면 profile-location 선택 상태만 mock 으로 복귀 */
   useEffect(() => {

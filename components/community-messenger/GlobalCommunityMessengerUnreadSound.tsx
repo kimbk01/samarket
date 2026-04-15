@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -24,12 +25,23 @@ function getUnreadCount(row: ParticipantRealtimeRow | null): number {
 
 export function GlobalCommunityMessengerUnreadSound() {
   const pathname = usePathname();
+  const pathnameRef = useRef<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
+  useLayoutEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
   useEffect(() => {
-    void getCurrentUserIdForDb().then((value) => {
-      setUserId(value);
-    });
+    void getCurrentUserIdForDb().then(setUserId);
+  }, [pathname]);
+
+  useEffect(() => {
+    const onTestAuth = () => {
+      void getCurrentUserIdForDb().then(setUserId);
+    };
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
   }, []);
 
   useEffect(() => {
@@ -53,7 +65,7 @@ export function GlobalCommunityMessengerUnreadSound() {
           const nextUnread = getUnreadCount((payload.new ?? null) as ParticipantRealtimeRow | null);
           const prevUnread = getUnreadCount((payload.old ?? null) as ParticipantRealtimeRow | null);
           if (!nextRoomId || nextUnread <= prevUnread) return;
-          if (pathname === `/community-messenger/rooms/${nextRoomId}`) return;
+          if (pathnameRef.current === `/community-messenger/rooms/${nextRoomId}`) return;
           playCoalescedChatNotificationSound(`community-messenger:${nextRoomId}:${nextUnread}`);
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
@@ -65,7 +77,7 @@ export function GlobalCommunityMessengerUnreadSound() {
     return () => {
       if (channel) void sb.removeChannel(channel);
     };
-  }, [pathname, userId]);
+  }, [userId]);
 
   return null;
 }

@@ -176,12 +176,19 @@ export function ConditionalAppShell({
     !isCommunityMessengerSurface &&
     !isCommunityApp &&
     !isPersonalProductComposerPage;
+  /**
+   * 알림 Realtime·주문/메신저 미읽음 사운드 등 “전역 크롬” — 한 조건으로 묶음.
+   * 하단 탭이 없는 거래·매장 상세에서도 메신저/알림이 끊기지 않게 상세 경로를 포함(글쓰기·통화 세션은 제외).
+   */
+  const mountGlobalRealtimeChromeOnTradeOrStoreDetail =
+    isPostDetail || isProductDetail || isStoreProductDetail;
   const mountGlobalRealtimeChrome =
     (showBottomNav ||
       isMyTab ||
       isStoreSection ||
       isOrdersHub ||
-      isCommunityMessengerSurface) &&
+      isCommunityMessengerSurface ||
+      mountGlobalRealtimeChromeOnTradeOrStoreDetail) &&
     !isCommunityMessengerCallPage;
   /** 메신저 방 등에서는 하단 탭이 없어 기존 블록에 안 걸림 — 첫 터치로 알림/통화 톤 잠금 해제 */
   const mountNotificationSoundPrime =
@@ -207,7 +214,7 @@ export function ConditionalAppShell({
       {mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
       {mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
-      {!isCommunityMessengerCallPage ? <GlobalCommunityMessengerUnreadSound /> : null}
+      {mountGlobalRealtimeChrome ? <GlobalCommunityMessengerUnreadSound /> : null}
       {!suppressIncomingCallOverlay ? <IncomingCallOverlay /> : null}
       <WebConnectivityBanner />
       {showRegionBar && <RegionBar />}
