@@ -50,7 +50,10 @@ import {
   MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS,
   MESSENGER_INCOMING_CALL_WAKE_TRAIL_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
-import { subscribeCommunityMessengerCallInviteBroadcast } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import {
+  notifyCommunityMessengerCallInviteHangupBestEffort,
+  subscribeCommunityMessengerCallInviteBroadcast,
+} from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import {
   getCommunityMessengerIncomingCallBridgeStatus,
   syncCommunityMessengerNativeIncomingCall,
@@ -90,6 +93,11 @@ export function GlobalCommunityMessengerIncomingCall() {
   const incomingListFastSyncTrailRef = useRef<number | null>(null);
   /** 직전 폴링까지 수신 목록에 있던 ringing 세션 id (directOnly — 전부 ringing) */
   const prevIncomingRingingIdsRef = useRef<Set<string>>(new Set());
+  /**
+   * 수신자가 거절한 직후 GET 이 세션을 빼도, merge 낙관 로직이 이전 ringing 을 다시 붙이는 것을 막기 위한 표시.
+   * (타임스탬프로 TTL 후 정리)
+   */
+  const dismissedIncomingSessionsAtRef = useRef<Map<string, number>>(new Map());
   /** 거절·수락·차단·메시지거절 등 사용자가 끊은 세션은 부재 톤 제외 */
   const suppressMissedSoundRef = useRef<Set<string>>(new Set());
   /** Realtime SUBSCRIBED 여부 — 백업 폴링 간격만 바꿈(폴링 완전 생략은 하지 않음) */
@@ -186,7 +194,14 @@ export function GlobalCommunityMessengerIncomingCall() {
         }
         if (res.ok && json.ok) {
           const serverList = json.sessions ?? [];
-          setSessions((prev) => mergeIncomingCallSessionsAfterFetch(viewerUserIdRef.current, serverList, prev));
+          setSessions((prev) =>
+            mergeIncomingCallSessionsAfterFetch(
+              viewerUserIdRef.current,
+              serverList,
+              prev,
+              dismissedIncomingSessionsAtRef.current
+            )
+          );
           setIncomingListError(null);
           setSessionActionError(null);
           return;
@@ -629,6 +644,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     suppressMissedSoundRef.current.add(sessionId);
     stopCommunityMessengerCallFeedback();
     const session = sessions.find((item) => item.id === sessionId) ?? null;
+    dismissedIncomingSessionsAtRef.current.set(sessionId, Date.now());
+    setSessions((prev) => prev.filter((item) => item.id !== sessionId));
     setBusyId(`reject:${sessionId}`);
     try {
       if (session?.peerUserId) {
@@ -644,12 +661,18 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       const patchJson = await patchCommunityMessengerCallSession(sessionId, "reject");
       if (!patchJson.ok) {
+        dismissedIncomingSessionsAtRef.current.delete(sessionId);
         setSessionActionError(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+        await refresh(true);
         return;
       }
       setSessionActionError(null);
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
-      await refresh();
+      /** 발신자(cm-call-invite 채널) — 세션 Realtime 은 recipient 필터라 발신 탭이 즉시 못 받는 경우 보완 */
+      if (session?.peerUserId?.trim()) {
+        void notifyCommunityMessengerCallInviteHangupBestEffort(session.peerUserId.trim(), sessionId);
+      }
+      await refresh(true);
     } finally {
       setBusyId(null);
     }
@@ -764,17 +787,32 @@ export function GlobalCommunityMessengerIncomingCall() {
 
 /** GET 수신 목록이 Realtime INSERT 보다 빨리(또는 빈 배열로) 돌아올 때 낙관적 세션을 지우지 않도록 합친다. */
 const INCOMING_OPTIMISTIC_KEEP_MS = 55_000;
+/** 사용자가 거절한 세션을 merge 가 다시 살리지 않도록 유지하는 시간 */
+const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
 
 function mergeIncomingCallSessionsAfterFetch(
   viewerUserId: string | null,
   serverList: CommunityMessengerCallSession[],
-  previous: CommunityMessengerCallSession[]
+  previous: CommunityMessengerCallSession[],
+  dismissedAtBySessionId: Map<string, number>
 ): CommunityMessengerCallSession[] {
-  if (!viewerUserId) return serverList;
-
-  const serverIds = new Set(serverList.map((s) => s.id));
   const now = Date.now();
-  const optimisticExtras = previous.filter((s) => {
+  for (const [id, at] of [...dismissedAtBySessionId.entries()]) {
+    if (now - at > INCOMING_USER_DISMISSED_KEEP_MS) dismissedAtBySessionId.delete(id);
+  }
+  const isUserDismissed = (id: string) => {
+    const at = dismissedAtBySessionId.get(id);
+    return at != null && now - at <= INCOMING_USER_DISMISSED_KEEP_MS;
+  };
+
+  if (!viewerUserId) {
+    return serverList.filter((s) => !isUserDismissed(s.id));
+  }
+
+  const serverFiltered = serverList.filter((s) => !isUserDismissed(s.id));
+  const serverIds = new Set(serverFiltered.map((s) => s.id));
+  const previousFiltered = previous.filter((s) => !isUserDismissed(s.id));
+  const optimisticExtras = previousFiltered.filter((s) => {
     if (serverIds.has(s.id)) return false;
     if (s.status !== "ringing" || s.sessionMode !== "direct" || s.isMineInitiator) return false;
     if (!messengerUserIdsEqual(s.recipientUserId, viewerUserId)) return false;
@@ -783,9 +821,9 @@ function mergeIncomingCallSessionsAfterFetch(
     return true;
   });
 
-  if (optimisticExtras.length === 0) return serverList;
+  if (optimisticExtras.length === 0) return serverFiltered;
 
-  return [...serverList, ...optimisticExtras].sort(
+  return [...serverFiltered, ...optimisticExtras].sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
   );
 }

@@ -67,7 +67,10 @@ import {
   bootstrapCommunityMessengerOutgoingCallAndNavigate,
   consumeCommunityMessengerCallNavigationSeed,
 } from "@/lib/community-messenger/call-session-navigation-seed";
-import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import {
+  notifyCommunityMessengerCallInviteHangupBestEffort,
+} from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
   getCallSessionClientPollIntervalMs,
@@ -1083,7 +1086,15 @@ export function CommunityMessengerCallClient({
     setBusy("reject");
     const roomId = session.roomId;
     const sid = session.id;
+    const peer = session.peerUserId?.trim();
     try {
+      if (peer) {
+        try {
+          await postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: "reject" });
+        } catch {
+          /* PATCH 로 세션 종료 — 시그널은 best-effort */
+        }
+      }
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1109,7 +1120,6 @@ export function CommunityMessengerCallClient({
         }
       }
       if (snap) {
-        const peer = session.peerUserId?.trim();
         if (peer) void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid);
         callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + 15_000, snapshot: snap };
         setSession(snap);
@@ -1131,7 +1141,17 @@ export function CommunityMessengerCallClient({
     setBusy("end");
     const roomId = session.roomId;
     const sid = session.id;
+    const peer = session.peerUserId?.trim();
+    const hangupReason =
+      session.status === "ringing" && session.isMineInitiator ? "cancel" : "end";
     try {
+      if (peer) {
+        try {
+          await postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: hangupReason });
+        } catch {
+          /* PATCH 가 최종 상태 — hangup 은 상대 클라 빠른 갱신용 */
+        }
+      }
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1151,7 +1171,6 @@ export function CommunityMessengerCallClient({
       /* 서버 응답을 즉시 반영하고, Agora leave 등은 기다리지 않는다 — 수신 종료 시 UI가 active 에 고정되던 문제 */
       const optimisticEnd =
         session.status === "ringing" && session.isMineInitiator ? "cancelled" : "ended";
-      const peer = session.peerUserId?.trim();
       if (peer) void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid);
       applyTerminalSessionAfterPatch(json, roomId, sid, optimisticEnd);
       void disposeCallMedia().catch(() => {});

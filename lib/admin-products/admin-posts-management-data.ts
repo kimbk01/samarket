@@ -131,7 +131,6 @@ function formatSupabaseError(err: unknown): string {
  * 컬럼이 많은 순으로 시도. author_id 없는 DB 대응으로 user_id만 사용 (author_id 티어 제거).
  */
 const POSTS_SELECT_TIERS = [
-  "*",
   "id, user_id, title, content, price, status, seller_listing_state, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, category_id, board_id, service_id, is_free_share, visibility, meta",
   "id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, category_id, board_id, service_id, is_free_share, visibility",
   "id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, category_id, board_id, is_free_share, visibility",
@@ -140,6 +139,10 @@ const POSTS_SELECT_TIERS = [
   "id, user_id, title, content, price, status, view_count, created_at, updated_at, trade_category_id, board_id",
   "id, user_id, title, price, status, created_at, updated_at",
   "id, user_id, title, status, created_at",
+  /**
+   * 명시적 컬럼 티가 모두 실패할 때만 — 전 컬럼(무거움). 정상 스키마에서는 위 티어만 사용.
+   */
+  "*",
 ] as const;
 
 async function queryPostsWithFallbackOrder(
@@ -389,18 +392,26 @@ async function enrichPostsToProducts(
       /* chat_rooms 없을 수 있음 */
     }
   }
-  try {
-    const { data: reportRows } = await client
-      .from("reports")
-      .select("target_id")
-      .eq("target_type", "product");
-    if (Array.isArray(reportRows)) {
-      reportRows.forEach((r: { target_id: string }) => {
-        reportCountByTarget[r.target_id] = (reportCountByTarget[r.target_id] ?? 0) + 1;
-      });
+  if (uniquePostIds.length > 0) {
+    const reportChunk = 200;
+    for (let i = 0; i < uniquePostIds.length; i += reportChunk) {
+      const chunk = uniquePostIds.slice(i, i + reportChunk);
+      try {
+        const { data: reportRows } = await client
+          .from("reports")
+          .select("target_id")
+          .eq("target_type", "product")
+          .in("target_id", chunk);
+        if (Array.isArray(reportRows)) {
+          reportRows.forEach((r: { target_id: string }) => {
+            if (!r?.target_id) return;
+            reportCountByTarget[r.target_id] = (reportCountByTarget[r.target_id] ?? 0) + 1;
+          });
+        }
+      } catch {
+        /* reports 없을 수 있음 */
+      }
     }
-  } catch {
-    /* reports 없을 수 있음 */
   }
 
   return list.map((row) => {
