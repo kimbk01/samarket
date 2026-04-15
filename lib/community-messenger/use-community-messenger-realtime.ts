@@ -27,6 +27,7 @@ import {
   MESSENGER_VOICE_AUX_DEBOUNCE_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 
 /** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
 const HOME_ROOMS_IN_FILTER_MAX = 90;
@@ -112,159 +113,134 @@ export function useCommunityMessengerHomeRealtime(args: {
     let cancelled = false;
     /** 목록·친구·요청 등 메타 변경은 묶어서 전체 리프레시 (과도한 GET 완화) */
     const refreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_HOME_META_DEBOUNCE_MS);
-    const channels: RealtimeChannel[] = [];
+    const channels: Array<{ stop: () => void }> = [];
     const roomIds = roomIdsFingerprint.length ? roomIdsFingerprint.split("\0").filter(Boolean) : [];
 
-    const subscribe = (name: string, register: (channel: RealtimeChannel) => RealtimeChannel) => {
-      const scope = name.split(":").slice(0, 3).join(":") || name;
-      const channel = register(sb.channel(name)).subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          messengerMonitorRealtimeSubscriptionOutcome(scope, true, status);
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          messengerMonitorRealtimeSubscriptionOutcome(scope, false, status);
-        }
-      });
-      channels.push(channel);
-    };
-
-    subscribe(`community-messenger-home:participants:${args.userId}`, (channel) =>
-      channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_participants",
-          filter: `user_id=eq.${args.userId}`,
-        },
-        () => {
-          if (!cancelled) refreshScheduler.schedule();
-        }
-      )
-    );
+    // 채널 수를 줄이기 위해 "메타"는 단일 채널로 합친다.
+    const meta = subscribeWithRetry({
+      sb,
+      name: `community-messenger-home:meta:${args.userId}`,
+      scope: `community-messenger-home:meta`,
+      isCancelled: () => cancelled,
+      build: (channel) =>
+        channel
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_participants",
+              filter: `user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `addressee_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `requester_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_favorites",
+              filter: `user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "user_relationships",
+              filter: `user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_logs",
+              filter: `caller_user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_logs",
+              filter: `peer_user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled) refreshScheduler.schedule();
+            }
+          ),
+    });
+    channels.push(meta);
 
     /** 방당 1채널 대신 `id=in.(…)` 청크로 묶어 구독 수·재연결 비용을 줄임 (문서: in 최대 100값) */
     for (let offset = 0; offset < roomIds.length; offset += HOME_ROOMS_IN_FILTER_MAX) {
       const chunk = roomIds.slice(offset, offset + HOME_ROOMS_IN_FILTER_MAX);
       const filter = `id=in.(${chunk.join(",")})`;
-      subscribe(`community-messenger-home:rooms-in:${args.userId}:${offset}`, (channel) =>
-        channel.on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "community_messenger_rooms",
-            filter,
-          },
-          () => {
-            if (!cancelled) refreshScheduler.schedule();
-          }
-        )
-      );
-    }
-
-    subscribe(`community-messenger-home:requests:incoming:${args.userId}`, (channel) =>
-      channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_friend_requests",
-          filter: `addressee_id=eq.${args.userId}`,
-        },
-        () => {
-          if (!cancelled) refreshScheduler.schedule();
-        }
-      )
-    );
-
-    subscribe(`community-messenger-home:requests:outgoing:${args.userId}`, (channel) =>
-      channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_friend_requests",
-          filter: `requester_id=eq.${args.userId}`,
-        },
-        () => {
-          if (!cancelled) refreshScheduler.schedule();
-        }
-      )
-    );
-
-    subscribe(`community-messenger-home:favorites:${args.userId}`, (channel) =>
-      channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_friend_favorites",
-          filter: `user_id=eq.${args.userId}`,
-        },
-        () => {
-          if (!cancelled) refreshScheduler.schedule();
-        }
-      )
-    );
-
-    subscribe(`community-messenger-home:relationships:${args.userId}`, (channel) =>
-      channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "user_relationships",
-          filter: `user_id=eq.${args.userId}`,
-        },
-        () => {
-          if (!cancelled) refreshScheduler.schedule();
-        }
-      )
-    );
-
-    /** 동일 테이블에 caller / peer 필터를 한 채널에 두 개의 postgres_changes 로 묶어 구독 수를 줄임 */
-    const callLogsChannel = sb
-      .channel(`community-messenger-home:call-logs:${args.userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_logs",
-          filter: `caller_user_id=eq.${args.userId}`,
-        },
-        () => {
-          if (!cancelled) refreshScheduler.schedule();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_logs",
-          filter: `peer_user_id=eq.${args.userId}`,
-        },
-        () => {
-          if (!cancelled) refreshScheduler.schedule();
-        }
-      )
-      .subscribe((status) => {
-        const scope = `community-messenger-home:call-logs`;
-        if (status === "SUBSCRIBED") {
-          messengerMonitorRealtimeSubscriptionOutcome(scope, true, status);
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          messengerMonitorRealtimeSubscriptionOutcome(scope, false, status);
-        }
+      const roomBundle = subscribeWithRetry({
+        sb,
+        name: `community-messenger-home:rooms-in:${args.userId}:${offset}`,
+        scope: `community-messenger-home:rooms-in`,
+        isCancelled: () => cancelled,
+        build: (channel) =>
+          channel.on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_rooms",
+              filter,
+            },
+            () => {
+              if (!cancelled) refreshScheduler.schedule();
+            }
+          ),
       });
-    channels.push(callLogsChannel);
+      channels.push(roomBundle);
+    }
 
     return () => {
       cancelled = true;
       refreshScheduler.cancel();
-      for (const channel of channels) {
-        void sb.removeChannel(channel);
-      }
+      for (const item of channels) item.stop();
     };
   }, [args.enabled, roomIdsFingerprint, args.userId, callbackRef]);
 }
