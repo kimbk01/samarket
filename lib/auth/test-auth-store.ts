@@ -5,6 +5,7 @@
  */
 
 import { KASAMA_DEV_UID_PUB_COOKIE } from "@/lib/auth/dev-session-cookie";
+import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 
 const KEY_USER_ID = "test_user_id";
 const KEY_USERNAME = "test_username";
@@ -49,6 +50,7 @@ function syncDevPubCookie(userId: string | null): void {
 export function setTestAuth(userId: string, username: string, role: string): void {
   if (typeof window === "undefined") return;
   try {
+    clearBootstrapCache();
     sessionStorage.setItem(KEY_USER_ID, userId);
     sessionStorage.setItem(KEY_USERNAME, username);
     sessionStorage.setItem(KEY_ROLE, role);
@@ -60,6 +62,7 @@ export function setTestAuth(userId: string, username: string, role: string): voi
 export function clearTestAuth(): void {
   if (typeof window === "undefined") return;
   try {
+    clearBootstrapCache();
     sessionStorage.removeItem(KEY_USER_ID);
     sessionStorage.removeItem(KEY_USERNAME);
     sessionStorage.removeItem(KEY_ROLE);

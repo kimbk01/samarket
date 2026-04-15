@@ -95,15 +95,19 @@ export function StoresHub() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  /** 첫 페인트·허브 요약과 경합하지 않도록 위치는 idle 이후 요청 — 권한/GPS 비용 분산 */
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      () => {},
-      { maximumAge: 300_000, timeout: 10_000 }
-    );
+    const idleId = scheduleWhenBrowserIdle(() => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {},
+        { maximumAge: 300_000, timeout: 10_000 }
+      );
+    }, isConstrainedNetwork() ? 2800 : 1400);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
   }, []);
 
   const querySuffix = useMemo(() => {

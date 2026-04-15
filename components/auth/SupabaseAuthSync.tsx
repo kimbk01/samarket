@@ -13,6 +13,7 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 
 /** INITIAL_SESSION·SIGNED_IN 등 짧은 간격에 ensure 가 여러 번 때리는 것 방지 */
 let profileEnsureInFlight: Promise<Response> | null = null;
@@ -44,6 +45,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
     if (error || !u) {
       invalidateMeProfileDedupedCache();
       setSupabaseProfileCache(null);
+      clearBootstrapCache();
       dispatchTestAuthChanged();
       return;
     }
@@ -115,6 +117,7 @@ export function SupabaseAuthSync() {
       if (!session) {
         invalidateMeProfileDedupedCache();
         setSupabaseProfileCache(null);
+        clearBootstrapCache();
         dispatchTestAuthChanged();
         return;
       }

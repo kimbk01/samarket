@@ -1,0 +1,284 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
+import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
+import { messengerMonitorHomeBootstrapUnreadSync } from "@/lib/community-messenger/monitoring/client";
+import {
+  clearBootstrapCache,
+  peekBootstrapCache,
+  primeBootstrapCache,
+} from "@/lib/community-messenger/bootstrap-cache";
+import type {
+  CommunityMessengerBootstrap,
+  CommunityMessengerDiscoverableGroupSummary,
+} from "@/lib/community-messenger/types";
+import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
+import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+
+export type UseCommunityMessengerHomeBootstrapArgs = {
+  initialServerBootstrap: CommunityMessengerBootstrap | null | undefined;
+  /** 언어 전환 시 effect 재실행 없이 최신 번역만 쓰기 위한 ref */
+  tRef: MutableRefObject<(key: string) => string>;
+};
+
+export type UseCommunityMessengerHomeBootstrapResult = {
+  data: CommunityMessengerBootstrap | null;
+  setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
+  loading: boolean;
+  authRequired: boolean;
+  setAuthRequired: Dispatch<SetStateAction<boolean>>;
+  pageError: string | null;
+  setPageError: Dispatch<SetStateAction<string | null>>;
+  refresh: (silent?: boolean) => Promise<void>;
+  homeRealtimeGateOpen: boolean;
+};
+
+/**
+ * 메신저 홈 부트스트랩·사일런트 갱신·캐시 동기화·Realtime 게이트.
+ * `CommunityMessengerHome` 본문(UI·액션)과 데이터 레이어 경계를 분리한다.
+ */
+export function useCommunityMessengerHomeBootstrap({
+  initialServerBootstrap,
+  tRef,
+}: UseCommunityMessengerHomeBootstrapArgs): UseCommunityMessengerHomeBootstrapResult {
+  const loadedRef = useRef(false);
+  const silentRefreshBusyRef = useRef(false);
+  const silentRefreshAgainRef = useRef(false);
+
+  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
+  const [loading, setLoading] = useState(() => !initialServerBootstrap);
+  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(() => !initialServerBootstrap);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  /**
+   * RSC가 `initialServerBootstrap`을 내렸으면 클라 `peekBootstrapCache()`로 덮지 않는다.
+   * (오래된 캐시가 서버 시드보다 먼저 state를 잡아 첫 페인트·hydration 경합을 키우는 것 방지)
+   */
+  useLayoutEffect(() => {
+    if (initialServerBootstrap) return;
+    const stale = peekBootstrapCache();
+    if (!stale) return;
+    setData(stale);
+    setAuthRequired(false);
+    setPageError(null);
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시점의 시드 유무만; props 참조 churn에 layout 재실행 금지
+  }, []);
+
+  const refresh = useCallback(async (silent = false) => {
+    if (!tryEnterSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef)) {
+      return;
+    }
+    const stale = !silent ? peekBootstrapCache() : null;
+    const shouldBlock = !silent && !loadedRef.current && !stale;
+    const useLiteBootstrap = !silent && !stale && !loadedRef.current;
+    if (stale) {
+      setData(stale);
+      setAuthRequired(false);
+      setPageError(null);
+    }
+    if (shouldBlock) setLoading(true);
+    try {
+      if (silent) {
+        const tSilentFetch = typeof performance !== "undefined" ? performance.now() : null;
+        const { res, json } = await fetchCommunityMessengerHomeSilentLists();
+        if (res.ok && json.ok) {
+          setData((prev) => {
+            const base = prev ?? peekBootstrapCache();
+            if (!base) return prev;
+            const chats = json.chats ?? [];
+            const groups = json.groups ?? [];
+            const requests = json.requests ?? base.requests;
+            const friends = json.friends ?? base.friends;
+            const next: CommunityMessengerBootstrap = {
+              ...base,
+              chats,
+              groups,
+              requests,
+              friends,
+              tabs: {
+                ...base.tabs,
+                chats: chats.length,
+                groups: groups.length,
+                friends: friends.length,
+              },
+            };
+            primeBootstrapCache(next);
+            return next;
+          });
+          if (tSilentFetch != null) {
+            messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
+          }
+        } else {
+          const unauthorized = res.status === 401 || res.status === 403;
+          if (unauthorized) {
+            clearBootstrapCache();
+            setAuthRequired(true);
+            setPageError(tRef.current("nav_messenger_login_required"));
+            setData(null);
+          } else {
+            const resFull = await fetch("/api/community-messenger/bootstrap?fresh=1", { cache: "no-store" });
+            const jsonFull = (await resFull.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
+              ok?: boolean;
+              error?: string;
+            };
+            if (resFull.ok && jsonFull.ok) {
+              const next: CommunityMessengerBootstrap = {
+                me: jsonFull.me ?? null,
+                tabs: {
+                  friends: jsonFull.tabs?.friends ?? 0,
+                  chats: jsonFull.tabs?.chats ?? 0,
+                  groups: jsonFull.tabs?.groups ?? 0,
+                  calls: jsonFull.tabs?.calls ?? 0,
+                },
+                friends: jsonFull.friends ?? [],
+                following: jsonFull.following ?? [],
+                hidden: jsonFull.hidden ?? [],
+                blocked: jsonFull.blocked ?? [],
+                requests: jsonFull.requests ?? [],
+                chats: jsonFull.chats ?? [],
+                groups: jsonFull.groups ?? [],
+                discoverableGroups: jsonFull.discoverableGroups ?? [],
+                calls: jsonFull.calls ?? [],
+              };
+              setAuthRequired(false);
+              setPageError(null);
+              setData(next);
+              primeBootstrapCache(next);
+              if (tSilentFetch != null) {
+                messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
+              }
+            }
+          }
+        }
+      } else {
+        const url = useLiteBootstrap
+          ? "/api/community-messenger/bootstrap?lite=1"
+          : "/api/community-messenger/bootstrap";
+        const res = await fetch(url, { cache: "no-store" });
+        const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
+          ok?: boolean;
+          error?: string;
+        };
+        if (res.ok && json.ok) {
+          const next: CommunityMessengerBootstrap = {
+            me: json.me ?? null,
+            tabs: {
+              friends: json.tabs?.friends ?? 0,
+              chats: json.tabs?.chats ?? 0,
+              groups: json.tabs?.groups ?? 0,
+              calls: json.tabs?.calls ?? 0,
+            },
+            friends: json.friends ?? [],
+            following: json.following ?? [],
+            hidden: json.hidden ?? [],
+            blocked: json.blocked ?? [],
+            requests: json.requests ?? [],
+            chats: json.chats ?? [],
+            groups: json.groups ?? [],
+            discoverableGroups: json.discoverableGroups ?? [],
+            calls: json.calls ?? [],
+          };
+          setAuthRequired(false);
+          setPageError(null);
+          setData(next);
+          primeBootstrapCache(next);
+          if (useLiteBootstrap) {
+            scheduleWhenBrowserIdle(() => {
+              void (async () => {
+                try {
+                  const res2 = await fetch("/api/community-messenger/open-groups", { cache: "no-store" });
+                  const j2 = (await res2.json().catch(() => ({}))) as {
+                    ok?: boolean;
+                    groups?: CommunityMessengerDiscoverableGroupSummary[];
+                  };
+                  if (!res2.ok || !j2.ok) return;
+                  setData((prev) => {
+                    if (!prev) return prev;
+                    const merged = { ...prev, discoverableGroups: j2.groups ?? [] };
+                    primeBootstrapCache(merged);
+                    return merged;
+                  });
+                } catch {
+                  /* ignore */
+                }
+              })();
+            }, 0);
+          }
+        } else {
+          const unauthorized = res.status === 401 || res.status === 403;
+          if (unauthorized) {
+            clearBootstrapCache();
+            setAuthRequired(true);
+            setPageError(tRef.current("nav_messenger_login_required"));
+            setData(null);
+          } else {
+            setAuthRequired(false);
+            setPageError(tRef.current("nav_messenger_load_failed"));
+            if (!silent && !stale) {
+              setData(null);
+            }
+          }
+        }
+      }
+    } finally {
+      finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {
+        void refresh(true);
+      });
+      loadedRef.current = true;
+      if (shouldBlock) setLoading(false);
+    }
+    // tRef.current 만 읽음 — 언어 전환 시에도 동일 refresh 인스턴스 유지
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tRef 안정 참조
+  }, []);
+
+  useEffect(() => {
+    if (initialServerBootstrap) {
+      primeBootstrapCache(initialServerBootstrap);
+      loadedRef.current = true;
+      setAuthRequired(false);
+      setPageError(null);
+      return;
+    }
+    const stale = peekBootstrapCache();
+    if (stale) {
+      const idleId = scheduleWhenBrowserIdle(() => {
+        void refresh(true);
+      }, 420);
+      return () => {
+        cancelScheduledWhenBrowserIdle(idleId);
+      };
+    }
+    void refresh();
+  }, [refresh, initialServerBootstrap]);
+
+  useEffect(() => {
+    if (homeRealtimeGateOpen) return;
+    const idleId = scheduleWhenBrowserIdle(() => {
+      setHomeRealtimeGateOpen(true);
+    }, 520);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [homeRealtimeGateOpen]);
+
+  return {
+    data,
+    setData,
+    loading,
+    authRequired,
+    setAuthRequired,
+    pageError,
+    setPageError,
+    refresh,
+    homeRealtimeGateOpen,
+  };
+}

@@ -47,6 +47,7 @@ import {
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { createMessengerRoomBootstrapRefresh } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
+import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 import { useMessengerRoomChatVirtualizer } from "@/lib/community-messenger/room/use-messenger-room-chat-virtualizer";
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
@@ -65,7 +66,6 @@ import {
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
-import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import {
   BackIcon,
@@ -258,21 +258,13 @@ export function useMessengerRoomClientPhase1({
     ]
   );
 
-  useEffect(() => {
-    setRoomReadyForRealtime(false);
-    if (initialServerSnapshot) {
-      /** RSC가 이미 부트스트랩을 내렸으면 첫 GET `/rooms/.../bootstrap` 생략 — 첫 페인트와 채널 연결까지 RTT·대역폭 경합 제거 */
-      loadedRef.current = true;
-      setRoomReadyForRealtime(true);
-      const idleId = scheduleWhenBrowserIdle(() => {
-        void refresh(true);
-      }, 2800);
-      return () => cancelScheduledWhenBrowserIdle(idleId);
-    }
-    void refresh(false);
-    // `initialServerSnapshot` 은 RSC 재실행마다 새 참조일 수 있어 deps 에 넣지 않음(무한 요청 방지). `key={roomId}` 로 방 전환 시 마운트가 갈린다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh(roomId), initialServerSnapshot 동시에 맞춤
-  }, [refresh, roomId]);
+  useMessengerRoomBootstrapLifecycle({
+    roomId,
+    initialServerSnapshot,
+    refresh,
+    loadedRef,
+    setRoomReadyForRealtime,
+  });
 
   useEffect(() => {
     return () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
 import { HiddenPostCard } from "@/components/post/HiddenPostCard";
@@ -68,7 +68,8 @@ export function HomeProductList({
     });
   }, []);
 
-  useEffect(() => {
+  /** RSC 시드를 페인트 전에 캐시에 넣어 같은 틱의 다른 effect·자식이 `getPostsForHome` 를 칠 때 네트워크 합류 */
+  useLayoutEffect(() => {
     if (initialHomeTradeFeed) {
       primeHomePostsCache(HOME_POST_LIST_OPTIONS, initialHomeTradeFeed);
     }

@@ -3,7 +3,16 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type MutableRefObject,
+} from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
@@ -69,18 +78,9 @@ import {
   setCommunityMessengerIncomingCallSoundEnabled,
   writeCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
-import {
-  messengerMonitorHomeBootstrapUnreadSync,
-  messengerMonitorUnreadListSync,
-} from "@/lib/community-messenger/monitoring/client";
-import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
-import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
+import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
-import {
-  clearBootstrapCache,
-  peekBootstrapCache,
-  primeBootstrapCache,
-} from "@/lib/community-messenger/bootstrap-cache";
+import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { buildCommunityMessengerOutgoingDialHref } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   communityMessengerFriendRequestFailureMessage,
@@ -103,10 +103,6 @@ import {
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
-import {
-  cancelScheduledWhenBrowserIdle,
-  scheduleWhenBrowserIdle,
-} from "@/lib/ui/network-policy";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 import {
@@ -218,12 +214,20 @@ export function CommunityMessengerHome({
     [router]
   );
   const searchParams = useSearchParams();
-  const loadedRef = useRef(false);
   /** 언어 전환 시에도 부트스트랩 effect 가 재실행되지 않도록 번역 함수만 최신으로 유지 */
-  const tRef = useRef(t);
-  tRef.current = t;
-  const silentRefreshBusyRef = useRef(false);
-  const silentRefreshAgainRef = useRef(false);
+  const tRef = useRef(t) as MutableRefObject<(key: string) => string>;
+  tRef.current = t as (key: string) => string;
+  const {
+    data,
+    setData,
+    loading,
+    authRequired,
+    setAuthRequired,
+    pageError,
+    setPageError,
+    refresh,
+    homeRealtimeGateOpen,
+  } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -358,12 +362,6 @@ export function CommunityMessengerHome({
     },
     [replaceMessengerSectionUrl, resetMessengerTransientUi]
   );
-  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
-  const [loading, setLoading] = useState(() => !initialServerBootstrap);
-  /** RSC 부트스트랩이 있으면 첫 페인트·hydration 직후 WS 구독을 잠시 미룸 — 메인 스레드·네트워크 경합 완화 */
-  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(() => !initialServerBootstrap);
-  const [authRequired, setAuthRequired] = useState(false);
-  const [pageError, setPageError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [incomingFriendRequestPopup, setIncomingFriendRequestPopup] = useState<CommunityMessengerFriendRequest | null>(null);
@@ -488,208 +486,6 @@ export function CommunityMessengerHome({
         return t("nav_messenger_action_failed");
     }
   }, [t]);
-
-  useLayoutEffect(() => {
-    const stale = peekBootstrapCache();
-    if (!stale) return;
-    setData(stale);
-    setAuthRequired(false);
-    setPageError(null);
-    setLoading(false);
-  }, []);
-
-  const refresh = useCallback(async (silent = false) => {
-    if (!tryEnterSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef)) {
-      return;
-    }
-    const stale = !silent ? peekBootstrapCache() : null;
-    const shouldBlock = !silent && !loadedRef.current && !stale;
-    /** 캐시 없는 최초 차단 로드만 탐색 오픈그룹을 제외한 lite 부트스트랩 → TTFB 단축, 이후 idle 에 open-groups 병합 */
-    const useLiteBootstrap = !silent && !stale && !loadedRef.current;
-    if (stale) {
-      setData(stale);
-      setAuthRequired(false);
-      setPageError(null);
-    }
-    if (shouldBlock) setLoading(true);
-    try {
-      /** Realtime 등 사일런트 갱신 — 방 목록만 병합(전체 부트스트랩·fresh 생략) */
-      if (silent) {
-        const tSilentFetch =
-          typeof performance !== "undefined" ? performance.now() : null;
-        const { res, json } = await fetchCommunityMessengerHomeSilentLists();
-        if (res.ok && json.ok) {
-          setData((prev) => {
-            const base = prev ?? peekBootstrapCache();
-            if (!base) return prev;
-            const chats = json.chats ?? [];
-            const groups = json.groups ?? [];
-            const requests = json.requests ?? base.requests;
-            const friends = json.friends ?? base.friends;
-            const next: CommunityMessengerBootstrap = {
-              ...base,
-              chats,
-              groups,
-              requests,
-              friends,
-              tabs: {
-                ...base.tabs,
-                chats: chats.length,
-                groups: groups.length,
-                friends: friends.length,
-              },
-            };
-            primeBootstrapCache(next);
-            return next;
-          });
-          if (tSilentFetch != null) {
-            messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
-          }
-        } else {
-          const unauthorized = res.status === 401 || res.status === 403;
-          if (unauthorized) {
-            clearBootstrapCache();
-            setAuthRequired(true);
-            setPageError(tRef.current("nav_messenger_login_required"));
-            setData(null);
-          } else {
-            const res = await fetch("/api/community-messenger/bootstrap?fresh=1", { cache: "no-store" });
-            const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
-              ok?: boolean;
-              error?: string;
-            };
-            if (res.ok && json.ok) {
-              const next: CommunityMessengerBootstrap = {
-                me: json.me ?? null,
-                tabs: {
-                  friends: json.tabs?.friends ?? 0,
-                  chats: json.tabs?.chats ?? 0,
-                  groups: json.tabs?.groups ?? 0,
-                  calls: json.tabs?.calls ?? 0,
-                },
-                friends: json.friends ?? [],
-                following: json.following ?? [],
-                hidden: json.hidden ?? [],
-                blocked: json.blocked ?? [],
-                requests: json.requests ?? [],
-                chats: json.chats ?? [],
-                groups: json.groups ?? [],
-                discoverableGroups: json.discoverableGroups ?? [],
-                calls: json.calls ?? [],
-              };
-              setAuthRequired(false);
-              setPageError(null);
-              setData(next);
-              primeBootstrapCache(next);
-              if (tSilentFetch != null) {
-                messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
-              }
-            }
-          }
-        }
-      } else {
-      const url = useLiteBootstrap
-        ? "/api/community-messenger/bootstrap?lite=1"
-        : "/api/community-messenger/bootstrap";
-      const res = await fetch(url, { cache: "no-store" });
-      const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & { ok?: boolean; error?: string };
-      if (res.ok && json.ok) {
-        const next: CommunityMessengerBootstrap = {
-          me: json.me ?? null,
-          tabs: {
-            friends: json.tabs?.friends ?? 0,
-            chats: json.tabs?.chats ?? 0,
-            groups: json.tabs?.groups ?? 0,
-            calls: json.tabs?.calls ?? 0,
-          },
-          friends: json.friends ?? [],
-          following: json.following ?? [],
-          hidden: json.hidden ?? [],
-          blocked: json.blocked ?? [],
-          requests: json.requests ?? [],
-          chats: json.chats ?? [],
-          groups: json.groups ?? [],
-          discoverableGroups: json.discoverableGroups ?? [],
-          calls: json.calls ?? [],
-        };
-        setAuthRequired(false);
-        setPageError(null);
-        setData(next);
-        primeBootstrapCache(next);
-        if (useLiteBootstrap) {
-          scheduleWhenBrowserIdle(() => {
-            void (async () => {
-              try {
-                const res2 = await fetch("/api/community-messenger/open-groups", { cache: "no-store" });
-                const j2 = (await res2.json().catch(() => ({}))) as {
-                  ok?: boolean;
-                  groups?: CommunityMessengerDiscoverableGroupSummary[];
-                };
-                if (!res2.ok || !j2.ok) return;
-                setData((prev) => {
-                  if (!prev) return prev;
-                  const merged = { ...prev, discoverableGroups: j2.groups ?? [] };
-                  primeBootstrapCache(merged);
-                  return merged;
-                });
-              } catch {
-                /* ignore */
-              }
-            })();
-          }, 0);
-        }
-      } else {
-        const unauthorized = res.status === 401 || res.status === 403;
-        if (unauthorized) {
-          clearBootstrapCache();
-          setAuthRequired(true);
-          setPageError(tRef.current("nav_messenger_login_required"));
-          setData(null);
-        } else {
-          setAuthRequired(false);
-          setPageError(tRef.current("nav_messenger_load_failed"));
-          if (!silent && !stale) {
-            setData(null);
-          }
-        }
-      }
-      }
-    } finally {
-      finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {
-        void refresh(true);
-      });
-      loadedRef.current = true;
-      if (shouldBlock) setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (initialServerBootstrap) {
-      primeBootstrapCache(initialServerBootstrap);
-      loadedRef.current = true;
-      setAuthRequired(false);
-      setPageError(null);
-      return;
-    }
-    const stale = peekBootstrapCache();
-    if (stale) {
-      const idleId = scheduleWhenBrowserIdle(() => {
-        void refresh(true);
-      }, 420);
-      return () => {
-        cancelScheduledWhenBrowserIdle(idleId);
-      };
-    }
-    void refresh();
-  }, [refresh, initialServerBootstrap]);
-
-  useEffect(() => {
-    if (homeRealtimeGateOpen) return;
-    const idleId = scheduleWhenBrowserIdle(() => {
-      setHomeRealtimeGateOpen(true);
-    }, 520);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [homeRealtimeGateOpen]);
 
   useEffect(() => {
     setIncomingCallSoundEnabled(isCommunityMessengerIncomingCallSoundEnabled());
