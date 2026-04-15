@@ -26,6 +26,19 @@ function buildPayload(out: NotificationSideEffectPayloadOut): string {
     tag,
     notification_type: out.notification_type,
   };
+  if (out.meta && typeof out.meta === "object") {
+    const sid = (out.meta as Record<string, unknown>).session_id ?? (out.meta as Record<string, unknown>).sessionId;
+    if (typeof sid === "string" && sid.trim()) body.sessionId = sid.trim();
+    const kind = (out.meta as Record<string, unknown>).kind ?? (out.meta as Record<string, unknown>).call_kind;
+    if (typeof kind === "string" && kind.trim()) body.kind = kind.trim();
+  }
+  if (
+    out.notification_type === "community_messenger_incoming_call" &&
+    typeof body.sessionId === "string" &&
+    body.sessionId.trim()
+  ) {
+    body.tag = `samarket-incoming-call-${body.sessionId.trim()}`;
+  }
   let s = JSON.stringify(body);
   if (s.length <= MAX_BYTES) return s;
   const trim = { ...body, title: String(out.title).slice(0, 80), body: (out.body ?? "").slice(0, 160) };

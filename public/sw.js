@@ -17,13 +17,16 @@ self.addEventListener("push", function (event) {
   const icon = typeof payload.icon === "string" && payload.icon ? payload.icon : "/icon";
   const tag = typeof payload.tag === "string" && payload.tag ? payload.tag : "kasama-push";
 
+  const sessionId = typeof payload.sessionId === "string" && payload.sessionId ? payload.sessionId : null;
+  const kind = typeof payload.kind === "string" ? payload.kind : null;
+
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       icon,
       badge: icon,
       tag,
-      data: { url },
+      data: { url, sessionId, kind },
       renotify: true,
     })
   );
@@ -31,7 +34,13 @@ self.addEventListener("push", function (event) {
 
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
-  const raw = event.notification.data && event.notification.data.url ? event.notification.data.url : "/";
+  const data = event.notification.data || {};
+  const raw =
+    typeof data.url === "string" && data.url
+      ? data.url
+      : typeof data.sessionId === "string" && data.sessionId
+        ? "/community-messenger/calls/" + encodeURIComponent(data.sessionId)
+        : "/";
   let targetUrl;
   try {
     targetUrl = new URL(raw, self.location.origin).href;

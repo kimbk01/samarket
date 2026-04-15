@@ -29,6 +29,11 @@ import {
 } from "@/lib/notifications/community-messenger-friend-inapp-notify";
 import { MESSENGER_FRIEND_REJECT_COOLDOWN_MS } from "@/lib/community-messenger/messenger-latency-config";
 import {
+  getMessengerCallAdminPolicyCached,
+  type MessengerCallAdminPolicy,
+} from "@/lib/community-messenger/messenger-call-admin-policy";
+import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
+import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   type CommunityMessengerBootstrap,
@@ -368,6 +373,115 @@ function getSupabaseOrNull(): SupabaseLike | null {
   } catch {
     return null;
   }
+}
+
+async function userHasActiveDirectCallSession(sb: SupabaseLike, userId: string): Promise<boolean> {
+  const u = trimText(userId);
+  if (!u) return false;
+  const { data } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select("id")
+    .eq("status", "active")
+    .eq("session_mode", "direct")
+    .or(`initiator_user_id.eq.${u},recipient_user_id.eq.${u}`)
+    .limit(1)
+    .maybeSingle();
+  return Boolean(data && trimText((data as { id?: string }).id));
+}
+
+async function appendCommunityMessengerCallSessionEvent(
+  sb: SupabaseLike,
+  input: {
+    sessionId: string;
+    actorUserId: string;
+    eventType: string;
+    payload?: Record<string, unknown>;
+  }
+): Promise<void> {
+  const sid = trimText(input.sessionId);
+  const aid = trimText(input.actorUserId);
+  const ev = trimText(input.eventType);
+  if (!sid || !aid || !ev) return;
+  try {
+    const { error } = await (sb as any).from("community_messenger_call_events").insert({
+      session_id: sid,
+      actor_user_id: aid,
+      event_type: ev,
+      payload: input.payload ?? {},
+    });
+    if (error && !isMissingTableError(error)) {
+      /* best-effort */
+    }
+  } catch (e) {
+    if (!isMissingTableError(e)) {
+      /* ignore */
+    }
+  }
+}
+
+function endedReasonForSessionDelta(
+  action: "accept" | "reject" | "cancel" | "end" | "missed",
+  nextStatus: CommunityMessengerCallSessionStatus
+): string | null {
+  if (nextStatus === "active" || nextStatus === "ringing") return null;
+  if (nextStatus === "rejected") return "declined";
+  if (nextStatus === "cancelled") return "canceled";
+  if (nextStatus === "missed") return "missed";
+  if (nextStatus === "ended") {
+    return action === "cancel" ? "canceled" : "ended";
+  }
+  return null;
+}
+
+function auditEventTypeForAction(
+  action: "accept" | "reject" | "cancel" | "end" | "missed",
+  nextStatus: CommunityMessengerCallSessionStatus
+): string {
+  if (action === "accept" || nextStatus === "active") return "accepted";
+  if (action === "reject" || nextStatus === "rejected") return "declined";
+  if (action === "cancel" || nextStatus === "cancelled") return "canceled";
+  if (action === "missed" || nextStatus === "missed") return "missed";
+  if (action === "end" || nextStatus === "ended") return "ended";
+  return "ended";
+}
+
+async function filterDirectIncomingRowsForPolicy(
+  sb: SupabaseLike,
+  userId: string,
+  rows: CallSessionRow[],
+  policy: MessengerCallAdminPolicy
+): Promise<CallSessionRow[]> {
+  if (!rows.length) return [];
+  let out = [...rows];
+  const initiatorIds = out.map((r) => trimText(r.initiator_user_id));
+  const { blocked } = await getViewerRelationSets(userId, initiatorIds);
+  for (const row of out) {
+    const init = trimText(row.initiator_user_id);
+    if (blocked.has(init)) {
+      void updateCommunityMessengerCallSession({ userId, sessionId: row.id, action: "reject" }).catch(() => {});
+    }
+  }
+  out = out.filter((r) => !blocked.has(trimText(r.initiator_user_id)));
+  if (policy.repeated_call_cooldown_seconds > 0 && out.length) {
+    const cutoffIso = new Date(Date.now() - policy.repeated_call_cooldown_seconds * 1000).toISOString();
+    const inits = [...new Set(out.map((r) => trimText(r.initiator_user_id)))].filter(Boolean);
+    if (inits.length) {
+      const { data: recentEnds } = await (sb as any)
+        .from("community_messenger_call_sessions")
+        .select("initiator_user_id")
+        .eq("recipient_user_id", userId)
+        .in("initiator_user_id", inits)
+        .not("ended_at", "is", null)
+        .gte("ended_at", cutoffIso);
+      const cooldownBlocked = new Set(
+        ((recentEnds ?? []) as Array<{ initiator_user_id?: string }>)
+          .map((r) => trimText(r.initiator_user_id))
+          .filter(Boolean)
+      );
+      out = out.filter((r) => !cooldownBlocked.has(trimText(r.initiator_user_id)));
+    }
+  }
+  return out;
 }
 
 function profileLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
@@ -6103,6 +6217,30 @@ export async function startCommunityMessengerCallSession(input: {
           createdAt: startedAt,
         });
       }
+      await appendCommunityMessengerCallSessionEvent(sb, {
+        sessionId: inserted.id,
+        actorUserId: input.userId,
+        eventType: "ringing",
+        payload: { call_kind: input.callKind, session_mode: isGroupRoom ? "group" : "direct" },
+      });
+      if (!isGroupRoom && peerUserId) {
+        void (async () => {
+          try {
+            const pol = await getMessengerCallAdminPolicyCached();
+            if (pol.suppress_incoming_local_notifications) return;
+            const profileMap = await fetchProfilesByIds([input.userId]);
+            const callerLabel = profileLabel(profileMap.get(input.userId), input.userId);
+            await sendWebPushForCommunityMessengerIncomingCall({
+              recipientUserId: peerUserId,
+              sessionId: inserted.id,
+              callKind: input.callKind,
+              callerDisplayName: callerLabel,
+            });
+          } catch {
+            /* Web Push 실패는 통화 발신 성공과 분리 */
+          }
+        })();
+      }
       const syntheticParticipantRows: CallSessionParticipantRow[] = participantRows
         .filter((row): row is typeof row & { user_id: string } => typeof row.user_id === "string" && row.user_id.length > 0)
         .map((row) => ({
@@ -6429,7 +6567,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .eq("session_id", sessionId);
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
-            .update({ status: "cancelled", ended_at: now, updated_at: now })
+            .update({ status: "cancelled", ended_at: now, updated_at: now, ended_reason: "canceled" })
             .eq("id", sessionId)
             .select(
               "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
@@ -6438,6 +6576,12 @@ export async function updateCommunityMessengerCallSession(input: {
           if (updated) {
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
             await finalizeLog(session, mapped);
+            await appendCommunityMessengerCallSessionEvent(sb, {
+              sessionId,
+              actorUserId: input.userId,
+              eventType: "canceled",
+              payload: { scope: "group" },
+            });
             return { ok: true, session: mapped };
           }
           return { ok: false, error: "call_session_update_failed" };
@@ -6472,7 +6616,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .eq("session_id", sessionId);
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
-            .update({ status: "missed", ended_at: now, updated_at: now })
+            .update({ status: "missed", ended_at: now, updated_at: now, ended_reason: "missed" })
             .eq("id", sessionId)
             .select(
               "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
@@ -6481,6 +6625,12 @@ export async function updateCommunityMessengerCallSession(input: {
           if (updated) {
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
             await finalizeLog(session, mapped);
+            await appendCommunityMessengerCallSessionEvent(sb, {
+              sessionId,
+              actorUserId: input.userId,
+              eventType: "missed",
+              payload: { scope: "group" },
+            });
             return { ok: true, session: mapped };
           }
           return { ok: false, error: "call_session_update_failed" };
@@ -6511,6 +6661,9 @@ export async function updateCommunityMessengerCallSession(input: {
         };
         if (nextStatus === "active" && !session.answered_at) updatePayload.answered_at = now;
         if (isTerminalCallSessionStatus(nextStatus)) updatePayload.ended_at = now;
+        const erG = endedReasonForSessionDelta(input.action, nextStatus as CommunityMessengerCallSessionStatus);
+        if (erG) updatePayload.ended_reason = erG;
+        else if (nextStatus === "active") updatePayload.ended_reason = null;
         const { data: updated } = await (sb as any)
           .from("community_messenger_call_sessions")
           .update(updatePayload)
@@ -6529,6 +6682,12 @@ export async function updateCommunityMessengerCallSession(input: {
             .maybeSingle();
           if (!existingLog) await finalizeLog(session, mapped);
         }
+        await appendCommunityMessengerCallSessionEvent(sb, {
+          sessionId,
+          actorUserId: input.userId,
+          eventType: auditEventTypeForAction(input.action, nextStatus as CommunityMessengerCallSessionStatus),
+          payload: { next_status: nextStatus, scope: "group" },
+        });
         return { ok: true, session: mapped };
       }
 
@@ -6549,6 +6708,9 @@ export async function updateCommunityMessengerCallSession(input: {
         };
         if (next.answeredAt) updatePayload.answered_at = next.answeredAt;
         if (next.endedAt) updatePayload.ended_at = next.endedAt;
+        const er = endedReasonForSessionDelta(input.action, next.nextStatus);
+        if (er) updatePayload.ended_reason = er;
+        else if (next.nextStatus === "active") updatePayload.ended_reason = null;
         const result = await (sb as any)
           .from("community_messenger_call_sessions")
           .update(updatePayload)
@@ -6587,6 +6749,12 @@ export async function updateCommunityMessengerCallSession(input: {
             .maybeSingle();
           if (!existingLog) await finalizeLog(session, mapped);
         }
+        await appendCommunityMessengerCallSessionEvent(sb, {
+          sessionId,
+          actorUserId: input.userId,
+          eventType: auditEventTypeForAction(input.action, next.nextStatus),
+          payload: { next_status: next.nextStatus, scope: "direct" },
+        });
         return { ok: true, session: mapped };
       }
       if (!isMissingTableError(error)) {
@@ -6770,7 +6938,14 @@ export async function listIncomingCommunityMessengerCallSessions(
   userId: string,
   options?: { directOnly?: boolean }
 ): Promise<CommunityMessengerCallSession[]> {
+  const policy = await getMessengerCallAdminPolicyCached();
   const sb = getSupabaseOrNull();
+  if (sb && policy.busy_auto_reject_enabled) {
+    if (await userHasActiveDirectCallSession(sb, userId)) {
+      return [];
+    }
+  }
+
   if (sb) {
     if (options?.directOnly) {
       const { data: directRows, error: directError } = await (sb as any)
@@ -6784,7 +6959,10 @@ export async function listIncomingCommunityMessengerCallSessions(
         .order("created_at", { ascending: false })
         .limit(10);
       if (!directError && (directRows ?? []).length) {
-        return mapIncomingCallSessionsBatch(userId, (directRows ?? []) as CallSessionRow[]);
+        const filtered = await filterDirectIncomingRowsForPolicy(sb, userId, (directRows ?? []) as CallSessionRow[], policy);
+        if (filtered.length) {
+          return mapIncomingCallSessionsBatch(userId, filtered);
+        }
       }
       return [];
     }
@@ -6830,7 +7008,10 @@ export async function listIncomingCommunityMessengerCallSessions(
     }
 
     if ((!directError || !groupError) && ((directRows ?? []).length || groupRows.length)) {
-      const merged = [...((directRows ?? []) as CallSessionRow[]), ...groupRows]
+      const directFiltered = (directRows ?? []).length
+        ? await filterDirectIncomingRowsForPolicy(sb, userId, (directRows ?? []) as CallSessionRow[], policy)
+        : [];
+      const merged = [...directFiltered, ...groupRows]
         .sort((a, b) => (trimText(b.created_at) || "").localeCompare(trimText(a.created_at) || ""))
         .slice(0, 10);
       return mapIncomingCallSessionsBatch(userId, merged);

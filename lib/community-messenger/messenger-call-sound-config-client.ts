@@ -15,6 +15,13 @@ export type MessengerCallSoundConfig = {
   call_end_sound_url: string | null;
   use_custom_sounds: boolean;
   default_fallback_sound_url: string | null;
+  /** 관리자 — 수신 벨 최대 길이(초), 클라 카운트다운용 */
+  incoming_ring_timeout_seconds: number;
+  /** 0–1 */
+  incoming_ringtone_volume: number;
+  busy_auto_reject_enabled: boolean;
+  repeated_call_cooldown_seconds: number;
+  suppress_incoming_local_notifications: boolean;
 };
 
 /** `undefined` = 아직 성공 응답 전, `null` = 행 없음/설정 없음(재시도 안 함) */

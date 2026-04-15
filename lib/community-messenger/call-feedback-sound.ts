@@ -51,6 +51,10 @@ export async function startCommunityMessengerCallTone(
 
   const cfg = getMessengerCallSoundConfigCache();
   const callKind: CommunityMessengerCallKind = options?.callKind === "video" ? "video" : "voice";
+  const volCfg = cfg?.incoming_ringtone_volume;
+  const vIn =
+    typeof volCfg === "number" && Number.isFinite(volCfg) ? Math.min(1, Math.max(0, volCfg)) : 0.72;
+  const vOut = Math.min(1, vIn * 0.625);
   const adminUrl = resolveMessengerCallToneUrl(cfg, mode, callKind);
   if (adminUrl) {
     let audio: HTMLAudioElement | null = null;
@@ -66,7 +70,7 @@ export async function startCommunityMessengerCallTone(
       const next = new Audio(adminUrl);
       next.preload = "auto";
       next.loop = true;
-      next.volume = mode === "incoming" ? 0.72 : 0.45;
+      next.volume = mode === "incoming" ? vIn : vOut;
       audio = next;
       void next.play().catch(() => undefined);
       const stop = () => {
@@ -114,7 +118,7 @@ export async function startCommunityMessengerCallTone(
       const next = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
       next.preload = "auto";
       next.loop = true;
-      next.volume = mode === "incoming" ? 0.72 : 0.45;
+      next.volume = mode === "incoming" ? vIn : vOut;
       next.playbackRate = mode === "incoming" ? 1 : 0.94;
       audio = next;
       const result = next.play();

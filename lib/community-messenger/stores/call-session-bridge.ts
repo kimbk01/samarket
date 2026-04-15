@@ -1,25 +1,38 @@
-import type { CommunityMessengerCallSession, CommunityMessengerCallSessionStatus } from "@/lib/community-messenger/types";
+import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import { deriveCanonicalCallSessionViewForViewer } from "@/lib/call/call-state";
 import type { MessengerCallKind, MessengerCallStatus } from "./useCallStore";
 import { useCallStore } from "./useCallStore";
 
 /**
- * 서버 세션 상태 → Zustand `useCallStore` 용 UI 단계 (대략 매핑).
- * 실제 발신/수신 협상은 `useCommunityMessengerCall` 훅이 담당.
+ * 서버 세션 → 공통 라이프사이클(`lib/call/call-state`) → Zustand `useCallStore`.
  */
 export function mapSessionStatusToCallStoreStatus(
   session: CommunityMessengerCallSession | null,
-  opts?: { hadTransportError?: boolean }
+  opts?: { hadTransportError?: boolean; viewerUserId?: string | null }
 ): MessengerCallStatus {
   if (!session) return "idle";
   if (opts?.hadTransportError) return "failed";
-  const s: CommunityMessengerCallSessionStatus = session.status;
-  if (s === "ringing") return session.isMineInitiator ? "outgoing" : "incoming";
-  if (s === "active") return "active";
-  if (s === "missed") return "missed";
-  if (s === "rejected") return "declined";
-  if (s === "cancelled") return "canceled";
-  if (s === "ended") return "ended";
-  return "idle";
+  const { lifecycle } = deriveCanonicalCallSessionViewForViewer(session, opts?.viewerUserId ?? null);
+  switch (lifecycle) {
+    case "idle":
+      return "idle";
+    case "calling":
+      return "outgoing";
+    case "ringing":
+      return "incoming";
+    case "accepted":
+      return "active";
+    case "declined":
+      return "declined";
+    case "canceled":
+      return "canceled";
+    case "missed":
+      return "missed";
+    case "ended":
+      return "ended";
+    default:
+      return "idle";
+  }
 }
 
 export function peerFromSession(session: CommunityMessengerCallSession): {
@@ -38,7 +51,10 @@ export function peerFromSession(session: CommunityMessengerCallSession): {
 }
 
 /** 세션 스냅샷을 받을 때 호출해 통화 스토어를 동기화 (선택). */
-export function syncCallStoreFromSession(session: CommunityMessengerCallSession | null, opts?: { hadTransportError?: boolean }) {
+export function syncCallStoreFromSession(
+  session: CommunityMessengerCallSession | null,
+  opts?: { hadTransportError?: boolean; viewerUserId?: string | null }
+) {
   const status = mapSessionStatusToCallStoreStatus(session, opts);
   const callType: MessengerCallKind = session?.callKind === "video" ? "video" : "voice";
   if (!session) {

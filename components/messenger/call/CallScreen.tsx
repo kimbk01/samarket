@@ -7,7 +7,7 @@ import { CallHeader } from "./CallHeader";
 import { ConnectedVideoView } from "./ConnectedVideoView";
 import { EndedCallView } from "./EndedCallView";
 import { IncomingCallView } from "./IncomingCallView";
-import { OutgoingCallView } from "./OutgoingCallView";
+import { OutgoingCallPanel } from "./OutgoingCallPanel";
 import { VoiceCallView } from "./VoiceCallView";
 import type { CallScreenViewModel } from "./call-ui.types";
 
@@ -16,7 +16,7 @@ export function CallScreen({
   variant = "overlay",
 }: {
   vm: CallScreenViewModel;
-  variant?: "overlay" | "page";
+  variant?: "overlay" | "page" | "dock-top";
 }) {
   useEffect(() => {
     if (!vm.autoCloseMs || !vm.secondaryActions?.length) return;
@@ -29,7 +29,10 @@ export function CallScreen({
   }, [vm.autoCloseMs, vm.secondaryActions]);
 
   return (
-    <CallScreenShell variant={variant} className="min-h-[100dvh] overflow-hidden">
+    <CallScreenShell
+      variant={variant === "dock-top" ? "dock-top" : variant}
+      className={variant === "dock-top" ? "min-h-0 overflow-hidden rounded-b-3xl shadow-2xl" : "min-h-[100dvh] overflow-hidden"}
+    >
       <CallBackground
         mode={vm.mode}
         phase={vm.phase}
@@ -67,5 +70,5 @@ function renderCallView(vm: CallScreenViewModel) {
   ) {
     return <VoiceCallView vm={vm} />;
   }
-  return <OutgoingCallView vm={vm} />;
+  return <OutgoingCallPanel vm={vm} />;
 }

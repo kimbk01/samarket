@@ -6,14 +6,17 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Maximize2, Phone, PhoneOff } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   playCommunityMessengerCallSignalSound,
   startCommunityMessengerCallTone,
   stopCommunityMessengerCallFeedback,
 } from "@/lib/community-messenger/call-feedback-sound";
-import { fetchMessengerCallSoundConfig } from "@/lib/community-messenger/messenger-call-sound-config-client";
+import {
+  fetchMessengerCallSoundConfig,
+  getMessengerCallSoundConfigCache,
+} from "@/lib/community-messenger/messenger-call-sound-config-client";
+import { useCommunityCallSurface } from "@/contexts/CommunityCallSurfaceContext";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
@@ -25,8 +28,10 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { CallScreen } from "@/components/messenger/call/CallScreen";
-import type { CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
+import { CommunityMessengerIncomingCallOverlay } from "@/components/messenger/call/CallOverlay";
+import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
+import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
+import { showLocalIncomingCallNotificationIfEligible } from "@/lib/call/call-notification";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -57,6 +62,7 @@ function isTerminalCallSessionStatusValue(status: unknown): boolean {
 
 export function GlobalCommunityMessengerIncomingCall() {
   const { t } = useI18n();
+  const { messengerRoomIdFromPath } = useCommunityCallSurface();
   const [userId, setUserId] = useState<string | null>(() =>
     typeof window !== "undefined" ? getCurrentUser()?.id?.trim() || null : null
   );
@@ -82,6 +88,9 @@ export function GlobalCommunityMessengerIncomingCall() {
   const incomingRealtimeOkRef = useRef(false);
   /** 수신 목록에 세션이 처음 잡힌 시각(서버 startedAt 대비) — 발신→수신 체감 지연 */
   const incomingSurfaceLoggedRef = useRef<Set<string>>(new Set());
+  /** 백그라운드 탭에서 동일 세션에 대한 로컬 Notification 중복 방지 */
+  const backgroundNotifiedIdsRef = useRef<Set<string>>(new Set());
+  const [soundPolicyEpoch, setSoundPolicyEpoch] = useState(0);
 
   const viewerUserIdRef = useRef<string | null>(null);
   viewerUserIdRef.current = userId;
@@ -119,7 +128,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [sessions]);
 
   useEffect(() => {
-    void fetchMessengerCallSoundConfig();
+    void fetchMessengerCallSoundConfig().then(() => setSoundPolicyEpoch((e) => e + 1));
   }, []);
 
   useEffect(() => {
@@ -411,6 +420,31 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [minimizedSessionId, sessions]);
 
+  useEffect(() => {
+    if (!userId) return;
+    const hidden = document.visibilityState !== "visible" || document.hidden;
+    if (!hidden) return;
+
+    for (const session of sessions) {
+      if (session.status !== "ringing") continue;
+      if (session.isMineInitiator) continue;
+      if (!session.recipientUserId || !messengerUserIdsEqual(session.recipientUserId, userId)) continue;
+      if (backgroundNotifiedIdsRef.current.has(session.id)) continue;
+      backgroundNotifiedIdsRef.current.add(session.id);
+      showLocalIncomingCallNotificationIfEligible({
+        sessionId: session.id,
+        peerLabel: session.peerLabel,
+        callKind: session.callKind,
+        suppressed: getMessengerCallSoundConfigCache()?.suppress_incoming_local_notifications === true,
+      });
+    }
+
+    for (const id of [...backgroundNotifiedIdsRef.current]) {
+      const stillRinging = sessions.some((s) => s.id === id && s.status === "ringing");
+      if (!stillRinging) backgroundNotifiedIdsRef.current.delete(id);
+    }
+  }, [sessions, userId]);
+
   /** ringing 이 목록에서 사라졌을 때(타임아웃 부재 등) 부재 사운드 — 사용자가 거절/수락한 경우는 제외 */
   useEffect(() => {
     if (!userId) return;
@@ -469,26 +503,17 @@ export function GlobalCommunityMessengerIncomingCall() {
     try {
       if (session?.peerUserId) {
         try {
-          await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              toUserId: session.peerUserId,
-              signalType: "hangup",
-              payload: { reason: "reject" },
-            }),
+          await postCommunityMessengerCallHangupSignal({
+            sessionId,
+            toUserId: session.peerUserId,
+            reason: "reject",
           });
         } catch {
           /* hangup 실패 시에도 PATCH 로 세션 종료 */
         }
       }
-      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
-      });
-      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
-      if (!patchRes.ok || !patchJson.ok) {
+      const patchJson = await patchCommunityMessengerCallSession(sessionId, "reject");
+      if (!patchJson.ok) {
         setSessionActionError(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
         return;
       }
@@ -538,87 +563,36 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   if (visibleSession && isMinimized) {
     return (
-      <div
-        className="pointer-events-auto fixed inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] z-[60] px-3"
-        role="dialog"
-        aria-label="수신 통화"
-      >
-        <div className="mx-auto flex max-w-lg items-center gap-3 rounded-[20px] border border-white/12 bg-[#121214] px-4 py-3 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-          <button
-            type="button"
-            onClick={() => setMinimizedSessionId(null)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition active:scale-[0.96]"
-            aria-label="통화 창 펼치기"
-          >
-            <Maximize2 size={20} strokeWidth={2.2} />
-          </button>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold text-white">{visibleSession.peerLabel}</p>
-            <p className="truncate text-[12px] text-zinc-400">전화가 오고 있습니다…</p>
-          </div>
-          <button
-            type="button"
-            disabled={busyId === `reject:${visibleSession.id}` || busyId === `accept:${visibleSession.id}`}
-            onClick={() => void rejectCall(visibleSession.id)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ef4444] text-white shadow-md transition active:scale-[0.96] disabled:opacity-40"
-            aria-label="거절"
-          >
-            <PhoneOff size={22} />
-          </button>
-          <button
-            type="button"
-            disabled={busyId === `accept:${visibleSession.id}`}
-            onClick={() => void acceptCall(visibleSession)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#22c55e] text-white shadow-md transition active:scale-[0.96] disabled:opacity-40"
-            aria-label="수락"
-          >
-            <Phone size={22} className="rotate-[135deg]" />
-          </button>
-        </div>
-      </div>
+      <IncomingCallBanner
+        peerLabel={visibleSession.peerLabel}
+        busyReject={busyId === `reject:${visibleSession.id}` || busyId === `accept:${visibleSession.id}`}
+        busyAccept={busyId === `accept:${visibleSession.id}`}
+        onExpand={() => setMinimizedSessionId(null)}
+        onReject={() => void rejectCall(visibleSession.id)}
+        onAccept={() => void acceptCall(visibleSession)}
+      />
     );
   }
 
   if (visibleSession) {
-    const callTypeLabel = visibleSession.callKind === "video" ? "영상 통화" : "음성 통화";
-    const incomingVm: CallScreenViewModel = {
-      mode: visibleSession.callKind === "video" ? "video" : "voice",
-      direction: "incoming",
-      phase: "ringing",
-      peerLabel: visibleSession.peerLabel,
-      peerAvatarUrl: null,
-      statusText: callTypeLabel,
-      subStatusText: sessionActionError ?? incomingListError ?? null,
-      topLabel: null,
-      footerNote: null,
-      mediaState: {
-        micEnabled: true,
-        speakerEnabled: true,
-        cameraEnabled: visibleSession.callKind === "video",
-        localVideoMinimized: true,
-      },
-      onBack: () => setMinimizedSessionId(visibleSession.id),
-      primaryActions: [
-        {
-          id: "reject",
-          label: busyId === `reject:${visibleSession.id}` ? "거절 중" : "거절",
-          icon: "decline",
-          tone: "danger",
-          disabled: busyId === `reject:${visibleSession.id}` || busyId === `accept:${visibleSession.id}`,
-          onClick: () => void rejectCall(visibleSession.id),
-        },
-        {
-          id: "accept",
-          label: busyId === `accept:${visibleSession.id}` ? "연결 중" : "수락",
-          icon: "accept",
-          tone: "accept",
-          disabled: busyId === `accept:${visibleSession.id}`,
-          onClick: () => void acceptCall(visibleSession),
-        },
-      ],
-    };
-
-    return <CallScreen vm={incomingVm} variant="overlay" />;
+    const inRoomStrip =
+      Boolean(messengerRoomIdFromPath) &&
+      visibleSession.sessionMode === "direct" &&
+      messengerUserIdsEqual(visibleSession.roomId, messengerRoomIdFromPath ?? "");
+    return (
+      <CommunityMessengerIncomingCallOverlay
+        key={`${visibleSession.id}:${soundPolicyEpoch}`}
+        session={visibleSession}
+        busyId={busyId}
+        sessionActionError={sessionActionError}
+        incomingListError={incomingListError}
+        onMinimize={() => setMinimizedSessionId(visibleSession.id)}
+        onReject={rejectCall}
+        onAccept={acceptCall}
+        placement={inRoomStrip ? "in-room" : "global"}
+        ringTimeoutSeconds={getMessengerCallSoundConfigCache()?.incoming_ring_timeout_seconds ?? 45}
+      />
+    );
   }
 
   if (!visibleSession) {

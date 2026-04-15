@@ -3,6 +3,7 @@
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { invalidateMessengerCallSoundConfigCache } from "@/lib/community-messenger/messenger-call-sound-config-client";
+import { invalidateMessengerCallAdminPolicyCache } from "@/lib/community-messenger/messenger-call-admin-policy";
 
 type Row = Record<string, unknown> | null;
 
@@ -225,6 +226,7 @@ export function AdminMessengerCallSoundsSection() {
       }
       patchLocal({ [urlKey]: j.sound_url });
       invalidateMessengerCallSoundConfigCache();
+      invalidateMessengerCallAdminPolicyCache();
     },
     [patchLocal]
   );
@@ -246,6 +248,7 @@ export function AdminMessengerCallSoundsSection() {
         return;
       }
       invalidateMessengerCallSoundConfigCache();
+      invalidateMessengerCallAdminPolicyCache();
     } catch {
       setErr("네트워크 오류");
     } finally {
@@ -347,6 +350,61 @@ export function AdminMessengerCallSoundsSection() {
           onTest={testPlay}
           onUploadFile={(file) => uploadSoundFile("default_fallback_sound_url", file)}
         />
+      </AdminCard>
+
+      <AdminCard title="통화 정책(링·수신·서버)">
+        <div className="space-y-3 py-2 text-[13px] text-ui-fg">
+          <label className="flex flex-col gap-1">
+            <span className="text-ui-muted">수신 링 최대 길이(초) — 클라이언트 남은 시간 표시</span>
+            <input
+              type="number"
+              min={10}
+              max={600}
+              className="rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5"
+              value={typeof row?.incoming_ring_timeout_seconds === "number" ? row.incoming_ring_timeout_seconds : 45}
+              onChange={(e) => patchLocal({ incoming_ring_timeout_seconds: Number(e.target.value) })}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-ui-muted">수신 벨 볼륨(0–1)</span>
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.05}
+              className="rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5"
+              value={typeof row?.incoming_ringtone_volume === "number" ? row.incoming_ringtone_volume : 0.72}
+              onChange={(e) => patchLocal({ incoming_ringtone_volume: Number(e.target.value) })}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-ui-muted">
+            <input
+              type="checkbox"
+              checked={row?.busy_auto_reject_enabled === true}
+              onChange={(e) => patchLocal({ busy_auto_reject_enabled: e.target.checked })}
+            />
+            통화 중(active 1:1)이면 새 수신 목록 숨김(서버)
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-ui-muted">동일 발신-수신 재통화 쿨다운(초, 0=끔)</span>
+            <input
+              type="number"
+              min={0}
+              max={3600}
+              className="rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5"
+              value={typeof row?.repeated_call_cooldown_seconds === "number" ? row.repeated_call_cooldown_seconds : 0}
+              onChange={(e) => patchLocal({ repeated_call_cooldown_seconds: Number(e.target.value) })}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-ui-muted">
+            <input
+              type="checkbox"
+              checked={row?.suppress_incoming_local_notifications === true}
+              onChange={(e) => patchLocal({ suppress_incoming_local_notifications: e.target.checked })}
+            />
+            수신 통화 알림 억제(백그라운드 로컬 Notification + Web Push)
+          </label>
+        </div>
       </AdminCard>
 
       <button
