@@ -3832,12 +3832,20 @@ export async function joinOpenGroupRoomWithPassword(input: {
         if (!verifyMeetingPassword(password, room.password_hash)) return { ok: false, error: "invalid_password" };
       }
       if (identityPolicy !== "alias_allowed" && identityMode === "alias") return { ok: false, error: "forbidden" };
-      const { count } = await (sb as any)
+      /**
+       * `count: "exact"` can be expensive for large rooms (it may scan/index-walk).
+       * We only need to know "is it full?" — use limit+1 as a cheap existence check.
+       */
+      const { data: participantHead, error: participantHeadError } = await (sb as any)
         .from("community_messenger_participants")
-        .select("id", { count: "exact", head: true })
-        .eq("room_id", roomId);
+        .select("id")
+        .eq("room_id", roomId)
+        .limit(Number(room.member_limit ?? 0) > 0 ? Math.max(1, Number(room.member_limit ?? 0)) + 1 : 1);
+      if (participantHeadError && !isMissingTableError(participantHeadError)) {
+        return { ok: false, error: String(participantHeadError.message ?? "participant_count_failed") };
+      }
       const memberLimit = Number(room.member_limit ?? 0);
-      if (memberLimit > 0 && Number(count ?? 0) >= memberLimit) return { ok: false, error: "room_full" };
+      if (memberLimit > 0 && (participantHead?.length ?? 0) > memberLimit) return { ok: false, error: "room_full" };
       const { error } = await (sb as any).from("community_messenger_participants").upsert(
         {
           room_id: roomId,

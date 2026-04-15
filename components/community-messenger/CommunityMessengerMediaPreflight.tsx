@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { markCommunityMessengerMediaTrustedOnce } from "@/lib/community-messenger/call-permission";
-import { isCommunityMessengerMediaBlockedByInsecureOrigin } from "@/lib/community-messenger/media-errors";
 import { runCommunityMessengerEntryMediaPreflight } from "@/lib/community-messenger/media-preflight";
 import { warmMessengerIceServers } from "@/lib/call/ice-servers";
 import {
@@ -58,10 +57,15 @@ export function CommunityMessengerMediaPreflight() {
     if (isConstrainedNetwork()) return;
     callChunkWarmupIdleRef.current = scheduleWhenBrowserIdle(() => {
       warmMessengerIceServers();
-      /** HTTP+LAN 등 비보안 출처에서 Agora 번들을 미리 로드하면 SDK가 WEB_SECURITY_RESTRICT 를 찍고 Next 개발 오버레이가 뜬다 */
-      if (!isCommunityMessengerMediaBlockedByInsecureOrigin()) {
-        void import("@/components/community-messenger/CommunityMessengerCallClient");
-      }
+      /**
+       * NOTE: 메신저 진입 직후 통화 화면(`CommunityMessengerCallClient`) 번들 워밍업은
+       * 홈/룸 JS를 무겁게 만들어 “메신저가 느리다” 체감을 키운다.
+       *
+       * 통화 진입의 즉시성은 "진짜 CTA 클릭"에서 prefetch/seed로 해결하고,
+       * 여기서는 ICE 서버 워밍만 유지한다.
+       *
+       * (비보안 출처 이슈로 인한 dev 오버레이도 예방)
+       */
     }, 900);
     return () => {
       cancelScheduledWhenBrowserIdle(callChunkWarmupIdleRef.current);

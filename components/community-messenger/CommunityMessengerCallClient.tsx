@@ -163,6 +163,7 @@ export function CommunityMessengerCallClient({
   initialSessionRef.current = initialSession;
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  const sessionRealtimeOkRef = useRef(false);
   const autoJoinBlockedRef = useRef(false);
   /**
    * 발신( initiator ): 브라우저는 마이크·카메라를 사용자 제스처 없이 열지 못하는 경우가 많아,
@@ -1074,6 +1075,9 @@ export function CommunityMessengerCallClient({
       name: `community-messenger-call-session:${sessionId}`,
       scope: "community-messenger-call-client:session",
       isCancelled: () => cancelled,
+      onStatus: (status) => {
+        sessionRealtimeOkRef.current = status === "SUBSCRIBED";
+      },
       build: (ch) =>
         ch.on(
           "postgres_changes",
@@ -1089,6 +1093,7 @@ export function CommunityMessengerCallClient({
 
     return () => {
       cancelled = true;
+      sessionRealtimeOkRef.current = false;
       if (sessionRealtimeDebounceRef.current) {
         clearTimeout(sessionRealtimeDebounceRef.current);
         sessionRealtimeDebounceRef.current = null;
@@ -1212,6 +1217,8 @@ export function CommunityMessengerCallClient({
     }
     const tick = () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      // Realtime 이 살아 있고(구독 성공), 이미 통화가 안정(connected) 상태면 polling 빈도를 크게 낮춘다.
+      if (sessionRealtimeOkRef.current && session.status === "active" && joined && remoteJoined) return;
       void refreshSession(true);
     };
     const timer = window.setInterval(tick, ms);

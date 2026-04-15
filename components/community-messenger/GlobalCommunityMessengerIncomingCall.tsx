@@ -200,7 +200,12 @@ export function GlobalCommunityMessengerIncomingCall() {
     const pollMs = getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false);
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      /* Realtime 폴백 시 쿨다운에 막히지 않도록 force — 간격은 pollMs 로만 제한 */
+      /**
+       * Realtime 이 정상(SUBSCRIBED)인 동안에는 polling 은 “백업”만 담당한다.
+       * - 메신저가 오래 켜져 있을수록 불필요 GET 누적 → 체감 느려짐/배터리 소모
+       * - Realtime 끊김 시에는 기존 pollMs 주기로 즉시 복구
+       */
+      if (incomingRealtimeOkRef.current) return;
       void refreshRef.current(true);
     }, pollMs);
     const onVisible = () => {
