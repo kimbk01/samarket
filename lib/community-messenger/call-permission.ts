@@ -12,7 +12,7 @@ export function markCommunityMessengerMediaTrustedOnce(): void {
   }
 }
 
-function hasCommunityMessengerMediaTrustedMark(): boolean {
+export function hasCommunityMessengerMediaTrustedMark(): boolean {
   try {
     return localStorage.getItem(LS_CM_MEDIA_TRUSTED) === "1";
   } catch {

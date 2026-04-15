@@ -15,7 +15,7 @@ import { isUnifiedChatRoomDetailPath } from "@/lib/chats/chat-room-path-utils";
  * 별도 미읽음 전용 폴링을 두지 않고, 하단 탭과 공유하는
  * owner hub badge store를 재사용해 중복 트래픽을 줄입니다.
  */
-export function GlobalOrderChatUnreadSound() {
+export function GlobalOrderChatUnreadSound({ enabled = true }: { enabled?: boolean }) {
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
   const prevSnapRef = useRef<OwnerHubBadgeBreakdown | null>(null);
@@ -31,10 +31,12 @@ export function GlobalOrderChatUnreadSound() {
 
   /** 경로마다 알림음 기준 스냅샷만 리셋 — 세션은 아래 effect 에서만(탭 이동마다 `getUser` 왕복 방지) */
   useEffect(() => {
+    if (!enabled) return;
     prevSnapRef.current = getOwnerHubBadgeSnapshot();
-  }, [pathname]);
+  }, [enabled, pathname]);
 
   useEffect(() => {
+    if (!enabled) return;
     const syncViewer = () => {
       void getCurrentUserIdForDb().then((id) => setViewerUid((prev) => (prev === id ? prev : id)));
     };
@@ -47,17 +49,19 @@ export function GlobalOrderChatUnreadSound() {
     return () => {
       authSub?.data.subscription.unsubscribe();
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     const onTestAuth = () => {
       void getCurrentUserIdForDb().then((id) => setViewerUid((prev) => (prev === id ? prev : id)));
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (!viewerUid) return;
 
     const syncFromSharedStore = () => {
@@ -85,7 +89,7 @@ export function GlobalOrderChatUnreadSound() {
       unsubscribe();
       prevSnapRef.current = null;
     };
-  }, [viewerUid]);
+  }, [enabled, viewerUid]);
 
   return null;
 }

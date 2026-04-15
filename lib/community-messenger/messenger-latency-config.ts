@@ -113,10 +113,13 @@ export const MESSENGER_CALL_SESSION_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   2000
 );
 
-/** 방 번들: `community_messenger_call_sessions` 전용 — 로그·stub 보다 빠르게 activeCall 동기화 */
-export const MESSENGER_ROOM_CALL_SESSION_DEBOUNCE_MS = readPublicEnvMs(
+/**
+ * 방 번들: `call_sessions`·`call_session_participants`·`call_logs`·call_stub 가 같은 버스트로 올 때
+ * 동일 디바운스로 `onRefresh` 1회만 스케줄 — 테이블별 이중 타이머로 GET 이 연속 발생하던 경로 제거.
+ */
+export const MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_ROOM_CALL_SESSION_RT_DEBOUNCE_MS",
-  45,
+  50,
   0,
   500
 );

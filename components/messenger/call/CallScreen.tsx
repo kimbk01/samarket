@@ -37,12 +37,18 @@ export function CallScreen({
         showVideo={vm.mode === "video" && Boolean(vm.mainVideoSlot)}
       />
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
-        <CallHeader
-          onBack={vm.onBack}
-          topLabel={vm.topLabel}
-          onTopLabelClick={vm.onTopLabelClick}
-          trailing={null}
-        />
+        {!(
+          vm.incomingDesktopChrome === true &&
+          vm.direction === "incoming" &&
+          vm.phase === "ringing"
+        ) ? (
+          <CallHeader
+            onBack={vm.onBack}
+            topLabel={vm.topLabel}
+            onTopLabelClick={vm.onTopLabelClick}
+            trailing={null}
+          />
+        ) : null}
         {renderCallView(vm)}
       </div>
     </CallScreenShell>

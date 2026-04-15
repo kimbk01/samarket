@@ -9,6 +9,8 @@ import { playDomainNotificationSound } from "@/lib/notifications/notification-so
 import { isNotificationDomain, type NotificationDomain } from "@/lib/notifications/notification-domains";
 
 export type SupabaseNotificationsRealtimeOptions = {
+  /** false면 구독 자체를 생성하지 않음 (라우트 전환 시 재마운트/재구독 비용을 구조적으로 제거하기 위한 게이트) */
+  enabled?: boolean;
   /** true면 신규 알림(INSERT) 시 MP3 재생 */
   playSoundOnInsert?: boolean;
   /**
@@ -41,6 +43,7 @@ export function useSupabaseNotificationsRealtime(
   options?: SupabaseNotificationsRealtimeOptions
 ) {
   useEffect(() => {
+    if (options?.enabled === false) return;
     const sb = getSupabaseClient();
     if (!sb) return;
 
@@ -127,5 +130,5 @@ export function useSupabaseNotificationsRealtime(
       subscription.unsubscribe();
       if (ch) void sb.removeChannel(ch);
     };
-  }, [onChange, options?.playSoundOnInsert, options?.onInsertSound]);
+  }, [onChange, options?.enabled, options?.playSoundOnInsert, options?.onInsertSound]);
 }

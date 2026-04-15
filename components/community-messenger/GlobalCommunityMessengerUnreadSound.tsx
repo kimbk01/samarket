@@ -35,7 +35,7 @@ function getUnreadCount(row: ParticipantRealtimeRow | null): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
-export function GlobalCommunityMessengerUnreadSound() {
+export function GlobalCommunityMessengerUnreadSound({ enabled = true }: { enabled?: boolean }) {
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
   const surface = useNotificationSurface();
@@ -51,14 +51,16 @@ export function GlobalCommunityMessengerUnreadSound() {
   }, [pathname]);
 
   useLayoutEffect(() => {
+    if (!enabled) return;
     const onVis = () => {
       visibilityRef.current = document.visibilityState;
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     const syncUser = () => {
       void getCurrentUserIdForDb().then((id) => setUserId((prev) => (prev === id ? prev : id)));
     };
@@ -71,17 +73,19 @@ export function GlobalCommunityMessengerUnreadSound() {
     return () => {
       authSub?.data.subscription.unsubscribe();
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     const onTestAuth = () => {
       void getCurrentUserIdForDb().then((id) => setUserId((prev) => (prev === id ? prev : id)));
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (!userId) return;
     const sb = getSupabaseClient();
     if (!sb) return;
@@ -159,7 +163,7 @@ export function GlobalCommunityMessengerUnreadSound() {
     return () => {
       if (channel) void sb.removeChannel(channel);
     };
-  }, [userId]);
+  }, [enabled, userId]);
 
   return null;
 }

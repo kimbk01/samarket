@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Maximize2, Phone, PhoneOff } from "lucide-react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -597,16 +598,60 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [refresh]);
 
+  if (visibleSession && isMinimized) {
+    return (
+      <div
+        className="pointer-events-auto fixed inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] z-[60] px-3"
+        role="dialog"
+        aria-label="수신 통화"
+      >
+        <div className="mx-auto flex max-w-lg items-center gap-3 rounded-[20px] border border-white/12 bg-[#121214] px-4 py-3 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
+          <button
+            type="button"
+            onClick={() => setMinimizedSessionId(null)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition active:scale-[0.96]"
+            aria-label="통화 창 펼치기"
+          >
+            <Maximize2 size={20} strokeWidth={2.2} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-semibold text-white">{visibleSession.peerLabel}</p>
+            <p className="truncate text-[12px] text-zinc-400">전화가 오고 있습니다…</p>
+          </div>
+          <button
+            type="button"
+            disabled={busyId === `reject:${visibleSession.id}` || busyId === `accept:${visibleSession.id}`}
+            onClick={() => void rejectCall(visibleSession.id)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ef4444] text-white shadow-md transition active:scale-[0.96] disabled:opacity-40"
+            aria-label="거절"
+          >
+            <PhoneOff size={22} />
+          </button>
+          <button
+            type="button"
+            disabled={busyId === `accept:${visibleSession.id}`}
+            onClick={() => void acceptCall(visibleSession)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#22c55e] text-white shadow-md transition active:scale-[0.96] disabled:opacity-40"
+            aria-label="수락"
+          >
+            <Phone size={22} className="rotate-[135deg]" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (visibleSession) {
     const callTypeLabel = visibleSession.callKind === "video" ? "영상 통화" : "음성 통화";
     const incomingVm: CallScreenViewModel = {
       mode: visibleSession.callKind === "video" ? "video" : "voice",
       direction: "incoming",
       phase: "ringing",
+      incomingDesktopChrome: true,
       peerLabel: visibleSession.peerLabel,
       peerAvatarUrl: null,
       statusText: callTypeLabel,
-      subStatusText: sessionActionError ?? incomingListError ?? "수락 또는 거절을 선택해 주세요.",
+      subStatusText: sessionActionError ?? incomingListError ?? null,
       topLabel: t("nav_incoming_call"),
       footerNote: "실제 통화 시간은 연결 완료 후부터 시작됩니다.",
       mediaState: {

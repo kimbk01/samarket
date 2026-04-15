@@ -180,7 +180,10 @@ export function CommunityMessengerHome({
   initialSection,
   initialFilter,
   initialKind,
-  /** RSC에서 `getCommunityMessengerBootstrap` — 첫 `/api/.../bootstrap` 왕복 제거 */
+  /**
+   * 서버에서 채울 수 있으나, RSC 전체 부트스트랩은 탭 전환 체감을 망가뜨려 기본은 null.
+   * 클라이언트는 `peekBootstrapCache`·lite/full bootstrap API 로 동기화한다.
+   */
   initialServerBootstrap = null,
 }: {
   initialTab?: string;

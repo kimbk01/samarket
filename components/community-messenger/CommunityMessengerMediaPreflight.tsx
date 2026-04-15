@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { markCommunityMessengerMediaTrustedOnce } from "@/lib/community-messenger/call-permission";
+import {
+  hasCommunityMessengerMediaTrustedMark,
+  markCommunityMessengerMediaTrustedOnce,
+} from "@/lib/community-messenger/call-permission";
 import { runCommunityMessengerEntryMediaPreflight } from "@/lib/community-messenger/media-preflight";
 import { warmMessengerIceServers } from "@/lib/call/ice-servers";
 import {
@@ -14,12 +17,21 @@ import {
  * `/community-messenger/*` 진입 시 마이크·카메라 권한을 한 번에 확보하고 장치 ID를 저장한다.
  * 브라우저 정책상 첫 프롬프트가 막히면 첫 터치/클릭 후 1회 재시도한다.
  */
+const SESSION_PREFLIGHT_OK_KEY = "cm_messenger_entry_media_preflight_ok_v1";
+
 export function CommunityMessengerMediaPreflight() {
   const attemptedRef = useRef(false);
   const callChunkWarmupIdleRef = useRef<number>(-1);
 
   useEffect(() => {
     if (typeof window === "undefined" || attemptedRef.current) return;
+    /** 탭 이탈 후 재진입마다 Permissions/GUM 경로를 다시 타면 메인 스레드·브라우저 작업이 전환 체감을 망친다. */
+    if (hasCommunityMessengerMediaTrustedMark()) return;
+    try {
+      if (window.sessionStorage.getItem(SESSION_PREFLIGHT_OK_KEY) === "1") return;
+    } catch {
+      /* private mode */
+    }
     attemptedRef.current = true;
 
     let retry: (() => void) | null = null;
@@ -27,12 +39,24 @@ export function CommunityMessengerMediaPreflight() {
       const r = await runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: allowPrompt });
       if (r.ok) {
         markCommunityMessengerMediaTrustedOnce();
+        try {
+          window.sessionStorage.setItem(SESSION_PREFLIGHT_OK_KEY, "1");
+        } catch {
+          /* ignore */
+        }
         return;
       }
       if (r.code === "gum_failed" && !allowPrompt) {
         retry = () => {
           void runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: true }).then((r2) => {
-            if (r2.ok) markCommunityMessengerMediaTrustedOnce();
+            if (r2.ok) {
+              markCommunityMessengerMediaTrustedOnce();
+              try {
+                window.sessionStorage.setItem(SESSION_PREFLIGHT_OK_KEY, "1");
+              } catch {
+                /* ignore */
+              }
+            }
           });
           window.removeEventListener("pointerdown", retry!, true);
           retry = null;

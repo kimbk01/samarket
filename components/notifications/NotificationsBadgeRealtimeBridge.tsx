@@ -13,7 +13,7 @@ import { OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS } from "@/lib/notification
  * `KASAMA_NOTIFICATIONS_UPDATED` 로 브로드캐스트합니다.
  * INSERT 시 인앱 알림음은 동일 채널에서 처리(별도 Realtime 구독 없음).
  */
-export function NotificationsBadgeRealtimeBridge() {
+export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?: boolean }) {
   const surface = useNotificationSurface();
 
   const bump = useCallback(() => {
@@ -76,6 +76,7 @@ export function NotificationsBadgeRealtimeBridge() {
   );
 
   useSupabaseNotificationsRealtime(bump, {
+    enabled,
     playSoundOnInsert: true,
     ...(surface ? { onInsertSound } : {}),
   });

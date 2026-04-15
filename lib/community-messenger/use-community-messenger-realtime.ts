@@ -6,6 +6,7 @@
  * - **구독 수**: 홈은 방 id 를 `in.(…)` 청크로 묶어 WS 채널 수를 줄임 (`HOME_ROOMS_IN_FILTER_MAX`).
  * - **방 번들**: 방당 단일 채널에 messages / participants / rooms / call_* postgres_changes 를 묶음.
  * - **메타 refresh**: 멤버·방 설정 변경은 연속 이벤트가 많아 디바운스로 `onRefresh` 호출을 합침 — 수치는 `messenger-latency-config.ts` (home-sync 단일 비행으로 폭주 완화).
+ * - **통화(방 번들)**: 세션·참가자·로그·call_stub 는 단일 `roomCallBundleRefreshScheduler` 로 합류 (버스트당 GET 1회).
  * - **메시지**: INSERT/UPDATE/DELETE 는 콜백으로만 처리; 파싱 실패 시에만 짧은 지연 refresh.
  * - **typing / presence**: 현재 스키마 훅에 없음 — 추가 시 **별 토픽·초경량 페이로드**만 (전체 방 refresh 금지).
  *
@@ -21,9 +22,8 @@ import {
 } from "@/lib/community-messenger/monitoring/client";
 import {
   MESSENGER_HOME_META_DEBOUNCE_MS,
-  MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS,
   MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS,
-  MESSENGER_ROOM_CALL_SESSION_DEBOUNCE_MS,
+  MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS,
   MESSENGER_ROOM_META_DEBOUNCE_MS,
   MESSENGER_VOICE_AUX_DEBOUNCE_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
@@ -272,15 +272,10 @@ export function useCommunityMessengerRoomRealtime(args: {
     );
     /** 멤버·방 설정 변경은 연속 이벤트가 많아 묶음 → 단일 GET 부담 감소 */
     const metaRefreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_ROOM_META_DEBOUNCE_MS);
-    /** 통화 로그·stub 등 — 세션 row 보다 약간 느리게 묶음 */
-    const callRefreshScheduler = createRefreshScheduler(
+    /** 통화 관련 테이블·call_stub — 한 버스트당 타이머 1개·`onRefresh` 1회 */
+    const roomCallBundleRefreshScheduler = createRefreshScheduler(
       callbackRef,
-      MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS
-    );
-    /** 세션 status(링·수락·종료) — 발신/수신 양쪽 activeCall 이 빨리 맞도록 */
-    const callSessionRefreshScheduler = createRefreshScheduler(
-      callbackRef,
-      MESSENGER_ROOM_CALL_SESSION_DEBOUNCE_MS
+      MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS
     );
     /** 음성 INSERT 직후 GET 이 비는 경우 대비 — 지연 refresh 로 채팅 목록·스냅샷을 한 번 더 맞춤 */
     const voiceRefreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_VOICE_AUX_DEBOUNCE_MS);
@@ -329,7 +324,7 @@ export function useCommunityMessengerRoomRealtime(args: {
                   }
                 }
                 if (nextMessage.messageType === "call_stub" && !cancelled) {
-                  callRefreshScheduler.schedule();
+                  roomCallBundleRefreshScheduler.schedule();
                 }
                 if (nextMessage.messageType === "voice" && eventType === "INSERT" && !cancelled) {
                   voiceRefreshScheduler.schedule();
@@ -372,7 +367,7 @@ export function useCommunityMessengerRoomRealtime(args: {
               filter: `room_id=eq.${args.roomId}`,
             },
             () => {
-              if (!cancelled) callRefreshScheduler.schedule();
+              if (!cancelled) roomCallBundleRefreshScheduler.schedule();
             }
           )
           .on(
@@ -384,7 +379,7 @@ export function useCommunityMessengerRoomRealtime(args: {
               filter: `room_id=eq.${args.roomId}`,
             },
             () => {
-              if (!cancelled) callSessionRefreshScheduler.schedule();
+              if (!cancelled) roomCallBundleRefreshScheduler.schedule();
             }
           )
           .on(
@@ -396,7 +391,7 @@ export function useCommunityMessengerRoomRealtime(args: {
               filter: `room_id=eq.${args.roomId}`,
             },
             () => {
-              if (!cancelled) callSessionRefreshScheduler.schedule();
+              if (!cancelled) roomCallBundleRefreshScheduler.schedule();
             }
           ),
     });
@@ -406,8 +401,7 @@ export function useCommunityMessengerRoomRealtime(args: {
       cancelled = true;
       messageFallbackRefreshScheduler.cancel();
       metaRefreshScheduler.cancel();
-      callRefreshScheduler.cancel();
-      callSessionRefreshScheduler.cancel();
+      roomCallBundleRefreshScheduler.cancel();
       voiceRefreshScheduler.cancel();
       for (const channel of channels) {
         channel.stop();

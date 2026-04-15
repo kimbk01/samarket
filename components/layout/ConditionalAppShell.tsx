@@ -69,10 +69,15 @@ export function ConditionalAppShell({
     <div className={f.appShellRootClass}>
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       {f.mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
-      {f.mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
-      {f.mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
-      {f.mountGlobalRealtimeChrome ? <GlobalCommunityMessengerUnreadSound /> : null}
-      {f.mountGlobalRealtimeChrome && messengerRolloutShowsInAppMessageBanner() ? (
+      {/**
+       * 구조적 해결: 라우트 전환마다 언마운트→재마운트로 WS 재구독/부트스트랩이 반복되면
+       * “메신저 탭 선택/페이지 이동이 계속 느려지는” 체감이 누적된다.
+       * 컴포넌트는 항상 마운트하고 내부 구독만 enabled 게이트로 제어해 재마운트 비용을 제거한다.
+       */}
+      <NotificationsBadgeRealtimeBridge enabled={f.mountGlobalRealtimeChrome} />
+      <GlobalOrderChatUnreadSound enabled={f.mountGlobalRealtimeChrome} />
+      <GlobalCommunityMessengerUnreadSound enabled={f.mountGlobalRealtimeChrome} />
+      {messengerRolloutShowsInAppMessageBanner() ? (
         <MessengerInAppMessageBannerHost />
       ) : null}
       {!f.suppressIncomingCallOverlay ? <IncomingCallOverlay /> : null}
