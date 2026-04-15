@@ -61,7 +61,7 @@ export function writePreferredCommunityMessengerDeviceIds(audioDeviceId: string 
   }
 }
 
-function persistDeviceIdsFromMediaStream(stream: MediaStream): void {
+export function persistDeviceIdsFromMediaStream(stream: MediaStream): void {
   const a = stream.getAudioTracks()[0]?.getSettings().deviceId;
   const v = stream.getVideoTracks()[0]?.getSettings().deviceId;
   const cur = readPreferredCommunityMessengerDeviceIds();
@@ -129,19 +129,8 @@ export async function runCommunityMessengerEntryMediaPreflight(
   }
 
   const tryAcquire = async (): Promise<boolean> => {
-    const camGranted = perms.camera === "granted";
-    if (camGranted) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        persistDeviceIdsFromMediaStream(stream);
-        stream.getTracks().forEach((t) => t.stop());
-        await refreshPreferredCommunityMessengerDevicesFromEnumerate();
-        return true;
-      } catch {
-        /* fall through to audio-only */
-      }
-    }
     try {
+      /** 메신저 진입 프리플라이트는 마이크만(영상 통화도 별도 사용자 의도 시 카메라 요청). */
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       persistDeviceIdsFromMediaStream(stream);
       stream.getTracks().forEach((t) => t.stop());
@@ -201,11 +190,7 @@ export function buildCommunityMessengerMediaStreamConstraints(
 
 /** 설정 화면 「테스트」— 저장된 장치로 짧게 스트림을 열었다가 닫는다 */
 export async function testCommunityMessengerMediaPipeline(): Promise<void> {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-    throw new Error("no_mediadevices");
-  }
-  const stream = await navigator.mediaDevices.getUserMedia(
-    buildCommunityMessengerMediaStreamConstraints("video")
-  );
+  const { acquirePrimedCommunityMessengerStream } = await import("@/lib/call/permission-manager");
+  const stream = await acquirePrimedCommunityMessengerStream("video");
   stream.getTracks().forEach((t) => t.stop());
 }

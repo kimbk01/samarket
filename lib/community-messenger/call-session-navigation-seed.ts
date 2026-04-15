@@ -1,4 +1,5 @@
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 
 const KEY = "samarket.cm.call_session_seed.v1";
 
@@ -84,6 +85,9 @@ export async function bootstrapCommunityMessengerOutgoingCallSession(args: {
       return { ok: false, userMessage: "이 대화방에서는 지금 통화를 시작할 수 없습니다." };
     }
     return { ok: false, userMessage: "통화를 시작할 수 없습니다." };
+  }
+  if (json.session.sessionMode === "direct") {
+    void notifyCommunityMessengerCallInviteRingBestEffort(json.session);
   }
   return { ok: true, session: json.session, roomId };
 }

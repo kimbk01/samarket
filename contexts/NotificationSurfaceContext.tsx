@@ -11,6 +11,11 @@ import {
 import { usePathname } from "next/navigation";
 import { stopNotificationPlayback } from "@/lib/notifications/notification-sound-engine";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
+import {
+  shouldPlayGroupChatInAppSoundFromGate,
+  shouldPlayInAppSoundFromGate,
+  syncNotificationSoundGateSnapshot,
+} from "@/lib/notifications/notification-sound-gate";
 
 export type UserNotificationSettingsState = {
   trade_chat_enabled: boolean;
@@ -144,48 +149,35 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     }
   }, [activeTradeChatRoomId, activeCommunityChatRoomId]);
 
-  const shouldPlayInAppSound = useCallback(
-    (domain: NotificationDomain, refId: string | null | undefined): boolean => {
-      if (!userNotificationSettings.sound_enabled) return false;
-      if (domain === "trade_chat" && userNotificationSettings.trade_chat_enabled === false) {
-        return false;
-      }
-      if (domain === "community_chat" && userNotificationSettings.community_chat_enabled === false) {
-        return false;
-      }
-      if (domain === "order" && userNotificationSettings.order_enabled === false) return false;
-      if (domain === "store" && userNotificationSettings.store_enabled === false) return false;
-
-      const ref = refId != null ? String(refId).trim() : "";
-      if (domain === "trade_chat" && ref && activeTradeChatRoomId === ref) {
-        return false;
-      }
-      if (domain === "community_chat" && ref && activeCommunityChatRoomId === ref) {
-        return false;
-      }
-      if (!isWindowFocused) {
-        return true;
-      }
-      return true;
-    },
+  const soundGateSnapshot = useMemo(
+    () => ({
+      userNotificationSettings,
+      activeTradeChatRoomId,
+      activeCommunityChatRoomId,
+      activeGroupChatRoomId,
+      isWindowFocused,
+    }),
     [
       userNotificationSettings,
       activeTradeChatRoomId,
       activeCommunityChatRoomId,
+      activeGroupChatRoomId,
       isWindowFocused,
     ]
+  );
+  syncNotificationSoundGateSnapshot(soundGateSnapshot);
+
+  const shouldPlayInAppSound = useCallback(
+    (domain: NotificationDomain, refId: string | null | undefined): boolean =>
+      shouldPlayInAppSoundFromGate(soundGateSnapshot, domain, refId),
+    [soundGateSnapshot]
   );
 
   /** `meta.kind === "group_chat"` 인 알림 — 같은 그룹 방 화면이면 톤 생략 */
   const shouldPlayGroupChatInAppSound = useCallback(
-    (roomId: string | null | undefined): boolean => {
-      if (!userNotificationSettings.sound_enabled) return false;
-      if (userNotificationSettings.community_chat_enabled === false) return false;
-      const ref = roomId != null ? String(roomId).trim() : "";
-      if (ref && activeGroupChatRoomId === ref) return false;
-      return true;
-    },
-    [userNotificationSettings, activeGroupChatRoomId]
+    (roomId: string | null | undefined): boolean =>
+      shouldPlayGroupChatInAppSoundFromGate(soundGateSnapshot, roomId),
+    [soundGateSnapshot]
   );
 
   const value = useMemo(

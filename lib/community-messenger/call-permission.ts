@@ -1,4 +1,7 @@
-import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
+import {
+  acquirePrimedCommunityMessengerStream,
+  assertCallMediaNotPersistentlyDenied,
+} from "@/lib/call/permission-manager";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 /** 한 번 통화 장치를 통과한 브라우저는 이후 발신 시 확인 오버레이를 생략(동종 메신저와 유사) */
@@ -170,28 +173,6 @@ function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream
   };
 }
 
-/** 브라우저에 이미 거부로 기록된 경우 불필요한 getUserMedia 반복을 줄인다(지원 브라우저 한정). */
-async function assertPersistentPermissionNotDenied(kind: CommunityMessengerCallKind): Promise<void> {
-  if (typeof navigator === "undefined" || !navigator.permissions?.query) return;
-  try {
-    const mic = await navigator.permissions.query({ name: "microphone" as PermissionName });
-    if (mic.state === "denied") {
-      throw new DOMException("Microphone permission denied", "NotAllowedError");
-    }
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "NotAllowedError") throw e;
-  }
-  if (kind !== "video") return;
-  try {
-    const cam = await navigator.permissions.query({ name: "camera" as PermissionName });
-    if (cam.state === "denied") {
-      throw new DOMException("Camera permission denied", "NotAllowedError");
-    }
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "NotAllowedError") throw e;
-  }
-}
-
 /**
  * 전역 수신 배너에서 클릭으로 프라임한 뒤 방으로 이동하면, 자동 수락이 `useEffect`에서
  * 돌아 사용자 제스처가 없다. 이 경우 다시 `getUserMedia`를 호출하면 Chrome 등에서
@@ -213,10 +194,8 @@ export function primeCommunityMessengerDevicePermissionFromUserGesture(
     }
     clearPrimedDeviceStream(true);
   }
-  return assertPersistentPermissionNotDenied(kind)
-    .then(() =>
-      navigator.mediaDevices.getUserMedia(buildCommunityMessengerMediaStreamConstraints(kind))
-    )
+  return assertCallMediaNotPersistentlyDenied(kind)
+    .then(() => acquirePrimedCommunityMessengerStream(kind))
     .then((stream) => {
       if (typeof window === "undefined") {
         for (const track of stream.getTracks()) {

@@ -6,11 +6,17 @@ import {
   consumePrimedCommunityMessengerDevicePermission,
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
+import {
+  acquireCommunityMessengerWebRtcStream,
+  adoptCommunityMessengerWebRtcStream,
+  migrateCommunityMessengerMediaSessionKey,
+  releaseCommunityMessengerWebRtcMedia,
+  syncCommunityMessengerWebRtcSessionCacheAfterTracksChanged,
+} from "@/lib/call/permission-manager";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
-import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import {
   callSessionPhaseLabel,
@@ -22,6 +28,11 @@ import {
   applyVideoSenderDegradationPreference,
   buildMessengerRtcConfiguration,
 } from "@/lib/call/webrtc-configuration";
+import { patchCommunityMessengerCallSession } from "@/lib/call/call-actions";
+import {
+  notifyCommunityMessengerCallInviteHangupBestEffort,
+  notifyCommunityMessengerCallInviteRingBestEffort,
+} from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import {
   applyRemoteOfferWithPerfectNegotiation,
   createPerfectNegotiationState,
@@ -81,6 +92,43 @@ function readSessionDescription(
   const sdp = typeof payload.sdp === "string" ? payload.sdp.trim() : "";
   if (!sdp) return null;
   return { type: expectedType, sdp };
+}
+
+/** 영상 업그레이드 실패 시 송신·로컬 스트림에서 비디오만 제거(오디오 통화 유지) */
+function rollbackMessengerDirectCallVideoUpgrade(pc: RTCPeerConnection | null, stream: MediaStream | null): void {
+  if (pc) {
+    for (const sender of [...pc.getSenders()]) {
+      if (sender.track?.kind !== "video") continue;
+      const track = sender.track;
+      try {
+        void sender.replaceTrack(null);
+      } catch {
+        try {
+          pc.removeTrack(sender);
+        } catch {
+          /* ignore */
+        }
+      }
+      try {
+        track.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  if (!stream) return;
+  for (const vt of [...stream.getVideoTracks()]) {
+    try {
+      stream.removeTrack(vt);
+    } catch {
+      /* ignore */
+    }
+    try {
+      vt.stop();
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export function useCommunityMessengerCall(args: {
@@ -194,6 +242,7 @@ export function useCommunityMessengerCall(args: {
     for (const track of localStream?.getTracks() ?? []) track.stop();
     for (const track of remoteStream?.getTracks() ?? []) track.stop();
     discardPrimedCommunityMessengerDevicePermission();
+    releaseCommunityMessengerWebRtcMedia();
     localStreamHeldRef.current = null;
     setLocalStream(null);
     setRemoteStream(null);
@@ -318,25 +367,28 @@ export function useCommunityMessengerCall(args: {
       localStreamHeldRef.current = localStream;
       return localStream;
     }
+    const sessionKey = currentSessionId;
     const primedStream = consumePrimedCommunityMessengerDevicePermission(kind);
     if (primedStream) {
       if (!mountedRef.current) {
         for (const track of primedStream.getTracks()) track.stop();
         throw new Error("unmounted");
       }
+      adoptCommunityMessengerWebRtcStream(sessionKey, primedStream, kind);
       localStreamHeldRef.current = primedStream;
       setLocalStream(primedStream);
       return primedStream;
     }
-    const stream = await navigator.mediaDevices.getUserMedia(buildCommunityMessengerMediaStreamConstraints(kind));
+    const stream = await acquireCommunityMessengerWebRtcStream(kind, { sessionKey });
     if (!mountedRef.current) {
       for (const track of stream.getTracks()) track.stop();
+      releaseCommunityMessengerWebRtcMedia();
       throw new Error("unmounted");
     }
     localStreamHeldRef.current = stream;
     setLocalStream(stream);
     return stream;
-  }, [localStream]);
+  }, [currentSessionId, localStream]);
 
   const sendSignal = useCallback(async (sessionId: string, toUserId: string, signalType: "offer" | "answer" | "ice-candidate" | "hangup", payload: Record<string, unknown>) => {
     const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/signals`, {
@@ -972,8 +1024,6 @@ export function useCommunityMessengerCall(args: {
       peerLabel: args.peerLabel,
     });
     try {
-      await Promise.all([ensureLocalStream(kind), fetchMessengerIceServers()]);
-      if (pendingCallActionIdRef.current !== actionId) return;
       const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(args.roomId)}/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1003,6 +1053,10 @@ export function useCommunityMessengerCall(args: {
         sessionId: session.id,
         peerLabel: session.peerLabel,
       });
+      migrateCommunityMessengerMediaSessionKey(null, session.id);
+      void notifyCommunityMessengerCallInviteRingBestEffort(session);
+      await Promise.all([ensureLocalStream(kind), fetchMessengerIceServers()]);
+      if (pendingCallActionIdRef.current !== actionId) return;
       const connection = await ensurePeerConnection(session.callKind, session.id, session.peerUserId);
       if (pendingCallActionIdRef.current !== actionId) return;
       const offer = await connection.createOffer({
@@ -1181,6 +1235,7 @@ export function useCommunityMessengerCall(args: {
     setBusy("call-cancel");
     closeSessionImmediately(sessionId);
     try {
+      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId);
       await Promise.allSettled([
         sendSignal(sessionId, args.peerUserId, "hangup", { reason: "cancel" }),
         fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
@@ -1195,12 +1250,104 @@ export function useCommunityMessengerCall(args: {
     }
   }, [args.onRefresh, args.peerUserId, closeSessionImmediately, currentSessionId, sendSignal]);
 
+  /**
+   * 1:1 WebRTC 직접 통화만 — 서버 `upgrade_to_video` + 로컬 video 트랙 추가 + 재협상 offer.
+   * (UI 연결 시 사용자 제스처에서만 호출 — iOS Safari 권한 정책)
+   */
+  const upgradeDirectCallToVideo = useCallback(async (): Promise<boolean> => {
+    if (args.roomType !== "direct") {
+      setErrorMessage("1:1 통화에서만 영상으로 전환할 수 있습니다.");
+      return false;
+    }
+    const sessionId = currentSessionId;
+    const peerId = args.peerUserId;
+    if (!sessionId || !peerId || !panel) return false;
+    if (panel.kind !== "voice" || panel.mode !== "active") return false;
+    if (transportState !== "connected") return false;
+    const pc = peerConnectionRef.current;
+    if (!pc) return false;
+
+    setBusy("call-upgrade-video");
+    setErrorMessage(null);
+    let serverUpgradedToVideo = false;
+    let streamCommittedToVideo: MediaStream | null = null;
+    try {
+      const patchJson = await patchCommunityMessengerCallSession(sessionId, "upgrade_to_video");
+      if (!patchJson.ok) {
+        setErrorMessage(
+          patchJson.error === "bad_action"
+            ? "지금은 영상으로 전환할 수 없습니다."
+            : "영상 전환 요청에 실패했습니다."
+        );
+        return false;
+      }
+      serverUpgradedToVideo = true;
+
+      const nextStream = await acquireCommunityMessengerWebRtcStream("video", { sessionKey: sessionId });
+      const vTrack = nextStream.getVideoTracks().find((t) => t.readyState === "live");
+      if (!vTrack) {
+        rollbackMessengerDirectCallVideoUpgrade(null, nextStream);
+        syncCommunityMessengerWebRtcSessionCacheAfterTracksChanged(sessionId);
+        setErrorMessage("카메라를 시작하지 못했습니다.");
+        void patchCommunityMessengerCallSession(sessionId, "downgrade_to_voice").catch(() => {});
+        void args.onRefresh();
+        return false;
+      }
+
+      streamCommittedToVideo = nextStream;
+
+      const alreadySending = pc.getSenders().some((s) => s.track?.kind === "video" && s.track.readyState === "live");
+      if (!alreadySending) {
+        pc.addTrack(vTrack, nextStream);
+      }
+
+      localStreamHeldRef.current = nextStream;
+      setLocalStream(nextStream);
+      {
+        const node = localVideoRef.current;
+        if (node?.srcObject === nextStream) {
+          node.srcObject = null;
+        }
+        bindMediaStreamToElement(node, nextStream, { muted: true });
+      }
+
+      setPanel((prev) => (prev && prev.sessionId === sessionId ? { ...prev, kind: "video" } : prev));
+
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await pc.setLocalDescription(offer);
+      await sendSignal(sessionId, peerId, "offer", { sdp: offer.sdp ?? "" });
+      void args.onRefresh();
+      return true;
+    } catch (error) {
+      if (serverUpgradedToVideo) {
+        rollbackMessengerDirectCallVideoUpgrade(peerConnectionRef.current, streamCommittedToVideo);
+        syncCommunityMessengerWebRtcSessionCacheAfterTracksChanged(sessionId);
+        void patchCommunityMessengerCallSession(sessionId, "downgrade_to_voice").catch(() => {});
+        setPanel((prev) => (prev && prev.sessionId === sessionId ? { ...prev, kind: "voice" } : prev));
+        const node = localVideoRef.current;
+        const s = localStreamHeldRef.current;
+        if (node && s) {
+          if (node.srcObject === s) {
+            node.srcObject = null;
+          }
+          bindMediaStreamToElement(node, s, { muted: true });
+        }
+        void args.onRefresh();
+      }
+      setErrorMessage(getCommunityMessengerMediaErrorMessage(error, "video"));
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }, [args, currentSessionId, panel, sendSignal, transportState]);
+
   const endActiveCall = useCallback(async () => {
     const sessionId = currentSessionId;
     if (!sessionId || !args.peerUserId) return;
     setBusy("call-end");
     closeSessionImmediately(sessionId);
     try {
+      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId);
       await Promise.allSettled([
         sendSignal(sessionId, args.peerUserId, "hangup", { reason: "end" }),
         fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
@@ -1364,5 +1511,6 @@ export function useCommunityMessengerCall(args: {
     cancelOutgoingCall,
     endActiveCall,
     retryConnection,
+    upgradeDirectCallToVideo,
   };
 }

@@ -56,11 +56,45 @@ export type BottomNavItemConfig = {
   labelFontFamilyClass?: string;
 };
 
+const BOTTOM_NAV_ITEM_CMP_KEYS: (keyof BottomNavItemConfig)[] = [
+  "id",
+  "href",
+  "label",
+  "labelKey",
+  "icon",
+  "iconSizeClass",
+  "labelInactiveExtraClass",
+  "labelActiveExtraClass",
+  "iconInactiveClass",
+  "iconActiveClass",
+  "labelInactiveClass",
+  "labelActiveClass",
+  "labelSizeClass",
+  "labelFontFamilyClass",
+];
+
+/** 서버/캐시 재조회 후에도 탭 구성이 동일하면 `setState` 를 생략해 프리페치·레이아웃 effect 재실행을 막는다. */
+export function areBottomNavItemConfigsEqual(
+  a: readonly BottomNavItemConfig[],
+  b: readonly BottomNavItemConfig[]
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    for (const k of BOTTOM_NAV_ITEM_CMP_KEYS) {
+      if (x[k] !== y[k]) return false;
+    }
+  }
+  return true;
+}
+
 /** 바 전체(배경·테두리·높이·safe area) */
 export const BOTTOM_NAV_SHELL = {
   /** 페이스북형: 흰 탭바 + 상단 경계선(토큰) */
   navClassName:
-    "fixed bottom-0 left-0 right-0 z-20 box-border flex border-t border-ig-border bg-[var(--sub-bg)]",
+    "fixed bottom-0 left-0 right-0 z-30 box-border flex border-t border-ig-border bg-[var(--sub-bg)]",
   /** 아이콘 줄 최소 4rem + 홈 인디케이터(safe-area) — `h-16`만 쓰면 iOS 등에서 CTA·탭 간 어긋남 */
   heightClass:
     "min-h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)]",

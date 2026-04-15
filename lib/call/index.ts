@@ -9,3 +9,5 @@ export * from "./call-state";
 export * from "./call-actions";
 export * from "./call-notification";
 export * from "./call-realtime";
+export * from "./permission-manager";
+export { communityMessengerCallSessionClientDomain } from "./call-session-manager";

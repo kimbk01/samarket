@@ -37,7 +37,9 @@ function buildPayload(out: NotificationSideEffectPayloadOut): string {
     typeof body.sessionId === "string" &&
     body.sessionId.trim()
   ) {
-    body.tag = `samarket-incoming-call-${body.sessionId.trim()}`;
+    const sid = body.sessionId.trim();
+    body.tag = `samarket-incoming-call-${sid}`;
+    body.call_push_kind = "incoming_call";
   }
   let s = JSON.stringify(body);
   if (s.length <= MAX_BYTES) return s;

@@ -56,9 +56,39 @@ export const MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS = readPublicEnvMs(
 /** 수신 통화: postgres_changes 연속 시 GET 합류 방지 — 너무 길면 벨 지연 체감 */
 export const MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_RT_DEBOUNCE_MS",
-  90,
-  50,
+  55,
+  0,
   2000
+);
+
+/**
+ * Realtime 이 SUBSCRIBED 여도 **HTTP 백업 폴링**을 완전히 끄면 이벤트 유실·지연 시 수신 벨이 10~20초 늦게 뜰 수 있다.
+ * (음성/영상 공통 — 클라는 동일 경로)
+ */
+export const MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_INCOMING_POLL_RT_OK_MS",
+  2800,
+  1200,
+  20_000
+);
+
+/** 수신 측에 ringing 이 떠 있는 동안 백업 GET 주기(실시간 구독 중) — 종료·동기화 체감 개선 */
+export const MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_INCOMING_POLL_RING_MS",
+  900,
+  400,
+  5000
+);
+
+/**
+ * Broadcast·푸시·Realtime INSERT 가 같은 초에 겹칠 때 GET 이 여러 번 나가지 않게 — 즉시 1회 + 이(ms) 뒤 최대 1회.
+ * (카카오/텔레그램류: 힌트 채널 + 단일 스냅샷 동기화에 가깝게)
+ */
+export const MESSENGER_INCOMING_CALL_WAKE_TRAIL_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_INCOMING_WAKE_TRAIL_MS",
+  480,
+  200,
+  2500
 );
 
 /** 수신 목록 GET 레이트 (연속 Realtime·포커스) — 폴링이 force 로 우회하므로 상한만 완화 */

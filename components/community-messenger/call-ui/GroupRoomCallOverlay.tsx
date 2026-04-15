@@ -167,6 +167,7 @@ export function GroupRoomCallOverlay({
               id: "video",
               label: "영상 전환",
               icon: "video",
+              disabled: sessionPanel.mode === "active",
               onClick: () => void groupCall.startOutgoingCall("video"),
             },
             {

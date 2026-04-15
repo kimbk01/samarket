@@ -32,6 +32,7 @@ import { CommunityMessengerIncomingCallOverlay } from "@/components/messenger/ca
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { showLocalIncomingCallNotificationIfEligible } from "@/lib/call/call-notification";
+import { requestCloseMessengerCallNotifications } from "@/lib/push/push-manager";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -41,10 +42,14 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
+  MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS,
+  MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS,
   MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS,
   MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS,
   MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS,
+  MESSENGER_INCOMING_CALL_WAKE_TRAIL_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
+import { subscribeCommunityMessengerCallInviteBroadcast } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import {
   getCommunityMessengerIncomingCallBridgeStatus,
   syncCommunityMessengerNativeIncomingCall,
@@ -80,20 +85,35 @@ export function GlobalCommunityMessengerIncomingCall() {
   const lastBurstAtRef = useRef(0);
   const pendingBurstTimerRef = useRef<number | null>(null);
   const realtimeDebounceTimerRef = useRef<number | null>(null);
+  /** Broadcast·SW·Realtime INSERT 가 같은 틱에 겹칠 때 수신 GET 을 한 번으로 합치는 꼬리 타이머 */
+  const incomingListFastSyncTrailRef = useRef<number | null>(null);
   /** 직전 폴링까지 수신 목록에 있던 ringing 세션 id (directOnly — 전부 ringing) */
   const prevIncomingRingingIdsRef = useRef<Set<string>>(new Set());
   /** 거절·수락·차단·메시지거절 등 사용자가 끊은 세션은 부재 톤 제외 */
   const suppressMissedSoundRef = useRef<Set<string>>(new Set());
-  /** Realtime 수신이 살아 있으면 폴링은 백업 역할만(간격은 기존 로직 유지, 강제 refresh는 줄임) */
+  /** Realtime SUBSCRIBED 여부 — 백업 폴링 간격만 바꿈(폴링 완전 생략은 하지 않음) */
   const incomingRealtimeOkRef = useRef(false);
   /** 수신 목록에 세션이 처음 잡힌 시각(서버 startedAt 대비) — 발신→수신 체감 지연 */
   const incomingSurfaceLoggedRef = useRef<Set<string>>(new Set());
   /** 백그라운드 탭에서 동일 세션에 대한 로컬 Notification 중복 방지 */
   const backgroundNotifiedIdsRef = useRef<Set<string>>(new Set());
+  /** 직전 렌더에서 ringing 이었던 세션 — 링 종료 시 SW/로컬 수신 알림 정리 */
+  const prevRingingIdsRef = useRef<Set<string>>(new Set());
   const [soundPolicyEpoch, setSoundPolicyEpoch] = useState(0);
 
   const viewerUserIdRef = useRef<string | null>(null);
   viewerUserIdRef.current = userId;
+  /** direct 수신 ringing — 백업 폴링을 더 촘촘히 */
+  const ringingDirectCalleeRef = useRef(false);
+  ringingDirectCalleeRef.current =
+    Boolean(userId) &&
+    sessions.some(
+      (s) =>
+        s.status === "ringing" &&
+        s.sessionMode === "direct" &&
+        !s.isMineInitiator &&
+        Boolean(s.recipientUserId && userId && messengerUserIdsEqual(s.recipientUserId, userId))
+    );
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
@@ -229,24 +249,47 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh, queueVisibilityRefreshBurst]);
 
   /**
-   * 폴링 간격은 `sessions.length` 에 따라 바꾸지 않는다.
-   * 그렇게 하면 수신 목록이 갱신될 때마다 effect 가 재실행되어 interval 재설정·`queueVisibilityRefreshBurst` 중복 호출로 GET 이 폭증할 수 있다.
-   * 벨 지연은 Supabase Realtime + 가시성 시 burst 가 담당하고, 폴링은 일정한 백업 주기만 유지한다.
+   * 타 메신저의 “힌트 → 스냅샷 1회” 패턴: 즉시 `force` 1회 + 짧은 구간 내 추가 힌트는 꼬리 1회로만 합침.
+   * (기존 다중 setTimeout 은 postgres INSERT·Broadcast·폴링과 겹쳐 동일 세션에 대한 GET 폭주·429 유발)
+   */
+  const bumpIncomingListFastSync = useCallback(() => {
+    void refreshRef.current(true);
+    if (incomingListFastSyncTrailRef.current != null) {
+      window.clearTimeout(incomingListFastSyncTrailRef.current);
+    }
+    incomingListFastSyncTrailRef.current = window.setTimeout(() => {
+      incomingListFastSyncTrailRef.current = null;
+      void refreshRef.current(true);
+    }, MESSENGER_INCOMING_CALL_WAKE_TRAIL_MS);
+  }, []);
+
+  /**
+   * 폴링은 `sessions` 의존 없이 고정 스케줄 — effect 재실행·GET 폭증 방지.
+   * Realtime 정상일 때도 **짧은 백업 폴링**을 유지해 이벤트 유실 시 10~20초 벨 지연을 막는다.
    */
   useEffect(() => {
     if (!userId) return;
     queueVisibilityRefreshBurstRef.current();
-    const pollMs = getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false);
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      /**
-       * Realtime 이 정상(SUBSCRIBED)인 동안에는 polling 은 “백업”만 담당한다.
-       * - 메신저가 오래 켜져 있을수록 불필요 GET 누적 → 체감 느려짐/배터리 소모
-       * - Realtime 끊김 시에는 기존 pollMs 주기로 즉시 복구
-       */
-      if (incomingRealtimeOkRef.current) return;
-      void refreshRef.current(true);
-    }, pollMs);
+    let pollTimer: number | null = null;
+    let cancelled = false;
+
+    const schedulePoll = () => {
+      if (cancelled) return;
+      const ms = incomingRealtimeOkRef.current
+        ? ringingDirectCalleeRef.current
+          ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
+          : MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS
+        : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false);
+      pollTimer = window.setTimeout(() => {
+        pollTimer = null;
+        if (!cancelled && document.visibilityState === "visible") {
+          void refreshRef.current(true);
+        }
+        schedulePoll();
+      }, ms);
+    };
+    schedulePoll();
+
     const onVisible = () => {
       if (document.visibilityState === "visible") queueVisibilityRefreshBurstRef.current();
     };
@@ -265,13 +308,71 @@ export function GlobalCommunityMessengerIncomingCall() {
     window.addEventListener("online", onOnline);
     window.addEventListener("focus", onWindowFocus);
     return () => {
-      window.clearInterval(timer);
+      cancelled = true;
+      if (pollTimer != null) window.clearTimeout(pollTimer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("focus", onWindowFocus);
     };
   }, [userId]);
+
+  /** 발신 측 Broadcast·푸시(SW) 힌트 — DB Realtime 보다 빠르게 수신 목록 재조회 */
+  useEffect(() => {
+    if (!userId) return;
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    let cancelled = false;
+    const ch = subscribeCommunityMessengerCallInviteBroadcast(sb, userId, {
+      onRing: () => {
+        if (cancelled) return;
+        bumpIncomingListFastSync();
+      },
+      onHangup: (payload) => {
+        if (cancelled) return;
+        const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
+        if (sid) {
+          suppressMissedSoundRef.current.add(sid);
+          stopCommunityMessengerCallFeedback();
+          setSessions((prev) => prev.filter((s) => s.id !== sid));
+        }
+        void refreshRef.current(true);
+      },
+    });
+    return () => {
+      cancelled = true;
+      try {
+        void sb.removeChannel(ch);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [userId, bumpIncomingListFastSync]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sw = navigator.serviceWorker;
+    if (!sw?.addEventListener) return;
+    const onMessage = (ev: MessageEvent) => {
+      const d = ev.data as { type?: unknown; sessionId?: unknown } | null;
+      if (!d) return;
+      if (d.type === "samarket_messenger_incoming_call_wake") {
+        bumpIncomingListFastSync();
+        return;
+      }
+      if (d.type === "samarket_messenger_call_canceled_wake") {
+        const sid = typeof d.sessionId === "string" ? d.sessionId.trim() : "";
+        if (sid) {
+          suppressMissedSoundRef.current.add(sid);
+          stopCommunityMessengerCallFeedback();
+          setSessions((prev) => prev.filter((s) => s.id !== sid));
+        }
+        void refreshRef.current(true);
+      }
+    };
+    sw.addEventListener("message", onMessage);
+    return () => sw.removeEventListener("message", onMessage);
+  }, [bumpIncomingListFastSync]);
 
   useEffect(() => {
     if (!userId) return;
@@ -331,6 +432,12 @@ export function GlobalCommunityMessengerIncomingCall() {
                   realtimeDebounceTimerRef.current = null;
                 }
                 void refreshRef.current(true);
+              } else if (p.eventType === "INSERT") {
+                if (realtimeDebounceTimerRef.current != null) {
+                  window.clearTimeout(realtimeDebounceTimerRef.current);
+                  realtimeDebounceTimerRef.current = null;
+                }
+                bumpIncomingListFastSync();
               } else {
                 scheduleRealtimeIncomingRefresh();
               }
@@ -380,10 +487,14 @@ export function GlobalCommunityMessengerIncomingCall() {
         window.clearTimeout(realtimeDebounceTimerRef.current);
         realtimeDebounceTimerRef.current = null;
       }
+      if (incomingListFastSyncTrailRef.current != null) {
+        window.clearTimeout(incomingListFastSyncTrailRef.current);
+        incomingListFastSyncTrailRef.current = null;
+      }
       sub.stop();
       incomingRealtimeOkRef.current = false;
     };
-  }, [scheduleRealtimeIncomingRefresh, userId]);
+  }, [bumpIncomingListFastSync, scheduleRealtimeIncomingRefresh, userId]);
 
   useEffect(() => {
     return () => {
@@ -398,6 +509,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (realtimeDebounceTimerRef.current != null) {
         window.clearTimeout(realtimeDebounceTimerRef.current);
         realtimeDebounceTimerRef.current = null;
+      }
+      if (incomingListFastSyncTrailRef.current != null) {
+        window.clearTimeout(incomingListFastSyncTrailRef.current);
+        incomingListFastSyncTrailRef.current = null;
       }
     };
   }, []);
@@ -446,6 +561,16 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [sessions, userId]);
 
   /** ringing 이 목록에서 사라졌을 때(타임아웃 부재 등) 부재 사운드 — 사용자가 거절/수락한 경우는 제외 */
+  useEffect(() => {
+    const nowRinging = new Set(sessions.filter((s) => s.status === "ringing").map((s) => s.id));
+    for (const id of prevRingingIdsRef.current) {
+      if (!nowRinging.has(id)) {
+        requestCloseMessengerCallNotifications(id);
+      }
+    }
+    prevRingingIdsRef.current = nowRinging;
+  }, [sessions]);
+
   useEffect(() => {
     if (!userId) return;
     const current = new Set(sessions.map((s) => s.id));

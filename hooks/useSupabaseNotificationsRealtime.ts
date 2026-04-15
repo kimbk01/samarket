@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
@@ -42,8 +42,19 @@ export function useSupabaseNotificationsRealtime(
   onChange: () => void,
   options?: SupabaseNotificationsRealtimeOptions
 ) {
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const playSoundOnInsertRef = useRef(options?.playSoundOnInsert ?? false);
+  playSoundOnInsertRef.current = options?.playSoundOnInsert ?? false;
+
+  const onInsertSoundRef = useRef(options?.onInsertSound);
+  onInsertSoundRef.current = options?.onInsertSound;
+
+  const enabled = options?.enabled !== false;
+
   useEffect(() => {
-    if (options?.enabled === false) return;
+    if (!enabled) return;
     const sb = getSupabaseClient();
     if (!sb) return;
 
@@ -67,16 +78,17 @@ export function useSupabaseNotificationsRealtime(
             filter: `user_id=eq.${uid}`,
           },
           (payload) => {
-            if (options?.playSoundOnInsert && shouldPlaySoundForNotificationInsert(payload)) {
+            if (playSoundOnInsertRef.current && shouldPlaySoundForNotificationInsert(payload)) {
               const row = (payload as { new?: Record<string, unknown> }).new ?? {};
-              if (options?.onInsertSound) {
-                const r = options.onInsertSound(row);
+              const onInsertSound = onInsertSoundRef.current;
+              if (onInsertSound) {
+                const r = onInsertSound(row);
                 if (r === false) {
-                  onChange();
+                  onChangeRef.current();
                   return;
                 }
                 if (r === true) {
-                  onChange();
+                  onChangeRef.current();
                   return;
                 }
               }
@@ -102,7 +114,7 @@ export function useSupabaseNotificationsRealtime(
                 }
               }
             }
-            onChange();
+            onChangeRef.current();
           }
         )
         .subscribe();
@@ -130,5 +142,5 @@ export function useSupabaseNotificationsRealtime(
       subscription.unsubscribe();
       if (ch) void sb.removeChannel(ch);
     };
-  }, [onChange, options?.enabled, options?.playSoundOnInsert, options?.onInsertSound]);
+  }, [enabled]);
 }

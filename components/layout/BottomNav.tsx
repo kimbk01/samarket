@@ -5,16 +5,24 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  areBottomNavItemConfigsEqual,
   BOTTOM_NAV_ITEMS,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_THEME,
   type BottomNavIconKey,
   type BottomNavItemConfig,
 } from "@/lib/main-menu/bottom-nav-config";
-import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
+import { refreshOwnerHubBadgeIfHubPath } from "@/lib/chats/owner-hub-badge-store";
+import {
+  useOwnerHubBadgeStoreDeepLink,
+  useOwnerHubBadgeTabUnreadCount,
+} from "@/lib/chats/use-owner-hub-badge-total";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
-import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
+import {
+  useOwnerLiteHasPreferredStore,
+  useOwnerLitePreferredStoreRow,
+} from "@/lib/stores/use-owner-lite-store";
 import {
   fetchMainBottomNavDeduped,
   MAIN_BOTTOM_NAV_LS_REV_KEY,
@@ -32,6 +40,200 @@ function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): bo
   return true;
 }
 
+type BottomNavI18n = ReturnType<typeof useI18n>;
+type BottomNavRouter = ReturnType<typeof useRouter>;
+
+function BottomNavTabStandard({
+  tab,
+  pathname,
+  tt,
+  t,
+  router,
+}: {
+  tab: BottomNavItemConfig;
+  pathname: string | null;
+  tt: BottomNavI18n["tt"];
+  t: BottomNavI18n["t"];
+  router: BottomNavRouter;
+}) {
+  const hasOwnerStore = useOwnerLiteHasPreferredStore();
+  const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
+  const isActive = pathname === tab.href || (pathname?.startsWith(tab.href + "/") ?? false);
+  const Icon = TAB_ICONS[tab.icon];
+  const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
+  const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
+  const labelSize = tab.labelSizeClass ?? BOTTOM_NAV_THEME.labelSizeClass;
+  const labelFontFam = tab.labelFontFamilyClass ?? "";
+  const labelActive =
+    [labelSize, labelFontFam, tab.labelActiveClass ?? BOTTOM_NAV_THEME.labelActiveClass, tab.labelActiveExtraClass]
+      .filter(Boolean)
+      .join(" ");
+  const labelInactive =
+    [labelSize, labelFontFam, tab.labelInactiveClass ?? BOTTOM_NAV_THEME.labelInactiveClass, tab.labelInactiveExtraClass]
+      .filter(Boolean)
+      .join(" ");
+  const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
+
+  const className = [
+    "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors",
+    hasOwnerStore && !isActive ? "opacity-80" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const ariaLbl =
+    tabBadgeCount > 0
+      ? t("nav_attention_needed", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), count: tabBadgeCount })
+      : undefined;
+
+  const inner = (
+    <>
+      <span className={isActive ? iconActive : iconInactive}>
+        <span className="relative inline-flex">
+          <Icon className={iconSize} />
+          {tabBadgeCount > 0 ? (
+            <span className={OWNER_HUB_BADGE_DOT_CLASS}>
+              {tabBadgeCount > 99 ? "99+" : tabBadgeCount}
+            </span>
+          ) : null}
+        </span>
+      </span>
+      <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
+    </>
+  );
+
+  return (
+    <Link
+      href={tab.href}
+      prefetch
+      replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
+      scroll={false}
+      className={className}
+      aria-label={ariaLbl}
+    >
+      {inner}
+    </Link>
+  );
+}
+
+function BottomNavTabStores({
+  tab,
+  pathname,
+  tt,
+  t,
+  router,
+  refreshBusinessHubGate,
+  setBusinessHubBlockedModalOpen,
+}: {
+  tab: BottomNavItemConfig;
+  pathname: string | null;
+  tt: BottomNavI18n["tt"];
+  t: BottomNavI18n["t"];
+  router: BottomNavRouter;
+  refreshBusinessHubGate: () => Promise<boolean>;
+  setBusinessHubBlockedModalOpen: (open: boolean) => void;
+}) {
+  const ownerStore = useOwnerLitePreferredStoreRow();
+  const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
+  const storeDeepLink = useOwnerHubBadgeStoreDeepLink();
+  const storeDeepLinkNavBusyRef = useRef(false);
+  const isActive = pathname === tab.href || (pathname?.startsWith(tab.href + "/") ?? false);
+  const Icon = TAB_ICONS.stores;
+  const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
+  const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
+  const labelSize = tab.labelSizeClass ?? BOTTOM_NAV_THEME.labelSizeClass;
+  const labelFontFam = tab.labelFontFamilyClass ?? "";
+  const labelActive =
+    [labelSize, labelFontFam, tab.labelActiveClass ?? BOTTOM_NAV_THEME.labelActiveClass, tab.labelActiveExtraClass]
+      .filter(Boolean)
+      .join(" ");
+  const labelInactive =
+    [labelSize, labelFontFam, tab.labelInactiveClass ?? BOTTOM_NAV_THEME.labelInactiveClass, tab.labelInactiveExtraClass]
+      .filter(Boolean)
+      .join(" ");
+  const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
+
+  const storesTabOwnerLite = !!ownerStore;
+  const storesNavWithAttention =
+    tabBadgeCount > 0 && typeof storeDeepLink === "string" && storeDeepLink.length > 0;
+
+  const className = [
+    "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors",
+    storesTabOwnerLite && !isActive
+      ? "rounded-ui-rect bg-sam-surface/70 shadow-[0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-sam-border/70"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const ariaLbl =
+    tabBadgeCount > 0
+      ? t("nav_attention_needed", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), count: tabBadgeCount })
+      : storesTabOwnerLite && ownerStore?.store_name
+        ? t("nav_store_owner", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), storeName: ownerStore.store_name })
+        : undefined;
+
+  const inner = (
+    <>
+      <span className={isActive ? iconActive : iconInactive}>
+        <span className="relative inline-flex">
+          <Icon className={iconSize} />
+          {tabBadgeCount > 0 ? (
+            <span className={OWNER_HUB_BADGE_DOT_CLASS}>
+              {tabBadgeCount > 99 ? "99+" : tabBadgeCount}
+            </span>
+          ) : null}
+        </span>
+      </span>
+      <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
+    </>
+  );
+
+  if (storesNavWithAttention && storeDeepLink) {
+    return (
+      <a
+        href={tab.href}
+        className={className}
+        aria-label={ariaLbl}
+        onClick={(e) => {
+          e.preventDefault();
+          if (storeDeepLinkNavBusyRef.current) return;
+          storeDeepLinkNavBusyRef.current = true;
+          void (async () => {
+            try {
+              if (shouldInterceptBusinessHubHref(storeDeepLink)) {
+                const block = await refreshBusinessHubGate();
+                if (block) {
+                  setBusinessHubBlockedModalOpen(true);
+                  return;
+                }
+              }
+              router.push(storeDeepLink);
+            } finally {
+              storeDeepLinkNavBusyRef.current = false;
+            }
+          })();
+        }}
+      >
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link
+      href={tab.href}
+      prefetch
+      replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
+      scroll={false}
+      className={className}
+      aria-label={ariaLbl}
+    >
+      {inner}
+    </Link>
+  );
+}
+
 const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => React.ReactNode> = {
   home: HomeIcon,
   trade: TradeTabIcon,
@@ -46,13 +248,11 @@ export function BottomNav() {
   const { tt, t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
-  const { chatUnread, communityMessengerUnread, philifeChatUnread, storesTabAttention, storeDeepLink } =
-    useOwnerHubBadgeBreakdown();
-  const { ownerStore } = useOwnerLiteStore();
   const { hubBlockedModal, refresh: refreshBusinessHubGate, setModalOpen: setBusinessHubBlockedModalOpen } =
     useStoreBusinessHubEntryModal(t("common_confirm"), { eager: false });
-  const storeDeepLinkNavBusyRef = useRef(false);
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
   const prevPathnameForNavRef = useRef<string | null>(null);
   const isChatRoomDetail =
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
@@ -63,7 +263,7 @@ export function BottomNav() {
     try {
       const { ok, items } = await fetchMainBottomNavDeduped({ force });
       if (!ok || !items?.length) return;
-      setTabs(items);
+      setTabs((prev) => (areBottomNavItemConfigsEqual(prev, items) ? prev : items));
     } catch {
       /* 코드 기본 탭 유지 */
     }
@@ -105,9 +305,14 @@ export function BottomNav() {
     };
   }, [applyMainBottomNavItems]);
 
+  useEffect(() => {
+    refreshOwnerHubBadgeIfHubPath(pathname ?? null);
+  }, [pathname]);
+
   /**
    * 주요 탭·거래채팅 허브 RSC 선로딩 — 예전에는 idle+950ms·3개만 프리페치해 탭 전환이 느렸음.
    * 다음 프레임에 전부 프리페치(저전력망은 생략).
+   * `tabs` 는 ref 로만 읽어 배지·기타 네비 리렌더와 분리한다.
    */
   useLayoutEffect(() => {
     if (isConstrainedNetwork()) return;
@@ -115,7 +320,7 @@ export function BottomNav() {
     const tradeHub = TRADE_CHAT_SURFACE.messengerListHref;
     const hrefs: string[] = [];
     if (!pathname?.startsWith(tradeHub)) hrefs.push(tradeHub);
-    for (const tab of tabs) {
+    for (const tab of tabsRef.current) {
       const h = tab.href?.trim() ?? "";
       if (h && !hrefs.includes(h) && h !== pathname) hrefs.push(h);
     }
@@ -135,7 +340,7 @@ export function BottomNav() {
       cancelled = true;
       cancelScheduledWhenBrowserIdle(idleId);
     };
-  }, [pathname, tabs, router]);
+  }, [pathname, router]);
 
   if (isChatRoomDetail) return null;
 
@@ -146,119 +351,29 @@ export function BottomNav() {
       className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} min-w-0 max-w-full justify-center overflow-x-hidden`}
     >
       <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-w-0 max-w-full`}>
-      {tabs.map((tab) => {
-        const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/");
-        const Icon = TAB_ICONS[tab.icon];
-        const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
-        const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
-        const labelSize = tab.labelSizeClass ?? BOTTOM_NAV_THEME.labelSizeClass;
-        const labelFontFam = tab.labelFontFamilyClass ?? "";
-        const labelActive =
-          [labelSize, labelFontFam, tab.labelActiveClass ?? BOTTOM_NAV_THEME.labelActiveClass, tab.labelActiveExtraClass]
-            .filter(Boolean)
-            .join(" ");
-        const labelInactive =
-          [labelSize, labelFontFam, tab.labelInactiveClass ?? BOTTOM_NAV_THEME.labelInactiveClass, tab.labelInactiveExtraClass]
-            .filter(Boolean)
-            .join(" ");
-        const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
-
-        const isStoresTab = tab.icon === "stores";
-        const storesTabOwnerLite = isStoresTab && !!ownerStore;
-        const storesNavWithAttention =
-          isStoresTab &&
-          storesTabAttention > 0 &&
-          typeof storeDeepLink === "string" &&
-          storeDeepLink.length > 0;
-
-        const className = [
-          "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors",
-          storesTabOwnerLite && !isActive
-            ? "rounded-ui-rect bg-sam-surface/70 shadow-[0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-sam-border/70"
-            : "",
-          ownerStore && !isStoresTab && !isActive ? "opacity-80" : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-        const tabBadgeCount = (() => {
-          /** 하단 「메신저」탭 — `/community-messenger` 참가자 미읽음 */
-          if (tab.icon === "chat") return communityMessengerUnread;
-          if (tab.icon === "trade") return chatUnread;
-          if (tab.icon === "community") return philifeChatUnread;
-          if (tab.icon === "stores") return storesTabAttention;
-          if (tab.icon === "my") return 0;
-          return 0;
-        })();
-
-        const ariaLbl =
-          tabBadgeCount > 0
-            ? t("nav_attention_needed", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), count: tabBadgeCount })
-            : storesTabOwnerLite && ownerStore?.store_name
-              ? t("nav_store_owner", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), storeName: ownerStore.store_name })
-              : undefined;
-
-        const inner = (
-          <>
-            <span className={isActive ? iconActive : iconInactive}>
-              <span className="relative inline-flex">
-                <Icon className={iconSize} />
-                {tabBadgeCount > 0 ? (
-                  <span className={OWNER_HUB_BADGE_DOT_CLASS}>
-                    {tabBadgeCount > 99 ? "99+" : tabBadgeCount}
-                  </span>
-                ) : null}
-              </span>
-            </span>
-            <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
-          </>
-        );
-
-        if (storesNavWithAttention && storeDeepLink) {
-          return (
-            <a
+        {tabs.map((tab) =>
+          tab.icon === "stores" ? (
+            <BottomNavTabStores
               key={tab.id}
-              href={tab.href}
-              className={className}
-              aria-label={ariaLbl}
-              onClick={(e) => {
-                e.preventDefault();
-                if (storeDeepLinkNavBusyRef.current) return;
-                storeDeepLinkNavBusyRef.current = true;
-                void (async () => {
-                  try {
-                    if (shouldInterceptBusinessHubHref(storeDeepLink)) {
-                      const block = await refreshBusinessHubGate();
-                      if (block) {
-                        setBusinessHubBlockedModalOpen(true);
-                        return;
-                      }
-                    }
-                    router.push(storeDeepLink);
-                  } finally {
-                    storeDeepLinkNavBusyRef.current = false;
-                  }
-                })();
-              }}
-            >
-              {inner}
-            </a>
-          );
-        }
-
-        return (
-          <Link
-            key={tab.id}
-            href={tab.href}
-            prefetch
-            replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
-            scroll={false}
-            className={className}
-            aria-label={ariaLbl}
-          >
-            {inner}
-          </Link>
-        );
-      })}
+              tab={tab}
+              pathname={pathname}
+              tt={tt}
+              t={t}
+              router={router}
+              refreshBusinessHubGate={refreshBusinessHubGate}
+              setBusinessHubBlockedModalOpen={setBusinessHubBlockedModalOpen}
+            />
+          ) : (
+            <BottomNavTabStandard
+              key={tab.id}
+              tab={tab}
+              pathname={pathname}
+              tt={tt}
+              t={t}
+              router={router}
+            />
+          )
+        )}
       </div>
     </nav>
     </>

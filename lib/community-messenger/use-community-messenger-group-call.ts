@@ -6,6 +6,12 @@ import {
   consumePrimedCommunityMessengerDevicePermission,
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
+import {
+  acquireCommunityMessengerWebRtcStream,
+  adoptCommunityMessengerWebRtcStream,
+  migrateCommunityMessengerMediaSessionKey,
+  releaseCommunityMessengerWebRtcMedia,
+} from "@/lib/call/permission-manager";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { fetchMessengerIceServers } from "@/lib/call/ice-servers";
 import { buildMessengerRtcConfiguration } from "@/lib/call/webrtc-configuration";
@@ -13,7 +19,6 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { playCommunityMessengerCallSignalSound } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
-import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
@@ -205,6 +210,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
   const cleanupMedia = useCallback(() => {
     discardPrimedCommunityMessengerDevicePermission();
+    releaseCommunityMessengerWebRtcMedia();
     for (const userId of [...peerConnectionsRef.current.keys()]) {
       cleanupPeer(userId);
     }
@@ -305,26 +311,29 @@ export function useCommunityMessengerGroupCall(args: Props) {
         localStreamHeldRef.current = localStream;
         return localStream;
       }
+      const sessionKey = currentSessionId;
       const primed = consumePrimedCommunityMessengerDevicePermission(kind);
       if (primed) {
         if (!mountedRef.current) {
           for (const track of primed.getTracks()) track.stop();
           throw new Error("unmounted");
         }
+        adoptCommunityMessengerWebRtcStream(sessionKey, primed, kind);
         localStreamHeldRef.current = primed;
         setLocalStream(primed);
         return primed;
       }
-      const stream = await navigator.mediaDevices.getUserMedia(buildCommunityMessengerMediaStreamConstraints(kind));
+      const stream = await acquireCommunityMessengerWebRtcStream(kind, { sessionKey });
       if (!mountedRef.current) {
         for (const track of stream.getTracks()) track.stop();
+        releaseCommunityMessengerWebRtcMedia();
         throw new Error("unmounted");
       }
       localStreamHeldRef.current = stream;
       setLocalStream(stream);
       return stream;
     },
-    [localStream]
+    [currentSessionId, localStream]
   );
 
   const sendSignal = useCallback(
@@ -849,7 +858,6 @@ export function useCommunityMessengerGroupCall(args: Props) {
       peerLabel: args.roomLabel,
     });
     try {
-      await ensureLocalStream(kind);
       const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(args.roomId)}/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -870,6 +878,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
         sessionId: json.session.id,
         peerLabel: json.session.peerLabel,
       });
+      migrateCommunityMessengerMediaSessionKey(null, json.session.id);
+      await ensureLocalStream(kind);
       await args.onRefresh();
     } catch (error) {
       const errorName =

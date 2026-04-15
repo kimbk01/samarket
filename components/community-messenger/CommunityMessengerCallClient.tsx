@@ -27,6 +27,7 @@ import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messeng
 async function loadCommunityMessengerCallProvider() {
   return import("@/lib/community-messenger/call-provider/client");
 }
+import { ensureVideoPermission } from "@/lib/call/permission-manager";
 import {
   markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
@@ -556,8 +557,6 @@ export function CommunityMessengerCallClient({
     let cancelled = false;
     void (async () => {
       try {
-        await primeCommunityMessengerDevicePermissionFromUserGesture("video");
-        if (cancelled) return;
         const mod = await loadCommunityMessengerCallProvider();
         const videoTrack = await mod.createCommunityMessengerAgoraVideoTrackOnly();
         if (cancelled) {
@@ -1124,7 +1123,17 @@ export function CommunityMessengerCallClient({
     setBusy("join");
     setErrorMessage(null);
     try {
-      await primeCommunityMessengerDevicePermissionFromUserGesture("video");
+      const perm = await ensureVideoPermission();
+      if (!perm.ok) {
+        setErrorMessage(
+          perm.code === "denied"
+            ? "카메라·마이크 권한이 꺼져 있습니다. 주소창 사이트 설정에서 허용해 주세요."
+            : perm.code === "insecure_context"
+              ? COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT
+              : "브라우저에서 카메라를 사용할 수 없습니다."
+        );
+        return;
+      }
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

@@ -5,6 +5,9 @@
 
 "use client";
 
+/** 이 탭에서 연 수신 통화 알림 — 링 종료 시 스크립트로 닫기 */
+const localIncomingCallNotificationsBySessionId = new Map<string, Notification>();
+
 export type LocalIncomingCallNotificationInput = {
   sessionId: string;
   peerLabel: string;
@@ -31,14 +34,25 @@ export function showLocalIncomingCallNotificationIfEligible(input: LocalIncoming
   const title = input.callKind === "video" ? "영상 통화" : "음성 통화";
   const body = `${input.peerLabel}님의 전화`;
   const url = defaultCallDeepLink(input.sessionId);
+  const sid = String(input.sessionId ?? "").trim();
+  if (!sid) return false;
 
   try {
+    closeLocalIncomingCallNotification(sid);
     const n = new Notification(title, {
       body,
-      tag: `samarket-incoming-call-${input.sessionId}`,
-      data: { url, sessionId: input.sessionId, kind: input.callKind },
+      tag: `samarket-incoming-call-${sid}`,
+      data: { url, sessionId: sid, kind: input.callKind },
     });
+    localIncomingCallNotificationsBySessionId.set(sid, n);
+    const dropIfCurrent = () => {
+      if (localIncomingCallNotificationsBySessionId.get(sid) === n) {
+        localIncomingCallNotificationsBySessionId.delete(sid);
+      }
+    };
+    n.onclose = dropIfCurrent;
     n.onclick = () => {
+      dropIfCurrent();
       try {
         window.focus();
       } catch {
@@ -50,6 +64,21 @@ export function showLocalIncomingCallNotificationIfEligible(input: LocalIncoming
     return false;
   }
   return true;
+}
+
+/** 같은 탭에서 생성한 수신 통화 로컬 알림 닫기 */
+export function closeLocalIncomingCallNotification(sessionId: string): void {
+  if (typeof window === "undefined") return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  const n = localIncomingCallNotificationsBySessionId.get(sid);
+  if (!n) return;
+  localIncomingCallNotificationsBySessionId.delete(sid);
+  try {
+    n.close();
+  } catch {
+    /* ignore */
+  }
 }
 
 export function messengerCallNotificationDeepLink(sessionId: string): string {

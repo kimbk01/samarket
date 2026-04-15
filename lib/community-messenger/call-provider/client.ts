@@ -5,6 +5,7 @@ import AgoraRTC, {
   type ILocalAudioTrack,
   type ILocalVideoTrack,
 } from "agora-rtc-sdk-ng";
+import { createFallbackAudioOnlyMediaStream } from "@/lib/call/permission-manager";
 import { consumePrimedCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
 import {
   readPreferredCommunityMessengerDeviceIds,
@@ -76,20 +77,18 @@ async function createAgoraMicWithPreferredDevice(): Promise<ILocalAudioTrack> {
     }
   }
 
-  if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const media = stream.getAudioTracks().find((tr) => tr.readyState === "live") ?? stream.getAudioTracks()[0];
-      if (media) {
-        return AgoraRTC.createCustomAudioTrack({
-          mediaStreamTrack: media,
-          encoderConfig: "speech_standard",
-          ...MIC_3A,
-        });
-      }
-    } catch {
-      /* 아래 최종 throw */
+  try {
+    const stream = await createFallbackAudioOnlyMediaStream();
+    const media = stream.getAudioTracks().find((tr) => tr.readyState === "live") ?? stream.getAudioTracks()[0];
+    if (media) {
+      return AgoraRTC.createCustomAudioTrack({
+        mediaStreamTrack: media,
+        encoderConfig: "speech_standard",
+        ...MIC_3A,
+      });
     }
+  } catch {
+    /* 아래 최종 throw */
   }
 
   return AgoraRTC.createMicrophoneAudioTrack();
