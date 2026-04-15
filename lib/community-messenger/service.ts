@@ -6192,7 +6192,7 @@ export async function startCommunityMessengerCallSession(input: {
   return { ok: true, session: await mapCallSession(input.userId, session) };
 }
 
-/** 1:1 voice → video: set session call_kind to video while active (in-call upgrade). */
+/** 1:1 voice → video: `call_kind` 를 video 로 (링 중 발신자가 바꾸거나, 연결 후 인콜 업그레이드). */
 export async function upgradeCommunityMessengerCallSessionToVideo(input: {
   userId: string;
   sessionId: string;
@@ -6221,7 +6221,7 @@ export async function upgradeCommunityMessengerCallSessionToVideo(input: {
     const isParty =
       messengerUserIdsEqual(session.initiator_user_id, uid) || (recip.length > 0 && messengerUserIdsEqual(recip, uid));
     if (!isParty) return { ok: false, error: "forbidden" };
-    if (session.status !== "active") return { ok: false, error: "bad_action" };
+    if (session.status !== "active" && session.status !== "ringing") return { ok: false, error: "bad_action" };
     if (session.call_kind === "video") {
       return { ok: true, session: await mapCallSession(uid, session) };
     }
@@ -6252,7 +6252,7 @@ export async function upgradeCommunityMessengerCallSessionToVideo(input: {
   const isParty =
     messengerUserIdsEqual(session.initiatorUserId, uid) || (r.length > 0 && messengerUserIdsEqual(r, uid));
   if (!isParty) return { ok: false, error: "forbidden" };
-  if (session.status !== "active") return { ok: false, error: "bad_action" };
+  if (session.status !== "active" && session.status !== "ringing") return { ok: false, error: "bad_action" };
   if (session.callKind === "video") {
     return { ok: true, session: await mapCallSession(uid, session) };
   }

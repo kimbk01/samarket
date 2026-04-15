@@ -137,6 +137,11 @@ export function CommunityMessengerCallClient({
   const [layoutSwapped, setLayoutSwapped] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
+  /** 조인 직후(트랙 생성 시점)에도 최신 음소거 의도를 반영 */
+  const micMutedRef = useRef(false);
+  useEffect(() => {
+    micMutedRef.current = micMuted;
+  }, [micMuted]);
   /** 음성: 기본 이어폰(off). 영상: 기본 스피커폰(on). */
   const [speakerEnabled, setSpeakerEnabled] = useState(false);
   const speakerEnabledRef = useRef(false);
@@ -389,6 +394,7 @@ export function CommunityMessengerCallClient({
     setLayoutSwapped(false);
     setCamOff(false);
     setMicMuted(false);
+    micMutedRef.current = false;
     setPipPixelPosition(null);
     useRearFacingRef.current = false;
     setLastMileLine("네트워크 품질 · 확인 중");
@@ -614,12 +620,14 @@ export function CommunityMessengerCallClient({
 
   const toggleMicEnabled = useCallback(async () => {
     const a = localTracksRef.current?.audioTrack;
-    if (!a) return;
     const nextMuted = !micMuted;
+    micMutedRef.current = nextMuted;
     setMicMuted(nextMuted);
+    if (!a) return;
     try {
       await a.setEnabled(!nextMuted);
     } catch {
+      micMutedRef.current = !nextMuted;
       setMicMuted(!nextMuted);
     }
   }, [micMuted]);
@@ -838,6 +846,14 @@ export function CommunityMessengerCallClient({
           client,
           tracks,
         });
+        const at = tracks.audioTrack;
+        if (at) {
+          try {
+            await at.setEnabled(!micMutedRef.current);
+          } catch {
+            /* ignore */
+          }
+        }
         joinedRef.current = true;
         setJoined(true);
         setCallerMediaConsentDone(true);
@@ -1021,18 +1037,51 @@ export function CommunityMessengerCallClient({
       showMessengerSnackbar("이 통화에서는 영상 전환을 사용할 수 없습니다.");
       return;
     }
-    if (!joined || s.status !== "active") {
-      showMessengerSnackbar("통화가 연결된 후에 영상으로 전환할 수 있어요.");
-      return;
-    }
     if (s.callKind === "video") {
       showMessengerSnackbar("이미 영상 통화입니다.");
       return;
     }
-    if (localTracksRef.current?.videoTrack) {
+    const ringingUpgrade = s.status === "ringing" && s.isMineInitiator;
+    const activeUpgrade = joined && s.status === "active";
+    if (!ringingUpgrade && !activeUpgrade) {
+      showMessengerSnackbar("지금은 영상으로 전환할 수 없어요.");
+      return;
+    }
+    if (activeUpgrade && localTracksRef.current?.videoTrack) {
       showMessengerSnackbar("카메라가 이미 켜져 있습니다.");
       return;
     }
+
+    if (ringingUpgrade) {
+      setBusy("upgrade");
+      setErrorMessage(null);
+      try {
+        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "upgrade_to_video" }),
+        });
+        const json = (await res.json().catch(() => ({}))) as SessionResponse;
+        if (!res.ok || !json.ok || !json.session) {
+          const code = json.error;
+          setErrorMessage(
+            code === "bad_action"
+              ? "지금은 영상으로 전환할 수 없습니다."
+              : code === "forbidden"
+                ? "권한이 없습니다."
+                : "영상 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
+          );
+          return;
+        }
+        setSession(json.session);
+        setSpeakerEnabled(true);
+        showMessengerSnackbar("영상 통화로 바꿨어요. 연결되면 카메라가 사용됩니다.");
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+
     setBusy("join");
     setErrorMessage(null);
     try {
@@ -1082,7 +1131,7 @@ export function CommunityMessengerCallClient({
     } finally {
       setBusy(null);
     }
-  }, [bindLocalVideoTrack]);
+  }, [bindLocalVideoTrack, joined]);
 
   const requestDowngradeToVoice = useCallback(async () => {
     const s = sessionRef.current;
@@ -1519,7 +1568,7 @@ export function CommunityMessengerCallClient({
         label: micMuted ? "음소거 해제" : "음소거",
         icon: "mic",
         active: !micMuted,
-        disabled: busy === "join",
+        disabled: busy === "join" || busy === "upgrade",
         onClick: () => void toggleMicEnabled(),
       },
       {
@@ -1538,14 +1587,20 @@ export function CommunityMessengerCallClient({
         label: "스피커",
         icon: "speaker",
         active: speakerEnabled,
+        disabled: busy === "upgrade",
         onClick: toggleSpeakerEnabled,
       },
       {
         id: "upgrade-video",
         label: "영상 전환",
         icon: "video",
-        active: joined && session.status === "active",
-        disabled: !joined || session.status !== "active",
+        active: session.callKind === "video",
+        disabled:
+          session.callKind !== "voice" ||
+          busy === "join" ||
+          busy === "upgrade" ||
+          busy === "end" ||
+          (session.status === "ringing" ? !session.isMineInitiator : !(joined && session.status === "active")),
         onClick: () => void requestUpgradeToVideo(),
       },
       {
@@ -1553,7 +1608,7 @@ export function CommunityMessengerCallClient({
         label: micMuted ? "음소거 해제" : "음소거",
         icon: "mic",
         active: !micMuted,
-        disabled: busy === "join",
+        disabled: busy === "join" || busy === "upgrade",
         onClick: () => void toggleMicEnabled(),
       },
       {
