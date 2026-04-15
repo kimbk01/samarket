@@ -21,6 +21,8 @@ const ACTION_W = 78;
 const ACTION_TOTAL = ACTION_W * 3;
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
+const PRESS_RELEASE_MS = 90;
+const LONG_PRESS_THRESHOLD_MS = 560;
 
 type Props = {
   item: UnifiedRoomListItem;
@@ -63,6 +65,7 @@ export function MessengerChatListItem({
   const room = item.room;
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPressedVisual, setIsPressedVisual] = useState(false);
   const dragRef = useRef({
     startX: 0,
     startY: 0,
@@ -72,6 +75,9 @@ export function MessengerChatListItem({
   });
   const dragXRef = useRef(0);
   const suppressTapRef = useRef(false);
+  const tapNavigateArmedRef = useRef(false);
+  const longPressTriggeredRef = useRef(false);
+  const releasePressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roomTypeLabel = getRoomTypeBadgeLabel(room);
   const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
@@ -115,8 +121,34 @@ export function MessengerChatListItem({
     onOpenSwipeItem?.(null);
   }, [onOpenSwipeItem]);
 
+  const clearReleasePressTimer = useCallback(() => {
+    if (releasePressTimerRef.current) {
+      clearTimeout(releasePressTimerRef.current);
+      releasePressTimerRef.current = null;
+    }
+  }, []);
+
+  const releasePressedVisual = useCallback(
+    (delayMs = 0) => {
+      clearReleasePressTimer();
+      if (delayMs <= 0) {
+        setIsPressedVisual(false);
+        return;
+      }
+      releasePressTimerRef.current = setTimeout(() => {
+        releasePressTimerRef.current = null;
+        setIsPressedVisual(false);
+      }, delayMs);
+    },
+    [clearReleasePressTimer]
+  );
+
   const longPressHandler = useCallback(() => {
     closeSwipe();
+    longPressTriggeredRef.current = true;
+    tapNavigateArmedRef.current = false;
+    setIsPressedVisual(true);
+    releasePressedVisual(PRESS_RELEASE_MS);
     if (compact && onCompactLongPress) {
       onCompactLongPress();
       return;
@@ -124,9 +156,17 @@ export function MessengerChatListItem({
     if (!compact) {
       onOpenRoomActions?.(item, listContext);
     }
-  }, [closeSwipe, compact, item, listContext, onCompactLongPress, onOpenRoomActions]);
+  }, [closeSwipe, compact, item, listContext, onCompactLongPress, onOpenRoomActions, releasePressedVisual]);
 
-  const { bind, cancelPending, consumeClickSuppression } = useMessengerLongPress(longPressHandler, { thresholdMs: 480 });
+  const { bind, cancelPending, consumeClickSuppression } = useMessengerLongPress(longPressHandler, {
+    thresholdMs: LONG_PRESS_THRESHOLD_MS,
+  });
+
+  useEffect(() => {
+    return () => {
+      clearReleasePressTimer();
+    };
+  }, [clearReleasePressTimer]);
 
   useEffect(() => {
     dragXRef.current = dragX;
@@ -143,15 +183,28 @@ export function MessengerChatListItem({
     if (openedSwipeItemId === swipeItemId) {
       dragXRef.current = -ACTION_TOTAL;
       setDragX(-ACTION_TOTAL);
+      setIsPressedVisual(false);
     }
   }, [openedSwipeItemId, swipeItemId]);
 
+  useEffect(() => {
+    if (openedSwipeItemId === swipeItemId) {
+      releasePressedVisual();
+    }
+  }, [openedSwipeItemId, releasePressedVisual, swipeItemId]);
+
   const clamp = useCallback((x: number) => Math.max(-ACTION_TOTAL, Math.min(0, x)), []);
+  const swipeOpen = openedSwipeItemId === swipeItemId;
+  const pressVisualActive = isPressedVisual && !isDragging && !swipeOpen;
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (compact) return;
     if (e.button !== 0) return;
+    clearReleasePressTimer();
     suppressTapRef.current = false;
+    longPressTriggeredRef.current = false;
+    tapNavigateArmedRef.current = true;
+    setIsPressedVisual(!swipeOpen);
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -160,7 +213,7 @@ export function MessengerChatListItem({
       dragging: false,
     };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [compact]);
+  }, [clearReleasePressTimer, compact, swipeOpen]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -171,6 +224,7 @@ export function MessengerChatListItem({
       if (!dragRef.current.dragging) {
         if (Math.abs(dy) > DRAG_CANCEL_Y && Math.abs(dy) > Math.abs(dx)) {
           dragRef.current.active = false;
+          releasePressedVisual();
           return;
         }
         if (Math.abs(dx) < DRAG_START_X || Math.abs(dx) <= Math.abs(dy)) {
@@ -179,13 +233,15 @@ export function MessengerChatListItem({
         dragRef.current.dragging = true;
         cancelPending();
         suppressTapRef.current = true;
+        tapNavigateArmedRef.current = false;
         setIsDragging(true);
+        releasePressedVisual();
       }
       const next = clamp(dragRef.current.origin + dx);
       dragXRef.current = next;
       setDragX(next);
     },
-    [cancelPending, clamp, compact]
+    [cancelPending, clamp, compact, releasePressedVisual]
   );
 
   const onPointerUp = useCallback(
@@ -201,26 +257,66 @@ export function MessengerChatListItem({
       } catch {
         /* noop */
       }
-      if (!wasDragging) return;
+      if (!wasDragging) {
+        if (suppressTapRef.current) {
+          suppressTapRef.current = false;
+          tapNavigateArmedRef.current = false;
+          releasePressedVisual();
+          return;
+        }
+        if (!tapNavigateArmedRef.current) {
+          releasePressedVisual();
+          return;
+        }
+        tapNavigateArmedRef.current = false;
+        if (longPressTriggeredRef.current || consumeClickSuppression()) {
+          releasePressedVisual(PRESS_RELEASE_MS);
+          return;
+        }
+        if (dragXRef.current < -16) {
+          closeSwipe();
+          releasePressedVisual();
+          return;
+        }
+        onResetTransientUi?.();
+        setIsPressedVisual(true);
+        releasePressedVisual(PRESS_RELEASE_MS);
+        navigateToCommunityRoom(room.id);
+        return;
+      }
       const snap = dragXRef.current < -ACTION_TOTAL / 2 ? -ACTION_TOTAL : 0;
       dragXRef.current = snap;
       setDragX(snap);
       onCloseMenuItem?.(menuItemId);
       onOpenSwipeItem?.(snap === -ACTION_TOTAL ? swipeItemId : null);
+      releasePressedVisual();
     },
-    [compact, menuItemId, onCloseMenuItem, onOpenSwipeItem, swipeItemId]
+    [
+      closeSwipe,
+      compact,
+      consumeClickSuppression,
+      menuItemId,
+      onCloseMenuItem,
+      onOpenSwipeItem,
+      onResetTransientUi,
+      releasePressedVisual,
+      navigateToCommunityRoom,
+      room.id,
+      swipeItemId,
+    ]
   );
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
     dragRef.current.active = false;
     dragRef.current.dragging = false;
     setIsDragging(false);
+    releasePressedVisual();
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
     } catch {
       /* noop */
     }
-  }, []);
+  }, [releasePressedVisual]);
 
   const runRowAction = useCallback(
     (fn: () => void) => {
@@ -232,7 +328,14 @@ export function MessengerChatListItem({
   );
 
   const rowContent = (
-    <div className="flex items-start gap-2">
+    <div
+      className="flex items-start gap-2 transition-transform duration-[110ms] ease-out"
+      style={{
+        transform: pressVisualActive
+          ? "translate3d(0,0.5px,0) scale(0.992)"
+          : "translate3d(0,0,0) scale(1)",
+      }}
+    >
       {commerceMeta?.thumbnailUrl ? (
         <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
       ) : (
@@ -347,7 +450,7 @@ export function MessengerChatListItem({
             navigateToCommunityRoom(room.id);
           }
         }}
-        className="block cursor-default px-2 py-2 touch-manipulation active:bg-[color:var(--messenger-primary-soft)]"
+        className="block cursor-default rounded-[calc(var(--messenger-radius-md)-2px)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-2 touch-manipulation transition-[background-color,border-color,transform] duration-100 ease-out active:translate-y-[0.5px] active:scale-[0.994] active:border-[color:var(--messenger-primary)] active:bg-[color:var(--messenger-primary-soft)]"
       >
         {rowContent}
       </div>
@@ -363,7 +466,7 @@ export function MessengerChatListItem({
           prefetchOnceRef.current = true;
           void prefetchCommunityMessengerRoomSnapshot(room.id);
         }}
-        className="block px-2 py-2 active:bg-[color:var(--messenger-primary-soft)]"
+        className="block rounded-[calc(var(--messenger-radius-md)-2px)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-2 transition-[background-color,border-color,transform] duration-100 ease-out active:translate-y-[0.5px] active:scale-[0.994] active:border-[color:var(--messenger-primary)] active:bg-[color:var(--messenger-primary-soft)]"
       >
         {rowContent}
       </Link>
@@ -371,7 +474,10 @@ export function MessengerChatListItem({
   }
 
   return (
-    <div className="relative overflow-hidden" data-messenger-chat-row="true">
+    <div
+      className="relative overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]"
+      data-messenger-chat-row="true"
+    >
       <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX === 0}>
         <button
           type="button"
@@ -410,38 +516,54 @@ export function MessengerChatListItem({
           transition: isDragging ? "none" : "transform 0.2s ease-out",
           willChange: isDragging ? "transform" : undefined,
         }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
-        onLostPointerCapture={onPointerCancel}
+        onPointerDown={(e) => {
+          if (!compact && e.button === 0) bind.onPointerDown(e);
+          onPointerDown(e);
+        }}
+        onPointerMove={(e) => {
+          if (!compact) bind.onPointerMove(e);
+          onPointerMove(e);
+        }}
+        onPointerUp={(e) => {
+          if (!compact) bind.onPointerUp(e);
+          onPointerUp(e);
+        }}
+        onPointerCancel={(e) => {
+          if (!compact) bind.onPointerCancel(e);
+          onPointerCancel(e);
+        }}
+        onLostPointerCapture={(e) => {
+          if (!compact) bind.onPointerCancel(e);
+          onPointerCancel(e);
+        }}
       >
         <div
           role="button"
           tabIndex={0}
-          {...bind}
-          onClick={() => {
-            if (suppressTapRef.current) {
-              suppressTapRef.current = false;
-              return;
-            }
-            if (consumeClickSuppression()) return;
-            if (dragX < -16) {
-              closeSwipe();
-              return;
-            }
-            onResetTransientUi?.();
-            navigateToCommunityRoom(room.id);
-          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
-              if (consumeClickSuppression()) return;
+              if (longPressTriggeredRef.current || consumeClickSuppression()) return;
+              if (dragXRef.current < -16) {
+                closeSwipe();
+                return;
+              }
+              onResetTransientUi?.();
               navigateToCommunityRoom(room.id);
             }
           }}
-          className="block w-full flex-1 cursor-default bg-[color:var(--messenger-surface)] px-2.5 py-1.5 transition active:bg-[color:var(--messenger-primary-soft)]"
-          style={{ minWidth: 0, flex: "1 1 0%" }}
+          className="block w-full flex-1 cursor-default rounded-[calc(var(--messenger-radius-md)-2px)] border px-2.5 py-2 transition-[background-color,border-color,transform] duration-100 ease-out"
+          style={{
+            minWidth: 0,
+            flex: "1 1 0%",
+            backgroundColor: pressVisualActive
+              ? "var(--messenger-primary-soft)"
+              : "var(--messenger-surface)",
+            borderColor: pressVisualActive
+              ? "var(--messenger-primary)"
+              : "var(--messenger-divider)",
+            transform: pressVisualActive ? "translate3d(0,0.5px,0)" : "translate3d(0,0,0)",
+          }}
         >
           {rowContent}
         </div>

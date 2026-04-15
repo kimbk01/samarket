@@ -127,7 +127,7 @@ export function MessengerChatsScreen({
 
       {items.length ? (
         <div
-          className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+          className="space-y-1.5"
           onScrollCapture={() => {
             setFilterSheetOpen(false);
             onListScrollStart();
@@ -235,7 +235,7 @@ export function MessengerOpenChatScreen({
         </div>
         {joinedItems.length ? (
           <div
-            className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+            className="space-y-1.5"
             onScrollCapture={onListScrollStart}
           >
             {joinedItems.map((item) => (

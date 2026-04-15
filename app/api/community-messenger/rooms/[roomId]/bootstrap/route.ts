@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { enforceRateLimit, getRateLimitKey, jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
 import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
 import type { CommunityMessengerRoomSnapshotOptions } from "@/lib/chat-domain/ports/community-messenger-read";
@@ -46,11 +46,10 @@ export async function GET(
   const ms = Math.round(performance.now() - t0);
   recordMessengerApiTiming("GET /api/community-messenger/rooms/[roomId]/bootstrap", ms, snapshot ? 200 : 404);
   if (!snapshot) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    return jsonErrorWithRequest(req, "not_found", 404);
   }
 
-  return NextResponse.json({
-    ok: true,
+  return jsonOkWithRequest(req, {
     v: 1,
     domain: "community" as const,
     bootstrap: true,

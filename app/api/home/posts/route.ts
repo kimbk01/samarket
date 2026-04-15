@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { resolveHomePostsGetData } from "@/lib/posts/home-posts-route-core";
+import { jsonWithRequestIdHeader } from "@/lib/http/api-route";
 
 export const dynamic = "force-dynamic";
 
@@ -17,5 +18,5 @@ export async function GET(req: NextRequest) {
   /** 한 요청에서 favorites·Cache-Control 이 동일 세션을 쓰도록 선확정 — `resolveHomePostsGetData` 끝에서 세션을 다시 열지 않음 */
   const viewerUserId = await getOptionalAuthenticatedUserId();
   const data = await resolveHomePostsGetData(req, { precomputedViewerUserId: viewerUserId });
-  return NextResponse.json(data, { headers: responseHeaders(Boolean(viewerUserId)) });
+  return jsonWithRequestIdHeader(req, data, { headers: responseHeaders(Boolean(viewerUserId)) });
 }

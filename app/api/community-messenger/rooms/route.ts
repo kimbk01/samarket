@@ -4,7 +4,7 @@ import {
   enforceRateLimit,
   getRateLimitKey,
   jsonError,
-  jsonOk,
+  jsonOkWithRequest,
   parseJsonBody,
 } from "@/lib/http/api-route";
 import {
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
   const { chats, groups } = await listCommunityMessengerMyChatsAndGroups(auth.userId);
   recordMessengerApiTiming("GET /api/community-messenger/rooms", Math.round(performance.now() - t0), 200);
-  return jsonOk({
+  return jsonOkWithRequest(req, {
     chats,
     groups,
   });
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       title: String(body.title ?? ""),
       memberIds: Array.isArray(body.memberIds) ? body.memberIds.map(String) : [],
     });
-    return result.ok ? jsonOk(result) : jsonError(result.error ?? "대화방 생성에 실패했습니다.", 400, result);
+    return result.ok ? jsonOkWithRequest(req, result) : jsonError(result.error ?? "대화방 생성에 실패했습니다.", 400, result);
   }
 
   if (body.roomType === "open_group") {
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       creatorIdentityMode: body.creatorIdentityMode === "alias" ? "alias" : "real_name",
       creatorAliasProfile: body.creatorAliasProfile,
     });
-    return result.ok ? jsonOk(result) : jsonError(result.error ?? "오픈 그룹 생성에 실패했습니다.", 400, result);
+    return result.ok ? jsonOkWithRequest(req, result) : jsonError(result.error ?? "오픈 그룹 생성에 실패했습니다.", 400, result);
   }
 
   const storeOrderId = typeof body.storeOrderId === "string" ? body.storeOrderId.trim() : "";
@@ -129,5 +129,5 @@ export async function POST(req: NextRequest) {
     });
   }
   const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
-  return jsonOk({ ...result, snapshot });
+  return jsonOkWithRequest(req, { ...result, snapshot });
 }

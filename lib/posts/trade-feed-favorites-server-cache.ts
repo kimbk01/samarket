@@ -31,7 +31,7 @@ async function fetchFavoriteMapWithEpochRetry(
   uid: string,
   ids: string[]
 ): Promise<Record<string, boolean>> {
-  let e0 = getPostFavoriteMutationEpochForViewer(uid);
+  const e0 = getPostFavoriteMutationEpochForViewer(uid);
   let map = await fetchFavoriteMapForPostIds(favoritesSb, uid, ids);
   if (getPostFavoriteMutationEpochForViewer(uid) !== e0) {
     map = await fetchFavoriteMapForPostIds(favoritesSb, uid, ids);

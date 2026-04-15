@@ -501,7 +501,10 @@ export function MessengerSearchSheet({
                 </MessengerSearchSection>
                 <MessengerSearchSection title="채팅방">
                   {searchRoomMatches.length ? (
-                    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
+                    <div
+                      className="space-y-1.5 rounded-[var(--messenger-radius-md)] p-0.5"
+                      style={{ backgroundColor: "var(--messenger-surface-muted)" }}
+                    >
                       {searchRoomMatches.map((item) => (
                         <MessengerChatListItem
                           key={`search-room-${item.room.id}`}

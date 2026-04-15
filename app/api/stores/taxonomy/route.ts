@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import { createRequestId, SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,9 @@ export const dynamic = "force-dynamic";
  * 매장 오너 폼용: 활성 업종(store_categories) + 세부 주제(store_topics) 읽기 전용.
  * 서비스 롤 — 로그인 없이 호출 가능(마스터 데이터만).
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const headersIn = new Headers(request.headers);
+  const requestId = headersIn.get(SAMARKET_REQUEST_ID_HEADER)?.trim() || createRequestId();
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({
@@ -21,7 +24,7 @@ export async function GET() {
         category_count: 0,
         topic_count: 0,
       },
-    });
+    }, { headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } });
   }
 
   try {
@@ -61,12 +64,12 @@ export async function GET() {
             category_count: catList.length,
             topic_count: 0,
           },
-        });
+        }, { headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } });
       }
       console.error("[GET /api/stores/taxonomy] topics", tErr);
       return NextResponse.json(
         { ok: false, error: tErr.message, categories: catList, topics: [] },
-        { status: 500 }
+        { status: 500, headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } }
       );
     }
 
@@ -82,7 +85,7 @@ export async function GET() {
         category_count: catList.length,
         topic_count: topicList.length,
       },
-    });
+    }, { headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } });
   } catch (e) {
     console.error("[GET /api/stores/taxonomy]", e);
     return NextResponse.json(
@@ -92,7 +95,7 @@ export async function GET() {
         categories: [],
         topics: [],
       },
-      { status: 500 }
+      { status: 500, headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } }
     );
   }
 }

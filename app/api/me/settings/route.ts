@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
@@ -6,6 +6,7 @@ import { DEFAULT_USER_SETTINGS, type UserSettingsRow } from "@/lib/types/setting
 import { USER_SETTINGS_ROW_SELECT } from "@/lib/me/user-settings-select";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,7 @@ async function readProfileFallback(userId: string) {
   return data ?? null;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -80,7 +81,7 @@ export async function GET() {
   };
 
   if (!sb) {
-    return NextResponse.json({ ok: true, settings: baseSettings, source: "profile_fallback" });
+    return jsonOkWithRequest(req, { settings: baseSettings, source: "profile_fallback" });
   }
 
   const { data, error } = await sb
@@ -91,13 +92,12 @@ export async function GET() {
 
   if (error) {
     if (isUserSettingsTableMissing(error.message ?? "")) {
-      return NextResponse.json({ ok: true, settings: baseSettings, source: "profile_fallback" });
+      return jsonOkWithRequest(req, { settings: baseSettings, source: "profile_fallback" });
     }
-    return NextResponse.json({ ok: false, error: error.message ?? "settings_fetch_failed" }, { status: 500 });
+    return jsonErrorWithRequest(req, error.message ?? "settings_fetch_failed", 500);
   }
 
-  return NextResponse.json({
-    ok: true,
+  return jsonOkWithRequest(req, {
     settings: {
       ...baseSettings,
       ...(data ?? {}),
@@ -114,10 +114,10 @@ export async function PATCH(req: NextRequest) {
   try {
     raw = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    return jsonErrorWithRequest(req, "invalid_json", 400);
   }
   if (!raw || typeof raw !== "object") {
-    return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+    return jsonErrorWithRequest(req, "invalid_payload", 400);
   }
 
   const patch = normalizePatch(raw as Record<string, unknown>);
@@ -135,7 +135,7 @@ export async function PATCH(req: NextRequest) {
   };
 
   if (!sb) {
-    return NextResponse.json({ ok: true, settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
+    return jsonOkWithRequest(req, { settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
   }
 
   const { data: before } = await sb
@@ -159,9 +159,9 @@ export async function PATCH(req: NextRequest) {
 
   if (error) {
     if (isUserSettingsTableMissing(error.message ?? "")) {
-      return NextResponse.json({ ok: true, settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
+      return jsonOkWithRequest(req, { settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
     }
-    return NextResponse.json({ ok: false, error: error.message ?? "settings_update_failed" }, { status: 500 });
+    return jsonErrorWithRequest(req, error.message ?? "settings_update_failed", 500);
   }
 
   const { ip, userAgent } = getAuditRequestMeta(req);
@@ -177,5 +177,5 @@ export async function PATCH(req: NextRequest) {
     user_agent: userAgent,
   });
 
-  return NextResponse.json({ ok: true, settings: { ...baseSettings, ...(data ?? nextRow) }, source: "user_settings" });
+  return jsonOkWithRequest(req, { settings: { ...baseSettings, ...(data ?? nextRow) }, source: "user_settings" });
 }

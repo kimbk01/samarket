@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { enforceRateLimit, getRateLimitKey, jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 import { ingestClientMessengerEvents } from "@/lib/community-messenger/monitoring/server-store";
 import type { MessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/types";
 
@@ -23,15 +23,15 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    return jsonErrorWithRequest(req, "invalid_json", 400);
   }
   const raw = body as { events?: unknown };
   if (!Array.isArray(raw.events)) {
-    return NextResponse.json({ ok: false, error: "events_required" }, { status: 400 });
+    return jsonErrorWithRequest(req, "events_required", 400);
   }
   const events = raw.events.slice(0, MAX_BATCH).filter(isClientEvent) as MessengerMonitoringEvent[];
   ingestClientMessengerEvents(events);
-  return NextResponse.json({ ok: true, accepted: events.length });
+  return jsonOkWithRequest(req, { accepted: events.length });
 }
 
 function isClientEvent(x: unknown): x is MessengerMonitoringEvent {

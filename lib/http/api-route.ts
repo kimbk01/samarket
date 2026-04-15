@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
+import { createRequestId, normalizeRequestId, SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 import {
   getOptionalRateLimitRedis,
   rateLimitIncrCount,
@@ -43,6 +44,44 @@ export function jsonOk(body: JsonObject = {}, init?: ResponseInit) {
   return NextResponse.json({ ok: true, ...body }, withNoStoreHeaders(init));
 }
 
+export function getOrCreateRequestId(request: NextRequest): string {
+  const incoming =
+    normalizeRequestId(request.headers.get(SAMARKET_REQUEST_ID_HEADER)) ??
+    normalizeRequestId(request.headers.get("x-request-id")) ??
+    normalizeRequestId(request.headers.get("x-correlation-id"));
+  return incoming ?? createRequestId();
+}
+
+export function withRequestIdHeaders(init: ResponseInit | undefined, requestId: string): ResponseInit {
+  const headers = new Headers(init?.headers);
+  if (!headers.has(SAMARKET_REQUEST_ID_HEADER)) {
+    headers.set(SAMARKET_REQUEST_ID_HEADER, requestId);
+  }
+  return { ...init, headers };
+}
+
+export function jsonOkWithRequest(request: NextRequest, body: JsonObject = {}, init?: ResponseInit) {
+  const requestId = getOrCreateRequestId(request);
+  return NextResponse.json(
+    { ok: true, requestId, ...body },
+    withNoStoreHeaders(withRequestIdHeaders(init, requestId))
+  );
+}
+
+/**
+ * 응답 바디 shape를 바꾸면 안 되는 API용.
+ * - requestId는 헤더로만 내려준다.
+ * - (필요 시 호출자가 body에 requestId를 직접 포함)
+ */
+export function jsonWithRequestIdHeader<T>(
+  request: NextRequest,
+  body: T,
+  init?: ResponseInit
+) {
+  const requestId = getOrCreateRequestId(request);
+  return NextResponse.json(body as any, withNoStoreHeaders(withRequestIdHeaders(init, requestId)));
+}
+
 /**
  * 운영 환경에서는 PostgREST/DB 원문을 클라이언트에 넘기지 않음 (정보 누수·스키마 노출 완화).
  * 로컬·스테이징에서는 디버깅을 위해 상세 메시지 유지.
@@ -68,6 +107,27 @@ export function jsonError(
       ...extra,
     },
     withNoStoreHeaders(responseInit)
+  );
+}
+
+export function jsonErrorWithRequest(
+  request: NextRequest,
+  error: string,
+  init: number | (ResponseInit & { code?: string }) = 400,
+  extra: JsonObject = {}
+) {
+  const requestId = getOrCreateRequestId(request);
+  const normalizedInit = typeof init === "number" ? { status: init } : init;
+  const { code, ...responseInit } = normalizedInit;
+  return NextResponse.json(
+    {
+      ok: false,
+      requestId,
+      error,
+      ...(code ? { code } : {}),
+      ...extra,
+    },
+    withNoStoreHeaders(withRequestIdHeaders(responseInit, requestId))
   );
 }
 

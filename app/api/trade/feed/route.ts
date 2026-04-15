@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
@@ -8,6 +8,7 @@ import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ function parseJobKind(raw: string | null): JobListingKindFilter | undefined {
 export async function GET(req: NextRequest) {
   const clients = resolvePostsReadClients(req);
   if (!clients) {
-    return NextResponse.json({ ok: false, posts: [], hasMore: false }, { status: 503 });
+    return jsonErrorWithRequest(req, "supabase_unconfigured", 503, { posts: [], hasMore: false });
   }
 
   const { searchParams } = new URL(req.url);
@@ -70,10 +71,7 @@ export async function GET(req: NextRequest) {
   } else if (categoryIdsParam.length > 0) {
     categoryIds = categoryIdsParam;
   } else {
-    return NextResponse.json(
-      { ok: false, error: "tradeMarketParent_or_categoryIds_required" },
-      { status: 400 }
-    );
+    return jsonErrorWithRequest(req, "tradeMarketParent_or_categoryIds_required", 400);
   }
 
   const page = parsePage(searchParams.get("page"));
@@ -88,8 +86,9 @@ export async function GET(req: NextRequest) {
     viewerId
   );
 
-  return NextResponse.json(
-    { ok: true, posts: open.posts, hasMore: open.hasMore, favoriteMap: open.favoriteMap },
+  return jsonOkWithRequest(
+    req,
+    { posts: open.posts, hasMore: open.hasMore, favoriteMap: open.favoriteMap },
     { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=30", Vary: "Cookie" } }
   );
 }

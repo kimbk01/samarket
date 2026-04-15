@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { enforceRateLimit, getRateLimitKey, jsonOk } from "@/lib/http/api-route";
+import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http/api-route";
 import { getCommunityMessengerHomeSyncBundle } from "@/lib/community-messenger/service";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 
@@ -24,5 +24,5 @@ export async function GET(req: NextRequest) {
 
   const bundle = await getCommunityMessengerHomeSyncBundle(auth.userId);
   recordMessengerApiTiming("GET /api/community-messenger/home-sync", Math.round(performance.now() - t0), 200);
-  return jsonOk(bundle);
+  return jsonOkWithRequest(req, bundle);
 }
