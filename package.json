@@ -11,6 +11,8 @@
     "dev:webpack": "next dev --webpack",
     "clean": "node scripts/clean-next.cjs",
     "verify:routes": "node scripts/verify-app-routes.cjs",
+    "check": "npm run verify:routes && npx tsc --noEmit && npm run lint && npm run test && npm run build",
+    "ci": "npm run check",
     "check:supabase-dns": "node scripts/check-supabase-dns.mjs",
     "tokens:apply-visual": "node scripts/apply-samarket-visual-tokens.mjs",
     "dev:fresh": "npm run clean && npm run dev",

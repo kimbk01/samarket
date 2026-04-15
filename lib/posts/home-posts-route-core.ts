@@ -87,10 +87,23 @@ export type HomePostsOpenResult = {
   favoriteMap: Record<string, boolean>;
 };
 
+export type ResolveHomePostsGetDataOptions = {
+  /**
+   * 이미 같은 요청(`req` 쿠키 맥락)에서 `getOptionalAuthenticatedUserId()`로 확정한 뷰어 ID.
+   * - 속성을 생략하거나 값이 `undefined`이면 이 함수 안에서 세션을 한 번 조회한다.
+   * - `null`(비로그인) 또는 비어 있지 않은 문자열이면 그대로 쓰며 세션을 다시 열지 않는다.
+   *   (`GET /api/home/posts` 가 헤더용 인증과 favorites용 인증을 한 갈래로 맞추기 위함.)
+   */
+  precomputedViewerUserId?: string | null;
+};
+
 /**
  * GET /api/home/posts 와 동일 페이로드. Supabase 미구성 시 빈 결과.
  */
-export async function resolveHomePostsGetData(req: NextRequest): Promise<HomePostsOpenResult> {
+export async function resolveHomePostsGetData(
+  req: NextRequest,
+  options?: ResolveHomePostsGetDataOptions
+): Promise<HomePostsOpenResult> {
   const clients = resolvePostsReadClients(req);
   if (!clients) {
     return { posts: [], hasMore: false, favoriteMap: {} };
@@ -181,7 +194,9 @@ export async function resolveHomePostsGetData(req: NextRequest): Promise<HomePos
     hasMore = loaded.hasMore;
   }
   const favoriteMap: Record<string, boolean> = {};
-  const userId = await getOptionalAuthenticatedUserId();
+  const preViewer = options?.precomputedViewerUserId;
+  const userId =
+    preViewer !== undefined ? preViewer : await getOptionalAuthenticatedUserId();
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);

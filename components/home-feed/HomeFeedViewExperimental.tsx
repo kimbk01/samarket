@@ -44,7 +44,7 @@ function personalizedToFeedItem(p: {
   };
 }
 
-/** mock·실험용 홈 피드 — production 번들에서 제외하려면 HomeFeedView 에서 마운트하지 않음 */
+/** mock·실험용 홈 피드 — production·비실험 환경에서는 `HomeContent` 가 마운트하지 않음 */
 export function HomeFeedViewExperimental() {
   const { currentRegionName } = useRegion();
 

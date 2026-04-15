@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatRoom } from "@/lib/types/chat";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -19,6 +20,10 @@ import {
 
 /** 목록은 Realtime 미구독 구간만 갱신 — Supabase 쿼리·API 한도 완화를 위해 길게 */
 const POLL_MS = 90_000;
+
+/** 이 개수 이상이면 문서 스크롤 기준 가상화 — `measureElement`로 실측 보정되므로 추정은 약간 여유 있게 */
+const CHAT_ROOM_LIST_VIRTUAL_THRESHOLD = 20;
+const CHAT_ROOM_LIST_ROW_ESTIMATE_PX = 100;
 
 export function ChatRoomList({
   segment,
@@ -116,6 +121,15 @@ export function ChatRoomList({
 
   const userId = getCurrentUser()?.id ?? "";
 
+  const useVirt = Boolean(rooms && rooms.length >= CHAT_ROOM_LIST_VIRTUAL_THRESHOLD);
+  const rowVirtualizer = useVirtualizer({
+    count: useVirt && rooms ? rooms.length : 0,
+    getScrollElement: () =>
+      typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null,
+    estimateSize: () => CHAT_ROOM_LIST_ROW_ESTIMATE_PX,
+    overscan: 8,
+  });
+
   if (rooms === null && !sessionDenied) {
     return (
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-muted`}>
@@ -175,28 +189,63 @@ export function ChatRoomList({
     );
   }
 
+  const renderRoomRow = (room: ChatRoom) =>
+    room.generalChat ? (
+      <GeneralChatRoomCard
+        room={room}
+        onRoomMutated={() => void load()}
+        getRoomHref={getRoomHref}
+        onSelectRoom={onSelectRoom}
+      />
+    ) : (
+      <ChatRoomCard
+        room={room}
+        currentUserId={userId}
+        onRoomMutated={() => void load()}
+        getRoomHref={getRoomHref}
+        onSelectRoom={onSelectRoom}
+      />
+    );
+
+  if (!useVirt) {
+    return (
+      <ul
+        className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} space-y-0 divide-y divide-sam-border bg-sam-surface`}
+      >
+        {rooms.map((room) => (
+          <li key={room.id}>{renderRoomRow(room)}</li>
+        ))}
+      </ul>
+    );
+  }
+
   return (
-    <ul className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} space-y-0 divide-y divide-sam-border bg-sam-surface`}>
-      {rooms.map((room) => (
-        <li key={room.id}>
-          {room.generalChat ? (
-            <GeneralChatRoomCard
-              room={room}
-              onRoomMutated={() => void load()}
-              getRoomHref={getRoomHref}
-              onSelectRoom={onSelectRoom}
-            />
-          ) : (
-            <ChatRoomCard
-              room={room}
-              currentUserId={userId}
-              onRoomMutated={() => void load()}
-              getRoomHref={getRoomHref}
-              onSelectRoom={onSelectRoom}
-            />
-          )}
-        </li>
-      ))}
-    </ul>
+    <div
+      role="list"
+      className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} relative bg-sam-surface`}
+      style={{ height: rowVirtualizer.getTotalSize() }}
+    >
+      {rowVirtualizer.getVirtualItems().map((vi) => {
+        const room = rooms[vi.index];
+        return (
+          <div
+            key={room.id}
+            role="listitem"
+            ref={rowVirtualizer.measureElement}
+            data-index={vi.index}
+            className="border-b border-sam-border last:border-b-0"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${vi.start}px)`,
+            }}
+          >
+            {renderRoomRow(room)}
+          </div>
+        );
+      })}
+    </div>
   );
 }

@@ -1,0 +1,35 @@
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={onPickImageFile}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={onPickImageFile}
+      />
+      <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
+
+      {showMessengerTradeProcessDock ? (
+        <>
+          {snapshot.tradeChatRoomDetail ? (
+            <SeedTradeChatDetailMemoryFromSnapshot
+              productChatId={tradeProductChatIdForDock}
+              room={snapshot.tradeChatRoomDetail}
+            />
+          ) : (
+            <MessengerTradeChatRoomDetailPrefetch productChatId={tradeProductChatIdForDock} />
+          )}
+          <CommunityMessengerTradeProcessSection
+            productChatId={tradeProductChatIdForDock}
+            viewerUserId={snapshot.viewerUserId}
+            initialTradeChatRoom={snapshot.tradeChatRoomDetail ?? null}
+            onTradeMetaChanged={() => void refresh(true)}
+          />
+        </>
+      ) : null}

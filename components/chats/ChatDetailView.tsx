@@ -1766,6 +1766,9 @@ export function ChatDetailView({
                 partnerNickname={partnerDisplayNickname}
                 partnerAvatar={partnerDisplayAvatar || undefined}
                 variant={isStoreOrderChat ? "instagram" : "default"}
+                /** 당근형 거래·통합 스레드: 긴 대화 시 블록 가상화(`ChatMessageList` 기본 variant 만) */
+                scrollParentRef={tradeThreadScrollRef}
+                virtualize={!isStoreOrderChat}
               />
             )}
           </div>

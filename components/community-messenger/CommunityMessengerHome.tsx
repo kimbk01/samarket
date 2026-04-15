@@ -74,6 +74,7 @@ import {
   messengerMonitorUnreadListSync,
 } from "@/lib/community-messenger/monitoring/client";
 import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
+import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import {
   clearBootstrapCache,
@@ -498,12 +499,8 @@ export function CommunityMessengerHome({
   }, []);
 
   const refresh = useCallback(async (silent = false) => {
-    if (silent) {
-      if (silentRefreshBusyRef.current) {
-        silentRefreshAgainRef.current = true;
-        return;
-      }
-      silentRefreshBusyRef.current = true;
+    if (!tryEnterSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef)) {
+      return;
     }
     const stale = !silent ? peekBootstrapCache() : null;
     const shouldBlock = !silent && !loadedRef.current && !stale;
@@ -658,13 +655,9 @@ export function CommunityMessengerHome({
       }
       }
     } finally {
-      if (silent) {
-        silentRefreshBusyRef.current = false;
-        if (silentRefreshAgainRef.current) {
-          silentRefreshAgainRef.current = false;
-          void refresh(true);
-        }
-      }
+      finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {
+        void refresh(true);
+      });
       loadedRef.current = true;
       if (shouldBlock) setLoading(false);
     }

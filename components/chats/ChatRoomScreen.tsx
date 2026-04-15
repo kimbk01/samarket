@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useTradeChatResolvedViewer } from "@/components/chats/use-trade-chat-resolved-viewer";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
-import { getCurrentUserIdForDb, getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
-import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
@@ -110,6 +109,8 @@ export function ChatRoomScreen({
       notifSurface.setExplicitTradeChatRoomId(null);
     };
   }, [notifSurface, roomId]);
+
+  useTradeChatResolvedViewer(initialViewerUserId, setResolvedUserId);
 
   const reload = useCallback(async (options?: { bypassPeek?: boolean }) => {
     const startedAt = perfNow();
@@ -279,49 +280,6 @@ export function ChatRoomScreen({
       updateLegacyChatRoomMessagesCache(r.id, serverBootstrap.messages);
     }
   }, [roomId, serverBootstrap]);
-
-  /** useEffect 보다 먼저 세션 확인을 시작 — 페인트 직전에 Promise 가 돎 */
-  useLayoutEffect(() => {
-    let cancelled = false;
-    /** 첫 tick 만 RSC `initialViewerUserId` 신뢰 — 이후 auth 이벤트는 항상 DB/세션으로 재확인 */
-    const resolveViewer = async (mode: "trust_server_hint" | "refresh") => {
-      if (mode === "trust_server_hint") {
-        if (initialViewerUserId === null) {
-          if (!cancelled) setResolvedUserId(null);
-          return;
-        }
-        const trimmed =
-          typeof initialViewerUserId === "string" && initialViewerUserId.trim()
-            ? initialViewerUserId.trim()
-            : "";
-        if (trimmed) {
-          if (!cancelled) setResolvedUserId(trimmed);
-          return;
-        }
-      }
-      const id = (await getCurrentUserIdForDb())?.trim() || null;
-      if (!cancelled) setResolvedUserId(id);
-    };
-    void resolveViewer("trust_server_hint");
-    const onTestAuthChange = () => {
-      void resolveViewer("refresh");
-    };
-    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuthChange);
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") void resolveViewer("refresh");
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    const sb = getSupabaseClient();
-    const authSub = sb?.auth.onAuthStateChange(() => {
-      void resolveViewer("refresh");
-    });
-    return () => {
-      cancelled = true;
-      window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuthChange);
-      document.removeEventListener("visibilitychange", onVisibility);
-      authSub?.data.subscription.unsubscribe();
-    };
-  }, [initialViewerUserId]);
 
   useEffect(() => {
     if (chatEntryShellLoggedRef.current) return;

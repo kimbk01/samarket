@@ -33,12 +33,23 @@ export function GlobalCommunityMessengerUnreadSound() {
   }, [pathname]);
 
   useEffect(() => {
-    void getCurrentUserIdForDb().then(setUserId);
-  }, [pathname]);
+    const syncUser = () => {
+      void getCurrentUserIdForDb().then((id) => setUserId((prev) => (prev === id ? prev : id)));
+    };
+    syncUser();
+    const sb = getSupabaseClient();
+    const authSub = sb?.auth.onAuthStateChange((event) => {
+      if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+      syncUser();
+    });
+    return () => {
+      authSub?.data.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const onTestAuth = () => {
-      void getCurrentUserIdForDb().then(setUserId);
+      void getCurrentUserIdForDb().then((id) => setUserId((prev) => (prev === id ? prev : id)));
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);

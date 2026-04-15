@@ -1,3 +1,4 @@
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { resolveHomePostsGetData } from "@/lib/posts/home-posts-route-core";
 import { buildHomeTradeSeedRequest } from "@/lib/trade/build-home-trade-seed-request";
 import { HomeContent } from "./HomeContent";
@@ -5,7 +6,9 @@ import { HomeContent } from "./HomeContent";
 /** 거래 홈: 첫 피드는 서버에서 `GET /api/home/posts` 와 동일 로직으로 한 번만 조회 */
 export default async function HomePage() {
   const req = await buildHomeTradeSeedRequest();
-  const initialHomeTradeFeed = await resolveHomePostsGetData(req);
+  /** API 라우트와 동일하게 세션을 한 번만 확정 — favorites·내부 분기에서 `getOptionalAuthenticatedUserId` 재호출 방지 */
+  const viewerUserId = await getOptionalAuthenticatedUserId();
+  const initialHomeTradeFeed = await resolveHomePostsGetData(req, { precomputedViewerUserId: viewerUserId });
 
   return (
     <div className="min-h-screen bg-background">

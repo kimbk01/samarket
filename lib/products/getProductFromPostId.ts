@@ -106,14 +106,21 @@ export async function getProductFromPostId(postId: string): Promise<Product | nu
 
     let nickname = authorId.slice(0, 8);
     if (authorId) {
-      const [profileRes, testUserRes] = await Promise.all([
-        sbAny.from("profiles").select("nickname, username").eq("id", authorId).maybeSingle(),
-        sbAny.from("test_users").select("display_name, username").eq("id", authorId).maybeSingle(),
-      ]);
+      /** 프로필 우선(실서비스 다수) — 행이 없을 때만 `test_users` 조회로 왕복 1회 절감 */
+      const profileRes = await sbAny
+        .from("profiles")
+        .select("nickname, username")
+        .eq("id", authorId)
+        .maybeSingle();
       const profile = profileRes.data as Record<string, unknown> | null;
       if (profile) {
         nickname = (profile.nickname ?? profile.username ?? nickname) as string;
       } else {
+        const testUserRes = await sbAny
+          .from("test_users")
+          .select("display_name, username")
+          .eq("id", authorId)
+          .maybeSingle();
         const testUser = testUserRes.data as Record<string, unknown> | null;
         if (testUser) {
           nickname = (testUser.display_name ?? testUser.username ?? nickname) as string;

@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { PostDetailView } from "@/components/post/PostDetailView";
 import { PostDetailFeedChromeReset } from "@/components/post/PostDetailFeedChromeReset";
 import type { TradeItemDetailPageData } from "@/services/trade/trade-detail.service";
+
+/** 가시성·포커스·복원이 겹쳐도 연속 `GET /api/posts/:id` 폭주 방지 — 홈 사일런트 갱신과 유사한 레이트 */
+const MIN_LISTING_FIELDS_REFRESH_GAP_MS = 2_500;
 
 type ApiPostRow = {
   status?: string;
@@ -25,6 +29,7 @@ type Props = {
 export function PostDetailPageClient({ initialBundle }: Props) {
   const id = initialBundle.item.id;
   const [post, setPost] = useState<PostWithMeta>(initialBundle.item);
+  const lastListingFieldsRefreshAtRef = useRef(0);
 
   useEffect(() => {
     setPost(initialBundle.item);
@@ -32,37 +37,42 @@ export function PostDetailPageClient({ initialBundle }: Props) {
 
   const refreshListingFields = useCallback(async () => {
     if (!id) return;
-    try {
-      const res = await fetch(`/api/posts/${id}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const row = (await res.json()) as ApiPostRow;
-      setPost((prev) => {
-        if (!prev || prev.id !== id) return prev;
-        const next: PostWithMeta = { ...prev };
-        if (typeof row.status === "string" && row.status) {
-          next.status = row.status as PostWithMeta["status"];
-        }
-        if (row.seller_listing_state === null) {
-          next.seller_listing_state = undefined;
-        } else if (typeof row.seller_listing_state === "string") {
-          next.seller_listing_state = row.seller_listing_state;
-        }
-        if (typeof row.type === "string" && row.type) {
-          next.type = row.type as PostWithMeta["type"];
-        }
-        if (typeof row.updated_at === "string" && row.updated_at) {
-          next.updated_at = row.updated_at;
-        }
-        if (row.reserved_buyer_id === null || row.reserved_buyer_id === undefined) {
-          next.reserved_buyer_id = undefined;
-        } else if (typeof row.reserved_buyer_id === "string") {
-          next.reserved_buyer_id = row.reserved_buyer_id.trim() || undefined;
-        }
-        return next;
-      });
-    } catch {
-      /* ignore */
-    }
+    const now = Date.now();
+    if (now - lastListingFieldsRefreshAtRef.current < MIN_LISTING_FIELDS_REFRESH_GAP_MS) return;
+    await runSingleFlight(`post-detail-listing-fields:${id}`, async () => {
+      lastListingFieldsRefreshAtRef.current = Date.now();
+      try {
+        const res = await fetch(`/api/posts/${id}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const row = (await res.json()) as ApiPostRow;
+        setPost((prev) => {
+          if (!prev || prev.id !== id) return prev;
+          const next: PostWithMeta = { ...prev };
+          if (typeof row.status === "string" && row.status) {
+            next.status = row.status as PostWithMeta["status"];
+          }
+          if (row.seller_listing_state === null) {
+            next.seller_listing_state = undefined;
+          } else if (typeof row.seller_listing_state === "string") {
+            next.seller_listing_state = row.seller_listing_state;
+          }
+          if (typeof row.type === "string" && row.type) {
+            next.type = row.type as PostWithMeta["type"];
+          }
+          if (typeof row.updated_at === "string" && row.updated_at) {
+            next.updated_at = row.updated_at;
+          }
+          if (row.reserved_buyer_id === null || row.reserved_buyer_id === undefined) {
+            next.reserved_buyer_id = undefined;
+          } else if (typeof row.reserved_buyer_id === "string") {
+            next.reserved_buyer_id = row.reserved_buyer_id.trim() || undefined;
+          }
+          return next;
+        });
+      } catch {
+        /* ignore */
+      }
+    });
   }, [id]);
 
   useEffect(() => {

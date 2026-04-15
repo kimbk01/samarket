@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/monitoring/client";
 import {
   MESSENGER_HOME_META_DEBOUNCE_MS,
+  MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS,
   MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS,
   MESSENGER_ROOM_META_DEBOUNCE_MS,
   MESSENGER_VOICE_AUX_DEBOUNCE_MS,
@@ -294,7 +295,11 @@ export function useCommunityMessengerRoomRealtime(args: {
     );
     /** 멤버·방 설정 변경은 연속 이벤트가 많아 묶음 → 단일 GET 부담 감소 */
     const metaRefreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_ROOM_META_DEBOUNCE_MS);
-    const callRefreshScheduler = createRefreshScheduler(callbackRef, 0);
+    /** 통화·call_stub 테이블 연속 변경 시 GET 부트스트랩 합류 — 0 디바운스는 이벤트 버스트마다 스케줄만 양산 */
+    const callRefreshScheduler = createRefreshScheduler(
+      callbackRef,
+      MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS
+    );
     /** 음성 INSERT 직후 GET 이 비는 경우 대비 — 지연 refresh 로 채팅 목록·스냅샷을 한 번 더 맞춤 */
     const voiceRefreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_VOICE_AUX_DEBOUNCE_MS);
     const channels: RealtimeChannel[] = [];

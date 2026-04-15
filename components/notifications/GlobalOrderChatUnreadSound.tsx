@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { getOwnerHubBadgeSnapshot, subscribeOwnerHubBadge } from "@/lib/chats/owner-hub-badge-store";
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
@@ -28,14 +29,29 @@ export function GlobalOrderChatUnreadSound() {
     pathnameRef.current = pathname;
   }, [pathname]);
 
+  /** 경로마다 알림음 기준 스냅샷만 리셋 — 세션은 아래 effect 에서만(탭 이동마다 `getUser` 왕복 방지) */
   useEffect(() => {
     prevSnapRef.current = getOwnerHubBadgeSnapshot();
-    void getCurrentUserIdForDb().then(setViewerUid);
   }, [pathname]);
 
   useEffect(() => {
+    const syncViewer = () => {
+      void getCurrentUserIdForDb().then((id) => setViewerUid((prev) => (prev === id ? prev : id)));
+    };
+    syncViewer();
+    const sb = getSupabaseClient();
+    const authSub = sb?.auth.onAuthStateChange((event) => {
+      if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+      syncViewer();
+    });
+    return () => {
+      authSub?.data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     const onTestAuth = () => {
-      void getCurrentUserIdForDb().then(setViewerUid);
+      void getCurrentUserIdForDb().then((id) => setViewerUid((prev) => (prev === id ? prev : id)));
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
