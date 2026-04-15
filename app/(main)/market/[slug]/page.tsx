@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
-import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolve-posts-read-clients";
 import { loadMarketBootstrapPayload } from "@/lib/market/load-market-bootstrap-payload";
 import { tradeServerSeedFromBootstrapPayload } from "@/lib/market/trade-category-server-seed";
 import {
@@ -37,16 +37,16 @@ export default async function MarketCategoryPage({ params, searchParams }: PageP
 
   let tradeServerSeed: ReturnType<typeof tradeServerSeedFromBootstrapPayload> | null = null;
 
-  const cookieSb = await createSupabaseRouteHandlerClient();
-  const svcSb = tryCreateSupabaseServiceClient();
-  const supabase = svcSb ?? cookieSb;
+  const postsClients = await resolvePostsReadClientsForServerComponent();
 
-  if (supabase) {
-    const result = await loadMarketBootstrapPayload(supabase, {
+  if (postsClients) {
+    const viewerUserId = await getOptionalAuthenticatedUserId();
+    const result = await loadMarketBootstrapPayload(postsClients, {
       q: slugOrId,
       topic: topicRaw,
       jkParam: jkRaw || null,
       includePosts: true,
+      viewerUserId,
     });
 
     if (result.ok) {

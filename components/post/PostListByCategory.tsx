@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getPostsByTradeCategoryIds,
   primeTradeFeedCache,
@@ -40,7 +40,12 @@ interface PostListByCategoryProps {
   /** 알바 마켓: 구인/구직 메타 필터 */
   jobsListingKind?: JobListingKindFilter;
   /** 마켓 bootstrap 첫 페이지 — `feedKey`가 현재 필터와 같을 때만 적용 */
-  initialTradeFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null;
+  initialTradeFeed?: {
+    posts: PostWithMeta[];
+    hasMore: boolean;
+    feedKey: string;
+    favoriteMap?: Record<string, boolean>;
+  } | null;
 }
 
 export function PostListByCategory({
@@ -62,6 +67,8 @@ export function PostListByCategory({
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
+  /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
+  const listFeedEpochRef = useRef(0);
 
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
@@ -94,6 +101,7 @@ export function PostListByCategory({
         setLoading(false);
         return;
       }
+      const epoch = listFeedEpochRef.current;
       setLoading(true);
       try {
         const useHomePostsApi =
@@ -110,6 +118,7 @@ export function PostListByCategory({
             tradeMarketParent: categoryId,
             topic: "",
           });
+          if (epoch !== listFeedEpochRef.current) return;
           if (pageNum === 1) {
             setPosts(next.posts);
             setHiddenPostIds(new Set());
@@ -118,7 +127,13 @@ export function PostListByCategory({
             setPosts((prev) => [...prev, ...next.posts]);
           }
           setHasMore(next.hasMore);
-          if (next.posts.length > 0) {
+          if (next.favoriteMap !== undefined) {
+            if (pageNum === 1) {
+              setFavoriteMap(next.favoriteMap);
+            } else {
+              setFavoriteMap((prev) => ({ ...prev, ...next.favoriteMap }));
+            }
+          } else if (next.posts.length > 0) {
             const map = await getFavoriteStatusForPosts(next.posts.map((p) => p.id));
             if (pageNum === 1) {
               setFavoriteMap(map);
@@ -145,22 +160,30 @@ export function PostListByCategory({
               : {}),
           }
         );
+        if (epoch !== listFeedEpochRef.current) return;
         if (pageNum === 1) {
           setPosts(next.posts);
           setHiddenPostIds(new Set());
           setNotInterestedPostIds(new Set());
-          setFavoriteMap({});
         } else {
           setPosts((prev) => [...prev, ...next.posts]);
         }
         setHasMore(next.hasMore);
-        if (next.posts.length > 0) {
+        if (next.favoriteMap !== undefined) {
+          if (pageNum === 1) {
+            setFavoriteMap(next.favoriteMap);
+          } else {
+            setFavoriteMap((prev) => ({ ...prev, ...next.favoriteMap }));
+          }
+        } else if (next.posts.length > 0) {
           const map = await getFavoriteStatusForPosts(next.posts.map((p) => p.id));
           if (pageNum === 1) {
             setFavoriteMap(map);
           } else {
             setFavoriteMap((prev) => ({ ...prev, ...map }));
           }
+        } else if (pageNum === 1) {
+          setFavoriteMap({});
         }
       } finally {
         setLoading(false);
@@ -171,6 +194,8 @@ export function PostListByCategory({
 
   useEffect(() => {
     let cancelled = false;
+    listFeedEpochRef.current += 1;
+    const epoch = listFeedEpochRef.current;
     setPage(1);
 
     (async () => {
@@ -179,7 +204,7 @@ export function PostListByCategory({
         setHasMore(initialTradeFeed.hasMore);
         setHiddenPostIds(new Set());
         setNotInterestedPostIds(new Set());
-        setFavoriteMap({});
+        setFavoriteMap(initialTradeFeed.favoriteMap ?? {});
         setLoading(false);
         const useHomePostsApi =
           tradeFeedServerResolution &&
@@ -191,7 +216,13 @@ export function PostListByCategory({
             primeTradeFeedCache(
               [],
               { page: 1, sort, tradeMarketParent: categoryId, topic: "" },
-              { posts: initialTradeFeed.posts, hasMore: initialTradeFeed.hasMore }
+              {
+                posts: initialTradeFeed.posts,
+                hasMore: initialTradeFeed.hasMore,
+                ...(initialTradeFeed.favoriteMap !== undefined ?
+                  { favoriteMap: initialTradeFeed.favoriteMap }
+                : {}),
+              }
             );
           } else {
             primeTradeFeedCache(
@@ -203,19 +234,31 @@ export function PostListByCategory({
                 tradeMarketParent: categoryId,
                 topic: tradeTopicParam,
               },
-              { posts: initialTradeFeed.posts, hasMore: initialTradeFeed.hasMore }
+              {
+                posts: initialTradeFeed.posts,
+                hasMore: initialTradeFeed.hasMore,
+                ...(initialTradeFeed.favoriteMap !== undefined ?
+                  { favoriteMap: initialTradeFeed.favoriteMap }
+                : {}),
+              }
             );
           }
         } else {
           primeTradeFeedCache(
             effectiveIds,
             { page: 1, sort, jobsListingKind },
-            { posts: initialTradeFeed.posts, hasMore: initialTradeFeed.hasMore }
+            {
+              posts: initialTradeFeed.posts,
+              hasMore: initialTradeFeed.hasMore,
+              ...(initialTradeFeed.favoriteMap !== undefined ?
+                { favoriteMap: initialTradeFeed.favoriteMap }
+              : {}),
+            }
           );
         }
-        if (initialTradeFeed.posts.length > 0) {
+        if (initialTradeFeed.favoriteMap === undefined && initialTradeFeed.posts.length > 0) {
           const map = await getFavoriteStatusForPosts(initialTradeFeed.posts.map((p) => p.id));
-          if (!cancelled) setFavoriteMap(map);
+          if (!cancelled && epoch === listFeedEpochRef.current) setFavoriteMap(map);
         }
         return;
       }

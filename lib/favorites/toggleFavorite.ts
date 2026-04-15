@@ -3,6 +3,7 @@
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { invalidateFavoriteCountClientCache } from "@/lib/favorites/getMyFavoriteCount";
 import { dispatchPostFavoriteChanged } from "@/lib/favorites/post-favorite-events";
+import { invalidateTradeFeedClientCacheForViewer } from "@/lib/posts/trade-feed-client-cache";
 
 export type ToggleFavoriteResult =
   | { ok: true; isFavorite: boolean }
@@ -35,6 +36,7 @@ export async function toggleFavorite(postId: string): Promise<ToggleFavoriteResu
     }
     if ((data as { ok?: boolean }).ok === true && typeof (data as { isFavorite?: boolean }).isFavorite === "boolean") {
       invalidateFavoriteCountClientCache();
+      invalidateTradeFeedClientCacheForViewer(user.id);
       const isFavorite = (data as { isFavorite: boolean }).isFavorite;
       dispatchPostFavoriteChanged({ postId, isFavorite });
       return { ok: true, isFavorite };

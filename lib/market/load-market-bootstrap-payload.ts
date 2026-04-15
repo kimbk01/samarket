@@ -4,21 +4,30 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
-import { fetchTradeFeedPage } from "@/lib/posts/fetch-trade-feed-page";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import { CATEGORY_WITH_SETTINGS_SELECT } from "@/lib/categories/category-select-fragment";
 import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
+import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
+import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type MarketBootstrapInitialFeed = {
+  posts: PostWithMeta[];
+  hasMore: boolean;
+  feedKey: string;
+  /** 로그인 시 서버에서 조회 — 클라 `/api/favorites/status` 1회 생략 */
+  favoriteMap?: Record<string, boolean>;
+};
 
 export type MarketBootstrapPayload = {
   category: Record<string, unknown>;
   children: Record<string, unknown>[];
   childrenForFilter: { id: string; slug: string | null }[];
-  initialFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string };
+  initialFeed?: MarketBootstrapInitialFeed;
 };
 
 export type LoadMarketBootstrapPayloadResult =
@@ -32,12 +41,15 @@ export type LoadMarketBootstrapArgs = {
   /** `?jk=` 원문 — 알바 마켓에서만 사용, 비어 있으면 구인(hire)과 동일 */
   jkParam?: string | null;
   includePosts: boolean;
+  /** `GET /api/trade/feed` 와 동일 — 첫 피드에 찜 맵 포함 */
+  viewerUserId?: string | null;
 };
 
 export async function loadMarketBootstrapPayload(
-  supabase: SupabaseClient,
+  clients: PostsReadClients,
   args: LoadMarketBootstrapArgs
 ): Promise<LoadMarketBootstrapPayloadResult> {
+  const supabase = clients.readSb as unknown as SupabaseClient;
   const q = args.q?.trim();
   if (!q) {
     return { ok: false, httpStatus: 400, message: "q 파라미터가 필요합니다." };
@@ -92,7 +104,9 @@ export async function loadMarketBootstrapPayload(
   const childrenArr = rawChildren.filter(
     (r: Record<string, unknown>) => r.show_in_home_chips !== true
   );
-  const childrenForFilter = await fetchTradeCategoryDescendantNodes(supabase, parentId);
+  /** API `GET /api/trade/feed` 와 동일 — 읽기 전용 RLS 한계 시 서비스 롤로 트리 확장 */
+  const subtreeSb = (clients.serviceSb ?? clients.readSb) as unknown as SupabaseClient;
+  const childrenForFilter = await fetchTradeCategoryDescendantNodes(subtreeSb, parentId);
   const iconKey = String((cat as { icon_key?: unknown }).icon_key ?? "");
   const slugVal = String((cat as { slug?: unknown }).slug ?? "");
   const isJobMarket =
@@ -106,7 +120,8 @@ export async function loadMarketBootstrapPayload(
       : "hire"
     : undefined;
 
-  let initialFeed: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | undefined;
+  let initialFeed: MarketBootstrapInitialFeed | undefined;
+  const viewerUserId = args.viewerUserId?.trim() ?? "";
 
   if (args.includePosts) {
     const feedKey = computeTradeFeedKeyForMarketParent(parentId, topicParam, "latest", jobListingKindForFeed);
@@ -117,15 +132,17 @@ export async function loadMarketBootstrapPayload(
         activeChildren: childrenForFilter,
         topicParam: "",
       });
-      const result = await fetchTradeFeedPage(sb, filterIds, {
-        page: 1,
-        sort: "latest",
-        jobsListingKind: undefined,
-      });
+      const open = await resolveTradeFeedOpenPayload(
+        clients,
+        filterIds,
+        { page: 1, sort: "latest", jobsListingKind: undefined },
+        viewerUserId || null
+      );
       initialFeed = {
-        posts: result.posts as PostWithMeta[],
-        hasMore: result.hasMore,
+        posts: open.posts,
+        hasMore: open.hasMore,
         feedKey,
+        ...(viewerUserId && open.posts.length > 0 ? { favoriteMap: open.favoriteMap } : {}),
       };
     } else {
       const filterIds = computeMarketFilterIds({
@@ -133,15 +150,17 @@ export async function loadMarketBootstrapPayload(
         activeChildren: childrenForFilter,
         topicParam,
       });
-      const result = await fetchTradeFeedPage(supabase, filterIds, {
-        page: 1,
-        sort: "latest",
-        jobsListingKind: jobListingKindForFeed,
-      });
+      const open = await resolveTradeFeedOpenPayload(
+        clients,
+        filterIds,
+        { page: 1, sort: "latest", jobsListingKind: jobListingKindForFeed },
+        viewerUserId || null
+      );
       initialFeed = {
-        posts: result.posts as PostWithMeta[],
-        hasMore: result.hasMore,
+        posts: open.posts,
+        hasMore: open.hasMore,
         feedKey,
+        ...(viewerUserId && open.posts.length > 0 ? { favoriteMap: open.favoriteMap } : {}),
       };
     }
   }

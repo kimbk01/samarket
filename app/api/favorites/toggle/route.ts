@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceFavoriteToggleQuota } from "@/lib/security/rate-limit-presets";
+import { invalidatePostFavoriteServerCachesForViewer } from "@/lib/posts/invalidate-post-favorite-server-caches";
 
 async function appendFavoriteAuditLog(
   sbAny: SupabaseClient,
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
         );
       }
       await appendFavoriteAuditLog(sbAny, userId, postId, "remove");
+      invalidatePostFavoriteServerCachesForViewer(userId);
       return NextResponse.json({ ok: true, isFavorite: false });
     }
 
@@ -119,6 +121,7 @@ export async function POST(req: NextRequest) {
       );
     }
     await appendFavoriteAuditLog(sbAny, userId, postId, "add");
+    invalidatePostFavoriteServerCachesForViewer(userId);
     return NextResponse.json({ ok: true, isFavorite: true });
   } catch (e) {
     return NextResponse.json(

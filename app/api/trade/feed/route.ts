@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTradeFeedPage } from "@/lib/posts/fetch-trade-feed-page";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
 import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
+import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -79,22 +80,16 @@ export async function GET(req: NextRequest) {
   const sort = parseSort(searchParams.get("sort"));
   const jobsListingKind = parseJobKind(searchParams.get("jk"));
 
-  const opts = { page, sort, jobsListingKind };
-
-  let result = await fetchTradeFeedPage(clients.readSb, categoryIds, opts);
-  if (
-    result.posts.length === 0 &&
-    clients.serviceSb &&
-    clients.serviceSb !== clients.readSb
-  ) {
-    const alt = await fetchTradeFeedPage(clients.serviceSb, categoryIds, opts);
-    if (alt.posts.length > 0) {
-      result = alt;
-    }
-  }
+  const viewerId = await getOptionalAuthenticatedUserId();
+  const open = await resolveTradeFeedOpenPayload(
+    clients,
+    categoryIds,
+    { page, sort, jobsListingKind },
+    viewerId
+  );
 
   return NextResponse.json(
-    { ok: true, posts: result.posts, hasMore: result.hasMore },
+    { ok: true, posts: open.posts, hasMore: open.hasMore, favoriteMap: open.favoriteMap },
     { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=30", Vary: "Cookie" } }
   );
 }

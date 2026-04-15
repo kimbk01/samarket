@@ -35,7 +35,12 @@ interface CategoryListLayoutProps {
       tradeBootstrapChildren?: CategoryWithSettings[];
       /** 피드 SQL 필터용 직계 하위 id/slug 전체(bootstrap) — 칩 목록과 분리 */
       tradeBootstrapChildrenForFilter?: { id: string; slug: string | null }[];
-      tradeBootstrapFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null;
+      tradeBootstrapFeed?: {
+        posts: PostWithMeta[];
+        hasMore: boolean;
+        feedKey: string;
+        favoriteMap?: Record<string, boolean>;
+      } | null;
     }
   ) => React.ReactNode;
 }
@@ -59,7 +64,14 @@ export function CategoryListLayout({
     () => (isTradeSeeded ? tradeServerSeed!.tradeBootstrapChildren : undefined)
   );
   const [tradeBootstrapFeed, setTradeBootstrapFeed] = useState<
-    { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null | undefined
+    | {
+        posts: PostWithMeta[];
+        hasMore: boolean;
+        feedKey: string;
+        favoriteMap?: Record<string, boolean>;
+      }
+    | null
+    | undefined
   >(() => (isTradeSeeded ? tradeServerSeed!.tradeBootstrapFeed ?? null : undefined));
   const [tradeBootstrapChildrenForFilter, setTradeBootstrapChildrenForFilter] = useState<
     { id: string; slug: string | null }[] | undefined
@@ -123,7 +135,12 @@ export function CategoryListLayout({
           category?: Record<string, unknown>;
           children?: Record<string, unknown>[];
           childrenForFilter?: { id?: string; slug?: unknown }[];
-          initialFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string };
+          initialFeed?: {
+            posts: PostWithMeta[];
+            hasMore: boolean;
+            feedKey: string;
+            favoriteMap?: Record<string, boolean>;
+          };
           error?: string;
         };
         if (res.ok && j.ok && j.category) {

@@ -1,60 +1,30 @@
 "use client";
 
 import type { PostWithMeta } from "./schema";
-import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  buildTradeFeedClientCacheKey,
+  peekCachedTradeFeed as peekCachedTradeFeedRaw,
+  primeTradeFeedCache as primeTradeFeedCacheRaw,
+  readTradeFeedClientCache,
+  writeTradeFeedClientCache,
+  type TradeFeedClientOptions,
+  type TradeFeedClientResult,
+  type TradeFeedClientSort,
+} from "@/lib/posts/trade-feed-client-cache";
 
-export type PostSort = "latest" | "popular";
+export type PostSort = TradeFeedClientSort;
+export type GetPostsByCategoryOptions = TradeFeedClientOptions;
+export type GetPostsByCategoryResult = TradeFeedClientResult;
 
-export interface GetPostsByCategoryOptions {
-  page?: number;
-  sort?: PostSort;
-  /** 알바 카테고리 전용: 구인/구직 메타 필터(페이지마다 DB를 여러 번 읽을 수 있음) */
-  jobsListingKind?: JobListingKindFilter;
-  /**
-   * 마켓 루트 UUID — 지정 시 `categoryIds` 대신 서버에서 트리 펼침 (`/api/home/posts` 의 tradeMarketParent 와 동일)
-   */
-  tradeMarketParent?: string;
-  /** `tradeMarketParent` 와 함께: `?topic=` 주제 칩 */
-  topic?: string;
+export function getTradeFeedClientViewerSegment(): string {
+  if (typeof window === "undefined") return "anon";
+  return getCurrentUser()?.id?.trim() || "anon";
 }
 
-export interface GetPostsByCategoryResult {
-  posts: PostWithMeta[];
-  hasMore: boolean;
-}
-
-const TRADE_FEED_CLIENT_TTL_MS = 45_000;
-
-type TradeFeedCacheEntry = {
-  data: GetPostsByCategoryResult;
-  expiresAt: number;
-};
-
-const tradeFeedClientCache = new Map<string, TradeFeedCacheEntry>();
-
-/** `/api/trade/feed` 요청 키 — 홈 `getPostsForHome` 캐시 키와 동일한 의도(짧은 TTL·중복 왕복 감소) */
-function buildTradeFeedClientCacheKey(
-  categoryIds: string[],
-  options: GetPostsByCategoryOptions
-): string {
-  const page = Math.max(1, options.page ?? 1);
-  const sort = options.sort ?? "latest";
-  const parent = options.tradeMarketParent?.trim();
-  if (parent) {
-    const topic = (options.topic ?? "").trim().normalize("NFC");
-    const jk =
-      options.jobsListingKind === "hire" || options.jobsListingKind === "work"
-        ? options.jobsListingKind
-        : "";
-    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|p:${page}:v1`;
-  }
-  const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))].sort();
-  const jk =
-    options.jobsListingKind === "hire" || options.jobsListingKind === "work"
-      ? options.jobsListingKind
-      : "";
-  return `ids:${ids.join(",")}|${sort}|jk:${jk}|p:${page}:v1`;
+function tradeFeedCacheViewerSuffix(): string {
+  return getTradeFeedClientViewerSegment();
 }
 
 /** RSC bootstrap 과 클라이언트 캐시 키 정렬 — 재진입·탭 복귀 시 동일 파라미터 재요청 완화 */
@@ -62,10 +32,7 @@ export function peekCachedTradeFeed(
   categoryIds: string[],
   options: GetPostsByCategoryOptions = {}
 ): GetPostsByCategoryResult | null {
-  const key = buildTradeFeedClientCacheKey(categoryIds, options);
-  const hit = tradeFeedClientCache.get(key);
-  if (!hit || hit.expiresAt <= Date.now()) return null;
-  return hit.data;
+  return peekCachedTradeFeedRaw(categoryIds, options, tradeFeedCacheViewerSuffix());
 }
 
 export function primeTradeFeedCache(
@@ -73,11 +40,7 @@ export function primeTradeFeedCache(
   options: GetPostsByCategoryOptions,
   data: GetPostsByCategoryResult
 ): void {
-  const key = buildTradeFeedClientCacheKey(categoryIds, options);
-  tradeFeedClientCache.set(key, {
-    data,
-    expiresAt: Date.now() + TRADE_FEED_CLIENT_TTL_MS,
-  });
+  primeTradeFeedCacheRaw(categoryIds, options, data, tradeFeedCacheViewerSuffix());
 }
 
 /** trade_category_id / category_id 중 하나로 여러 카테고리 OR 조회 */
@@ -85,14 +48,15 @@ export async function getPostsByTradeCategoryIds(
   categoryIds: string[],
   options: GetPostsByCategoryOptions = {}
 ): Promise<GetPostsByCategoryResult> {
-  const cacheKey = buildTradeFeedClientCacheKey(categoryIds, options);
-  const hit = tradeFeedClientCache.get(cacheKey);
+  const viewerSeg = tradeFeedCacheViewerSuffix();
+  const cacheKey = buildTradeFeedClientCacheKey(categoryIds, options, viewerSeg);
+  const hit = readTradeFeedClientCache(categoryIds, options, viewerSeg);
   if (hit && hit.expiresAt > Date.now()) {
     return hit.data;
   }
 
   return runSingleFlight(`trade-feed-fetch:${cacheKey}`, async () => {
-    const again = tradeFeedClientCache.get(cacheKey);
+    const again = readTradeFeedClientCache(categoryIds, options, viewerSeg);
     if (again && again.expiresAt > Date.now()) {
       return again.data;
     }
@@ -130,19 +94,22 @@ export async function getPostsByTradeCategoryIds(
         ok?: boolean;
         posts?: PostWithMeta[];
         hasMore?: boolean;
+        favoriteMap?: Record<string, boolean>;
       };
       if (!data.ok) {
         const empty: GetPostsByCategoryResult = { posts: [], hasMore: false };
         return empty;
       }
+      const fav =
+        data.favoriteMap && typeof data.favoriteMap === "object"
+          ? data.favoriteMap
+          : undefined;
       const result: GetPostsByCategoryResult = {
         posts: Array.isArray(data.posts) ? data.posts : [],
         hasMore: data.hasMore === true,
+        ...(fav ? { favoriteMap: fav } : {}),
       };
-      tradeFeedClientCache.set(cacheKey, {
-        data: result,
-        expiresAt: Date.now() + TRADE_FEED_CLIENT_TTL_MS,
-      });
+      writeTradeFeedClientCache(categoryIds, options, viewerSeg, result);
       return result;
     } catch {
       const empty: GetPostsByCategoryResult = { posts: [], hasMore: false };

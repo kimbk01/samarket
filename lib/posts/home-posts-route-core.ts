@@ -17,6 +17,7 @@ import {
 } from "@/lib/posts/home-posts-query-server";
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
+import { getPostFavoriteMutationEpochForViewer } from "@/lib/posts/post-favorites-viewer-mutation-epoch";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
   const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
@@ -32,8 +33,18 @@ const homePostsServerCache = new Map<
 >();
 const homePostsFavoriteCache = new Map<
   string,
-  { favoriteMap: Record<string, boolean>; expiresAt: number }
+  { favoriteMap: Record<string, boolean>; expiresAt: number; mutationEpoch: number }
 >();
+
+/** `invalidatePostFavoriteServerCachesForViewer` 가 키를 지울 때와 함께 쓰인다. */
+export function clearHomePostsFavoriteCacheKeysForViewerPrefix(userId: string): void {
+  const u = userId.trim();
+  if (!u) return;
+  const prefix = `${u}:`;
+  for (const k of homePostsFavoriteCache.keys()) {
+    if (k.startsWith(prefix)) homePostsFavoriteCache.delete(k);
+  }
+}
 
 function normalizeSort(raw: string | null): HomePostsQuerySort {
   return raw === "popular" ? "popular" : "latest";
@@ -201,28 +212,45 @@ export async function resolveHomePostsGetData(
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);
     const favoriteCacheKey = buildHomePostsFavoriteCacheKey(userId, page, sort, effectiveType, marketSegment);
+    const favEpoch = getPostFavoriteMutationEpochForViewer(userId);
     const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);
 
-    if (cachedFavorites && cachedFavorites.expiresAt > Date.now()) {
+    if (
+      cachedFavorites &&
+      cachedFavorites.expiresAt > Date.now() &&
+      cachedFavorites.mutationEpoch === favEpoch
+    ) {
       Object.assign(favoriteMap, cachedFavorites.favoriteMap);
     } else {
-      const { data: favorites } = await favoritesSb
-        .from("favorites")
-        .select("post_id")
-        .eq("user_id", userId)
-        .in("post_id", postIds);
+      const loadFavoritesOnce = async () => {
+        const { data: favorites } = await favoritesSb
+          .from("favorites")
+          .select("post_id")
+          .eq("user_id", userId)
+          .in("post_id", postIds);
+        for (const postId of postIds) {
+          favoriteMap[postId] = false;
+        }
+        for (const row of favorites ?? []) {
+          const postId = typeof row.post_id === "string" ? row.post_id : "";
+          if (postId) favoriteMap[postId] = true;
+        }
+      };
 
-      for (const postId of postIds) {
-        favoriteMap[postId] = false;
-      }
-      for (const row of favorites ?? []) {
-        const postId = typeof row.post_id === "string" ? row.post_id : "";
-        if (postId) favoriteMap[postId] = true;
+      let e0 = getPostFavoriteMutationEpochForViewer(userId);
+      await loadFavoritesOnce();
+      if (getPostFavoriteMutationEpochForViewer(userId) !== e0) {
+        e0 = getPostFavoriteMutationEpochForViewer(userId);
+        for (const postId of postIds) {
+          delete favoriteMap[postId];
+        }
+        await loadFavoritesOnce();
       }
 
       homePostsFavoriteCache.set(favoriteCacheKey, {
         favoriteMap: { ...favoriteMap },
         expiresAt: Date.now() + HOME_POSTS_FAVORITES_CACHE_TTL_MS,
+        mutationEpoch: getPostFavoriteMutationEpochForViewer(userId),
       });
     }
   }

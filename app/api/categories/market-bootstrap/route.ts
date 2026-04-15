@@ -4,9 +4,9 @@
  * `includePosts=1` 이면 첫 페이지 글은 `fetchTradeFeedPage` — `docs/trade-market-feed-contract.md`.
  */
 import { NextRequest } from "next/server";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
-import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { loadMarketBootstrapPayload } from "@/lib/market/load-market-bootstrap-payload";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +17,8 @@ export async function GET(req: NextRequest) {
     return jsonError("q 파라미터가 필요합니다.", 400);
   }
 
-  const cookieSb = await createSupabaseRouteHandlerClient();
-  const svcSb = tryCreateSupabaseServiceClient();
-  const supabase = svcSb ?? cookieSb;
-  if (!supabase) {
+  const postsClients = resolvePostsReadClients(req);
+  if (!postsClients) {
     return jsonError("데이터베이스 설정이 없습니다.", 503);
   }
 
@@ -28,11 +26,13 @@ export async function GET(req: NextRequest) {
   const topicParam = req.nextUrl.searchParams.get("topic") ?? "";
   const jkParam = req.nextUrl.searchParams.get("jk");
 
-  const result = await loadMarketBootstrapPayload(supabase, {
+  const viewerUserId = await getOptionalAuthenticatedUserId();
+  const result = await loadMarketBootstrapPayload(postsClients, {
     q,
     topic: topicParam,
     jkParam,
     includePosts,
+    viewerUserId,
   });
 
   if (!result.ok) {

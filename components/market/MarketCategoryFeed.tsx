@@ -53,7 +53,12 @@ export function MarketCategoryFeed({
   /** 직계 활성 하위 전체 id/slug — 피드 필터 전용(칩 목록과 다를 수 있음). 미주입 시 클라이언트에서 조회 */
   initialChildrenForFilter?: FeedFilterChild[] | null;
   /** bootstrap 첫 페이지 글(키가 현재 필터와 일치할 때만 목록에 사용) */
-  bootstrapFeed?: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null;
+  bootstrapFeed?: {
+    posts: PostWithMeta[];
+    hasMore: boolean;
+    feedKey: string;
+    favoriteMap?: Record<string, boolean>;
+  } | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();

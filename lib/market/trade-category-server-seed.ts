@@ -13,7 +13,12 @@ export type TradeCategoryServerSeed = {
   category: CategoryWithSettings;
   tradeBootstrapChildren: CategoryWithSettings[];
   tradeBootstrapChildrenForFilter: { id: string; slug: string | null }[];
-  tradeBootstrapFeed: { posts: PostWithMeta[]; hasMore: boolean; feedKey: string } | null;
+  tradeBootstrapFeed: {
+    posts: PostWithMeta[];
+    hasMore: boolean;
+    feedKey: string;
+    favoriteMap?: Record<string, boolean>;
+  } | null;
 };
 
 export function tradeServerSeedFromBootstrapPayload(
