@@ -125,6 +125,43 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const myParticipant = participants.find((item) => item.isMe) ?? null;
   const amJoined = myParticipant?.status === "joined";
 
+  /**
+   * 그룹 통화도 종료/거절/취소/부재 처리가 signaling(hangup)만으로 끝나지 않을 수 있다.
+   * 세션 status 변화를 직접 구독해 room snapshot(onRefresh)이 즉시 갱신되도록 한다.
+   */
+  useEffect(() => {
+    const sessionId = currentSessionId;
+    if (!args.enabled || !sessionId) return;
+    const sb = getSupabaseClient();
+    if (!sb) return;
+
+    let cancelled = false;
+    const sub = subscribeWithRetry({
+      sb,
+      name: `community-messenger-group-call-session:${sessionId}`,
+      scope: "community-messenger-group-call:session",
+      isCancelled: () => cancelled,
+      build: (ch) =>
+        ch.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "community_messenger_call_sessions",
+            filter: `id=eq.${sessionId}`,
+          },
+          () => {
+            void args.onRefresh();
+          }
+        ),
+    });
+
+    return () => {
+      cancelled = true;
+      sub.stop();
+    };
+  }, [args, args.enabled, args.onRefresh, currentSessionId]);
+
   const syncRemotePeerState = useCallback((userId: string, label: string, stream: MediaStream | null) => {
     setRemotePeers((prev) => {
       const next = prev.filter((item) => item.userId !== userId);

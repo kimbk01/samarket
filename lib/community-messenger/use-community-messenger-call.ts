@@ -128,6 +128,45 @@ export function useCommunityMessengerCall(args: {
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
 
+  /**
+   * 세션 상태(ended/cancelled/rejected/missed) 변화는 signaling(hangup)과 별개로 발생할 수 있다.
+   * - 일부 클라이언트는 PATCH 로만 종료(또는 네트워크 실패로 hangup 전달 누락)할 수 있음
+   * - 따라서 세션 row 변경을 Realtime로 구독해 양쪽 UI가 즉시 원점 복귀하도록 한다.
+   */
+  useEffect(() => {
+    const sessionId = currentSessionId;
+    if (!sessionId) return;
+    const sb = getSupabaseClient();
+    if (!sb) return;
+
+    let cancelled = false;
+    const sub = subscribeWithRetry({
+      sb,
+      name: `community-messenger-call-session:${sessionId}`,
+      scope: "community-messenger-call:session",
+      isCancelled: () => cancelled,
+      build: (ch) =>
+        ch.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "community_messenger_call_sessions",
+            filter: `id=eq.${sessionId}`,
+          },
+          () => {
+            // 홈 snapshot(activeCall) 최신화 + UI 전이
+            void args.onRefresh();
+          }
+        ),
+    });
+
+    return () => {
+      cancelled = true;
+      sub.stop();
+    };
+  }, [args, currentSessionId]);
+
   const clearPendingSessionCleanup = useCallback(() => {
     if (sessionCleanupTimerRef.current === null) return;
     window.clearTimeout(sessionCleanupTimerRef.current);
@@ -899,6 +938,21 @@ export function useCommunityMessengerCall(args: {
     },
     [cleanupMedia, invalidatePendingCallActions]
   );
+
+  useEffect(() => {
+    const active = args.activeCall;
+    if (!active) return;
+    if (!currentSessionId || active.id !== currentSessionId) return;
+    if (
+      active.status === "ended" ||
+      active.status === "cancelled" ||
+      active.status === "rejected" ||
+      active.status === "missed"
+    ) {
+      // 상대/본인 어느 쪽이 종료해도 즉시 통화 UI 닫기(원점 복귀)
+      closeSessionImmediately(active.id);
+    }
+  }, [args.activeCall?.id, args.activeCall?.status, closeSessionImmediately, currentSessionId]);
 
   const startOutgoingCall = useCallback(async (kind: CommunityMessengerCallKind) => {
     if (!args.peerUserId) return;

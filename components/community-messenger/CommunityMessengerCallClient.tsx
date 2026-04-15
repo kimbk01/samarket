@@ -46,6 +46,7 @@ import type {
   CommunityMessengerManagedCallConnection,
 } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
   playCommunityMessengerCallSignalSound,
   startCommunityMessengerCallTone,
@@ -1060,7 +1061,6 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb || !sessionId) return;
-    let channel: RealtimeChannel | null = null;
     const scheduleRefresh = () => {
       if (sessionRealtimeDebounceRef.current) clearTimeout(sessionRealtimeDebounceRef.current);
       sessionRealtimeDebounceRef.current = setTimeout(() => {
@@ -1068,28 +1068,32 @@ export function CommunityMessengerCallClient({
         void refreshSession(true);
       }, 320);
     };
-    channel = sb
-      .channel(`community-messenger-call-session:${sessionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_sessions",
-          filter: `id=eq.${sessionId}`,
-        },
-        () => {
-          scheduleRefresh();
-        }
-      )
-      .subscribe();
+    let cancelled = false;
+    const sub = subscribeWithRetry({
+      sb,
+      name: `community-messenger-call-session:${sessionId}`,
+      scope: "community-messenger-call-client:session",
+      isCancelled: () => cancelled,
+      build: (ch) =>
+        ch.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "community_messenger_call_sessions",
+            filter: `id=eq.${sessionId}`,
+          },
+          () => scheduleRefresh()
+        ),
+    });
 
     return () => {
+      cancelled = true;
       if (sessionRealtimeDebounceRef.current) {
         clearTimeout(sessionRealtimeDebounceRef.current);
         sessionRealtimeDebounceRef.current = null;
       }
-      if (channel) void sb.removeChannel(channel);
+      sub.stop();
     };
   }, [refreshSession, sessionId]);
 
