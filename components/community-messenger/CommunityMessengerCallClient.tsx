@@ -164,6 +164,9 @@ export function CommunityMessengerCallClient({
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const sessionRealtimeOkRef = useRef(false);
+  /** Realtime + polling + user-action refresh가 동시에 붙을 때 GET 폭주 방지 */
+  const refreshScheduleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSilentRefreshAtRef = useRef<number>(0);
   const autoJoinBlockedRef = useRef(false);
   /**
    * 발신( initiator ): 브라우저는 마이크·카메라를 사용자 제스처 없이 열지 못하는 경우가 많아,
@@ -280,6 +283,32 @@ export function CommunityMessengerCallClient({
     },
     [sessionId]
   );
+
+  const scheduleSilentRefresh = useCallback(
+    (reason: "realtime" | "poll" | "ui") => {
+      const now = Date.now();
+      // 너무 촘촘한 갱신은 세션 GET rate limit(120/min)과 렌더 경합을 유발한다.
+      // realtime 이벤트는 burst로 올 수 있어, 짧게 묶고 최소 간격을 둔다.
+      const minGapMs = reason === "poll" ? 450 : 250;
+      if (now - lastSilentRefreshAtRef.current < minGapMs) return;
+      if (refreshScheduleTimerRef.current) return;
+      refreshScheduleTimerRef.current = setTimeout(() => {
+        refreshScheduleTimerRef.current = null;
+        lastSilentRefreshAtRef.current = Date.now();
+        void refreshSession(true);
+      }, reason === "poll" ? 80 : 40);
+    },
+    [refreshSession]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (refreshScheduleTimerRef.current) {
+        clearTimeout(refreshScheduleTimerRef.current);
+        refreshScheduleTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const cleanupClient = useCallback(async () => {
     const client = clientRef.current;
@@ -1023,12 +1052,12 @@ export function CommunityMessengerCallClient({
         setSession(fromServer);
         setLoading(false);
         /* 토큰은 아래 prefetch useEffect 한 경로만 호출 — bootstrap 과 중복 /token 요청 방지 */
-        void refreshSession(true);
+        scheduleSilentRefresh("ui");
         return;
       }
 
       if (sessionRef.current) {
-        void refreshSession(true);
+        scheduleSilentRefresh("ui");
         return;
       }
 
@@ -1066,7 +1095,7 @@ export function CommunityMessengerCallClient({
       if (sessionRealtimeDebounceRef.current) clearTimeout(sessionRealtimeDebounceRef.current);
       sessionRealtimeDebounceRef.current = setTimeout(() => {
         sessionRealtimeDebounceRef.current = null;
-        void refreshSession(true);
+        scheduleSilentRefresh("realtime");
       }, 320);
     };
     let cancelled = false;
@@ -1219,11 +1248,11 @@ export function CommunityMessengerCallClient({
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       // Realtime 이 살아 있고(구독 성공), 이미 통화가 안정(connected) 상태면 polling 빈도를 크게 낮춘다.
       if (sessionRealtimeOkRef.current && session.status === "active" && joined && remoteJoined) return;
-      void refreshSession(true);
+      scheduleSilentRefresh("poll");
     };
     const timer = window.setInterval(tick, ms);
     return () => window.clearInterval(timer);
-  }, [joined, refreshSession, remoteJoined, session?.id, session?.sessionMode, session?.status]);
+  }, [joined, remoteJoined, scheduleSilentRefresh, session?.id, session?.sessionMode, session?.status]);
 
   const statusLabel = useMemo(() => {
     if (!session) return "통화 준비 중";

@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
-import { MockAuthProvider } from "@/components/mock-auth/MockAuthProvider";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -53,12 +52,10 @@ export default function RootLayout({
         className={`${notoSansKr.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
-        <MockAuthProvider>
-          <AppLanguageProvider>
-            <SupabaseAuthSync />
-            {children}
-          </AppLanguageProvider>
-        </MockAuthProvider>
+        <AppLanguageProvider>
+          <SupabaseAuthSync />
+          {children}
+        </AppLanguageProvider>
       </body>
     </html>
   );
