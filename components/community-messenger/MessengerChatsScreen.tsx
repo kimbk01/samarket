@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import {
   type MessengerChatListChip,
@@ -12,6 +12,7 @@ import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-communit
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
+import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
 
 function FilterIcon() {
   return (
@@ -67,6 +68,13 @@ export function MessengerChatsScreen({
   onListScrollStart,
 }: Props) {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  useEffect(() => {
+    // 화면에 보이는 리스트를 기준으로 idle 프리패치(첫 진입 체감 개선).
+    // 별도 IntersectionObserver 없이도 상단 N개만으로 효과가 크다.
+    for (const item of items.slice(0, 16)) {
+      enqueueRoomPrefetch(item.room.id);
+    }
+  }, [items]);
 
   const closeAllTransient = () => {
     setFilterSheetOpen(false);

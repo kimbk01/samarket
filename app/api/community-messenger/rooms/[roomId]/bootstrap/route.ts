@@ -63,22 +63,25 @@ export async function GET(
   if (!rateLimit.ok) return rateLimit.response;
 
   const { roomId } = await params;
+  const mode = req.nextUrl.searchParams.get("mode")?.trim().toLowerCase();
   const rawLimit = req.nextUrl.searchParams.get("messages");
   const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
   /** `minimal` — 참가자 전원 프로필 생략(첫 페인트·백그라운드 동기화용) */
-  const hydrateFullMemberList = memberHydration !== "minimal";
+  const hydrateFullMemberList = mode === "expand" ? true : memberHydration !== "minimal";
+  const effectiveDefaultLimit =
+    mode === "lite" ? Math.min(18, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT) : COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT;
   const opts: CommunityMessengerRoomSnapshotOptions = {
     initialMessageLimit:
       rawLimit != null && rawLimit !== ""
-        ? Math.floor(Number(rawLimit)) || COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
-        : COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
+        ? Math.floor(Number(rawLimit)) || effectiveDefaultLimit
+        : effectiveDefaultLimit,
     hydrateFullMemberList,
   };
 
   const t0 = performance.now();
   const readPort = createSupabaseCommunityMessengerReadPort();
   const roomKey = String(roomId ?? "").trim();
-  const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${hydrateFullMemberList ? "full" : "minimal"}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
+  const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${mode || "default"}:${hydrateFullMemberList ? "full" : "minimal"}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
   const cached = getCachedBootstrap(cacheKey);
   const trace = process.env.MESSENGER_PERF_TRACE_BOOTSTRAP === "1";
   const tSnap0 = performance.now();

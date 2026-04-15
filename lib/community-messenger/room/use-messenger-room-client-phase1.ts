@@ -45,6 +45,7 @@ import {
   messengerMonitorUnreadListSync,
 } from "@/lib/community-messenger/monitoring/client";
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { getLocalRoomSnapshot, putLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { createMessengerRoomBootstrapRefresh } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
@@ -257,6 +258,36 @@ export function useMessengerRoomClientPhase1({
     loadedRef,
     setRoomReadyForRealtime,
   });
+
+  // Local-first: 목록 프리패치/서버 시드가 없을 때 IndexedDB 스냅샷으로 first paint를 당긴다.
+  useEffect(() => {
+    if (snapshotRef.current) return;
+    const id = String(roomId ?? "").trim();
+    if (!id) return;
+    let cancelled = false;
+    void (async () => {
+      const local = await getLocalRoomSnapshot(id);
+      if (cancelled) return;
+      if (!local) return;
+      // 방 진입 즉시 렌더 + realtime 구독 허용
+      setSnapshot(local);
+      setLoading(false);
+      loadedRef.current = true;
+      setRoomReadyForRealtime(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
+
+  // 스냅샷이 갱신될 때 로컬에 persist (best-effort, LRU/TTL/상한은 DB 레이어에서 처리)
+  useEffect(() => {
+    const snap = snapshotRef.current;
+    if (!snap) return;
+    const id = String(roomId ?? "").trim();
+    if (!id) return;
+    void putLocalRoomSnapshot(id, snap);
+  }, [roomId, snapshot]);
 
   useEffect(() => {
     return () => {

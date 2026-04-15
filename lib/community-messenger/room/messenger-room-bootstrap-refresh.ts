@@ -65,7 +65,7 @@ export function createMessengerRoomBootstrapRefresh(
        * - 사일런트 갱신도 `membersDeferred`(minimal) 상태면 계속 minimal 유지
        */
       const wantMinimal = (!silent && !loadedRef.current && !primed) || (silent && deferredMemberBootstrapRef.current);
-      const bootstrapQuery = wantMinimal ? "?memberHydration=minimal" : "";
+      const bootstrapQuery = wantMinimal ? "?mode=lite&memberHydration=minimal" : "";
       const flightKey = `cm-room-bootstrap:${roomId}:${bootstrapQuery || "default"}`;
       const { roomRes, snap } = await runSingleFlight(flightKey, async () => {
         const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQuery}`, {
