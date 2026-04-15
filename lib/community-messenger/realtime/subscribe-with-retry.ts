@@ -26,6 +26,8 @@ export function subscribeWithRetry(args: {
   build: (ch: RealtimeChannel) => RealtimeChannel;
   /** hook cleanup에서 true로 바꿔 중단 */
   isCancelled: () => boolean;
+  /** 상태 변화를 UI/폴백 정책에 반영(선택) */
+  onStatus?: (status: string) => void;
   /** 실패 시 refresh 스케줄 등(선택) */
   onAfterSubscribeFailure?: (status: string, attempt: number) => void;
 }): { channel: RealtimeChannel; stop: () => void } {
@@ -72,6 +74,7 @@ export function subscribeWithRetry(args: {
 
   const attachSubscribe = () => {
     channel = channel.subscribe((status) => {
+      args.onStatus?.(status);
       if (status === "SUBSCRIBED") {
         attempt = 0;
         messengerMonitorRealtimeSubscriptionOutcome(args.scope, true, status);

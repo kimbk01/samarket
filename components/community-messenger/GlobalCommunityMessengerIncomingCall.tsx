@@ -24,6 +24,7 @@ import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-us
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { CallPrimaryButton } from "@/components/community-messenger/call-ui/CallButtons";
 import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
@@ -76,6 +77,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const prevIncomingRingingIdsRef = useRef<Set<string>>(new Set());
   /** 거절·수락·차단·메시지거절 등 사용자가 끊은 세션은 부재 톤 제외 */
   const suppressMissedSoundRef = useRef<Set<string>>(new Set());
+  /** Realtime 수신이 살아 있으면 폴링은 백업 역할만(간격은 기존 로직 유지, 강제 refresh는 줄임) */
+  const incomingRealtimeOkRef = useRef(false);
 
   const viewerUserIdRef = useRef<string | null>(null);
   viewerUserIdRef.current = userId;
@@ -225,53 +228,64 @@ export function GlobalCommunityMessengerIncomingCall() {
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    let channel: RealtimeChannel | null = null;
-    channel = sb
-      .channel(`community-messenger-incoming-call:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_sessions",
-          filter: `recipient_user_id=eq.${userId}`,
-        },
-        (payload) => {
-          const p = payload as {
-            eventType?: string;
-            new?: Record<string, unknown> | null;
-            old?: Record<string, unknown> | null;
-          };
-          setSessions((prev) =>
-            applyIncomingCallSessionsRealtimeEvent(prev, userId, {
-              eventType: p.eventType,
-              new: p.new ?? null,
-              old: p.old ?? null,
-            })
-          );
-          void refreshRef.current(true);
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_session_participants",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          scheduleRealtimeIncomingRefresh();
-        }
-      )
-      .subscribe();
+    let cancelled = false;
+    incomingRealtimeOkRef.current = false;
+    const sub = subscribeWithRetry({
+      sb,
+      name: `community-messenger-incoming-call:${userId}`,
+      scope: "community-messenger-incoming-call",
+      isCancelled: () => cancelled,
+      onStatus: (status) => {
+        incomingRealtimeOkRef.current = status === "SUBSCRIBED";
+      },
+      build: (channel) =>
+        channel
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_sessions",
+              filter: `recipient_user_id=eq.${userId}`,
+            },
+            (payload) => {
+              const p = payload as {
+                eventType?: string;
+                new?: Record<string, unknown> | null;
+                old?: Record<string, unknown> | null;
+              };
+              setSessions((prev) =>
+                applyIncomingCallSessionsRealtimeEvent(prev, userId, {
+                  eventType: p.eventType,
+                  new: p.new ?? null,
+                  old: p.old ?? null,
+                })
+              );
+              void refreshRef.current(true);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_session_participants",
+              filter: `user_id=eq.${userId}`,
+            },
+            () => {
+              scheduleRealtimeIncomingRefresh();
+            }
+          ),
+    });
 
     return () => {
+      cancelled = true;
       if (realtimeDebounceTimerRef.current != null) {
         window.clearTimeout(realtimeDebounceTimerRef.current);
         realtimeDebounceTimerRef.current = null;
       }
-      if (channel) void sb.removeChannel(channel);
+      sub.stop();
+      incomingRealtimeOkRef.current = false;
     };
   }, [scheduleRealtimeIncomingRefresh, userId]);
 

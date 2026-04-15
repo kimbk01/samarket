@@ -178,6 +178,11 @@ export function recordMessengerMonitoringEvent(event: MessengerMonitoringEvent):
     event.labels?.outcome
   ) {
     bumpOutcome(store, "realtime.subscription", event.labels.outcome === "ok");
+    // scope 별로도 누적해 어떤 구독이 흔들리는지 분리 관측한다.
+    const scope = typeof event.labels.scope === "string" ? event.labels.scope.trim() : "";
+    if (scope) {
+      bumpOutcome(store, `realtime.subscription:${scope}`, event.labels.outcome === "ok");
+    }
     maybeFailureRatioAlert(store, "subscriptionFailureRate", "realtime.subscription", "realtime.subscription", "channel_subscribe");
   }
   if (event.unit === "count" && event.category === "call.signaling" && event.metric === "signal_post" && event.labels?.outcome) {

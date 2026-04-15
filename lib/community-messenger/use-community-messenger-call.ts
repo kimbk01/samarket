@@ -8,6 +8,7 @@ import {
 } from "@/lib/community-messenger/call-permission";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
@@ -21,6 +22,10 @@ import {
   applyVideoSenderDegradationPreference,
   buildMessengerRtcConfiguration,
 } from "@/lib/call/webrtc-configuration";
+import {
+  applyRemoteOfferWithPerfectNegotiation,
+  createPerfectNegotiationState,
+} from "@/lib/call/perfect-negotiation";
 import { collectMessengerWebRtcDiagnostics } from "@/lib/community-messenger/monitoring/webrtc-stats";
 import {
   messengerMonitorCallConnection,
@@ -119,6 +124,7 @@ export function useCommunityMessengerCall(args: {
   const pendingCallActionIdRef = useRef(0);
   const startOutgoingSyncGuardRef = useRef(false);
   const callSignalsRealtimeSubscribedRef = useRef(false);
+  const negotiationRef = useRef(createPerfectNegotiationState());
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
 
@@ -540,7 +546,21 @@ export function useCommunityMessengerCall(args: {
 
         if (peerConnectionRef.current && panel?.mode === "active" && args.peerUserId) {
           try {
-            await peerConnectionRef.current.setRemoteDescription(offer);
+            const pc = peerConnectionRef.current;
+            const polite =
+              String(args.viewerUserId ?? "")
+                .trim()
+                .localeCompare(String(args.peerUserId ?? "").trim()) > 0;
+            const out = await applyRemoteOfferWithPerfectNegotiation({
+              pc,
+              st: negotiationRef.current,
+              offer,
+              polite,
+            });
+            if (!out.ok && out.ignored) {
+              processedSignalIdsRef.current.add(signal.id);
+              return;
+            }
             await flushPendingCandidates();
             const answer = await peerConnectionRef.current.createAnswer();
             await peerConnectionRef.current.setLocalDescription(answer);
@@ -563,7 +583,9 @@ export function useCommunityMessengerCall(args: {
         const answer = readSessionDescription(signal.payload, "answer");
         if (!answer || !peerConnectionRef.current) return;
         if (!peerConnectionRef.current.currentRemoteDescription) {
+          negotiationRef.current.isSettingRemoteAnswerPending = true;
           await peerConnectionRef.current.setRemoteDescription(answer);
+          negotiationRef.current.isSettingRemoteAnswerPending = false;
           await flushPendingCandidates();
         }
         return;
@@ -688,7 +710,6 @@ export function useCommunityMessengerCall(args: {
 
     const pollSessionId = sessionId;
     const sb = getSupabaseClient();
-    let channel: RealtimeChannel | null = null;
     let cancelled = false;
     let backoffUntil = 0;
     let timerId: number | null = null;
@@ -794,35 +815,41 @@ export function useCommunityMessengerCall(args: {
     document.addEventListener("visibilitychange", onVis);
 
     callSignalsRealtimeSubscribedRef.current = false;
+    let sub: { stop: () => void } | null = null;
     if (sb) {
-      channel = sb
-        .channel(`community-messenger-call-signals:${sessionId}:${args.viewerUserId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "community_messenger_call_signals",
-            filter: `session_id=eq.${sessionId}`,
-          },
-          (payload) => {
-            const row = payload.new as Record<string, unknown> | undefined;
-            if (!row) return;
-            void applySignal({
-              id: String(row.id ?? ""),
-              sessionId: String(row.session_id ?? ""),
-              roomId: String(row.room_id ?? ""),
-              fromUserId: String(row.from_user_id ?? ""),
-              toUserId: String(row.to_user_id ?? ""),
-              signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
-              payload: isRecord(row.payload) ? row.payload : {},
-              createdAt: String(row.created_at ?? new Date().toISOString()),
-            });
-          }
-        )
-        .subscribe((status) => {
+      sub = subscribeWithRetry({
+        sb,
+        name: `community-messenger-call-signals:${sessionId}:${args.viewerUserId}`,
+        scope: "community-messenger-call:signals",
+        isCancelled: () => cancelled,
+        onStatus: (status) => {
           callSignalsRealtimeSubscribedRef.current = status === "SUBSCRIBED";
-        });
+        },
+        build: (ch) =>
+          ch.on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "community_messenger_call_signals",
+              filter: `session_id=eq.${sessionId}`,
+            },
+            (payload) => {
+              const row = payload.new as Record<string, unknown> | undefined;
+              if (!row) return;
+              void applySignal({
+                id: String(row.id ?? ""),
+                sessionId: String(row.session_id ?? ""),
+                roomId: String(row.room_id ?? ""),
+                fromUserId: String(row.from_user_id ?? ""),
+                toUserId: String(row.to_user_id ?? ""),
+                signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
+                payload: isRecord(row.payload) ? row.payload : {},
+                createdAt: String(row.created_at ?? new Date().toISOString()),
+              });
+            }
+          ),
+      });
     }
 
     void (async () => {
@@ -835,7 +862,7 @@ export function useCommunityMessengerCall(args: {
       callSignalsRealtimeSubscribedRef.current = false;
       if (timerId != null) window.clearTimeout(timerId);
       document.removeEventListener("visibilitychange", onVis);
-      if (sb && channel) void sb.removeChannel(channel);
+      sub?.stop();
     };
   }, [applySignal, args.activeCall?.status, args.viewerUserId, currentSessionId, panel?.mode, panel?.sessionId]);
 

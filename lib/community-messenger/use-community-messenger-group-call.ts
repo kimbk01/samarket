@@ -10,6 +10,7 @@ import { bindMediaStreamToElement } from "@/lib/community-messenger/media-elemen
 import { fetchMessengerIceServers } from "@/lib/call/ice-servers";
 import { buildMessengerRtcConfiguration } from "@/lib/call/webrtc-configuration";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { playCommunityMessengerCallSignalSound } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
@@ -28,6 +29,11 @@ import {
   messengerMonitorSignalingPost,
 } from "@/lib/community-messenger/monitoring/client";
 import { estimateInboundPacketLossPercent } from "@/lib/community-messenger/monitoring/webrtc-stats";
+import {
+  applyRemoteOfferWithPerfectNegotiation,
+  createPerfectNegotiationState,
+  type PerfectNegotiationState,
+} from "@/lib/call/perfect-negotiation";
 
 type GroupCallPanelState = {
   kind: CommunityMessengerCallKind;
@@ -94,6 +100,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const localStreamHeldRef = useRef<MediaStream | null>(null);
   const remoteVideoNodesRef = useRef<Map<string, HTMLVideoElement | null>>(new Map());
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const negotiationByPeerRef = useRef<Map<string, PerfectNegotiationState>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const processedSignalIdsRef = useRef<Set<string>>(new Set());
@@ -130,6 +137,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     (userId: string) => {
       peerConnectionsRef.current.get(userId)?.close();
       peerConnectionsRef.current.delete(userId);
+      negotiationByPeerRef.current.delete(userId);
       const stream = remoteStreamsRef.current.get(userId);
       for (const track of stream?.getTracks() ?? []) track.stop();
       remoteStreamsRef.current.delete(userId);
@@ -383,7 +391,11 @@ export function useCommunityMessengerGroupCall(args: Props) {
         const offer = readSessionDescription(signal.payload, "offer");
         if (!offer || !currentSessionId) return;
         const connection = await ensurePeerConnection(callKind, currentSessionId, peer);
-        await connection.setRemoteDescription(offer);
+        const st = negotiationByPeerRef.current.get(peer.userId) ?? createPerfectNegotiationState();
+        negotiationByPeerRef.current.set(peer.userId, st);
+        const polite = args.viewerUserId.localeCompare(peer.userId) > 0;
+        const out = await applyRemoteOfferWithPerfectNegotiation({ pc: connection, st, offer, polite });
+        if (!out.ok && out.ignored) return;
         await flushPendingCandidates(peer.userId);
         const answer = await connection.createAnswer();
         await connection.setLocalDescription(answer);
@@ -397,7 +409,11 @@ export function useCommunityMessengerGroupCall(args: Props) {
         const connection = peerConnectionsRef.current.get(signal.fromUserId);
         if (!connection) return;
         if (!connection.currentRemoteDescription) {
+          const st = negotiationByPeerRef.current.get(signal.fromUserId) ?? createPerfectNegotiationState();
+          negotiationByPeerRef.current.set(signal.fromUserId, st);
+          st.isSettingRemoteAnswerPending = true;
           await connection.setRemoteDescription(answer);
+          st.isSettingRemoteAnswerPending = false;
           await flushPendingCandidates(signal.fromUserId);
         }
         return;
@@ -540,7 +556,6 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
     const sessionId = currentSessionId;
     const sb = getSupabaseClient();
-    let channel: RealtimeChannel | null = null;
     let cancelled = false;
     let backoffUntil = 0;
     let timerId: number | null = null;
@@ -646,35 +661,41 @@ export function useCommunityMessengerGroupCall(args: Props) {
     document.addEventListener("visibilitychange", onVis);
 
     groupCallSignalsRealtimeSubscribedRef.current = false;
+    let sub: { stop: () => void } | null = null;
     if (sb) {
-      channel = sb
-        .channel(`community-messenger-group-call-signals:${sessionId}:${args.viewerUserId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "community_messenger_call_signals",
-            filter: `session_id=eq.${sessionId}`,
-          },
-          (payload) => {
-            const row = payload.new as Record<string, unknown> | undefined;
-            if (!row) return;
-            void applySignal({
-              id: String(row.id ?? ""),
-              sessionId: String(row.session_id ?? ""),
-              roomId: String(row.room_id ?? ""),
-              fromUserId: String(row.from_user_id ?? ""),
-              toUserId: String(row.to_user_id ?? ""),
-              signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
-              payload: isRecord(row.payload) ? row.payload : {},
-              createdAt: String(row.created_at ?? new Date().toISOString()),
-            });
-          }
-        )
-        .subscribe((status) => {
+      sub = subscribeWithRetry({
+        sb,
+        name: `community-messenger-group-call-signals:${sessionId}:${args.viewerUserId}`,
+        scope: "community-messenger-group-call:signals",
+        isCancelled: () => cancelled,
+        onStatus: (status) => {
           groupCallSignalsRealtimeSubscribedRef.current = status === "SUBSCRIBED";
-        });
+        },
+        build: (ch) =>
+          ch.on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "community_messenger_call_signals",
+              filter: `session_id=eq.${sessionId}`,
+            },
+            (payload) => {
+              const row = payload.new as Record<string, unknown> | undefined;
+              if (!row) return;
+              void applySignal({
+                id: String(row.id ?? ""),
+                sessionId: String(row.session_id ?? ""),
+                roomId: String(row.room_id ?? ""),
+                fromUserId: String(row.from_user_id ?? ""),
+                toUserId: String(row.to_user_id ?? ""),
+                signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
+                payload: isRecord(row.payload) ? row.payload : {},
+                createdAt: String(row.created_at ?? new Date().toISOString()),
+              });
+            }
+          ),
+      });
     }
 
     void (async () => {
@@ -687,7 +708,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       groupCallSignalsRealtimeSubscribedRef.current = false;
       if (timerId != null) window.clearTimeout(timerId);
       document.removeEventListener("visibilitychange", onVis);
-      if (sb && channel) void sb.removeChannel(channel);
+      sub?.stop();
     };
   }, [applySignal, args.activeCall?.status, args.enabled, args.viewerUserId, currentSessionId, joinedParticipants.length, panel, peerStates]);
 
