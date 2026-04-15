@@ -68,6 +68,8 @@ import {
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
+import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -355,8 +357,12 @@ export function useMessengerRoomClientPhase1({
 
   /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
   useEffect(() => {
+    let lastBumpAt = 0;
     const bump = () => {
       if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastBumpAt < 2000) return; // burst 1~2 + cooldown
+      lastBumpAt = now;
       void catchUpNewerMessages();
       void refresh(true);
     };
@@ -367,6 +373,21 @@ export function useMessengerRoomClientPhase1({
       window.removeEventListener("pageshow", bump);
     };
   }, [catchUpNewerMessages, refresh]);
+
+  // Multi-tab: another tab sent a message in this room -> catch up quickly without full reload storms.
+  useEffect(() => {
+    const id = roomId?.trim();
+    if (!id) return;
+    let lastAt = 0;
+    return onCommunityMessengerBusEvent((ev) => {
+      if (ev.roomId !== id) return;
+      const now = Date.now();
+      if (now - lastAt < 1500) return;
+      lastAt = now;
+      void catchUpNewerMessages();
+      void refresh(true);
+    });
+  }, [catchUpNewerMessages, refresh, roomId]);
 
   useEffect(() => {
     return () => {
@@ -459,6 +480,7 @@ export function useMessengerRoomClientPhase1({
         if (res.ok && json.ok && typeof performance !== "undefined") {
           messengerMonitorUnreadListSync(id, Math.round(performance.now() - t0), "room_open");
           roomOpenMarkReadRef.current.phase = "done";
+          postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: id, at: Date.now() });
         } else {
           roomOpenMarkReadRef.current.phase = "idle";
         }

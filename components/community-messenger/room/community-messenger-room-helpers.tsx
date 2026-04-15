@@ -106,6 +106,9 @@ export function mergeRoomMessages(
   const mergedPending = pending.filter((item) => {
     return !next.some((confirmedItem) => {
       if (confirmedItem.senderId !== item.senderId || confirmedItem.messageType !== item.messageType) return false;
+      const cidA = typeof confirmedItem.clientMessageId === "string" ? confirmedItem.clientMessageId.trim() : "";
+      const cidB = typeof item.clientMessageId === "string" ? item.clientMessageId.trim() : "";
+      if (cidA && cidB && cidA === cidB) return true;
       const dt = Math.abs(new Date(confirmedItem.createdAt).getTime() - new Date(item.createdAt).getTime());
       if (item.messageType === "voice" && item.pending) {
         return dt < 15_000;
@@ -116,9 +119,14 @@ export function mergeRoomMessages(
       return confirmedItem.content === item.content && dt < 15_000;
     });
   });
-  return [...mergedConfirmed.values(), ...mergedPending].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
+  return [...mergedConfirmed.values(), ...mergedPending].sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime();
+    const tb = new Date(b.createdAt).getTime();
+    if (ta !== tb) return ta - tb;
+    // Stable order for equal timestamps: pending at end, then by id.
+    if (Boolean((a as any).pending) !== Boolean((b as any).pending)) return (a as any).pending ? 1 : -1;
+    return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+  });
 }
 
 export function getLatestCallStubForSession(
@@ -239,6 +247,10 @@ export function mapRealtimeRoomMessage(
   const callSessionIdRaw = message.metadata.sessionId;
   const callSessionId =
     typeof callSessionIdRaw === "string" && callSessionIdRaw.trim() ? callSessionIdRaw.trim() : null;
+  const clientMessageId =
+    typeof message.metadata.client_message_id === "string" && message.metadata.client_message_id.trim()
+      ? message.metadata.client_message_id.trim()
+      : null;
   return {
     id: message.id,
     roomId: message.roomId,
@@ -247,6 +259,7 @@ export function mapRealtimeRoomMessage(
     messageType: message.messageType,
     content: message.content,
     createdAt: message.createdAt,
+    clientMessageId,
     isMine: message.senderId === snapshot.viewerUserId,
     callKind,
     callStatus,

@@ -4498,6 +4498,10 @@ export async function getCommunityMessengerRoomSnapshot(
     const isDbMessage = "sender_id" in message;
     const senderId = (isDbMessage ? message.sender_id : message.senderId) ?? null;
     const metadata = ((isDbMessage ? message.metadata : message.metadata) ?? {}) as Record<string, unknown>;
+    const clientMessageId =
+      typeof metadata.client_message_id === "string" && metadata.client_message_id.trim()
+        ? metadata.client_message_id.trim()
+        : null;
     return {
       id: message.id,
       roomId: isDbMessage ? message.room_id : message.roomId,
@@ -4513,6 +4517,7 @@ export async function getCommunityMessengerRoomSnapshot(
       messageType: (isDbMessage ? message.message_type : message.messageType) as CommunityMessengerMessage["messageType"],
       content: trimText(isDbMessage ? message.content : message.content),
       createdAt: trimText(isDbMessage ? message.created_at : message.createdAt) || nowIso(),
+      clientMessageId,
       isMine: senderId === userId,
       callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
       callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
@@ -4664,6 +4669,10 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
         messageType: safeMt,
         content: trimText(message.content),
         createdAt: trimText(message.created_at) || nowIso(),
+        clientMessageId:
+          typeof metadata.client_message_id === "string" && metadata.client_message_id.trim()
+            ? metadata.client_message_id.trim()
+            : null,
         isMine,
         callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
         callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
@@ -4922,10 +4931,12 @@ export async function sendCommunityMessengerMessage(input: {
   userId: string;
   roomId: string;
   content: string;
+  clientMessageId?: string;
 }): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
   const roomId = trimText(input.roomId);
   const content = trimText(input.content);
   if (!roomId || !content) return { ok: false, error: "content_required" };
+  const clientMessageId = trimText(input.clientMessageId ?? "");
   const sb = getSupabaseOrNull();
   if (sb) {
     const [{ data: participant }, { data: roomData }] = await Promise.all([
@@ -4947,6 +4958,35 @@ export async function sendCommunityMessengerMessage(input: {
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
+    if (clientMessageId) {
+      const { data: existingRow, error: existingError } = await (sb as any)
+        .from("community_messenger_messages")
+        .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+        .eq("room_id", roomId)
+        .eq("sender_id", input.userId)
+        .filter("metadata->>client_message_id", "eq", clientMessageId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!existingError && existingRow) {
+        return {
+          ok: true,
+          message: {
+            id: String((existingRow as { id?: unknown }).id ?? ""),
+            roomId,
+            senderId: input.userId,
+            senderLabel: "나",
+            messageType: "text",
+            content: String((existingRow as { content?: unknown }).content ?? content),
+            createdAt: String((existingRow as { created_at?: unknown }).created_at ?? nowIso()),
+            clientMessageId,
+            isMine: true,
+            callKind: null,
+            callStatus: null,
+          },
+        };
+      }
+    }
     const createdAt = nowIso();
     const { data: insertedMessage, error: insertError } = await (sb as any)
       .from("community_messenger_messages")
@@ -4955,7 +4995,7 @@ export async function sendCommunityMessengerMessage(input: {
         sender_id: input.userId,
         message_type: "text",
         content,
-        metadata: {},
+        metadata: clientMessageId ? { client_message_id: clientMessageId } : {},
         created_at: createdAt,
       })
       .select("id, room_id, sender_id, message_type, content, metadata, created_at")
@@ -5007,6 +5047,7 @@ export async function sendCommunityMessengerMessage(input: {
           messageType: "text",
           content,
           createdAt,
+          clientMessageId: clientMessageId || null,
           isMine: true,
           callKind: null,
           callStatus: null,
@@ -5037,7 +5078,7 @@ export async function sendCommunityMessengerMessage(input: {
     senderId: input.userId,
     messageType: "text",
     content,
-    metadata: {},
+    metadata: clientMessageId ? { client_message_id: clientMessageId } : {},
     createdAt,
   });
   if (room) {
@@ -5058,6 +5099,7 @@ export async function sendCommunityMessengerMessage(input: {
       messageType: "text",
       content,
       createdAt,
+      clientMessageId: clientMessageId || null,
       isMine: true,
       callKind: null,
       callStatus: null,

@@ -39,6 +39,8 @@ import { buildCommunityMessengerOutgoingDialHref } from "@/lib/community-messeng
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { getLatestCallStubForSession, mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -642,6 +644,7 @@ export function useMessengerRoomPhase2Controller() {
     async (content: string, restoreOnFail?: string) => {
       const trimmed = content.trim();
       if (!trimmed || !snapshot) return;
+      const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:${roomId}:${pendingMessageIdRef.current++}`;
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
@@ -652,6 +655,7 @@ export function useMessengerRoomPhase2Controller() {
         messageType: "text",
         content: trimmed,
         createdAt: new Date().toISOString(),
+        clientMessageId,
         isMine: true,
         pending: true,
         callKind: null,
@@ -666,7 +670,7 @@ export function useMessengerRoomPhase2Controller() {
         const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: trimmed }),
+          body: JSON.stringify({ content: trimmed, clientMessageId }),
         });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -693,6 +697,7 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
+          postCommunityMessengerBusEvent({ type: "cm.room.message_sent", roomId, clientMessageId, at: Date.now() });
           return;
         }
         setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));

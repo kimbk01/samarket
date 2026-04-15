@@ -18,16 +18,6 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 const SEND_DEDUPE_TTL_MS = 2500;
 const sendDedupe = new Map<string, { at: number; res: { ok: boolean; message?: unknown; error?: string } }>();
 
-function stableHash32(input: string): string {
-  // fast non-crypto hash for dedupe keys
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(16);
-}
-
 /** 이전 메시지 페이지 (스크롤 업) — 읽기 폭주 완화 */
 export async function GET(
   req: NextRequest,
@@ -121,7 +111,7 @@ export async function POST(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const parsed = await parseJsonBody<{ content?: string }>(req, "invalid_json");
+  const parsed = await parseJsonBody<{ content?: string; clientMessageId?: string }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
   const body = parsed.value;
 
@@ -131,7 +121,10 @@ export async function POST(
   }
   const t0 = performance.now();
   const content = String(body.content ?? "");
-  const key = `community-messenger:send:${auth.userId}:${roomId}:${stableHash32(content)}`;
+  const clientMessageId = String(body.clientMessageId ?? "").trim();
+  const key = clientMessageId
+    ? `community-messenger:send:${auth.userId}:${roomId}:${clientMessageId}`
+    : `community-messenger:send:${auth.userId}:${roomId}:${content.slice(0, 24)}`;
   const now = Date.now();
   const cached = sendDedupe.get(key);
   if (cached && now - cached.at <= SEND_DEDUPE_TTL_MS) {
@@ -147,6 +140,7 @@ export async function POST(
       userId: auth.userId,
       roomId,
       content,
+      clientMessageId: clientMessageId || undefined,
     });
     // store short TTL response to dedupe rapid retries/double-clicks
     sendDedupe.set(key, { at: Date.now(), res: r as any });

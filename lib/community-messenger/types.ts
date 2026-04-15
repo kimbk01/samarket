@@ -195,6 +195,8 @@ export type CommunityMessengerMessage = {
   messageType: CommunityMessengerMessageType;
   content: string;
   createdAt: string;
+  /** 클라이언트 idempotency 키(전송 중복 방지/ACK 정합성). 서버는 metadata.client_message_id 로 저장 */
+  clientMessageId?: string | null;
   isMine: boolean;
   callKind?: CommunityMessengerCallKind | null;
   callStatus?: CommunityMessengerCallStatus | null;
