@@ -283,22 +283,37 @@ export function ChatRoomScreen({
   /** useEffect 보다 먼저 세션 확인을 시작 — 페인트 직전에 Promise 가 돎 */
   useLayoutEffect(() => {
     let cancelled = false;
-    const resolveViewer = async () => {
+    /** 첫 tick 만 RSC `initialViewerUserId` 신뢰 — 이후 auth 이벤트는 항상 DB/세션으로 재확인 */
+    const resolveViewer = async (mode: "trust_server_hint" | "refresh") => {
+      if (mode === "trust_server_hint") {
+        if (initialViewerUserId === null) {
+          if (!cancelled) setResolvedUserId(null);
+          return;
+        }
+        const trimmed =
+          typeof initialViewerUserId === "string" && initialViewerUserId.trim()
+            ? initialViewerUserId.trim()
+            : "";
+        if (trimmed) {
+          if (!cancelled) setResolvedUserId(trimmed);
+          return;
+        }
+      }
       const id = (await getCurrentUserIdForDb())?.trim() || null;
       if (!cancelled) setResolvedUserId(id);
     };
-    void resolveViewer();
+    void resolveViewer("trust_server_hint");
     const onTestAuthChange = () => {
-      void resolveViewer();
+      void resolveViewer("refresh");
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuthChange);
     const onVisibility = () => {
-      if (document.visibilityState === "visible") void resolveViewer();
+      if (document.visibilityState === "visible") void resolveViewer("refresh");
     };
     document.addEventListener("visibilitychange", onVisibility);
     const sb = getSupabaseClient();
     const authSub = sb?.auth.onAuthStateChange(() => {
-      void resolveViewer();
+      void resolveViewer("refresh");
     });
     return () => {
       cancelled = true;
@@ -306,7 +321,7 @@ export function ChatRoomScreen({
       document.removeEventListener("visibilitychange", onVisibility);
       authSub?.data.subscription.unsubscribe();
     };
-  }, []);
+  }, [initialViewerUserId]);
 
   useEffect(() => {
     if (chatEntryShellLoggedRef.current) return;

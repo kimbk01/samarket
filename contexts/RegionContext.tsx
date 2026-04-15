@@ -19,6 +19,10 @@ import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
+import {
+  cancelScheduledWhenBrowserIdle,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 type RegionContextValue = {
   userRegions: UserRegion[];
@@ -92,7 +96,10 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setUserRegions(getUserRegions(userId));
     setCurrentRegionId(null);
-    void refreshProfileLocation();
+    const idleId = scheduleWhenBrowserIdle(() => {
+      void refreshProfileLocation();
+    }, 0);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
   }, [userId, refreshProfileLocation]);
 
   const mockPrimaryRegion = useMemo(

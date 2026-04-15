@@ -359,6 +359,8 @@ export function CommunityMessengerHome({
   );
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
   const [loading, setLoading] = useState(() => !initialServerBootstrap);
+  /** RSC 부트스트랩이 있으면 첫 페인트·hydration 직후 WS 구독을 잠시 미룸 — 메인 스레드·네트워크 경합 완화 */
+  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(() => !initialServerBootstrap);
   const [authRequired, setAuthRequired] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -689,6 +691,14 @@ export function CommunityMessengerHome({
   }, [refresh, initialServerBootstrap]);
 
   useEffect(() => {
+    if (homeRealtimeGateOpen) return;
+    const idleId = scheduleWhenBrowserIdle(() => {
+      setHomeRealtimeGateOpen(true);
+    }, 520);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [homeRealtimeGateOpen]);
+
+  useEffect(() => {
     setIncomingCallSoundEnabled(isCommunityMessengerIncomingCallSoundEnabled());
     setIncomingCallBannerEnabled(isCommunityMessengerIncomingCallBannerEnabled());
     setLocalSettings(readCommunityMessengerLocalSettings());
@@ -810,7 +820,7 @@ export function CommunityMessengerHome({
   useCommunityMessengerHomeRealtime({
     userId: data?.me?.id ?? null,
     roomIds: homeRoomIds,
-    enabled: Boolean(data?.me?.id),
+    enabled: Boolean(data?.me?.id) && homeRealtimeGateOpen,
     onRefresh: scheduleHomeRealtimeRefresh,
   });
 

@@ -148,19 +148,27 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     const load = async () => {
       let fromProductChats: AdminChatRoom[] = [];
       let fromChatRooms: AdminChatRoom[] = [];
+      const admin = isAdminUser(user);
+      const emptyRooms = Promise.resolve([] as AdminChatRoom[]);
 
       if (mode === "trade") {
-        if (isAdminUser(user)) fromProductChats = await fetchAdminChatRoomsApi().catch(() => []);
-        fromChatRooms = await fetchAdminChatRoomsListApi({ roomType: "item_trade" }).catch(() => []);
+        [fromProductChats, fromChatRooms] = await Promise.all([
+          admin ? fetchAdminChatRoomsApi().catch(() => []) : emptyRooms,
+          fetchAdminChatRoomsListApi({ roomType: "item_trade" }).catch(() => []),
+        ]);
       } else if (mode === "reported") {
-        if (isAdminUser(user)) fromProductChats = await fetchAdminChatRoomsApi().catch(() => []);
-        fromChatRooms = await fetchAdminChatRoomsListApi({ hasReport: true }).catch(() => []);
+        [fromProductChats, fromChatRooms] = await Promise.all([
+          admin ? fetchAdminChatRoomsApi().catch(() => []) : emptyRooms,
+          fetchAdminChatRoomsListApi({ hasReport: true }).catch(() => []),
+        ]);
         fromProductChats = fromProductChats.filter((r) => (r.reportCount ?? 0) > 0);
       } else if (mode === "business" || mode === "community" || mode === "group") {
         fromChatRooms = [];
       } else {
-        if (isAdminUser(user)) fromProductChats = await fetchAdminChatRoomsApi().catch(() => []);
-        fromChatRooms = await fetchAdminChatRoomsListApi().catch(() => []);
+        [fromProductChats, fromChatRooms] = await Promise.all([
+          admin ? fetchAdminChatRoomsApi().catch(() => []) : emptyRooms,
+          fetchAdminChatRoomsListApi().catch(() => []),
+        ]);
       }
 
       const merged = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)].filter(

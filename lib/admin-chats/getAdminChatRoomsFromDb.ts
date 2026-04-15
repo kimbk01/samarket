@@ -39,13 +39,22 @@ export async function getAdminChatRoomsFromDb(): Promise<AdminChatRoom[]> {
   if (error || !rooms?.length) return [];
 
   const postIds = [...new Set(rooms.map((r: { post_id: string }) => r.post_id))];
+  const roomIds = rooms.map((r: { id: string }) => r.id);
   const { data: posts } = await sb.from(POSTS_TABLE_READ).select("id, title").in("id", postIds);
   const postMap = new Map((posts ?? []).map((p: { id: string; title: string }) => [p.id, p]));
 
-  const { data: msgCounts } = await sb
-    .from("product_chat_messages")
-    .select("product_chat_id");
-  const countByRoom = (msgCounts ?? []).reduce(
+  /** 전체 메시지 테이블 스캔 금지 — 목록에 나온 방만 IN(청크) */
+  const IN_CHUNK = 120;
+  const msgRows: { product_chat_id: string }[] = [];
+  for (let i = 0; i < roomIds.length; i += IN_CHUNK) {
+    const slice = roomIds.slice(i, i + IN_CHUNK);
+    const { data: chunk } = await sb
+      .from("product_chat_messages")
+      .select("product_chat_id")
+      .in("product_chat_id", slice);
+    if (chunk?.length) msgRows.push(...chunk);
+  }
+  const countByRoom = msgRows.reduce(
     (acc: Record<string, number>, m: { product_chat_id: string }) => {
       acc[m.product_chat_id] = (acc[m.product_chat_id] ?? 0) + 1;
       return acc;
@@ -53,15 +62,20 @@ export async function getAdminChatRoomsFromDb(): Promise<AdminChatRoom[]> {
     {}
   );
 
-  const { data: reportRows } = await sb
-    .from("reports")
-    .select("room_id")
-    .eq("target_type", "chat_room");
-  const reportCountByRoom = (reportRows ?? []).reduce(
-    (acc: Record<string, number>, r: { room_id: string | null }) => {
-      if (r.room_id) {
-        acc[r.room_id] = (acc[r.room_id] ?? 0) + 1;
-      }
+  const reportRows: { target_id: string | null }[] = [];
+  for (let i = 0; i < roomIds.length; i += IN_CHUNK) {
+    const slice = roomIds.slice(i, i + IN_CHUNK);
+    const { data: chunk } = await sb
+      .from("reports")
+      .select("target_id")
+      .eq("target_type", "chat_room")
+      .in("target_id", slice);
+    if (chunk?.length) reportRows.push(...chunk);
+  }
+  const reportCountByRoom = reportRows.reduce(
+    (acc: Record<string, number>, r: { target_id: string | null }) => {
+      const id = typeof r.target_id === "string" ? r.target_id.trim() : "";
+      if (id) acc[id] = (acc[id] ?? 0) + 1;
       return acc;
     },
     {}
@@ -144,13 +158,13 @@ export async function getAdminChatRoomByIdFromDb(roomId: string): Promise<AdminC
   if (error || !room) return null;
 
   const { data: post } = await sb.from(POSTS_TABLE_READ).select("id, title").eq("id", room.post_id).single();
-  const { data: messages } = await sb
+  const { count: messageCount } = await sb
     .from("product_chat_messages")
-    .select("id")
+    .select("id", { count: "exact", head: true })
     .eq("product_chat_id", roomId);
-  const { data: reports } = await sb
+  const { count: reportCount } = await sb
     .from("reports")
-    .select("id")
+    .select("id", { count: "exact", head: true })
     .eq("target_type", "chat_room")
     .eq("target_id", roomId);
 
@@ -165,8 +179,8 @@ export async function getAdminChatRoomByIdFromDb(roomId: string): Promise<AdminC
     sellerNickname: room.seller_id.slice(0, 8),
     lastMessage: room.last_message_preview ?? "",
     lastMessageAt: room.last_message_at ?? room.created_at,
-    messageCount: messages?.length ?? 0,
-    reportCount: reports?.length ?? 0,
+    messageCount: messageCount ?? 0,
+    reportCount: reportCount ?? 0,
     roomStatus: DB_ROOM_STATUS_TO_UI[(room as { room_status?: string }).room_status ?? ""] ?? "active",
     createdAt: room.created_at,
     roomType: "item_trade",
