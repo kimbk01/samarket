@@ -695,6 +695,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     return (
       <IncomingCallBanner
         peerLabel={visibleSession.peerLabel}
+        callKind={visibleSession.callKind === "video" ? "video" : "voice"}
         busyReject={busyId === `reject:${visibleSession.id}` || busyId === `accept:${visibleSession.id}`}
         busyAccept={busyId === `accept:${visibleSession.id}`}
         onExpand={() => setMinimizedSessionId(null)}

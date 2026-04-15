@@ -3,8 +3,9 @@
 import type { ReactNode } from "react";
 import type { CallMode, CallPhase } from "./call-ui.types";
 
+/** 음성 통화 — 중립 다크(카카오톡형 톤에 가깝게, 과한 브랜드 그라데이션 제거). */
 const VOICE_BG =
-  "bg-[radial-gradient(circle_at_top,rgba(150,132,255,0.45),transparent_32%),linear-gradient(180deg,#7b63ef_0%,#6557db_28%,#4a56d4_58%,#3a72d4_100%)]";
+  "bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(255,255,255,0.07),transparent_50%),linear-gradient(180deg,#3a3a3c_0%,#2c2c2e_42%,#1a1a1c_100%)]";
 
 export function CallBackground({
   mode,

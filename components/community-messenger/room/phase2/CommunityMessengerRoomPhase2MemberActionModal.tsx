@@ -4,6 +4,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useEffect,
+  useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
@@ -12,6 +14,7 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -52,8 +55,28 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 export function CommunityMessengerRoomPhase2MemberActionModal() {
   const vm = useMessengerRoomPhase2View();
   const memberActionTarget = vm.memberActionTarget;
+  const [outCallKind, setOutCallKind] = useState<null | "voice" | "video">(null);
+  useEffect(() => {
+    if (!memberActionTarget) setOutCallKind(null);
+  }, [memberActionTarget]);
   return (
     <>
+      {memberActionTarget && outCallKind ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={memberActionTarget.label}
+          kind={outCallKind}
+          busy={vm.outgoingDialLocked}
+          onCancel={() => setOutCallKind(null)}
+          onConfirm={() => {
+            const id = memberActionTarget.id;
+            const kind = outCallKind;
+            setOutCallKind(null);
+            vm.setMemberActionTarget(null);
+            void vm.startDirectCallWithMember(id, kind);
+          }}
+        />
+      ) : null}
       {memberActionTarget ? (
         <div className="fixed inset-0 z-[25] flex items-end justify-center bg-black/30 px-4 pb-6" onClick={() => vm.setMemberActionTarget(null)}>
           <div
@@ -103,7 +126,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => void vm.startDirectCallWithMember(memberActionTarget.id, "voice")}
+                  onClick={() => setOutCallKind("voice")}
                   disabled={vm.outgoingDialLocked}
                   className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[14px] font-semibold text-sam-fg disabled:opacity-40"
                 >
@@ -111,7 +134,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => void vm.startDirectCallWithMember(memberActionTarget.id, "video")}
+                  onClick={() => setOutCallKind("video")}
                   disabled={vm.outgoingDialLocked}
                   className="rounded-ui-rect border border-sam-border px-4 py-4 text-left text-[14px] font-semibold text-sam-fg disabled:opacity-40"
                 >

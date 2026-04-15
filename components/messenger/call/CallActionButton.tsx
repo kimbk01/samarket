@@ -37,7 +37,9 @@ function diskClassForAction(item: CallActionItem): string {
   if (tone === "danger" || icon === "end" || icon === "decline") {
     return "bg-red-500 text-white shadow-[0_12px_28px_rgba(239,68,68,0.38)]";
   }
-  if (tone === "accept" || icon === "accept") return "bg-blue-500 text-white";
+  if (tone === "accept" || icon === "accept") {
+    return "bg-[#22c55e] text-white shadow-[0_12px_28px_rgba(34,197,94,0.38)]";
+  }
 
   if (icon === "camera" && active) return "bg-white text-slate-900 shadow-[0_12px_30px_rgba(0,0,0,0.22)]";
   if (icon === "camera" && !active) return "bg-black/38 text-white";

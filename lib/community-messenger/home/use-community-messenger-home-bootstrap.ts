@@ -58,16 +58,25 @@ export function useCommunityMessengerHomeBootstrap({
   /** 429(Retry-After) 시 즉시 재시도 폭주 방지 */
   const silentBackoffUntilRef = useRef(0);
 
-  // 복귀/재진입 시 첫 페인트부터 캐시를 시드로 잡아 "한 박자 늦는" 리렌더를 방지한다.
-  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => {
-    return initialServerBootstrap ?? peekBootstrapCache() ?? null;
-  });
-  const [loading, setLoading] = useState(() => !Boolean(initialServerBootstrap ?? peekBootstrapCache()));
-  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(() => !Boolean(initialServerBootstrap ?? peekBootstrapCache()));
+  /**
+   * 초기 state 는 서버와 동일해야 한다 — `peekBootstrapCache()` 는 클라 sessionStorage 만 읽어
+   * SSR 시 null·CSR 첫 렌더에 데이터가 생기며 `MessengerHomeMainSections` 트리가 달라져 하이드레이션 오류가 난다.
+   * 캐시 시드는 마운트 직후 `useLayoutEffect` 에서만 적용한다.
+   */
+  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
+  const [loading, setLoading] = useState(() => !Boolean(initialServerBootstrap));
+  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(() => !Boolean(initialServerBootstrap));
   const [authRequired, setAuthRequired] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  // NOTE: 위 초기 state에서 이미 캐시를 시드로 반영하므로 layoutEffect로 덮어쓰기 필요 없음.
+  useLayoutEffect(() => {
+    if (initialServerBootstrap) return;
+    const cached = peekBootstrapCache();
+    if (!cached) return;
+    setData(cached);
+    setLoading(false);
+    setHomeRealtimeGateOpen(false);
+  }, [initialServerBootstrap]);
 
   const refresh = useCallback(async (silent = false) => {
     if (silent) {

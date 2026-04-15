@@ -65,16 +65,6 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
       </div>
 
       <div className="relative z-[5] bg-gradient-to-t from-black/75 via-black/38 to-transparent px-3 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-16">
-        {!vm.showRemoteVideo ? (
-          <div className="mb-4 text-center">
-            <CallStatusText
-              title={vm.peerLabel}
-              status={vm.statusText}
-              timer={timer}
-              detail={vm.connectionLabel ?? null}
-            />
-          </div>
-        ) : null}
         <CallActionBar actions={vm.primaryActions} />
         {vm.secondaryActions?.length ? (
           <div className="mt-4">

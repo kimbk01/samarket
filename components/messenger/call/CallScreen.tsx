@@ -61,13 +61,11 @@ function renderCallView(vm: CallScreenViewModel) {
   if (vm.direction === "incoming" && vm.phase === "ringing") {
     return <IncomingCallView vm={vm} />;
   }
-  if (vm.mode === "video" && (vm.phase === "connected" || vm.phase === "connecting")) {
+  /** 영상: 벨·연결·통화 중 모두 동일 풀스크린 레이아웃(발신 시 로컬 프리뷰가 배경 전체). */
+  if (vm.mode === "video") {
     return <ConnectedVideoView vm={vm} />;
   }
-  if (
-    vm.mode === "voice" &&
-    !(vm.direction === "incoming" && vm.phase === "ringing")
-  ) {
+  if (vm.mode === "voice" && !(vm.direction === "incoming" && vm.phase === "ringing")) {
     return <VoiceCallView vm={vm} />;
   }
   return <OutgoingCallPanel vm={vm} />;

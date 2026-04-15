@@ -83,6 +83,7 @@ import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monito
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   communityMessengerFriendRequestFailureMessage,
   messengerFriendRequestBusyId,
@@ -406,6 +407,11 @@ export function CommunityMessengerHome({
   const [joinAliasAvatarUrl, setJoinAliasAvatarUrl] = useState("");
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
+  const [outgoingCallConfirm, setOutgoingCallConfirm] = useState<null | {
+    peerUserId: string;
+    peerLabel: string;
+    kind: "voice" | "video";
+  }>(null);
   const [localSettings, setLocalSettings] = useState<CommunityMessengerLocalSettings>({
     phoneFriendAddEnabled: true,
     contactAutoAddEnabled: false,
@@ -1376,6 +1382,12 @@ export function CommunityMessengerHome({
     roomSearchKeyword,
     openGroupSearch,
   });
+  const openOutgoingCallConfirm = useCallback((peerUserId: string, kind: "voice" | "video") => {
+    const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
+    const room = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId);
+    const peerLabel = fromFriend || room?.title?.trim() || "대화 상대";
+    setOutgoingCallConfirm({ peerUserId, peerLabel, kind });
+  }, [sortedFriends, data?.chats]);
   const searchKeywordNormalized = roomSearchKeyword.trim().toLowerCase();
   const searchFriendMatches = useMemo(() => {
     if (!searchKeywordNormalized) return [];
@@ -1900,8 +1912,8 @@ export function CommunityMessengerHome({
             onFriendSwipeRemove={(userId) => void removeFriend(userId)}
             onFriendSwipeBlock={(userId) => void toggleBlock(userId)}
             onFriendRowChat={(userId) => void startDirectRoom(userId)}
-            onFriendRowVoiceCall={(userId) => void startDirectCall(userId, "voice")}
-            onFriendRowVideoCall={(userId) => void startDirectCall(userId, "video")}
+            onFriendRowVoiceCall={(userId) => void openOutgoingCallConfirm(userId, "voice")}
+            onFriendRowVideoCall={(userId) => void openOutgoingCallConfirm(userId, "video")}
             getFriendDirectRoomMuted={(userId) => directRoomByPeerId.get(userId)?.isMuted}
             getFriendDirectRoomKind={(userId) => directRoomByPeerId.get(userId)?.contextMeta?.kind ?? null}
             friendNotificationsBusy={(userId) =>
@@ -2001,6 +2013,21 @@ export function CommunityMessengerHome({
         </section>
       ) : null}
 
+      {outgoingCallConfirm ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={outgoingCallConfirm.peerLabel}
+          kind={outgoingCallConfirm.kind}
+          busy={busyId === "messenger-outgoing-call"}
+          onCancel={() => setOutgoingCallConfirm(null)}
+          onConfirm={() => {
+            const next = outgoingCallConfirm;
+            setOutgoingCallConfirm(null);
+            startDirectCall(next.peerUserId, next.kind);
+          }}
+        />
+      ) : null}
+
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (
         <MessengerFriendProfileSheet
           key={friendProfileForSheet.id}
@@ -2010,12 +2037,12 @@ export function CommunityMessengerHome({
           onVoiceCall={() => {
             const id = friendProfileForSheet.id;
             setFriendSheet(null);
-            void startDirectCall(id, "voice");
+            void openOutgoingCallConfirm(id, "voice");
           }}
           onVideoCall={() => {
             const id = friendProfileForSheet.id;
             setFriendSheet(null);
-            void startDirectCall(id, "video");
+            void openOutgoingCallConfirm(id, "video");
           }}
           onChat={() => {
             const id = friendProfileForSheet.id;
