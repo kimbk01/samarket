@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import {
   messengerRoomMenuItemId,
@@ -24,6 +25,15 @@ const DRAG_CANCEL_Y = 14;
 const PRESS_RELEASE_MS = 90;
 const LONG_PRESS_THRESHOLD_MS = 560;
 
+export type MessengerMenuAnchorRect = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+  width: number;
+  height: number;
+};
+
 type Props = {
   item: UnifiedRoomListItem;
   favoriteFriendIds: Set<string>;
@@ -32,7 +42,11 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
-  onOpenRoomActions?: (item: UnifiedRoomListItem, listContext: MessengerChatListContext) => void;
+  onOpenRoomActions?: (
+    item: UnifiedRoomListItem,
+    listContext: MessengerChatListContext,
+    anchorRect: MessengerMenuAnchorRect | null
+  ) => void;
   /** 보관함 탭 등 액션 시트 분기 */
   listContext?: MessengerChatListContext;
   compact?: boolean;
@@ -63,6 +77,7 @@ export function MessengerChatListItem({
 }: Props) {
   const router = useRouter();
   const room = item.room;
+  const rowRef = useRef<HTMLDivElement | null>(null);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isPressedVisual, setIsPressedVisual] = useState(false);
@@ -149,12 +164,23 @@ export function MessengerChatListItem({
     tapNavigateArmedRef.current = false;
     setIsPressedVisual(true);
     releasePressedVisual(PRESS_RELEASE_MS);
+    const rect = rowRef.current?.getBoundingClientRect();
+    const anchorRect = rect
+      ? {
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        }
+      : null;
     if (compact && onCompactLongPress) {
       onCompactLongPress();
       return;
     }
     if (!compact) {
-      onOpenRoomActions?.(item, listContext);
+      onOpenRoomActions?.(item, listContext, anchorRect);
     }
   }, [closeSwipe, compact, item, listContext, onCompactLongPress, onOpenRoomActions, releasePressedVisual]);
 
@@ -205,6 +231,12 @@ export function MessengerChatListItem({
     longPressTriggeredRef.current = false;
     tapNavigateArmedRef.current = true;
     setIsPressedVisual(!swipeOpen);
+    if (!prefetchOnceRef.current) {
+      prefetchOnceRef.current = true;
+      const href = `/community-messenger/rooms/${encodeURIComponent(room.id)}`;
+      void prefetchCommunityMessengerRoomSnapshot(room.id);
+      void router.prefetch(href);
+    }
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -213,7 +245,7 @@ export function MessengerChatListItem({
       dragging: false,
     };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [clearReleasePressTimer, compact, swipeOpen]);
+  }, [clearReleasePressTimer, compact, room.id, router, swipeOpen]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -278,10 +310,11 @@ export function MessengerChatListItem({
           releasePressedVisual();
           return;
         }
-        onResetTransientUi?.();
+        // 라우팅을 가장 먼저 시작(메인스레드 정리/리렌더보다 우선) — 체감 멈칫 최소화.
+        markCommunityMessengerRoomNavTap(room.id);
+        navigateToCommunityRoom(room.id);
         setIsPressedVisual(true);
         releasePressedVisual(PRESS_RELEASE_MS);
-        navigateToCommunityRoom(room.id);
         return;
       }
       const snap = dragXRef.current < -ACTION_TOTAL / 2 ? -ACTION_TOTAL : 0;
@@ -475,6 +508,7 @@ export function MessengerChatListItem({
 
   return (
     <div
+      ref={rowRef}
       className="relative overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]"
       data-messenger-chat-row="true"
     >
@@ -548,7 +582,6 @@ export function MessengerChatListItem({
                 closeSwipe();
                 return;
               }
-              onResetTransientUi?.();
               navigateToCommunityRoom(room.id);
             }
           }}

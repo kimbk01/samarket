@@ -54,26 +54,16 @@ export function useCommunityMessengerHomeBootstrap({
   const silentRefreshBusyRef = useRef(false);
   const silentRefreshAgainRef = useRef(false);
 
-  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
-  const [loading, setLoading] = useState(() => !initialServerBootstrap);
-  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(() => !initialServerBootstrap);
+  // 복귀/재진입 시 첫 페인트부터 캐시를 시드로 잡아 "한 박자 늦는" 리렌더를 방지한다.
+  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => {
+    return initialServerBootstrap ?? peekBootstrapCache() ?? null;
+  });
+  const [loading, setLoading] = useState(() => !Boolean(initialServerBootstrap ?? peekBootstrapCache()));
+  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(() => !Boolean(initialServerBootstrap ?? peekBootstrapCache()));
   const [authRequired, setAuthRequired] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  /**
-   * RSC가 `initialServerBootstrap`을 내렸으면 클라 `peekBootstrapCache()`로 덮지 않는다.
-   * (오래된 캐시가 서버 시드보다 먼저 state를 잡아 첫 페인트·hydration 경합을 키우는 것 방지)
-   */
-  useLayoutEffect(() => {
-    if (initialServerBootstrap) return;
-    const stale = peekBootstrapCache();
-    if (!stale) return;
-    setData(stale);
-    setAuthRequired(false);
-    setPageError(null);
-    setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시점의 시드 유무만; props 참조 churn에 layout 재실행 금지
-  }, []);
+  // NOTE: 위 초기 state에서 이미 캐시를 시드로 반영하므로 layoutEffect로 덮어쓰기 필요 없음.
 
   const refresh = useCallback(async (silent = false) => {
     if (!tryEnterSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef)) {

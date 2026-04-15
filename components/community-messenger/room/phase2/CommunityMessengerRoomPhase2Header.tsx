@@ -8,6 +8,7 @@ import {
   VoiceCallIcon,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 
 export function CommunityMessengerRoomPhase2Header() {
   const vm = useMessengerRoomPhase2View();
@@ -17,13 +18,14 @@ export function CommunityMessengerRoomPhase2Header() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              markCommunityMessengerHomeReturn();
               vm.router.replace(
                 vm.isGroupRoom
                   ? "/community-messenger?section=chats&filter=private_group"
                   : "/community-messenger?section=chats"
-              )
-            }
+              );
+            }}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
             aria-label={vm.t("tier1_back")}
           >

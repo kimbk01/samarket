@@ -58,8 +58,14 @@ export function createMessengerRoomBootstrapRefresh(
         });
       }
       const tBoot = typeof performance !== "undefined" ? performance.now() : Date.now();
-      const bootstrapQuery =
-        silent && deferredMemberBootstrapRef.current ? "?memberHydration=minimal" : "";
+      /**
+       * 첫 진입(차단 로드) 성능이 핵심이라 기본은 `minimal` 로 간다.
+       * - 목록/프리패치 스냅샷이 있으면 이미 첫 페인트는 가능
+       * - 이후 멤버 시트 진입 시에만 `/members` 로 페이징 로드(기존 정책 유지)
+       * - 사일런트 갱신도 `membersDeferred`(minimal) 상태면 계속 minimal 유지
+       */
+      const wantMinimal = (!silent && !loadedRef.current && !primed) || (silent && deferredMemberBootstrapRef.current);
+      const bootstrapQuery = wantMinimal ? "?memberHydration=minimal" : "";
       const flightKey = `cm-room-bootstrap:${roomId}:${bootstrapQuery || "default"}`;
       const { roomRes, snap } = await runSingleFlight(flightKey, async () => {
         const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQuery}`, {
@@ -70,6 +76,10 @@ export function createMessengerRoomBootstrapRefresh(
       });
       if (roomRes.ok && snap) {
         setSnapshot(snap);
+        if (wantMinimal) {
+          // minimal 로 시작했으면 이후 사일런트 갱신도 minimal 유지(멤버 전원 로드는 members sheet에서만).
+          deferredMemberBootstrapRef.current = true;
+        }
         const elapsed =
           typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
         messengerMonitorRoomLoad(roomId, elapsed);

@@ -1,12 +1,5 @@
 import dynamic from "next/dynamic";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
-import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
-import {
-  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
-  type CommunityMessengerRoomSnapshot,
-} from "@/lib/community-messenger/types";
 
 const CommunityMessengerRoomClient = dynamic(
   () =>
@@ -29,22 +22,12 @@ export default async function CommunityMessengerRoomPage({
 }) {
   const { roomId } = await params;
   const { callAction, sessionId } = await searchParams;
-  const userId = await getOptionalAuthenticatedUserId();
-  let initialServerSnapshot: CommunityMessengerRoomSnapshot | null = null;
-  if (userId && roomId?.trim()) {
-    const port = createSupabaseCommunityMessengerReadPort();
-    initialServerSnapshot = await loadCommunityMessengerRoomBootstrap(port, userId, roomId.trim(), {
-      initialMessageLimit: COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
-      hydrateFullMemberList: false,
-    });
-  }
   return (
     <CommunityMessengerRoomClient
       key={roomId}
       roomId={roomId}
       initialCallAction={callAction}
       initialCallSessionId={sessionId}
-      initialServerSnapshot={initialServerSnapshot}
     />
   );
 }

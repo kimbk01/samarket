@@ -1,5 +1,7 @@
 "use client";
 
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
 import {
   communityMessengerRoomIsDelivery,
@@ -11,6 +13,7 @@ import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-communit
 type Props = {
   item: UnifiedRoomListItem;
   listContext?: MessengerChatListContext;
+  anchorRect: MessengerMenuAnchorRect | null;
   busyId: string | null;
   onClose: () => void;
   /** 목록 롱프레스 시트 최상단 — 방으로 진입 */
@@ -30,31 +33,29 @@ type Props = {
 };
 
 /**
- * 채팅 목록 행 롱프레스 — 모바일 바텀시트만 (행 ⋯ 없음).
+ * 채팅 목록 행 롱프레스 — 셀 근처 anchored menu.
  */
 export function MessengerChatRoomActionSheet({
   item,
   listContext = "default",
+  anchorRect,
   busyId,
   onClose,
   onEnterRoom,
   onTogglePin,
   onToggleMute,
-  onMarkRead,
   onToggleArchive,
   onViewFriendProfile,
   onViewGroupInfo,
   onViewOpenChatInfo,
   onViewRelatedCommerce,
-  onBlock,
   onLeave,
-  onClearLocalPreview,
-  onReportRoom,
 }: Props) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [panelHeight, setPanelHeight] = useState(0);
   const room = item.room;
   const rid = room.id;
   const isSettingsBusy = busyId === `room-settings:${rid}`;
-  const isReadBusy = busyId === `room-read:${rid}`;
   const isArchiveBusy = busyId === `room-archive:${rid}`;
   const isLeaveBusy = busyId === `room-leave:${rid}`;
   const hidden = communityMessengerRoomIsInboxHidden(room);
@@ -71,160 +72,231 @@ export function MessengerChatRoomActionSheet({
   const hasProductLink =
     Boolean(commerceMeta?.productChatId?.trim()) && (communityMessengerRoomIsTrade(room) || communityMessengerRoomIsDelivery(room));
 
+  useLayoutEffect(() => {
+    const next = panelRef.current?.getBoundingClientRect().height ?? 0;
+    if (next !== panelHeight) setPanelHeight(next);
+  }, [archiveUi, hasProductLink, isOpenGroup, isPrivateGroup, panelHeight, room.isMuted, room.isPinned]);
+
+  const anchoredStyle = useMemo(() => {
+    const viewportWidth = typeof window === "undefined" ? 390 : window.innerWidth;
+    const viewportHeight = typeof window === "undefined" ? 844 : window.innerHeight;
+    const menuWidth = Math.min(272, viewportWidth - 24);
+    const spacing = 8;
+    const fallbackLeft = Math.max(12, viewportWidth - menuWidth - 12);
+    const anchor = anchorRect ?? {
+      top: viewportHeight / 2 - 24,
+      bottom: viewportHeight / 2 + 24,
+      left: fallbackLeft,
+      right: fallbackLeft + menuWidth,
+      width: menuWidth,
+      height: 48,
+    };
+    const preferredTop = anchor.bottom + spacing;
+    const nextTop =
+      panelHeight > 0 && preferredTop + panelHeight > viewportHeight - 12
+        ? Math.max(12, anchor.top - panelHeight - spacing)
+        : preferredTop;
+    const left = Math.min(
+      Math.max(12, anchor.left + Math.min(12, Math.max(0, anchor.width - menuWidth))),
+      viewportWidth - menuWidth - 12
+    );
+
+    return {
+      top: `${Math.round(nextTop)}px`,
+      left: `${Math.round(left)}px`,
+      width: `${Math.round(menuWidth)}px`,
+    };
+  }, [anchorRect, panelHeight]);
+
+  const contextualAction = isDirect && onViewFriendProfile
+    ? {
+        label: "프로필 보기",
+        icon: <ProfileIcon />,
+        onClick: onViewFriendProfile,
+        disabled: anyBusy,
+      }
+    : hasProductLink && onViewRelatedCommerce
+      ? {
+          label: communityMessengerRoomIsDelivery(room) ? "관련 주문 보기" : "관련 거래 보기",
+          icon: <CommerceIcon />,
+          onClick: onViewRelatedCommerce,
+          disabled: anyBusy,
+        }
+      : isPrivateGroup && onViewGroupInfo
+        ? {
+            label: "그룹 정보",
+            icon: <InfoIcon />,
+            onClick: onViewGroupInfo,
+            disabled: anyBusy,
+          }
+        : isOpenGroup && onViewOpenChatInfo
+          ? {
+              label: "오픈채팅 정보",
+              icon: <InfoIcon />,
+              onClick: onViewOpenChatInfo,
+              disabled: anyBusy,
+            }
+          : onLeave
+            ? {
+                label: "나가기",
+                icon: <LeaveIcon />,
+                onClick: onLeave,
+                disabled: anyBusy || isLeaveBusy,
+              }
+            : null;
+
   return (
     <div
       data-messenger-chat-sheet="true"
-      className="fixed inset-0 z-[46] flex flex-col justify-end bg-black/30"
+      className="fixed inset-0 z-[46]"
       role="dialog"
       aria-modal="true"
     >
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
-      <div className="w-full max-h-[min(72vh,560px)] overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="border-b border-ui-border px-3 py-2">
-          <p className="truncate text-[15px] font-semibold text-ui-fg">{room.title}</p>
-          <p className="mt-0.5 truncate text-[12px] text-ui-muted">{item.preview}</p>
-          {archiveUi ? (
-            <p className="mt-1 text-[11px] leading-snug text-ui-muted">보관함 · 길게 눌러 복원·알림·신고 등</p>
-          ) : null}
-        </div>
+      <button type="button" className="absolute inset-0 cursor-default bg-transparent" aria-label="닫기" onClick={onClose} />
+      <div
+        ref={panelRef}
+        className="absolute overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+        style={anchoredStyle}
+      >
         <nav className="flex flex-col" aria-label="대화방 작업">
-          {archiveUi ? (
-            <>
-              <SheetAction label="채팅방 열기" onClick={onEnterRoom} disabled={anyBusy} />
-              <SheetAction
-                label={archiveLabel}
-                onClick={onToggleArchive}
-                disabled={anyBusy || isArchiveBusy}
-              />
-              <SheetAction label="읽음 처리" onClick={onMarkRead} disabled={anyBusy || isReadBusy || room.unreadCount < 1} />
-              <SheetAction
-                label={room.isMuted ? "알림 켜기" : "알림 끄기"}
-                onClick={onToggleMute}
-                disabled={anyBusy || isSettingsBusy}
-              />
-              <SheetAction
-                label={room.isPinned ? "고정 해제" : "상단 고정"}
-                onClick={onTogglePin}
-                disabled={anyBusy || isSettingsBusy}
-              />
-              {isPrivateGroup && onViewGroupInfo ? (
-                <SheetAction label="그룹 정보" onClick={onViewGroupInfo} disabled={anyBusy} />
-              ) : null}
-              {isOpenGroup && onViewOpenChatInfo ? (
-                <SheetAction label="오픈채팅 정보" onClick={onViewOpenChatInfo} disabled={anyBusy} />
-              ) : null}
-              {hasProductLink && onViewRelatedCommerce ? (
-                <SheetAction label="관련 거래·주문 보기" onClick={onViewRelatedCommerce} disabled={anyBusy} />
-              ) : null}
-              {isDirect && onBlock ? <SheetAction label="차단" onClick={onBlock} disabled={anyBusy} danger /> : null}
-              {isDirect && onViewFriendProfile ? (
-                <SheetAction label="친구 프로필 보기" onClick={onViewFriendProfile} disabled={anyBusy} />
-              ) : null}
-              {onLeave ? (
-                <SheetAction
-                  label="채팅방 나가기"
-                  sub={isLeaveBusy ? "처리 중…" : undefined}
-                  onClick={onLeave}
-                  disabled={anyBusy || isLeaveBusy}
-                  danger
-                />
-              ) : null}
-              {onClearLocalPreview ? (
-                <SheetAction
-                  label="로컬 기록 삭제"
-                  sub="이 기기 미리보기만 삭제됩니다"
-                  onClick={onClearLocalPreview}
-                  disabled={anyBusy}
-                />
-              ) : null}
-              {onReportRoom ? <SheetAction label="신고" onClick={onReportRoom} disabled={anyBusy} danger /> : null}
-            </>
-          ) : (
-            <>
-              <SheetAction label="채팅방 열기" onClick={onEnterRoom} disabled={anyBusy} />
-              <SheetAction
-                label={room.isPinned ? "고정 해제" : "상단 고정"}
-                onClick={onTogglePin}
-                disabled={anyBusy || isSettingsBusy}
-              />
-              <SheetAction
-                label={room.isMuted ? "알림 켜기" : "알림 끄기"}
-                onClick={onToggleMute}
-                disabled={anyBusy || isSettingsBusy}
-              />
-              <SheetAction label="읽음 처리" onClick={onMarkRead} disabled={anyBusy || isReadBusy || room.unreadCount < 1} />
-              <SheetAction
-                label={defaultArchiveLabel}
-                onClick={onToggleArchive}
-                disabled={anyBusy || isArchiveBusy}
-              />
-              {isPrivateGroup && onViewGroupInfo ? (
-                <SheetAction label="그룹 정보" onClick={onViewGroupInfo} disabled={anyBusy} />
-              ) : null}
-              {isOpenGroup && onViewOpenChatInfo ? (
-                <SheetAction label="오픈채팅 정보" onClick={onViewOpenChatInfo} disabled={anyBusy} />
-              ) : null}
-              {hasProductLink && onViewRelatedCommerce ? (
-                <SheetAction label="관련 거래·주문 보기" onClick={onViewRelatedCommerce} disabled={anyBusy} />
-              ) : null}
-              {isDirect && onBlock ? <SheetAction label="차단" onClick={onBlock} disabled={anyBusy} danger /> : null}
-              {isDirect && onViewFriendProfile ? (
-                <SheetAction label="친구 프로필 보기" onClick={onViewFriendProfile} disabled={anyBusy} />
-              ) : null}
-              {isPrivateGroup || isOpenGroup ? (
-                onLeave ? (
-                  <SheetAction
-                    label="나가기"
-                    sub={isLeaveBusy ? "처리 중…" : undefined}
-                    onClick={onLeave}
-                    disabled={anyBusy || isLeaveBusy}
-                    danger
-                  />
-                ) : null
-              ) : null}
-              {onClearLocalPreview ? (
-                <SheetAction label="로컬 기록 삭제" sub="이 기기 미리보기만 삭제됩니다" onClick={onClearLocalPreview} disabled={anyBusy} />
-              ) : null}
-              {onReportRoom ? <SheetAction label="신고" onClick={onReportRoom} disabled={anyBusy} danger /> : null}
-            </>
-          )}
+          <AnchoredAction
+            label="채팅방 열기"
+            icon={<EnterIcon />}
+            onClick={onEnterRoom}
+            disabled={anyBusy}
+          />
+          <AnchoredAction
+            label={room.isMuted ? "알림 켜기" : "알림 끄기"}
+            icon={<MuteIcon />}
+            onClick={onToggleMute}
+            disabled={anyBusy || isSettingsBusy}
+          />
+          <AnchoredAction
+            label={room.isPinned ? "상단 고정 해제" : "채팅방 상단 고정"}
+            icon={<PinIcon />}
+            onClick={onTogglePin}
+            disabled={anyBusy || isSettingsBusy}
+          />
+          <AnchoredAction
+            label={archiveUi ? archiveLabel : defaultArchiveLabel}
+            icon={<ArchiveIcon />}
+            onClick={onToggleArchive}
+            disabled={anyBusy || isArchiveBusy}
+          />
+          {contextualAction ? (
+            <AnchoredAction
+              label={contextualAction.label}
+              icon={contextualAction.icon}
+              onClick={contextualAction.onClick}
+              disabled={contextualAction.disabled}
+            />
+          ) : null}
         </nav>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-0.5 w-full border-t border-ui-border py-2.5 text-[14px] font-medium text-ui-muted active:bg-ui-hover"
-        >
-          취소
-        </button>
       </div>
     </div>
   );
 }
 
-function SheetAction({
+function AnchoredAction({
   label,
-  sub,
+  icon,
   onClick,
   disabled,
-  danger = false,
 }: {
   label: string;
-  sub?: string;
+  icon: ReactNode;
   onClick: () => void;
   disabled?: boolean;
-  danger?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex min-h-[44px] w-full flex-col items-start justify-center border-b border-ui-border px-4 py-2 text-left last:border-b-0 disabled:opacity-50 ${
-        danger ? "text-[var(--ui-danger)]" : "text-ui-fg"
-      } active:bg-ui-hover`}
+      className="flex min-h-[44px] w-full items-center justify-between gap-3 border-b border-[color:var(--messenger-divider)] px-3 py-2 text-left text-[14px] font-semibold last:border-b-0 disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
+      style={{ color: "var(--messenger-text)" }}
     >
-      <span className="text-[15px] font-medium">{label}</span>
-      {sub ? <span className="text-[11px] text-ui-muted">{sub}</span> : null}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="shrink-0" style={{ color: "var(--messenger-text-secondary)" }}>
+        {icon}
+      </span>
     </button>
+  );
+}
+
+function EnterIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h7a3 3 0 013 3v6a3 3 0 01-3 3H8" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 8l4 4-4 4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 12H4" />
+    </svg>
+  );
+}
+
+function MuteIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 9v6h4l5 4V5l-5 4H5z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 8l5 8" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8l-5 8" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 4l6 6-3 1-3 6-2-2-4 5-1-1 5-4-2-2 6-3 1-3z" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 7l1 11a2 2 0 002 2h6a2 2 0 002-2l1-11" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 11h6" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 12a4 4 0 100-8 4 4 0 000 8z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 20a7 7 0 0114 0" />
+    </svg>
+  );
+}
+
+function CommerceIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16l-1.2 7.1a2 2 0 01-2 1.7H8.2a2 2 0 01-2-1.7L5 5H3" />
+      <circle cx="9" cy="19" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="19" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7h.01" />
+    </svg>
+  );
+}
+
+function LeaveIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H7a2 2 0 00-2 2v8a2 2 0 002 2h3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 8l4 4-4 4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H9" />
+    </svg>
   );
 }

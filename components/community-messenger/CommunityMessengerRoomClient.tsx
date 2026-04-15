@@ -17,6 +17,15 @@ export function CommunityMessengerRoomClient(props: {
   initialServerSnapshot?: CommunityMessengerRoomSnapshot | null;
 }) {
   const phase1 = useMessengerRoomClientPhase1(props);
+  useEffect(() => {
+    // 복귀 시 홈(리스트) 청크 로드 대기 최소화
+    try {
+      void phase1.router.prefetch?.("/community-messenger?section=chats");
+      void phase1.router.prefetch?.("/community-messenger?section=chats&filter=private_group");
+    } catch {
+      /* ignore */
+    }
+  }, [phase1.router]);
   const isGroupRoomForShell = Boolean(
     phase1.snapshot?.room.roomType && phase1.snapshot.room.roomType !== "direct"
   );

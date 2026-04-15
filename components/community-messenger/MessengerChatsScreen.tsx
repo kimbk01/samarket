@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import {
   type MessengerChatListChip,
   type MessengerChatListContext,
@@ -28,7 +29,11 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
-  onOpenRoomActions?: (item: UnifiedRoomListItem, listContext: MessengerChatListContext) => void;
+  onOpenRoomActions?: (
+    item: UnifiedRoomListItem,
+    listContext: MessengerChatListContext,
+    anchorRect: MessengerMenuAnchorRect | null
+  ) => void;
   chatListChip: MessengerChatListChip;
   onChatListChipChange: (next: MessengerChatListChip) => void;
   emptyMessage: string;
@@ -200,7 +205,11 @@ export function MessengerOpenChatScreen({
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
   onPreviewGroup: (groupId: string) => void;
-  onOpenRoomActions?: (item: UnifiedRoomListItem, listContext: MessengerChatListContext) => void;
+  onOpenRoomActions?: (
+    item: UnifiedRoomListItem,
+    listContext: MessengerChatListContext,
+    anchorRect: MessengerMenuAnchorRect | null
+  ) => void;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
   onCloseMenuItem: (id?: string) => void;

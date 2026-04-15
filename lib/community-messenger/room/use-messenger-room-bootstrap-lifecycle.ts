@@ -3,6 +3,7 @@
 import { useEffect, type MutableRefObject } from "react";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 
 type Args = {
   roomId: string;
@@ -25,6 +26,8 @@ export function useMessengerRoomBootstrapLifecycle({
 }: Args): void {
   useEffect(() => {
     setRoomReadyForRealtime(false);
+    // 탭→방 컴포넌트 마운트 지연 측정(멈칫/라우팅 스케줄링 병목 확인)
+    consumeCommunityMessengerRoomNavTap(roomId);
     if (initialServerSnapshot) {
       loadedRef.current = true;
       setRoomReadyForRealtime(true);

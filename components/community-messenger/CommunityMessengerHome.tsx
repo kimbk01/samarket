@@ -15,6 +15,7 @@ import {
 } from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
+import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
@@ -102,6 +103,7 @@ import {
   prefetchCommunityMessengerRoomSnapshot,
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
+import { consumeCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
@@ -185,6 +187,10 @@ export function CommunityMessengerHome({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  useEffect(() => {
+    // 방→리스트 복귀 체감 지연 측정
+    consumeCommunityMessengerHomeReturn();
+  }, []);
   const navigateToCommunityRoom = useCallback(
     (roomId: string) => {
       const id = String(roomId ?? "").trim();
@@ -237,6 +243,7 @@ export function CommunityMessengerHome({
   const [roomActionSheet, setRoomActionSheet] = useState<{
     item: UnifiedRoomListItem;
     listContext: MessengerChatListContext;
+    anchorRect: MessengerMenuAnchorRect | null;
   } | null>(null);
   const [openedSwipeItemId, setOpenedSwipeItemId] = useState<string | null>(null);
   const [openedMenuItemId, setOpenedMenuItemId] = useState<string | null>(null);
@@ -276,6 +283,7 @@ export function CommunityMessengerHome({
       listScrollDismissRafRef.current = null;
       setOpenedSwipeItemId((s) => (s == null ? s : null));
       setOpenedMenuItemId((m) => (m == null ? m : null));
+      setRoomActionSheet((current) => (current == null ? current : null));
     });
   }, []);
 
@@ -301,11 +309,28 @@ export function CommunityMessengerHome({
     });
   }, []);
 
-  const openRoomActions = useCallback((item: UnifiedRoomListItem, listContext: MessengerChatListContext) => {
-    setOpenedSwipeItemId(null);
-    setOpenedMenuItemId(messengerRoomMenuItemId(item.room.id, listContext));
-    setRoomActionSheet({ item, listContext });
-  }, []);
+  const openRoomActions = useCallback(
+    (
+      item: UnifiedRoomListItem,
+      listContext: MessengerChatListContext,
+      anchorRect: MessengerMenuAnchorRect | null
+    ) => {
+      setOpenedSwipeItemId(null);
+      setOpenedMenuItemId(messengerRoomMenuItemId(item.room.id, listContext));
+      setRoomActionSheet({ item, listContext, anchorRect });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!roomActionSheet) return;
+    const handleViewportChange = () => {
+      setRoomActionSheet(null);
+      setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
+    };
+    window.addEventListener("resize", handleViewportChange);
+    return () => window.removeEventListener("resize", handleViewportChange);
+  }, [roomActionSheet]);
 
   const replaceMessengerSectionUrl = useCallback(
     (section: MessengerMainSection, inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter) => {
@@ -1822,6 +1847,7 @@ export function CommunityMessengerHome({
         <MessengerChatRoomActionSheet
           item={roomActionSheet.item}
           listContext={roomActionSheet.listContext}
+          anchorRect={roomActionSheet.anchorRect}
           busyId={busyId}
           onClose={() => {
             setRoomActionSheet(null);
@@ -1830,25 +1856,32 @@ export function CommunityMessengerHome({
           onEnterRoom={() => {
             const id = roomActionSheet.item.room.id;
             setRoomActionSheet(null);
+            setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
             navigateToCommunityRoom(id);
           }}
-          onTogglePin={() =>
+          onTogglePin={() => {
+            setRoomActionSheet(null);
+            setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
             void updateRoomParticipantState(roomActionSheet.item.room.id, {
               isPinned: !roomActionSheet.item.room.isPinned,
-            })
-          }
-          onToggleMute={() =>
+            });
+          }}
+          onToggleMute={() => {
+            setRoomActionSheet(null);
+            setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
             void updateRoomParticipantState(roomActionSheet.item.room.id, {
               isMuted: !roomActionSheet.item.room.isMuted,
-            })
-          }
+            });
+          }}
           onMarkRead={() => void markRoomRead(roomActionSheet.item.room.id)}
-          onToggleArchive={() =>
+          onToggleArchive={() => {
+            setRoomActionSheet(null);
+            setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
             void toggleRoomArchive(
               roomActionSheet.item.room.id,
               !communityMessengerRoomIsInboxHidden(roomActionSheet.item.room)
-            )
-          }
+            );
+          }}
           onViewFriendProfile={(() => {
             const room = roomActionSheet.item.room;
             if (room.roomType !== "direct" || !room.peerUserId) return undefined;
@@ -1901,7 +1934,11 @@ export function CommunityMessengerHome({
           }
           onLeave={
             roomActionSheet.item.room.roomType === "private_group" || roomActionSheet.item.room.roomType === "open_group"
-              ? () => void leaveMessengerRoom(roomActionSheet.item.room.id)
+              ? () => {
+                  setRoomActionSheet(null);
+                  setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
+                  void leaveMessengerRoom(roomActionSheet.item.room.id);
+                }
               : undefined
           }
           onClearLocalPreview={() => clearLocalRoomPreview(roomActionSheet.item.room.id)}

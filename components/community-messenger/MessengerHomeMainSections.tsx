@@ -2,6 +2,7 @@
 
 import type { MutableRefObject } from "react";
 import { useMemo } from "react";
+import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/community-messenger/MessengerChatsScreen";
 import { MessengerArchiveScreen } from "@/components/community-messenger/MessengerArchiveScreen";
 import { MessengerFriendsScreen } from "@/components/community-messenger/MessengerFriendsScreen";
@@ -66,7 +67,11 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
-  onOpenRoomActions?: (item: UnifiedRoomListItem, listContext: MessengerChatListContext) => void;
+  onOpenRoomActions?: (
+    item: UnifiedRoomListItem,
+    listContext: MessengerChatListContext,
+    anchorRect: MessengerMenuAnchorRect | null
+  ) => void;
   chatInboxFilter: MessengerChatInboxFilter;
   chatKindFilter: MessengerChatKindFilter;
   onChatListChipChange: (next: MessengerChatListChip) => void;

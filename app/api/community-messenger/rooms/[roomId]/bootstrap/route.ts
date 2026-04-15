@@ -5,7 +5,42 @@ import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases
 import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
 import type { CommunityMessengerRoomSnapshotOptions } from "@/lib/chat-domain/ports/community-messenger-read";
 import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
-import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+import { recordMessengerApiTiming, recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
+const ROOM_BOOTSTRAP_CACHE_TTL_MS = 2500;
+const ROOM_BOOTSTRAP_CACHE_MAX = 240;
+const roomBootstrapCache = new Map<string, { at: number; snapshot: unknown }>();
+
+function pruneRoomBootstrapCache(now = Date.now()): void {
+  for (const [k, v] of roomBootstrapCache) {
+    if (now - v.at > ROOM_BOOTSTRAP_CACHE_TTL_MS) roomBootstrapCache.delete(k);
+  }
+  if (roomBootstrapCache.size <= ROOM_BOOTSTRAP_CACHE_MAX) return;
+  const overflow = roomBootstrapCache.size - ROOM_BOOTSTRAP_CACHE_MAX;
+  let i = 0;
+  for (const k of roomBootstrapCache.keys()) {
+    roomBootstrapCache.delete(k);
+    i += 1;
+    if (i >= overflow) break;
+  }
+}
+
+function getCachedBootstrap(key: string): unknown | null {
+  pruneRoomBootstrapCache();
+  const row = roomBootstrapCache.get(key);
+  if (!row) return null;
+  if (Date.now() - row.at > ROOM_BOOTSTRAP_CACHE_TTL_MS) {
+    roomBootstrapCache.delete(key);
+    return null;
+  }
+  return row.snapshot;
+}
+
+function setCachedBootstrap(key: string, snapshot: unknown): void {
+  roomBootstrapCache.set(key, { at: Date.now(), snapshot });
+  pruneRoomBootstrapCache();
+}
 
 /**
  * GET — 한 번에 방 메타, 참가자(멤버), 최근 메시지, 내 unread(room.unreadCount), activeCall.
@@ -42,9 +77,37 @@ export async function GET(
 
   const t0 = performance.now();
   const readPort = createSupabaseCommunityMessengerReadPort();
-  const snapshot = await loadCommunityMessengerRoomBootstrap(readPort, auth.userId, roomId, opts);
+  const roomKey = String(roomId ?? "").trim();
+  const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${hydrateFullMemberList ? "full" : "minimal"}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
+  const cached = getCachedBootstrap(cacheKey);
+  const trace = process.env.MESSENGER_PERF_TRACE_BOOTSTRAP === "1";
+  const tSnap0 = performance.now();
+  const snapshot = cached
+    ? (cached as Awaited<ReturnType<typeof loadCommunityMessengerRoomBootstrap>>)
+    : await runSingleFlight(cacheKey, async () => {
+        const snap = await loadCommunityMessengerRoomBootstrap(readPort, auth.userId, roomKey, opts);
+        // null 도 캐시해두면 동일 방 연타 404/권한 에러 폭주를 줄임(짧은 TTL).
+        setCachedBootstrap(cacheKey, snap);
+        return snap;
+      });
+  const snapMs = Math.round(performance.now() - tSnap0);
   const ms = Math.round(performance.now() - t0);
   recordMessengerApiTiming("GET /api/community-messenger/rooms/[roomId]/bootstrap", ms, snapshot ? 200 : 404);
+  if (trace || snapMs >= 450) {
+    recordMessengerMonitoringEvent({
+      ts: Date.now(),
+      category: "api.community_messenger",
+      metric: "room_bootstrap_snapshot_ms",
+      source: "server",
+      value: snapMs,
+      unit: "ms",
+      labels: {
+        route: "GET /api/community-messenger/rooms/[roomId]/bootstrap",
+        hydration: hydrateFullMemberList ? "full" : "minimal",
+        status: String(snapshot ? 200 : 404),
+      },
+    });
+  }
   if (!snapshot) {
     return jsonErrorWithRequest(req, "not_found", 404);
   }

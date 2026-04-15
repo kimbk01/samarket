@@ -4324,6 +4324,7 @@ export async function getCommunityMessengerRoomSnapshot(
   options?: GetCommunityMessengerRoomSnapshotOptions
 ): Promise<CommunityMessengerRoomSnapshot | null> {
   const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
+  const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   const id = trimText(roomId);
   if (!id) return null;
   const sb = getSupabaseOrNull();
@@ -4333,45 +4334,51 @@ export async function getCommunityMessengerRoomSnapshot(
   let roomTotalMemberCount: number | undefined;
   let membersTruncated = false;
   if (sb) {
-    const { data: myParticipant } = await (sb as any)
-      .from("community_messenger_participants")
-      .select("id, role, is_archived")
-      .eq("room_id", id)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (myParticipant) {
-      const [
-        { data: roomData },
-        { data: participantData, count: participantCount },
-        { data: messageData },
-      ] = await Promise.all([
-        (sb as any)
-          .from("community_messenger_rooms")
-          .select(
-            "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
-          )
-          .eq("id", id)
-          .maybeSingle(),
-        (sb as any)
+    const participantsQuery = hydrateFullMemberList
+      ? (sb as any)
           .from("community_messenger_participants")
-          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at", {
-            count: "exact",
-          })
-          .eq("room_id", id),
-        (sb as any)
-          .from("community_messenger_messages")
-          .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
           .eq("room_id", id)
-          .order("created_at", { ascending: false })
-          .order("id", { ascending: false })
-          .limit(messageLimit),
-      ]);
-      room = (roomData as RoomRow | null) ?? null;
-      const rawParticipantRows = (participantData ?? []) as ParticipantRow[];
-      roomTotalMemberCount =
-        typeof participantCount === "number" && participantCount >= 0 ? participantCount : rawParticipantRows.length;
+      : (sb as any)
+          .from("community_messenger_participants")
+          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+          .eq("room_id", id)
+          .limit(COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP + 1);
+
+    const [
+      { data: roomData },
+      { data: participantData },
+      { data: messageData },
+    ] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select(
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+        )
+        .eq("id", id)
+        .maybeSingle(),
+      participantsQuery,
+      (sb as any)
+        .from("community_messenger_messages")
+        .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+        .eq("room_id", id)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(messageLimit),
+    ]);
+    room = (roomData as RoomRow | null) ?? null;
+    const rawParticipantRows = (participantData ?? []) as ParticipantRow[];
+    // 참여자 여부 검증은 participants 결과로 충분하다(별도 myParticipant round-trip 제거).
+    if (room && !rawParticipantRows.some((p) => p.user_id === userId)) {
+      room = null;
+    } else if (room) {
+      // `count: exact` 는 불필요하게 비싸다. 부트스트랩은 표시용이므로 기본은 로드된 rows 수로 충분.
+      roomTotalMemberCount = rawParticipantRows.length;
       const roomType = (roomData as RoomRow | null)?.room_type as CommunityMessengerRoomType | undefined;
-      if (
+      if (!hydrateFullMemberList && rawParticipantRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP) {
+        participants = rawParticipantRows.slice(0, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP);
+        membersTruncated = true;
+      } else if (
         roomData &&
         roomType &&
         isCommunityMessengerGroupRoomType(roomType) &&
@@ -4438,7 +4445,6 @@ export async function getCommunityMessengerRoomSnapshot(
   }
 
   const allMemberIds = dedupeParticipantUserIds(participants);
-  const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   const hydrationUserIds = hydrateFullMemberList
     ? allMemberIds
     : collectMinimalSnapshotUserIdsForRoomSnapshot(userId, room, participants, messages);
