@@ -28,6 +28,13 @@ export function useMessengerRoomBootstrapLifecycle({
     if (initialServerSnapshot) {
       loadedRef.current = true;
       setRoomReadyForRealtime(true);
+      /**
+       * `membersDeferred` 가 아니면 RSC 스냅샷이 이미 목록·메타에 가깝게 완전 — idle `/bootstrap` 재요청을 생략.
+       * 멤버 지연 로드 방만 짧은 idle 사일런트 갱신(기존 2.8s)으로 보강. 탭 가시성·Phase1 `refresh` 경로는 유지.
+       */
+      if (!initialServerSnapshot.membersDeferred) {
+        return;
+      }
       const idleId = scheduleWhenBrowserIdle(() => {
         void refresh(true);
       }, 2800);

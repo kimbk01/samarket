@@ -1,7 +1,12 @@
+import { cache } from "react";
 import nextDynamic from "next/dynamic";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getCommunityMessengerBootstrap } from "@/lib/community-messenger/service";
+
+const loadCommunityMessengerBootstrapCached = cache((userId: string) =>
+  getCommunityMessengerBootstrap(userId, { skipDiscoverable: false })
+);
 
 const CommunityMessengerHome = nextDynamic(
   () =>
@@ -19,7 +24,7 @@ export default async function CommunityMessengerPage({
   const { tab, section, filter, kind } = await searchParams;
   const userId = await getOptionalAuthenticatedUserId();
   const initialServerBootstrap =
-    userId != null ? await getCommunityMessengerBootstrap(userId, { skipDiscoverable: false }) : null;
+    userId != null ? await loadCommunityMessengerBootstrapCached(userId) : null;
 
   return (
     <CommunityMessengerHome

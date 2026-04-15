@@ -137,6 +137,10 @@ import {
   type UnifiedRoomListItem,
   useCommunityMessengerHomeState,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
+import {
+  readDismissedCommunityMessengerNotificationIds,
+  writeDismissedCommunityMessengerNotificationIds,
+} from "@/lib/community-messenger/community-messenger-home-notification-dismiss-storage";
 
 type MessengerNotificationSettings = {
   trade_chat_enabled: boolean;
@@ -148,29 +152,6 @@ type MessengerNotificationSettings = {
 };
 
 const RECENT_SEARCHES_STORAGE_KEY = "samarket:communityMessenger:recentSearches";
-const CM_NOTIFICATION_DISMISSED_IDS_KEY = "samarket:cm_notification_dismissed_ids";
-
-function readDismissedNotificationIds(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(CM_NOTIFICATION_DISMISSED_IDS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x): x is string => typeof x === "string");
-  } catch {
-    return [];
-  }
-}
-
-function writeDismissedNotificationIds(ids: string[]) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(CM_NOTIFICATION_DISMISSED_IDS_KEY, JSON.stringify(ids));
-  } catch {
-    /* ignore quota */
-  }
-}
 
 type CommunityMessengerSettingsBackup = {
   version: 1;
@@ -508,7 +489,7 @@ export function CommunityMessengerHome({
       } catch {
         /* ignore */
       }
-      setDismissedNotificationIds(readDismissedNotificationIds());
+      setDismissedNotificationIds(readDismissedCommunityMessengerNotificationIds());
     }
   }, []);
 
@@ -1215,7 +1196,7 @@ export function CommunityMessengerHome({
     setDismissedNotificationIds((prev) => {
       if (prev.includes(id)) return prev;
       const next = [...prev, id];
-      writeDismissedNotificationIds(next);
+      writeDismissedCommunityMessengerNotificationIds(next);
       return next;
     });
   }, []);

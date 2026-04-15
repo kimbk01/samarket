@@ -27,7 +27,7 @@ import {
 } from "@/lib/chats/trade-chat-entry-client";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
-import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
+import { useNotificationSurfaceTradeChatRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
 
 export function ChatRoomScreen({
   roomId,
@@ -100,15 +100,7 @@ export function ChatRoomScreen({
   const chatEntryShellLoggedRef = useRef(false);
   const chatEntryRoomReadyLoggedRef = useRef<string | null>(null);
 
-  const notifSurface = useNotificationSurface();
-  useEffect(() => {
-    if (!notifSurface || !roomId?.trim()) return;
-    const id = roomId.trim();
-    notifSurface.setExplicitTradeChatRoomId(id);
-    return () => {
-      notifSurface.setExplicitTradeChatRoomId(null);
-    };
-  }, [notifSurface, roomId]);
+  useNotificationSurfaceTradeChatRoom(roomId);
 
   useTradeChatResolvedViewer(initialViewerUserId, setResolvedUserId);
 

@@ -30,9 +30,14 @@ const STATUS_LABEL: Record<Product["status"], string> = {
 
 interface ProductDetailViewProps {
   product: Product;
+  /** RSC에서 조회 — 로그인 구매자만; 있으면 마운트 시 `/api/chat/item/room-id` 생략 */
+  initialViewerTradeRoom?: { roomId: string | null; source: ChatRoomSource | null };
 }
 
-export function ProductDetailView({ product }: ProductDetailViewProps) {
+export function ProductDetailView({
+  product,
+  initialViewerTradeRoom,
+}: ProductDetailViewProps) {
   useEffect(() => {
     const userId = getCurrentUserId();
     recordRecentView(userId, product.id, "home", null);
@@ -56,8 +61,12 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
     targetUserId: string;
     targetLabel?: string;
   } | null>(null);
-  const [existingRoomId, setExistingRoomId] = useState<string | null>(null);
-  const [existingRoomSource, setExistingRoomSource] = useState<ChatRoomSource | null>(null);
+  const [existingRoomId, setExistingRoomId] = useState<string | null>(() =>
+    initialViewerTradeRoom ? initialViewerTradeRoom.roomId : null
+  );
+  const [existingRoomSource, setExistingRoomSource] = useState<ChatRoomSource | null>(() =>
+    initialViewerTradeRoom ? initialViewerTradeRoom.source : null
+  );
   const userId = getCurrentUserId();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const amISeller = useMemo(() => {
@@ -87,8 +96,9 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
   }, [product.id, userId]);
 
   useEffect(() => {
+    if (initialViewerTradeRoom !== undefined) return;
     refetchExistingRoomId();
-  }, [refetchExistingRoomId]);
+  }, [initialViewerTradeRoom, refetchExistingRoomId]);
 
   useRefetchOnPageShowRestore(refetchExistingRoomId, { enableVisibilityRefetch: false });
 

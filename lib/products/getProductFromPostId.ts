@@ -1,9 +1,10 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 /**
  * 채팅 등에서 사용하는 상품 id가 posts 테이블 id일 때,
  * 서버에서 post 1건 조회 후 Product 형태로 변환 (상품 상세 페이지용)
  */
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Product } from "@/lib/types/product";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
@@ -64,7 +65,7 @@ function toPrice(raw: unknown): number {
 const PRODUCT_FROM_POST_SELECT =
   "id, title, content, price, images, thumbnail_url, status, view_count, favorite_count, created_at, author_id, user_id, region, city";
 
-export async function getProductFromPostId(postId: string): Promise<Product | null> {
+async function getProductFromPostIdUncached(postId: string): Promise<Product | null> {
   if (!postId?.trim()) return null;
   const sb = resolveServiceSupabaseForApi();
   if (!sb) return null;
@@ -158,3 +159,6 @@ export async function getProductFromPostId(postId: string): Promise<Product | nu
     return null;
   }
 }
+
+/** 동일 RSC 요청에서 동일 `postId` 중복 조회 방지 */
+export const getProductFromPostId = cache(getProductFromPostIdUncached);

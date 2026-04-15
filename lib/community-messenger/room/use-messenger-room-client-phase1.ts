@@ -48,11 +48,12 @@ import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache"
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { createMessengerRoomBootstrapRefresh } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
+import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { useMessengerRoomChatVirtualizer } from "@/lib/community-messenger/room/use-messenger-room-chat-virtualizer";
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import type { ChatRoom } from "@/lib/types/chat";
-import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
+import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
 import {
   buildCommunityMessengerOutgoingDialHref,
@@ -63,7 +64,6 @@ import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
   readCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
-import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
@@ -212,15 +212,7 @@ export function useMessengerRoomClientPhase1({
   const prevActiveSheetRef = useRef<typeof activeSheet>(null);
   const roomMembersDisplayRef = useRef<CommunityMessengerProfileLite[]>([]);
 
-  const notifSurface = useNotificationSurface();
-  useEffect(() => {
-    if (!notifSurface || !roomId?.trim()) return;
-    const id = roomId.trim();
-    notifSurface.setExplicitCommunityChatRoomId(id);
-    return () => {
-      notifSurface.setExplicitCommunityChatRoomId(null);
-    };
-  }, [notifSurface, roomId]);
+  useNotificationSurfaceCommunityMessengerRoom(roomId);
 
   useEffect(() => {
     const syncPreferences = () => {
@@ -278,18 +270,6 @@ export function useMessengerRoomClientPhase1({
     membersPageInitializedRef.current = false;
   }, [roomId]);
 
-  /** 거래 채팅 딥링크는 `product_chats` ID 로 들어올 수 있음 — 부트스트랩 후 실제 CM `room.id` 로 URL 정규화 */
-  useEffect(() => {
-    if (!snapshot?.room?.id || !roomId?.trim()) return;
-    const canonical = snapshot.room.id.trim();
-    const fromUrl = roomId.trim();
-    if (canonical === fromUrl) return;
-    const qs = searchParams.toString();
-    router.replace(`/community-messenger/rooms/${encodeURIComponent(canonical)}${qs ? `?${qs}` : ""}`, {
-      scroll: false,
-    });
-  }, [snapshot?.room?.id, roomId, router, searchParams]);
-
   useEffect(() => {
     if (!snapshot) return;
     if (membersPageInitializedRef.current) return;
@@ -301,56 +281,22 @@ export function useMessengerRoomClientPhase1({
     }
   }, [snapshot]);
 
-  /** `?cm_ctx=` 딥링크로 입장 시 거래/배달 목록 메타 1회 동기화 — 스토어는 `buildCommunityMessengerRoomUrlWithContext` 사용 */
-  useEffect(() => {
-    if (contextMetaFromUrlHandledRef.current) return;
-    const raw = searchParams.get("cm_ctx");
-    if (!raw?.trim()) return;
-    contextMetaFromUrlHandledRef.current = true;
-    const meta = decodeCommunityMessengerRoomCmCtx(raw);
-    const stripCmCtxFromUrl = () => {
-      const next = new URLSearchParams(searchParams.toString());
-      next.delete("cm_ctx");
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    };
-    if (!meta) {
-      stripCmCtxFromUrl();
-      return;
-    }
-    void (async () => {
-      try {
-        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ action: "context_meta", contextMeta: meta }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (res.ok && json.ok) void refresh(true);
-      } finally {
-        stripCmCtxFromUrl();
-      }
-    })();
-  }, [pathname, refresh, roomId, router, searchParams]);
-
-  useEffect(() => {
-    sheetInfoFromUrlHandledRef.current = false;
-  }, [roomId]);
-
-  /** 목록 롱프레스 「그룹/오픈 정보」 등 `?sheet=info` 로 방 정보 시트를 연다 */
-  useEffect(() => {
-    const sheet = searchParams.get("sheet");
-    if (sheet !== "info") return;
-    if (sheetInfoFromUrlHandledRef.current) return;
-    if (!snapshot || loading) return;
-    sheetInfoFromUrlHandledRef.current = true;
+  const openInfoSheetFromUrl = useCallback(() => {
     setActiveSheet("info");
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("sheet");
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [loading, pathname, router, searchParams, snapshot]);
+  }, []);
+
+  useMessengerRoomUrlSyncEffects({
+    roomId,
+    pathname,
+    routerReplace: router.replace,
+    searchParams,
+    snapshot,
+    loading,
+    refresh,
+    contextMetaFromUrlHandledRef,
+    sheetInfoFromUrlHandledRef,
+    openInfoSheetFromUrl,
+  });
 
   /** 탭 복귀: 최신 id 이후 메시지만 증분 로드(diff) 후 메타용 사일런트 스냅샷 */
   const catchUpNewerMessages = useCallback(async () => {
@@ -838,11 +784,10 @@ export function useMessengerRoomClientPhase1({
   messageEndRef,
   messageLongPressItemRef,
   messageLongPressTimerRef,
-  messageSearchResults,
-  messagesViewportRef,
-  notifSurface,
-  olderMessagesExhaustedRef,
-  oldestLoadedMessageId,
+    messageSearchResults,
+    messagesViewportRef,
+    olderMessagesExhaustedRef,
+    oldestLoadedMessageId,
   openGroupDiscoverable,
   openGroupIdentityPolicy,
   openGroupJoinPolicy,
